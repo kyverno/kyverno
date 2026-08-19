@@ -54,6 +54,14 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
 			}
+			matchConditions := webhookMatchConditions(validConditions(expressionCache, p.GetMatchConditions()))
+			if spec := generatingPolicySpec(policy); spec != nil && spec.SynchronizationEnabled() {
+				// For synchronize-enabled generating policies, match conditions must only
+				// filter CREATE requests at the API server. UPDATE and DELETE requests
+				// must always reach Kyverno so that a trigger that stops matching the
+				// policy can have its downstream resources cleaned up.
+				matchConditions = restrictMatchConditionsToCreate(matchConditions)
+			}
 			if ok := autogen.CanAutoGen(ptr.To(p.GetMatchConstraints())); ok {
 				webhook.MatchConditions = append(
 					webhook.MatchConditions,
@@ -65,11 +73,11 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 							Resource: "pods",
 							Kind:     "Pod",
 						}},
-						validConditions(expressionCache, p.GetMatchConditions()),
+						matchConditions,
 					)...,
 				)
 			} else {
-				webhook.MatchConditions = append(webhook.MatchConditions, validConditions(expressionCache, p.GetMatchConditions())...)
+				webhook.MatchConditions = append(webhook.MatchConditions, matchConditions...)
 			}
 
 			if policy.AsGeneratingPolicy() != nil || policy.AsNamespacedGeneratingPolicy() != nil {
@@ -98,7 +106,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -114,7 +122,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -132,7 +140,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					autogenPolicy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, autogenPolicy.Targets, validConditions(expressionCache, autogenPolicy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, autogenPolicy.Targets, webhookMatchConditions(validConditions(expressionCache, autogenPolicy.Spec.MatchConditions)))...,
 					)
 					for _, match := range autogenPolicy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -425,6 +433,38 @@ func validConditions(celExpressionCache *expressionCache, conditions []admission
 		return conditions
 	}
 	return nil
+}
+
+// generatingPolicySpec returns the spec if the policy is a GeneratingPolicy or a
+// NamespacedGeneratingPolicy, and nil otherwise.
+func generatingPolicySpec(policy engineapi.GenericPolicy) *policiesv1beta1.GeneratingPolicySpec {
+	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		return &gpol.Spec
+	}
+	if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
+		return &ngpol.Spec
+	}
+	return nil
+}
+
+// restrictMatchConditionsToCreate rewrites match conditions so that they only
+// filter CREATE admission requests, letting all other operations through to
+// Kyverno. This is required for synchronize-enabled generating policies: a
+// trigger UPDATE that no longer satisfies the match conditions (or a DELETE of
+// such a trigger) must still be observed so the previously generated downstream
+// resources can be deleted.
+func restrictMatchConditionsToCreate(conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	if len(conditions) == 0 {
+		return conditions
+	}
+	wrapped := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
+	for _, condition := range conditions {
+		wrapped = append(wrapped, admissionregistrationv1.MatchCondition{
+			Name:       condition.Name,
+			Expression: "request.operation != 'CREATE' || (" + condition.Expression + ")",
+		})
+	}
+	return wrapped
 }
 
 func generateName(name string, policy policiesv1beta1.GenericPolicy) string {
