@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -1528,6 +1529,11 @@ func TestEngineResponse_GetValidationFailureActionForRule(t *testing.T) {
 		policy:   mixed,
 		ruleName: "no-such-rule",
 		want:     kyvernov1.Enforce,
+	}, {
+		name:     "validating admission policy returns an empty action",
+		policy:   NewValidatingAdmissionPolicy(&admissionregistrationv1.ValidatingAdmissionPolicy{}),
+		ruleName: "any",
+		want:     "",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
