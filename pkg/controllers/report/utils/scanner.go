@@ -309,16 +309,25 @@ func (s *scanner) ScanResource(
 				nil,
 			)
 			engineResponse, err := engine.HandleValidating(ctx, request, nil)
-			response := engineapi.EngineResponse{
-				Resource:       resource,
-				PolicyResponse: engineapi.PolicyResponse{},
-			}.WithPolicy(ivpols[i])
-
-			if len(engineResponse.Policies) >= 1 {
-				response.PolicyResponse.Rules = []engineapi.RuleResponse{engineResponse.Policies[0].Result}
+			if err != nil {
+				results[&ivpols[i]] = ScanResult{nil, err}
+				continue
 			}
 
-			results[&ivpols[i]] = ScanResult{&response, err}
+			if len(engineResponse.Policies) == 0 {
+				continue
+			}
+
+			response := engineapi.EngineResponse{
+				Resource: resource,
+				PolicyResponse: engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						engineResponse.Policies[0].Result,
+					},
+				},
+			}.WithPolicy(ivpols[i])
+
+			results[&ivpols[i]] = ScanResult{&response, nil}
 		}
 	}
 
