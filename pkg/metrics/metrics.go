@@ -54,6 +54,7 @@ type MetricsConfig struct {
 	ivpolMetrics         *imageValidatingMetrics
 	mpolMetrics          *mutatingMetrics
 	gpolMetrics          *generatingMetrics
+	deprecationMetrics   *deprecationsMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -79,6 +80,7 @@ type MetricsConfigManager interface {
 	IVPOLMetrics() ImageValidatingMetrics
 	MPOLMetrics() MutatingMetrics
 	GPOLMetrics() GeneratingMetrics
+	DeprecationMetrics() DeprecationMetrics
 }
 
 func (m *MetricsConfig) Config() kconfig.MetricsConfiguration {
@@ -145,6 +147,10 @@ func (m *MetricsConfig) GPOLMetrics() GeneratingMetrics {
 	return m.gpolMetrics
 }
 
+func (m *MetricsConfig) DeprecationMetrics() DeprecationMetrics {
+	return m.deprecationMetrics
+}
+
 func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) error {
 	var err error
 	meter := meterProvider.Meter(MeterName)
@@ -185,6 +191,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.ivpolMetrics.init(meter)
 	m.mpolMetrics.init(meter)
 	m.gpolMetrics.init(meter)
+	m.deprecationMetrics.init(meter)
 
 	initKyvernoInfoMetric(m)
 	return nil
@@ -348,6 +355,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
 		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
 		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
+		deprecationMetrics:   &deprecationsMetrics{logger: logger.WithName("deprecations")},
 	}
 
 	return config

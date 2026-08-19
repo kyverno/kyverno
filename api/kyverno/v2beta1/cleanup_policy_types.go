@@ -35,7 +35,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:deprecatedversion
+// +kubebuilder:deprecatedversion:warning="kyverno.io/v2beta1 CleanupPolicy is deprecated; use kyverno.io/v2"
 
 // CleanupPolicy defines a rule for resource cleanup.
 type CleanupPolicy struct {
@@ -121,7 +121,7 @@ type CleanupPolicyList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=".spec.schedule"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:deprecatedversion
+// +kubebuilder:deprecatedversion:warning="kyverno.io/v2beta1 ClusterCleanupPolicy is deprecated; use kyverno.io/v2"
 
 // ClusterCleanupPolicy defines rule for resource cleanup.
 type ClusterCleanupPolicy struct {

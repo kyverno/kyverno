@@ -1319,6 +1319,7 @@ spec:
       name: Age
       type: date
     deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 CleanupPolicy is deprecated; use kyverno.io/v2
     name: v2beta1
     schema:
       openAPIV3Schema:

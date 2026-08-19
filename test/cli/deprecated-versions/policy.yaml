@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: deprecated-policy
+  namespace: test
+spec:
+  validationFailureAction: Audit
+  rules:
+  - name: check-labels
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "label 'team' is required"
+      pattern:
+        metadata:
+          labels:
+            team: "?*"

@@ -7,6 +7,7 @@ metadata:
   namespace: default
 type: Opaque
 ---
+
 apiVersion: v1
 kind: LimitRange
 metadata:
@@ -24,7 +25,8 @@ spec:
     min:
       cpu: 100m
 ---
-apiVersion: kyverno.io/v2beta1
+
+apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: pol-clone-nosync-delete-rule

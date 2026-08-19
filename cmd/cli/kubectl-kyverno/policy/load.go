@@ -24,6 +24,7 @@ import (
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -185,6 +186,10 @@ var loaderDelegate = sync.OnceValues(func() (resourceloader.Loader, error) {
 	return factory, err
 })
 
+// WarningsAsErrors turns deprecation warnings emitted while loading policies
+// into errors. It is controlled by the --warnings-as-errors CLI flag.
+var WarningsAsErrors bool
+
 func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) {
 	documents, err := extyaml.SplitDocuments(content)
 	if err != nil {
@@ -197,6 +202,14 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 	}
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
+		if gvk.Kind != "" && gvk.Group != "" {
+			if warning := deprecations.APIVersionWarning(gvk); warning != "" {
+				fmt.Fprintf(os.Stderr, "Warning: %s: %s\n", path, warning)
+				if WarningsAsErrors {
+					return nil, fmt.Errorf("%s: %w", path, deprecations.ErrDeprecated)
+				}
+			}
+		}
 		if err != nil {
 			// Check if this is a List object and handle it explicitly
 			if gvk.Kind == "List" && gvk.Version == "v1" {

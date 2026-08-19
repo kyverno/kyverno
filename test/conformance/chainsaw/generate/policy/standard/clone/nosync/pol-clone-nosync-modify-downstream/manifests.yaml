@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: pol-clone-nosync-modify-downstream-ns
 ---
+
 apiVersion: v1
 data:
   foo: YmFy
@@ -12,7 +13,8 @@ metadata:
   namespace: pol-clone-nosync-modify-downstream-ns
 type: Opaque
 ---
-apiVersion: kyverno.io/v2beta1
+
+apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
   name: pol-clone-nosync-modify-downstream

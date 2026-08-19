@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/deprecations"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -96,6 +97,24 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		if warning := deprecations.Warning(request.Kind.Kind); warning != "" {
 			logger.V(2).Info(warning, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
 			warnings = append(warnings, warning)
+		}
+		policyWarnings := deprecations.CheckPolicy(policy.AsKyvernoPolicy().GetSpec())
+		if len(policyWarnings) > 0 {
+			for _, w := range policyWarnings {
+				logger.V(2).Info(w.Message, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
+			}
+			for _, w := range policyWarnings {
+				warnings = append(warnings, w.Message)
+			}
+		}
+		if metric := metrics.GetDeprecationMetrics(); metric != nil {
+			gvk := request.GroupVersionKind
+			if deprecations.APIVersionWarning(gvk) != "" {
+				metric.RecordDeprecatedAPIRequest(ctx, gvk.Group, gvk.Version, gvk.Kind, "")
+			}
+			for _, w := range policyWarnings {
+				metric.RecordDeprecatedAPIRequest(ctx, gvk.Group, gvk.Version, gvk.Kind, w.Field)
+			}
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}
