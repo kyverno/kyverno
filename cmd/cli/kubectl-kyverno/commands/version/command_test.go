@@ -27,6 +27,53 @@ Git commit ID: ---`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+func TestCommandJSON(t *testing.T) {
+	version.BuildVersion = "test"
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{"-o", "json"})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := `{
+  "version": "test",
+  "time": "---",
+  "gitCommitId": "---"
+}`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
+func TestCommandYAML(t *testing.T) {
+	version.BuildVersion = "test"
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetOut(b)
+	cmd.SetArgs([]string{"--output", "yaml"})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+	out, err := io.ReadAll(b)
+	assert.NoError(t, err)
+	expected := `gitCommitId: '---'
+time: '---'
+version: test`
+	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
+}
+
+func TestCommandInvalidOutput(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	b := bytes.NewBufferString("")
+	cmd.SetErr(b)
+	cmd.SetArgs([]string{"-o", "xml"})
+	err := cmd.Execute()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid output format: xml")
+}
+
 func TestCommandWithInvalidArg(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
