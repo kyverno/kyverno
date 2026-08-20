@@ -3,6 +3,7 @@ package policystatus
 import (
 	"context"
 	baseerrors "errors"
+	"strings"
 	"fmt"
 	"time"
 
@@ -462,6 +463,12 @@ func (c controller) resolveGVRs(rules []admissionregistrationv1.NamedRuleWithOpe
 func (c controller) permissionsCheck(ctx context.Context, gvrs []metav1.GroupVersionResource) []error {
 	var errs []error
 	for _, gvr := range gvrs {
+		// Connect-only subresources (e.g. pods/exec, pods/attach, pods/portforward)
+		// do not support get/list/watch verbs. Skip the permission check for
+		// subresources, otherwise CEL policies matching them are stuck not-ready.
+		if strings.Contains(gvr.Resource, "/") {
+			continue
+		}
 		for _, verb := range []string{"get", "list", "watch"} {
 			result, err := c.authChecker.Check(ctx, gvr.Group, gvr.Version, gvr.Resource, "", "", "", verb)
 			if baseerrors.Is(err, auth.ErrNoServiceAccount) {
