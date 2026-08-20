@@ -3,8 +3,8 @@ package policystatus
 import (
 	"context"
 	baseerrors "errors"
-	"strings"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
