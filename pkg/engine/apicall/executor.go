@@ -73,7 +73,15 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("missing service for APICall %s", a.name)
 	}
 
-	client, err := a.buildHTTPClient(apiCall.Service)
+	policy, err := loadEgressPolicy()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load HTTP blocklist for APICall %s: %w", a.name, err)
+	}
+	if err := policy.validateURL(apiCall.Service.URL); err != nil {
+		return nil, fmt.Errorf("failed to validate URL for APICall %s: %w", a.name, err)
+	}
+
+	client, err := a.buildHTTPClient(policy, apiCall.Service)
 	if err != nil {
 		return nil, err
 	}
@@ -160,24 +168,31 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	return nil
 }
 
-func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client, error) {
+func (a *executor) buildHTTPClient(policy *egressPolicy, service *kyvernov1.ServiceCall) (*http.Client, error) {
 	timeout := a.config.GetTimeout()
-	if service == nil || service.CABundle == "" {
-		return &http.Client{
-			Transport: tracing.Transport(http.DefaultTransport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
-			Timeout:   timeout,
-		}, nil
+
+	var transport *http.Transport
+	if base, ok := http.DefaultTransport.(*http.Transport); ok && base != nil {
+		transport = base.Clone()
+	} else {
+		transport = &http.Transport{}
 	}
-	caCertPool := x509.NewCertPool()
-	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
-		return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.name)
+
+	if policy != nil && len(policy.blockedCIDRs) > 0 {
+		transport.DialContext = policy.dialContext()
 	}
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
+
+	if service != nil && service.CABundle != "" {
+		caCertPool := x509.NewCertPool()
+		if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
+			return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.name)
+		}
+		transport.TLSClientConfig = &tls.Config{
 			RootCAs:    caCertPool,
 			MinVersion: tls.VersionTLS12,
-		},
+		}
 	}
+
 	return &http.Client{
 		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
 		Timeout:   timeout,

@@ -123,6 +123,7 @@ func Test_ExecuteK8sAPICall_Success(t *testing.T) {
 }
 
 func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	missingTokenPath := scopedTokenPath + ".missing"
 	oldPath := scopedTokenPath
 	scopedTokenPath = missingTokenPath
