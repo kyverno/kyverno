@@ -394,3 +394,94 @@ func TestReconcileBeta1Conditions_RBACGatedOnBackground(t *testing.T) {
 		})
 	}
 }
+
+
+// TestReconcileConditions_RBACSkipsConnectOnlySubresources verifies that the
+// RBACPermissionsGranted condition is reported as satisfied when the matched
+// resource is a connect-only subresource (e.g. pods/exec, pods/attach,
+// pods/portforward). These subresources do not meaningfully support the
+// get/list/watch verbs that the condition checks, so the check must be
+// skipped — otherwise CEL policies matching them are stuck not-ready forever.
+//
+// The SubjectAccessReview reactor denies every review, so a normal resource
+// (pods) fails the condition while the connect-only subresource (pods/exec)
+// passes because the check is skipped.
+func TestReconcileConditions_RBACSkipsConnectOnlySubresources(t *testing.T) {
+	t.Parallel()
+
+	execRule := []admissionregistrationv1.NamedRuleWithOperations{
+		{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/exec"},
+				},
+			},
+		},
+	}
+	podsRule := []admissionregistrationv1.NamedRuleWithOperations{
+		{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods"},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		rules    []admissionregistrationv1.NamedRuleWithOperations
+		wantRBAC metav1.ConditionStatus
+	}{
+		{
+			name:     "connect-only subresource is skipped",
+			rules:    execRule,
+			wantRBAC: metav1.ConditionTrue,
+		},
+		{
+			name:     "regular resource still fails when SAR is denied",
+			rules:    podsRule,
+			wantRBAC: metav1.ConditionFalse,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dc := dclient.NewEmptyFakeClient()
+			kube := dc.GetKubeClient().(*kubefake.Clientset)
+			// Deny every SubjectAccessReview.
+			kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				return true, &authorizationv1.SubjectAccessReview{
+					Status: authorizationv1.SubjectAccessReviewStatus{Allowed: false, Reason: "denied by test"},
+				}, nil
+			})
+
+			c := controller{
+				dclient: dc,
+				client:  versionedfake.NewSimpleClientset(),
+				authChecker: auth.NewSubjectChecker(
+					dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(),
+					"system:serviceaccount:kyverno:reports-controller",
+					nil,
+				),
+				polStateRecorder: webhook.NewStateRecorder(nil),
+			}
+
+			status := &policiesv1beta1.ConditionStatus{}
+			c.reconcileRBACPermissionsCondition(ctx, status, admissionregistrationv1.MatchResources{ResourceRules: tt.rules}, true)
+
+			cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
+			assert.Equal(t, tt.wantRBAC, cond.Status, "RBACPermissionsGranted status")
+		})
+	}
+}
