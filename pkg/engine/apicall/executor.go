@@ -81,7 +81,7 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 
 	policy, transport, err := getServiceHTTP()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load HTTP blocklist for APICall %s: %w", a.name, err)
+		return nil, fmt.Errorf("failed to load HTTP blocklist/allowlist for APICall %s: %w", a.name, err)
 	}
 	if err := policy.validateURL(apiCall.Service.URL); err != nil {
 		return nil, fmt.Errorf("failed to validate URL for APICall %s: %w", a.name, err)
