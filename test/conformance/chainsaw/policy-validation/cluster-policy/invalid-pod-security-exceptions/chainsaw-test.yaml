@@ -21,6 +21,7 @@ spec:
             check:
               ($error != null): true
               (contains($stderr, 'denied the request')): true
+              (contains($stderr, 'spec.podSecurity[0].values')): true
               (contains($stderr, 'values is required')): true
     - name: Apply the third policy exception
       try:
@@ -29,4 +30,5 @@ spec:
             check:
               ($error != null): true
               (contains($stderr, 'denied the request')): true
+              (contains($stderr, 'spec.podSecurity[0].restrictedField')): true
               (contains($stderr, 'restrictedField is required')): true

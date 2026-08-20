@@ -13,6 +13,7 @@ spec:
         check:
           ($error != null): true
           (contains($stderr, 'denied the request')): true
+          (contains($stderr, 'spec.rules[0].podSecurity.exclude[0].values')): true
           (contains($stderr, 'values is required')): true
   - name: Apply the second policy
     try:
@@ -21,4 +22,5 @@ spec:
         check:
           ($error != null): true
           (contains($stderr, 'denied the request')): true
+          (contains($stderr, 'spec.rules[0].podSecurity.exclude[0].restrictedField')): true
           (contains($stderr, 'restrictedField is required')): true
