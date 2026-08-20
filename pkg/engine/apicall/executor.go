@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -78,7 +79,7 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("missing service for APICall %s", a.name)
 	}
 
-	policy, err := loadEgressPolicy()
+	policy, transport, err := getServiceHTTP()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load HTTP blocklist for APICall %s: %w", a.name, err)
 	}
@@ -86,7 +87,7 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 		return nil, fmt.Errorf("failed to validate URL for APICall %s: %w", a.name, err)
 	}
 
-	client, err := a.buildHTTPClient(policy, apiCall.Service)
+	client, err := a.buildHTTPClient(policy, transport, apiCall.Service)
 	if err != nil {
 		return nil, err
 	}
@@ -173,35 +174,62 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 	return nil
 }
 
-func (a *executor) buildHTTPClient(policy *egressPolicy, service *kyvernov1.ServiceCall) (*http.Client, error) {
+func (a *executor) buildHTTPClient(policy *egressPolicy, base http.RoundTripper, service *kyvernov1.ServiceCall) (*http.Client, error) {
 	timeout := a.config.GetTimeout()
+	if service == nil || service.CABundle == "" {
+		return &http.Client{Transport: base, Timeout: timeout}, nil
+	}
+	caCertPool := x509.NewCertPool()
+	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
+		return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.name)
+	}
+	transport := newServiceTransport(policy)
+	transport.TLSClientConfig = &tls.Config{RootCAs: caCertPool, MinVersion: tls.VersionTLS12}
+	return &http.Client{
+		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
+		Timeout:   timeout,
+	}, nil
+}
 
+var (
+	serviceHTTPMu        sync.Mutex
+	serviceHTTPPolicy    *egressPolicy
+	serviceHTTPTransport http.RoundTripper
+)
+
+func getServiceHTTP() (*egressPolicy, http.RoundTripper, error) {
+	serviceHTTPMu.Lock()
+	defer serviceHTTPMu.Unlock()
+	if serviceHTTPPolicy != nil {
+		return serviceHTTPPolicy, serviceHTTPTransport, nil
+	}
+	policy, err := newEgressPolicy(toggle.HTTPBlocklist.Values(), toggle.HTTPAllowlist.Values())
+	if err != nil {
+		return nil, nil, err
+	}
+	serviceHTTPPolicy = policy
+	serviceHTTPTransport = tracing.Transport(newServiceTransport(policy), otelhttp.WithFilter(tracing.RequestFilterIsInSpan))
+	return serviceHTTPPolicy, serviceHTTPTransport, nil
+}
+
+func resetSharedServiceHTTP() {
+	serviceHTTPMu.Lock()
+	defer serviceHTTPMu.Unlock()
+	serviceHTTPPolicy = nil
+	serviceHTTPTransport = nil
+}
+
+func newServiceTransport(policy *egressPolicy) *http.Transport {
 	var transport *http.Transport
 	if base, ok := http.DefaultTransport.(*http.Transport); ok && base != nil {
 		transport = base.Clone()
 	} else {
 		transport = &http.Transport{}
 	}
-
 	if policy != nil && len(policy.blockedCIDRs) > 0 {
 		transport.DialContext = policy.dialContext()
 	}
-
-	if service != nil && service.CABundle != "" {
-		caCertPool := x509.NewCertPool()
-		if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
-			return nil, fmt.Errorf("failed to parse PEM CA bundle for APICall %s", a.name)
-		}
-		transport.TLSClientConfig = &tls.Config{
-			RootCAs:    caCertPool,
-			MinVersion: tls.VersionTLS12,
-		}
-	}
-
-	return &http.Client{
-		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
-		Timeout:   timeout,
-	}, nil
+	return transport
 }
 
 func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, error) {
@@ -224,10 +252,6 @@ type egressPolicy struct {
 	allowedPrefixes []*url.URL
 }
 
-func loadEgressPolicy() (*egressPolicy, error) {
-	return newEgressPolicy(toggle.HTTPBlocklist.Values(), toggle.HTTPAllowlist.Values())
-}
-
 func newEgressPolicy(blocklist, allowlist []string) (*egressPolicy, error) {
 	p := &egressPolicy{blockedHosts: make(map[string]struct{})}
 	for _, entry := range blocklist {
@@ -236,7 +260,7 @@ func newEgressPolicy(blocklist, allowlist []string) (*egressPolicy, error) {
 			continue
 		}
 		if !strings.Contains(entry, "/") {
-			p.blockedHosts[normalizeHost(entry)] = struct{}{}
+			p.blockedHosts[hostKey(entry)] = struct{}{}
 			continue
 		}
 		_, ipNet, err := net.ParseCIDR(entry)
@@ -270,26 +294,19 @@ func (p *egressPolicy) validateURL(rawURL string) error {
 	if err != nil {
 		return fmt.Errorf("invalid URL: %w", err)
 	}
-	if len(p.allowedPrefixes) > 0 && !p.matchesAllowlist(u) {
+	if len(p.allowedPrefixes) > 0 && !p.allowed(u) {
 		return fmt.Errorf("URL %q is not permitted: no matching allowlist entry", rawURL)
 	}
-	if _, blocked := p.blockedHosts[normalizeHost(u.Hostname())]; blocked {
+	if _, blocked := p.blockedHosts[hostKey(u.Hostname())]; blocked {
 		return fmt.Errorf("URL %q is blocked: hostname %q is on the blocklist", rawURL, u.Hostname())
 	}
 	return nil
 }
 
-func (p *egressPolicy) matchesAllowlist(reqURL *url.URL) bool {
-	reqHost := normalizeHost(reqURL.Hostname())
-	reqPort := effectivePort(reqURL)
-	for _, entry := range p.allowedPrefixes {
-		if reqURL.Scheme != entry.Scheme {
-			continue
-		}
-		if normalizeHost(entry.Hostname()) != reqHost || effectivePort(entry) != reqPort {
-			continue
-		}
-		if pathAllowed(reqURL.Path, entry.Path) {
+func (p *egressPolicy) allowed(u *url.URL) bool {
+	host, port := hostKey(u.Hostname()), urlPort(u)
+	for _, e := range p.allowedPrefixes {
+		if u.Scheme == e.Scheme && hostKey(e.Hostname()) == host && urlPort(e) == port && pathAllowed(u.Path, e.Path) {
 			return true
 		}
 	}
@@ -303,22 +320,27 @@ func pathAllowed(reqPath, entryPath string) bool {
 	if !strings.HasPrefix(reqPath, entryPath) {
 		return false
 	}
-	if strings.HasSuffix(entryPath, "/") {
-		return true
-	}
-	return len(reqPath) > len(entryPath) && reqPath[len(entryPath)] == '/'
+	return strings.HasSuffix(entryPath, "/") || (len(reqPath) > len(entryPath) && reqPath[len(entryPath)] == '/')
 }
 
 func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
 	blocked := p.blockedCIDRs
 	base := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	blockedIP := func(ip net.IP) *net.IPNet {
+		for _, cidr := range blocked {
+			if cidr.Contains(ip) {
+				return cidr
+			}
+		}
+		return nil
+	}
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
 		}
 		if ip := net.ParseIP(host); ip != nil {
-			if cidr := containingCIDR(blocked, ip); cidr != nil {
+			if cidr := blockedIP(ip); cidr != nil {
 				return nil, fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", addr, ip, cidr)
 			}
 			return base.DialContext(ctx, network, addr)
@@ -332,7 +354,7 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 			if ip == nil {
 				continue
 			}
-			if cidr := containingCIDR(blocked, ip); cidr != nil {
+			if cidr := blockedIP(ip); cidr != nil {
 				return nil, fmt.Errorf("connection to %s blocked: resolved IP %s falls in blocked range %s", addr, ip, cidr)
 			}
 		}
@@ -346,27 +368,18 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 	}
 }
 
-func containingCIDR(cidrs []*net.IPNet, ip net.IP) *net.IPNet {
-	for _, cidr := range cidrs {
-		if cidr.Contains(ip) {
-			return cidr
-		}
-	}
-	return nil
-}
-
-func normalizeHost(h string) string {
+func hostKey(h string) string {
 	return strings.ToLower(strings.TrimRight(h, "."))
 }
 
-func effectivePort(u *url.URL) string {
+func urlPort(u *url.URL) string {
 	if p := u.Port(); p != "" {
 		return p
 	}
-	switch u.Scheme {
-	case "https":
+	if u.Scheme == "https" {
 		return "443"
-	case "http":
+	}
+	if u.Scheme == "http" {
 		return "80"
 	}
 	return ""
