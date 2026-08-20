@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: 3.9.0-rc.4  # VERSION
-appVersion: v1.19.0-rc.4
+version: 3.9.0  # VERSION
+appVersion: v1.19.0
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -42,10 +42,10 @@ annotations:
       description: Add support for configuring container lifecycle hooks (e.g. a preStop sleep) on the admission, background, cleanup and reports controllers.
 dependencies:
   - name: grafana
-    version: 3.9.0-rc.4  # VERSION
+    version: 3.9.0  # VERSION
     condition: grafana.enabled
   - name: crds
-    version: 3.9.0-rc.4  # VERSION
+    version: 3.9.0  # VERSION
     condition: crds.install
   - name: kyverno-api
     version: 0.0.1-alpha.4
