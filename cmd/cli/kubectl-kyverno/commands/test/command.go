@@ -18,6 +18,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -127,10 +128,8 @@ func testCommandExecute(
 
 		if len(errors) == 0 {
 			return nil
-		} else {
-			// TODO aggregate errors
-			return errors[0]
 		}
+		return multierr.Combine(errors...)
 	}
 	rc := &resultCounts{}
 	var fullTable table.Table
