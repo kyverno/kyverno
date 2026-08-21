@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -17,7 +17,7 @@ require (
 	github.com/cyphar/filepath-securejoin v0.7.0
 	github.com/dgraph-io/ristretto/v2 v2.4.2
 	github.com/distribution/reference v0.6.0
-	github.com/envoyproxy/go-control-plane/envoy v1.37.0
+	github.com/envoyproxy/go-control-plane/envoy v1.39.0
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
@@ -36,7 +36,7 @@ require (
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
-	github.com/kyverno/sdk v0.0.0-20260703121625-e0dc6fb8661a
+	github.com/kyverno/sdk v0.0.0-20260814124824-e037c4ffadfb
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2
@@ -59,7 +59,7 @@ require (
 	github.com/sigstore/sigstore/pkg/signature/kms/gcp v1.10.9
 	github.com/sigstore/sigstore/pkg/signature/kms/hashivault v1.10.9
 	github.com/spf13/cobra v1.10.2
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.0
 	github.com/zach-klippenstein/goregen v0.0.0-20160303162051-795b5e3961ea
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
 	go.opentelemetry.io/otel v1.45.0
@@ -74,7 +74,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/multierr v1.11.0
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/crypto v0.54.0
+	golang.org/x/crypto v0.55.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/grpc v1.83.0
 	gopkg.in/inf.v0 v0.9.1
@@ -151,7 +151,7 @@ require (
 	github.com/alibabacloud-go/tea-xml v1.1.3 // indirect
 	github.com/aliyun/credentials-go v1.4.3 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
-	github.com/aptible/supercronic v0.2.48
+	github.com/aptible/supercronic v0.2.49
 	github.com/aws/aws-sdk-go-v2 v1.43.0 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.32.31 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.30 // indirect
@@ -298,7 +298,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
-	github.com/miekg/dns v1.1.62 // indirect
+	github.com/miekg/dns v1.1.72 // indirect
 	github.com/miekg/pkcs11 v1.1.2 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
@@ -351,7 +351,7 @@ require (
 	github.com/sigstore/protobuf-specs v0.5.1 // indirect
 	github.com/sigstore/rekor-tiles/v2 v2.3.0 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.1.3 // indirect
-	github.com/sirupsen/logrus v1.9.4
+	github.com/sirupsen/logrus v1.10.0
 	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/smarty/assertions v1.15.1 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect
@@ -360,7 +360,7 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spf13/viper v1.21.0 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.7.0 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tchap/go-patricia/v2 v2.3.3 // indirect
@@ -392,19 +392,19 @@ require (
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
-	golang.org/x/mod v0.38.0 // indirect
-	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/mod v0.40.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
-	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/api v0.287.1 // indirect
 	google.golang.org/genproto v0.0.0-20260406210006-6f92a3bedf2d // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
-	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
+	google.golang.org/protobuf v1.36.12
 	gopkg.in/evanphx/json-patch.v4 v4.13.0
 	gopkg.in/ini.v1 v1.67.3 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
