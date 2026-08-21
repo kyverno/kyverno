@@ -901,7 +901,7 @@ features:
     # -- Maximum number of entries in the global context store. A value of 0 means unbounded.
     maxGlobalContextEntries: 0
   logging:
-    # -- Logging format
+    # -- Logging format (text, text-nocolor, json)
     format: text
     # -- Logging verbosity
     verbosity: 2
