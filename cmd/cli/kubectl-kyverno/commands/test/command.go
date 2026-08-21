@@ -15,11 +15,16 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+// reasonResourceDiff is the reason string returned by checkResult when the actual
+// resource (patched or generated) doesn't match the resource declared in the test.
+const reasonResourceDiff = "Resource diff"
 
 var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z0-9]*(?:;[a-zA-Z0-9]*)*)?\u0007|(?:\\d{1,4}(?:;\\d{0,4})*)?[0-mG-Z])")
 
@@ -218,7 +223,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				diff = StripANSI(diff)
 			}
-			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the patched resource in the test result\n(%s)\n\n%s", legend, diff), reasonResourceDiff
 		}
 	}
 	if test.GeneratedResource != "" && len(test.GeneratedResources) == 0 {
@@ -233,7 +238,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				diff = StripANSI(diff)
 			}
-			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), "Resource diff"
+			return false, fmt.Sprintf("Patched resource didn't match the generated resource in the test result\n(%s)\n\n%s", legend, diff), reasonResourceDiff
 		}
 	} else if len(test.GeneratedResources) > 0 {
 		matched := false
@@ -261,7 +266,7 @@ func checkResult(
 				legend = StripANSI(legend)
 				lastDiff = StripANSI(lastDiff)
 			}
-			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
+			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), reasonResourceDiff
 		}
 	}
 	return compareExpectedRuleResult(expected, response, rule)
@@ -277,6 +282,16 @@ func compareExpectedRuleResult(
 		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Description, "Ok"
+}
+
+// isExpectedFailure reports whether a failed checkResult outcome is actually the
+// test passing: a `patchedResources`/`generatedResources` manifest that intentionally
+// differs from the mutation/generation output, declared via `result: fail`. Only a
+// resource-diff mismatch is rescued this way; a rule status mismatch (reason
+// "Want X, got Y") is never rescued, since that means the policy result itself
+// (pass/fail/skip/error) didn't match what the test expected.
+func isExpectedFailure(ok bool, reason string, test v1alpha1.TestResult) bool {
+	return !ok && reason == reasonResourceDiff && test.Result == openreports.StatusFail
 }
 
 // checkRuleResultOnly validates the expected test result against the computed policy
