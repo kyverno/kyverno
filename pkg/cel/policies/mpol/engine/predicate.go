@@ -65,6 +65,12 @@ func And(conditions ...Predicate) Predicate {
 	}
 }
 
+// MatchPolicy returns a Predicate that matches a policy by its exact namespace
+// and name. For cluster-scoped policies pass an empty string for namespace.
+func MatchPolicy(namespace, name string) Predicate {
+	return And(NamespacedPolicy(namespace), MatchNames(name))
+}
+
 func Or(conditions ...Predicate) Predicate {
 	return func(policy policiesv1beta1.MutatingPolicyLike) bool {
 		for _, condition := range conditions {
