@@ -69,6 +69,7 @@ func defaultEnvOptionsWithHomogeneousAggregateEnforcement(enforce bool) []cel.En
 		ext.Sets(),
 		ext.Strings(ext.StringsVersion(2)),
 		ext.Regex(ext.RegexVersion(1)),
+		ext.TwoVarComprehensions(),
 		// register kubernetes libs
 		library.CIDR(),
 		library.Format(),
