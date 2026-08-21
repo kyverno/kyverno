@@ -216,3 +216,48 @@ func Test_ExecuteServiceCall_AllowlistRejectsOtherHosts(t *testing.T) {
 	_, err := testExecutor().Execute(context.Background(), getServiceCall("https://not-allowed.example.org/data"))
 	assert.ErrorContains(t, err, "not permitted")
 }
+
+func Test_ExecuteServiceCall_AllowlistRejectsRedirectToOtherHost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+
+	var sinkHit bool
+	sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sinkHit = true
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"leaked":true}`))
+	}))
+	defer sink.Close()
+
+	src := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, sink.URL, http.StatusFound)
+	}))
+	defer src.Close()
+
+	assert.NilError(t, toggle.HTTPAllowlist.Parse(src.URL))
+	t.Cleanup(func() {
+		toggle.HTTPAllowlist.Reset()
+		resetSharedServiceHTTP()
+	})
+
+	_, err := testExecutor().Execute(context.Background(), getServiceCall(src.URL))
+	assert.ErrorContains(t, err, "not permitted")
+	assert.Assert(t, !sinkHit)
+}
+
+func Test_ExecuteServiceCall_BlocklistRejectsRedirectToMetadataHost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+	assert.NilError(t, toggle.HTTPBlocklist.Parse("metadata.google.internal"))
+	resetSharedServiceHTTP()
+	t.Cleanup(func() {
+		toggle.HTTPBlocklist.Reset()
+		resetSharedServiceHTTP()
+	})
+
+	src := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "http://metadata.google.internal/latest/meta-data/", http.StatusFound)
+	}))
+	defer src.Close()
+
+	_, err := testExecutor().Execute(context.Background(), getServiceCall(src.URL))
+	assert.ErrorContains(t, err, "blocked")
+}

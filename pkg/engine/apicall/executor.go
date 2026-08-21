@@ -6,6 +6,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -177,7 +178,7 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 func (a *executor) buildHTTPClient(policy *egressPolicy, base http.RoundTripper, service *kyvernov1.ServiceCall) (*http.Client, error) {
 	timeout := a.config.GetTimeout()
 	if service == nil || service.CABundle == "" {
-		return &http.Client{Transport: base, Timeout: timeout}, nil
+		return &http.Client{Transport: base, Timeout: timeout, CheckRedirect: checkServiceRedirect(policy)}, nil
 	}
 	caCertPool := x509.NewCertPool()
 	if ok := caCertPool.AppendCertsFromPEM([]byte(service.CABundle)); !ok {
@@ -186,9 +187,19 @@ func (a *executor) buildHTTPClient(policy *egressPolicy, base http.RoundTripper,
 	transport := newServiceTransport(policy)
 	transport.TLSClientConfig = &tls.Config{RootCAs: caCertPool, MinVersion: tls.VersionTLS12}
 	return &http.Client{
-		Transport: tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
-		Timeout:   timeout,
+		Transport:     tracing.Transport(transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
+		Timeout:       timeout,
+		CheckRedirect: checkServiceRedirect(policy),
 	}, nil
+}
+
+func checkServiceRedirect(policy *egressPolicy) func(*http.Request, []*http.Request) error {
+	return func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("stopped after 10 redirects")
+		}
+		return policy.validateURL(req.URL.String())
+	}
 }
 
 var (
