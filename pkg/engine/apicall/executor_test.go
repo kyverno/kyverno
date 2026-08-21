@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -242,6 +243,50 @@ func Test_ExecuteServiceCall_AllowlistRejectsRedirectToOtherHost(t *testing.T) {
 	_, err := testExecutor().Execute(context.Background(), getServiceCall(src.URL))
 	assert.ErrorContains(t, err, "not permitted")
 	assert.Assert(t, !sinkHit)
+}
+
+func Test_ProxyAwareDestinationCheck_BlocksProxiedRequestToBlockedCIDR(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"127.0.0.0/8", "::1/128", "169.254.0.0/16"}, nil)
+	assert.NilError(t, err)
+	proxyURL := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	withProxy := func(*http.Request) (*url.URL, error) { return proxyURL, nil }
+
+	proxyFn := proxyAwareDestinationCheck(policy, withProxy)
+
+	req, err := http.NewRequest(http.MethodGet, "http://169.254.169.254/latest/meta-data/", nil)
+	assert.NilError(t, err)
+	_, err = proxyFn(req)
+	assert.ErrorContains(t, err, "blocked")
+
+	req, err = http.NewRequest(http.MethodGet, "http://localhost:9999/", nil)
+	assert.NilError(t, err)
+	_, err = proxyFn(req)
+	assert.ErrorContains(t, err, "blocked")
+}
+
+func Test_ProxyAwareDestinationCheck_AllowsProxiedRequestToPermittedHost(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"169.254.0.0/16"}, nil)
+	assert.NilError(t, err)
+	proxyURL := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	withProxy := func(*http.Request) (*url.URL, error) { return proxyURL, nil }
+
+	req, err := http.NewRequest(http.MethodGet, "http://8.8.8.8/", nil)
+	assert.NilError(t, err)
+	got, err := proxyAwareDestinationCheck(policy, withProxy)(req)
+	assert.NilError(t, err)
+	assert.Equal(t, got, proxyURL)
+}
+
+func Test_ProxyAwareDestinationCheck_DirectRequestsUnaffected(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"127.0.0.0/8"}, nil)
+	assert.NilError(t, err)
+	noProxy := func(*http.Request) (*url.URL, error) { return nil, nil }
+
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:9999/", nil)
+	assert.NilError(t, err)
+	got, err := proxyAwareDestinationCheck(policy, noProxy)(req)
+	assert.NilError(t, err)
+	assert.Assert(t, got == nil)
 }
 
 func Test_ExecuteServiceCall_BlocklistRejectsRedirectToMetadataHost(t *testing.T) {

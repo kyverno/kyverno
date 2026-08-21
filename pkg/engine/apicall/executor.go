@@ -239,8 +239,24 @@ func newServiceTransport(policy *egressPolicy) *http.Transport {
 	}
 	if policy != nil && len(policy.blockedCIDRs) > 0 {
 		transport.DialContext = policy.dialContext()
+		if base := transport.Proxy; base != nil {
+			transport.Proxy = proxyAwareDestinationCheck(policy, base)
+		}
 	}
 	return transport
+}
+
+func proxyAwareDestinationCheck(policy *egressPolicy, base func(*http.Request) (*url.URL, error)) func(*http.Request) (*url.URL, error) {
+	return func(req *http.Request) (*url.URL, error) {
+		proxyURL, err := base(req)
+		if err != nil || proxyURL == nil {
+			return proxyURL, err
+		}
+		if err := policy.validateHostCIDRs(req.Context(), req.URL.Hostname()); err != nil {
+			return nil, err
+		}
+		return proxyURL, nil
+	}
 }
 
 func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, error) {
@@ -332,6 +348,40 @@ func pathAllowed(reqPath, entryPath string) bool {
 		return false
 	}
 	return strings.HasSuffix(entryPath, "/") || (len(reqPath) > len(entryPath) && reqPath[len(entryPath)] == '/')
+}
+
+func (p *egressPolicy) validateHostCIDRs(ctx context.Context, host string) error {
+	if host == "" || len(p.blockedCIDRs) == 0 {
+		return nil
+	}
+	blockedIP := func(ip net.IP) *net.IPNet {
+		for _, cidr := range p.blockedCIDRs {
+			if cidr.Contains(ip) {
+				return cidr
+			}
+		}
+		return nil
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if cidr := blockedIP(ip); cidr != nil {
+			return fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", host, ip, cidr)
+		}
+		return nil
+	}
+	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	if err != nil {
+		return fmt.Errorf("failed to resolve %s: %w", host, err)
+	}
+	for _, ipStr := range ips {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			continue
+		}
+		if cidr := blockedIP(ip); cidr != nil {
+			return fmt.Errorf("connection to %s blocked: resolved IP %s falls in blocked range %s", host, ip, cidr)
+		}
+	}
+	return nil
 }
 
 func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
