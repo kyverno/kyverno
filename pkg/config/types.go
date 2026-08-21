@@ -147,6 +147,9 @@ func parseKinds(in string) []filter {
 	for _, element := range submatchall {
 		element = strings.Trim(element, "[")
 		element = strings.Trim(element, "]")
+		if element == "" {
+			continue
+		}
 		elements := strings.Split(element, ",")
 		if len(elements) == 0 {
 			continue
