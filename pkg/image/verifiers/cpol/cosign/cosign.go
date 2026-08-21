@@ -298,7 +298,11 @@ func decodeStatement(sig oci.Signature) (map[string]any, string, error) {
 	if dataPayload, ok := data["payload"]; !ok {
 		return nil, "", fmt.Errorf("missing payload in %v", data)
 	} else {
-		decodedStatement, err := decodePayload(dataPayload.(string))
+		payloadStr, ok := dataPayload.(string)
+		if !ok {
+			return nil, "", fmt.Errorf("'payload' found to be of the type %T. The payload is expected to be a base64 encoded string", dataPayload)
+		}
+		decodedStatement, err := decodePayload(payloadStr)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to decode statement %s: %w", string(pld), err)
 		}
