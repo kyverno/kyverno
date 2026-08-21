@@ -12,4 +12,6 @@ const (
 	SourceGeneratingPolicy          = "KyvernoGeneratingPolicy"
 	SourceMutatingPolicy            = "KyvernoMutatingPolicy"
 	SourceMutatingAdmissionPolicy   = "MutatingAdmissionPolicy"
+	SourceDeletingPolicy            = "KyvernoDeletingPolicy"
+	SourceCleanupPolicy             = "KyvernoCleanupPolicy"
 )
