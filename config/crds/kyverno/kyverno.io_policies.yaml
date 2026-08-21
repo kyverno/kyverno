@@ -5149,6 +5149,7 @@ spec:
                   for Kubernetes admission webhookconfiguration.
                 properties:
                   failurePolicy:
+                    default: Fail
                     description: |-
                       FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
                       Rules within the same policy share the same failure behavior.
@@ -15182,6 +15183,7 @@ spec:
                   for Kubernetes admission webhookconfiguration.
                 properties:
                   failurePolicy:
+                    default: Fail
                     description: |-
                       FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
                       Rules within the same policy share the same failure behavior.
