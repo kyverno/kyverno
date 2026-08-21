@@ -329,6 +329,11 @@ spec:
                               ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                               details.
                             properties:
+                              catchError:
+                                description: |-
+                                  CatchError controls whether image registry errors are returned as context data.
+                                  When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                type: boolean
                               imageRegistryCredentials:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
@@ -1369,6 +1374,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -2455,6 +2465,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -2839,6 +2854,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -3598,6 +3618,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -5419,6 +5444,11 @@ spec:
                                   ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                   details.
                                 properties:
+                                  catchError:
+                                    description: |-
+                                      CatchError controls whether image registry errors are returned as context data.
+                                      When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                    type: boolean
                                   imageRegistryCredentials:
                                     description: ImageRegistryCredentials provides
                                       credentials that will be used for authentication
@@ -6471,6 +6501,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -7569,6 +7604,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -7962,6 +8002,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -8733,6 +8778,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -10632,6 +10682,11 @@ spec:
                               ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                               details.
                             properties:
+                              catchError:
+                                description: |-
+                                  CatchError controls whether image registry errors are returned as context data.
+                                  When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                type: boolean
                               imageRegistryCredentials:
                                 description: ImageRegistryCredentials provides credentials
                                   that will be used for authentication with registry
@@ -11466,6 +11521,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -12346,6 +12406,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -12730,6 +12795,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -13660,6 +13730,11 @@ spec:
                                         ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                         details.
                                       properties:
+                                        catchError:
+                                          description: |-
+                                            CatchError controls whether image registry errors are returned as context data.
+                                            When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                          type: boolean
                                         imageRegistryCredentials:
                                           description: ImageRegistryCredentials provides
                                             credentials that will be used for authentication
@@ -15450,6 +15525,11 @@ spec:
                                   ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                   details.
                                 properties:
+                                  catchError:
+                                    description: |-
+                                      CatchError controls whether image registry errors are returned as context data.
+                                      When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                    type: boolean
                                   imageRegistryCredentials:
                                     description: ImageRegistryCredentials provides
                                       credentials that will be used for authentication
@@ -16502,6 +16582,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -17600,6 +17685,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -17993,6 +18083,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
@@ -18764,6 +18859,11 @@ spec:
                                             ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
                                             details.
                                           properties:
+                                            catchError:
+                                              description: |-
+                                                CatchError controls whether image registry errors are returned as context data.
+                                                When enabled, errors set failed to true and populate errorMessage instead of failing the rule.
+                                              type: boolean
                                             imageRegistryCredentials:
                                               description: ImageRegistryCredentials
                                                 provides credentials that will be
