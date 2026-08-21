@@ -368,7 +368,9 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 				}
 
 				if shallowSubstitution && substitutedVar != nil {
-					substitutedVar = strings.ReplaceAll(substitutedVar.(string), "{{", "\\{{")
+					if s, ok := substitutedVar.(string); ok {
+						substitutedVar = strings.ReplaceAll(s, "{{", "\\{{")
+					}
 				}
 
 				if value, err = substituteVarInPattern(prefix, value, v, substitutedVar); err != nil {
