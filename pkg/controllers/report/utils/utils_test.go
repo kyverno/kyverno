@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
 
 func TestReportsAreIdentical_EmptyReports(t *testing.T) {
@@ -350,6 +351,71 @@ func TestRemoveNonBackgroundPolicies(t *testing.T) {
 			name:     "nil list",
 			policies: nil,
 			wantLen:  0,
+		},
+		{
+			name: "background explicitly false",
+			policies: []kyvernov1.PolicyInterface{
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Background: ptr.To(false),
+						Rules: []kyvernov1.Rule{{
+							Validation: &kyvernov1.Validation{Message: "test"},
+						}},
+					},
+				},
+			},
+			wantLen: 0,
+		},
+		{
+			name: "background explicitly true",
+			policies: []kyvernov1.PolicyInterface{
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Background: ptr.To(true),
+						Rules: []kyvernov1.Rule{{
+							Validation: &kyvernov1.Validation{Message: "test"},
+						}},
+					},
+				},
+			},
+			wantLen: 1,
+		},
+		{
+			name: "background default enabled",
+			policies: []kyvernov1.PolicyInterface{
+				&kyvernov1.ClusterPolicy{
+					Spec: kyvernov1.Spec{
+						Rules: []kyvernov1.Rule{{
+							Validation: &kyvernov1.Validation{Message: "test"},
+						}},
+					},
+				},
+			},
+			wantLen: 1,
+		},
+		{
+			name: "mixed background flags",
+			policies: []kyvernov1.PolicyInterface{
+				&kyvernov1.ClusterPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "disabled"},
+					Spec: kyvernov1.Spec{
+						Background: ptr.To(false),
+						Rules: []kyvernov1.Rule{{
+							Validation: &kyvernov1.Validation{Message: "test"},
+						}},
+					},
+				},
+				&kyvernov1.ClusterPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "enabled"},
+					Spec: kyvernov1.Spec{
+						Background: ptr.To(true),
+						Rules: []kyvernov1.Rule{{
+							Validation: &kyvernov1.Validation{Message: "test"},
+						}},
+					},
+				},
+			},
+			wantLen: 1,
 		},
 	}
 
