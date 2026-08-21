@@ -175,6 +175,12 @@ func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) 
 				}
 				value := c.Value
 				if value == "" {
+					if len(fields) == 0 {
+						// No usable path components and no explicit value: this
+						// extractor cannot resolve an image, so skip it instead of
+						// indexing fields[-1] and panicking.
+						continue
+					}
 					value = fields[len(fields)-1]
 					fields = fields[:len(fields)-1]
 				}
