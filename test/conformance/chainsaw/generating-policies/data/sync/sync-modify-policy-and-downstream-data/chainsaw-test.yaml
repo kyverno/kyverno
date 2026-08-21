@@ -32,15 +32,22 @@ spec:
     try:
     - assert:
         file: downstream-assert.yaml
-  - name: modify the policy
+  - name: modify the policy and check that the downstream configmap is updated in-place
     try:
+    - command:
+        entrypoint: kubectl
+        args:
+        - get
+        - configmap
+        - sync-modify-policy-and-downstream-data
+        - --namespace=sync-modify-policy-and-downstream-data
+        - --output=json
+        outputs:
+        - name: downstream_uid
+          value: (json_parse($stdout).metadata.uid)
     - apply:
         file: policy-modified.yaml
-  - name: sleep
-    try:
     - sleep:
-        duration: 5s
-  - name: check that the downstream is modified
-    try:
+          duration: 5s
     - assert:
         file: downstream-modified.yaml
