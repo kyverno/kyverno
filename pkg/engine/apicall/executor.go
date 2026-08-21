@@ -164,7 +164,8 @@ func (a *executor) buildHTTPClient(service *kyvernov1.ServiceCall) (*http.Client
 	timeout := a.config.GetTimeout()
 	if service == nil || service.CABundle == "" {
 		return &http.Client{
-			Timeout: timeout,
+			Transport: tracing.Transport(http.DefaultTransport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan)),
+			Timeout:   timeout,
 		}, nil
 	}
 	caCertPool := x509.NewCertPool()
