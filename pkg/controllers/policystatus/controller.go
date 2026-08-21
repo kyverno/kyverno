@@ -54,6 +54,8 @@ func NewController(
 	nmpolInformer policiesv1beta1informers.NamespacedMutatingPolicyInformer,
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
 	ngpolInformer policiesv1beta1informers.NamespacedGeneratingPolicyInformer,
+	dpolInformer policiesv1beta1informers.DeletingPolicyInformer,
+	ndpolInformer policiesv1beta1informers.NamespacedDeletingPolicyInformer,
 	reportsSA string,
 	polStateRecorder webhook.StateRecorder,
 ) Controller {
@@ -205,6 +207,38 @@ func NewController(
 	if err != nil {
 		logger.Error(err, "failed to register event handlers for NamespacedGeneratingPolicy")
 	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		dpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			dpol, ok := obj.(*policiesv1beta1.DeletingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.DeletingPolicyType, dpol.Name, ""))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for DeletingPolicy")
+	}
+
+	_, _, err = controllerutils.AddExplicitEventHandlers(
+		logger,
+		ndpolInformer.Informer(),
+		c.queue,
+		func(obj interface{}) cache.ExplicitKey {
+			ndpol, ok := obj.(*policiesv1beta1.NamespacedDeletingPolicy)
+			if !ok {
+				return ""
+			}
+			return cache.ExplicitKey(webhook.BuildRecorderKey(webhook.NamespacedDeletingPolicyType, ndpol.Name, ndpol.Namespace))
+		},
+	)
+	if err != nil {
+		logger.Error(err, "failed to register event handlers for NamespacedDeletingPolicy")
+	}
 	return c
 }
 
@@ -302,6 +336,22 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 				return err
 			}
 			return c.updateNGpolStatus(ctx, ngpol)
+		})
+	case webhook.DeletingPolicyType:
+		return retryStatusUpdate(l, func() error {
+			dpol, err := c.client.PoliciesV1beta1().DeletingPolicies().Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			return c.updateDpolStatus(ctx, dpol)
+		})
+	case webhook.NamespacedDeletingPolicyType:
+		return retryStatusUpdate(l, func() error {
+			ndpol, err := c.client.PoliciesV1beta1().NamespacedDeletingPolicies(namespace).Get(ctx, name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			return c.updateNDpolStatus(ctx, ndpol)
 		})
 	}
 	return nil
