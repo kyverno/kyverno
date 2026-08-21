@@ -1,0 +1,221 @@
+# Path to Test Suite Map
+# Machine-readable mapping from source code paths to test suites
+# Used by AI agents and automation for scoped test selection
+
+version: "1.0"
+
+# Format: source_path -> test_suite(s)
+# Used by: AI Maintainer Assistant for "scoped regression test" capability
+# See: https://github.com/kyverno/kyverno/issues/16665
+
+mappings:
+  # Engine packages
+  "pkg/engine/validate/": ["unit", "conformance:024-validate"]
+  "pkg/engine/mutate/": ["unit", "conformance:023-mutate"]
+  "pkg/engine/generate/": ["unit", "conformance:022-generate"]
+  "pkg/engine/background.go": ["unit", "conformance:008-background"]
+  "pkg/engine/image_verify.go": ["unit", "conformance:026-verify-images"]
+  "pkg/engine/anchor/": ["unit", "conformance:023-mutate"]
+  "pkg/engine/jmespath/": ["unit"]
+  "pkg/engine/variables/": ["unit", "conformance:020-kubectl-kyverno"]
+  "pkg/engine/context/": ["unit"]
+  "pkg/engine/adapters/": ["unit"]
+  "pkg/engine/api/": ["unit"]
+  "pkg/engine/apicall/": ["unit"]
+  "pkg/engine/factories/": ["unit"]
+  "pkg/engine/handlers/": ["unit"]
+  "pkg/engine/internal/": ["unit"]
+  "pkg/engine/jsonutils/": ["unit"]
+  "pkg/engine/operator/": ["unit"]
+  "pkg/engine/pattern/": ["unit"]
+  "pkg/engine/policycontext/": ["unit"]
+  "pkg/engine/resources/": ["unit"]
+  "pkg/engine/utils/": ["unit"]
+  "pkg/engine/wildcards/": ["unit"]
+
+  # Webhook packages
+  "pkg/webhooks/resource/vpol/": ["unit", "conformance:001-validating-policy"]
+  "pkg/webhooks/resource/mpol/": ["unit", "conformance:002-mutating-policy"]
+  "pkg/webhooks/resource/gpol/": ["unit", "conformance:003-generating-policy"]
+  "pkg/webhooks/resource/ivpol/": ["unit", "conformance:005-image-verify"]
+  "pkg/webhooks/resource/dpol/": ["unit", "conformance:004-deleting-policy"]
+  "pkg/webhooks/handlers/": ["unit", "conformance:025-conformance"]
+  "pkg/webhooks/updaterequest/": ["unit", "conformance:008-background"]
+  "pkg/webhooks/server.go": ["unit"]
+  "pkg/webhooks/utils/": ["unit"]
+  "pkg/webhooks/exception/": ["unit", "conformance:007-policy-exception"]
+  "pkg/webhooks/policy/": ["unit"]
+  "pkg/webhooks/celexception/": ["unit"]
+  "pkg/webhooks/globalcontext/": ["unit"]
+
+  # Controller packages
+  "pkg/controllers/webhook/": ["unit", "conformance:025-conformance"]
+  "pkg/controllers/policycache/": ["unit"]
+  "pkg/controllers/policystatus/": ["unit"]
+  "pkg/controllers/report/": ["unit", "conformance:010-reports"]
+  "pkg/controllers/cleanup/": ["unit", "conformance:009-cleanup"]
+  "pkg/controllers/background/": ["unit", "conformance:008-background"]
+  "pkg/controllers/admissionpolicygenerator/": ["unit"]
+  "pkg/controllers/certmanager/": ["unit"]
+  "pkg/controllers/exceptions/": ["unit", "conformance:007-policy-exception"]
+  "pkg/controllers/globalcontext/": ["unit"]
+  "pkg/controllers/generic/": ["unit"]
+  "pkg/controllers/deleting/": ["unit"]
+  "pkg/controllers/ttl/": ["unit"]
+  "pkg/controllers/metrics/": ["unit"]
+
+  # CEL packages
+  "pkg/cel/": ["unit", "conformance:012-cel"]
+  "pkg/cel/policies/vpol/": ["unit", "conformance:001-validating-policy"]
+  "pkg/cel/policies/mpol/": ["unit", "conformance:002-mutating-policy"]
+  "pkg/cel/policies/gpol/": ["unit", "conformance:003-generating-policy"]
+  "pkg/cel/policies/ivpol/": ["unit", "conformance:005-image-verify"]
+  "pkg/cel/policies/dpol/": ["unit", "conformance:004-deleting-policy"]
+
+  # Validation packages
+  "pkg/validation/": ["unit", "conformance:024-validate"]
+
+  # API types (require codegen)
+  "api/kyverno/": ["codegen", "unit", "conformance:030-api"]
+  "api/policyreport/": ["codegen", "unit"]
+  "api/reports/": ["codegen", "unit"]
+
+  # CLI
+  "cmd/cli/": ["unit", "conformance:020-kubectl-kyverno"]
+  "test/cli/": ["cli", "conformance:020-kubectl-kyverno"]
+
+  # Helm charts
+  "charts/kyverno/": ["helm-test", "conformance:013-helm"]
+  "charts/kyverno-policies/": ["helm-test"]
+
+  # Image verification
+  "pkg/cosign/": ["unit", "conformance:026-verify-images", "conformance:005-image-verify"]
+  "pkg/notary/": ["unit", "conformance:005-image-verify"]
+  "pkg/engine/image_verify.go": ["unit", "conformance:026-verify-images"]
+
+  # Utilities
+  "pkg/utils/": ["unit"]
+  "pkg/logging/": ["unit"]
+  "pkg/metrics/": ["unit"]
+  "pkg/toggle/": ["unit"]
+  "pkg/config/": ["unit"]
+
+# Test suite definitions
+test_suites:
+  unit:
+    command: "go test -race -covermode=atomic ./..."
+    description: "All unit tests with race detector"
+
+  cli:
+    command: "make test-cli"
+    description: "CLI tests using kubectl-kyverno"
+
+  helm-test:
+    command: "make helm-test"
+    description: "Helm chart tests"
+
+  codegen:
+    command: "make codegen-all-code && make verify-codegen"
+    description: "Code generation and verification"
+
+  conformance:
+    command: "make kind-deploy-all && chainsaw test --test-dir test/conformance/chainsaw/"
+    description: "Full conformance suite (requires Kind cluster)"
+    sub_suites:
+      "001-validating-policy":
+        path: "test/conformance/chainsaw/001-validating-policy"
+        description: "ValidatingPolicy tests"
+      "002-mutating-policy":
+        path: "test/conformance/chainsaw/002-mutating-policy"
+        description: "MutatingPolicy tests"
+      "003-generating-policy":
+        path: "test/conformance/chainsaw/003-generating-policy"
+        description: "GeneratingPolicy tests"
+      "004-deleting-policy":
+        path: "test/conformance/chainsaw/004-deleting-policy"
+        description: "DeletingPolicy tests"
+      "005-image-verify":
+        path: "test/conformance/chainsaw/005-image-verify"
+        description: "Image verification tests"
+      "006-cluster-policy":
+        path: "test/conformance/chainsaw/006-cluster-policy"
+        description: "ClusterPolicy (legacy) tests"
+      "007-policy-exception":
+        path: "test/conformance/chainsaw/007-policy-exception"
+        description: "PolicyException tests"
+      "008-background":
+        path: "test/conformance/chainsaw/008-background"
+        description: "Background controller tests"
+      "009-cleanup":
+        path: "test/conformance/chainsaw/009-cleanup"
+        description: "CleanupPolicy tests"
+      "010-reports":
+        path: "test/conformance/chainsaw/010-reports"
+        description: "PolicyReport tests"
+      "011-admission-policy":
+        path: "test/conformance/chainsaw/011-admission-policy"
+        description: "AdmissionPolicy tests"
+      "012-cel":
+        path: "test/conformance/chainsaw/012-cel"
+        description: "CEL expression tests"
+      "013-helm":
+        path: "test/conformance/chainsaw/013-helm"
+        description: "Helm chart tests"
+      "014-verify":
+        path: "test/conformance/chainsaw/014-verify"
+        description: "Verify tests"
+      "015-clean":
+        path: "test/conformance/chainsaw/015-clean"
+        description: "Cleanup tests"
+      "016-multi":
+        path: "test/conformance/chainsaw/016-multi"
+        description: "Multi-policy tests"
+      "017-userinfo":
+        path: "test/conformance/chainsaw/017-userinfo"
+        description: "User info tests"
+      "018-context":
+        path: "test/conformance/chainsaw/018-context"
+        description: "Context tests"
+      "019-userinfo":
+        path: "test/conformance/chainsaw/019-userinfo"
+        description: "User info tests"
+      "020-kubectl-kyverno":
+        path: "test/conformance/chainsaw/020-kubectl-kyverno"
+        description: "CLI tests"
+      "021-cluster-cleanup":
+        path: "test/conformance/chainsaw/021-cluster-cleanup"
+        description: "ClusterCleanup tests"
+      "022-generate":
+        path: "test/conformance/chainsaw/022-generate"
+        description: "Generate tests"
+      "023-mutate":
+        path: "test/conformance/chainsaw/023-mutate"
+        description: "Mutate tests"
+      "024-validate":
+        path: "test/conformance/chainsaw/024-validate"
+        description: "Validate tests"
+      "025-conformance":
+        path: "test/conformance/chainsaw/025-conformance"
+        description: "Full conformance suite"
+      "026-verify-images":
+        path: "test/conformance/chainsaw/026-verify-images"
+        description: "Image verification tests"
+      "027-oc":
+        path: "test/conformance/chainsaw/027-oc"
+        description: "OpenShift tests"
+      "028-dry-run":
+        path: "test/conformance/chainsaw/028-dry-run"
+        description: "Dry run tests"
+      "029-sigstore":
+        path: "test/conformance/chainsaw/029-sigstore"
+        description: "Sigstore tests"
+      "030-api":
+        path: "test/conformance/chainsaw/030-api"
+        description: "API tests"
+      "031-background-scan":
+        path: "test/conformance/chainsaw/031-background-scan"
+        description: "Background scan tests"
+
+# Usage for AI agents:
+# Given a changed file path, find matching patterns above and run corresponding test suites.
+# Example: changes to pkg/engine/mutate/strategicPreprocessing.go → run "unit" + "conformance:023-mutate"
