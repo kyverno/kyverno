@@ -3,10 +3,12 @@ package breaker
 import (
 	"context"
 	"sync"
+	"time"
 
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	watchtools "github.com/kyverno/kyverno/cmd/kyverno/watch"
 	"github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
+	"github.com/kyverno/kyverno/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,8 +56,29 @@ func (c *counter) Count() (int, bool) {
 	return c.entries.Len(), c.retryWatcher.IsRunning()
 }
 
-func StartResourceCounter(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (*counter, error) {
-	objs, err := client.Resource(gvr).List(ctx, metav1.ListOptions{})
+func (c *counter) consume(events <-chan k8swatch.Event) {
+	for event := range events {
+		getter, ok := event.Object.(resourceUIDGetter)
+		if !ok {
+			continue
+		}
+		switch event.Type {
+		case k8swatch.Added, k8swatch.Modified:
+			c.Record(getter.GetUID())
+		case k8swatch.Deleted:
+			c.Forget(getter.GetUID())
+		}
+	}
+}
+
+// resync lists the resource and replaces the entries and watcher the counter
+// reports on with a watcher started from the returned resource version.
+func (c *counter) resync(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (retryWatcher, error) {
+	listOptions := metav1.ListOptions{}
+	if tweakListOptions != nil {
+		tweakListOptions(&listOptions)
+	}
+	objs, err := client.Resource(gvr).List(ctx, listOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -75,26 +98,40 @@ func StartResourceCounter(ctx context.Context, client metadataclient.Interface, 
 	for _, entry := range objs.Items {
 		entries.Insert(entry.GetUID())
 	}
-	w := &counter{
-		entries:      entries,
-		retryWatcher: watchInterface,
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.entries = entries
+	c.retryWatcher = watchInterface
+	return watchInterface, nil
+}
+
+func StartResourceCounter(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (*counter, error) {
+	c := &counter{}
+	watchInterface, err := c.resync(ctx, client, gvr, tweakListOptions)
+	if err != nil {
+		return nil, err
 	}
+	logger := logging.WithName("resource-counter").WithValues("resource", gvr.Resource)
 	go func() {
-		for event := range watchInterface.ResultChan() {
-			getter, ok := event.Object.(resourceUIDGetter)
-			if ok {
-				switch event.Type {
-				case k8swatch.Added:
-					w.Record(getter.GetUID())
-				case k8swatch.Modified:
-					w.Record(getter.GetUID())
-				case k8swatch.Deleted:
-					w.Forget(getter.GetUID())
-				}
+		for {
+			c.consume(watchInterface.ResultChan())
+			// The watcher stopped for good, the counter reports itself as not
+			// running until a fresh List gives it a usable resource version.
+			logger.Info("resource counter watcher stopped, restarting")
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Second):
 			}
+			restarted, err := c.resync(ctx, client, gvr, tweakListOptions)
+			if err != nil {
+				logger.Error(err, "failed to restart resource counter watcher, retrying...")
+				continue
+			}
+			watchInterface = restarted
 		}
 	}()
-	return w, nil
+	return c, nil
 }
 
 func StartAdmissionReportsCounter(ctx context.Context, client metadataclient.Interface) (Counter, error) {
