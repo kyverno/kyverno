@@ -12,6 +12,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
@@ -95,6 +96,11 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		return nil, append(allErrs, errs...)
 	}
 
+	identifiers, err := autogen.IdentifiersFromAnnotations(policy.GetAnnotations())
+	if err != nil {
+		return nil, append(allErrs, field.Invalid(field.NewPath("metadata").Child("annotations").Key(autogen.IdentifiersAnnotation), policy.GetAnnotations()[autogen.IdentifiersAnnotation], err.Error()))
+	}
+
 	validations := make([]compiler.Validation, 0, len(spec.Validations))
 	{
 		path := path.Child("validations")
@@ -104,6 +110,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
+			program.Identifier = identifiers[rule.Expression]
 			validations = append(validations, program)
 		}
 	}
@@ -172,6 +179,11 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		return nil, append(allErrs, errs...)
 	}
 
+	identifiers, err := autogen.IdentifiersFromAnnotations(policy.GetAnnotations())
+	if err != nil {
+		return nil, append(allErrs, field.Invalid(field.NewPath("metadata").Child("annotations").Key(autogen.IdentifiersAnnotation), policy.GetAnnotations()[autogen.IdentifiersAnnotation], err.Error()))
+	}
+
 	validations := make([]compiler.Validation, 0, len(spec.Validations))
 	{
 		path := path.Child("validations")
@@ -181,6 +193,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
+			program.Identifier = identifiers[rule.Expression]
 			validations = append(validations, program)
 		}
 	}
