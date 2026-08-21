@@ -34,7 +34,8 @@ spec:
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- with .Values.reportsController.podAnnotations }}
-      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      annotations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
       {{- with .Values.reportsController.imagePullSecrets | default .Values.global.imagePullSecrets }}
