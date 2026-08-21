@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -101,20 +102,37 @@ func ContainsKind(list []string, kind string) bool {
 }
 
 // GroupVersionMatches - check if the given group version matches the server resource group version.
-// If the group version contains a wildcard, it will match any version, but the group must match. Returns false if the
-// supplied group version is empty, that condition should be checked before calling this function.
+// The group and the version may each contain a wildcard, in which case that half matches anything.
+// Returns false if the supplied group version is empty, that condition should be checked before
+// calling this function.
 func GroupVersionMatches(groupVersion, serverResourceGroupVersion string) bool {
-	if strings.Contains(groupVersion, "*") {
-		return strings.HasPrefix(serverResourceGroupVersion, strings.TrimSuffix(groupVersion, "*"))
-	}
-
-	gv, err := schema.ParseGroupVersion(groupVersion)
-	if err == nil {
+	if !strings.Contains(groupVersion, "*") {
+		gv, err := schema.ParseGroupVersion(groupVersion)
+		if err != nil {
+			return false
+		}
 		serverResourceGV, _ := schema.ParseGroupVersion(serverResourceGroupVersion)
 		return gv.Group == serverResourceGV.Group && gv.Version == serverResourceGV.Version
 	}
 
-	return false
+	// A bare "*" carries no separator and matches any group and any version.
+	if groupVersion == "*" {
+		return true
+	}
+
+	serverResourceGV, err := schema.ParseGroupVersion(serverResourceGroupVersion)
+	if err != nil {
+		return false
+	}
+
+	// Split on the separator rather than using ParseGroupVersion, because a wildcard is not a
+	// valid group name and the two halves have to be matched independently.
+	group, version := "", groupVersion
+	if i := strings.Index(groupVersion, "/"); i >= 0 {
+		group, version = groupVersion[:i], groupVersion[i+1:]
+	}
+
+	return wildcard.Match(group, serverResourceGV.Group) && wildcard.Match(version, serverResourceGV.Version)
 }
 
 // IsSubresource returns true if the resource is a subresource
