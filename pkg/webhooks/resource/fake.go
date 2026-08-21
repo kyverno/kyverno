@@ -61,7 +61,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 			configuration,
 			jp,
 			adapters.Client(dclient),
-			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil, "", false),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(configMapResolver),
 			exceptions.New(peLister),
