@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -26,7 +27,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
-	kyverno "github.com/kyverno/kyverno/api/kyverno"
 )
 
 type mockRESTMapper struct {
@@ -1096,30 +1096,30 @@ func TestHandleAdd(t *testing.T) {
 		wantCacheSize  int
 	}{
 		{
-			name: "non-kyverno resource is ignored",
-			cacheUIDs: map[types.UID]string{},
-			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", map[string]string{"unrelated": "label"}),
+			name:          "non-kyverno resource is ignored",
+			cacheUIDs:     map[types.UID]string{},
+			obj:           makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", map[string]string{"unrelated": "label"}),
 			wantCacheSize: 0,
 		},
 		{
-			name: "already registered UID is not double-inserted",
-			cacheUIDs: map[types.UID]string{"existing-uid": "cm"},
-			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "existing-uid", kyvernoLabels("p1")),
+			name:          "already registered UID is not double-inserted",
+			cacheUIDs:     map[types.UID]string{"existing-uid": "cm"},
+			obj:           makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "existing-uid", kyvernoLabels("p1")),
 			wantCacheUIDs: []types.UID{"existing-uid"},
 			wantCacheSize: 1,
 		},
 		{
-			name: "recreated resource: new UID registered, old dead UID removed",
-			cacheUIDs: map[types.UID]string{"old-uid": "cm"},
-			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", kyvernoLabels("p1")),
+			name:           "recreated resource: new UID registered, old dead UID removed",
+			cacheUIDs:      map[types.UID]string{"old-uid": "cm"},
+			obj:            makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", kyvernoLabels("p1")),
 			wantCacheUIDs:  []types.UID{"new-uid"},
 			wantAbsentUIDs: []types.UID{"old-uid"},
 			wantCacheSize:  1,
 		},
 		{
-			name: "different policy's resource with same name is not evicted",
-			cacheUIDs: map[types.UID]string{"other-policy-uid": "cm"},
-			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", kyvernoLabels("p2")),
+			name:          "different policy's resource with same name is not evicted",
+			cacheUIDs:     map[types.UID]string{"other-policy-uid": "cm"},
+			obj:           makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", kyvernoLabels("p2")),
 			wantCacheUIDs: []types.UID{"other-policy-uid", "new-uid"},
 			wantCacheSize: 2,
 		},

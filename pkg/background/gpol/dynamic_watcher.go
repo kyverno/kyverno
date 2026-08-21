@@ -458,44 +458,44 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
-    wm.lock.Lock()
-    defer wm.lock.Unlock()
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
 
-    wm.log.Info("Resource added", "name", obj.GetName())
+	wm.log.Info("Resource added", "name", obj.GetName())
 
-    labels := obj.GetLabels()
-    if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp {
-        return
-    }
+	labels := obj.GetLabels()
+	if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp {
+		return
+	}
 
-    watcher, exists := wm.dynamicWatchers[gvr]
-    if !exists {
-        return
-    }
+	watcher, exists := wm.dynamicWatchers[gvr]
+	if !exists {
+		return
+	}
 
-    uid := obj.GetUID()
-    if _, ok := watcher.metadataCache[uid]; ok {
-        return
-    }
+	uid := obj.GetUID()
+	if _, ok := watcher.metadataCache[uid]; ok {
+		return
+	}
 
-    for oldUID, cached := range watcher.metadataCache {
-        if cached.Name == obj.GetName() &&
-            cached.Namespace == obj.GetNamespace() &&
-            cached.Labels[common.GeneratePolicyLabel] == labels[common.GeneratePolicyLabel] {
-            delete(watcher.metadataCache, oldUID)
-            break
-        }
-    }
+	for oldUID, cached := range watcher.metadataCache {
+		if cached.Name == obj.GetName() &&
+			cached.Namespace == obj.GetNamespace() &&
+			cached.Labels[common.GeneratePolicyLabel] == labels[common.GeneratePolicyLabel] {
+			delete(watcher.metadataCache, oldUID)
+			break
+		}
+	}
 
 	watcher.metadataCache[uid] = Resource{
-        Name:      obj.GetName(),
-        Namespace: obj.GetNamespace(),
-        Labels:    labels,
-        Hash:      reportutils.CalculateResourceHash(*obj),
-        Data:      obj.DeepCopy(),
-    }
-    wm.log.V(4).Info("downstream resource re-registered after recreation",
-        "name", obj.GetName(), "namespace", obj.GetNamespace(), "uid", uid)
+		Name:      obj.GetName(),
+		Namespace: obj.GetNamespace(),
+		Labels:    labels,
+		Hash:      reportutils.CalculateResourceHash(*obj),
+		Data:      obj.DeepCopy(),
+	}
+	wm.log.V(4).Info("downstream resource re-registered after recreation",
+		"name", obj.GetName(), "namespace", obj.GetNamespace(), "uid", uid)
 }
 
 func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
@@ -642,5 +642,5 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				}
 			}
 		}
-	}	
+	}
 }
