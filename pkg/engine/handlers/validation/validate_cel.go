@@ -27,6 +27,41 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type celEvalStatus int
+
+const (
+	celEvalPass celEvalStatus = iota
+	celEvalFail
+	celEvalSkip
+	celEvalError
+)
+
+type celEvalResult struct {
+	status  celEvalStatus
+	message string
+}
+
+func processCELValidationResults(validationResults []validating.ValidateResult) celEvalResult {
+	for _, validationResult := range validationResults {
+		if datautils.DeepEqual(validationResult, validating.ValidateResult{}) {
+			return celEvalResult{status: celEvalSkip, message: "cel preconditions not met"}
+		}
+
+		for _, decision := range validationResult.Decisions {
+			switch decision.Action {
+			case validating.ActionAdmit:
+				if decision.Evaluation == validating.EvalError {
+					return celEvalResult{status: celEvalError, message: decision.Message}
+				}
+			case validating.ActionDeny:
+				return celEvalResult{status: celEvalFail, message: decision.Message}
+			}
+		}
+	}
+
+	return celEvalResult{status: celEvalPass}
+}
+
 type validateCELHandler struct {
 	client    engineapi.Client
 	isCluster bool
@@ -164,16 +199,118 @@ func (h validateCELHandler) Process(
 		}
 	}
 
+	authorizer := internal.NewAuthorizer(h.client, gvk)
+	newEval, err := h.evaluateCEL(
+		ctx,
+		gvr,
+		gvk,
+		object,
+		oldObject,
+		ns,
+		name,
+		admission.Operation(policyContext.Operation()),
+		policyContext,
+		validator,
+		namespace,
+		authorizer,
+		hasParam,
+		rule,
+	)
+	if err != nil {
+		msg := "error while creating versioned attributes"
+		if hasParam {
+			msg = "error in parameterized resource"
+		}
+		return resource, handlers.WithError(rule, engineapi.Validation, msg, err)
+	}
+
+	switch newEval.status {
+	case celEvalSkip:
+		return resource, handlers.WithResponses(
+			engineapi.RuleSkip(rule.Name, engineapi.Validation, newEval.message, rule.ReportProperties),
+		)
+	case celEvalError:
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.Validation, newEval.message, nil, rule.ReportProperties),
+		)
+	case celEvalFail:
+		var action kyvernov1.ValidationFailureAction
+		if rule.Validation.FailureAction != nil {
+			action = *rule.Validation.FailureAction
+		} else {
+			action = policyContext.Policy().GetSpec().ValidationFailureAction
+		}
+
+		if action.Enforce() && engineutils.IsUpdateRequest(policyContext) && rule.HasValidateAllowExistingViolations() {
+			if oldResource.Object != nil {
+				if matchResource(logger, oldResource, rule, policyContext.NamespaceLabels(), policyContext.Policy().GetNamespace(), kyvernov1.Create, policyContext.JSONContext()) {
+					oldEval, err := h.evaluateCEL(
+						ctx,
+						gvr,
+						gvk,
+						oldObject,
+						nil,
+						ns,
+						name,
+						admission.Create,
+						policyContext,
+						validator,
+						namespace,
+						authorizer,
+						hasParam,
+						rule,
+					)
+					if err != nil {
+						logger.V(4).Info("warning: failed to validate old object", "rule", rule.Name, "error", err.Error())
+						return resource, handlers.WithResponses(
+							engineapi.RuleSkip(rule.Name, engineapi.Validation, "failed to validate old object", rule.ReportProperties),
+						)
+					}
+
+					if oldEval.status == celEvalFail {
+						logger.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name)
+						return resource, handlers.WithResponses(
+							engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", rule.ReportProperties),
+						)
+					}
+				}
+			}
+		}
+
+		return resource, handlers.WithResponses(
+			engineapi.RuleFail(rule.Name, engineapi.Validation, newEval.message, rule.ReportProperties),
+		)
+	}
+
+	msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
+	return resource, handlers.WithResponses(
+		engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties),
+	)
+}
+
+func (h validateCELHandler) evaluateCEL(
+	ctx context.Context,
+	gvr schema.GroupVersionResource,
+	gvk schema.GroupVersionKind,
+	object, oldObject runtime.Object,
+	ns, name string,
+	operation admission.Operation,
+	policyContext engineapi.PolicyContext,
+	validator validating.Validator,
+	namespace *corev1.Namespace,
+	authorizer internal.Authorizer,
+	hasParam bool,
+	rule kyvernov1.Rule,
+) (celEvalResult, error) {
 	requestInfo := policyContext.AdmissionInfo()
 	userInfo := admissionpolicy.NewUser(requestInfo.AdmissionUserInfo)
-	attr := admission.NewAttributesRecord(object, oldObject, gvk, ns, name, gvr, "", admission.Operation(policyContext.Operation()), nil, false, &userInfo)
+	attr := admission.NewAttributesRecord(object, oldObject, gvk, ns, name, gvr, "", operation, nil, false, &userInfo)
 	o := admission.NewObjectInterfacesFromScheme(runtime.NewScheme())
 	versionedAttr, err := admission.NewVersionedAttributes(attr, attr.GetKind(), o)
 	if err != nil {
-		return resource, handlers.WithError(rule, engineapi.Validation, "error while creating versioned attributes", err)
+		return celEvalResult{}, err
 	}
-	authorizer := internal.NewAuthorizer(h.client, gvk)
-	// validate the incoming object against the rule
+
 	var validationResults []validating.ValidateResult
 	if hasParam {
 		paramKind := rule.Validation.CEL.ParamKind
@@ -181,9 +318,7 @@ func (h validateCELHandler) Process(
 
 		params, err := admissionpolicy.CollectParams(ctx, h.client, paramKind, paramRef, ns)
 		if err != nil {
-			return resource, handlers.WithResponses(
-				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err, rule.ReportProperties),
-			)
+			return celEvalResult{}, err
 		}
 
 		for _, param := range params {
@@ -193,32 +328,5 @@ func (h validateCELHandler) Process(
 		validationResults = append(validationResults, validator.Validate(ctx, gvr, versionedAttr, nil, namespace, celconfig.RuntimeCELCostBudget, &authorizer))
 	}
 
-	for _, validationResult := range validationResults {
-		// no validations are returned if preconditions aren't met
-		if datautils.DeepEqual(validationResult, validating.ValidateResult{}) {
-			return resource, handlers.WithResponses(
-				engineapi.RuleSkip(rule.Name, engineapi.Validation, "cel preconditions not met", rule.ReportProperties),
-			)
-		}
-
-		for _, decision := range validationResult.Decisions {
-			switch decision.Action {
-			case validating.ActionAdmit:
-				if decision.Evaluation == validating.EvalError {
-					return resource, handlers.WithResponses(
-						engineapi.RuleError(rule.Name, engineapi.Validation, decision.Message, nil, rule.ReportProperties),
-					)
-				}
-			case validating.ActionDeny:
-				return resource, handlers.WithResponses(
-					engineapi.RuleFail(rule.Name, engineapi.Validation, decision.Message, rule.ReportProperties),
-				)
-			}
-		}
-	}
-
-	msg := fmt.Sprintf("Validation rule '%s' passed.", rule.Name)
-	return resource, handlers.WithResponses(
-		engineapi.RulePass(rule.Name, engineapi.Validation, msg, rule.ReportProperties),
-	)
+	return processCELValidationResults(validationResults), nil
 }
