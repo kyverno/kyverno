@@ -505,12 +505,15 @@ func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.Gro
     wm.lock.Lock()
     defer wm.lock.Unlock()
 
-    wm.log.Info("Resource added", "name", obj.GetName())
-
     labels := obj.GetLabels()
-    if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp {
+    // Filter early — only process sync-enabled gpol downstreams.
+    // Log after the filter so unrelated events don't produce noise.
+    if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp ||
+        labels[common.GeneratePolicyLabel] == "" {
         return
     }
+
+    wm.log.Info("Resource added", "name", obj.GetName())
 
     watcher, exists := wm.dynamicWatchers[gvr]
     if !exists {
@@ -519,19 +522,32 @@ func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.Gro
 
     uid := obj.GetUID()
     if _, ok := watcher.metadataCache[uid]; ok {
+        // Already registered (first-time creation path via SyncWatchers). No-op.
         return
     }
 
+    // Look for a stale entry from before this resource was deleted and recreated.
+    // Only register the new UID if we actually evict an old one — this preserves
+    // the invariant: in cache ⟺ sync-enabled downstream tracked by SyncWatchers.
+    matched := false
     for oldUID, cached := range watcher.metadataCache {
         if cached.Name == obj.GetName() &&
             cached.Namespace == obj.GetNamespace() &&
-            cached.Labels[common.GeneratePolicyLabel] == labels[common.GeneratePolicyLabel] {
+            cached.Labels[common.GeneratePolicyLabel] != "" &&
+            cached.Labels[common.GeneratePolicyLabel] == labels[common.GeneratePolicyLabel] &&
+            cached.Labels[common.GeneratePolicyNamespaceLabel] == labels[common.GeneratePolicyNamespaceLabel] {
             delete(watcher.metadataCache, oldUID)
+            matched = true
             break
         }
     }
+    if !matched {
+        // Not a recreation of a tracked resource; first-time registration
+        // is owned by SyncWatchers. Leave the cache untouched.
+        return
+    }
 
-	watcher.metadataCache[uid] = Resource{
+    watcher.metadataCache[uid] = Resource{
         Name:      obj.GetName(),
         Namespace: obj.GetNamespace(),
         Labels:    labels,
@@ -690,5 +706,5 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				}
 			}
 		}
-	}	
+	}
 }
