@@ -56,10 +56,14 @@ func NewProvider(
 		if err != nil {
 			return nil, err
 		}
-		for _, autogen := range generated {
+		for config, generatedPolicy := range generated {
 			autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
-			*autogenPolicy.GetValidatingPolicySpec() = *autogen.Spec
-			compiled, errs := compiler.Compile(autogenPolicy, matchedExceptions)
+			*autogenPolicy.GetValidatingPolicySpec() = *generatedPolicy.Spec
+			rewrittenExceptions, err := autogen.RewriteExceptions(matchedExceptions, config)
+			if err != nil {
+				return nil, err
+			}
+			compiled, errs := compiler.Compile(autogenPolicy, rewrittenExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", autogenPolicy.GetName(), errs.ToAggregate())
 			}
