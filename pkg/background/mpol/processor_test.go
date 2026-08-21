@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
@@ -170,6 +171,80 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 	err := p.Process(ur)
 
 	assert.NoError(t, err)
+}
+
+func TestProcess_RuleErrorStatusMarksURFailed(t *testing.T) {
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMapList"}, &unstructured.UnstructuredList{})
+	cm := &unstructured.Unstructured{}
+	cm.SetAPIVersion("v1")
+	cm.SetKind("ConfigMap")
+	cm.SetNamespace("default")
+	cm.SetName("target-cm")
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+	}
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, cm)
+	assert.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	policy := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "bgpol"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+						Rule: admissionregistrationv1alpha1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}},
+			},
+		},
+	}
+	kyvernoClient := fake.NewSimpleClientset(policy)
+
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	restMapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+
+	eng := &fakeEngine{}
+	eng.On("Evaluate").Return(mpolengine.EngineResponse{
+		Policies: []mpolengine.MutatingPolicyResponse{{
+			Policy: policy,
+			Rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("evaluation", engineapi.Mutation, "failed to evaluate policy", errors.New("cel boom"), nil),
+			},
+		}},
+	}, nil)
+
+	sc := &fakeStatusControl{}
+	p := NewProcessor(
+		fakeClient,
+		kyvernoClient,
+		eng,
+		restMapper,
+		&libs.FakeContextProvider{},
+		sc,
+		event.NewFake(),
+		nil,
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-rule-error", Namespace: "default"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "bgpol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{},
+			},
+		},
+	}
+
+	assert.NoError(t, p.Process(ur))
+	assert.True(t, sc.failedCalled, "UR should be marked Failed when rule status is Error")
+	assert.False(t, sc.successCalled, "UR should not be marked Completed when rule status is Error")
 }
 
 func TestProcess_FilteredTargetSkipsEngine(t *testing.T) {
