@@ -25,6 +25,7 @@ import (
 // +kubebuilder:printcolumn:name="VERIFY IMAGES",type=integer,JSONPath=`.status.rulecount.verifyimages`,priority=1
 // +kubebuilder:printcolumn:name="MESSAGE",type=string,JSONPath=`.status.conditions[?(@.type == "Ready")].message`
 // +kubebuilder:resource:shortName=pol,categories=kyverno
+// +kubebuilder:deprecatedversion:warning="kyverno.io/v2beta1 Policy is deprecated; use kyverno.io/v1"
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
 // See: https://kyverno.io/docs/writing-policies/ for more information.

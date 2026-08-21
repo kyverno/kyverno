@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: validate-csr
@@ -25,7 +25,8 @@ spec:
               operator: NotEquals
               value: "angela"
 ---
-apiVersion: kyverno.io/v2beta1
+
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: mutate-csr

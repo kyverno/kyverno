@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: deprecated-clusterpolicy
+spec:
+  validationFailureAction: Audit
+  rules:
+  - name: check-labels
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "label 'team' is required"
+      pattern:
+        metadata:
+          labels:
+            team: "?*"

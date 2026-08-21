@@ -25,6 +25,7 @@ import (
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -186,6 +187,10 @@ var loaderDelegate = sync.OnceValues(func() (resourceloader.Loader, error) {
 	return factory, err
 })
 
+// WarningsAsErrors turns deprecation warnings emitted while loading policies
+// into errors. It is controlled by the --warnings-as-errors CLI flag.
+var WarningsAsErrors bool
+
 func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) {
 	documents, err := extyaml.SplitDocuments(content)
 	if err != nil {
@@ -198,6 +203,17 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 	}
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
+		if gvk.Kind != "" && gvk.Group != "" {
+			if warning := deprecations.APIVersionWarning(gvk); warning != "" {
+				fmt.Fprintf(os.Stderr, "Warning: %s: %s\n", path, warning)
+				if WarningsAsErrors {
+					return nil, fmt.Errorf("%s: %w", path, deprecations.ErrDeprecated)
+				}
+			}
+			if err := warnPolicyFieldDeprecations(path, gvk, &untyped); err != nil {
+				return nil, err
+			}
+		}
 		if err != nil {
 			// Check if this is a List object and handle it explicitly
 			if gvk.Kind == "List" && gvk.Version == "v1" {
@@ -221,6 +237,43 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		}
 	}
 	return results, nil
+}
+
+// warnPolicyFieldDeprecations emits warnings for deprecated fields in the spec
+// of a legacy kyverno.io ClusterPolicy/Policy (e.g. spec.validationFailureAction,
+// spec.webhookTimeoutSeconds, spec.failurePolicy). It mirrors the field-level
+// deprecation checks performed by the admission webhook so that kubectl-kyverno
+// surfaces them offline as well, not just in-cluster. PolicyException, cleanup
+// policies and the CEL-based types use different specs and have no deprecated
+// fields covered by deprecations.CheckPolicy.
+func warnPolicyFieldDeprecations(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured) error {
+	if gvk.Group != kyvernov1.GroupVersion.Group {
+		return nil
+	}
+	var spec *kyvernov1.Spec
+	switch gvk.Kind {
+	case "ClusterPolicy":
+		typed, err := convert.To[kyvernov1.ClusterPolicy](*untyped)
+		if err != nil {
+			return nil
+		}
+		spec = &typed.Spec
+	case "Policy":
+		typed, err := convert.To[kyvernov1.Policy](*untyped)
+		if err != nil {
+			return nil
+		}
+		spec = &typed.Spec
+	default:
+		return nil
+	}
+	for _, w := range deprecations.CheckPolicy(spec) {
+		fmt.Fprintf(os.Stderr, "Warning: %s: %s\n", path, w.Message)
+		if WarningsAsErrors {
+			return fmt.Errorf("%s: %w", path, deprecations.ErrDeprecated)
+		}
+	}
+	return nil
 }
 
 // handleListItems processes a v1.List object by extracting and processing its items

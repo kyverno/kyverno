@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	yamlutils "github.com/kyverno/kyverno/ext/yaml"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
@@ -27,6 +28,10 @@ var (
 	celExceptionV1       = schema.GroupVersion(policiesv1.GroupVersion).WithKind("PolicyException")
 )
 
+// WarningsAsErrors turns deprecation warnings emitted while loading exceptions
+// into errors. It is controlled by the --warnings-as-errors CLI flag.
+var WarningsAsErrors bool
+
 type LoaderResults struct {
 	Exceptions    []*kyvernov2.PolicyException
 	CELExceptions []*policiesv1beta1.PolicyException
@@ -39,7 +44,7 @@ func Load(paths ...string) (*LoaderResults, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to read yaml (%w)", err)
 		}
-		results, err := load(bytes)
+		results, err := load(path, bytes)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load exceptions (%w)", err)
 		}
@@ -49,7 +54,7 @@ func Load(paths ...string) (*LoaderResults, error) {
 	return loaderResults, nil
 }
 
-func load(content []byte) (*LoaderResults, error) {
+func load(path string, content []byte) (*LoaderResults, error) {
 	results := &LoaderResults{}
 	documents, err := yamlutils.SplitDocuments(content)
 	if err != nil {
@@ -67,6 +72,14 @@ func load(content []byte) (*LoaderResults, error) {
 
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
+		if gvk.Kind != "" && gvk.Group != "" {
+			if warning := deprecations.APIVersionWarning(gvk); warning != "" {
+				fmt.Fprintf(os.Stderr, "Warning: %s: %s\n", path, warning)
+				if WarningsAsErrors {
+					return nil, fmt.Errorf("%s: %w", path, deprecations.ErrDeprecated)
+				}
+			}
+		}
 		if err != nil {
 			return nil, err
 		}

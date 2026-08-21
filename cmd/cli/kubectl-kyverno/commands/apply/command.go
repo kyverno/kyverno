@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -43,6 +44,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	deprecationspkg "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -1137,12 +1139,15 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.Load(fs, "", policyYaml)
-				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-					for _, err := range loaderResults.NonFatalErrors {
-						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
+				if loaderResults != nil {
+					for _, ne := range loaderResults.NonFatalErrors {
+						log.Log.Error(ne.Error, "Non-fatal parsing error for single document")
 					}
 				}
 				if err != nil {
+					if errors.Is(err, deprecationspkg.ErrDeprecated) {
+						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+					}
 					continue
 				}
 				policies = append(policies, loaderResults.Policies...)
@@ -1163,12 +1168,15 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			}
 		} else {
 			loaderResults, err := policy.Load(nil, "", path)
-			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-				for _, err := range loaderResults.NonFatalErrors {
-					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
+			if loaderResults != nil {
+				for _, ne := range loaderResults.NonFatalErrors {
+					log.Log.Error(ne.Error, "Non-fatal parsing error for single document")
 				}
 			}
 			if err != nil {
+				if errors.Is(err, deprecationspkg.ErrDeprecated) {
+					return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+				}
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
 				policies = append(policies, loaderResults.Policies...)

@@ -1,4 +1,4 @@
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: cpol-nosync-clone
@@ -35,6 +35,7 @@ spec:
         namespace: default
         name: mytestcm
 ---
+
 apiVersion: v1
 data:
   foo: YmFy
@@ -44,6 +45,7 @@ metadata:
   namespace: default
 type: Opaque
 ---
+
 apiVersion: v1
 data:
   color: yellow

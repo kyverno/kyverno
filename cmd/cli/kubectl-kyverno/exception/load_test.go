@@ -51,7 +51,7 @@ func Test_load(t *testing.T) {
 			bytes, err := os.ReadFile(tt.policies)
 			require.NoError(t, err)
 			require.NoError(t, err)
-			if res, err := load(bytes); (err != nil) != tt.wantErr {
+			if res, err := load(tt.policies, bytes); (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 			} else if res != nil {
 				if len(res.Exceptions) != tt.exceptionsLoaded {

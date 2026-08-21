@@ -1,0 +1,13 @@
+apiVersion: kyverno.io/v2beta1
+kind: CleanupPolicy
+metadata:
+  name: deprecated-cleanuppolicy
+  namespace: test
+spec:
+  schedule: "*/1 * * * *"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        name: cleanup-pod-1

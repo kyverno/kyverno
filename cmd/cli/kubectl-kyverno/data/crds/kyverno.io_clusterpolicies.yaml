@@ -10357,6 +10357,8 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 ClusterPolicy is deprecated; use kyverno.io/v1
     name: v2beta1
     schema:
       openAPIV3Schema:
