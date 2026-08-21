@@ -68,6 +68,13 @@ func shouldUseSignedTimestamps(ignoreTlog, useSignedTimestamps bool, trustedMate
 	return ignoreTlog && !useSignedTimestamps && trustedMaterial != nil
 }
 
+// ignoreTlog reports whether the attestor is configured to skip transparency
+// log / SCT verification, e.g. for keyed/KMS attestors used in air-gapped
+// setups that have no public Rekor instance to verify a bundle against.
+func ignoreTlog(cosignAttestor *policiesv1beta1.Cosign) bool {
+	return cosignAttestor.CTLog != nil && (cosignAttestor.CTLog.InsecureIgnoreTlog || cosignAttestor.CTLog.InsecureIgnoreSCT)
+}
+
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1beta1.Attestor) error {
 	if attestor.Cosign == nil {
 		return fmt.Errorf("cosign verifier only supports cosign attestor")
@@ -103,8 +110,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		ignoreTlog := attestor.Cosign.CTLog != nil && (attestor.Cosign.CTLog.InsecureIgnoreTlog || attestor.Cosign.CTLog.InsecureIgnoreSCT)
-		if !ignoreTlog {
+		if !ignoreTlog(attestor.Cosign) {
 			err := fmt.Errorf("transparency log or timestamp verification failed")
 			logger.Error(err, "image verification failed")
 			return err
@@ -159,9 +165,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
-		err := fmt.Errorf("cosign bundle verification failed")
-		logger.Error(err, "image verification failed")
-		return err
+		if !ignoreTlog(attestor.Cosign) {
+			err := fmt.Errorf("cosign bundle verification failed")
+			logger.Error(err, "image verification failed")
+			return err
+		}
 	}
 
 	checkedTypes := []string{}
