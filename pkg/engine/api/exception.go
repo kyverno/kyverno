@@ -48,7 +48,7 @@ func (p *genericException) GetKind() string {
 	case p.PolicyException != nil:
 		return "PolicyException"
 	case p.CELPolicyException != nil:
-		return "CELPolicyException"
+		return "PolicyException"
 	}
 	return ""
 }
