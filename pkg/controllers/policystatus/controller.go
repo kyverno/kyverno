@@ -395,6 +395,11 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 	var matchConstraints admissionregistrationv1.MatchResources
 	status := &policiesv1beta1.ConditionStatus{}
 	backgroundOnly := false
+	// vapGenerated is true once a ValidatingAdmissionPolicy has been generated for
+	// this policy. Admission is then enforced by the generated VAP rather than
+	// Kyverno's own webhook, and the policy is deliberately no longer registered
+	// there, so Kyverno's webhook state must not gate its readiness.
+	vapGenerated := false
 	// backgroundEnabled gates the reports-controller RBAC permission check below:
 	// get/list/watch on the matched resources is only needed for background
 	// scanning, so an admission-only policy must not be marked not-ready for
@@ -418,16 +423,24 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsValidatingPolicy().GetSpec().BackgroundEnabled()
 		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
+		vapGenerated = policy.AsValidatingPolicy().GetStatus().Generated
 		status = &policy.AsValidatingPolicy().GetStatus().ConditionStatus
 	case webhook.NamespacedValidatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedValidatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsNamespacedValidatingPolicy().GetSpec().BackgroundEnabled()
 		backgroundOnly = (!policy.AsNamespacedValidatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
+		vapGenerated = policy.AsNamespacedValidatingPolicy().GetStatus().Generated
 		status = &policy.AsNamespacedValidatingPolicy().GetStatus().ConditionStatus
 	}
 
-	if !backgroundOnly {
+	if vapGenerated {
+		// explicitly mark the condition satisfied (rather than merely skipping the
+		// check) so a condition left over as False from before the VAP was
+		// generated - or before this recorder key was last recorded - gets
+		// corrected instead of sticking around stale.
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Admission is enforced by the generated ValidatingAdmissionPolicy.")
+	} else if !backgroundOnly {
 		if ready, ok := c.polStateRecorder.Ready(key); ready {
 			status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "Webhook configured.")
 		} else if ok {
