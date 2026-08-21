@@ -245,6 +245,14 @@ func Test_ExecuteServiceCall_AllowlistRejectsRedirectToOtherHost(t *testing.T) {
 	assert.Assert(t, !sinkHit)
 }
 
+func Test_ExecuteServiceCall_BlocksIPv4MappedMetadataByDefault(t *testing.T) {
+	toggle.HTTPBlocklist.Reset()
+	resetSharedServiceHTTP()
+
+	_, err := testExecutor().Execute(context.Background(), getServiceCall("http://[::ffff:169.254.169.254]/latest/meta-data/"))
+	assert.ErrorContains(t, err, "blocked")
+}
+
 func Test_ProxyAwareDestinationCheck_BlocksProxiedRequestToBlockedCIDR(t *testing.T) {
 	policy, err := newEgressPolicy([]string{"127.0.0.0/8", "::1/128", "169.254.0.0/16"}, nil)
 	assert.NilError(t, err)
