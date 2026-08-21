@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -51,7 +52,7 @@ func (m *mockConfiguration) ToFilter(kind schema.GroupVersionKind, subresource, 
 func newTestAdmissionRequest(uid string, kind metav1.GroupVersionKind, operation admissionv1.Operation, subResource string) AdmissionRequest {
 	return AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
-			UID:       "test-uid",
+			UID:       types.UID(uid),
 			Kind:      kind,
 			Operation: operation,
 			Resource: metav1.GroupVersionResource{
