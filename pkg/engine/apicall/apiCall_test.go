@@ -395,6 +395,33 @@ func Test_CrossNamespaceAccess_WithVariableSubstitution(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+// The JMESPath used to transform the API response is substituted before
+// use. A JMESPath template that resolves to a non-string (a number, bool,
+// map, or slice) used to panic on the unguarded assertion in
+// transformAndStore instead of returning an error.
+func Test_transformAndStore_WithNonStringJMESPathSubstitution(t *testing.T) {
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			APICall: kyvernov1.APICall{
+				URLPath: "/resource",
+				Method:  "GET",
+			},
+			JMESPath: "{{ pathVar }}",
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+	assert.NilError(t, ctx.AddContextEntry("pathVar", []byte(`123`)))
+	client := &mockClient{}
+
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+
+	_, err = call.Store([]byte(`{}`))
+	assert.ErrorContains(t, err, "invalid JMESPath")
+	assert.ErrorContains(t, err, "test")
+}
+
 func Test_contextCancellation(t *testing.T) {
 	// Server that delays response longer than our context timeout
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
