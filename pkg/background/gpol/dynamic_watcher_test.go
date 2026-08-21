@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
 )
 
 type mockRESTMapper struct {
@@ -1223,30 +1224,85 @@ func (f *fullMockClient) DeleteResource(_ context.Context, _, _, _, _ string, _ 
 }
 
 func TestHandleAdd(t *testing.T) {
+	cmGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+
+	kyvernoLabels := func(policy string) map[string]string {
+		return map[string]string{
+			kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+			common.GeneratePolicyLabel: policy,
+		}
+	}
+
 	tests := []struct {
-		name    string
-		objName string
-		gvr     schema.GroupVersionResource
-		wantMsg string
+		name           string
+		cacheUIDs      map[types.UID]string // uid → resource name in cache before call
+		obj            *unstructured.Unstructured
+		wantCacheUIDs  []types.UID // UIDs that must be present after call
+		wantAbsentUIDs []types.UID // UIDs that must be gone after call
+		wantCacheSize  int
 	}{
 		{
-			name:    "simple add",
-			objName: "test-object",
-			gvr:     schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
-			wantMsg: "Resource added name=test-object",
+			name: "non-kyverno resource is ignored",
+			cacheUIDs: map[types.UID]string{},
+			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", map[string]string{"unrelated": "label"}),
+			wantCacheSize: 0,
+		},
+		{
+			name: "already registered UID is not double-inserted",
+			cacheUIDs: map[types.UID]string{"existing-uid": "cm"},
+			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "existing-uid", kyvernoLabels("p1")),
+			wantCacheUIDs: []types.UID{"existing-uid"},
+			wantCacheSize: 1,
+		},
+		{
+			name: "recreated resource: new UID registered, old dead UID removed",
+			cacheUIDs: map[types.UID]string{"old-uid": "cm"},
+			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", kyvernoLabels("p1")),
+			wantCacheUIDs:  []types.UID{"new-uid"},
+			wantAbsentUIDs: []types.UID{"old-uid"},
+			wantCacheSize:  1,
+		},
+		{
+			name: "different policy's resource with same name is not evicted",
+			cacheUIDs: map[types.UID]string{"other-policy-uid": "cm"},
+			obj:  makeUnstructured("", "", "v1", "ConfigMap", "cm", "default", "new-uid", kyvernoLabels("p2")),
+			wantCacheUIDs: []types.UID{"other-policy-uid", "new-uid"},
+			wantCacheSize: 2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wm := &WatchManager{
-				log: logging.GlobalLogger(),
+			// build metadataCache from the name map
+			cache := map[types.UID]Resource{}
+			for uid, name := range tt.cacheUIDs {
+				obj := makeUnstructured("", "", "v1", "ConfigMap", name, "default", uid, kyvernoLabels("p1"))
+				cache[uid] = Resource{
+					Name:      name,
+					Namespace: "default",
+					Labels:    obj.GetLabels(),
+					Data:      obj,
+				}
 			}
 
-			obj := &unstructured.Unstructured{}
-			obj.SetName(tt.objName)
+			wm := &WatchManager{
+				log: logging.WithName("test"),
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					cmGVR: {metadataCache: cache},
+				},
+			}
 
-			wm.handleAdd(obj, tt.gvr)
+			wm.handleAdd(tt.obj, cmGVR)
+
+			assert.Equal(t, tt.wantCacheSize, len(cache))
+			for _, uid := range tt.wantCacheUIDs {
+				_, ok := cache[uid]
+				assert.True(t, ok, "expected UID %s to be in cache", uid)
+			}
+			for _, uid := range tt.wantAbsentUIDs {
+				_, ok := cache[uid]
+				assert.False(t, ok, "expected UID %s to be absent from cache", uid)
+			}
 		})
 	}
 }
