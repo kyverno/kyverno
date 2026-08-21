@@ -24,6 +24,7 @@ var PSS_container_level_control = []string{
 	"Host Ports",
 	"/proc Mount Type",
 	"Privilege Escalation",
+	"Host Probes / Lifecycle Hooks",
 }
 
 // Translate PSS control to CheckResult.ID so that we can use PSS control in Kyverno policy
@@ -52,6 +53,10 @@ var PSS_control_name_to_ids = map[string][]string{
 	},
 	"/proc Mount Type": {
 		"procMount",
+	},
+	// Added to the Pod Security Standards in Kubernetes v1.34.
+	"Host Probes / Lifecycle Hooks": {
+		"hostProbesAndHostLifecycle",
 	},
 
 	// Container and pod-level controls
@@ -115,6 +120,36 @@ func PSSControlIDToName(id string) string {
 	return pss_control_id_to_name[id]
 }
 
+// hostProbeAndLifecycleRestrictedFields lists the fields the Host Probes / Lifecycle Hooks control
+// restricts: the host of every probe and lifecycle handler, for each kind of container. They are
+// generated rather than spelled out because the same two handler shapes repeat for every probe and
+// hook. See https://kubernetes.io/docs/concepts/security/pod-security-standards/
+func hostProbeAndLifecycleRestrictedFields() []RestrictedField {
+	containerTypes := []string{"containers", "initContainers", "ephemeralContainers"}
+	handlers := []string{
+		"livenessProbe",
+		"readinessProbe",
+		"startupProbe",
+		"lifecycle.postStart",
+		"lifecycle.preStop",
+	}
+	fields := make([]RestrictedField, 0, len(containerTypes)*len(handlers)*2)
+	for _, containerType := range containerTypes {
+		for _, handler := range handlers {
+			for _, probeType := range []string{"httpGet", "tcpSocket"} {
+				fields = append(fields, RestrictedField{
+					Path: "spec." + containerType + "[*]." + handler + "." + probeType + ".host",
+					AllowedValues: []interface{}{
+						nil,
+						"",
+					},
+				})
+			}
+		}
+	}
+	return fields
+}
+
 var PSS_controls = map[string][]RestrictedField{
 	// Control name as key, same as ID field in CheckResult
 
@@ -170,6 +205,9 @@ var PSS_controls = map[string][]RestrictedField{
 			},
 		},
 	},
+	// Host is forbidden in probes and lifecycle handlers since Kubernetes v1.34. The same handler
+	// shape (httpGet, tcpSocket) is checked for each probe and for both lifecycle hooks.
+	"hostProbesAndHostLifecycle": hostProbeAndLifecycleRestrictedFields(),
 	"procMount": {
 		{
 			Path: "spec.containers[*].securityContext.procMount",
