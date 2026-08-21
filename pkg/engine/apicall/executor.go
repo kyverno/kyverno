@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -345,13 +346,15 @@ func (p *egressPolicy) allowed(u *url.URL) bool {
 }
 
 func pathAllowed(reqPath, entryPath string) bool {
-	if entryPath == "" || entryPath == "/" || reqPath == entryPath {
+	if entryPath == "" || entryPath == "/" {
 		return true
 	}
-	if !strings.HasPrefix(reqPath, entryPath) {
-		return false
+	entryPath = path.Clean(entryPath)
+	reqPath = path.Clean("/" + reqPath)
+	if reqPath == entryPath {
+		return true
 	}
-	return strings.HasSuffix(entryPath, "/") || (len(reqPath) > len(entryPath) && reqPath[len(entryPath)] == '/')
+	return strings.HasPrefix(reqPath, entryPath) && len(reqPath) > len(entryPath) && reqPath[len(entryPath)] == '/'
 }
 
 func (p *egressPolicy) validateHostCIDRs(ctx context.Context, host string) error {

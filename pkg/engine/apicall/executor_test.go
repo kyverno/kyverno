@@ -218,6 +218,27 @@ func Test_ExecuteServiceCall_AllowlistRejectsOtherHosts(t *testing.T) {
 	assert.ErrorContains(t, err, "not permitted")
 }
 
+func Test_ExecuteServiceCall_AllowlistRejectsPathTraversal(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	assert.NilError(t, toggle.HTTPAllowlist.Parse(srv.URL+"/v1/"))
+	t.Cleanup(func() {
+		toggle.HTTPAllowlist.Reset()
+		resetSharedServiceHTTP()
+	})
+
+	_, err := testExecutor().Execute(context.Background(), getServiceCall(srv.URL+"/v1/../admin"))
+	assert.ErrorContains(t, err, "not permitted")
+
+	_, err = testExecutor().Execute(context.Background(), getServiceCall(srv.URL+"/v1/%2e%2e/admin"))
+	assert.ErrorContains(t, err, "not permitted")
+}
+
 func Test_ExecuteServiceCall_AllowlistRejectsRedirectToOtherHost(t *testing.T) {
 	withEmptyEgressBlocklist(t)
 
