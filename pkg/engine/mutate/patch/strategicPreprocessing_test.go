@@ -958,6 +958,60 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 				}
 			  }`),
 		},
+		{
+			// regression test: two distinct conditional-anchor elements in the
+			// same list must both survive `deleteConditionElements`. Before the
+			// fix, `deleteAnchorsInList` deleted by index from a stale element
+			// snapshot, so the second deletion shifted onto the wrong element
+			// and silently dropped one of the concretized containers.
+			rawPolicy: []byte(`{
+				"spec": {
+				  "containers": [
+					{
+					  "(name)": "app",
+					  "imagePullPolicy": "Always"
+					},
+					{
+					  "(name)": "sidecar",
+					  "imagePullPolicy": "IfNotPresent"
+					}
+				  ]
+				}
+			  }`),
+			rawResource: []byte(`{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": {
+				  "name": "mypod"
+				},
+				"spec": {
+				  "containers": [
+					{
+					  "name": "app",
+					  "image": "app:v1"
+					},
+					{
+					  "name": "sidecar",
+					  "image": "proxy:v1"
+					}
+				  ]
+				}
+			  }`),
+			expectedPatch: []byte(`{
+				"spec": {
+				  "containers": [
+					{
+					  "name": "app",
+					  "imagePullPolicy": "Always"
+					},
+					{
+					  "name": "sidecar",
+					  "imagePullPolicy": "IfNotPresent"
+					}
+				  ]
+				}
+			  }`),
+		},
 	}
 
 	for i, test := range testCases {
@@ -1138,6 +1192,42 @@ func Test_deleteRNode(t *testing.T) {
 	elements, err = list.Elements()
 	assert.NilError(t, err)
 	assert.Equal(t, len(elements), 2)
+}
+
+// Test_deleteAnchorsInList_indexShift is a regression test: deleting two or
+// more anchored elements from the same list must not shift indices onto
+// elements that have not been visited yet.
+func Test_deleteAnchorsInList_indexShift(t *testing.T) {
+	patternRaw := []byte(`{
+		"list": [
+			{
+				"(name)": "a",
+				"image": "x"
+			},
+			{
+				"(name)": "b",
+				"image": "y"
+			},
+			{
+				"name": "c",
+				"image": "z"
+			}
+		]
+	}`)
+
+	pattern := yaml.MustParse(string(patternRaw))
+	list := pattern.Field("list").Value
+
+	_, err := deleteAnchorsInList(list, false)
+	assert.NilError(t, err)
+
+	elements, err := list.Elements()
+	assert.NilError(t, err)
+	assert.Equal(t, len(elements), 1)
+
+	output, err := elements[0].MarshalJSON()
+	assert.NilError(t, err)
+	assert.DeepEqual(t, toJSON(t, output), toJSON(t, []byte(`{"name":"c","image":"z"}`)))
 }
 
 func Test_DeleteConditions(t *testing.T) {
