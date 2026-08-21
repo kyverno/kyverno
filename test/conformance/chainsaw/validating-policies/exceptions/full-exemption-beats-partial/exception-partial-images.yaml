@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: partial-images
+spec:
+  policyRefs:
+    - name: restrict-images
+      kind: ValidatingPolicy
+  images:
+    - "nginx:*"
+  matchConditions:
+    - name: match-pod
+      expression: "object.metadata.name == 'test-pod'"
