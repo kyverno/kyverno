@@ -426,11 +426,19 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 				return nil, fmt.Errorf("connection to %s blocked: resolved IP %s falls in blocked range %s", addr, ip, cidr)
 			}
 		}
+		var lastErr error
 		for _, ipStr := range ips {
 			if net.ParseIP(ipStr) == nil {
 				continue
 			}
-			return base.DialContext(ctx, network, net.JoinHostPort(ipStr, port))
+			conn, err := base.DialContext(ctx, network, net.JoinHostPort(ipStr, port))
+			if err == nil {
+				return conn, nil
+			}
+			lastErr = err
+		}
+		if lastErr != nil {
+			return nil, lastErr
 		}
 		return nil, fmt.Errorf("no usable addresses resolved for %s", host)
 	}
