@@ -198,6 +198,13 @@ func Test_ExecuteServiceCall_BlocksLoopbackByDefault(t *testing.T) {
 	assert.Assert(t, !gotHit)
 }
 
+func Test_NewEgressPolicy_BareIPIsHostname(t *testing.T) {
+	p, err := newEgressPolicy([]string{"169.254.169.254", "169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, len(p.blockedCIDRs), 1)
+	assert.Equal(t, len(p.blockedHosts), 1)
+}
+
 func Test_ExecuteServiceCall_BlocksMetadataHostByDefault(t *testing.T) {
 	toggle.HTTPBlocklist.Reset()
 	resetSharedServiceHTTP()

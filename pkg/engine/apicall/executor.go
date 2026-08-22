@@ -288,11 +288,7 @@ func newEgressPolicy(blocklist, allowlist []string) (*egressPolicy, error) {
 			continue
 		}
 		if !strings.Contains(entry, "/") {
-			if ip := net.ParseIP(entry); ip != nil {
-				p.blockedCIDRs = append(p.blockedCIDRs, ipToCIDR(ip))
-			} else {
-				p.blockedHosts[hostKey(entry)] = struct{}{}
-			}
+			p.blockedHosts[hostKey(entry)] = struct{}{}
 			continue
 		}
 		_, ipNet, err := net.ParseCIDR(entry)
@@ -442,13 +438,6 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 		}
 		return nil, fmt.Errorf("no usable addresses resolved for %s", host)
 	}
-}
-
-func ipToCIDR(ip net.IP) *net.IPNet {
-	if v4 := ip.To4(); v4 != nil {
-		return &net.IPNet{IP: v4, Mask: net.CIDRMask(32, 32)}
-	}
-	return &net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)}
 }
 
 func hostKey(h string) string {

@@ -7,8 +7,8 @@ import (
 )
 
 var defaultPolicyHTTPBlocklist = []string{
-	"169.254.169.254",          // AWS/GCP/Azure metadata service
-	"169.254.169.253",          // GCP metadata service alternate
+	"169.254.169.254/32",       // AWS/GCP/Azure metadata service
+	"169.254.169.253/32",       // GCP metadata service alternate
 	"metadata.google.internal", // GCP metadata service hostname
 	"127.0.0.0/8",              // IPv4 loopback
 	"::1/128",                  // IPv6 loopback
