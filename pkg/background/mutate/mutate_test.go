@@ -176,9 +176,10 @@ func conflictErr(name string) error {
 	return apierrors.NewConflict(schema.GroupResource{Resource: "configmaps"}, name, errors.New("the object has been modified"))
 }
 
-// A conflict must reach the caller so it can recompute and retry, rather than
-// being collected as a terminal error or reported as a failure.
-func TestApplyMutations_ConflictIsReturnedNotCollected(t *testing.T) {
+// A conflict must reach the caller so it can recompute and retry, and must also be
+// carried in the results so that a conflict which outlives the retries is reported
+// rather than only logged.
+func TestApplyMutations_ConflictIsReturnedAndCarried(t *testing.T) {
 	t.Parallel()
 
 	target := targetConfigMap()
@@ -188,9 +189,60 @@ func TestApplyMutations_ConflictIsReturnedNotCollected(t *testing.T) {
 	reports, errs, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(target))
 
 	assert.True(t, apierrors.IsConflict(conflict), "conflict must be returned to the caller")
-	assert.Empty(t, errs, "a conflict is retryable and must not be collected as an error")
-	assert.Empty(t, reports, "a conflict must not be reported before the retry settles")
+	assert.Len(t, errs, 1, "the conflict must be carried in case the retries are exhausted")
+	assert.Len(t, reports, 1, "the conflicting target must be reportable")
+	assert.True(t, apierrors.IsConflict(reports[0].err))
 	assert.Equal(t, 1, *updates)
+}
+
+// The caller keeps only the final attempt's results, so once the retries are
+// exhausted the conflict is surfaced as a terminal error and a report instead of
+// disappearing into the log.
+func TestApplyMutations_ExhaustedRetriesAreReportable(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	client, updates := newTargetClient(target, 100, conflictErr(target.GetName()))
+	c := &mutateExistingController{client: client}
+
+	var reports []targetMutation
+	var errs []error
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var conflict error
+		reports, errs, conflict = c.applyMutations(logr.Discard(), "register", mutationResponse(target))
+		return conflict
+	})
+
+	assert.True(t, apierrors.IsConflict(err), "the retries must give up with the conflict")
+	assert.Len(t, errs, 1, "the final attempt carries the conflict as a terminal error")
+	assert.Len(t, reports, 1, "the final attempt carries a report so the failure is not log-only")
+	assert.True(t, apierrors.IsConflict(reports[0].err))
+	assert.Greater(t, *updates, 1, "every attempt recomputes and retries the update")
+}
+
+// A conflict on a later target must not discard outcomes already collected for
+// earlier targets in the same attempt.
+func TestApplyMutations_EarlierTargetOutcomesSurviveAConflict(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	client, _ := newTargetClient(target, 1, conflictErr(target.GetName()))
+	c := &mutateExistingController{client: client}
+
+	// Two rule responses: the first update succeeds, the second conflicts.
+	first := engineapi.RuleError("earlier", engineapi.Mutation, "earlier target failed", errors.New("earlier"), nil).
+		WithPatchedTarget(target.DeepCopy(), metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "")
+	second := engineapi.RulePass("register", engineapi.Mutation, "", nil).
+		WithPatchedTarget(target.DeepCopy(), metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "")
+	var pr engineapi.PolicyResponse
+	pr.Add(engineapi.ExecutionStats{}, *first, *second)
+	er := engineapi.EngineResponse{}.WithPolicyResponse(pr)
+
+	reports, errs, conflict := c.applyMutations(logr.Discard(), "register", er)
+
+	assert.True(t, apierrors.IsConflict(conflict))
+	assert.Len(t, errs, 2, "the earlier target's error must survive the later conflict")
+	assert.Len(t, reports, 2)
 }
 
 // The mutation is recomputed on every attempt. Replaying the previously computed
