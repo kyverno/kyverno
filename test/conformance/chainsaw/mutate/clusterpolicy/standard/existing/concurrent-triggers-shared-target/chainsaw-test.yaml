@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: concurrent-triggers-shared-target
+spec:
+  concurrent: false
+  steps:
+  - name: step-01
+    try:
+    - apply:
+        file: namespace.yaml
+  - name: step-02
+    try:
+    - apply:
+        file: target.yaml
+  - name: step-03
+    try:
+    - apply:
+        file: triggers.yaml
+  - name: create policy
+    use:
+      template: ../../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: register-triggers-on-shared-target
+  - name: step-04
+    try:
+    - assert:
+        file: assert-target.yaml

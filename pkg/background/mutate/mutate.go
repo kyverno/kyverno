@@ -21,10 +21,12 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 )
 
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
@@ -165,64 +167,108 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			policyContext = policyContext.WithResourceKind(gvk, admissionRequest.SubResource)
 		}
 
-		er := c.engine.Mutate(context.TODO(), policyContext)
+		// A conflict means another writer changed the target between the read and the
+		// update. The mutation is recomputed rather than replayed, because a patch may
+		// be derived from the target's current content: re-sending it against a newer
+		// resourceVersion would overwrite the other writer instead of merging with it.
+		var er engineapi.EngineResponse
+		var applyErrs []error
+		var reports []targetMutation
+		conflictErr := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			var conflict error
+			er = c.engine.Mutate(context.TODO(), policyContext)
+			reports, applyErrs, conflict = c.applyMutations(logger, rule.Name, er)
+			return conflict
+		})
+
 		if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
 			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
 		}
-		for _, r := range er.PolicyResponse.Rules {
-			patched, parentGVR, patchedSubresource := r.PatchedTarget()
-			switch r.Status() {
-			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.Error(err, "")
-				errs = append(errs, err)
-				c.report(err, policy, rule.Name, patched)
 
-			case engineapi.RuleStatusSkip:
-				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.V(4).Info(err.Error())
-
-			case engineapi.RuleStatusPass:
-				patchedNew := patched
-				if patchedNew == nil {
-					logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
-					errs = append(errs, ErrEmptyPatch)
-					continue
-				}
-
-				patchedNew.SetResourceVersion(patched.GetResourceVersion())
-				var updateErr error
-				if patchedSubresource == "status" {
-					_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-				} else if patchedSubresource != "" {
-					parentResourceGVR := parentGVR
-					parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
-					parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
-					if err != nil {
-						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR.String())
-						errs = append(errs, err)
-						continue
-					}
-					_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
-				} else {
-					_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-				}
-				if updateErr != nil {
-					errs = append(errs, updateErr)
-					logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-				} else {
-					logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-				}
-
-				c.report(updateErr, policy, rule.Name, patched)
-			}
+		if conflictErr != nil {
+			logger.WithName(rule.Name).Error(conflictErr, "failed to update target resource")
+			errs = append(errs, conflictErr)
+		}
+		errs = append(errs, applyErrs...)
+		for _, r := range reports {
+			c.report(r.err, policy, rule.Name, r.target)
 		}
 	}
 
 	err = multierr.Combine(errs...)
 	return updateURStatus(c.statusControl, *ur, err)
+}
+
+// targetMutation is the outcome of applying one rule response to its target
+// resource, held until the enclosing retry settles so a retried attempt does not
+// emit duplicate events.
+type targetMutation struct {
+	err    error
+	target *unstructured.Unstructured
+}
+
+// applyMutations applies every rule response in er to its target resource. A
+// conflict is returned to the caller instead of being collected, so the caller
+// can recompute the mutation against the latest version of the target and try
+// again; every other outcome is collected and reported once.
+func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName string, er engineapi.EngineResponse) (reports []targetMutation, errs []error, conflict error) {
+	for _, r := range er.PolicyResponse.Rules {
+		patched, parentGVR, patchedSubresource := r.PatchedTarget()
+		switch r.Status() {
+		case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
+			err := fmt.Errorf("failed to mutate existing resource, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
+			logger.Error(err, "")
+			errs = append(errs, err)
+			reports = append(reports, targetMutation{err: err, target: patched})
+
+		case engineapi.RuleStatusSkip:
+			err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
+			logger.V(4).Info(err.Error())
+
+		case engineapi.RuleStatusPass:
+			patchedNew := patched
+			if patchedNew == nil {
+				logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
+				errs = append(errs, ErrEmptyPatch)
+				continue
+			}
+
+			patchedNew.SetResourceVersion(patched.GetResourceVersion())
+			var updateErr error
+			if patchedSubresource == "status" {
+				_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+			} else if patchedSubresource != "" {
+				parentResourceGVR := parentGVR
+				parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
+				parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
+				if err != nil {
+					logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR.String())
+					errs = append(errs, err)
+					continue
+				}
+				_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
+			} else {
+				_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+			}
+
+			if apierrors.IsConflict(updateErr) {
+				logger.WithName(ruleName).V(3).Info("conflict updating target resource, recomputing the mutation and retrying",
+					"namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+				return nil, nil, updateErr
+			}
+
+			if updateErr != nil {
+				errs = append(errs, updateErr)
+				logger.WithName(ruleName).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+			} else {
+				logger.WithName(ruleName).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+			}
+			reports = append(reports, targetMutation{err: updateErr, target: patched})
+		}
+	}
+	return reports, errs, nil
 }
 
 func (c *mutateExistingController) getPolicy(ur *kyvernov2.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
