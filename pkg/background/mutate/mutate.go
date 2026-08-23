@@ -188,9 +188,10 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 		}
 
 		if conflictErr != nil {
-			logger.WithName(rule.Name).Error(conflictErr, "failed to update target resource")
-			errs = append(errs, conflictErr)
+			logger.WithName(rule.Name).Error(conflictErr, "failed to update target resource after retrying")
 		}
+		// applyErrs and reports come from the final attempt, so a conflict that
+		// outlived the retries is already carried in them.
 		errs = append(errs, applyErrs...)
 		for _, r := range reports {
 			c.report(r.err, policy, rule.Name, r.target)
@@ -256,7 +257,13 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 			if apierrors.IsConflict(updateErr) {
 				logger.WithName(ruleName).V(3).Info("conflict updating target resource, recomputing the mutation and retrying",
 					"namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-				return nil, nil, updateErr
+				// Carried, not discarded: the caller keeps only the final attempt's
+				// results, so a conflict that outlives the retries is reported like
+				// any other terminal failure, and outcomes for targets already
+				// applied in this attempt are not lost.
+				errs = append(errs, updateErr)
+				reports = append(reports, targetMutation{err: updateErr, target: patched})
+				return reports, errs, updateErr
 			}
 
 			if updateErr != nil {
