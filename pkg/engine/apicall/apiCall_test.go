@@ -79,6 +79,7 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 }
 
 func Test_serviceGetRequest(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	testfn := func(t *testing.T, useChunked bool) {
 		serverResponse := []byte(`{ "day": "Sunday" }`)
 		s := buildTestServer(serverResponse, useChunked)
@@ -141,6 +142,7 @@ func Test_serviceGetRequest(t *testing.T) {
 }
 
 func Test_servicePostRequest(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	serverResponse := []byte(`{ "day": "Monday" }`)
 	s := buildTestServer(serverResponse, false)
 	defer s.Close()
@@ -219,6 +221,7 @@ func Test_servicePostRequest(t *testing.T) {
 }
 
 func Test_fallbackToDefault(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	serverResponse := []byte(`Error from server (NotFound): the server could not find the requested resource`)
 	defaultResponse := []byte(`{ "day": "Monday" }`)
 	s := buildTestServer(serverResponse, false)
@@ -275,6 +278,7 @@ func buildEchoHeaderTestServer() *httptest.Server {
 }
 
 func Test_serviceHeaders(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	s := buildEchoHeaderTestServer()
 	defer s.Close()
 
@@ -396,6 +400,7 @@ func Test_CrossNamespaceAccess_WithVariableSubstitution(t *testing.T) {
 }
 
 func Test_contextCancellation(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	// Server that delays response longer than our context timeout
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
