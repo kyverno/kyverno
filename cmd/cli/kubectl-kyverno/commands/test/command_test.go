@@ -966,6 +966,44 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	require.True(t, found, "expected engine response for policy set-annotations-for-widget")
 }
 
+func TestRunTest_MutatingPolicySubresourceMatch(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-pod-binding-subresource")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	// A resourceRule of "pods/binding" only matches when the engine request
+	// carries the "binding" subresource. Before the fix, the CLI always sent
+	// an empty subresource for MutatingPolicies, so matchConstraints never
+	// matched and no rule (nor mutation) was produced for the trigger.
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() != "mutate-add-aws-zone-id" {
+				continue
+			}
+			found = true
+			require.NotEmpty(t, r.PolicyResponse.Rules, "expected the pods/binding matchConstraints rule to match and produce a rule response")
+			annotations := r.PatchedResource.GetAnnotations()
+			require.Equal(t, "test-az", annotations["pod-topology.k8s.aws/zone-id"], "expected the mutation to be applied to the binding resource")
+		}
+	}
+	require.True(t, found, "expected engine response for policy mutate-add-aws-zone-id")
+}
+
 func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
