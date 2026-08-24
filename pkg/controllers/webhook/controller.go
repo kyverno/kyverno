@@ -1070,6 +1070,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			ObjectSelector:          w.ObjectSelector,
 			Rules:                   sortedRules(deDuplicatedRules(w.Rules)),
 			MatchConditions:         w.MatchConditions,
+			MatchPolicy:             w.MatchPolicy,
 			TimeoutSeconds:          w.TimeoutSeconds,
 			ReinvocationPolicy:      &ifNeeded,
 		})

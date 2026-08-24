@@ -15,8 +15,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func TestBuildForJSONPoliciesMutationSetsReinvocationPolicy(t *testing.T) {
+func TestBuildForJSONPoliciesMutationPreservesWebhookConfiguration(t *testing.T) {
 	mpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	matchPolicy := admissionregistrationv1.Exact
 	policy := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-mpol",
@@ -24,6 +25,7 @@ func TestBuildForJSONPoliciesMutationSetsReinvocationPolicy(t *testing.T) {
 		Spec: policiesv1beta1.MutatingPolicySpec{
 			ReinvocationPolicy: admissionregistrationv1.IfNeededReinvocationPolicy,
 			MatchConstraints: &admissionregistrationv1.MatchResources{
+				MatchPolicy: &matchPolicy,
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
 						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
@@ -71,7 +73,9 @@ func TestBuildForJSONPoliciesMutationSetsReinvocationPolicy(t *testing.T) {
 	require.NoError(t, err)
 	var mpolWebhook *admissionregistrationv1.MutatingWebhook
 	for i := range result.Webhooks {
-		if result.Webhooks[i].Name == config.MutatingPolicyWebhookName+"-fail" {
+		if mpolWebhook == nil && result.Webhooks[i].ClientConfig.Service != nil &&
+			result.Webhooks[i].ClientConfig.Service.Path != nil &&
+			*result.Webhooks[i].ClientConfig.Service.Path == "/mpol/test-mpol" {
 			mpolWebhook = &result.Webhooks[i]
 			break
 		}
@@ -79,4 +83,6 @@ func TestBuildForJSONPoliciesMutationSetsReinvocationPolicy(t *testing.T) {
 	require.NotNil(t, mpolWebhook, "MutatingPolicy webhook should be generated")
 	require.NotNil(t, mpolWebhook.ReinvocationPolicy, "MutatingPolicy webhook must set reinvocationPolicy")
 	require.Equal(t, admissionregistrationv1.IfNeededReinvocationPolicy, *mpolWebhook.ReinvocationPolicy)
+	require.NotNil(t, mpolWebhook.MatchPolicy, "MutatingPolicy webhook must preserve matchPolicy")
+	require.Equal(t, admissionregistrationv1.Exact, *mpolWebhook.MatchPolicy)
 }
