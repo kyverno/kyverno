@@ -1071,6 +1071,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			Rules:                   sortedRules(deDuplicatedRules(w.Rules)),
 			MatchConditions:         w.MatchConditions,
 			TimeoutSeconds:          w.TimeoutSeconds,
+			ReinvocationPolicy:      &ifNeeded,
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
