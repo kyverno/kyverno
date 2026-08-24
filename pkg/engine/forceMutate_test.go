@@ -386,3 +386,121 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 
 	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
 }
+
+func Test_ForceMutate_AnyAll_Kinds(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "add-label-any-all"
+	},
+	"spec": {
+		"rules": [
+			{
+				"name": "match-any-pod",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"mutate": {
+					"patchStrategicMerge": {
+						"metadata": {
+							"labels": {
+								"matched-any": "true"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "match-all-pod",
+				"match": {
+					"all": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"mutate": {
+					"patchStrategicMerge": {
+						"metadata": {
+							"labels": {
+								"matched-all": "true"
+							}
+						}
+					}
+				}
+			},
+			{
+				"name": "match-none",
+				"match": {
+					"all": [
+						{
+							"resources": {
+								"kinds": [
+									"Deployment"
+								]
+							}
+						}
+					]
+				},
+				"mutate": {
+					"patchStrategicMerge": {
+						"metadata": {
+							"labels": {
+								"matched-none": "true"
+							}
+						}
+					}
+				}
+			}
+		]
+	}
+}
+`)
+
+	rawResource := []byte(`
+{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod"
+	}
+}
+`)
+
+	expectedRawResource := []byte(`
+	{"apiVersion":"v1","kind":"Pod","metadata":{"labels":{"matched-all":"true","matched-any":"true"},"name":"test-pod"}}
+	`)
+
+	var expectedResource interface{}
+	assert.NilError(t, json.Unmarshal(expectedRawResource, &expectedResource))
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	ctx := context.NewContext(jp)
+	err = context.AddResource(ctx, rawResource)
+	assert.NilError(t, err)
+
+	mutatedResource, err := ForceMutate(ctx, logr.Discard(), &policy, *resourceUnstructured)
+	assert.NilError(t, err)
+
+	assert.DeepEqual(t, expectedResource, mutatedResource.UnstructuredContent())
+}
