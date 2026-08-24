@@ -19,6 +19,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -254,15 +255,27 @@ func proxyAwareDestinationCheck(policy *egressPolicy, base func(*http.Request) (
 			return proxyURL, err
 		}
 		host := req.URL.Hostname()
-		if net.ParseIP(host) == nil {
-			// A hostname destination is resolved again by the proxy, so a
-			// pre-flight resolution here can be bypassed via DNS rebinding:
-			// the address checked against the blocklist is not necessarily
-			// the one the proxy connects to. Fail closed instead of
-			// forwarding an unpinnable destination.
-			return nil, fmt.Errorf("connection to %s via proxy %s blocked: hostname destinations cannot be validated against the HTTP blocklist when using a proxy; use an IP address destination or exclude the host via NO_PROXY", req.URL.Host, proxyURL.Host)
-		}
+		// With a proxy in use, DialContext only ever sees the proxy address, so the
+		// blocklist has to be applied to the real destination here.
+		//
+		// The proxy resolves a hostname destination again, so unlike the direct-dial
+		// path this check is not pinned to the address the connection ends up using: a
+		// DNS rebinding window remains. That is accepted, because refusing every
+		// proxied hostname breaks egress setups that work today, and because the
+		// hostname blocklist and the allowlist both still apply.
 		if err := policy.validateHostCIDRs(req.Context(), host); err != nil {
+			if errors.Is(err, errHostUnresolvable) && len(policy.allowedPrefixes) > 0 {
+				// Proxied egress commonly cannot resolve external names in-pod, since
+				// that is the proxy's job. Allowing an unresolvable destination through
+				// is safe only when an allowlist is configured, because every request
+				// that reaches here has already been matched against it by validateURL
+				// (on the initial URL, and again on each redirect hop).
+				egressLogger().V(2).Info("proxied destination is not resolvable in-pod, skipping blocked CIDR check", "host", host, "proxy", proxyURL.Host, "reason", err.Error())
+				return proxyURL, nil
+			}
+			if errors.Is(err, errHostUnresolvable) {
+				return nil, fmt.Errorf("connection to %s via proxy %s blocked: the destination cannot be resolved in-pod, so it cannot be checked against the HTTP blocklist; use an IP address destination, exclude the host via NO_PROXY, or permit it explicitly with --httpAllowlist: %w", req.URL.Host, proxyURL.Host, err)
+			}
 			return nil, err
 		}
 		return proxyURL, nil
@@ -281,6 +294,20 @@ func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, er
 	}
 
 	return buffer, nil
+}
+
+// errHostUnresolvable marks a destination that could not be resolved in-pod, so that
+// callers can tell "resolution failed" apart from "the destination is blocked".
+var errHostUnresolvable = errors.New("destination is not resolvable")
+
+// lookupHost resolves a hostname. It is a variable so tests can force a specific answer
+// or failure; resolution is not deterministic across platforms and CI environments.
+var lookupHost = net.DefaultResolver.LookupHost
+
+// egressLogger builds the logger lazily. A package-level logger would be created before
+// logging.Setup runs and would discard everything written to it.
+func egressLogger() logr.Logger {
+	return logging.WithName("apicall-egress")
 }
 
 type egressPolicy struct {
@@ -366,59 +393,110 @@ func (p *egressPolicy) validateHostCIDRs(ctx context.Context, host string) error
 	if host == "" || len(p.blockedCIDRs) == 0 {
 		return nil
 	}
-	blockedIP := func(ip net.IP) *net.IPNet {
-		for _, cidr := range p.blockedCIDRs {
-			if cidr.Contains(ip) {
-				return cidr
-			}
-		}
-		return nil
-	}
 	if ip := net.ParseIP(host); ip != nil {
-		if cidr := blockedIP(ip); cidr != nil {
+		if cidr := p.blockedCIDR(ip); cidr != nil {
 			return fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", host, ip, cidr)
 		}
 		return nil
 	}
-	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	ips, err := lookupHost(ctx, host)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s: %w", host, err)
+		return fmt.Errorf("%w: failed to resolve %s: %w", errHostUnresolvable, host, err)
 	}
 	for _, ipStr := range ips {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
 			continue
 		}
-		if cidr := blockedIP(ip); cidr != nil {
-			return fmt.Errorf("connection to %s blocked: resolved IP %s falls in blocked range %s", host, ip, cidr)
+		if cidr := p.blockedCIDR(ip); cidr != nil {
+			// The resolved address is deliberately left out of the error. It reaches the
+			// caller through the admission denial, PolicyReports and Events, which would
+			// turn a denial into an oracle for how an arbitrary name resolves from the
+			// controller. The blocked range is operator-supplied, so naming it is safe.
+			egressLogger().V(2).Info("blocked connection to resolved address", "host", host, "ip", ip.String(), "range", cidr.String())
+			return fmt.Errorf("connection to %s blocked: it resolves into blocked range %s", host, cidr)
 		}
 	}
 	return nil
 }
 
-func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
-	blocked := p.blockedCIDRs
-	base := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
-	blockedIP := func(ip net.IP) *net.IPNet {
-		for _, cidr := range blocked {
-			if cidr.Contains(ip) {
+// blockedCIDR returns the blocked range containing ip, or nil when there is none.
+//
+// net.IPNet.Contains normalizes IPv4-mapped IPv6 addresses through To4, so an IPv4 CIDR
+// such as 169.254.169.254/32 already covers ::ffff:169.254.169.254. Three other IPv6
+// spellings carry an IPv4 address that To4 does not recognise, so the embedded address is
+// checked as a second candidate.
+func (p *egressPolicy) blockedCIDR(ip net.IP) *net.IPNet {
+	for _, candidate := range [2]net.IP{ip, embeddedIPv4(ip)} {
+		if candidate == nil {
+			continue
+		}
+		for _, cidr := range p.blockedCIDRs {
+			if cidr.Contains(candidate) {
 				return cidr
 			}
 		}
+	}
+	return nil
+}
+
+// embeddedIPv4 extracts the IPv4 address carried by an IPv6 address in a form that
+// net.IP.To4 does not recognise: IPv4-compatible (::a.b.c.d), the NAT64 well-known prefix
+// (64:ff9b::a.b.c.d), and 6to4 (2002:aabb:ccdd::). It returns nil when the address carries
+// no embedded IPv4 address, or when To4 already handles it.
+//
+// Each of these is a distinct spelling of an address that an IPv4 CIDR on the blocklist is
+// meant to cover. Without normalization, 64:ff9b::a9fe:a9fe reaches the metadata service
+// even though 169.254.169.254/32 is blocked. NAT64 is the form that matters in practice,
+// because it is standard in IPv6-only clusters; the other two are deprecated and need
+// specific routing, so they are defense in depth.
+//
+// The IPv4-compatible branch also matches low IPv6 addresses that were never meant as an
+// IPv4 encoding: ::1 yields 0.0.0.1, for example. That only ever widens the blocklist into
+// reserved space, so it is left as is.
+func embeddedIPv4(ip net.IP) net.IP {
+	if ip.To4() != nil || len(ip.To16()) != net.IPv6len {
 		return nil
 	}
+	ip = ip.To16()
+	isZero := func(b []byte) bool {
+		for _, c := range b {
+			if c != 0 {
+				return false
+			}
+		}
+		return true
+	}
+	// ::a.b.c.d — IPv4-compatible IPv6 (RFC 4291).
+	if isZero(ip[:12]) {
+		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
+	}
+	// 64:ff9b::a.b.c.d — NAT64 well-known prefix (RFC 6052).
+	if ip[0] == 0x00 && ip[1] == 0x64 && ip[2] == 0xff && ip[3] == 0x9b && isZero(ip[4:12]) {
+		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
+	}
+	// 2002:aabb:ccdd::/48 — 6to4 (RFC 3056), which carries the IPv4 address in bytes 2-5
+	// rather than at the end. 2002:a9fe:a9fe:: is 169.254.169.254.
+	if ip[0] == 0x20 && ip[1] == 0x02 {
+		return net.IPv4(ip[2], ip[3], ip[4], ip[5])
+	}
+	return nil
+}
+
+func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
+	base := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
 		}
 		if ip := net.ParseIP(host); ip != nil {
-			if cidr := blockedIP(ip); cidr != nil {
+			if cidr := p.blockedCIDR(ip); cidr != nil {
 				return nil, fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", addr, ip, cidr)
 			}
 			return base.DialContext(ctx, network, addr)
 		}
-		ips, err := net.DefaultResolver.LookupHost(ctx, host)
+		ips, err := lookupHost(ctx, host)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve %s: %w", host, err)
 		}
@@ -427,8 +505,11 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 			if ip == nil {
 				continue
 			}
-			if cidr := blockedIP(ip); cidr != nil {
-				return nil, fmt.Errorf("connection to %s blocked: resolved IP %s falls in blocked range %s", addr, ip, cidr)
+			if cidr := p.blockedCIDR(ip); cidr != nil {
+				// See validateHostCIDRs: the resolved address stays out of the error so
+				// the denial does not act as a DNS resolution oracle.
+				egressLogger().V(2).Info("blocked connection to resolved address", "addr", addr, "ip", ip.String(), "range", cidr.String())
+				return nil, fmt.Errorf("connection to %s blocked: %s resolves into blocked range %s", addr, host, cidr)
 			}
 		}
 		var lastErr error

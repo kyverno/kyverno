@@ -5,9 +5,11 @@ import (
 	"encoding/pem"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -411,7 +413,28 @@ func Test_ExecuteServiceCall_CABundle_AllowlistRejectsRedirectToOtherHost(t *tes
 	assert.Assert(t, !sinkHit)
 }
 
-func Test_ProxyAwareDestinationCheck_RejectsHostnameDestination(t *testing.T) {
+// withStubResolver replaces the resolver seam for the duration of a test. Resolution of
+// a real name is not deterministic across platforms, and the unresolvable branch has to
+// be exercised without depending on the CI environment's DNS.
+func withStubResolver(t *testing.T, fn func(ctx context.Context, host string) ([]string, error)) {
+	t.Helper()
+	original := lookupHost
+	lookupHost = fn
+	t.Cleanup(func() { lookupHost = original })
+}
+
+func resolvesTo(ips ...string) func(context.Context, string) ([]string, error) {
+	return func(context.Context, string) ([]string, error) { return ips, nil }
+}
+
+func resolutionFails() func(context.Context, string) ([]string, error) {
+	return func(_ context.Context, host string) ([]string, error) {
+		return nil, &net.DNSError{Err: "server misbehaving", Name: host}
+	}
+}
+
+func Test_ProxyAwareDestinationCheck_RejectsHostnameResolvingIntoBlockedRange(t *testing.T) {
+	withStubResolver(t, resolvesTo("169.254.169.254"))
 	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
 	assert.NilError(t, err)
 	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
@@ -419,8 +442,172 @@ func Test_ProxyAwareDestinationCheck_RejectsHostnameDestination(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "http://internal.example.com/latest", nil)
 	got, err := check(req)
-	assert.ErrorContains(t, err, "hostname destinations cannot be validated")
+	assert.ErrorContains(t, err, "blocked range")
 	assert.Assert(t, got == nil)
+}
+
+func Test_ProxyAwareDestinationCheck_AllowsHostnameResolvingOutsideBlockedRanges(t *testing.T) {
+	withStubResolver(t, resolvesTo("93.184.216.34"))
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return proxy, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://api.example.com/v1", nil)
+	got, err := check(req)
+	assert.NilError(t, err)
+	assert.Equal(t, got, proxy)
+}
+
+// An unresolvable destination is a policy decision, not a config error: without an
+// allowlist there is no way to check where the proxy will actually connect, so the
+// request fails closed.
+func Test_ProxyAwareDestinationCheck_RejectsUnresolvableHostnameWithoutAllowlist(t *testing.T) {
+	withStubResolver(t, resolutionFails())
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return proxy, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://internal.example.com/latest", nil)
+	got, err := check(req)
+	assert.ErrorContains(t, err, "cannot be resolved in-pod")
+	assert.ErrorContains(t, err, "--httpAllowlist")
+	assert.Assert(t, got == nil)
+}
+
+// Proxied egress commonly cannot resolve external names in-pod. An allowlist is the
+// operator's opt-in for those destinations: validateURL has already matched the URL
+// against it before the request reaches the proxy function.
+func Test_ProxyAwareDestinationCheck_AllowsUnresolvableHostnameWithAllowlist(t *testing.T) {
+	withStubResolver(t, resolutionFails())
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, []string{"http://internal.example.com"})
+	assert.NilError(t, err)
+	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return proxy, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://internal.example.com/latest", nil)
+	got, err := check(req)
+	assert.NilError(t, err)
+	assert.Equal(t, got, proxy)
+}
+
+// An allowlist must not excuse a destination that resolves into a blocked range; only
+// the unresolvable case is opted back in.
+func Test_ProxyAwareDestinationCheck_AllowlistDoesNotExcuseBlockedRange(t *testing.T) {
+	withStubResolver(t, resolvesTo("169.254.169.254"))
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, []string{"http://internal.example.com"})
+	assert.NilError(t, err)
+	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return proxy, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://internal.example.com/latest", nil)
+	got, err := check(req)
+	assert.ErrorContains(t, err, "blocked range")
+	assert.Assert(t, got == nil)
+}
+
+// Every IPv6 spelling of an IPv4 metadata address must be caught by the shipped default
+// blocklist. Only ::ffff: is normalized by net.IPNet.Contains itself.
+func Test_ExecuteServiceCall_BlocksEmbeddedIPv4EncodingsByDefault(t *testing.T) {
+	for _, tc := range []struct {
+		host string
+		desc string
+	}{
+		{"[::ffff:169.254.169.254]", "IPv4-mapped"},
+		{"[::169.254.169.254]", "IPv4-compatible"},
+		{"[64:ff9b::169.254.169.254]", "NAT64 well-known prefix"},
+		{"[2002:a9fe:a9fe::]", "6to4 of 169.254.169.254"},
+		{"[2002:7f00:1::]", "6to4 of 127.0.0.1"},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			toggle.HTTPBlocklist.Reset()
+			resetSharedServiceHTTP()
+
+			_, err := testExecutor().Execute(context.Background(), getServiceCall("http://"+tc.host+"/latest/meta-data/"))
+			assert.ErrorContains(t, err, "blocked")
+		})
+	}
+}
+
+// The AWS IMDS IPv6 endpoint needs no encoding trick, so it has to be on the default
+// blocklist in its own right.
+func Test_ExecuteServiceCall_BlocksIMDSIPv6EndpointByDefault(t *testing.T) {
+	toggle.HTTPBlocklist.Reset()
+	resetSharedServiceHTTP()
+
+	_, err := testExecutor().Execute(context.Background(), getServiceCall("http://[fd00:ec2::254]/latest/meta-data/"))
+	assert.ErrorContains(t, err, "blocked")
+}
+
+func Test_EmbeddedIPv4(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want string
+	}{
+		{"::169.254.169.254", "169.254.169.254"},
+		{"64:ff9b::169.254.169.254", "169.254.169.254"},
+		{"2002:a9fe:a9fe::", "169.254.169.254"},
+		{"2002:7f00:1::", "127.0.0.1"},
+		// To4 already handles these, so there is nothing to extract.
+		{"::ffff:169.254.169.254", ""},
+		{"169.254.169.254", ""},
+		// A plain IPv6 address must not be read as carrying an IPv4 address.
+		{"2001:db8::1", ""},
+		{"fd00:ec2::254", ""},
+	} {
+		t.Run(tc.in, func(t *testing.T) {
+			got := embeddedIPv4(net.ParseIP(tc.in))
+			if tc.want == "" {
+				assert.Assert(t, got == nil)
+				return
+			}
+			assert.Equal(t, got.String(), tc.want)
+		})
+	}
+}
+
+// A denial must not report how the name resolved: that message reaches the caller through
+// the admission response, PolicyReports and Events, and would otherwise act as a DNS
+// resolution oracle for the controller's vantage point.
+func Test_ValidateHostCIDRs_BlockedErrorDoesNotNameResolvedAddress(t *testing.T) {
+	withStubResolver(t, resolvesTo("127.0.0.1"))
+	policy, err := newEgressPolicy([]string{"127.0.0.0/8"}, nil)
+	assert.NilError(t, err)
+
+	err = policy.validateHostCIDRs(context.Background(), "internal.example.com")
+	assert.ErrorContains(t, err, "blocked range 127.0.0.0/8")
+	assert.Assert(t, !strings.Contains(err.Error(), "127.0.0.1"), "error must not reveal the resolved address: %v", err)
+}
+
+func Test_DialContext_BlockedErrorDoesNotNameResolvedAddress(t *testing.T) {
+	withStubResolver(t, resolvesTo("169.254.169.254"))
+	policy, err := newEgressPolicy([]string{"169.254.0.0/16"}, nil)
+	assert.NilError(t, err)
+
+	_, err = policy.dialContext()(context.Background(), "tcp", "internal.example.com:80")
+	assert.ErrorContains(t, err, "blocked range 169.254.0.0/16")
+	assert.Assert(t, !strings.Contains(err.Error(), "169.254.169.254"), "error must not reveal the resolved address: %v", err)
+}
+
+// A literal address supplied by the caller is not an oracle, so it stays in the message
+// where it helps an operator.
+func Test_ValidateHostCIDRs_LiteralAddressStaysInError(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"169.254.0.0/16"}, nil)
+	assert.NilError(t, err)
+
+	err = policy.validateHostCIDRs(context.Background(), "169.254.169.254")
+	assert.ErrorContains(t, err, "169.254.169.254")
+	assert.ErrorContains(t, err, "blocked range 169.254.0.0/16")
+}
+
+func Test_DialContext_BlocksHostnameResolvingToEmbeddedIPv4(t *testing.T) {
+	withStubResolver(t, resolvesTo("64:ff9b::a9fe:a9fe"))
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+
+	_, err = policy.dialContext()(context.Background(), "tcp", "rebind.example.com:80")
+	assert.ErrorContains(t, err, "blocked range 169.254.169.254/32")
 }
 
 func Test_ProxyAwareDestinationCheck_RejectsBlockedIPDestination(t *testing.T) {
