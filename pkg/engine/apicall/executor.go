@@ -498,13 +498,31 @@ func embeddedIPv4(ip net.IP) net.IP {
 	return nil
 }
 
+const (
+	// dialTimeout bounds resolution and every connection attempt together, the way
+	// net.Dialer's own Timeout does for a caller that hands it a hostname.
+	dialTimeout = 30 * time.Second
+	// fallbackDelay is the head start the preferred address family gets before the other
+	// one is tried in parallel (RFC 6555). It matches net.Dialer's default.
+	fallbackDelay = 300 * time.Millisecond
+)
+
 func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
-	base := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
+	// No per-attempt Timeout. The deadline below spans resolution and every attempt
+	// together; setting one here as well would let a host with many answers stretch the
+	// total to dialTimeout per address.
+	base := &net.Dialer{KeepAlive: 30 * time.Second}
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
 		}
+		// One deadline covering resolution and all connection attempts, which is what the
+		// stock dialer gives a caller. Without it, a name answering with many black-holed
+		// addresses holds an admission request for resolution plus dialTimeout per
+		// address. A shorter deadline already on ctx still wins.
+		ctx, cancel := context.WithTimeout(ctx, dialTimeout)
+		defer cancel()
 		if ip := net.ParseIP(host); ip != nil {
 			if cidr := p.blockedCIDR(ip); cidr != nil {
 				return nil, fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", addr, ip, cidr)
@@ -515,6 +533,7 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve %s: %w", host, err)
 		}
+		targets := make([]net.IP, 0, len(ips))
 		for _, ipStr := range ips {
 			ip := net.ParseIP(ipStr)
 			if ip == nil {
@@ -526,23 +545,115 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 				egressLogger().V(2).Info("blocked connection to resolved address", "addr", addr, "ip", ip.String(), "range", cidr.String())
 				return nil, fmt.Errorf("connection to %s blocked: %s resolves into blocked range %s", addr, host, cidr)
 			}
+			targets = append(targets, ip)
 		}
-		var lastErr error
-		for _, ipStr := range ips {
-			if net.ParseIP(ipStr) == nil {
-				continue
+		if len(targets) == 0 {
+			return nil, fmt.Errorf("no usable addresses resolved for %s", host)
+		}
+		// Every dial below targets an address that was just validated rather than the
+		// hostname, so a second resolution cannot substitute a different one (DNS
+		// rebinding).
+		//
+		// Split by family and race the two groups the way net.Dialer does, rather than
+		// walking one flat list. Trying every address of the preferred family first makes
+		// a dual-stack Service whose AAAA is present but not listening wait out the whole
+		// IPv6 side before reaching IPv4; the stock dialer starts the other family after
+		// fallbackDelay instead. lookupHost returns addresses in RFC 6724 preference
+		// order, so the first one names the preferred family.
+		preferIPv4 := targets[0].To4() != nil
+		var primary, fallback []net.IP
+		for _, ip := range targets {
+			if (ip.To4() != nil) == preferIPv4 {
+				primary = append(primary, ip)
+			} else {
+				fallback = append(fallback, ip)
 			}
-			conn, err := base.DialContext(ctx, network, net.JoinHostPort(ipStr, port))
-			if err == nil {
-				return conn, nil
-			}
-			lastErr = err
 		}
-		if lastErr != nil {
-			return nil, lastErr
+		if len(fallback) == 0 {
+			return dialSeries(ctx, base, network, port, primary)
 		}
-		return nil, fmt.Errorf("no usable addresses resolved for %s", host)
+		return dialRace(ctx, base, network, port, primary, fallback)
 	}
+}
+
+// dialSeries tries each address in turn and returns the first connection that succeeds.
+func dialSeries(ctx context.Context, d *net.Dialer, network, port string, ips []net.IP) (net.Conn, error) {
+	var lastErr error
+	for _, ip := range ips {
+		conn, err := d.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no addresses to dial")
+	}
+	return nil, lastErr
+}
+
+type dialOutcome struct {
+	conn      net.Conn
+	err       error
+	isPrimary bool
+}
+
+// dialRace runs the two address families concurrently, giving the preferred one a
+// fallbackDelay head start, and returns the first connection to succeed (RFC 6555).
+func dialRace(ctx context.Context, d *net.Dialer, network, port string, primary, fallback []net.IP) (net.Conn, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	// Cancelling on return tears down the losing attempt. A connection already returned is
+	// unaffected: net.Dialer does not tie a live conn to the dial context.
+	defer cancel()
+
+	// Buffered, so a loser that finishes after we have returned never blocks on send.
+	outcomes := make(chan dialOutcome, 2)
+	race := func(ips []net.IP, isPrimary bool, delay time.Duration) {
+		go func() {
+			if delay > 0 {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					outcomes <- dialOutcome{err: ctx.Err(), isPrimary: isPrimary}
+					return
+				}
+			}
+			conn, err := dialSeries(ctx, d, network, port, ips)
+			outcomes <- dialOutcome{conn: conn, err: err, isPrimary: isPrimary}
+		}()
+	}
+	race(primary, true, 0)
+	race(fallback, false, fallbackDelay)
+
+	var firstErr error
+	for i := 0; i < 2; i++ {
+		out := <-outcomes
+		if out.err == nil {
+			// Drain the sibling so a connection that lands after this point is closed
+			// rather than leaked.
+			if remaining := 1 - i; remaining > 0 {
+				go func(n int) {
+					for j := 0; j < n; j++ {
+						if late := <-outcomes; late.conn != nil {
+							late.conn.Close()
+						}
+					}
+				}(remaining)
+			}
+			return out.conn, nil
+		}
+		// Prefer the primary family's error: it describes the address the caller would
+		// have reached without this guard.
+		if firstErr == nil || out.isPrimary {
+			firstErr = out.err
+		}
+	}
+	return nil, firstErr
 }
 
 func hostKey(h string) string {

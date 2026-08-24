@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -655,4 +656,60 @@ func Test_UnresolvableHostError_SentinelIsNotUserVisible(t *testing.T) {
 
 	var dnsErr *net.DNSError
 	assert.Assert(t, errors.As(err, &dnsErr))
+}
+
+// A serial walk over the resolved addresses loses the RFC 6555 behaviour net.Dialer
+// provides: when the preferred family cannot be reached, the other one has to start after
+// a short delay rather than after the full dial timeout.
+func Test_DialContext_FallsBackToOtherAddressFamily(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	assert.NilError(t, err)
+	defer listener.Close()
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			conn.Close()
+		}
+	}()
+
+	_, port, err := net.SplitHostPort(listener.Addr().String())
+	assert.NilError(t, err)
+
+	// 2001:db8::/32 is the documentation range: it is not routed, so the IPv6 attempt
+	// either fails immediately or hangs, depending on the host's IPv6 configuration.
+	// Either way the IPv4 answer must still win.
+	withStubResolver(t, resolvesTo("2001:db8::1", "127.0.0.1"))
+
+	policy, err := newEgressPolicy([]string{"169.254.0.0/16"}, nil)
+	assert.NilError(t, err)
+
+	started := time.Now()
+	conn, err := policy.dialContext()(context.Background(), "tcp", net.JoinHostPort("dual.example.test", port))
+	assert.NilError(t, err, "the reachable address family must still be dialed")
+	defer conn.Close()
+
+	// Generous, because the point is only that it did not wait out dialTimeout.
+	assert.Assert(t, time.Since(started) < 5*time.Second)
+}
+
+// Resolution and every connection attempt share one deadline. Previously each address got
+// its own, so a name answering with many black-holed addresses could hold an admission
+// request for dialTimeout per address.
+func Test_DialContext_DeadlineIsSharedAcrossAttempts(t *testing.T) {
+	withStubResolver(t, resolvesTo("2001:db8::1", "2001:db8::2", "2001:db8::3", "2001:db8::4"))
+
+	policy, err := newEgressPolicy([]string{"169.254.0.0/16"}, nil)
+	assert.NilError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 750*time.Millisecond)
+	defer cancel()
+
+	started := time.Now()
+	_, err = policy.dialContext()(ctx, "tcp", "blackhole.example.test:80")
+	assert.Assert(t, err != nil)
+	// Four addresses; if each still had its own timeout this could not return this fast.
+	assert.Assert(t, time.Since(started) < 5*time.Second)
 }
