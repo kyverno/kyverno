@@ -423,3 +423,5 @@ require (
 )
 
 replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
+
+replace github.com/chrismellard/docker-credential-acr-env => github.com/Sashang-debug/docker-credential-acr-env v0.0.0-20260820212107-bca45df12346
