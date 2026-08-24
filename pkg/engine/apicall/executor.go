@@ -527,7 +527,7 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 			if cidr := p.blockedCIDR(ip); cidr != nil {
 				return nil, fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", addr, ip, cidr)
 			}
-			return base.DialContext(ctx, network, addr)
+			return dialTCP(ctx, base, network, addr)
 		}
 		ips, err := lookupHost(ctx, host)
 		if err != nil {
@@ -576,11 +576,19 @@ func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr str
 	}
 }
 
+// dialTCP performs one connection attempt. It is a variable so tests can observe the
+// context handed to each attempt, which is what proves the deadline above is shared rather
+// than per-address; a test that relies on unreachable addresses instead passes vacuously on
+// any host where those addresses fail fast.
+var dialTCP = func(ctx context.Context, d *net.Dialer, network, addr string) (net.Conn, error) {
+	return d.DialContext(ctx, network, addr)
+}
+
 // dialSeries tries each address in turn and returns the first connection that succeeds.
 func dialSeries(ctx context.Context, d *net.Dialer, network, port string, ips []net.IP) (net.Conn, error) {
 	var lastErr error
 	for _, ip := range ips {
-		conn, err := d.DialContext(ctx, network, net.JoinHostPort(ip.String(), port))
+		conn, err := dialTCP(ctx, d, network, net.JoinHostPort(ip.String(), port))
 		if err == nil {
 			return conn, nil
 		}

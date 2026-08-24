@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -695,21 +696,69 @@ func Test_DialContext_FallsBackToOtherAddressFamily(t *testing.T) {
 	assert.Assert(t, time.Since(started) < 5*time.Second)
 }
 
-// Resolution and every connection attempt share one deadline. Previously each address got
-// its own, so a name answering with many black-holed addresses could hold an admission
-// request for dialTimeout per address.
+// withStubDialer replaces the connection-attempt seam for the duration of a test.
+func withStubDialer(t *testing.T, fn func(ctx context.Context, d *net.Dialer, network, addr string) (net.Conn, error)) {
+	t.Helper()
+	original := dialTCP
+	dialTCP = fn
+	t.Cleanup(func() { dialTCP = original })
+}
+
+// Resolution and every connection attempt run under one deadline. Previously each address
+// carried its own, so a name answering with many black-holed addresses could hold an
+// admission request for dialTimeout per address.
+//
+// The assertion is on the context handed to each attempt, not on elapsed time. A timing
+// test would need addresses that hang rather than fail, and on any host without an IPv6
+// route the documentation range fails instantly, so such a test passes just as happily
+// against the per-address-timeout code it is meant to catch.
 func Test_DialContext_DeadlineIsSharedAcrossAttempts(t *testing.T) {
-	withStubResolver(t, resolvesTo("2001:db8::1", "2001:db8::2", "2001:db8::3", "2001:db8::4"))
+	// Same family throughout, so this exercises dialSeries rather than the race.
+	withStubResolver(t, resolvesTo("192.0.2.1", "192.0.2.2", "192.0.2.3", "192.0.2.4"))
+
+	var deadlines []time.Time
+	withStubDialer(t, func(ctx context.Context, _ *net.Dialer, _, addr string) (net.Conn, error) {
+		deadline, ok := ctx.Deadline()
+		assert.Assert(t, ok, "each attempt must run under a deadline, not an open-ended context")
+		deadlines = append(deadlines, deadline)
+		return nil, fmt.Errorf("refused %s", addr)
+	})
 
 	policy, err := newEgressPolicy([]string{"169.254.0.0/16"}, nil)
 	assert.NilError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 750*time.Millisecond)
+	before := time.Now()
+	_, err = policy.dialContext()(context.Background(), "tcp", "blackhole.example.test:80")
+	assert.Assert(t, err != nil)
+
+	assert.Equal(t, len(deadlines), 4, "every resolved address must be attempted")
+	for i, d := range deadlines {
+		assert.Assert(t, d.Sub(deadlines[0]).Abs() < time.Millisecond,
+			"attempt %d must share the first attempt's deadline, not start a new one", i)
+	}
+	// One dialTimeout from the start of the dial, not one per address.
+	assert.Assert(t, deadlines[0].Sub(before.Add(dialTimeout)).Abs() < time.Second)
+}
+
+// The shared deadline must not extend one the caller already set.
+func Test_DialContext_DeadlineRespectsShorterParent(t *testing.T) {
+	withStubResolver(t, resolvesTo("192.0.2.1"))
+
+	var got time.Time
+	withStubDialer(t, func(ctx context.Context, _ *net.Dialer, _, _ string) (net.Conn, error) {
+		got, _ = ctx.Deadline()
+		return nil, errors.New("refused")
+	})
+
+	policy, err := newEgressPolicy([]string{"169.254.0.0/16"}, nil)
+	assert.NilError(t, err)
+
+	parent := time.Now().Add(2 * time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), parent)
 	defer cancel()
 
-	started := time.Now()
 	_, err = policy.dialContext()(ctx, "tcp", "blackhole.example.test:80")
 	assert.Assert(t, err != nil)
-	// Four addresses; if each still had its own timeout this could not return this fast.
-	assert.Assert(t, time.Since(started) < 5*time.Second)
+	assert.Assert(t, got.Sub(parent).Abs() < 50*time.Millisecond,
+		"the caller's shorter deadline must win over dialTimeout")
 }
