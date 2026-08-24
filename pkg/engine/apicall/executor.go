@@ -253,7 +253,16 @@ func proxyAwareDestinationCheck(policy *egressPolicy, base func(*http.Request) (
 		if err != nil || proxyURL == nil {
 			return proxyURL, err
 		}
-		if err := policy.validateHostCIDRs(req.Context(), req.URL.Hostname()); err != nil {
+		host := req.URL.Hostname()
+		if net.ParseIP(host) == nil {
+			// A hostname destination is resolved again by the proxy, so a
+			// pre-flight resolution here can be bypassed via DNS rebinding:
+			// the address checked against the blocklist is not necessarily
+			// the one the proxy connects to. Fail closed instead of
+			// forwarding an unpinnable destination.
+			return nil, fmt.Errorf("connection to %s via proxy %s blocked: hostname destinations cannot be validated against the HTTP blocklist when using a proxy; use an IP address destination or exclude the host via NO_PROXY", req.URL.Host, proxyURL.Host)
+		}
+		if err := policy.validateHostCIDRs(req.Context(), host); err != nil {
 			return nil, err
 		}
 		return proxyURL, nil
