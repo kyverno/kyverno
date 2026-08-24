@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -143,10 +144,9 @@ func (e *engineImpl) generate(
 		genericpolex := make([]engineapi.GenericException, 0, len(exceptions))
 		keys := make([]string, 0, len(exceptions))
 
-		var (
-			highestPriority int
-			selectedIndex   int
-		)
+		highestPriority := math.MinInt
+		var selectedIndex int
+
 		for i, ex := range exceptions {
 			key, err := cache.MetaNamespaceKeyFunc(ex)
 			if err != nil {
@@ -163,11 +163,16 @@ func (e *engineImpl) generate(
 			genericpolex = append(genericpolex, engineapi.NewCELPolicyException(ex))
 
 			// evaluate exception priority from label
+			p := 0
 			if val, ok := ex.GetLabels()[reportutils.LabelPolicyExceptionPriority]; ok {
-				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
-					highestPriority = p
-					selectedIndex = i
+				if parsed, err := strconv.Atoi(val); err == nil {
+					p = parsed
 				}
+			}
+
+			if p > highestPriority {
+				highestPriority = p
+				selectedIndex = i
 			}
 		}
 		// determine final result based on highest-priority exception
