@@ -2,6 +2,7 @@ package apicall
 
 import (
 	"context"
+	"encoding/pem"
 	"errors"
 	"io"
 	"net/http"
@@ -341,4 +342,118 @@ func Test_ExecuteServiceCall_BlocklistRejectsRedirectToMetadataHost(t *testing.T
 
 	_, err := testExecutor().Execute(context.Background(), getServiceCall(src.URL))
 	assert.ErrorContains(t, err, "blocked")
+}
+
+func caBundlePEM(t *testing.T, srv *httptest.Server) string {
+	t.Helper()
+	cert := srv.Certificate()
+	assert.Assert(t, cert != nil)
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
+}
+
+func getServiceCallWithCA(url, caBundle string) *kyvernov1.APICall {
+	return &kyvernov1.APICall{Method: "GET", Service: &kyvernov1.ServiceCall{URL: url, CABundle: caBundle}}
+}
+
+func Test_ExecuteServiceCall_CABundle_Success(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	got, err := testExecutor().Execute(context.Background(), getServiceCallWithCA(srv.URL, caBundlePEM(t, srv)))
+	assert.NilError(t, err)
+	assert.Assert(t, got != nil)
+}
+
+func Test_ExecuteServiceCall_CABundle_BlocksLoopbackByDefault(t *testing.T) {
+	toggle.HTTPBlocklist.Reset()
+	resetSharedServiceHTTP()
+
+	var gotHit bool
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotHit = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	_, err := testExecutor().Execute(context.Background(), getServiceCallWithCA(srv.URL, caBundlePEM(t, srv)))
+	assert.ErrorContains(t, err, "blocked")
+	assert.Assert(t, !gotHit)
+}
+
+func Test_ExecuteServiceCall_CABundle_AllowlistRejectsRedirectToOtherHost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+
+	var sinkHit bool
+	sink := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sinkHit = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer sink.Close()
+
+	src := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, sink.URL, http.StatusFound)
+	}))
+	defer src.Close()
+
+	assert.NilError(t, toggle.HTTPAllowlist.Parse(src.URL))
+	t.Cleanup(func() {
+		toggle.HTTPAllowlist.Reset()
+		resetSharedServiceHTTP()
+	})
+
+	_, err := testExecutor().Execute(context.Background(), getServiceCallWithCA(src.URL, caBundlePEM(t, src)))
+	assert.ErrorContains(t, err, "not permitted")
+	assert.Assert(t, !sinkHit)
+}
+
+func Test_ProxyAwareDestinationCheck_RejectsHostnameDestination(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return proxy, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://internal.example.com/latest", nil)
+	got, err := check(req)
+	assert.ErrorContains(t, err, "hostname destinations cannot be validated")
+	assert.Assert(t, got == nil)
+}
+
+func Test_ProxyAwareDestinationCheck_RejectsBlockedIPDestination(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return proxy, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://169.254.169.254/latest", nil)
+	got, err := check(req)
+	assert.ErrorContains(t, err, "blocked")
+	assert.Assert(t, got == nil)
+}
+
+func Test_ProxyAwareDestinationCheck_AllowsPermittedIPDestination(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+	proxy := &url.URL{Scheme: "http", Host: "proxy.corp:3128"}
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return proxy, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://10.0.0.10/api", nil)
+	got, err := check(req)
+	assert.NilError(t, err)
+	assert.Equal(t, got, proxy)
+}
+
+func Test_ProxyAwareDestinationCheck_NoProxyPassesThrough(t *testing.T) {
+	policy, err := newEgressPolicy([]string{"169.254.169.254/32"}, nil)
+	assert.NilError(t, err)
+	check := proxyAwareDestinationCheck(policy, func(*http.Request) (*url.URL, error) { return nil, nil })
+
+	req := httptest.NewRequest(http.MethodGet, "http://internal.example.com/latest", nil)
+	got, err := check(req)
+	assert.NilError(t, err)
+	assert.Assert(t, got == nil)
 }
