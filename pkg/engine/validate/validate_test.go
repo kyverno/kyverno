@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -1759,5 +1760,176 @@ func testMatchPattern(t *testing.T, testCase struct {
 		assert.Assert(t, pe.Skip, fmt.Sprintf("\nexpected skip == true - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 	} else if testCase.status == engineapi.RuleStatusError {
 		assert.Assert(t, err == nil, fmt.Sprintf("\nexpected error - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
+	}
+}
+
+// TestPatternError_Unwrap guards the error chain that anchor classification
+// depends on. Anchor errors are aggregated into a *PatternError by validateMap,
+// validateArray and validateArrayOfMaps before being handed back to skip() and
+// fail(), so a *PatternError must stay transparent to errors.Is/errors.As.
+func TestPatternError_Unwrap(t *testing.T) {
+	inner := fmt.Errorf("inner")
+	pe := &PatternError{Err: inner, Path: "/spec/", Skip: true}
+
+	assert.Assert(t, errors.Is(pe, inner), "PatternError must unwrap to its cause")
+}
+
+// TestMatchPattern_AnchorClassificationThroughPatternError verifies end to end
+// that a conditional anchor mismatch nested in an array of maps is still
+// classified as a skip after travelling through the *PatternError aggregation
+// layer. This is the common case of selecting a container by name.
+func TestMatchPattern_AnchorClassificationThroughPatternError(t *testing.T) {
+	var pattern, resource interface{}
+	err := json.Unmarshal([]byte(`{"spec":{"containers":[{"(name)":"nginx","image":"nginx:latest"}]}}`), &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal([]byte(`{"spec":{"containers":[{"name":"redis","image":"redis:7"}]}}`), &resource)
+	assert.NilError(t, err)
+
+	err = MatchPattern(logr.Discard(), resource, pattern)
+	assert.Assert(t, err != nil)
+
+	pe, ok := err.(*PatternError)
+	assert.Assert(t, ok, "expected a *PatternError, got %T", err)
+	assert.Assert(t, pe.Skip, "conditional anchor mismatch must be reported as a skip")
+	assert.Assert(t, anchor.IsConditionalAnchorError(pe), "anchor type must survive PatternError aggregation")
+}
+
+// TestMatchPattern_ResourceValueMimickingAnchorMessage is the end to end
+// regression test for the removed strings.Contains classification. A resource
+// value that happens to contain an anchor error message must not change the
+// outcome of the rule: it is a plain mismatch, not a skip.
+func TestMatchPattern_ResourceValueMimickingAnchorMessage(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{
+		{name: "control", value: "intruder"},
+		{name: "conditional anchor message", value: "conditional anchor mismatch"},
+		{name: "global anchor message", value: "global anchor mismatch"},
+		{name: "negation anchor message", value: "negation anchor matched in resource"},
+		{name: "anchor message as substring", value: "x-conditional anchor mismatch-y"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pattern, resource interface{}
+			err := json.Unmarshal([]byte(`{"metadata":{"annotations":{"owner":"platform-team"}}}`), &pattern)
+			assert.NilError(t, err)
+			raw := fmt.Sprintf(`{"metadata":{"annotations":{"owner":%q}}}`, tt.value)
+			err = json.Unmarshal([]byte(raw), &resource)
+			assert.NilError(t, err)
+
+			err = MatchPattern(logr.Discard(), resource, pattern)
+			assert.Assert(t, err != nil, "expected a validation error")
+
+			pe, ok := err.(*PatternError)
+			assert.Assert(t, ok, "expected a *PatternError, got %T", err)
+			assert.Assert(t, !pe.Skip, "a plain value mismatch must not be reported as a skip")
+			assert.Equal(t, pe.Path, "/metadata/annotations/owner/")
+		})
+	}
+}
+
+// Test_negation_anchor covers end to end evaluation of the negation anchor.
+// fail() is the only consumer of anchor.IsNegationAnchorError, so this is the
+// path most affected by moving classification from message text to error type.
+// Assertions are explicit rather than routed through testMatchPattern, which
+// has no RuleStatusFail branch.
+func Test_negation_anchor(t *testing.T) {
+	tests := []struct {
+		name     string
+		pattern  string
+		resource string
+		wantPass bool
+	}{{
+		name:     "negated key absent, rule passes",
+		pattern:  `{"spec":{"X(hostNetwork)":"*"}}`,
+		resource: `{"spec":{"containers":[{"name":"a"}]}}`,
+		wantPass: true,
+	}, {
+		name:     "negated key present, rule fails",
+		pattern:  `{"spec":{"X(hostNetwork)":"*"}}`,
+		resource: `{"spec":{"hostNetwork":true}}`,
+		wantPass: false,
+	}, {
+		name:     "negated key absent in array of maps, rule passes",
+		pattern:  `{"spec":{"containers":[{"X(securityContext)":"*"}]}}`,
+		resource: `{"spec":{"containers":[{"name":"a"}]}}`,
+		wantPass: true,
+	}, {
+		name:     "negated key present in array of maps, rule fails",
+		pattern:  `{"spec":{"containers":[{"X(securityContext)":"*"}]}}`,
+		resource: `{"spec":{"containers":[{"name":"a","securityContext":{"privileged":true}}]}}`,
+		wantPass: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pattern, resource interface{}
+			err := json.Unmarshal([]byte(tt.pattern), &pattern)
+			assert.NilError(t, err)
+			err = json.Unmarshal([]byte(tt.resource), &resource)
+			assert.NilError(t, err)
+
+			err = MatchPattern(logr.Discard(), resource, pattern)
+			if tt.wantPass {
+				assert.NilError(t, err)
+				return
+			}
+
+			assert.Assert(t, err != nil, "expected the rule to fail")
+			pe, ok := err.(*PatternError)
+			assert.Assert(t, ok, "expected a *PatternError, got %T", err)
+			// a negation match is a rule failure, never a skip
+			assert.Assert(t, !pe.Skip, "negation anchor match must not be reported as a skip")
+			// and it must still be recognised as a negation anchor error
+			assert.Assert(t, anchor.IsNegationAnchorError(pe), "negation anchor error must survive propagation")
+			assert.Assert(t, !anchor.IsConditionalAnchorError(pe))
+			assert.Assert(t, !anchor.IsGlobalAnchorError(pe))
+		})
+	}
+}
+
+// Test_existence_anchor_nestedConditional guards the boundary in
+// validateExistenceListResource, which deliberately does not propagate the
+// per element errors it collected. If that aggregation ever became transparent
+// to errors.As, a nested conditional mismatch would leak out and turn an
+// existence anchor failure into a skip, silently disabling the rule.
+func Test_existence_anchor_nestedConditional(t *testing.T) {
+	tests := []struct {
+		name     string
+		resource string
+		wantPass bool
+	}{{
+		name:     "an element satisfies the existence anchor",
+		resource: `{"spec":{"containers":[{"name":"nginx","image":"nginx:latest"}]}}`,
+		wantPass: true,
+	}, {
+		name:     "no element satisfies the conditional anchor nested in the existence anchor",
+		resource: `{"spec":{"containers":[{"name":"redis","image":"redis:7"}]}}`,
+		wantPass: false,
+	}, {
+		name:     "conditional anchor matches but the nested value does not",
+		resource: `{"spec":{"containers":[{"name":"nginx","image":"nginx:v1"}]}}`,
+		wantPass: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pattern, resource interface{}
+			err := json.Unmarshal([]byte(`{"spec":{"^(containers)":[{"(name)":"nginx","image":"nginx:latest"}]}}`), &pattern)
+			assert.NilError(t, err)
+			err = json.Unmarshal([]byte(tt.resource), &resource)
+			assert.NilError(t, err)
+
+			err = MatchPattern(logr.Discard(), resource, pattern)
+			if tt.wantPass {
+				assert.NilError(t, err)
+				return
+			}
+
+			assert.Assert(t, err != nil, "expected the rule to fail")
+			pe, ok := err.(*PatternError)
+			assert.Assert(t, ok, "expected a *PatternError, got %T", err)
+			assert.Assert(t, !pe.Skip, "an existence anchor failure must not be reported as a skip")
+			assert.Assert(t, !anchor.IsConditionalAnchorError(pe), "the nested conditional error must not leak out of the existence anchor")
+		})
 	}
 }

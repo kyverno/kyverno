@@ -1,8 +1,8 @@
 package anchor
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 )
 
 // anchorError is the const specification of anchor errors
@@ -30,6 +30,9 @@ const (
 type validateAnchorError struct {
 	err     anchorError
 	message string
+	// cause is the underlying error this anchor error was built from, if any.
+	// It is exposed through Unwrap so that errors.As can walk the chain.
+	cause error
 }
 
 // Error implements error interface
@@ -37,11 +40,29 @@ func (e validateAnchorError) Error() string {
 	return e.message
 }
 
+// Unwrap implements the errors.Unwrap contract, returning the underlying cause
+// this anchor error was built from. It returns nil for anchor errors that are
+// not derived from another error.
+func (e validateAnchorError) Unwrap() error {
+	return e.cause
+}
+
 // newNegationAnchorError returns a new instance of validateAnchorError
 func newValidateAnchorError(err anchorError, prefix, msg string) validateAnchorError {
 	return validateAnchorError{
 		err:     err,
 		message: fmt.Sprintf("%s: %s", prefix, msg),
+	}
+}
+
+// wrapValidateAnchorError returns a new instance of validateAnchorError that
+// keeps a reference to the error it was built from. The rendered message is
+// identical to newValidateAnchorError(err, prefix, cause.Error()).
+func wrapValidateAnchorError(err anchorError, prefix string, cause error) validateAnchorError {
+	return validateAnchorError{
+		err:     err,
+		message: fmt.Sprintf("%s: %s", prefix, cause.Error()),
+		cause:   cause,
 	}
 }
 
@@ -60,30 +81,42 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 	return newValidateAnchorError(globalAnchorErr, globalAnchorErrMsg, msg)
 }
 
-// isError checks if error matches the given error type
-func isError(err error, code anchorError, msg string) bool {
-	if err != nil {
-		if t, ok := err.(validateAnchorError); ok {
-			return t.err == code
-		} else {
-			// TODO: we shouldn't need this, error is not properly propagated
-			return strings.Contains(err.Error(), msg)
-		}
+// wrapConditionalAnchorError returns a conditional anchor error wrapping cause
+func wrapConditionalAnchorError(cause error) validateAnchorError {
+	return wrapValidateAnchorError(conditionalAnchorErr, conditionalAnchorErrMsg, cause)
+}
+
+// wrapGlobalAnchorError returns a global anchor error wrapping cause
+func wrapGlobalAnchorError(cause error) validateAnchorError {
+	return wrapValidateAnchorError(globalAnchorErr, globalAnchorErrMsg, cause)
+}
+
+// isError checks if err, or any error it wraps, is an anchor error of the given
+// type. Classification is based on the error type only: the error message is
+// never inspected, so an unrelated error cannot be misclassified just because
+// its text happens to contain an anchor error message.
+func isError(err error, code anchorError) bool {
+	if err == nil {
+		return false
+	}
+	var target validateAnchorError
+	if errors.As(err, &target) {
+		return target.err == code
 	}
 	return false
 }
 
 // IsNegationAnchorError checks if error is a negation anchor error
 func IsNegationAnchorError(err error) bool {
-	return isError(err, negationAnchorErr, negationAnchorErrMsg)
+	return isError(err, negationAnchorErr)
 }
 
 // IsConditionalAnchorError checks if error is a conditional anchor error
 func IsConditionalAnchorError(err error) bool {
-	return isError(err, conditionalAnchorErr, conditionalAnchorErrMsg)
+	return isError(err, conditionalAnchorErr)
 }
 
 // IsGlobalAnchorError checks if error is a global anchor error
 func IsGlobalAnchorError(err error) bool {
-	return isError(err, globalAnchorErr, globalAnchorErrMsg)
+	return isError(err, globalAnchorErr)
 }

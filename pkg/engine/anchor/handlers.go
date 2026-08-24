@@ -165,7 +165,7 @@ func (ch conditionAnchorHandler) Handle(handler resourceElementHandler, resource
 		// validate the values of the pattern
 		returnPath, err := handler(logging.GlobalLogger(), value, ch.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			ac.AnchorError = newConditionalAnchorError(err.Error())
+			ac.AnchorError = wrapConditionalAnchorError(err)
 			return returnPath, ac.AnchorError
 		}
 		return "", nil
@@ -200,7 +200,7 @@ func (gh globalAnchorHandler) Handle(handler resourceElementHandler, resourceMap
 		// validate the values of the pattern
 		returnPath, err := handler(logging.GlobalLogger(), value, gh.pattern, originPattern, currentPath, ac)
 		if err != nil {
-			ac.AnchorError = newGlobalAnchorError(err.Error())
+			ac.AnchorError = wrapGlobalAnchorError(err)
 			return returnPath, ac.AnchorError
 		}
 		return "", nil

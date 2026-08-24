@@ -26,6 +26,14 @@ func (e *PatternError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap exposes the underlying error so that errors.Is and errors.As can
+// traverse a PatternError. Anchor errors are frequently aggregated here (see
+// validateMap, validateArray and validateArrayOfMaps) before being handed back
+// to skip() and fail(), and they must remain classifiable through this layer.
+func (e *PatternError) Unwrap() error {
+	return e.Err
+}
+
 // MatchPattern is a start of element-by-element pattern validation process.
 // It assumes that validation is started from root, so "/" is passed
 func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
