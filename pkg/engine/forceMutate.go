@@ -3,6 +3,7 @@ package engine
 import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -10,6 +11,32 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+// ruleMatchesKind checks if the rule's match block applies to the given resource kind.
+func ruleMatchesKind(rule kyvernov1.Rule, kind string) bool {
+	if len(rule.MatchResources.Kinds) > 0 {
+		for _, k := range rule.MatchResources.Kinds {
+			if k == kind {
+				return true
+			}
+		}
+	}
+	for _, any := range rule.MatchResources.Any {
+		for _, k := range any.ResourceDescription.Kinds {
+			if k == kind {
+				return true
+			}
+		}
+	}
+	for _, all := range rule.MatchResources.All {
+		for _, k := range all.ResourceDescription.Kinds {
+			if k == kind {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // ForceMutate does not check any conditions, it simply mutates the given resource
 // It is used to validate mutation logic, and for tests.
@@ -25,10 +52,12 @@ func ForceMutate(
 	// 	"namespace", resource.GetNamespace(), "name", resource.GetName())
 
 	patchedResource := resource
-	// TODO: if we apply autogen, tests will fail
-	spec := policy.GetSpec()
-	for _, rule := range spec.Rules {
+	rules := autogen.Default.ComputeRules(policy, "")
+	for _, rule := range rules {
 		if !rule.HasMutate() {
+			continue
+		}
+		if !ruleMatchesKind(rule, resource.GetKind()) {
 			continue
 		}
 

@@ -209,7 +209,7 @@ func Test_ForceMutateSubstituteVarsWithPatchesJson6902(t *testing.T) {
 			  "match": {
 				"resources": {
 				  "kinds": [
-					"Pod"
+					"Deployment"
 				  ]
 				}
 			  },
