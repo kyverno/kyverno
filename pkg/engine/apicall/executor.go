@@ -297,8 +297,23 @@ func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, er
 }
 
 // errHostUnresolvable marks a destination that could not be resolved in-pod, so that
-// callers can tell "resolution failed" apart from "the destination is blocked".
+// callers can tell "resolution failed" apart from "the destination is blocked". It is a
+// match target for errors.Is only; unresolvableHostError keeps it out of the message so
+// that a caller wrapping the error does not repeat itself.
 var errHostUnresolvable = errors.New("destination is not resolvable")
+
+type unresolvableHostError struct {
+	host string
+	err  error
+}
+
+func (e *unresolvableHostError) Error() string {
+	return fmt.Sprintf("failed to resolve %s: %v", e.host, e.err)
+}
+
+func (e *unresolvableHostError) Unwrap() error { return e.err }
+
+func (e *unresolvableHostError) Is(target error) bool { return target == errHostUnresolvable }
 
 // lookupHost resolves a hostname. It is a variable so tests can force a specific answer
 // or failure; resolution is not deterministic across platforms and CI environments.
@@ -401,7 +416,7 @@ func (p *egressPolicy) validateHostCIDRs(ctx context.Context, host string) error
 	}
 	ips, err := lookupHost(ctx, host)
 	if err != nil {
-		return fmt.Errorf("%w: failed to resolve %s: %w", errHostUnresolvable, host, err)
+		return &unresolvableHostError{host: host, err: err}
 	}
 	for _, ipStr := range ips {
 		ip := net.ParseIP(ipStr)

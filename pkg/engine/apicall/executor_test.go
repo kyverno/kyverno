@@ -644,3 +644,15 @@ func Test_ProxyAwareDestinationCheck_NoProxyPassesThrough(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, got == nil)
 }
+
+// The sentinel is a match target only. Its text must not reach the message, or the proxy
+// path's wrapper repeats itself in the admission denial.
+func Test_UnresolvableHostError_SentinelIsNotUserVisible(t *testing.T) {
+	err := &unresolvableHostError{host: "internal.example.com", err: &net.DNSError{Err: "no such host", Name: "internal.example.com"}}
+	assert.Assert(t, errors.Is(err, errHostUnresolvable))
+	assert.Assert(t, !strings.Contains(err.Error(), errHostUnresolvable.Error()), "sentinel text must stay out of the message: %v", err)
+	assert.ErrorContains(t, err, "failed to resolve internal.example.com")
+
+	var dnsErr *net.DNSError
+	assert.Assert(t, errors.As(err, &dnsErr))
+}
