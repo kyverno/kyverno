@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gotest.tools/v3/assert"
+	"strings"
 )
 
 func Test_TimeSince(t *testing.T) {
@@ -95,6 +96,34 @@ func Test_TimeAdd(t *testing.T) {
 			assert.Assert(t, ok)
 
 			assert.Equal(t, result, tc.expectedResult)
+		})
+	}
+}
+
+
+func Test_TimeAddErrorMessages(t *testing.T) {
+	testCases := []struct {
+		test     string
+		expected string
+	}{
+		{
+			test:     "time_add(1, '3h')",
+			expected: "time_add",
+		},
+		{
+			test:     "time_add('2021-01-02T15:04:05-07:00', 1)",
+			expected: "time_add",
+		},
+	}
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := jmespathInterface.Query(tc.test)
+			assert.NilError(t, err)
+
+			_, err = query.Search("")
+			assert.ErrorContains(t, err, tc.expected)
+			assert.Assert(t, !strings.Contains(err.Error(), "time_to_cron"),
+				"error should not contain time_to_cron")
 		})
 	}
 }
