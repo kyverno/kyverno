@@ -14,6 +14,8 @@ spec:
               ($error != null): true
               (contains($stderr, 'denied the request')): true
               (contains($stderr, 'exclude.images must be specified')): true
+              (contains($stderr, 'Capabilities')): true
+              (contains($stderr, 'Privilege Escalation')): true
     - name: Apply the second policy exception
       try:
         - script:

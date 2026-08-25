@@ -42,5 +42,6 @@ spec:
          ($error != null): true
          (contains($stderr, 'denied the request')): true
          (contains($stderr, 'require-ns-owner-label')): true
+         (contains($stderr, 'check-for-namespace-owner-label')): true
          (contains($stderr, 'uw.systems/owner')): true
          (contains($stderr, 'preconditions-check')): false
