@@ -2165,7 +2165,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 		require.NoError(t, err)
 		dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
 
-		er := testMutate(context.TODO(), dclient, registryclient.New(nil, "", "", "", false), policyContext, nil)
+		er := testMutate(context.TODO(), dclient, registryclient.New(), policyContext, nil)
 
 		var actualPatchedTargets []unstructured.Unstructured
 		for i := range er.PolicyResponse.Rules {

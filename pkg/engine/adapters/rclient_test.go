@@ -11,7 +11,7 @@ import (
 )
 
 func TestRclientAdapter_ForRef_Integration(t *testing.T) {
-	client := registryclient.New(nil, "", "", "", false)
+	client := registryclient.New()
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -38,7 +38,7 @@ func TestRclientAdapter_ForRef_Integration(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_InvalidImage(t *testing.T) {
-	client := registryclient.New(nil, "", "", "", false)
+	client := registryclient.New()
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -52,7 +52,7 @@ func TestRclientAdapter_ForRef_InvalidImage(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_NonExistentImage(t *testing.T) {
-	client := registryclient.New(nil, "", "", "", false)
+	client := registryclient.New()
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -66,7 +66,7 @@ func TestRclientAdapter_ForRef_NonExistentImage(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_WithDigest(t *testing.T) {
-	client := registryclient.New(nil, "", "", "", false)
+	client := registryclient.New()
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -90,7 +90,7 @@ func TestRclientAdapter_ForRef_WithDigest(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_WithTagAndDigest(t *testing.T) {
-	client := registryclient.New(nil, "", "", "", false)
+	client := registryclient.New()
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
@@ -114,7 +114,7 @@ func TestRclientAdapter_ForRef_WithTagAndDigest(t *testing.T) {
 }
 
 func TestRclientAdapter_ForRef_IdentifierParsingEdgeCases(t *testing.T) {
-	client := registryclient.New(nil, "", "", "", false)
+	client := registryclient.New()
 
 	adapter := RegistryClient(client)
 	require.NotNil(t, adapter)
