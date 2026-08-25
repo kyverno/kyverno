@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"cmp"
 	"encoding/json"
 	"maps"
 	"slices"
@@ -41,7 +42,7 @@ func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.
 		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
+		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err
@@ -50,7 +51,21 @@ func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-
+		slices.SortFunc(targets, func(a, b policiesv1beta1.Target) int {
+			if x := cmp.Compare(a.Group, b.Group); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Version, b.Version); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Resource, b.Resource); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Kind, b.Kind); x != 0 {
+				return x
+			}
+			return 0
+		})
 		rules[config] = policiesv1beta1.ImageValidatingPolicyAutogen{
 			Targets: targets,
 			Spec:    spec,

@@ -2,5 +2,10 @@ Thank you for installing {{ .Chart.Name }} {{ .Chart.Version }} 😀
 
 We have installed the "{{ .Values.podSecurityStandard }}" profile of Pod Security Standards and set them in {{ .Values.validationFailureAction }} mode.
 
+{{- if ne .Values.policyType "ValidatingPolicy" }}
+
+⚠️  WARNING: The chart is configured to install the legacy {{ .Values.policyKind }} (kyverno.io) policy type, which is deprecated and will be removed in a future release. Set `policyType: ValidatingPolicy` to install the CEL-based ValidatingPolicy (policies.kyverno.io) equivalents instead. Note that the ValidatingPolicy resources installed by this chart are cluster-scoped{{- if eq .Values.policyKind "Policy" }}; there is no namespaced equivalent of the `Policy` kind in this chart{{- end }}. See https://kyverno.io/docs/guides/migration-to-cel/ for the migration guide.
+{{- end }}
+
 Visit https://kyverno.io/policies/ to find more sample policies.
 

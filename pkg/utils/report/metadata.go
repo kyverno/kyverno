@@ -38,11 +38,15 @@ const (
 	LabelDomainValidatingPolicy                 = "vpol.kyverno.io"
 	LabelDomainImageValidatingPolicy            = "ivpol.kyverno.io"
 	LabelDomainGeneratingPolicy                 = "gpol.kyverno.io"
+	LabelDomainMutatingPolicy                   = "mpol.kyverno.io"
+	LabelDomainDeletingPolicy                   = "dpol.kyverno.io"
 	LabelPrefixClusterPolicy                    = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy                           = LabelDomainPolicy + "/"
 	LabelPrefixValidatingPolicy                 = LabelDomainValidatingPolicy + "/"
 	LabelPrefixImageValidatingPolicy            = LabelDomainImageValidatingPolicy + "/"
 	LabelPrefixGeneratingPolicy                 = LabelDomainGeneratingPolicy + "/"
+	LabelPrefixMutatingPolicy                   = LabelDomainMutatingPolicy + "/"
+	LabelPrefixDeletingPolicy                   = LabelDomainDeletingPolicy + "/"
 	LabelPrefixPolicyException                  = "polex.kyverno.io/"
 	LabelPrefixValidatingAdmissionPolicy        = "validatingadmissionpolicy.apiserver.io/"
 	LabelPrefixValidatingAdmissionPolicyBinding = "validatingadmissionpolicybinding.apiserver.io/"
@@ -59,6 +63,8 @@ func IsPolicyLabel(label string) bool {
 		strings.HasPrefix(label, LabelPrefixValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixImageValidatingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixGeneratingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixMutatingPolicy) ||
+		strings.HasPrefix(label, LabelPrefixDeletingPolicy) ||
 		strings.HasPrefix(label, LabelPrefixPolicyException) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicy) ||
 		strings.HasPrefix(label, LabelPrefixValidatingAdmissionPolicyBinding) ||
@@ -81,6 +87,12 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	}
 	if policy.AsGeneratingPolicy() != nil {
 		return LabelPrefixGeneratingPolicy
+	}
+	if policy.AsMutatingPolicyLike() != nil {
+		return LabelPrefixMutatingPolicy
+	}
+	if policy.AsDeletingPolicy() != nil || policy.AsCleanupPolicy() != nil {
+		return LabelPrefixDeletingPolicy
 	}
 	if policy.AsMutatingAdmissionPolicy() != nil {
 		return LabelPrefixMutatingAdmissionPolicy

@@ -89,10 +89,10 @@ func TestFakeContextProvider_AddImageData(t *testing.T) {
 		},
 	}
 	cp.AddImageData(imageName, imageData)
-	got, err := cp.GetImageData(imageName)
+	got, err := cp.GetImageData(imageName, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, imageData, got)
-	got, err = cp.GetImageData("missing:latest")
+	got, err = cp.GetImageData("missing:latest", nil)
 	assert.Error(t, err)
 	assert.Nil(t, got)
 }
@@ -179,7 +179,7 @@ func TestFakeContextProvider_Clone(t *testing.T) {
 	original := &FakeContextProvider{
 		generatedResources: make([]*unstructured.Unstructured, 0),
 	}
-	original.SetGenerateContext("policyA", "triggerA", "default", "v1", "", "Pod", "123", true)
+	original.SetGenerateContext("policyA", "default", "triggerA", "default", "v1", "", "Pod", "123", true, false)
 
 	// Pre-populate original to verify Clone() initializes an isolated, empty slice
 	originalResource := &unstructured.Unstructured{Object: map[string]interface{}{"kind": "ConfigMap"}}
@@ -189,7 +189,7 @@ func TestFakeContextProvider_Clone(t *testing.T) {
 	clone, ok := cloneContext.(*FakeContextProvider)
 	assert.True(t, ok, "cloned context should be of type *FakeContextProvider")
 
-	clone.SetGenerateContext("policyB", "triggerB", "kube-system", "v1", "", "Service", "456", false)
+	clone.SetGenerateContext("policyB", "kube-system", "triggerB", "kube-system", "v1", "", "Service", "456", false, false)
 
 	assert.Equal(t, "policyA", original.policyName)
 	assert.Equal(t, true, original.restoreCache)

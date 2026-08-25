@@ -158,6 +158,9 @@ spec:
             - --caSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-ca
             - --tlsSecretName={{ template "kyverno.admission-controller.serviceName" . }}.{{ template "kyverno.namespace" . }}.svc.kyverno-tls-pair
             - --tlsKeyAlgorithm={{ .Values.admissionController.tlsKeyAlgorithm | default "RSA" }}
+            {{- if .Values.admissionController.certManager.enabled }}
+            - --disableCertManagerController=true
+            {{- end }}
             {{- if .Values.backgroundController.enabled }}
             - --backgroundServiceAccountName=system:serviceaccount:{{ include "kyverno.namespace" . }}:{{ include "kyverno.background-controller.serviceAccountName" . }}
             {{- end }}
@@ -203,6 +206,7 @@ spec:
               "controllerRuntimeMetrics"
               "deferredLoading"
               "dumpPayload"
+              "excludeBootstrapResources"
               "forceFailurePolicyIgnore"
               "generateValidatingAdmissionPolicy"
               "generateMutatingAdmissionPolicy"
@@ -282,6 +286,10 @@ spec:
           {{- with .Values.admissionController.readinessProbe }}
           readinessProbe:
             {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.admissionController.container.lifecycle }}
+          lifecycle:
+            {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
             - mountPath: {{ .Values.admissionController.tufRootMountPath }}

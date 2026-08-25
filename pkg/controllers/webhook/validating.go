@@ -1,7 +1,12 @@
 package webhook
 
 import (
+	"cmp"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"maps"
 	"path"
 	"slices"
@@ -33,6 +38,12 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			basic = append(basic, policy)
 		}
 	}
+	slices.SortFunc(fineGrained, func(a, b engineapi.GenericPolicy) int {
+		if x := cmp.Compare(a.GetNamespace(), b.GetNamespace()); x != 0 {
+			return x
+		}
+		return cmp.Compare(a.GetName(), b.GetName())
+	})
 	var webhooks []admissionregistrationv1.ValidatingWebhook
 	// process fine grained policies
 	if len(fineGrained) != 0 {
@@ -42,6 +53,14 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			webhook := admissionregistrationv1.ValidatingWebhook{
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
+			}
+			matchConditions := webhookMatchConditions(validConditions(expressionCache, p.GetMatchConditions()))
+			if spec := generatingPolicySpec(policy); spec != nil && spec.SynchronizationEnabled() {
+				// For synchronize-enabled generating policies, match conditions must only
+				// filter CREATE requests at the API server. UPDATE and DELETE requests
+				// must always reach Kyverno so that a trigger that stops matching the
+				// policy can have its downstream resources cleaned up.
+				matchConditions = restrictMatchConditionsToCreate(matchConditions)
 			}
 			if ok := autogen.CanAutoGen(ptr.To(p.GetMatchConstraints())); ok {
 				webhook.MatchConditions = append(
@@ -54,11 +73,11 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 							Resource: "pods",
 							Kind:     "Pod",
 						}},
-						validConditions(expressionCache, p.GetMatchConditions()),
+						matchConditions,
 					)...,
 				)
 			} else {
-				webhook.MatchConditions = append(webhook.MatchConditions, validConditions(expressionCache, p.GetMatchConditions())...)
+				webhook.MatchConditions = append(webhook.MatchConditions, matchConditions...)
 			}
 
 			if policy.AsGeneratingPolicy() != nil || policy.AsNamespacedGeneratingPolicy() != nil {
@@ -87,7 +106,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -103,7 +122,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					policy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, validConditions(expressionCache, policy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
 					)
 					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -121,7 +140,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					autogenPolicy := policies[config]
 					webhook.MatchConditions = append(
 						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, autogenPolicy.Targets, validConditions(expressionCache, autogenPolicy.Spec.MatchConditions))...,
+						autogen.CreateMatchConditions(config, autogenPolicy.Targets, webhookMatchConditions(validConditions(expressionCache, autogenPolicy.Spec.MatchConditions)))...,
 					)
 					for _, match := range autogenPolicy.Spec.MatchConstraints.ResourceRules {
 						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
@@ -139,10 +158,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = generateName(name+"-ignore-finegrained", p)
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
-				webhook.NamespaceSelector = mergeLabelSelectors(
-					p.GetMatchConstraints().NamespaceSelector,
-					cfg.GetWebhook().NamespaceSelector,
-				)
+				webhook.NamespaceSelector = resolveNamespaceSelector(p, cfg)
 				webhook.ObjectSelector = mergeLabelSelectors(
 					p.GetMatchConstraints().ObjectSelector,
 					cfg.GetWebhook().ObjectSelector,
@@ -152,10 +168,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Fail)
 				webhook.Name = generateName(name+"-fail-finegrained", p)
 				webhook.ClientConfig = newClientConfig(server, servicePort, caBundle, path.Join(queryPath, p.GetName()))
-				webhook.NamespaceSelector = mergeLabelSelectors(
-					p.GetMatchConstraints().NamespaceSelector,
-					cfg.GetWebhook().NamespaceSelector,
-				)
+				webhook.NamespaceSelector = resolveNamespaceSelector(p, cfg)
 				webhook.ObjectSelector = mergeLabelSelectors(
 					p.GetMatchConstraints().ObjectSelector,
 					cfg.GetWebhook().ObjectSelector,
@@ -170,8 +183,13 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			webhooks = append(webhooks, fineGrainedIgnoreList...)
 		}
 	}
-	// process basic policies
-	if len(basic) != 0 {
+	// process basic policies, grouped by the selectors they resolve to. A webhook carries a single
+	// namespaceSelector/objectSelector pair, so policies resolving to different selectors cannot
+	// share one: the last one processed would overwrite the selector and the others would silently
+	// stop being called for their own namespaces. Policies that share selectors (the common case,
+	// including everything that sets no selector at all) still share a webhook.
+	for _, group := range groupBySelectors(basic, cfg) {
+		basic := group.policies
 		names := make([]string, 0, len(basic))
 		for _, policy := range basic {
 			names = append(names, policy.GetName())
@@ -179,42 +197,40 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		slices.Sort(names)
 		dynamicPath := path.Join(names...)
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
-			Name:                    name + "-ignore",
+			Name:                    name + "-ignore" + group.suffix,
 			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Ignore),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
+			NamespaceSelector:       group.namespaceSelector,
+			ObjectSelector:          group.objectSelector,
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
-			Name:                    name + "-fail",
+			Name:                    name + "-fail" + group.suffix,
 			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
 			FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1"},
+			NamespaceSelector:       group.namespaceSelector,
+			ObjectSelector:          group.objectSelector,
 		}
-		webhookFail.NamespaceSelector = cfg.GetWebhook().NamespaceSelector
 
 		for _, policy := range basic {
 			p := extractGenericPolicy(policy)
-			webhookIgnore.NamespaceSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().NamespaceSelector,
-				cfg.GetWebhook().NamespaceSelector,
-			)
-			webhookIgnore.ObjectSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().ObjectSelector,
-				cfg.GetWebhook().ObjectSelector,
-			)
-			webhookFail.NamespaceSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().NamespaceSelector,
-				cfg.GetWebhook().NamespaceSelector,
-			)
-			webhookFail.ObjectSelector = mergeLabelSelectors(
-				p.GetMatchConstraints().ObjectSelector,
-				cfg.GetWebhook().ObjectSelector,
-			)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
 				rules, err := vpolautogen.Autogen(vpol)
+				if err != nil {
+					continue
+				}
+				for _, rule := range rules {
+					for _, match := range rule.Spec.MatchConstraints.ResourceRules {
+						webhookRules = append(webhookRules, match.RuleWithOperations)
+					}
+				}
+			}
+			if nvpol, ok := p.(*policiesv1beta1.NamespacedValidatingPolicy); ok {
+				rules, err := vpolautogen.Autogen(nvpol)
 				if err != nil {
 					continue
 				}
@@ -301,6 +317,82 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 	return webhooks
 }
 
+// selectorGroup is a set of policies that resolve to the same namespace and object selectors and
+// can therefore share a webhook.
+type selectorGroup struct {
+	namespaceSelector *metav1.LabelSelector
+	objectSelector    *metav1.LabelSelector
+	policies          []engineapi.GenericPolicy
+	// suffix disambiguates webhook names when the policies do not all resolve to the same
+	// selectors. It is empty when there is a single group, so the common case (policies that set
+	// no selector at all) keeps its webhook name.
+	suffix string
+}
+
+// groupBySelectors buckets policies by the selectors their webhook would carry, so policies with
+// different selectors get their own webhook instead of overwriting each other's.
+func groupBySelectors(policies []engineapi.GenericPolicy, cfg config.Configuration) []*selectorGroup {
+	groups := map[string]*selectorGroup{}
+	var keys []string
+	for _, policy := range policies {
+		p := extractGenericPolicy(policy)
+		namespaceSelector := resolveNamespaceSelector(p, cfg)
+		objectSelector := mergeLabelSelectors(p.GetMatchConstraints().ObjectSelector, cfg.GetWebhook().ObjectSelector)
+		// the full digest is the group key: a truncated one could collide and merge two different
+		// selectors into a single webhook, applying the wrong filter to some policies
+		key := selectorKey(namespaceSelector, objectSelector)
+		group, ok := groups[key]
+		if !ok {
+			group = &selectorGroup{namespaceSelector: namespaceSelector, objectSelector: objectSelector}
+			groups[key] = group
+			keys = append(keys, key)
+		}
+		group.policies = append(group.policies, policy)
+	}
+	slices.Sort(keys)
+	result := make([]*selectorGroup, 0, len(keys))
+	for _, key := range keys {
+		group := groups[key]
+		if len(keys) > 1 {
+			group.suffix = "-" + key[:8]
+		}
+		result = append(result, group)
+	}
+	return result
+}
+
+// selectorKey returns a stable identifier for a pair of selectors. It is the full digest so two
+// different selectors can never be grouped together, and it is derived from the selectors alone so
+// a webhook name does not change when policies are added to or removed from its group. The name
+// only carries a prefix of it, which keeps the webhook name well inside the 253 character limit
+// the API server enforces no matter how long the policy or namespace names are.
+func selectorKey(namespaceSelector, objectSelector *metav1.LabelSelector) string {
+	serialized, err := json.Marshal([]*metav1.LabelSelector{namespaceSelector, objectSelector})
+	if err != nil {
+		serialized = []byte(fmt.Sprintf("%v%v", namespaceSelector, objectSelector))
+	}
+	sum := sha256.Sum256(serialized)
+	return hex.EncodeToString(sum[:])
+}
+
+// resolveNamespaceSelector returns the namespace selector for a policy's webhook. A namespaced policy
+// only applies to resources in its own namespace, so its selector is pinned to that namespace via the
+// kubernetes.io/metadata.name label regardless of any namespaceSelector in its matchConstraints. A
+// cluster-scoped policy keeps its configured namespaceSelector.
+func resolveNamespaceSelector(p policiesv1beta1.GenericPolicy, cfg config.Configuration) *metav1.LabelSelector {
+	if ns := p.GetNamespace(); ns != "" {
+		nameSelector := &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      "kubernetes.io/metadata.name",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{ns},
+			}},
+		}
+		return mergeLabelSelectors(nameSelector, cfg.GetWebhook().NamespaceSelector)
+	}
+	return mergeLabelSelectors(p.GetMatchConstraints().NamespaceSelector, cfg.GetWebhook().NamespaceSelector)
+}
+
 func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
 	if a == nil {
 		return b
@@ -309,22 +401,33 @@ func mergeLabelSelectors(a, b *metav1.LabelSelector) *metav1.LabelSelector {
 		return a
 	}
 
-	merged := &metav1.LabelSelector{
-		MatchLabels:      map[string]string{},
-		MatchExpressions: []metav1.LabelSelectorRequirement{},
-	}
+	merged := &metav1.LabelSelector{}
 
 	// copy a
 	for k, v := range a.MatchLabels {
+		if merged.MatchLabels == nil {
+			merged.MatchLabels = map[string]string{}
+		}
 		merged.MatchLabels[k] = v
 	}
 	merged.MatchExpressions = append(merged.MatchExpressions, a.MatchExpressions...)
 
 	// copy b
 	for k, v := range b.MatchLabels {
+		if merged.MatchLabels == nil {
+			merged.MatchLabels = map[string]string{}
+		}
 		merged.MatchLabels[k] = v
 	}
 	merged.MatchExpressions = append(merged.MatchExpressions, b.MatchExpressions...)
+
+	// nil out empty slices/maps so DeepEqual matches what the API server stores
+	if len(merged.MatchLabels) == 0 {
+		merged.MatchLabels = nil
+	}
+	if len(merged.MatchExpressions) == 0 {
+		merged.MatchExpressions = nil
+	}
 
 	return merged
 }
@@ -341,6 +444,38 @@ func validConditions(celExpressionCache *expressionCache, conditions []admission
 		return conditions
 	}
 	return nil
+}
+
+// generatingPolicySpec returns the spec if the policy is a GeneratingPolicy or a
+// NamespacedGeneratingPolicy, and nil otherwise.
+func generatingPolicySpec(policy engineapi.GenericPolicy) *policiesv1beta1.GeneratingPolicySpec {
+	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
+		return &gpol.Spec
+	}
+	if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
+		return &ngpol.Spec
+	}
+	return nil
+}
+
+// restrictMatchConditionsToCreate rewrites match conditions so that they only
+// filter CREATE admission requests, letting all other operations through to
+// Kyverno. This is required for synchronize-enabled generating policies: a
+// trigger UPDATE that no longer satisfies the match conditions (or a DELETE of
+// such a trigger) must still be observed so the previously generated downstream
+// resources can be deleted.
+func restrictMatchConditionsToCreate(conditions []admissionregistrationv1.MatchCondition) []admissionregistrationv1.MatchCondition {
+	if len(conditions) == 0 {
+		return conditions
+	}
+	wrapped := make([]admissionregistrationv1.MatchCondition, 0, len(conditions))
+	for _, condition := range conditions {
+		wrapped = append(wrapped, admissionregistrationv1.MatchCondition{
+			Name:       condition.Name,
+			Expression: "request.operation != 'CREATE' || (" + condition.Expression + ")",
+		})
+	}
+	return wrapped
 }
 
 func generateName(name string, policy policiesv1beta1.GenericPolicy) string {

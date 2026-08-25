@@ -15,10 +15,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	log "github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	"gotest.tools/assert"
+	"github.com/kyverno/sdk/extensions/registryclient"
+	"gotest.tools/v3/assert"
 )
 
 func TestValidate_failure_action_overrides(t *testing.T) {
@@ -975,7 +975,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			rawResourceNamespaceLabels: map[string]string{
 				"kubernetes.io/metadata.name": "dev",
 			},
-		}, {
+		},
+		{
 			rawPolicy: []byte(`
 				{
 					"apiVersion": "kyverno.io/v1",
@@ -1997,7 +1998,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			rawResourceNamespaceLabels: map[string]string{
 				"kubernetes.io/metadata.name": "dev",
 			},
-		}, {
+		},
+		{
 			rawPolicy: []byte(`
 				{
 					"apiVersion": "kyverno.io/v1",
@@ -2076,7 +2078,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New()
 	eng := engine.NewEngine(
 		cfg,
 		jp,
@@ -2124,7 +2126,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 }
 
 func Test_RuleSelector(t *testing.T) {
-	var rawPolicy = []byte(`{
+	rawPolicy := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {"name": "check-label-app"},
@@ -2151,7 +2153,7 @@ func Test_RuleSelector(t *testing.T) {
 		}
 	 }`)
 
-	var rawResource = []byte(`{
+	rawResource := []byte(`{
 		"apiVersion": "v1",
 		"kind": "Pod",
 		"metadata": {"name": "test-pod", "namespace": "", "labels": { "app" : "test-pod" }},
@@ -2178,7 +2180,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx = ctx.WithPolicy(&policy)
-	rclient := registryclient.NewOrDie()
+	rclient := registryclient.New()
 	eng := engine.NewEngine(
 		cfg,
 		jp,

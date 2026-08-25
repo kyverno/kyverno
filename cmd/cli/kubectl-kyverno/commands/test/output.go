@@ -1,171 +1,20 @@
 package test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 )
-
-func printCheckResult(
-	checks []v1alpha1.CheckResult,
-	responses TestResponse,
-	rc *resultCounts,
-	resultsTable *table.Table,
-) error {
-	ctx := context.Background()
-	testCount := 1
-	for _, check := range checks {
-		// filter engine responses
-		var matchingEngineResponses []engineapi.EngineResponse
-		for _, engineresponses := range responses.Trigger {
-			matchingEngineResponses = append(matchingEngineResponses, engineresponses...)
-		}
-		// 1. by resource
-		if check.Match.Resource != nil {
-			var filtered []engineapi.EngineResponse
-			for _, response := range matchingEngineResponses {
-				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Resource.Value), response.Resource.UnstructuredContent(), nil)
-				if err != nil {
-					return err
-				}
-				if len(errs) == 0 {
-					filtered = append(filtered, response)
-				}
-			}
-			matchingEngineResponses = filtered
-		}
-		// 2. by policy
-		if check.Match.Policy != nil {
-			var filtered []engineapi.EngineResponse
-			for _, response := range matchingEngineResponses {
-				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
-				if err != nil {
-					return err
-				}
-				errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Policy.Value), data, nil)
-				if err != nil {
-					return err
-				}
-				if len(errs) == 0 {
-					filtered = append(filtered, response)
-				}
-			}
-			matchingEngineResponses = filtered
-		}
-		for _, response := range matchingEngineResponses {
-			// filter rule responses
-			matchingRuleResponses := response.PolicyResponse.Rules
-			if check.Match.Rule != nil {
-				var filtered []engineapi.RuleResponse
-				for _, response := range matchingRuleResponses {
-					data := map[string]any{
-						"name": response.Name(),
-					}
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Match.Rule.Value), data, nil)
-					if err != nil {
-						return err
-					}
-					if len(errs) == 0 {
-						filtered = append(filtered, response)
-					}
-				}
-				matchingRuleResponses = filtered
-			}
-			for _, rule := range matchingRuleResponses {
-				// perform check
-				data := map[string]any{
-					"name":     rule.Name(),
-					"ruleType": rule.RuleType(),
-					"message":  rule.Message(),
-					"status":   string(rule.Status()),
-					// generatedResource unstructured.Unstructured
-					// patchedTarget *unstructured.Unstructured
-					// patchedTargetParentResourceGVR metav1.GroupVersionResource
-					// patchedTargetSubresourceName string
-					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
-					"podSecurityChecks": rule.PodSecurityChecks(),
-					"exceptions":        rule.Exceptions(),
-				}
-				if check.Assert.Value != nil {
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
-					if err != nil {
-						return err
-					}
-					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
-							Rule:      color.Rule(rule.Name()),
-							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
-						},
-						Message: rule.Message(),
-					}
-					if len(errs) == 0 {
-						row.Result = color.ResultPass()
-						row.Reason = "Ok"
-						if rule.Status() == engineapi.RuleStatusSkip {
-							rc.Skip++
-						} else {
-							rc.Pass++
-						}
-					} else {
-						row.Result = color.ResultFail()
-						row.Reason = errs.ToAggregate().Error()
-						rc.Fail++
-					}
-					resultsTable.Add(row)
-					testCount++
-				}
-				if check.Error.Value != nil {
-					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Error.Value), data, nil)
-					if err != nil {
-						return err
-					}
-					row := table.Row{
-						RowCompact: table.RowCompact{
-							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
-							Rule:      color.Rule(rule.Name()),
-							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
-						},
-						Message: rule.Message(),
-					}
-					if len(errs) != 0 {
-						row.Result = color.ResultPass()
-						row.Reason = errs.ToAggregate().Error()
-						if rule.Status() == engineapi.RuleStatusSkip {
-							rc.Skip++
-						} else {
-							rc.Pass++
-						}
-					} else {
-						row.Result = color.ResultFail()
-						row.Reason = "The assertion succeeded but was expected to fail"
-						rc.Fail++
-					}
-					resultsTable.Add(row)
-					testCount++
-				}
-			}
-		}
-	}
-	return nil
-}
 
 // a test that contains a policy that may contain several rules
 func printTestResult(
@@ -179,11 +28,17 @@ func printTestResult(
 ) error {
 	testCount := 1
 	for _, test := range tests {
+		// results declaring an explicit operation are checked against the
+		// responses of the dedicated evaluation run for that operation
+		trigger := responses.Trigger
+		if test.Operation != "" {
+			trigger = responses.TriggerByOperation[test.Operation]
+		}
 		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
 		if test.Resources != nil {
 			for _, r := range test.Resources {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, ",")
 						nsAndName := strings.Split(r, "/")
@@ -201,7 +56,7 @@ func printTestResult(
 				}
 			}
 			for _, resourceSpec := range test.ResourceSpecs {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, ",")
 						if resourceSpec.Group == "" {
@@ -229,7 +84,7 @@ func printTestResult(
 			for r := range responses.Target {
 				resources = append(resources, r)
 			}
-			for r := range responses.Trigger {
+			for r := range trigger {
 				resources = append(resources, r)
 			}
 		}
@@ -237,8 +92,8 @@ func printTestResult(
 		for _, resource := range resources {
 			var rows []table.Row
 			var resourceSkipped bool
-			if _, ok := responses.Trigger[resource]; ok {
-				for _, response := range responses.Trigger[resource] {
+			if _, ok := trigger[resource]; ok {
+				for _, response := range trigger[resource] {
 					polNameNs := strings.Split(test.Policy, "/")
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
@@ -271,6 +126,11 @@ func printTestResult(
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
+							if len(generatedResources) == 0 {
+								ok, message, reason := checkRuleResultOnly(test, response, rule)
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+								rows = append(rows, resourceRows...)
+							}
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 

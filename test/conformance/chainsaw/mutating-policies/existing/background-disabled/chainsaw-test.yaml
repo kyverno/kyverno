@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: background-disabled
+spec:
+  concurrent: false
+  steps:
+  - name: create namespace and configmap
+    try:
+    - create:
+        file: namespace.yaml
+    - assert:
+        file: namespace.yaml
+    - create:
+        file: configmap.yaml
+    - assert:
+        file: configmap.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: test-mpol-background-disabled
+          status:
+            conditionStatus:
+              ready: true
+  - name: verify-mutation-applied
+    description: >
+      .background only controls background-scan reporting; it never gates
+      mutate-existing execution. Even with background disabled, the policy
+      create/update event and the periodic scan must mutate existing resources.
+      See https://github.com/kyverno/kyverno/issues/16090.
+    try:
+    - assert:
+        timeout: 90s
+        file: configmap-assert.yaml

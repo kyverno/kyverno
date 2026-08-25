@@ -5,6 +5,8 @@ metadata:
 spec:
   evaluation:
     mode: JSON
+  validationConfigurations:
+    verifyDigest: false
   matchImageReferences:
     - glob: ghcr.io/*
   images:
