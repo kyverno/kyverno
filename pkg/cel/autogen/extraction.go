@@ -39,6 +39,29 @@ func RESTMapperBareNameResolver(mapper meta.RESTMapper) func(name string) *Confi
 	}
 }
 
+// KindResolver, when set, resolves a fully-qualified GroupVersionResource to
+// its real Kind via live cluster discovery. It corrects
+// parseCustomControllerConfig's best-effort guessKind - which gets
+// irregular plurals wrong (e.g. "jobsets" -> "Jobset", not "JobSet") - and
+// Target.Kind is not cosmetic: CreateMatchConditions compiles it into a CEL
+// string comparison against the admitted object's real kind, so a wrong
+// guess makes that precondition never match. Nil by default (no cluster),
+// in which case parseCustomControllerConfig falls back to guessKind.
+// RESTMapperKindResolver builds one from a live cluster's RESTMapper.
+var KindResolver func(gvr schema.GroupVersionResource) (kind string, ok bool)
+
+// RESTMapperKindResolver resolves a GroupVersionResource to its Kind using a
+// live cluster's RESTMapper.
+func RESTMapperKindResolver(mapper meta.RESTMapper) func(schema.GroupVersionResource) (string, bool) {
+	return func(gvr schema.GroupVersionResource) (string, bool) {
+		gvk, err := mapper.KindFor(gvr)
+		if err != nil {
+			return "", false
+		}
+		return gvk.Kind, true
+	}
+}
+
 // ExtractionReplacementsRef groups every autogen target whose pod template is
 // discovered by structural extraction at evaluation time, rather than by the
 // compile-time byte-rewrite mechanism the built-in kinds use. Its Spec is
@@ -77,22 +100,27 @@ func parseCustomControllerConfig(name string) *Config {
 	if resource == "" || version == "" || group == "" {
 		return nil
 	}
+	kind := guessKind(resource)
+	if KindResolver != nil {
+		if resolved, ok := KindResolver(schema.GroupVersionResource{Group: group, Version: version, Resource: resource}); ok {
+			kind = resolved
+		}
+	}
 	return &Config{
 		Target: policiesv1beta1.Target{
 			Group:    group,
 			Version:  version,
 			Resource: resource,
-			// Best-effort: exact Kind casing isn't load-bearing yet since
-			// webhook fine-grained matchConditions (the only current
-			// consumer of Target.Kind) aren't wired for extraction targets
-			// yet. Live discovery-based resolution (a follow-up pass) will
-			// supply the real Kind.
-			Kind: guessKind(resource),
+			Kind:     kind,
 		},
 		ReplacementsRef: ExtractionReplacementsRef,
 	}
 }
 
+// guessKind is a best-effort fallback for when no KindResolver is available
+// (e.g. the CLI's offline apply/test commands). It gets irregular plurals
+// wrong - "jobsets" guesses "Jobset", not the real "JobSet" - so it's only
+// ever used when live discovery can't correct it.
 func guessKind(resource string) string {
 	trimmed := strings.TrimSuffix(resource, "s")
 	if trimmed == "" {

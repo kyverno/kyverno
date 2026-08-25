@@ -71,7 +71,10 @@ func NewKubeProvider(
 	// Lets an unrecognized bare controller name (e.g. "jobsets") resolve via
 	// live discovery instead of requiring the explicit
 	// "<resource>.<version>.<group>" format - see autogen.BareNameResolver.
+	// Also corrects the explicit format's best-effort Kind guess (see
+	// autogen.KindResolver) for irregular plurals like "jobsets" -> "JobSet".
 	autogen.BareNameResolver = autogen.RESTMapperBareNameResolver(mgr.GetRESTMapper())
+	autogen.KindResolver = autogen.RESTMapperKindResolver(mgr.GetRESTMapper())
 	reconciler := newReconciler(mgr.GetClient(), polexLister, polexEnabled)
 	ivpolBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&policiesv1beta1.ImageValidatingPolicy{})

@@ -22,7 +22,27 @@ func TestResolveConfig(t *testing.T) {
 				Group:    "jobset.x-k8s.io",
 				Version:  "v1alpha2",
 				Resource: "jobsets",
-				Kind:     "Jobset",
+				// No KindResolver set (no cluster): falls back to the
+				// best-effort guess, which gets this irregular plural wrong.
+				Kind: "Jobset",
+			},
+			ReplacementsRef: ExtractionReplacementsRef,
+		}, got)
+	})
+
+	t.Run("explicit resource.version.group format's guessed Kind is corrected by KindResolver when set", func(t *testing.T) {
+		t.Cleanup(func() { KindResolver = nil })
+		mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "jobset.x-k8s.io", Version: "v1alpha2"}})
+		mapper.Add(schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"}, meta.RESTScopeNamespace)
+		KindResolver = RESTMapperKindResolver(mapper)
+
+		got := ResolveConfig("jobsets.v1alpha2.jobset.x-k8s.io")
+		assert.Equal(t, &Config{
+			Target: policiesv1beta1.Target{
+				Group:    "jobset.x-k8s.io",
+				Version:  "v1alpha2",
+				Resource: "jobsets",
+				Kind:     "JobSet",
 			},
 			ReplacementsRef: ExtractionReplacementsRef,
 		}, got)

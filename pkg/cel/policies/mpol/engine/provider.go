@@ -41,7 +41,10 @@ func NewKubeProvider(
 	// Lets an unrecognized bare controller name (e.g. "jobsets") resolve via
 	// live discovery instead of requiring the explicit
 	// "<resource>.<version>.<group>" format - see autogen.BareNameResolver.
+	// Also corrects the explicit format's best-effort Kind guess (see
+	// autogen.KindResolver) for irregular plurals like "jobsets" -> "JobSet".
 	celautogen.BareNameResolver = celautogen.RESTMapperBareNameResolver(mgr.GetRESTMapper())
+	celautogen.KindResolver = celautogen.RESTMapperKindResolver(mgr.GetRESTMapper())
 	typeConverter := patch.NewTypeConverterManager(nil, c)
 	go typeConverter.Run(ctx)
 
