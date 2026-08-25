@@ -15,4 +15,14 @@ type Client interface {
 	// Get Searches for the image verified using the rule in the policy in the cache
 	// Returns true when the cache entry is found
 	Get(ctx context.Context, policy metav1.Object, ruleName string, imagerRef string, useCache bool) (bool, error)
+
+	// SetWithPayload is like Set, but also stores verified intoto attestation payloads
+	// keyed by predicate type (matching imagedataloader.ImageData.verifiedIntotoPayloads).
+	// Callers that only need a presence marker can keep using Set.
+	SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error)
+
+	// GetWithPayload is like Get, but also returns any cached intoto payloads.
+	// found is true when the verification cache entry exists; payloads may be nil/empty
+	// when the entry was written with Set (presence-only).
+	GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (found bool, payloads map[string][]byte, err error)
 }

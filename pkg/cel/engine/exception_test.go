@@ -3,9 +3,11 @@ package engine
 import (
 	"errors"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -82,6 +84,23 @@ func TestListExceptions(t *testing.T) {
 				}},
 			},
 		}},
+	}, {
+		name: "expired exception is ignored",
+		lister: &fakePolicyExceptionLister{
+			exceptions: []*policiesv1beta1.PolicyException{{
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					PolicyRefs: []policiesv1beta1.PolicyRef{{
+						Kind: "foo",
+						Name: "bar",
+					}},
+					ExpiresAt: &metav1.Time{
+						Time: time.Now().Add(-time.Minute),
+					},
+				},
+			}},
+		},
+		policyKind: "foo",
+		policyName: "bar",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
