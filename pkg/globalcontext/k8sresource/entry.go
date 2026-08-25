@@ -34,6 +34,7 @@ const cacheSyncTimeout = 30 * time.Second
 type entry struct {
 	lister      cache.GenericLister
 	stop        func()
+	stopOnce    sync.Once
 	gce         *kyvernov2beta1.GlobalContextEntry
 	eventGen    event.Interface
 	projections []store.Projection
@@ -241,5 +242,9 @@ func (e *entry) Get(projection string) (any, error) {
 }
 
 func (e *entry) Stop() {
-	e.stop()
+	e.stopOnce.Do(func() {
+		if e.stop != nil {
+			e.stop()
+		}
+	})
 }

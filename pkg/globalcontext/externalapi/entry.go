@@ -129,7 +129,11 @@ func (e *entry) Get(projection string) (any, error) {
 }
 
 func (e *entry) Stop() {
-	e.stopOnce.Do(e.stop)
+	e.stopOnce.Do(func() {
+		if e.stop != nil {
+			e.stop()
+		}
+	})
 }
 
 func (e *entry) setData(data any, err error) {

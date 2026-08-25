@@ -540,24 +540,50 @@ func TestEntry_Stop_ConcurrentSetData(t *testing.T) {
 		},
 	}
 
-	done := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+
 	go func() {
+		defer wg.Done()
 		for i := 0; i < 100; i++ {
 			e.setData([]byte(`{"key":"val"}`), nil)
+			time.Sleep(10 * time.Microsecond)
 		}
-		close(done)
 	}()
 
-	e.Stop()
-	assert.True(t, stopped)
-	<-done
+	go func() {
+		defer wg.Done()
+		time.Sleep(50 * time.Microsecond)
+		e.Stop()
+	}()
+
+	wg.Wait()
+	assert.True(t, stopped, "expected stop callback to be invoked")
 }
 
 func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
-	initialData := map[string]any{"": map[string]any{"key": "old"}}
+	// Independent snapshot of expected initial data map
+	expectedSnapshot := map[string]any{
+		"":               map[string]any{"key": "old"},
+		"successfulProj": "old_val",
+	}
+
+	// Distinct map instance assigned to e.dataMap
+	initialDataMap := map[string]any{
+		"":               map[string]any{"key": "old"},
+		"successfulProj": "old_val",
+	}
+
 	e := &entry{
-		dataMap: initialData,
+		dataMap: initialDataMap,
 		projections: []store.Projection{
+			{
+				Name: "successfulProj",
+				JP: &mockJMESPathQuery{
+					result: "new_val",
+					err:    nil,
+				},
+			},
 			{
 				Name: "failingProj",
 				JP: &mockJMESPathQuery{
@@ -570,5 +596,6 @@ func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
 	e.setData([]byte(`{"key":"new"}`), nil)
 
 	assert.Error(t, e.err)
-	assert.Equal(t, initialData, e.dataMap)
+	assert.Contains(t, e.err.Error(), "projection evaluation error")
+	assert.Equal(t, expectedSnapshot, e.dataMap)
 }
