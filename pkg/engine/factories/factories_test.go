@@ -72,13 +72,13 @@ func TestWithGlobalContextStore(t *testing.T) {
 }
 
 func TestDefaultRegistryClientFactory(t *testing.T) {
-	factory := DefaultRegistryClientFactory(nil, nil)
+	factory := DefaultRegistryClientFactory(nil, nil, "", false)
 
 	assert.NotNil(t, factory)
 }
 
 func TestRegistryClientFactory_GetClient_NilCreds(t *testing.T) {
-	factory := DefaultRegistryClientFactory(nil, nil)
+	factory := DefaultRegistryClientFactory(nil, nil, "", false)
 
 	client, err := factory.GetClient(context.Background(), nil, "", []string{})
 
@@ -88,7 +88,7 @@ func TestRegistryClientFactory_GetClient_NilCreds(t *testing.T) {
 }
 
 func TestRegistryClientFactory_GetClient_WithCreds(t *testing.T) {
-	factory := DefaultRegistryClientFactory(nil, nil)
+	factory := DefaultRegistryClientFactory(nil, nil, "", false)
 
 	creds := &kyvernov1.ImageRegistryCredentials{
 		AllowInsecureRegistry: true,
@@ -102,7 +102,7 @@ func TestRegistryClientFactory_GetClient_WithCreds(t *testing.T) {
 }
 
 func TestRegistryClientFactory_GetClient_WithProviders(t *testing.T) {
-	factory := DefaultRegistryClientFactory(nil, nil)
+	factory := DefaultRegistryClientFactory(nil, nil, "", false)
 
 	creds := &kyvernov1.ImageRegistryCredentials{
 		Providers: []kyvernov1.ImageRegistryCredentialsProvidersType{
@@ -216,7 +216,7 @@ func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			factory := DefaultRegistryClientFactory(nil, nil)
+			factory := DefaultRegistryClientFactory(nil, nil, "", false)
 			client, err := factory.GetClient(context.Background(), tt.creds, "", []string{})
 
 			if tt.wantError {
