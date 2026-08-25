@@ -646,6 +646,7 @@ func (pc *policyController) getPolicy(key string) (kyvernov1.PolicyInterface, er
 func (pc *policyController) forceReconciliation(ctx context.Context) {
 	logger := pc.log.WithName("forceReconciliation")
 	ticker := time.NewTicker(pc.reconcilePeriod)
+	defer ticker.Stop()
 
 	for {
 		select {

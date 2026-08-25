@@ -292,6 +292,7 @@ func (s *scanner) ScanResource(
 				matching.NewMatcher(),
 				s.secretLister,
 				imageverifycache.DisabledImageVerifyCache(),
+				s.config,
 			), metrics.BackgroundScan)
 			request := celengine.Request(
 				libs.GetLibsCtx(),
@@ -368,6 +369,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if annotations != nil {
 		resource = *resource.DeepCopy()
 		delete(annotations, kyverno.AnnotationImageVerify)
+		delete(annotations, kyverno.AnnotationImageVerifyScoped)
 		resource.SetAnnotations(annotations)
 	}
 	policyCtx, err := engine.NewPolicyContext(s.jp, resource, kyvernov1.Create, nil, s.config)

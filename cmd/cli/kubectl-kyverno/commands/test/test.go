@@ -13,7 +13,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -22,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
@@ -727,6 +727,7 @@ func applyImageValidatingPolicies(
 		matching.NewMatcher(),
 		lister,
 		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
 	)
 
 	if restMapper == nil {
@@ -954,7 +955,7 @@ func convertNumericValuesToFloat64(obj interface{}) interface{} {
 		return float64(v)
 	default:
 		rv := reflect.ValueOf(v)
-		if rv.Kind() == reflect.Ptr && !rv.IsNil() {
+		if rv.Kind() == reflect.Pointer && !rv.IsNil() {
 			elem := rv.Elem().Interface()
 			return convertNumericValuesToFloat64(elem)
 		}
