@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
