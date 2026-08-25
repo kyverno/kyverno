@@ -292,6 +292,7 @@ func (s *scanner) ScanResource(
 				matching.NewMatcher(),
 				s.secretLister,
 				imageverifycache.DisabledImageVerifyCache(),
+				s.config,
 			), metrics.BackgroundScan)
 			request := celengine.Request(
 				libs.GetLibsCtx(),

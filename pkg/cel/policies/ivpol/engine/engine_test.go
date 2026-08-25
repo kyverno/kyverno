@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admission/v1"
@@ -149,7 +150,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 `
 )
 
-func Test_ImageVerifyEngine_MutatingNoOp(t *testing.T) {
+func Test_ImageVerifyEngine_MutatingPinsDigest(t *testing.T) {
 	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
@@ -162,12 +163,89 @@ func Test_ImageVerifyEngine_MutatingNoOp(t *testing.T) {
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, resp.Policies)
+	if assert.Len(t, patches, 1) {
+		assert.Equal(t, "replace", patches[0].Operation)
+		assert.Equal(t, "/spec/containers/0/image", patches[0].Path)
+		assert.Equal(t, signedImage, patches[0].Value.(string)[:len(signedImage)])
+		assert.Contains(t, patches[0].Value, "@sha256:")
+	}
+}
+
+func Test_ImageVerifyEngine_MutatingDisabled(t *testing.T) {
+	falseVal := false
+	disabledIvpol := ivpol.DeepCopy()
+	disabledIvpol.Spec.ValidationConfigurations.MutateDigest = &falseVal
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
+		return []Policy{
+			{
+				Policy:  disabledIvpol,
+				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
+			},
+		}, nil
+	})
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	engine := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	assert.Empty(t, resp.Policies)
 	assert.Empty(t, patches)
+}
+
+// A malformed image reference is recorded as an error result against the policy rather than
+// returned as an error from the engine, so the remaining policies still contribute their
+// patches. Mirrors ClusterPolicy, where a failing handleMutateDigest appends a RuleError and
+// continues. Turning that result into a denial is the webhook handler's job (see
+// mutationResponse), which is why the engine itself returns no error here.
+func Test_ImageVerifyEngine_MutatingMalformedImageIsRecordedAsPolicyError(t *testing.T) {
+	badPod := `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {"name": "test-pod", "namespace": ""},
+	"spec": {
+	   "containers": [{"name": "nginx", "image": "ghcr.io/kyverno/test-verify-image::signed"}]
+	}
+ }
+`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(badPod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, patches)
+	// the failure is surfaced as an error result attributed to the policy, not swallowed
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, ivpol.GetName(), resp.Policies[0].Policy.GetName())
+		assert.Equal(t, engineapi.RuleStatusError, resp.Policies[0].Result.Status())
+		assert.Contains(t, resp.Policies[0].Result.Message(), "failed to update digest")
+	}
 }
 
 func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *testing.T) {
@@ -224,7 +302,7 @@ func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *test
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	if assert.Len(t, resp.Policies, 1) {
@@ -277,7 +355,7 @@ func TestHandleValidatingDoesNotRequireOutcomeAnnotation(t *testing.T) {
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	if assert.Len(t, resp.Policies, 1) {
@@ -340,7 +418,7 @@ func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T)
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	if assert.Len(t, resp.Policies, 1) {
