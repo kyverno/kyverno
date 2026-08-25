@@ -49,7 +49,7 @@ spec:
     try:
     - delete:
         ref:
-          apiVersion: policies.kyverno.io/v1beta1
+          apiVersion: policies.kyverno.io/v1
           kind: GeneratingPolicy
           name: gpol-skip-background-default
   - name: create opt-in generating policy

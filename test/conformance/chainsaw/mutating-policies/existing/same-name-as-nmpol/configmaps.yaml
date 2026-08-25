@@ -1,0 +1,16 @@
+---
+# Target for the cluster-scoped MutatingPolicy.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: same-name-pol-mpol-cm
+  namespace: test-same-name-ns
+data: {}
+---
+# Target for the NamespacedMutatingPolicy in the same namespace.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: same-name-pol-nmpol-cm
+  namespace: test-same-name-ns
+data: {}

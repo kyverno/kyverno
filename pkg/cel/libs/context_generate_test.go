@@ -1,6 +1,8 @@
 package libs
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -43,6 +45,7 @@ func TestGenerateResources_NamespacedPolicyRejectsClusterScoped(t *testing.T) {
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
 	}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
 
 	err := cp.GenerateResources("tenant-ns", []map[string]any{clusterRoleBinding()})
 	assert.Error(t, err, "namespaced policy must not generate a cluster-scoped resource")
@@ -56,6 +59,7 @@ func TestGenerateResources_NamespacedPolicyAllowsNamespaced(t *testing.T) {
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
 	}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -115,7 +119,7 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -157,7 +161,7 @@ func TestGenerateResources_DifferentTriggerExistingResourceNotAdopted(t *testing
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -195,7 +199,7 @@ func TestGenerateResources_UnmanagedExistingResourceNotAdopted(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -211,6 +215,55 @@ func TestGenerateResources_UnmanagedExistingResourceNotAdopted(t *testing.T) {
 // already exists it still needs to be reported so the watch manager's cache
 // gets restored (the original purpose of cacheRestore, see
 // kyverno/kyverno#13571).
+// Regression test for kyverno/kyverno#16742: when the downstream resource
+// already exists and is managed by this policy/trigger, a re-evaluation (e.g.
+// on a trigger UPDATE with synchronize enabled) must update it in place with
+// the newly rendered content instead of deleting and recreating it (or leaving
+// it untouched).
+func TestGenerateResources_ExistingResourceUpdatedInPlace(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "data",
+				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				},
+			},
+			"data": map[string]any{"quota": "10"},
+		},
+	}
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+		"data":       map[string]any{"quota": "50"},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	updated, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "tenant-ns", "data")
+	require.NoError(t, err)
+	quota, _, err := unstructured.NestedString(updated.Object, "data", "quota")
+	require.NoError(t, err)
+	assert.Equal(t, "50", quota, "existing downstream must be updated in place with the newly rendered content")
+}
+
 func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testing.T) {
 	existing := &unstructured.Unstructured{
 		Object: map[string]any{
@@ -235,7 +288,7 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true, false)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -260,13 +313,110 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 	assert.Error(t, err, "restoreCache must not create resources that don't exist yet")
 }
 
+// Regression test for kyverno/kyverno#15444: a resource cloned from another
+// namespace (e.g. a Secret synced by External Secrets that carries an
+// ownerReference to an ExternalSecret CR) must have its ownerReferences
+// stripped, otherwise the owner does not exist in the target namespace and
+// the garbage collector deletes the generated resource almost immediately.
+func TestGenerateResources_CrossNamespaceStripsOwnerReferences(t *testing.T) {
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":              "example",
+			"namespace":         "kyverno",
+			"uid":               "5b7dc768-9a06-4b25-b3e1-02b0e7b8d02a",
+			"resourceVersion":   "12345",
+			"creationTimestamp": "2026-01-01T00:00:00Z",
+			"managedFields": []any{
+				map[string]any{
+					"apiVersion": "v1",
+					"manager":    "external-secrets",
+					"operation":  "Update",
+				},
+			},
+			"ownerReferences": []any{
+				map[string]any{
+					"apiVersion":         "external-secrets.io/v1",
+					"blockOwnerDeletion": true,
+					"controller":         true,
+					"kind":               "ExternalSecret",
+					"name":               "example",
+					"uid":                "16401acc-ab37-4b5d-b4e2-fbd6f952f602",
+				},
+			},
+		},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	generated := cp.GetGeneratedResources()[0]
+	assert.Equal(t, "tenant-ns", generated.GetNamespace())
+	assert.Empty(t, generated.GetOwnerReferences(), "cross-namespace generation must strip ownerReferences")
+	assert.Nil(t, generated.GetManagedFields(), "server-populated managedFields must not be copied")
+	creationTimestamp := generated.GetCreationTimestamp()
+	assert.True(t, creationTimestamp.IsZero(), "server-populated creationTimestamp must not be copied")
+	assert.Equal(t, "5b7dc768-9a06-4b25-b3e1-02b0e7b8d02a", generated.GetLabels()[common.GenerateSourceUIDLabel],
+		"metadata cleanup must not run before addGenerateLabels reads the source UID/resourceVersion")
+}
+
+// Companion case: generating into the same namespace as the source must keep
+// the ownerReferences intact, as they remain valid there.
+func TestGenerateResources_SameNamespaceKeepsOwnerReferences(t *testing.T) {
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "example",
+			"namespace": "tenant-ns",
+			"ownerReferences": []any{
+				map[string]any{
+					"apiVersion": "external-secrets.io/v1",
+					"kind":       "ExternalSecret",
+					"name":       "example",
+					"uid":        "16401acc-ab37-4b5d-b4e2-fbd6f952f602",
+				},
+			},
+		},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	generated := cp.GetGeneratedResources()[0]
+	assert.Equal(t, "tenant-ns", generated.GetNamespace())
+	require.Len(t, generated.GetOwnerReferences(), 1, "same-namespace generation must keep ownerReferences")
+	assert.Equal(t, "ExternalSecret", generated.GetOwnerReferences()[0].Kind)
+}
+
 func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 	original := &contextProvider{
 		generatedResources: []*unstructured.Unstructured{
 			{Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "orig"}}},
 		},
 	}
-	original.SetGenerateContext("policy-a", "trigger-a", "default", "v1", "", "Pod", "uid-a", true)
+	original.SetGenerateContext("policy-a", "default", "trigger-a", "default", "v1", "", "Pod", "uid-a", true, false)
 
 	cloned := original.Clone()
 	clone, ok := cloned.(*contextProvider)
@@ -276,7 +426,7 @@ func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 	assert.Empty(t, clone.generatedResources)
 	assert.Equal(t, original.genCtx, clone.genCtx)
 
-	clone.SetGenerateContext("policy-b", "trigger-b", "kube-system", "v1", "", "Service", "uid-b", false)
+	clone.SetGenerateContext("policy-b", "kube-system", "trigger-b", "kube-system", "v1", "", "Service", "uid-b", false, false)
 	clone.generatedResources = append(clone.generatedResources, &unstructured.Unstructured{
 		Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "clone"}},
 	})
@@ -285,4 +435,127 @@ func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 	assert.True(t, original.genCtx.restoreCache)
 	require.Len(t, original.generatedResources, 1)
 	assert.Equal(t, "orig", original.generatedResources[0].GetName())
+}
+
+// ssaTrackingClient wraps dclient.Interface and records whether ApplyResource
+// was called, returning the submitted object directly (no strategic merge needed).
+type ssaTrackingClient struct {
+	dclient.Interface
+	applyCalled bool
+	applyResult *unstructured.Unstructured
+}
+
+func (c *ssaTrackingClient) ApplyResource(_ context.Context, _ string, _ string, _ string, _ string, obj interface{}, _ bool, _ string, _ ...string) (*unstructured.Unstructured, error) {
+	c.applyCalled = true
+	if u, ok := obj.(*unstructured.Unstructured); ok {
+		result := u.DeepCopy()
+		c.applyResult = result
+		return result, nil
+	}
+	return nil, fmt.Errorf("unexpected type %T", obj)
+}
+
+// TestGenerateResources_ServerSideApply_Create verifies that when
+// useServerSideApply is enabled and the resource does not yet exist,
+// ApplyResource is called instead of CreateResource.
+func TestGenerateResources_ServerSideApply_Create(t *testing.T) {
+	base, err := dclient.NewFakeClient(runtime.NewScheme(), nil)
+	require.NoError(t, err)
+	base.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	mock := &ssaTrackingClient{Interface: base}
+	cp := &contextProvider{
+		client:     mock,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "ssa-cm", "namespace": "default"},
+		"data":       map[string]any{"key": "value"},
+	}
+	err = cp.GenerateResources("default", []map[string]any{cm})
+	require.NoError(t, err)
+	assert.True(t, mock.applyCalled, "ApplyResource must be called when useServerSideApply=true")
+	require.Len(t, cp.GetGeneratedResources(), 1)
+	assert.Equal(t, "ssa-cm", cp.GetGeneratedResources()[0].GetName())
+}
+
+// TestGenerateResources_ServerSideApply_Update verifies that when
+// useServerSideApply is enabled and the resource already exists,
+// ApplyResource is called (not GetResource + skip), so the resource is updated.
+func TestGenerateResources_ServerSideApply_Update(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "ssa-cm",
+				"namespace": "default",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				},
+			},
+			"data": map[string]any{"old-key": "old-value"},
+		},
+	}
+	base, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	base.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	mock := &ssaTrackingClient{Interface: base}
+	cp := &contextProvider{
+		client:     mock,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "ssa-cm", "namespace": "default"},
+		"data":       map[string]any{"new-key": "new-value"},
+	}
+	err = cp.GenerateResources("default", []map[string]any{cm})
+	require.NoError(t, err)
+	assert.True(t, mock.applyCalled, "ApplyResource must be called when useServerSideApply=true")
+	require.Len(t, cp.GetGeneratedResources(), 1)
+	assert.Equal(t, "ssa-cm", cp.GetGeneratedResources()[0].GetName())
+}
+
+func TestGenerateResources_ServerSideApply_UnmanagedExistingResourceNotAdopted(t *testing.T) {
+	unrelated := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "ssa-cm",
+				"namespace": "default",
+			},
+		},
+	}
+	base, err := dclient.NewFakeClient(runtime.NewScheme(), nil, unrelated)
+	require.NoError(t, err)
+	base.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	mock := &ssaTrackingClient{Interface: base}
+	cp := &contextProvider{
+		client:     mock,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "ssa-cm", "namespace": "default"},
+	}
+	err = cp.GenerateResources("default", []map[string]any{cm})
+	require.NoError(t, err)
+	assert.False(t, mock.applyCalled, "ApplyResource must not be called for unmanaged pre-existing resources")
+	assert.Empty(t, cp.GetGeneratedResources(), "unmanaged pre-existing resources must not be adopted")
 }

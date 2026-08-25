@@ -27,16 +27,21 @@ import (
 // WatchManager can link source events to downstreams.
 func createSecretWithCleanup(t *testing.T, name, namespace string, data map[string][]byte) *corev1.Secret {
 	t.Helper()
-	ctx := context.Background()
-	sec := &corev1.Secret{
+	return createSecretObjectWithCleanup(t, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Data:       data,
-	}
-	created, err := testEnv.KubeClient.CoreV1().Secrets(namespace).Create(ctx, sec, metav1.CreateOptions{})
-	require.NoError(t, err, "create source Secret %s/%s", namespace, name)
+	})
+}
+
+// createSecretObjectWithCleanup creates a prebuilt Secret (e.g. one loaded from a
+// YAML fixture) and registers Background-propagation cleanup.
+func createSecretObjectWithCleanup(t *testing.T, secret *corev1.Secret) *corev1.Secret {
+	t.Helper()
+	created, err := testEnv.KubeClient.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+	require.NoError(t, err, "create source Secret %s/%s", secret.Namespace, secret.Name)
 	t.Cleanup(func() {
 		bg := metav1.DeletePropagationBackground
-		_ = testEnv.KubeClient.CoreV1().Secrets(namespace).Delete(context.Background(), name, metav1.DeleteOptions{PropagationPolicy: &bg})
+		_ = testEnv.KubeClient.CoreV1().Secrets(secret.Namespace).Delete(context.Background(), secret.Name, metav1.DeleteOptions{PropagationPolicy: &bg})
 	})
 	return created
 }
@@ -144,11 +149,24 @@ func namespaceJSON(name string) []byte {
 // the assertion that proves sync reacted.
 func setupSyncTest(t *testing.T, sourceName, policyName, targetNs string, sourceData map[string][]byte) {
 	t.Helper()
-	createSecretWithCleanup(t, sourceName, "default", sourceData)
-
+	source := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: sourceName, Namespace: "default"},
+		Data:       sourceData,
+	}
 	policy := buildSyncClonePolicy(policyName, sourceName, "secrets", targetNs)
+	setupSyncTestWith(t, source, policy, targetNs)
+	waitForSecretPresent(t, sourceName, targetNs)
+}
+
+// setupSyncTestWith provisions a prebuilt source Secret + policy (inline or
+// loaded from YAML), the target namespace, and the sync-aware processor, then
+// fires the trigger admission once. Callers wait for the downstream clone and
+// run their scenario-specific assertions.
+func setupSyncTestWith(t *testing.T, source *corev1.Secret, policy *policiesv1beta1.GeneratingPolicy, targetNs string) {
+	t.Helper()
+	createSecretObjectWithCleanup(t, source)
 	createGpolWithCleanup(t, policy)
-	waitForGpolInLister(t, policyName)
+	waitForGpolInLister(t, policy.Name)
 	framework.CreateNamespace(t, testEnv.KubeClient, targetNs)
 
 	// WatchManager must be constructed after TestEnv.Start so dclient discovery is ready.
@@ -158,7 +176,7 @@ func setupSyncTest(t *testing.T, sourceName, policyName, targetNs string, source
 	mock := framework.NewProcessingURGenerator(processor)
 	h := gpol.New(mock, gpolLister, ngpolLister, "")
 
-	ctx := framework.ContextWithPolicies(context.Background(), policyName)
+	ctx := framework.ContextWithPolicies(context.Background(), policy.Name)
 	resp := h.Generate(ctx, logr.Discard(), framework.NamespaceAdmissionRequest(targetNs, namespaceJSON(targetNs)), "", time.Now())
 	require.True(t, resp.Allowed)
 
@@ -166,8 +184,6 @@ func setupSyncTest(t *testing.T, sourceName, policyName, targetNs string, source
 		return len(mock.GetSpecs()) >= 1
 	}, 10*time.Second, 200*time.Millisecond, "UR not processed in time")
 	require.Empty(t, mock.ProcessingErrors())
-
-	waitForSecretPresent(t, sourceName, targetNs)
 }
 
 // --- Tests ---
@@ -178,18 +194,27 @@ func setupSyncTest(t *testing.T, sourceName, policyName, targetNs string, source
 // branch (uid not in cache → list by generate.kyverno.io/source-uid → update each).
 func TestGenerateSync_SourceModification_PropagatesToDownstream(t *testing.T) {
 	const (
-		sourceName    = "sync-mod-src"
-		targetNs      = "sync-mod-src-target"
-		policyName    = "gen-sync-mod-src"
-		initialValue  = "initial-secret-value"
+		// These names match the YAML fixtures under testdata/sync-modify-source:
+		// source.yaml is named sync-modify-source, policy.yaml is named
+		// generate-secret and pins its matchConditions to sync-modify-source-target.
+		sourceName    = "sync-modify-source"
+		targetNs      = "sync-modify-source-target"
+		policyName    = "generate-secret"
 		modifiedValue = "rotated-secret-value"
 	)
 
-	setupSyncTest(t, sourceName, policyName, targetNs, map[string][]byte{
-		"foo": []byte(initialValue),
-	})
+	// Load the policy and source Secret from YAML fixtures (the same shapes the
+	// chainsaw sync-modify-source scenario uses) instead of building them inline.
+	source := &corev1.Secret{}
+	framework.LoadResource(t, "testdata/sync-modify-source/source.yaml", source)
+	policy := framework.LoadGeneratingPolicy(t, "testdata/sync-modify-source/policy.yaml")
+	require.Equal(t, policyName, policy.GetName(), "policy fixture name mismatch")
 
-	waitForSecretData(t, sourceName, targetNs, "foo", initialValue)
+	setupSyncTestWith(t, source, policy, targetNs)
+	waitForSecretPresent(t, sourceName, targetNs)
+
+	// source.yaml seeds foo=YmFy (base64 "bar"); confirm the clone carries it.
+	waitForSecretData(t, sourceName, targetNs, "foo", "bar")
 	initial, err := testEnv.KubeClient.CoreV1().Secrets(targetNs).Get(context.Background(), sourceName, metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.Equal(t, "kyverno", initial.Labels["app.kubernetes.io/managed-by"], "downstream should carry the kyverno managed-by label")
