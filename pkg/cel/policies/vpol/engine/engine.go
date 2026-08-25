@@ -256,7 +256,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	} else {
 		ruleName := "validation"
 		if result.Error != nil {
-			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
+			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)).WithMessageExpressionError(result.MessageExpressionError))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
 		} else if refused := result.RefusedException; refused != nil {
@@ -268,14 +268,18 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation,
 					fmt.Sprintf("failed to evaluate compensating controls of policy exception %s", cache.MetaObjectToName(refused.Exception)),
 					refused.Error, withValidationIndex(nil, result.Index),
-				).WithExceptions(exceptions))
+				).WithExceptions(exceptions).WithMessageExpressionError(result.MessageExpressionError))
 			} else {
-				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message,
-					withValidationIndex(result.AuditAnnotations, result.Index),
-				).WithExceptions(exceptions))
+				props := withValidationIndex(result.AuditAnnotations, result.Index)
+				msgErr := result.MessageExpressionError
+				if refused.MessageExpressionError != nil {
+					msgErr = refused.MessageExpressionError
+				}
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message, props).WithExceptions(exceptions).WithMessageExpressionError(msgErr))
 			}
 		} else {
-			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
+			props := withValidationIndex(result.AuditAnnotations, result.Index)
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, props).WithMessageExpressionError(result.MessageExpressionError))
 		}
 	}
 	if tracing {

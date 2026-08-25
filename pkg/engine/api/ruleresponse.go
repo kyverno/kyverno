@@ -66,6 +66,8 @@ type RuleResponse struct {
 	skipReason SkipReason
 	// properties are the additional properties from the rule that will be added to the policy report result
 	properties map[string]string
+	// messageExpressionError contains an evaluation error for a CEL message expression, if any
+	messageExpressionError string
 }
 
 func NewRuleResponse(name string, ruleType RuleType, msg string, status RuleStatus, properties map[string]string) *RuleResponse {
@@ -226,6 +228,17 @@ func (r RuleResponse) WithSkipReason(reason SkipReason) *RuleResponse {
 
 func (r *RuleResponse) SkipReason() SkipReason {
 	return r.skipReason
+}
+
+func (r RuleResponse) WithMessageExpressionError(err error) *RuleResponse {
+	if err != nil {
+		r.messageExpressionError = err.Error()
+	}
+	return &r
+}
+
+func (r *RuleResponse) MessageExpressionError() string {
+	return r.messageExpressionError
 }
 
 // String implements Stringer interface
