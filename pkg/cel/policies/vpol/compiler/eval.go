@@ -14,13 +14,19 @@ import (
 )
 
 type EvaluationResult struct {
-	Error            error
-	Message          string
-	Index            int
-	Result           bool
-	AuditAnnotations map[string]string
-	Exceptions       []*policiesv1beta1.PolicyException
-	PatchedResource  unstructured.Unstructured
+	Error                  error
+	// MessageExpressionError holds the raw error returned when evaluating the
+	// CEL messageExpression field fails at runtime. The Message field is still
+	// set to a human-readable fallback string (per the Kubernetes API spec), but
+	// this field lets tooling distinguish a legitimate rule failure from one where
+	// the failure message itself could not be computed.
+	MessageExpressionError error
+	Message                string
+	Index                  int
+	Result                 bool
+	AuditAnnotations       map[string]string
+	Exceptions             []*policiesv1beta1.PolicyException
+	PatchedResource        unstructured.Unstructured
 }
 
 type evaluationData struct {

@@ -273,11 +273,18 @@ func compareExpectedRuleResult(
 	rule engineapi.RuleResponse,
 ) (bool, string, string) {
 	result := report.ComputePolicyReportResult(false, response, rule)
+	// A messageExpression evaluation error is a policy authoring bug that must be
+	// surfaced even when the validation result (e.g. fail) matches the expectation.
+	// Without this check, a broken messageExpression silently passes the test.
+	if errMsg, ok := result.Properties[engineapi.MessageExpressionErrorKey]; ok && errMsg != "" {
+		return false, result.Description, fmt.Sprintf("messageExpression evaluation error: %s", errMsg)
+	}
 	if result.Result != expected {
 		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Description, "Ok"
 }
+
 
 // checkRuleResultOnly validates the expected test result against the computed policy
 // report result without comparing resource manifests. Use this for Generation rules

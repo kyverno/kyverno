@@ -199,7 +199,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
 		} else {
-			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
+			props := withValidationIndex(result.AuditAnnotations, result.Index)
+			props = withMessageExpressionError(props, result.MessageExpressionError)
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, props))
 		}
 	}
 	return response
@@ -220,6 +222,23 @@ func withValidationIndex(props map[string]string, idx int) map[string]string {
 	}
 	return out
 }
+
+// withMessageExpressionError returns a copy of props with MessageExpressionErrorKey
+// set to the error message when err is non-nil. This allows CLI tooling to
+// distinguish a legitimate validation failure from one where the messageExpression
+// itself crashed at runtime, without altering the admission-path behaviour.
+func withMessageExpressionError(props map[string]string, err error) map[string]string {
+	if err == nil {
+		return props
+	}
+	out := make(map[string]string, len(props)+1)
+	for k, v := range props {
+		out[k] = v
+	}
+	out[engineapi.MessageExpressionErrorKey] = err.Error()
+	return out
+}
+
 
 func (e *engineImpl) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
 	if constraints == nil {
