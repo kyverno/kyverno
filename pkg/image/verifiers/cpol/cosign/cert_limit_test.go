@@ -15,7 +15,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 // generateTestRootCA creates a self-signed root CA certificate for testing.
@@ -110,7 +110,7 @@ func buildTSAChainPEM(t *testing.T, numIntermediates int) string {
 // TestBuildCosignOptions_TSACertChainTooManyIntermediates verifies that a TSA certificate
 // chain with more than maxIntermediateCerts intermediate CAs is rejected.
 func TestBuildCosignOptions_TSACertChainTooManyIntermediates(t *testing.T) {
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 
 	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts+1)
 
@@ -131,7 +131,7 @@ func TestBuildCosignOptions_TSACertChainTooManyIntermediates(t *testing.T) {
 // TestBuildCosignOptions_TSACertChainAtLimit verifies that a TSA chain with exactly
 // maxIntermediateCerts intermediates is not rejected by the length check.
 func TestBuildCosignOptions_TSACertChainAtLimit(t *testing.T) {
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 
 	tsaChain := buildTSAChainPEM(t, maxIntermediateCerts)
 
@@ -163,7 +163,7 @@ func buildCertChainPEM(t *testing.T, n int) string {
 // TestBuildCosignOptions_CertChainTooLong verifies that a certificate chain longer than
 // maxIntermediateCerts+1 is rejected when opts.Cert and opts.CertChain are set.
 func TestBuildCosignOptions_CertChainTooLong(t *testing.T) {
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 
 	leafCert, _ := generateTestRootCA(t)
 	certPEM := string(certsToPEM([]*x509.Certificate{leafCert}))
@@ -183,7 +183,7 @@ func TestBuildCosignOptions_CertChainTooLong(t *testing.T) {
 // TestBuildCosignOptions_CertChainAtLimit verifies that a certificate chain of exactly
 // maxIntermediateCerts+1 entries is not rejected by the length check.
 func TestBuildCosignOptions_CertChainAtLimit(t *testing.T) {
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 
 	leafCert, _ := generateTestRootCA(t)
 	certPEM := string(certsToPEM([]*x509.Certificate{leafCert}))

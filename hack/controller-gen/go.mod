@@ -1,10 +1,10 @@
 module github.com/kyverno/kyverno/hack/controller-gen
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/spf13/cobra v1.10.2
-	k8s.io/apiextensions-apiserver v0.36.2
+	k8s.io/apiextensions-apiserver v0.36.4
 	sigs.k8s.io/controller-tools v0.21.0
 )
 
@@ -20,15 +20,15 @@ require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
-	golang.org/x/mod v0.35.0 // indirect
-	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
-	golang.org/x/tools v0.44.0 // indirect
+	golang.org/x/mod v0.40.0 // indirect
+	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/tools v0.49.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	k8s.io/apimachinery v0.36.2 // indirect
+	k8s.io/apimachinery v0.36.4 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199 // indirect
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5 // indirect
