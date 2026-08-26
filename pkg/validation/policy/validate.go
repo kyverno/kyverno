@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -112,19 +113,6 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 	return nil
 }
 
-func checkValidationFailureAction(validationFailureAction kyvernov1.ValidationFailureAction, validationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride) []string {
-	msg := "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."
-	if validationFailureAction == "enforce" || validationFailureAction == "audit" {
-		return []string{msg}
-	}
-	for _, override := range validationFailureActionOverrides {
-		if override.Action == "enforce" || override.Action == "audit" {
-			return []string{msg}
-		}
-	}
-	return nil
-}
-
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
@@ -139,13 +127,8 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		return warnings, fmt.Errorf("custom webhook configurations are only supported in kubernetes version 1.27.0 and above")
 	}
 
-	warnings = append(warnings, checkValidationFailureAction(spec.ValidationFailureAction, spec.ValidationFailureActionOverrides)...)
-	for _, rule := range spec.Rules {
-		if rule.HasValidate() {
-			if rule.Validation.FailureAction != nil {
-				warnings = append(warnings, checkValidationFailureAction(*rule.Validation.FailureAction, rule.Validation.FailureActionOverrides)...)
-			}
-		}
+	for _, warning := range deprecations.PolicyFieldWarnings(policy) {
+		warnings = append(warnings, warning.Message)
 	}
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
