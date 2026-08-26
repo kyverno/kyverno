@@ -47,7 +47,9 @@ func Load(paths ...string) (*LoaderResults, error) {
 		}
 		loaderResults.Exceptions = append(loaderResults.Exceptions, results.Exceptions...)
 		loaderResults.CELExceptions = append(loaderResults.CELExceptions, results.CELExceptions...)
-		loaderResults.Warnings = append(loaderResults.Warnings, results.Warnings...)
+		for _, warning := range results.Warnings {
+			loaderResults.Warnings = append(loaderResults.Warnings, fmt.Sprintf("%s: %s", path, warning))
+		}
 	}
 	return loaderResults, nil
 }

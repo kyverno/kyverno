@@ -5,10 +5,13 @@ package deprecations
 
 import (
 	"fmt"
+	"regexp"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
+
+var fieldIndexPattern = regexp.MustCompile(`\[\d+\]`)
 
 // MigrationGuideURL points to the guide describing how to migrate legacy
 // kyverno.io policies to the policies.kyverno.io policy types.
@@ -108,6 +111,10 @@ func PolicyFieldWarnings(policy kyvernov1.PolicyInterface) []DeprecationWarning 
 
 func isDeprecatedValidationFailureAction(action kyvernov1.ValidationFailureAction) bool {
 	return action == "enforce" || action == "audit"
+}
+
+func NormalizeFieldPath(field string) string {
+	return fieldIndexPattern.ReplaceAllString(field, "[]")
 }
 
 func policyVersion(policy kyvernov1.PolicyInterface) string {

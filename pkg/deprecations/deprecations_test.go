@@ -90,6 +90,15 @@ func TestBuildKindWarningIgnoresNonKyvernoGroup(t *testing.T) {
 	}
 }
 
+func TestNormalizeFieldPath(t *testing.T) {
+	t.Parallel()
+	got := NormalizeFieldPath("spec.rules[3].validate.failureActionOverrides[7].action")
+	want := "spec.rules[].validate.failureActionOverrides[].action"
+	if got != want {
+		t.Fatalf("expected %q, got %q", want, got)
+	}
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }

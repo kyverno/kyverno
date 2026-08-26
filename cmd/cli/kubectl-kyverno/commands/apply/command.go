@@ -301,7 +301,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(out)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -1087,7 +1087,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies() (
+func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
@@ -1160,7 +1160,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				if err != nil {
 					continue
 				}
-				c.recordPolicyWarnings(loaderResults.Warnings)
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1187,7 +1187,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
-				c.recordPolicyWarnings(loaderResults.Warnings)
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1214,10 +1214,10 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
 }
 
-func (c *ApplyCommandConfig) recordPolicyWarnings(warnings []policy.LoaderWarning) {
+func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {
 	for _, warning := range warnings {
 		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
-		fmt.Fprintln(os.Stderr, msg)
+		fmt.Fprintln(out, msg)
 		c.deprecationWarnings = append(c.deprecationWarnings, msg)
 	}
 }
