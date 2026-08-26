@@ -2,9 +2,23 @@ package anchor
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
+
+// maskedError hides the wrapped error message while preserving its error chain.
+type maskedError struct {
+	err error
+}
+
+func (e maskedError) Error() string {
+	return "masked error"
+}
+
+func (e maskedError) Unwrap() error {
+	return e.err
+}
 
 func Test_validateAnchorError_Error(t *testing.T) {
 	type fields struct {
@@ -163,7 +177,7 @@ func TestIsNegationAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("negation anchor matched in resource: test"),
 		},
-		want: true,
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -206,7 +220,7 @@ func TestIsConditionalAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("conditional anchor mismatch: test"),
 		},
-		want: true,
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -249,7 +263,7 @@ func TestIsGlobalAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("global anchor mismatch: test"),
 		},
-		want: true,
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -270,6 +284,48 @@ func TestIsGlobalAnchorError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := IsGlobalAnchorError(tt.args.err); got != tt.want {
 				t.Errorf("IsGlobalAnchorError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsAnchorErrorWrapped(t *testing.T) {
+	tests := []struct {
+		name     string
+		err      error
+		isTarget func(error) bool
+	}{
+		{
+			name:     "negation",
+			err:      newNegationAnchorError("test"),
+			isTarget: IsNegationAnchorError,
+		},
+		{
+			name:     "conditional",
+			err:      newConditionalAnchorError("test"),
+			isTarget: IsConditionalAnchorError,
+		},
+		{
+			name:     "global",
+			err:      newGlobalAnchorError("test"),
+			isTarget: IsGlobalAnchorError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			wrapped := fmt.Errorf("wrapped: %w", tt.err)
+			if !tt.isTarget(wrapped) {
+				t.Errorf("wrapped error was not classified as a %s anchor error", tt.name)
+			}
+
+			masked := maskedError{err: tt.err}
+			if !tt.isTarget(masked) {
+				t.Errorf("masked error was not classified as a %s anchor error", tt.name)
+			}
+
+			multiplyWrapped := fmt.Errorf("wrapped again: %w", masked)
+			if !tt.isTarget(multiplyWrapped) {
+				t.Errorf("multiply wrapped error was not classified as a %s anchor error", tt.name)
 			}
 		})
 	}
