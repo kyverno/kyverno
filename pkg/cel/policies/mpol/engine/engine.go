@@ -100,26 +100,27 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 	}
 
 	for _, mpol := range mpols {
-		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, namespace, true)
-			response.Policies = append(response.Policies, r)
-			if patched != nil {
-				response.PatchedResource = patched
-				// Update attr to use the patched resource for the next policy evaluation
-				attr = admission.NewAttributesRecord(
-					patched,
-					attr.GetOldObject(),
-					attr.GetKind(),
-					attr.GetNamespace(),
-					attr.GetName(),
-					attr.GetResource(),
-					attr.GetSubresource(),
-					attr.GetOperation(),
-					nil,
-					attr.IsDryRun(),
-					attr.GetUserInfo(),
-				)
-			}
+		if predicate != nil && !predicate(mpol.Policy) {
+			continue
+		}
+		r, patched := e.handlePolicy(ctx, mpol, attr, request, namespace, true)
+		response.Policies = append(response.Policies, r)
+		if patched != nil {
+			response.PatchedResource = patched
+			// Update attr to use the patched resource for the next policy evaluation
+			attr = admission.NewAttributesRecord(
+				patched,
+				attr.GetOldObject(),
+				attr.GetKind(),
+				attr.GetNamespace(),
+				attr.GetName(),
+				attr.GetResource(),
+				attr.GetSubresource(),
+				attr.GetOperation(),
+				nil,
+				attr.IsDryRun(),
+				attr.GetUserInfo(),
+			)
 		}
 	}
 	return response, nil
