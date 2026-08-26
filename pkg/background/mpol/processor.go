@@ -21,6 +21,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -31,6 +32,8 @@ import (
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,6 +53,7 @@ type processor struct {
 	mapper        meta.RESTMapper
 	context       libs.Context
 	statusControl common.StatusControlInterface
+	configuration config.Configuration
 
 	eventGen event.Interface
 }
@@ -74,6 +78,7 @@ func NewProcessor(client dclient.Interface,
 	context libs.Context,
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
+	configuration config.Configuration,
 ) *processor {
 	return &processor{
 		client:        client,
@@ -83,6 +88,7 @@ func NewProcessor(client dclient.Interface,
 		context:       context,
 		statusControl: statusControl,
 		eventGen:      eventGen,
+		configuration: configuration,
 	}
 }
 
@@ -161,9 +167,9 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 	baseAR := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	// Derive policyName and scopePredicate from the resolved mpol object rather than from the
-	// UR key. Admission-webhook URs store only the bare policy name (reconciler.MatchesMutateExisting
-	// returns GetName(), not namespace/name), so ParsePolicyKey on the UR key would yield an
-	// empty namespace for NamespacedMutatingPolicies, causing the wrong scope predicate to be used.
+	// UR key. New URs store the stable policy key (namespace/name) for NamespacedMutatingPolicies,
+	// but URs created by older versions may still carry the bare policy name; deriving scope from
+	// the resolved policy keeps both compatible.
 	policyName := mpol.GetName()
 	scopePredicate := mpolengine.ClusteredPolicy()
 	if ns := mpol.GetNamespace(); ns != "" {
@@ -171,7 +177,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 	for _, target := range targets {
 		object := &target.object
-
+		if p.configuration != nil && p.configuration.ToFilter(object.GroupVersionKind(), target.subresource, object.GetNamespace(), object.GetName()) {
+			logger.V(4).Info("target resource is filtered out by resource filters", "kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName(), "mpol", ur.Spec.GetPolicyKey())
+			continue
+		}
 		// Build the AdmissionRequest for this target. For background-only scans there is no
 		// real admission request, so we construct a synthetic one from the target resource.
 		// Operation is Update (background scans mutate already-existing resources).
@@ -224,8 +233,22 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		if response.PatchedResource != nil {
+			// Skip no-op updates: policy events and periodic background scans re-evaluate
+			// targets that may already be in the desired state. Reports/events are still
+			// generated so the evaluation result remains observable.
+			if apiequality.Semantic.DeepEqual(response.PatchedResource.Object, object.Object) {
+				if err := p.audit(object, &response); err != nil {
+					logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+				}
+				continue
+			}
 			object, err = p.client.GetResource(context.TODO(), object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName())
 			if err != nil {
+				// The target may have been deleted between resolution and update
+				// (e.g. a self-mutation target deleted after triggering); don't fail the UR.
+				if apierrors.IsNotFound(err) {
+					continue
+				}
 				failures = append(failures, fmt.Errorf("failed to refresh target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 				continue
 			}
@@ -236,6 +259,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				subresources = append(subresources, target.subresource)
 			}
 			if _, err := p.client.UpdateResource(context.TODO(), new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.Object, false, subresources...); err != nil {
+				// The target may have been deleted between the re-fetch and the update; don't fail the UR.
+				if apierrors.IsNotFound(err) {
+					continue
+				}
 				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 				continue
 			}
@@ -409,8 +436,8 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 		if err == nil {
 			return mpol, nil
 		}
-		// Fallback: CELMutate URs created from admission webhooks use the bare policy name
-		// (reconciler.MatchesMutateExisting returns GetName(), not namespace/name).
+		// Fallback: CELMutate URs created by older versions use the bare policy name
+		// (new URs store namespace/name for namespaced policies).
 		// Since NamespacedMutatingPolicies only match resources in their own namespace,
 		// the admission request's namespace equals the policy's namespace.
 		if ar := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest; ar != nil && ar.Namespace != "" {
@@ -453,7 +480,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 			return nil, err
 		}
 	}
-	pol, err := p.engine.GetCompiledPolicy(mpol.GetName())
+	pol, err := p.engine.GetCompiledPolicy(mpolengine.PolicyKey(mpol))
 	if err != nil {
 		return nil, err
 	}

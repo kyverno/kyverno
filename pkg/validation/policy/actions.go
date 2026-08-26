@@ -76,7 +76,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 			checker = generate.NewFakeGenerate(*rule.Generation)
 			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
-			} else if warnings != nil {
+			} else if w != nil {
 				warnings = append(warnings, w...)
 			}
 		} else {
@@ -85,14 +85,14 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				checker = generate.NewGenerateFactory(client, rule, admissionSA, reportsSA, logging.GlobalLogger(), cache)
 				if w, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
 					return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
-				} else if warnings != nil {
+				} else if w != nil {
 					warnings = append(warnings, w...)
 				}
 			}
 			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger(), cache)
 			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
-			} else if warnings != nil {
+			} else if w != nil {
 				warnings = append(warnings, w...)
 			}
 		}

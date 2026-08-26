@@ -965,3 +965,154 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	}
 	require.True(t, found, "expected engine response for policy set-annotations-for-widget")
 }
+
+func TestRunTest_MutatingPolicySubresourceMatch(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-pod-binding-subresource")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	// A resourceRule of "pods/binding" only matches when the engine request
+	// carries the "binding" subresource. Before the fix, the CLI always sent
+	// an empty subresource for MutatingPolicies, so matchConstraints never
+	// matched and no rule (nor mutation) was produced for the trigger.
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() != "mutate-add-aws-zone-id" {
+				continue
+			}
+			found = true
+			require.NotEmpty(t, r.PolicyResponse.Rules, "expected the pods/binding matchConstraints rule to match and produce a rule response")
+			annotations := r.PatchedResource.GetAnnotations()
+			require.Equal(t, "test-az", annotations["pod-topology.k8s.aws/zone-id"], "expected the mutation to be applied to the binding resource")
+		}
+	}
+	require.True(t, found, "expected engine response for policy mutate-add-aws-zone-id")
+}
+
+func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-deleting-policy", "object-selector")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	got := map[string]engineapi.RuleStatus{}
+	for _, responses := range testResponse.Trigger {
+		for _, response := range responses {
+			for _, rule := range response.PolicyResponse.Rules {
+				got[response.Resource.GetName()] = rule.Status()
+			}
+		}
+	}
+
+	assert.Equal(t, engineapi.RuleStatusPass, got["secret-delete"])
+	// Resources excluded by matchConstraints (here: objectSelector) must not
+	// produce any result row, matching vpol/mpol CLI behavior.
+	_, found := got["secret-skip"]
+	assert.False(t, found, "constraint-excluded resource must not produce a rule response")
+}
+
+func Test_OperationDelete(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-delete")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+
+	resourceKey := "v1,Pod,test-ns,protected-pod"
+
+	t.Run("DELETE run evaluates DELETE-scoped policy against oldObject", func(t *testing.T) {
+		require.Contains(t, testResponse.TriggerByOperation, "DELETE")
+		responses := testResponse.TriggerByOperation["DELETE"][resourceKey]
+		require.NotEmpty(t, responses)
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "deny-protected-deletion" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for deny-protected-deletion in the DELETE run")
+	})
+
+	t.Run("default run skips the DELETE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		require.NotEmpty(t, responses)
+		for _, response := range responses {
+			if response.Policy().GetName() == "deny-protected-deletion" {
+				assert.Empty(t, response.PolicyResponse.Rules, "DELETE-scoped policy must not match the default CREATE run")
+			}
+		}
+	})
+
+	t.Run("default run evaluates the CREATE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "require-env-label" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for require-env-label in the default run")
+	})
+}
+
+func Test_InvalidResultOperation(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-delete")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+	testCase := testCases[0]
+	testCase.Test.Results[0].Operation = "CONNECT"
+
+	_, err = runTest(io.Discard, testCase, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid operation")
+}
