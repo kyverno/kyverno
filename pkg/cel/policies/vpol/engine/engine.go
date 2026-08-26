@@ -220,40 +220,78 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 // than a silent pass, since a coverage gap should be visible during this
 // phase rather than mistaken for correct enforcement.
 func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) (*compiler.EvaluationResult, error) {
-	obj, ok := attr.GetObject().(*unstructured.Unstructured)
-	if !ok || obj == nil {
+	newObj, _ := attr.GetObject().(*unstructured.Unstructured)
+	oldObj, _ := attr.GetOldObject().(*unstructured.Unstructured)
+	// On a real DELETE, object is empty and the resource content lives only
+	// in oldObject (see admissionutils.ExtractResources) - fall back to it so
+	// extraction still finds the pod template(s) being deleted.
+	source, usingOld := newObj, false
+	if source == nil || len(source.Object) == 0 {
+		source, usingOld = oldObj, true
+	}
+	if source == nil || len(source.Object) == 0 {
 		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: expected an unstructured object, got %T", attr.GetObject())}, nil
 	}
-	templates := extract.ExtractPodTemplates(obj.Object)
+	templates := extract.ExtractPodTemplates(source.Object)
 	if len(templates) == 0 {
-		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", obj.GetAPIVersion(), obj.GetKind())}, nil
+		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", source.GetAPIVersion(), source.GetKind())}, nil
 	}
-	var oldByPath map[string]extract.Extracted
-	if oldObj, ok := attr.GetOldObject().(*unstructured.Unstructured); ok && oldObj != nil {
-		oldTemplates := extract.ExtractPodTemplates(oldObj.Object)
-		oldByPath = make(map[string]extract.Extracted, len(oldTemplates))
-		for _, t := range oldTemplates {
-			oldByPath[t.Path] = t
+	other := oldObj
+	if usingOld {
+		other = newObj
+	}
+	var otherByPath map[string]extract.Extracted
+	if other != nil && len(other.Object) > 0 {
+		otherTemplates := extract.ExtractPodTemplates(other.Object)
+		otherByPath = make(map[string]extract.Extracted, len(otherTemplates))
+		for _, t := range otherTemplates {
+			otherByPath[t.Path] = t
 		}
 	}
-	var last *compiler.EvaluationResult
+	var (
+		last          *compiler.EvaluationResult
+		allExceptions []*policiesv1beta1.PolicyException
+	)
 	for _, tpl := range templates {
-		var oldTpl *extract.Extracted
-		if o, ok := oldByPath[tpl.Path]; ok {
-			oldTpl = &o
+		var otherTpl *extract.Extracted
+		if o, ok := otherByPath[tpl.Path]; ok {
+			otherTpl = &o
 		}
-		synthAttr := extract.SynthesizePodAttributes(tpl, oldTpl, attr)
+		var synthAttr admission.Attributes
+		if usingOld {
+			// The template found belongs to oldObject; keep it there so the
+			// synthesized Pod mirrors a real DELETE (object nil, oldObject set).
+			synthAttr = extract.SynthesizePodAttributes(otherTpl, &tpl, attr)
+		} else {
+			synthAttr = extract.SynthesizePodAttributes(&tpl, otherTpl, attr)
+		}
 		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, request, namespace, context)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
-		if result != nil && (result.Error != nil || !result.Result) {
+		if result == nil {
+			continue
+		}
+		// A policy-exception match is a per-template skip, not a failure - it
+		// must not short-circuit the remaining templates, or a genuinely bad
+		// template later in the list would go unevaluated.
+		if len(result.Exceptions) > 0 {
+			allExceptions = append(allExceptions, result.Exceptions...)
+			continue
+		}
+		if result.Error != nil || !result.Result {
 			if result.Message != "" {
 				result.Message = fmt.Sprintf("%s (pod template at %s)", result.Message, tpl.Path)
+			}
+			if result.Error != nil {
+				result.Error = fmt.Errorf("%w (pod template at %s)", result.Error, tpl.Path)
 			}
 			return result, nil
 		}
 		last = result
+	}
+	if last == nil && len(allExceptions) > 0 {
+		return &compiler.EvaluationResult{Exceptions: allExceptions}, nil
 	}
 	return last, nil
 }

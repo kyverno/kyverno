@@ -53,6 +53,7 @@ func NewProvider(policies []policiesv1beta1.ImageValidatingPolicyLike, exception
 			compiled = append(compiled, Policy{
 				Actions:        actions,
 				Policy:         autogenPolicy,
+				Exceptions:     matchedExceptions,
 				ExtractionMode: config == ivpolautogen.ExtractionReplacementsRef,
 			})
 		}

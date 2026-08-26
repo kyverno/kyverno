@@ -15,18 +15,37 @@ var (
 // SynthesizePodAttributes builds a v1/Pod-shaped admission.Attributes from an
 // extracted pod template, reusing the real parent admission.Attributes for
 // everything that isn't part of the template itself (operation, dry-run,
-// user info, subresource). oldTpl may be nil (e.g. on a CREATE request, or
-// when the old and new parent objects don't have a matching number of
-// templates).
-func SynthesizePodAttributes(tpl Extracted, oldTpl *Extracted, parent admission.Attributes) admission.Attributes {
-	newPod := buildPod(&tpl, parent)
-	oldPod := buildPod(oldTpl, parent)
+// user info, subresource). Either newTpl or oldTpl may be nil (e.g. CREATE
+// has no old template, DELETE has no new template, and an UPDATE where the
+// old and new parent objects don't have a matching number of templates can
+// leave either side unmatched) - the corresponding object/oldObject is left
+// as a genuine nil runtime.Object rather than an empty {apiVersion,kind} Pod
+// stub, so CEL expressions like `oldObject == null` behave the same as they
+// would for a real Pod on the same request.
+func SynthesizePodAttributes(newTpl, oldTpl *Extracted, parent admission.Attributes) admission.Attributes {
+	var newObj, oldObj runtime.Object
+	var newPod, oldPod *unstructured.Unstructured
+	if newTpl != nil {
+		newPod = buildPod(*newTpl, parent)
+		newObj = newPod
+	}
+	if oldTpl != nil {
+		oldPod = buildPod(*oldTpl, parent)
+		oldObj = oldPod
+	}
+	name, namespace := parent.GetName(), parent.GetNamespace()
+	switch {
+	case newPod != nil:
+		name, namespace = newPod.GetName(), newPod.GetNamespace()
+	case oldPod != nil:
+		name, namespace = oldPod.GetName(), oldPod.GetNamespace()
+	}
 	return admission.NewAttributesRecord(
-		newPod,
-		oldPod,
+		newObj,
+		oldObj,
 		podGVK,
-		newPod.GetNamespace(),
-		newPod.GetName(),
+		namespace,
+		name,
 		podGVR,
 		parent.GetSubresource(),
 		parent.GetOperation(),
@@ -36,14 +55,11 @@ func SynthesizePodAttributes(tpl Extracted, oldTpl *Extracted, parent admission.
 	)
 }
 
-func buildPod(tpl *Extracted, parent admission.Attributes) *unstructured.Unstructured {
+func buildPod(tpl Extracted, parent admission.Attributes) *unstructured.Unstructured {
 	pod := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "Pod",
 	}}
-	if tpl == nil {
-		return pod
-	}
 	var metadata map[string]any
 	if m, ok := tpl.Template["metadata"].(map[string]any); ok {
 		metadata = runtime.DeepCopyJSON(m)
