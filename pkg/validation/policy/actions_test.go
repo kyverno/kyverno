@@ -8,7 +8,7 @@ import (
 )
 
 func Test_validateActions_NilRule(t *testing.T) {
-	warnings, err := validateActions(0, nil, nil, true, "", "")
+	warnings, err := validateActions(0, nil, nil, true, "", "", nil)
 	assert.Nil(t, err)
 	assert.Nil(t, warnings)
 }
@@ -35,7 +35,7 @@ func Test_validateActions_GenerateSameKind(t *testing.T) {
 	}
 	rule.MatchResources.Kinds = []string{"ConfigMap"}
 
-	warnings, err := validateActions(0, rule, nil, true, "", "")
+	warnings, err := validateActions(0, rule, nil, true, "", "", nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "generation kind and match resource kind should not be the same")
 	assert.Nil(t, warnings)
@@ -54,7 +54,7 @@ func Test_validateActions_GenerateMockSuccess(t *testing.T) {
 		},
 	}
 
-	warnings, err := validateActions(0, rule, nil, true, "", "")
+	warnings, err := validateActions(0, rule, nil, true, "", "", nil)
 	assert.NoError(t, err)
 	assert.Empty(t, warnings)
 }
