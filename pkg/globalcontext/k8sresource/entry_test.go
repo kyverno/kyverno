@@ -477,8 +477,11 @@ func TestEntry_ConcurrentAccess(t *testing.T) {
 
 func TestEntry_Stop_Idempotent(t *testing.T) {
 	count := 0
+	var stopOnce sync.Once
 	stop := func() {
-		count++
+		stopOnce.Do(func() {
+			count++
+		})
 	}
 
 	e := &entry{stop: stop}
