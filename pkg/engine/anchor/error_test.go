@@ -2,7 +2,7 @@ package anchor
 
 import (
 	"errors"
-	"reflect"
+	"fmt"
 	"testing"
 )
 
@@ -77,7 +77,7 @@ func Test_newNegationAnchorError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := newNegationAnchorError(tt.args.msg); !reflect.DeepEqual(got, tt.want) {
+			if got := newNegationAnchorError(tt.args.msg); got != tt.want {
 				t.Errorf("newNegationAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
@@ -108,7 +108,7 @@ func Test_newConditionalAnchorError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := newConditionalAnchorError(tt.args.msg); !reflect.DeepEqual(got, tt.want) {
+			if got := newConditionalAnchorError(tt.args.msg); got != tt.want {
 				t.Errorf("newConditionalAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
@@ -139,7 +139,7 @@ func Test_newGlobalAnchorError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := newGlobalAnchorError(tt.args.msg); !reflect.DeepEqual(got, tt.want) {
+			if got := newGlobalAnchorError(tt.args.msg); got != tt.want {
 				t.Errorf("newGlobalAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
@@ -147,42 +147,42 @@ func Test_newGlobalAnchorError(t *testing.T) {
 }
 
 func TestIsNegationAnchorError(t *testing.T) {
-	type args struct {
-		err error
-	}
 	tests := []struct {
 		name string
-		args args
+		err  error
 		want bool
 	}{{
-		args: args{
-			err: nil,
-		},
+		name: "nil error",
+		err:  nil,
 		want: false,
 	}, {
-		args: args{
-			err: errors.New("negation anchor matched in resource: test"),
-		},
+		name: "plain error with matching message should NOT be classified as anchor error",
+		err:  errors.New("negation anchor matched in resource: test"),
+		want: false,
+	}, {
+		name: "conditional anchor error is not negation",
+		err:  newConditionalAnchorError("test"),
+		want: false,
+	}, {
+		name: "global anchor error is not negation",
+		err:  newGlobalAnchorError("test"),
+		want: false,
+	}, {
+		name: "direct negation anchor error",
+		err:  newNegationAnchorError("test"),
 		want: true,
 	}, {
-		args: args{
-			err: newConditionalAnchorError("test"),
-		},
-		want: false,
+		name: "wrapped negation anchor error should be recognized",
+		err:  fmt.Errorf("wrapper: %w", newNegationAnchorError("test")),
+		want: true,
 	}, {
-		args: args{
-			err: newGlobalAnchorError("test"),
-		},
-		want: false,
-	}, {
-		args: args{
-			err: newNegationAnchorError("test"),
-		},
+		name: "doubly wrapped negation anchor error should be recognized",
+		err:  fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", newNegationAnchorError("test"))),
 		want: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsNegationAnchorError(tt.args.err); got != tt.want {
+			if got := IsNegationAnchorError(tt.err); got != tt.want {
 				t.Errorf("IsNegationAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
@@ -190,42 +190,42 @@ func TestIsNegationAnchorError(t *testing.T) {
 }
 
 func TestIsConditionalAnchorError(t *testing.T) {
-	type args struct {
-		err error
-	}
 	tests := []struct {
 		name string
-		args args
+		err  error
 		want bool
 	}{{
-		args: args{
-			err: nil,
-		},
+		name: "nil error",
+		err:  nil,
 		want: false,
 	}, {
-		args: args{
-			err: errors.New("conditional anchor mismatch: test"),
-		},
-		want: true,
-	}, {
-		args: args{
-			err: newConditionalAnchorError("test"),
-		},
-		want: true,
-	}, {
-		args: args{
-			err: newGlobalAnchorError("test"),
-		},
+		name: "plain error with matching message should NOT be classified as anchor error",
+		err:  errors.New("conditional anchor mismatch: test"),
 		want: false,
 	}, {
-		args: args{
-			err: newNegationAnchorError("test"),
-		},
+		name: "direct conditional anchor error",
+		err:  newConditionalAnchorError("test"),
+		want: true,
+	}, {
+		name: "global anchor error is not conditional",
+		err:  newGlobalAnchorError("test"),
+		want: false,
+	}, {
+		name: "negation anchor error is not conditional",
+		err:  newNegationAnchorError("test"),
+		want: false,
+	}, {
+		name: "wrapped conditional anchor error should be recognized",
+		err:  fmt.Errorf("wrapper: %w", newConditionalAnchorError("test")),
+		want: true,
+	}, {
+		name: "unrelated error with same text should NOT be classified as anchor error",
+		err:  fmt.Errorf("wrapper: %w", errors.New("conditional anchor mismatch: something")),
 		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsConditionalAnchorError(tt.args.err); got != tt.want {
+			if got := IsConditionalAnchorError(tt.err); got != tt.want {
 				t.Errorf("IsConditionalAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
@@ -233,42 +233,38 @@ func TestIsConditionalAnchorError(t *testing.T) {
 }
 
 func TestIsGlobalAnchorError(t *testing.T) {
-	type args struct {
-		err error
-	}
 	tests := []struct {
 		name string
-		args args
+		err  error
 		want bool
 	}{{
-		args: args{
-			err: nil,
-		},
+		name: "nil error",
+		err:  nil,
 		want: false,
 	}, {
-		args: args{
-			err: errors.New("global anchor mismatch: test"),
-		},
+		name: "plain error with matching message should NOT be classified as anchor error",
+		err:  errors.New("global anchor mismatch: test"),
+		want: false,
+	}, {
+		name: "conditional anchor error is not global",
+		err:  newConditionalAnchorError("test"),
+		want: false,
+	}, {
+		name: "direct global anchor error",
+		err:  newGlobalAnchorError("test"),
 		want: true,
 	}, {
-		args: args{
-			err: newConditionalAnchorError("test"),
-		},
+		name: "negation anchor error is not global",
+		err:  newNegationAnchorError("test"),
 		want: false,
 	}, {
-		args: args{
-			err: newGlobalAnchorError("test"),
-		},
+		name: "wrapped global anchor error should be recognized",
+		err:  fmt.Errorf("wrapper: %w", newGlobalAnchorError("test")),
 		want: true,
-	}, {
-		args: args{
-			err: newNegationAnchorError("test"),
-		},
-		want: false,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := IsGlobalAnchorError(tt.args.err); got != tt.want {
+			if got := IsGlobalAnchorError(tt.err); got != tt.want {
 				t.Errorf("IsGlobalAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
