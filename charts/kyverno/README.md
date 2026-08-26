@@ -990,7 +990,7 @@ Kubernetes: `>=1.25.0-0`
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
 | https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.2 |
-| https://kyverno.github.io/reports-server/ | reports-server | 0.1.6 |
+| https://kyverno.github.io/reports-server/ | reports-server | 0.1.7 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ----------------------------------------------
