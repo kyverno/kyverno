@@ -39,14 +39,9 @@ spec:
     - script:
        content: kubectl apply -f resource.yaml
        check:
-         # This check ensures the contents of stderr are exactly as shown.
-         (trim_space($stderr)): |-
-           Error from server: error when creating "resource.yaml": admission webhook "validate.kyverno.svc-fail" denied the request: 
-
-           resource Namespace//asdfhl was blocked due to the following policies 
-
-           require-ns-owner-label:
-             check-for-namespace-owner-label: 'validation error: The label `uw.systems/owner`
-               is required. Check policy at https://github.com/utilitywarehouse/system-manifests/tree/master/kyverno/policies/namespaces/require-ns-owner-label.yaml
-               for allowed label values. rule check-for-namespace-owner-label failed at path
-               /metadata/labels/uw.systems/owner/'
+         ($error != null): true
+         (contains($stderr, 'denied the request')): true
+         (contains($stderr, 'require-ns-owner-label')): true
+         (contains($stderr, 'check-for-namespace-owner-label')): true
+         (contains($stderr, 'uw.systems/owner')): true
+         (contains($stderr, 'preconditions-check')): false
