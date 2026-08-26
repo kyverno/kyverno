@@ -27,7 +27,7 @@ require (
 	github.com/go-logr/zerologr v1.2.3
 	github.com/golang/mock v1.7.0-rc.1
 	github.com/google/gnostic-models v0.7.1
-	github.com/google/go-containerregistry v0.21.9
+	github.com/google/go-containerregistry v0.22.0
 	github.com/in-toto/in-toto-golang v0.11.0
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/julienschmidt/httprouter v1.3.0
@@ -196,7 +196,7 @@ require (
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/djherbis/times v1.6.0 // indirect
-	github.com/docker/cli v29.6.2+incompatible // indirect
+	github.com/docker/cli v29.7.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.5 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.13.0 // indirect
@@ -282,7 +282,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.4.0 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/kyverno/pkg/ext v0.0.0-20250303002756-48769d003e55
