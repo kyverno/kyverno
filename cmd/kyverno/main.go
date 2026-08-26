@@ -236,7 +236,7 @@ func createrLeaderControllers(
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
-				APIVersions: []string{"v1alpha1"},
+				APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
@@ -879,7 +879,8 @@ func main() {
 		})
 		mpolHandlers := mpol.New(contextProvider, mpolEngine, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName, eventGenerator)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
-			Enabled: internal.PolicyExceptionEnabled(),
+			Enabled:   internal.PolicyExceptionEnabled(),
+			Namespace: internal.ExceptionNamespace(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
 		server := webhooks.NewServer(

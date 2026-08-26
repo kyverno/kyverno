@@ -27,10 +27,7 @@ func (h *celExceptionHandlers) Validate(ctx context.Context, logger logr.Logger,
 		logger.Error(err, "failed to unmarshal CEL PolicyExceptions from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	var warning string
-	if !h.validationOptions.Enabled {
-		warning = validation.DisabledPolex
-	}
+	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)
 	errs := polex.Validate()
-	return admissionutils.Response(request.UID, errs.ToAggregate(), warning)
+	return admissionutils.Response(request.UID, errs.ToAggregate(), warnings...)
 }
