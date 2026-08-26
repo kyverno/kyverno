@@ -9,14 +9,18 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	enginecompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -170,8 +174,17 @@ func (m *mockNamespaceLister) Get(name string) (*corev1.Namespace, error) {
 // mockDClient embeds the dclient.Interface to bypass full implementation.
 type mockDClient struct {
 	dclient.Interface
-	dyn  dynamic.Interface
-	kube kubernetes.Interface
+	dyn              dynamic.Interface
+	kube             kubernetes.Interface
+	deletedResources []string
+}
+
+type mockEventGenerator struct {
+	events []event.Info
+}
+
+func (m *mockEventGenerator) Add(infoList ...event.Info) {
+	m.events = append(m.events, infoList...)
 }
 
 func (m *mockDClient) GetDynamicInterface() dynamic.Interface {
@@ -181,6 +194,11 @@ func (m *mockDClient) GetDynamicInterface() dynamic.Interface {
 // Implement GetKubeClient so restmapper doesn't panic!
 func (m *mockDClient) GetKubeClient() kubernetes.Interface {
 	return m.kube
+}
+
+func (m *mockDClient) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, forceDelete bool, deleteOptions metav1.DeleteOptions) error {
+	m.deletedResources = append(m.deletedResources, namespace+"/"+name)
+	return nil
 }
 
 func Test_DeletingController_Pagination_And_Namespace_Iteration(t *testing.T) {
@@ -286,6 +304,196 @@ func Test_DeletingController_Pagination_And_Namespace_Iteration(t *testing.T) {
 	// Call 3: First (and only) page of ns2 (Namespace iteration works!)
 	assert.Equal(t, "ns2", listActions[2].GetNamespace())
 }
+
+func TestDeleting_ClusterWidePaginationWithoutNamespaceSelector(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConfig := mocks.NewMockConfiguration(ctrl)
+
+	mockConfig.EXPECT().
+		ToFilter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(false).
+		AnyTimes()
+
+	scheme := runtime.NewScheme()
+
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{
+			Group:   "",
+			Version: "v1",
+		},
+	})
+
+	mapper.Add(
+		schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Pod",
+		},
+		meta.RESTScopeNamespace,
+	)
+
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+	}
+
+	dynClient := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(
+		scheme,
+		gvrToListKind,
+	)
+
+	pod := func(name, namespace string) unstructured.Unstructured {
+		return unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata": map[string]interface{}{
+					"name":      name,
+					"namespace": namespace,
+				},
+			},
+		}
+	}
+
+	kubeClient := kubeclientfake.NewSimpleClientset()
+	fakeDiscovery, ok := kubeClient.Discovery().(*fakediscovery.FakeDiscovery)
+	if ok {
+		fakeDiscovery.Resources = []*metav1.APIResourceList{
+			{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{
+						Name:       "pods",
+						Kind:       "Pod",
+						Namespaced: true,
+					},
+				},
+			},
+		}
+	}
+
+	var listActions []clienttesting.ListAction
+
+	dynClient.PrependReactor(
+		"list",
+		"*",
+		func(action clienttesting.Action) (bool, runtime.Object, error) {
+			listAction := action.(clienttesting.ListAction)
+			listActions = append(listActions, listAction)
+
+			list := &unstructured.UnstructuredList{}
+			list.SetGroupVersionKind(
+				schema.GroupVersionKind{
+					Version: "v1",
+					Kind:    "PodList",
+				},
+			)
+
+			switch len(listActions) {
+			case 1:
+				list.Items = []unstructured.Unstructured{
+					pod("pod-1", "ns1"),
+					pod("pod-2", "ns2"),
+				}
+				list.SetContinue("token-123")
+
+			case 2:
+				list.Items = []unstructured.Unstructured{
+					pod("pod-3", "ns1"),
+				}
+			}
+
+			return true, list, nil
+		},
+	)
+
+	nsLister := &mockNamespaceLister{
+		namespaces: []*corev1.Namespace{
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns1"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns2"}},
+		},
+	}
+
+	pol := policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-cluster-wide-pagination",
+		},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			Conditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "always-true",
+					Expression: "true",
+				},
+			},
+		},
+	}
+
+	compiler := enginecompiler.NewCompiler()
+
+	compiledPolicy, errs := compiler.Compile(&pol, nil)
+	assert.Empty(t, errs)
+
+	ePolicy := dpolengine.Policy{
+		Policy:         &pol,
+		CompiledPolicy: compiledPolicy,
+	}
+
+	matcher := matching.NewMatcher()
+
+	dpolEngine := dpolengine.NewEngine(
+		func(namespace string) *corev1.Namespace {
+			return nil
+		},
+		mapper,
+		&libs.FakeContextProvider{},
+		matcher,
+	)
+
+	mockClient := &mockDClient{
+		dyn:  dynClient,
+		kube: kubeClient,
+	}
+
+	mockEventGen := &mockEventGenerator{}
+
+	c := &controller{
+		client:        mockClient,
+		nsLister:      nsLister,
+		engine:        dpolEngine,
+		configuration: mockConfig,
+		eventGen:      mockEventGen,
+	}
+
+	err := c.deleting(
+		context.Background(),
+		logr.Discard(),
+		ePolicy,
+	)
+	assert.NoError(t, err)
+
+	assert.ElementsMatch(t, []string{"ns1/pod-1", "ns2/pod-2", "ns1/pod-3"}, mockClient.deletedResources)
+
+	assert.Len(t, mockEventGen.events, 3)
+
+	assert.Equal(t, 2, len(listActions), "Expected exactly 2 cluster-wide list actions due to pagination")
+	assert.Equal(t, "", listActions[0].GetNamespace())
+	assert.Equal(t, "", listActions[1].GetNamespace())
+}
+
 func TestDeleting_NamespaceSelector(t *testing.T) {
 
 	scheme := runtime.NewScheme()

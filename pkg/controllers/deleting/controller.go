@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -166,10 +167,13 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
-	namespaceSelector, err := metav1.LabelSelectorAsSelector(spec.MatchConstraints.NamespaceSelector)
-	if err != nil {
-		debug.Error(err, "failed to parse namespace selector")
-		return err
+	var namespaceSelector labels.Selector
+	if spec.MatchConstraints.NamespaceSelector != nil {
+		namespaceSelector, err = metav1.LabelSelectorAsSelector(spec.MatchConstraints.NamespaceSelector)
+		if err != nil {
+			debug.Error(err, "failed to parse namespace selector")
+			return err
+		}
 	}
 
 	restMapper, err := restmapper.GetRESTMapper(c.client)
@@ -180,20 +184,26 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 	gvrList := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
 
 	for _, gvr := range gvrList {
-		var client dynamic.ResourceInterface
 
 		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
-		if policyNamespace != "" && !isNamespaced(gvr, restMapper) {
+		namespaced := isNamespaced(gvr, restMapper)
+		if policyNamespace != "" && !namespaced {
 			logger.WithValues("gvr", gvr).Error(errors.New("cluster-scoped kind cannot be used in namespaced policy"), "skipping cluster-scoped resource")
 			continue
 		}
 
-		namespaced := isNamespaced(gvr, restMapper)
-
 		var namespaces []string
 
-		if policyNamespace == "" && namespaced {
+		switch {
+		case !namespaced:
+			//Cluster-scoped target resource.
+			namespaces = []string{""}
+		case policyNamespace != "":
+			//NamespacedDeletingPolicy
+			namespaces = []string{policyNamespace}
+		case namespaceSelector != nil:
+			// Cluster-scoped DeletingPolicy with a namespace selector.
 			namespaceObjects, err := c.nsLister.List(namespaceSelector)
 			if err != nil {
 				debug.Error(err, "failed to list namespaces")
@@ -205,24 +215,23 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			for _, namespace := range namespaceObjects {
 				namespaces = append(namespaces, namespace.GetName())
 			}
-		} else if policyNamespace != "" {
-			namespaces = []string{policyNamespace}
-		}
-
-		if !namespaced {
+		default:
+			// Cluster-scoped DeletingPolicy without a namespace selector.
+			// Keep the base resource client cluster-wide and paginate the list.
 			namespaces = []string{""}
 		}
-
-		client = c.client.GetDynamicInterface().Resource(gvr)
-
 		if len(namespaces) == 0 {
 			continue
 		}
 
+		resourceClient := c.client.GetDynamicInterface().Resource(gvr)
+
 		for _, namespace := range namespaces {
+			var client dynamic.ResourceInterface
+			client = resourceClient
 
 			if namespace != "" {
-				client = c.client.GetDynamicInterface().Resource(gvr).Namespace(namespace)
+				client = resourceClient.Namespace(namespace)
 			}
 
 			var continueToken string
@@ -235,7 +244,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 					debug.Error(err, "failed to list resources")
 					// record failure metric
 					if c.metrics != nil {
-						c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
+						c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
 					}
 					// Check if this is a recoverable error (permission denied, resource not found, etc.)
 					if dclient.IsRecoverableError(err) {
@@ -306,7 +315,6 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 				}
 			}
 		}
-
 	}
 	return multierr.Combine(errs...)
 }
