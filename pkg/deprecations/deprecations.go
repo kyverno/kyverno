@@ -42,6 +42,9 @@ func Warning(kind string) string {
 }
 
 func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
+	if group != "kyverno.io" {
+		return DeprecationWarning{}, false
+	}
 	replacement, ok := replacements[kind]
 	if !ok {
 		return DeprecationWarning{}, false
@@ -76,7 +79,7 @@ func PolicyFieldWarnings(policy kyvernov1.PolicyInterface) []DeprecationWarning 
 			Version: policyVersion(policy),
 			Kind:    policy.GetKind(),
 			Field:   fieldPath,
-			Message: "Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.",
+			Message: fmt.Sprintf("%s: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.", fieldPath),
 		})
 	}
 

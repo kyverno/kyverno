@@ -83,6 +83,13 @@ func TestWarningNonLegacyKind(t *testing.T) {
 	}
 }
 
+func TestBuildKindWarningIgnoresNonKyvernoGroup(t *testing.T) {
+	t.Parallel()
+	if _, ok := BuildKindWarning("policies.kyverno.io", "v1", "PolicyException"); ok {
+		t.Fatalf("expected non-kyverno.io group to be ignored")
+	}
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }

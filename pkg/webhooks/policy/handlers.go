@@ -104,6 +104,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 		}
 		for _, warning := range deprecations.PolicyFieldWarnings(pol) {
 			logger.V(2).Info(warning.Message, "field", warning.Field, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
+			warnings = append(warnings, warning.Message)
 			if deprecatedMetric != nil {
 				deprecatedMetric.Record(ctx, request.Namespace, warning.Group, warning.Version, warning.Kind, warning.Field)
 			}
