@@ -251,6 +251,45 @@ func Test_extractImageInfo(t *testing.T) {
 		},
 		{
 			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"ClusterTask": []kyvernov1.ImageExtractorConfig{
+					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
+				},
+			},
+			raw: []byte(`{
+				"apiVersion":"tekton.dev/v1beta1",
+				"kind":"ClusterTask",
+				"metadata":{
+					"name":"hello"
+				},
+				"spec":{
+					"steps":{
+						"valid":{
+							"image":"nginx",
+							"name":"web"
+						},
+						"invalid":"scalar"
+					}
+				}
+			}`),
+			images: map[string]map[string]ImageInfo{
+				"steps": {
+					"web": {
+						imageutils.ImageInfo{
+							Registry:         "docker.io",
+							Name:             "nginx",
+							Path:             "nginx",
+							Tag:              "latest",
+							Reference:        "docker.io/nginx:latest",
+							ReferenceWithTag: "docker.io/nginx:latest",
+						},
+						"/spec/steps/valid/image",
+						[]string{},
+					},
+				},
+			},
+		},
+		{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
 				"Task": []kyvernov1.ImageExtractorConfig{
 					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
 				},

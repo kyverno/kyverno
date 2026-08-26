@@ -84,8 +84,11 @@ func extract(
 			return nil
 		case map[string]interface{}:
 			for i, v := range typedObj {
-				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
-					return err
+				switch v.(type) {
+				case map[string]interface{}, []interface{}:
+					if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, imageInfos, cfg, pullSecrets); err != nil {
+						return err
+					}
 				}
 			}
 			return nil
