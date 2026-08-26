@@ -305,6 +305,72 @@ func Test_DeletingController_Pagination_And_Namespace_Iteration(t *testing.T) {
 	assert.Equal(t, "ns2", listActions[2].GetNamespace())
 }
 
+func TestDeleting_NilNamespaceSelector_ListsAllNamespaces(t *testing.T) {
+	scheme := runtime.NewScheme()
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+	}
+	dynClient := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind)
+
+	kubeClient := kubeclientfake.NewSimpleClientset()
+	if fakeDiscovery, ok := kubeClient.Discovery().(*fakediscovery.FakeDiscovery); ok {
+		fakeDiscovery.Resources = []*metav1.APIResourceList{
+			{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{Name: "pods", Kind: "Pod", Namespaced: true},
+				},
+			},
+		}
+	}
+
+	var listedNamespaces []string
+	dynClient.PrependReactor("list", "*", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		listedNamespaces = append(listedNamespaces, action.(clienttesting.ListAction).GetNamespace())
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "PodList"})
+		return true, list, nil
+	})
+
+	nsLister := &mockNamespaceLister{
+		namespaces: []*corev1.Namespace{
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns1"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns2"}},
+		},
+	}
+
+	c := &controller{
+		client:   &mockDClient{dyn: dynClient, kube: kubeClient},
+		nsLister: nsLister,
+	}
+
+	// NamespaceSelector is nil -> must behave as "all namespaces".
+	pol := policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-nil-namespace-selector"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: nil,
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: &pol})
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []string{"ns1", "ns2"}, listedNamespaces,
+		"a nil namespaceSelector must list resources in all namespaces")
+}
+
 func TestDeleting_ClusterWidePaginationWithoutNamespaceSelector(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
