@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-cm-workload-ns
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  matchConditions:
+    - name: workload-namespaces-only
+      expression: 'object.metadata.?labels["example.com/type"].orValue("") == "workload"'
+  generate:
+    - template:
+        value: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: generated-config
+            namespace: workload-namespace
+          data:
+            foo: bar

@@ -716,6 +716,21 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				for _, res := range engineResponse.Policies {
 					if res.Result == nil {
+						// The generating policy did not match the trigger resource
+						// (match constraints or match conditions excluded it). Record a
+						// skip rule response so `kyverno test` reports the expected
+						// `result: skip` instead of failing with "Not found".
+						generateResponse := engineapi.EngineResponse{
+							Resource: *engineResponse.Trigger,
+							PolicyResponse: engineapi.PolicyResponse{
+								Rules: []engineapi.RuleResponse{
+									*engineapi.RuleSkip(res.Policy.GetName(), engineapi.Generation, "policy did not match", nil),
+								},
+							},
+						}
+						generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
+						p.Rc.addGenerateResponse(generateResponse)
+						responses = append(responses, generateResponse)
 						continue
 					}
 					generateResponse := engineapi.EngineResponse{

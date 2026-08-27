@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- generatedResource: generated-resource.yaml
+  isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm-workload-ns
+  resources:
+  - workload-namespace
+  result: pass
+- isGeneratingPolicy: true
+  kind: Namespace
+  policy: generate-cm-workload-ns
+  resources:
+  - excluded-namespace
+  result: skip
