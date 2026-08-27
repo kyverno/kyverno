@@ -2,7 +2,9 @@ package v1alpha1
 
 import (
 	"encoding/json"
+
 	"fmt"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -57,6 +59,9 @@ type Test struct {
 
 	// Results are the results to be checked in the test
 	Results []TestResult `json:"results,omitempty"`
+
+	// Checks are the verifications to be checked in the test.
+	Checks []CheckResult `json:"checks,omitempty"`
 
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
@@ -322,6 +327,28 @@ func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+type CheckResult struct {
+	// Match tells how to match relevant rule responses.
+	Match CheckMatch `json:"match,omitempty"`
+
+	// Assert contains assertion to be performed on the relevant rule responses.
+	Assert kyvernov1.Any `json:"assert"`
+
+	// Error contains negative assertion to be performed on the relevant rule responses.
+	Error kyvernov1.Any `json:"error"`
+}
+
+type CheckMatch struct {
+	// Resource filters engine responses.
+	Resource *kyvernov1.Any `json:"resource,omitempty"`
+
+	// Policy filters engine responses.
+	Policy *kyvernov1.Any `json:"policy,omitempty"`
+
+	// Rule filters rule responses.
+	Rule *kyvernov1.Any `json:"rule,omitempty"`
 }
 
 type TestResourceSpec struct {
