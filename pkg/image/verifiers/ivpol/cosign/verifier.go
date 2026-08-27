@@ -30,14 +30,20 @@ func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *V
 
 // buildCheckOptsWithBundleDetection builds CheckOpts and auto-detects cosign v3 bundle format
 func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, error) {
-	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
+	cosignRemoteOpts, err := buildCosignRemoteOpts(attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
 	if err != nil {
 		return nil, err
 	}
 
-	// Auto-detect if new bundle format (cosign v3) is actually present
-	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
+	// Auto-detect if new bundle format (cosign v3) is actually present.
+	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cosignRemoteOpts)
 	bundleDetected := len(newBundles) > 0 && err == nil
+
+	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister, bundleDetected)
+	if err != nil {
+		return nil, err
+	}
+
 	cOpts.NewBundleFormat = bundleDetected
 	if bundleDetected && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true

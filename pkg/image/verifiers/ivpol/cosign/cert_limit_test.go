@@ -68,7 +68,7 @@ func TestCheckOptions_TSACertChainTooManyIntermediates(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "TSA certificate chain contains too many")
 }
@@ -93,7 +93,7 @@ func TestCheckOptions_TSACertChainAtLimit(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	if err != nil {
 		assert.False(t, strings.Contains(err.Error(), "TSA certificate chain contains too many"),
 			"boundary value (%d intermediates) must not be rejected by the count check; got: %v", maxIntermediateCerts, err)
@@ -124,7 +124,7 @@ func TestCheckOptions_CertChainTooLong(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "certificate chain too long")
 }
@@ -152,7 +152,7 @@ func TestCheckOptions_CertChainAtLimit(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	// May fail for chain-validation reasons but must not fail on the length check.
 	if err != nil {
 		assert.False(t, strings.Contains(err.Error(), "certificate chain too long"),

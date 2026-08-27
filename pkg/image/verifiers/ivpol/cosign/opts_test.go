@@ -184,7 +184,7 @@ func TestCheckOptions_KeyBased(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.SigVerifier)
@@ -214,7 +214,7 @@ func TestCheckOptions_Keyless(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.Len(t, opts.Identities, 1)
@@ -246,7 +246,7 @@ func TestCheckOptions_KeylessWithRegex(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.Equal(t, ".*token.actions.githubusercontent.com", opts.Identities[0].IssuerRegExp)
@@ -277,7 +277,7 @@ func TestCheckOptions_MultipleIdentities(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.Len(t, opts.Identities, 2)
 }
@@ -299,7 +299,7 @@ func TestCheckOptions_WithSource(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotEmpty(t, opts.RegistryClientOpts)
@@ -318,7 +318,7 @@ func TestCheckOptions_InvalidPublicKey(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load public key")
 }
@@ -340,7 +340,7 @@ func TestCheckOptions_InvalidSourceRepository(t *testing.T) {
 		},
 	}
 
-	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse signature repository")
 }
@@ -359,7 +359,7 @@ func TestCheckOptions_RekorOfflineMode(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.False(t, opts.Offline)
 }
@@ -776,7 +776,7 @@ func TestCheckOptions_CTLogConfiguration(t *testing.T) {
 				CTLog: tt.ctlog,
 			}
 
-			opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+			opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantSCT, opts.IgnoreSCT)
 			assert.Equal(t, tt.wantTlog, opts.IgnoreTlog)
@@ -841,7 +841,7 @@ func TestCheckOptions_VerifierTypes(t *testing.T) {
 			ctx := context.TODO()
 			baseROpts, baseNOpts := baseOpts()
 
-			opts, err := checkOptions(ctx, tt.cosignCfg, baseROpts, baseNOpts, nil)
+			opts, err := checkOptions(ctx, tt.cosignCfg, baseROpts, baseNOpts, nil, false)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -892,7 +892,7 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 				},
 			}
 
-			opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+			opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantUseSignedTS, opts.UseSignedTimestamps)
 			if tt.wantTSARootCerts {
@@ -922,7 +922,7 @@ func TestCheckOptions_Keyless_TSACertChainTrustedMaterial(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(context.Background(), cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(context.Background(), cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	require.NotNil(t, opts.TrustedMaterial)
 
@@ -948,7 +948,7 @@ func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.SigVerifier)
@@ -958,6 +958,35 @@ func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 	assert.Nil(t, opts.RekorPubKeys)
 	assert.Nil(t, opts.CTLogPubKeys)
 	assert.Nil(t, opts.TrustedMaterial)
+}
+
+func TestCheckOptions_KeyBased_WithBundle(t *testing.T) {
+	stubTufWithFixture(t)
+
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, opts)
+
+	assert.NotNil(t, opts.SigVerifier)
+	assert.True(t, opts.IgnoreTlog)
+	assert.True(t, opts.IgnoreSCT)
+
+	// Sigstore trust material is required to verify v0.3 bundles,
+	// even when transparency-log verification is disabled.
+	assert.NotNil(t, opts.TrustedMaterial)
 }
 
 // TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL reproduces the reported
@@ -985,7 +1014,7 @@ func TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.True(t, opts.IgnoreTlog)
@@ -1018,7 +1047,7 @@ func TestCheckOptions_FallbackViaInitTUFAndFetch(t *testing.T) {
 		},
 	}
 
-	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil, false)
 	require.NoError(t, err)
 	assert.NotNil(t, opts)
 	assert.NotNil(t, opts.RootCerts)

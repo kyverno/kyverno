@@ -79,12 +79,12 @@ func countPEMCertBlocks(pem []byte) int {
 	return bytes.Count(pem, pemCertBlockHeader)
 }
 
-func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
-	// Key/certificate verification with the transparency log ignored needs no
-	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
-	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
-	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
-	skipSigstoreInfra := keyOrCert && ignoreTlog
+func buildCosignRemoteOpts(
+	att *v1beta1.Cosign,
+	baseROpts []remote.Option,
+	baseNOpts []name.Option,
+	secretLister corev1listers.SecretLister,
+) ([]ociremote.Option, error) {
 	cosignRemoteOpts := []ociremote.Option{}
 
 	if att.Source != nil {
@@ -93,6 +93,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			return nil, err
 		}
 		baseROpts = append(baseROpts, remoteOpts...)
+
 		if len(att.Source.Repository) > 0 {
 			signatureRepo, err := name.NewRepository(att.Source.Repository)
 			if err != nil {
@@ -101,13 +102,28 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 
 			cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithTargetRepository(signatureRepo))
 		}
+
 		if len(att.Source.TagPrefix) != 0 {
 			cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithPrefix(att.Source.TagPrefix))
 		}
 	}
+
 	cosignRemoteOpts = append(cosignRemoteOpts, ociremote.WithRemoteOptions(baseROpts...), ociremote.WithNameOptions(baseNOpts...))
 
-	var err error
+	return cosignRemoteOpts, nil
+}
+
+func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister, hasBundle bool) (*cosign.CheckOpts, error) {
+	// Key/certificate verification with the transparency log ignored needs no
+	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
+	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
+	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
+	skipSigstoreInfra := keyOrCert && ignoreTlog && !hasBundle
+
+	cosignRemoteOpts, err := buildCosignRemoteOpts(att, baseROpts, baseNOpts, secretLister)
+	if err != nil {
+		return nil, err
+	}
 	var trust *sigstoreTrustMaterial
 	opts := &cosign.CheckOpts{
 		RegistryClientOpts: cosignRemoteOpts,
