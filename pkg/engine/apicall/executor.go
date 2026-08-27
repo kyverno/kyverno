@@ -19,6 +19,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -253,7 +254,28 @@ func proxyAwareDestinationCheck(policy *egressPolicy, base func(*http.Request) (
 		if err != nil || proxyURL == nil {
 			return proxyURL, err
 		}
-		if err := policy.validateHostCIDRs(req.Context(), req.URL.Hostname()); err != nil {
+		host := req.URL.Hostname()
+		// With a proxy in use, DialContext only ever sees the proxy address, so the
+		// blocklist has to be applied to the real destination here.
+		//
+		// The proxy resolves a hostname destination again, so unlike the direct-dial
+		// path this check is not pinned to the address the connection ends up using: a
+		// DNS rebinding window remains. That is accepted, because refusing every
+		// proxied hostname breaks egress setups that work today, and because the
+		// hostname blocklist and the allowlist both still apply.
+		if err := policy.validateHostCIDRs(req.Context(), host); err != nil {
+			if errors.Is(err, errHostUnresolvable) && len(policy.allowedPrefixes) > 0 {
+				// Proxied egress commonly cannot resolve external names in-pod, since
+				// that is the proxy's job. Allowing an unresolvable destination through
+				// is safe only when an allowlist is configured, because every request
+				// that reaches here has already been matched against it by validateURL
+				// (on the initial URL, and again on each redirect hop).
+				egressLogger().V(2).Info("proxied destination is not resolvable in-pod, skipping blocked CIDR check", "host", host, "proxy", proxyURL.Host, "reason", err.Error())
+				return proxyURL, nil
+			}
+			if errors.Is(err, errHostUnresolvable) {
+				return nil, fmt.Errorf("connection to %s via proxy %s blocked: the destination cannot be resolved in-pod, so it cannot be checked against the HTTP blocklist; use an IP address destination, exclude the host via NO_PROXY, or permit it explicitly with --httpAllowlist: %w", req.URL.Host, proxyURL.Host, err)
+			}
 			return nil, err
 		}
 		return proxyURL, nil
@@ -272,6 +294,35 @@ func (a *executor) buildRequestData(data []kyvernov1.RequestData) (io.Reader, er
 	}
 
 	return buffer, nil
+}
+
+// errHostUnresolvable marks a destination that could not be resolved in-pod, so that
+// callers can tell "resolution failed" apart from "the destination is blocked". It is a
+// match target for errors.Is only; unresolvableHostError keeps it out of the message so
+// that a caller wrapping the error does not repeat itself.
+var errHostUnresolvable = errors.New("destination is not resolvable")
+
+type unresolvableHostError struct {
+	host string
+	err  error
+}
+
+func (e *unresolvableHostError) Error() string {
+	return fmt.Sprintf("failed to resolve %s: %v", e.host, e.err)
+}
+
+func (e *unresolvableHostError) Unwrap() error { return e.err }
+
+func (e *unresolvableHostError) Is(target error) bool { return target == errHostUnresolvable }
+
+// lookupHost resolves a hostname. It is a variable so tests can force a specific answer
+// or failure; resolution is not deterministic across platforms and CI environments.
+var lookupHost = net.DefaultResolver.LookupHost
+
+// egressLogger builds the logger lazily. A package-level logger would be created before
+// logging.Setup runs and would discard everything written to it.
+func egressLogger() logr.Logger {
+	return logging.WithName("apicall-egress")
 }
 
 type egressPolicy struct {
@@ -357,87 +408,260 @@ func (p *egressPolicy) validateHostCIDRs(ctx context.Context, host string) error
 	if host == "" || len(p.blockedCIDRs) == 0 {
 		return nil
 	}
-	blockedIP := func(ip net.IP) *net.IPNet {
-		for _, cidr := range p.blockedCIDRs {
-			if cidr.Contains(ip) {
-				return cidr
-			}
-		}
-		return nil
-	}
 	if ip := net.ParseIP(host); ip != nil {
-		if cidr := blockedIP(ip); cidr != nil {
+		if cidr := p.blockedCIDR(ip); cidr != nil {
 			return fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", host, ip, cidr)
 		}
 		return nil
 	}
-	ips, err := net.DefaultResolver.LookupHost(ctx, host)
+	ips, err := lookupHost(ctx, host)
 	if err != nil {
-		return fmt.Errorf("failed to resolve %s: %w", host, err)
+		return &unresolvableHostError{host: host, err: err}
 	}
 	for _, ipStr := range ips {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
 			continue
 		}
-		if cidr := blockedIP(ip); cidr != nil {
-			return fmt.Errorf("connection to %s blocked: resolved IP %s falls in blocked range %s", host, ip, cidr)
+		if cidr := p.blockedCIDR(ip); cidr != nil {
+			// The resolved address is deliberately left out of the error. It reaches the
+			// caller through the admission denial, PolicyReports and Events, which would
+			// turn a denial into an oracle for how an arbitrary name resolves from the
+			// controller. The blocked range is operator-supplied, so naming it is safe.
+			egressLogger().V(2).Info("blocked connection to resolved address", "host", host, "ip", ip.String(), "range", cidr.String())
+			return fmt.Errorf("connection to %s blocked: it resolves into blocked range %s", host, cidr)
 		}
 	}
 	return nil
 }
 
-func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
-	blocked := p.blockedCIDRs
-	base := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
-	blockedIP := func(ip net.IP) *net.IPNet {
-		for _, cidr := range blocked {
-			if cidr.Contains(ip) {
+// blockedCIDR returns the blocked range containing ip, or nil when there is none.
+//
+// net.IPNet.Contains normalizes IPv4-mapped IPv6 addresses through To4, so an IPv4 CIDR
+// such as 169.254.169.254/32 already covers ::ffff:169.254.169.254. Three other IPv6
+// spellings carry an IPv4 address that To4 does not recognise, so the embedded address is
+// checked as a second candidate.
+func (p *egressPolicy) blockedCIDR(ip net.IP) *net.IPNet {
+	for _, candidate := range [2]net.IP{ip, embeddedIPv4(ip)} {
+		if candidate == nil {
+			continue
+		}
+		for _, cidr := range p.blockedCIDRs {
+			if cidr.Contains(candidate) {
 				return cidr
 			}
 		}
+	}
+	return nil
+}
+
+// embeddedIPv4 extracts the IPv4 address carried by an IPv6 address in a form that
+// net.IP.To4 does not recognise: IPv4-compatible (::a.b.c.d), the NAT64 well-known prefix
+// (64:ff9b::a.b.c.d), and 6to4 (2002:aabb:ccdd::). It returns nil when the address carries
+// no embedded IPv4 address, or when To4 already handles it.
+//
+// Each of these is a distinct spelling of an address that an IPv4 CIDR on the blocklist is
+// meant to cover. Without normalization, 64:ff9b::a9fe:a9fe reaches the metadata service
+// even though 169.254.169.254/32 is blocked. NAT64 is the form that matters in practice,
+// because it is standard in IPv6-only clusters; the other two are deprecated and need
+// specific routing, so they are defense in depth.
+//
+// The IPv4-compatible branch also matches low IPv6 addresses that were never meant as an
+// IPv4 encoding: ::1 yields 0.0.0.1, for example. That only ever widens the blocklist into
+// reserved space, so it is left as is.
+func embeddedIPv4(ip net.IP) net.IP {
+	if ip.To4() != nil || len(ip.To16()) != net.IPv6len {
 		return nil
 	}
+	ip = ip.To16()
+	isZero := func(b []byte) bool {
+		for _, c := range b {
+			if c != 0 {
+				return false
+			}
+		}
+		return true
+	}
+	// ::a.b.c.d — IPv4-compatible IPv6 (RFC 4291).
+	if isZero(ip[:12]) {
+		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
+	}
+	// 64:ff9b::a.b.c.d — NAT64 well-known prefix (RFC 6052).
+	if ip[0] == 0x00 && ip[1] == 0x64 && ip[2] == 0xff && ip[3] == 0x9b && isZero(ip[4:12]) {
+		return net.IPv4(ip[12], ip[13], ip[14], ip[15])
+	}
+	// 2002:aabb:ccdd::/48 — 6to4 (RFC 3056), which carries the IPv4 address in bytes 2-5
+	// rather than at the end. 2002:a9fe:a9fe:: is 169.254.169.254.
+	if ip[0] == 0x20 && ip[1] == 0x02 {
+		return net.IPv4(ip[2], ip[3], ip[4], ip[5])
+	}
+	return nil
+}
+
+const (
+	// dialTimeout bounds resolution and every connection attempt together, the way
+	// net.Dialer's own Timeout does for a caller that hands it a hostname.
+	dialTimeout = 30 * time.Second
+	// fallbackDelay is the head start the preferred address family gets before the other
+	// one is tried in parallel (RFC 6555). It matches net.Dialer's default.
+	fallbackDelay = 300 * time.Millisecond
+)
+
+func (p *egressPolicy) dialContext() func(ctx context.Context, network, addr string) (net.Conn, error) {
+	// No per-attempt Timeout. The deadline below spans resolution and every attempt
+	// together; setting one here as well would let a host with many answers stretch the
+	// total to dialTimeout per address.
+	base := &net.Dialer{KeepAlive: 30 * time.Second}
 	return func(ctx context.Context, network, addr string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(addr)
 		if err != nil {
 			return nil, err
 		}
+		// One deadline covering resolution and all connection attempts, which is what the
+		// stock dialer gives a caller. Without it, a name answering with many black-holed
+		// addresses holds an admission request for resolution plus dialTimeout per
+		// address. A shorter deadline already on ctx still wins.
+		ctx, cancel := context.WithTimeout(ctx, dialTimeout)
+		defer cancel()
 		if ip := net.ParseIP(host); ip != nil {
-			if cidr := blockedIP(ip); cidr != nil {
+			if cidr := p.blockedCIDR(ip); cidr != nil {
 				return nil, fmt.Errorf("connection to %s blocked: IP %s falls in blocked range %s", addr, ip, cidr)
 			}
-			return base.DialContext(ctx, network, addr)
+			return dialTCP(ctx, base, network, addr)
 		}
-		ips, err := net.DefaultResolver.LookupHost(ctx, host)
+		ips, err := lookupHost(ctx, host)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve %s: %w", host, err)
 		}
+		targets := make([]net.IP, 0, len(ips))
 		for _, ipStr := range ips {
 			ip := net.ParseIP(ipStr)
 			if ip == nil {
 				continue
 			}
-			if cidr := blockedIP(ip); cidr != nil {
-				return nil, fmt.Errorf("connection to %s blocked: resolved IP %s falls in blocked range %s", addr, ip, cidr)
+			if cidr := p.blockedCIDR(ip); cidr != nil {
+				// See validateHostCIDRs: the resolved address stays out of the error so
+				// the denial does not act as a DNS resolution oracle.
+				egressLogger().V(2).Info("blocked connection to resolved address", "addr", addr, "ip", ip.String(), "range", cidr.String())
+				return nil, fmt.Errorf("connection to %s blocked: %s resolves into blocked range %s", addr, host, cidr)
+			}
+			targets = append(targets, ip)
+		}
+		if len(targets) == 0 {
+			return nil, fmt.Errorf("no usable addresses resolved for %s", host)
+		}
+		// Every dial below targets an address that was just validated rather than the
+		// hostname, so a second resolution cannot substitute a different one (DNS
+		// rebinding).
+		//
+		// Split by family and race the two groups the way net.Dialer does, rather than
+		// walking one flat list. Trying every address of the preferred family first makes
+		// a dual-stack Service whose AAAA is present but not listening wait out the whole
+		// IPv6 side before reaching IPv4; the stock dialer starts the other family after
+		// fallbackDelay instead. lookupHost returns addresses in RFC 6724 preference
+		// order, so the first one names the preferred family.
+		preferIPv4 := targets[0].To4() != nil
+		var primary, fallback []net.IP
+		for _, ip := range targets {
+			if (ip.To4() != nil) == preferIPv4 {
+				primary = append(primary, ip)
+			} else {
+				fallback = append(fallback, ip)
 			}
 		}
-		var lastErr error
-		for _, ipStr := range ips {
-			if net.ParseIP(ipStr) == nil {
-				continue
-			}
-			conn, err := base.DialContext(ctx, network, net.JoinHostPort(ipStr, port))
-			if err == nil {
-				return conn, nil
-			}
-			lastErr = err
+		if len(fallback) == 0 {
+			return dialSeries(ctx, base, network, port, primary)
 		}
-		if lastErr != nil {
-			return nil, lastErr
-		}
-		return nil, fmt.Errorf("no usable addresses resolved for %s", host)
+		return dialRace(ctx, base, network, port, primary, fallback)
 	}
+}
+
+// dialTCP performs one connection attempt. It is a variable so tests can observe the
+// context handed to each attempt, which is what proves the deadline above is shared rather
+// than per-address; a test that relies on unreachable addresses instead passes vacuously on
+// any host where those addresses fail fast.
+var dialTCP = func(ctx context.Context, d *net.Dialer, network, addr string) (net.Conn, error) {
+	return d.DialContext(ctx, network, addr)
+}
+
+// dialSeries tries each address in turn and returns the first connection that succeeds.
+func dialSeries(ctx context.Context, d *net.Dialer, network, port string, ips []net.IP) (net.Conn, error) {
+	var lastErr error
+	for _, ip := range ips {
+		conn, err := dialTCP(ctx, d, network, net.JoinHostPort(ip.String(), port))
+		if err == nil {
+			return conn, nil
+		}
+		lastErr = err
+		if ctx.Err() != nil {
+			break
+		}
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no addresses to dial")
+	}
+	return nil, lastErr
+}
+
+type dialOutcome struct {
+	conn      net.Conn
+	err       error
+	isPrimary bool
+}
+
+// dialRace runs the two address families concurrently, giving the preferred one a
+// fallbackDelay head start, and returns the first connection to succeed (RFC 6555).
+func dialRace(ctx context.Context, d *net.Dialer, network, port string, primary, fallback []net.IP) (net.Conn, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	// Cancelling on return tears down the losing attempt. A connection already returned is
+	// unaffected: net.Dialer does not tie a live conn to the dial context.
+	defer cancel()
+
+	// Buffered, so a loser that finishes after we have returned never blocks on send.
+	outcomes := make(chan dialOutcome, 2)
+	race := func(ips []net.IP, isPrimary bool, delay time.Duration) {
+		go func() {
+			if delay > 0 {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+				case <-ctx.Done():
+					outcomes <- dialOutcome{err: ctx.Err(), isPrimary: isPrimary}
+					return
+				}
+			}
+			conn, err := dialSeries(ctx, d, network, port, ips)
+			outcomes <- dialOutcome{conn: conn, err: err, isPrimary: isPrimary}
+		}()
+	}
+	race(primary, true, 0)
+	race(fallback, false, fallbackDelay)
+
+	var firstErr error
+	for i := 0; i < 2; i++ {
+		out := <-outcomes
+		if out.err == nil {
+			// Drain the sibling so a connection that lands after this point is closed
+			// rather than leaked.
+			if remaining := 1 - i; remaining > 0 {
+				go func(n int) {
+					for j := 0; j < n; j++ {
+						if late := <-outcomes; late.conn != nil {
+							late.conn.Close()
+						}
+					}
+				}(remaining)
+			}
+			return out.conn, nil
+		}
+		// Prefer the primary family's error: it describes the address the caller would
+		// have reached without this guard.
+		if firstErr == nil || out.isPrimary {
+			firstErr = out.err
+		}
+	}
+	return nil, firstErr
 }
 
 func hostKey(h string) string {
