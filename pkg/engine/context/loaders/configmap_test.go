@@ -141,3 +141,12 @@ func Test_ConfigMapAccess_WithNonStringNameSubstitution(t *testing.T) {
 	assert.ErrorContains(t, err, "expected string")
 	assert.Equal(t, resolver.called, false)
 }
+
+func Test_NamespacedPolicyCannotLoadGlobalReference(t *testing.T) {
+	entry := kyvernov1.ContextEntry{
+		Name:            "gctx",
+		GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "entry"},
+	}
+	err := NewGCTXLoader(context.TODO(), logr.Discard(), entry, enginecontext.NewContext(jp), jp, nil, "tenant-ns").LoadData()
+	assert.ErrorContains(t, err, "globalReference is not allowed in namespaced policies")
+}

@@ -46,8 +46,12 @@ func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1list
 		errs = append(errs, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
-	if ivpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
-		if engine.ExpressionsUseHTTP(ivpolExpressions(ivpol)...) {
+	if ivpol.GetNamespace() != "" {
+		exprs := ivpolExpressions(ivpol)
+		if engine.ExpressionsUseGlobalContext(exprs...) {
+			errs = append(errs, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && engine.ExpressionsUseHTTP(exprs...) {
 			errs = append(errs, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}

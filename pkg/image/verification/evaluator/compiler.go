@@ -233,7 +233,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 	namespace := ivpol.GetNamespace()
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(libsctx, namespace)},
 			globalcontext.Latest(),
 		),
 		image.Lib(

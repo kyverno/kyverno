@@ -37,8 +37,12 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 		err = append(err, field.Forbidden(field.NewPath("spec").Child("evaluation"), "disabling both admission and mutateExisting evaluation modes is not allowed"))
 	}
 
-	if mpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
-		if compiler.ExpressionsUseHTTP(mpolExpressions(spec)...) {
+	if mpol.GetNamespace() != "" {
+		exprs := mpolExpressions(spec)
+		if compiler.ExpressionsUseGlobalContext(exprs...) {
+			err = append(err, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && compiler.ExpressionsUseHTTP(exprs...) {
 			err = append(err, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}
