@@ -1349,8 +1349,36 @@ func createFakeClientFromResources(resources, targetResources, parameterResource
 	var discoveryGVRs []schema.GroupVersionResource
 	seen := make(map[schema.GroupVersionResource]bool)
 
-	objects := make([]runtime.Object, 0, len(allResources))
+	// A `kind: List` resource (e.g. produced by `kubectl get` on multiple
+	// resources) wraps its children under "items". The fake dynamic client
+	// cannot ingest such an object directly - client-go's object tracker
+	// panics with "*unstructured.Unstructured is not a list: no Items field
+	// in this object". Flatten the items into individual objects first,
+	// mirroring how kubectl processes List inputs.
+	flat := make([]*unstructured.Unstructured, 0, len(allResources))
 	for _, r := range allResources {
+		if r.GetKind() != "List" {
+			flat = append(flat, r)
+			continue
+		}
+		items, found, err := unstructured.NestedSlice(r.Object, "items")
+		if err != nil {
+			return nil, fmt.Errorf("failed to extract items from List resource %s/%s: %w", r.GetNamespace(), r.GetName(), err)
+		}
+		if !found {
+			return nil, fmt.Errorf("List resource %s/%s has no items", r.GetNamespace(), r.GetName())
+		}
+		for _, item := range items {
+			itemMap, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			flat = append(flat, &unstructured.Unstructured{Object: itemMap})
+		}
+	}
+
+	objects := make([]runtime.Object, 0, len(flat))
+	for _, r := range flat {
 		objects = append(objects, r.DeepCopy())
 		gvk := r.GroupVersionKind()
 		if gvk.Kind == "" || gvk.Version == "" {
