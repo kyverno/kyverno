@@ -24,6 +24,7 @@ import (
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -88,6 +89,11 @@ type LoaderError struct {
 	Error error
 }
 
+type LoaderWarning struct {
+	Path    string
+	Warning string
+}
+
 type LoaderResults struct {
 	Policies                []kyvernov1.PolicyInterface
 	PolicyExceptions        []*kyvernov2.PolicyException
@@ -106,6 +112,7 @@ type LoaderResults struct {
 	MutatingPolicies        []policiesv1beta1.MutatingPolicyLike
 	PolicyCelExceptions     []*policiesv1beta1.PolicyException
 	NonFatalErrors          []LoaderError
+	Warnings                []LoaderWarning
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -123,6 +130,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
+	l.Warnings = append(l.Warnings, results.Warnings...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
 	l.CleanupPolicies = append(l.CleanupPolicies, results.CleanupPolicies...)
 	l.PolicyExceptions = append(l.PolicyExceptions, results.PolicyExceptions...)
@@ -134,6 +142,13 @@ func (l *LoaderResults) addError(path string, err error) {
 	l.NonFatalErrors = append(l.NonFatalErrors, LoaderError{
 		Path:  path,
 		Error: err,
+	})
+}
+
+func (l *LoaderResults) addWarning(path, warning string) {
+	l.Warnings = append(l.Warnings, LoaderWarning{
+		Path:    path,
+		Warning: warning,
 	})
 }
 
@@ -215,7 +230,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		}
 
 		// Process regular documents (non-List)
-		if err := processDocumentItem(gvk, &untyped, results); err != nil {
+		if err := processDocumentItem(path, gvk, &untyped, results); err != nil {
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
 	}
@@ -256,7 +271,7 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 		itemUnstructured := &unstructured.Unstructured{Object: itemMap}
 		itemGVK := itemUnstructured.GroupVersionKind()
 
-		if err := processDocumentItem(itemGVK, itemUnstructured, results); err != nil {
+		if err := processDocumentItem(path, itemGVK, itemUnstructured, results); err != nil {
 			results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
 		}
 	}
@@ -265,7 +280,10 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 }
 
 // processDocumentItem handles the processing of individual documents based on their GVK
-func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults) error {
+func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults) error {
+	if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
+		results.addWarning(path, warning.Message)
+	}
 	switch gvk {
 	case policyV1, policyV2:
 		typed, err := convert.To[kyvernov1.Policy](*untyped)
