@@ -1,6 +1,8 @@
 package extract
 
 import (
+	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,6 +55,36 @@ func SynthesizePodAttributes(newTpl, oldTpl *Extracted, parent admission.Attribu
 		parent.IsDryRun(),
 		parent.GetUserInfo(),
 	)
+}
+
+// SynthesizePodAdmissionRequest builds an AdmissionRequest matching a
+// synthesized Pod's admission.Attributes (as returned by
+// SynthesizePodAttributes), so CEL expressions reading
+// request.object/request.oldObject/request.kind/request.resource see the
+// synthesized Pod rather than the original parent resource - mirroring what
+// the object/oldObject CEL variables already get from attr. Everything else
+// on the request (operation, dry-run, user info, options) is carried over
+// unchanged from the real request, since none of that differs between the
+// parent resource and its extracted Pod template. Returns nil if original
+// is nil.
+func SynthesizePodAdmissionRequest(original *admissionv1.AdmissionRequest, attr admission.Attributes) *admissionv1.AdmissionRequest {
+	if original == nil {
+		return nil
+	}
+	req := original.DeepCopy()
+	gvk := metav1.GroupVersionKind(attr.GetKind())
+	gvr := metav1.GroupVersionResource(attr.GetResource())
+	req.Kind = gvk
+	req.RequestKind = &gvk
+	req.Resource = gvr
+	req.RequestResource = &gvr
+	req.SubResource = attr.GetSubresource()
+	req.RequestSubResource = attr.GetSubresource()
+	req.Name = attr.GetName()
+	req.Namespace = attr.GetNamespace()
+	req.Object = runtime.RawExtension{Object: attr.GetObject()}
+	req.OldObject = runtime.RawExtension{Object: attr.GetOldObject()}
+	return req
 }
 
 func buildPod(tpl Extracted, parent admission.Attributes) *unstructured.Unstructured {

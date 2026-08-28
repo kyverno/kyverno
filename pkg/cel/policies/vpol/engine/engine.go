@@ -265,7 +265,8 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 		} else {
 			synthAttr = extract.SynthesizePodAttributes(&tpl, otherTpl, attr)
 		}
-		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, request, namespace, context)
+		synthRequest := extract.SynthesizePodAdmissionRequest(request, synthAttr)
+		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, synthRequest, namespace, context)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}

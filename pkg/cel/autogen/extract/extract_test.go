@@ -81,6 +81,49 @@ func TestExtractPodTemplates(t *testing.T) {
 			},
 		},
 		{
+			name: "pod-shaped subtree under status is ignored - only spec is searched",
+			obj: map[string]any{
+				"apiVersion": "argoproj.io/v1alpha1",
+				"kind":       "Rollout",
+				"metadata":   map[string]any{"name": "canary-rollout"},
+				"spec": map[string]any{
+					"template": map[string]any{
+						"spec": map[string]any{
+							"containers": []any{container("app", "app:v2")},
+						},
+					},
+				},
+				"status": map[string]any{
+					"canary": map[string]any{
+						"currentStepPodTemplate": map[string]any{
+							"spec": map[string]any{
+								"containers": []any{container("app", "app:v1-stale")},
+							},
+						},
+					},
+				},
+			},
+			want: []Extracted{
+				{
+					Path: "spec.template",
+					Template: map[string]any{
+						"spec": map[string]any{
+							"containers": []any{container("app", "app:v2")},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "no spec at all yields no templates",
+			obj: map[string]any{
+				"apiVersion": "example.io/v1",
+				"kind":       "Widget",
+				"metadata":   map[string]any{"name": "widget"},
+			},
+			want: nil,
+		},
+		{
 			name: "decoy object with no pod-shaped subtree",
 			obj: map[string]any{
 				"apiVersion": "example.io/v1",

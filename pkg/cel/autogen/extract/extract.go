@@ -10,7 +10,7 @@ type Extracted struct {
 	Path     string
 }
 
-// ExtractPodTemplates walks obj looking for every subtree that is
+// ExtractPodTemplates walks obj's spec looking for every subtree that is
 // structurally shaped like a corev1.PodTemplateSpec: an object with an
 // optional "metadata" object and a "spec.containers" list where every
 // container has a non-empty string "name" and a string "image". It does not
@@ -18,11 +18,21 @@ type Extracted struct {
 // PyTorchJob, a Deployment, or anything else, because CRD authors
 // overwhelmingly embed the real Kubernetes PodTemplateSpec type verbatim.
 //
+// Discovery is deliberately scoped to obj["spec"], not the whole object:
+// status commonly mirrors back an observed/last-applied template (rollout
+// history, canary step state, ...), and a stale or informational template
+// found there must not be able to deny an otherwise-valid spec update.
+// metadata and other top-level fields are excluded for the same reason.
+//
 // Once a match is found at a node, ExtractPodTemplates does not descend
 // further into it - a pod template does not contain a nested pod template.
 func ExtractPodTemplates(obj map[string]any) []Extracted {
+	spec, ok := obj["spec"].(map[string]any)
+	if !ok {
+		return nil
+	}
 	var out []Extracted
-	walk(obj, "", &out)
+	walk(spec, "spec", &out)
 	return out
 }
 

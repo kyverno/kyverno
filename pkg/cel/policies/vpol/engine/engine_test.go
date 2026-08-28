@@ -150,6 +150,69 @@ func buildDisallowLatestTagPolicy() *policiesv1beta1.ValidatingPolicy {
 	}
 }
 
+// buildDisallowLatestTagPolicyUsingRequest is identical to
+// buildDisallowLatestTagPolicy except its validation reads request.object
+// instead of the top-level object variable, to verify extraction mode
+// synthesizes a matching AdmissionRequest, not just matching admission
+// attributes.
+func buildDisallowLatestTagPolicyUsingRequest() *policiesv1beta1.ValidatingPolicy {
+	policy := buildDisallowLatestTagPolicy()
+	policy.Spec.Validations = []admissionregistrationv1.Validation{
+		{Expression: "request.kind.kind == 'Pod' && request.object.spec.containers.all(c, !c.image.endsWith(':latest'))"},
+	}
+	return policy
+}
+
+func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
+	policy := buildDisallowLatestTagPolicyUsingRequest()
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	noopNsResolver := func(string) *corev1.Namespace { return nil }
+	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
+
+	assertSingleRuleResult := func(t *testing.T, image string) *engineapi.RuleResponse {
+		t.Helper()
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+			schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+			"",
+			"latest-tag-jobset",
+			"default",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			jobSetWithImage(image),
+			nil,
+			false,
+			nil,
+		)
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+		require.Len(t, fired, 1)
+		require.Len(t, fired[0].Rules, 1)
+		return &fired[0].Rules[0]
+	}
+
+	t.Run("request.object sees the synthesized Pod, not the JobSet - bad image is denied", func(t *testing.T) {
+		rule := assertSingleRuleResult(t, "bash:latest")
+		require.NotEqual(t, engineapi.RuleStatusError, rule.Status(), "message: %s", rule.Message())
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+	})
+
+	t.Run("request.object sees the synthesized Pod, not the JobSet - compliant image is allowed", func(t *testing.T) {
+		rule := assertSingleRuleResult(t, "bash:1.0")
+		require.NotEqual(t, engineapi.RuleStatusError, rule.Status(), "message: %s", rule.Message())
+		assert.Equal(t, engineapi.RuleStatusPass, rule.Status())
+	})
+}
+
 func TestHandle_ExtractionMode_JobSet(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
 	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)

@@ -365,7 +365,9 @@ func (e *engineImpl) evaluateExtractedIv(
 		} else {
 			synthAttr = extract.SynthesizePodAttributes(&tpl, otherTpl, attr)
 		}
-		result, err := compiled.Evaluate(ctx, ictx, synthAttr, request, namespace, true, libctx)
+		originalRequest, _ := request.(*admissionv1.AdmissionRequest)
+		synthRequest := extract.SynthesizePodAdmissionRequest(originalRequest, synthAttr)
+		result, err := compiled.Evaluate(ctx, ictx, synthAttr, synthRequest, namespace, true, libctx)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
