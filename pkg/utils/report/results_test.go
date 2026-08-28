@@ -11,6 +11,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -313,4 +314,50 @@ func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
 		assert.Equal(t, openreportsv1alpha1.Result(openreports.StatusPass), r.Result, "goroutine %d", i)
 		assert.Equal(t, "resource is compliant", r.Description, "goroutine %d", i)
 	}
+}
+
+func Test_GenerationEngineResponseToReportResults_filters_disallowed_status_without_generated_resources(t *testing.T) {
+	oldCfg := ReportingCfg
+	ReportingCfg = NewReportingConfig([]string{"pass"})
+	defer func() { ReportingCfg = oldCfg }()
+
+	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "gen-policy"},
+	})
+	ruleResp := engineapi.NewRuleResponse(
+		"gen-rule",
+		engineapi.Generation,
+		"no resources generated",
+		engineapi.RuleStatusSkip,
+		nil,
+	)
+	resp := engineapi.NewEngineResponse(unstructured.Unstructured{}, pol, nil).
+		WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{*ruleResp}})
+
+	results := GenerationEngineResponseToReportResults(resp)
+	assert.Empty(t, results)
+}
+
+func Test_GenerationEngineResponseToReportResults_keeps_allowed_status_without_generated_resources(t *testing.T) {
+	oldCfg := ReportingCfg
+	ReportingCfg = NewReportingConfig([]string{"skip"})
+	defer func() { ReportingCfg = oldCfg }()
+
+	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "gen-policy"},
+	})
+	ruleResp := engineapi.NewRuleResponse(
+		"gen-rule",
+		engineapi.Generation,
+		"no resources generated",
+		engineapi.RuleStatusSkip,
+		nil,
+	)
+	resp := engineapi.NewEngineResponse(unstructured.Unstructured{}, pol, nil).
+		WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{*ruleResp}})
+
+	results := GenerationEngineResponseToReportResults(resp)
+	assert.Len(t, results, 1)
+	assert.Equal(t, "gen-rule", results[0].Rule)
+	assert.Equal(t, openreportsv1alpha1.Result(openreports.StatusSkip), results[0].Result)
 }
