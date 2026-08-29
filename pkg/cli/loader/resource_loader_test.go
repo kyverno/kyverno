@@ -90,6 +90,34 @@ func TestClusterLoader_LoadResources(t *testing.T) {
 	})
 }
 
+func TestClusterLoader_ExecuteTasksStopsAfterTimeoutWhenContinuingOnError(t *testing.T) {
+	timeout := 100 * time.Millisecond
+	workerPool := &WorkerPool{
+		taskQueue:  make(chan LoadTask, 2),
+		resultChan: make(chan LoadTaskResult, 1),
+	}
+	loader := &ClusterLoader{
+		workerPool: workerPool,
+		resourceOptions: ResourceOptions{
+			Timeout:         timeout,
+			ContinueOnError: true,
+		},
+	}
+
+	sent := make(chan struct{})
+	go func() {
+		time.Sleep(timeout + timeout/2)
+		workerPool.resultChan <- LoadTaskResult{TaskID: "late-result"}
+		close(sent)
+	}()
+
+	results, err := loader.executeTasks(context.Background(), []LoadTask{{ID: "task-1"}, {ID: "task-2"}})
+	<-sent
+
+	assert.NoError(t, err)
+	assert.Empty(t, results)
+}
+
 func TestClusterLoader_Options(t *testing.T) {
 	t.Run("invalid options", func(t *testing.T) {
 		loader := &ClusterLoader{}
