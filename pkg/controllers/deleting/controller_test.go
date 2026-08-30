@@ -253,8 +253,8 @@ func Test_DeletingController_Pagination_And_Namespace_Iteration(t *testing.T) {
 	// 2. Setup mock namespace lister with two namespaces
 	nsLister := &mockNamespaceLister{
 		namespaces: []*corev1.Namespace{
-			{ObjectMeta: metav1.ObjectMeta{Name: "ns1"}},
-			{ObjectMeta: metav1.ObjectMeta{Name: "ns2"}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{"managed": "true"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns2", Labels: map[string]string{"managed": "true"}}},
 		},
 	}
 
@@ -271,7 +271,7 @@ func Test_DeletingController_Pagination_And_Namespace_Iteration(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-paginated-clean"},
 		Spec: policiesv1beta1.DeletingPolicySpec{
 			MatchConstraints: &admissionregistrationv1.MatchResources{
-				NamespaceSelector: &metav1.LabelSelector{},
+				NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"managed": "true"}},
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
 					{
 						RuleWithOperations: admissionregistrationv1.RuleWithOperations{

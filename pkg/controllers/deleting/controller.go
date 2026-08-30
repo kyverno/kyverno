@@ -197,12 +197,12 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 
 		switch {
 		case !namespaced:
-			//Cluster-scoped target resource.
+			// Cluster-scoped target resource.
 			namespaces = []string{""}
 		case policyNamespace != "":
-			//NamespacedDeletingPolicy
+			// NamespacedDeletingPolicy
 			namespaces = []string{policyNamespace}
-		case namespaceSelector != nil:
+		case namespaceSelector != nil && !namespaceSelector.Empty():
 			// Cluster-scoped DeletingPolicy with a namespace selector.
 			namespaceObjects, err := c.nsLister.List(namespaceSelector)
 			if err != nil {
@@ -227,8 +227,7 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		resourceClient := c.client.GetDynamicInterface().Resource(gvr)
 
 		for _, namespace := range namespaces {
-			var client dynamic.ResourceInterface
-			client = resourceClient
+			var client dynamic.ResourceInterface = resourceClient
 
 			if namespace != "" {
 				client = resourceClient.Namespace(namespace)
