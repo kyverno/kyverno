@@ -366,29 +366,30 @@ func main() {
 	var (
 		// TODO: this has been added to backward support command line arguments
 		// will be removed in future and the configuration will be set only via configmaps
-		serverIP                        string
-		webhookTimeout                  int
-		maxQueuedEvents                 int
-		omitEvents                      string
-		autoUpdateWebhooks              bool
-		excludeBootstrapResources       bool
-		webhookRegistrationTimeout      time.Duration
-		admissionReports                bool
-		dumpPayload                     bool
-		servicePort                     int
-		webhookServerHost               string
-		webhookServerPort               int
-		backgroundServiceAccountName    string
-		reportsServiceAccountName       string
-		maxAPICallResponseLength        int64
-		apiCallTimeout                  time.Duration
-		renewBefore                     time.Duration
-		maxAuditWorkers                 int
-		maxAuditCapacity                int
-		maxAdmissionReports             int
-		maxGlobalContextEntries         int
-		controllerRuntimeMetricsAddress string
-		tlsKeyAlgorithm                 string
+		serverIP                                string
+		webhookTimeout                          int
+		maxQueuedEvents                         int
+		omitEvents                              string
+		autoUpdateWebhooks                      bool
+		excludeBootstrapResources               bool
+		webhookRegistrationTimeout              time.Duration
+		admissionReports                        bool
+		dumpPayload                             bool
+		servicePort                             int
+		webhookServerHost                       string
+		webhookServerPort                       int
+		backgroundServiceAccountName            string
+		reportsServiceAccountName               string
+		maxAPICallResponseLength                int64
+		apiCallTimeout                          time.Duration
+		renewBefore                             time.Duration
+		maxAuditWorkers                         int
+		maxAuditCapacity                        int
+		maxAdmissionReports                     int
+		maxGlobalContextEntries                 int
+		controllerRuntimeMetricsAddress         string
+		tlsKeyAlgorithm                         string
+		enableExperimentalWebhookAuthentication bool
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -425,6 +426,7 @@ func main() {
 	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
+	flagset.BoolVar(&enableExperimentalWebhookAuthentication, "enable-experimental-webhook-authentication", false, "Enable KEP-6060: API Server Authentication to Admission Webhooks")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -932,6 +934,8 @@ func main() {
 			setup.KyvernoDynamicClient.Discovery(),
 			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
+			setup.KubeClient,
+			enableExperimentalWebhookAuthentication,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers
