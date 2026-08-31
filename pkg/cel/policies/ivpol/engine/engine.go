@@ -414,7 +414,7 @@ func (e *engineImpl) matchPolicy(policy Policy, attr admission.Attributes, names
 		return matches, nil
 	}
 	// match against main policy constraints
-	matches, err := match(policy.Policy.GetSpec().MatchConstraints)
+	matches, err := match(matching.ExpandPodSubresources(policy.Policy.GetSpec().MatchConstraints))
 	if err != nil {
 		return false, err
 	}

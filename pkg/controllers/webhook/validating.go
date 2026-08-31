@@ -13,6 +13,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
+	celmatching "github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
@@ -93,7 +94,11 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhook.Rules = append(webhook.Rules, rule)
 				}
 			} else {
-				for _, match := range p.GetMatchConstraints().ResourceRules {
+				matchConstraints := ptr.To(p.GetMatchConstraints())
+				if policy.AsImageValidatingPolicyLike() != nil {
+					matchConstraints = celmatching.ExpandPodSubresources(matchConstraints)
+				}
+				for _, match := range matchConstraints.ResourceRules {
 					webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
 				}
 			}
@@ -297,7 +302,11 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 					webhookRules = append(webhookRules, rule)
 				}
 			} else {
-				for _, match := range p.GetMatchConstraints().ResourceRules {
+				matchConstraints := ptr.To(p.GetMatchConstraints())
+				if policy.AsImageValidatingPolicyLike() != nil {
+					matchConstraints = celmatching.ExpandPodSubresources(matchConstraints)
+				}
+				for _, match := range matchConstraints.ResourceRules {
 					webhookRules = append(webhookRules, match.RuleWithOperations)
 				}
 			}

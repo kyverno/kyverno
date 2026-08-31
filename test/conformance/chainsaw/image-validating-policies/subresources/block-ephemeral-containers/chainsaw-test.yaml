@@ -5,10 +5,10 @@ metadata:
   name: block-ephemeral-containers
 spec:
   description: >-
-    An ImageValidatingPolicy that explicitly opts into the "pods/ephemeralcontainers"
-    subresource (see https://github.com/kyverno/kyverno/issues/16275) must be
-    evaluated -- and can deny -- requests that add an ephemeral (debug) container
-    to an existing pod, not just pod CREATE/UPDATE requests.
+    An ImageValidatingPolicy matching Pods (see
+    https://github.com/kyverno/kyverno/issues/16947) must also be evaluated -- and
+    can deny -- requests that add an ephemeral (debug) container to an existing
+    Pod without explicitly listing the subresource.
   concurrent: false
   steps:
   - name: create policy

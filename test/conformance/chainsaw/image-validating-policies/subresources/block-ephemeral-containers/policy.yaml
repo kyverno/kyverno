@@ -10,12 +10,8 @@ spec:
       - apiGroups: [""]
         apiVersions: ["v1"]
         operations: ["CREATE", "UPDATE"]
-        # pods/ephemeralcontainers must be listed explicitly: unlike the legacy
-        # ClusterPolicy engine, CEL-based ImageValidatingPolicy webhook rules are
-        # built verbatim from matchConstraints.ResourceRules and do not implicitly
-        # extend a "pods" match to also cover the ephemeralcontainers subresource
-        # (see https://github.com/kyverno/kyverno/issues/16275).
-        resources: ["pods", "pods/ephemeralcontainers"]
+        # Matching Pods implicitly covers pods/ephemeralcontainers.
+        resources: ["pods"]
   matchImageReferences:
     - glob: "*"
   validationConfigurations:
