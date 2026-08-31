@@ -54,6 +54,7 @@ type mockRBLister struct{}
 func (m *mockRBLister) List(selector labels.Selector) (ret []*rbacv1.RoleBinding, err error) {
 	return nil, nil
 }
+
 func (m *mockRBLister) RoleBindings(namespace string) rbacv1listers.RoleBindingNamespaceLister {
 	return &mockRBNsLister{}
 }
@@ -111,15 +112,19 @@ func (m *mockDeleteCollectionClient) DeleteCollection(ctx context.Context, opts 
 func (m *mockDeleteCollectionClient) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return nil
 }
+
 func (m *mockDeleteCollectionClient) Get(ctx context.Context, name string, opts metav1.GetOptions) (interface{}, error) {
 	return nil, nil
 }
+
 func (m *mockDeleteCollectionClient) List(ctx context.Context, opts metav1.ListOptions) (interface{}, error) {
 	return nil, nil
 }
+
 func (m *mockDeleteCollectionClient) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return nil, nil
 }
+
 func (m *mockDeleteCollectionClient) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (interface{}, error) {
 	return nil, nil
 }
@@ -155,7 +160,7 @@ func TestNewServer(t *testing.T) {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, nil, false,
 	)
 
 	assert.NotNil(t, s)
@@ -198,7 +203,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, nil, false,
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")
