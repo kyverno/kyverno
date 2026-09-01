@@ -34,11 +34,16 @@ func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1list
 	}
 
 	compiler := NewCompiler(ictx, lister, nil, imageverifycache.DisabledImageVerifyCache())
-	_, errList := compiler.Compile(ivpol, nil)
+	_, errList := compiler.Compile(ivpol, nil, nil)
 
 	errs := make(field.ErrorList, 0, len(errList))
 	if len(errList) > 0 {
 		errs = errList
+	}
+
+	spec := ivpol.GetSpec()
+	if spec.MatchConstraints == nil || len(spec.MatchConstraints.ResourceRules) == 0 {
+		errs = append(errs, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
 	if ivpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
