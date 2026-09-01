@@ -1418,6 +1418,18 @@ func TestCommandWarnExitCode(t *testing.T) {
 	}
 }
 
+func TestApplyWarningsAsErrors(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:      []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
+		ResourcePaths:    []string{"../../../../../test/cli/apply/exception-within-policy/res"},
+		warningsAsErrors: true,
+		PolicyReport:     true,
+	}
+	_, _, _, _, err := config.applyCommandHelper(io.Discard)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--warnings-as-errors is set")
+}
+
 func TestCommandHelp(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
