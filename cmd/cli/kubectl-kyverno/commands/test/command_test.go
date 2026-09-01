@@ -1177,3 +1177,18 @@ func Test_InvalidResultOperation(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid operation")
 }
+
+func Test_RunTestWarningsAsErrors(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-exceptions", "exceptions-deprecated")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	_, err = runTest(io.Discard, testCases[0], false, true)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "--warnings-as-errors is set")
+}
