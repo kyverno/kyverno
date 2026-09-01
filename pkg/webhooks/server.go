@@ -17,10 +17,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
+	"github.com/kyverno/kyverno/pkg/webhooks/auth"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
@@ -62,6 +64,8 @@ func NewServer(
 	discovery dclient.IDiscovery,
 	webhookServerHost string,
 	webhookServerPort int32,
+	kubeClient kubernetes.Interface,
+	enableExperimentalWebhookAuthentication bool,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -326,7 +330,7 @@ func NewServer(
 					tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
 				},
 			},
-			Handler:           mux,
+			Handler:           auth.NewWebhookAuthenticator(mux, kubeClient, enableExperimentalWebhookAuthentication),
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
