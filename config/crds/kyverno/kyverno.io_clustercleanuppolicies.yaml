@@ -25,6 +25,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: kyverno.io/v2 ClusterCleanupPolicy is deprecated and will
+      be removed in a future release; migrate to DeletingPolicy (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2
     schema:
       openAPIV3Schema:

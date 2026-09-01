@@ -232,6 +232,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: kyverno.io/v2 CleanupPolicy is deprecated and will be removed
+      in a future release; migrate to NamespacedDeletingPolicy (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2
     schema:
       openAPIV3Schema:
@@ -2847,6 +2851,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: kyverno.io/v2 ClusterCleanupPolicy is deprecated and will
+      be removed in a future release; migrate to DeletingPolicy (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2
     schema:
       openAPIV3Schema:
@@ -5491,6 +5499,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v1 ClusterPolicy is deprecated and will be removed
+      in a future release; migrate to ValidatingPolicy, MutatingPolicy, GeneratingPolicy
+      or ImageValidatingPolicy (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v1
     schema:
       openAPIV3Schema:
@@ -26638,6 +26650,11 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v1 Policy is deprecated and will be removed in
+      a future release; migrate to NamespacedValidatingPolicy, NamespacedMutatingPolicy,
+      NamespacedGeneratingPolicy or NamespacedImageValidatingPolicy (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v1
     schema:
       openAPIV3Schema:
@@ -46969,7 +46986,10 @@ spec:
     singular: policyexception
   scope: Namespaced
   versions:
-  - name: v2
+  - deprecated: true
+    deprecationWarning: kyverno.io/v2 PolicyException is deprecated and will be removed
+      in a future release; migrate to PolicyException (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
+    name: v2
     schema:
       openAPIV3Schema:
         description: PolicyException declares resources to be excluded from specified
