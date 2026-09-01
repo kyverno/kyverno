@@ -79,7 +79,7 @@ func ConfineGlobalContext(inner globalcontext.ContextInterface, namespace string
 type namespacedGlobalContext struct{}
 
 func (namespacedGlobalContext) GetGlobalReference(_, _ string) (any, error) {
-	return nil, fmt.Errorf("globalContext is not allowed in namespaced policies")
+	return nil, fmt.Errorf("globalContext.* is not allowed in namespaced policies")
 }
 
 // namespacedHTTPContext enforces the AllowHTTPInNamespacedPolicies toggle at call time.
