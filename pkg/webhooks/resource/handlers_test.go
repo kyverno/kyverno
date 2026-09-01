@@ -18,7 +18,7 @@ import (
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

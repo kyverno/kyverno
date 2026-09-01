@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_valid_onUpdatePolicyPolicy(t *testing.T) {

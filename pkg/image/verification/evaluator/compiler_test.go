@@ -53,7 +53,7 @@ func Test_Compile_VerifyDigest_DefaultsToTrue(t *testing.T) {
 				nil,
 				nil,
 				imageverifycache.DisabledImageVerifyCache(),
-			).Compile(p, nil)
+			).Compile(p, nil, nil)
 
 			require.Empty(t, errs)
 
