@@ -10,9 +10,11 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
@@ -38,10 +40,17 @@ type EvaluationResult struct {
 	Result           bool
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
+	// MatchedImages is the set matchImageReferences selected -- what EnforceRequired
+	// checks, once every policy in the request has been evaluated.
+	MatchedImages []string
 }
 
 type CompiledPolicy interface {
+	// Evaluate does not enforce validationConfigurations.required: the evidence may
+	// still come from another policy later in the same request. Call
+	// EnforceRequired on every passing policy only after all have evaluated.
 	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
+	EnforceRequired(images []string) error
 	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
 }
 
@@ -59,6 +68,8 @@ type compiledPolicy struct {
 	nameOpts             []name.Option
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
+	validationConfig     policiesv1alpha1.ValidationConfiguration
+	verifications        *imageverify.ImageVerificationResults
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
@@ -72,16 +83,29 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	// check if the resource matches an exception
 	if len(c.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+		fullExemptionFound := false
 		for _, polex := range c.exceptions {
 			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
 			if err != nil {
+				if fullExemptionFound {
+					// exception already granted; a broken later exception must not negate it
+					continue
+				}
 				return nil, err
 			}
 			if match {
+				// ImageValidatingPolicy does not yet expose exceptions.allowedImages /
+				// exceptions.allowedValues to CEL the way vpol/gpol/mpol do. A partial
+				// exception (Images or AllowedValues set) must not fully skip evaluation
+				// or every image on the resource is exempted, including ones never listed.
+				if len(polex.Exception.Spec.Images) > 0 || len(polex.Exception.Spec.AllowedValues) > 0 {
+					continue
+				}
 				matchedExceptions = append(matchedExceptions, polex.Exception)
+				fullExemptionFound = true
 			}
 		}
-		if len(matchedExceptions) > 0 {
+		if fullExemptionFound {
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
@@ -146,6 +170,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
+	// not reset: verification results are shared across the request, an earlier
+	// policy's verification must stay visible to the catch-all required policy
+
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
 	result, err := c.checkDigests(imgList)
@@ -153,8 +180,12 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return result, err
 	}
 
-	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
-		return nil, err
+	// Prefetch image data through Get() one image at a time to avoid triggering
+	// racy concurrent map writes in the SDK AddImages() implementation.
+	for _, image := range imgList {
+		if _, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+			return nil, err
+		}
 	}
 
 	data[engine.ImagesKey] = filteredImages
@@ -202,16 +233,19 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 				AuditAnnotations: auditAnnotations,
 				Index:            i,
 				Error:            err,
+				MatchedImages:    imgList,
 			}, nil
 		} else if err != nil {
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
+
 	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
 		return nil, err
 	}
-	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+	// required is enforced by the caller via EnforceRequired, not here
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, MatchedImages: imgList}, nil
 }
 
 func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, error) {
@@ -234,6 +268,28 @@ func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, erro
 	}
 
 	return nil, nil
+}
+
+// EnforceRequired checks images (the policy's own matched set) against the
+// request-scoped verification results, so the evidence can come from any policy
+// in the request -- the catch-all model. Must be called only after every policy
+// in the request has evaluated, or a catch-all run first would deny images a
+// later policy verifies.
+func (c *compiledPolicy) EnforceRequired(images []string) error {
+	if c.validationConfig.Required != nil && !*c.validationConfig.Required {
+		return nil
+	}
+	for _, image := range images {
+		verified, attempted := c.verifications.Status(image)
+		if verified {
+			continue
+		}
+		if attempted {
+			return fmt.Errorf("image %s failed signature or attestation verification", image)
+		}
+		return fmt.Errorf("image %s is not verified: no policy performed a signature or attestation check on it", image)
+	}
+	return nil
 }
 
 // MutateDigest pins the tag of every image matched by the policy's matchImageReferences
@@ -264,14 +320,18 @@ func (c *compiledPolicy) MutateDigest(
 	if !matched {
 		return nil, nil
 	}
-	// skip mutation if the resource matches an exception; the validating webhook
-	// will skip the corresponding validation for the same resource
+	// skip mutation only for a full exemption (no Images / AllowedValues). Partial
+	// exceptions must not skip digest pinning for the whole resource — same rule as
+	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
 		match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
 		if err != nil {
 			return nil, err
 		}
 		if match {
+			if len(polex.Exception.Spec.Images) > 0 || len(polex.Exception.Spec.AllowedValues) > 0 {
+				continue
+			}
 			return nil, nil
 		}
 	}

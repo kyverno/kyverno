@@ -129,7 +129,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	rclient := p.Store.GetRegistryClient()
 	if rclient == nil {
-		rclient = registryclient.New(nil, "", "", "", false)
+		rclient = registryclient.New()
 	}
 	isCluster := false
 	if len(p.CrdPaths) > 0 {
@@ -353,7 +353,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				contextProvider,
 				gvk,
 				gvr,
-				"",
+				subresource,
 				resource.GetName(),
 				resource.GetNamespace(),
 				operation,
@@ -559,8 +559,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					contextProvider,
 					gvk,
 					gvr,
-					// TODO: how to manage subresource ?
-					"",
+					subresource,
 					resource.GetName(),
 					resource.GetNamespace(),
 					operation,
@@ -700,7 +699,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				contextProvider,
 				gvk,
 				gvr,
-				"",
+				subresource,
 				resource.GetName(),
 				resource.GetNamespace(),
 				operation,
