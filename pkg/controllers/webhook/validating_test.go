@@ -350,6 +350,134 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
+func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
+	tests := []struct {
+		name             string
+		nvpols           []*policiesv1beta1.NamespacedValidatingPolicy
+		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
+	}{
+		{
+			name: "Autogen Single Ignore Policy",
+			nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-nvpol",
+						Namespace: "test-ns",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"pods"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.NamespacedValidatingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"daemonsets", "deployments", "replicasets", "statefulsets"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"batch"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"jobs"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"batch"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"cronjobs"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
+			var nvpols []engineapi.GenericPolicy
+			for _, nvpol := range tt.nvpols {
+				nvpols = append(nvpols, engineapi.NewNamespacedValidatingPolicy(nvpol))
+				expressionCache.AddPolicyExpressions(nvpol.GetMatchConditions())
+			}
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.NamespacedValidatingPolicyWebhookName,
+				"/nvpol",
+				0,
+				nil,
+				nvpols,
+				expressionCache,
+			)
+			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
+			for i, expect := range tt.expectedWebhooks {
+				assert.Equal(t, expect.Name, webhooks[i].Name)
+				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
+				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules), fmt.Sprintf("expected: %v,\n got: %v", expect.Rules, webhooks[i].Rules))
+
+				if expect.MatchConditions != nil {
+					assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
+				}
+				if expect.MatchPolicy != nil {
+					assert.Equal(t, expect.MatchPolicy, webhooks[i].MatchPolicy)
+				}
+				if expect.TimeoutSeconds != nil {
+					assert.Equal(t, expect.TimeoutSeconds, webhooks[i].TimeoutSeconds)
+				}
+				if expect.ClientConfig.Service != nil {
+					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
+				}
+				if expect.NamespaceSelector != nil {
+					assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
+				}
+				if expect.ObjectSelector != nil {
+					assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
+				}
+			}
+		})
+	}
+}
+
 func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 	fineGrainedSpec := func(resource string) policiesv1beta1.ValidatingPolicySpec {
 		return policiesv1beta1.ValidatingPolicySpec{
@@ -926,6 +1054,82 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 	assert.True(t, strings.HasPrefix(gpolWebhooks[0].Name, config.GeneratingPolicyWebhookName+"-"))
 	assert.True(t, strings.HasPrefix(ngpolWebhooks[0].Name, config.NamespacedGeneratingPolicyWebhookName+"-"))
 	assert.NotEqual(t, gpolWebhooks[0].Name, ngpolWebhooks[0].Name)
+}
+
+func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *testing.T) {
+	makeGpol := func(name string, syncEnabled bool) *policiesv1beta1.GeneratingPolicy {
+		spec := policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"namespaces"},
+						},
+					},
+				}},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "opt-in",
+				Expression: `object.metadata.?labels["opt-in"].orValue("") == "true"`,
+			}},
+		}
+		if syncEnabled {
+			spec.EvaluationConfiguration = &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+					Enabled: ptr.To(true),
+				},
+			}
+		}
+		return &policiesv1beta1.GeneratingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec:       spec,
+		}
+	}
+
+	tests := []struct {
+		name               string
+		syncEnabled        bool
+		expectedExpression string
+	}{
+		{
+			// with synchronization enabled, UPDATE and DELETE requests must always
+			// reach Kyverno so a trigger that stops matching can have its
+			// downstream resources deleted (kyverno/kyverno#16832).
+			name:               "synchronize enabled wraps match conditions",
+			syncEnabled:        true,
+			expectedExpression: `request.operation != 'CREATE' || (object.metadata.?labels["opt-in"].orValue("") == "true")`,
+		},
+		{
+			name:               "synchronize disabled keeps match conditions",
+			syncEnabled:        false,
+			expectedExpression: `object.metadata.?labels["opt-in"].orValue("") == "true"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gpol := makeGpol("gpol-optin", tt.syncEnabled)
+			expressionCache := NewExpressionCache()
+			expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.GeneratingPolicyWebhookName,
+				"/gpol",
+				0,
+				nil,
+				[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
+				expressionCache,
+			)
+			assert.Len(t, webhooks, 1)
+			assert.Len(t, webhooks[0].MatchConditions, 1)
+			assert.Equal(t, "opt-in", webhooks[0].MatchConditions[0].Name)
+			assert.Equal(t, tt.expectedExpression, webhooks[0].MatchConditions[0].Expression)
+		})
+	}
 }
 
 func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) {
