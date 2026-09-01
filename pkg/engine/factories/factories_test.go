@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestDefaultContextLoaderFactory verifies the factory is created successfully
@@ -143,6 +146,31 @@ func TestContextLoader_Load_NilEntries(t *testing.T) {
 	err := loader.Load(context.Background(), nil, nil, nil, nil, nil)
 
 	assert.NoError(t, err)
+}
+
+// wrongUnderlyingLoader implements engineapi.ContextLoader but is not *contextLoader from this package.
+type wrongUnderlyingLoader struct{}
+
+func (wrongUnderlyingLoader) Load(
+	context.Context,
+	jmespath.Interface,
+	engineapi.RawClient,
+	engineapi.RegistryClientFactory,
+	[]kyvernov1.ContextEntry,
+	enginecontext.Interface,
+) error {
+	return nil
+}
+
+func TestRunContextLoaderInitializers_requiresDefaultFactoryLoader(t *testing.T) {
+	var l engineapi.ContextLoader = wrongUnderlyingLoader{}
+	err := RunContextLoaderInitializers(l, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected context loader type")
+
+	err = LoadContextLoaderEntriesWithoutInitializers(l, context.Background(), nil, nil, nil, nil, nil)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected context loader type")
 }
 
 func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {

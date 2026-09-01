@@ -36,23 +36,25 @@ func SetManager(manager MetricsConfigManager) {
 
 type MetricsConfig struct {
 	// instruments
-	policyChangesMetric metric.Int64Counter
-	clientQueriesMetric metric.Int64Counter
-	kyvernoInfoMetric   metric.Int64Gauge
-	breakerMetrics      *breakerMetrics
-	controllerMetrics   *controllerMetrics
-	cleanupMetrics      *cleanupMetrics
-	deletingMetrics     *deletingMetrics
-	policyRuleMetrics   *policyRuleMetrics
-	ttlInfoMetrics      *ttlInfoMetrics
-	policyEngineMetrics *policyEngineMetrics
-	eventMetrics        *eventMetrics
-	admissionMetrics    *admissionMetrics
-	httpMetrics         *httpMetrics
-	vpolMetrics         *validatingMetrics
-	ivpolMetrics        *imageValidatingMetrics
-	mpolMetrics         *mutatingMetrics
-	gpolMetrics         *generatingMetrics
+	policyChangesMetric  metric.Int64Counter
+	clientQueriesMetric  metric.Int64Counter
+	kyvernoInfoMetric    metric.Int64Gauge
+	breakerMetrics       *breakerMetrics
+	controllerMetrics    *controllerMetrics
+	cleanupMetrics       *cleanupMetrics
+	deletingMetrics      *deletingMetrics
+	updateRequestMetrics *updateRequestMetrics
+	policyRuleMetrics    *policyRuleMetrics
+	ttlInfoMetrics       *ttlInfoMetrics
+	policyEngineMetrics  *policyEngineMetrics
+	eventMetrics         *eventMetrics
+	admissionMetrics     *admissionMetrics
+	deprecatedMetrics    *deprecatedAPIRequestMetrics
+	httpMetrics          *httpMetrics
+	vpolMetrics          *validatingMetrics
+	ivpolMetrics         *imageValidatingMetrics
+	mpolMetrics          *mutatingMetrics
+	gpolMetrics          *generatingMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -67,11 +69,13 @@ type MetricsConfigManager interface {
 	ControllerMetrics() ControllerMetrics
 	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
+	UpdateRequestMetrics() UpdateRequestMetrics
 	PolicyRuleMetrics() PolicyRuleMetrics
 	TTLInfoMetrics() TTLInfoMetrics
 	PolicyEngineMetrics() PolicyEngineMetrics
 	EventMetrics() EventMetrics
 	AdmissionMetrics() AdmissionMetrics
+	DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics
 	HTTPMetrics() HTTPMetrics
 	VPOLMetrics() ValidatingMetrics
 	IVPOLMetrics() ImageValidatingMetrics
@@ -99,6 +103,10 @@ func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
 	return m.deletingMetrics
 }
 
+func (m *MetricsConfig) UpdateRequestMetrics() UpdateRequestMetrics {
+	return m.updateRequestMetrics
+}
+
 func (m *MetricsConfig) PolicyRuleMetrics() PolicyRuleMetrics {
 	return m.policyRuleMetrics
 }
@@ -117,6 +125,10 @@ func (m *MetricsConfig) EventMetrics() EventMetrics {
 
 func (m *MetricsConfig) AdmissionMetrics() AdmissionMetrics {
 	return m.admissionMetrics
+}
+
+func (m *MetricsConfig) DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics {
+	return m.deprecatedMetrics
 }
 
 func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
@@ -168,11 +180,13 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.controllerMetrics.init(meter)
 	m.cleanupMetrics.init(meter)
 	m.deletingMetrics.init(meter)
+	m.updateRequestMetrics.init(meter)
 	m.policyRuleMetrics.init(meter)
 	m.ttlInfoMetrics.init(meter)
 	m.policyEngineMetrics.init(meter)
 	m.eventMetrics.init(meter)
 	m.admissionMetrics.init(meter)
+	m.deprecatedMetrics.init(meter)
 	m.httpMetrics.init(meter)
 	m.vpolMetrics.init(meter)
 	m.ivpolMetrics.init(meter)
@@ -324,22 +338,24 @@ func initKyvernoInfoMetric(m *MetricsConfig) {
 
 func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.MetricsConfiguration) *MetricsConfig {
 	config := &MetricsConfig{
-		Log:                 logger,
-		config:              metricsConfiguration,
-		breakerMetrics:      &breakerMetrics{logger: logger.WithName("circuit-breaker")},
-		controllerMetrics:   &controllerMetrics{logger: logger.WithName("controller")},
-		cleanupMetrics:      &cleanupMetrics{logger: logger.WithName("cleanup")},
-		deletingMetrics:     &deletingMetrics{logger: logger.WithName("deleting")},
-		policyRuleMetrics:   &policyRuleMetrics{logger: logger.WithName("policy-rule")},
-		ttlInfoMetrics:      &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
-		policyEngineMetrics: &policyEngineMetrics{logger: logger.WithName("policy-engine")},
-		eventMetrics:        &eventMetrics{logger: logger.WithName("event")},
-		admissionMetrics:    &admissionMetrics{logger: logger.WithName("admission")},
-		httpMetrics:         &httpMetrics{logger: logger.WithName("http")},
-		vpolMetrics:         &validatingMetrics{logger: logger.WithName("validating-policy")},
-		ivpolMetrics:        &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
-		mpolMetrics:         &mutatingMetrics{logger: logger.WithName("mutating-policy")},
-		gpolMetrics:         &generatingMetrics{logger: logger.WithName("generating-policy")},
+		Log:                  logger,
+		config:               metricsConfiguration,
+		breakerMetrics:       &breakerMetrics{logger: logger.WithName("circuit-breaker")},
+		controllerMetrics:    &controllerMetrics{logger: logger.WithName("controller")},
+		cleanupMetrics:       &cleanupMetrics{logger: logger.WithName("cleanup")},
+		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
+		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
+		policyRuleMetrics:    &policyRuleMetrics{logger: logger.WithName("policy-rule")},
+		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
+		policyEngineMetrics:  &policyEngineMetrics{logger: logger.WithName("policy-engine")},
+		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},
+		admissionMetrics:     &admissionMetrics{logger: logger.WithName("admission")},
+		deprecatedMetrics:    &deprecatedAPIRequestMetrics{logger: logger.WithName("deprecated-api-requests")},
+		httpMetrics:          &httpMetrics{logger: logger.WithName("http")},
+		vpolMetrics:          &validatingMetrics{logger: logger.WithName("validating-policy")},
+		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
+		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
+		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
 	}
 
 	return config

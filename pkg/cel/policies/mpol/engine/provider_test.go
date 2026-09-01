@@ -5,19 +5,19 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	admissionv1 "k8s.io/apiserver/pkg/admission"
-
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/admission"
 )
 
 type fakeCompiledPolicy struct{}
 
-func (f *fakeCompiledPolicy) MatchesConditions(_ context.Context, _ admissionv1.Attributes, _ *corev1.Namespace) bool {
+func (f *fakeCompiledPolicy) MatchesConditions(_ context.Context, _ admission.Attributes, _ *admissionv1.AdmissionRequest, _ *corev1.Namespace) bool {
 	return true
 }
 
@@ -112,16 +112,27 @@ func TestStaticProviderFetch(t *testing.T) {
 		},
 	}
 
-	t.Run("fetch mutateExisting == true", func(t *testing.T) {
+	// The static provider must mirror the cluster reconciler's Fetch semantics:
+	// mutateExisting=true returns only the mutate-existing policies, while
+	// mutateExisting=false returns all policies (a mutate-existing policy still
+	// runs on admission by default). Filtering false down to non-mutate-existing
+	// policies drops them from the CLI admission path and from the background
+	// reports scanner, which both build this provider and call Fetch(ctx, false).
+	t.Run("fetch mutateExisting == true returns only mutate-existing policies", func(t *testing.T) {
 		res := provider.Fetch(context.TODO(), true)
 		assert.Len(t, res, 1)
 		assert.Equal(t, "enabled-policy", res[0].Policy.GetName())
 	})
 
-	t.Run("fetch mutateExisting == false", func(t *testing.T) {
+	t.Run("fetch mutateExisting == false returns all policies", func(t *testing.T) {
 		res := provider.Fetch(context.TODO(), false)
-		assert.Len(t, res, 1)
-		assert.Equal(t, "disabled-policy", res[0].Policy.GetName())
+		var names []string
+		for _, p := range res {
+			names = append(names, p.Policy.GetName())
+		}
+		assert.Len(t, res, 2)
+		assert.Contains(t, names, "enabled-policy")
+		assert.Contains(t, names, "disabled-policy")
 	})
 }
 
@@ -149,7 +160,7 @@ func TestStaticProviderMatchesMutateExisting(t *testing.T) {
 	}
 
 	t.Run("match all", func(t *testing.T) {
-		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, &corev1.Namespace{})
+		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, nil, &corev1.Namespace{})
 		assert.Equal(t, []string{"match"}, names)
 	})
 }

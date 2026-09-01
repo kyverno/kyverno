@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedGeneratingPolicy
+metadata:
+  name: cross-ns-escalate
+  namespace: tenant-ns
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["configmaps"]
+  generate:
+  - expression: |
+      generator.apply("kube-system", [
+        {
+          "apiVersion": dyn("v1"),
+          "kind": dyn("ConfigMap"),
+          "metadata": dyn({
+            "name": "should-not-exist",
+            "namespace": "kube-system"
+          })
+        }
+      ])

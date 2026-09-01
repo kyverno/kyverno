@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: same-name-mpol-nmpol-background-scan
+spec:
+  # Regression test for https://github.com/kyverno/kyverno/issues/16254
+  # Verifies that when a MutatingPolicy and a NamespacedMutatingPolicy share the
+  # same name the background controller applies each policy only to its own target
+  # and does NOT cross-evaluate the other policy's mutations.
+  concurrent: false
+  steps:
+  - name: create-namespace-and-configmaps
+    try:
+    - create:
+        file: namespace.yaml
+    - assert:
+        file: namespace.yaml
+    - create:
+        file: configmaps.yaml
+
+  - name: create-cluster-scoped-mutating-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: mpol.yaml
+
+  - name: wait-mutating-policy-ready
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: same-name-pol
+          status:
+            conditionStatus:
+              ready: true
+
+  - name: create-namespaced-mutating-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: nmpol.yaml
+
+  - name: wait-namespaced-mutating-policy-ready
+    use:
+      template: ../../../_step-templates/namespaced-mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: same-name-pol
+        - name: namespace
+          value: test-same-name-ns
+
+  - name: wait-for-background-scan
+    description: >
+      After both policies are ready the background controller creates one
+      UpdateRequest per policy.  Assert that:
+        - same-name-pol-mpol-cm  receives only the cluster-policy label
+        - same-name-pol-nmpol-cm receives only the namespaced-policy label
+      The negative assertions (via JMESPath `~` / null checks) confirm that the
+      scope-predicate fix prevents cross-evaluation between the two policies.
+    try:
+    - assert:
+        file: assert-mpol-cm.yaml
+        timeout: 3m
+    - assert:
+        file: assert-nmpol-cm.yaml
+        timeout: 3m

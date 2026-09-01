@@ -4,61 +4,99 @@ import (
 	"context"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/config"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/gzip"
-	"github.com/kyverno/sdk/cel/libs/hash"
-	"github.com/kyverno/sdk/cel/libs/http"
-	"github.com/kyverno/sdk/cel/libs/image"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/json"
-	"github.com/kyverno/sdk/cel/libs/math"
-	"github.com/kyverno/sdk/cel/libs/random"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/libs/time"
-	"github.com/kyverno/sdk/cel/libs/transform"
-	"github.com/kyverno/sdk/cel/libs/user"
-	"github.com/kyverno/sdk/cel/libs/yaml"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
+	"github.com/kyverno/sdk/extensions/cel/libs/hash"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
+	"github.com/kyverno/sdk/extensions/cel/libs/image"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/json"
+	"github.com/kyverno/sdk/extensions/cel/libs/math"
+	"github.com/kyverno/sdk/extensions/cel/libs/random"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/libs/time"
+	"github.com/kyverno/sdk/extensions/cel/libs/transform"
+	"github.com/kyverno/sdk/extensions/cel/libs/user"
+	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/regcreds"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/apiserver/pkg/cel/environment"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+var ivpolCompilerVersion = version.MajorMinor(1, 0)
+
 type Compiler interface {
-	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList)
+	// Compile builds a policy for a single admission request. results must be the
+	// same instance across every Compile() call in that request: verification CEL
+	// functions write to it, EnforceRequired reads it back, which is how a wildcard
+	// required policy sees verifications from other policies in the request.
+	//
+	// nil is safe but private (no cross-policy sharing) -- fine for Validate and
+	// digest mutation, which don't call EnforceRequired. The returned policy is
+	// bound to results and must not be cached/reused across requests.
+	Compile(policiesv1beta1.ImageValidatingPolicyLike, []*policiesv1beta1.PolicyException, *imageverify.ImageVerificationResults) (CompiledPolicy, field.ErrorList)
 }
 
-func NewCompiler(ictx imagedataloader.ImageContext, lister k8scorev1.SecretInterface, reqGVR *metav1.GroupVersionResource) Compiler {
+func NewCompiler(ictx imagedataloader.ImageContext, lister corev1listers.SecretLister, reqGVR *metav1.GroupVersionResource, ivCache imageverifycache.Client) Compiler {
 	return &compilerImpl{
-		ictx:   ictx,
-		lister: lister,
-		reqGVR: reqGVR,
+		ictx:    ictx,
+		lister:  lister,
+		reqGVR:  reqGVR,
+		ivCache: ivCache,
 	}
 }
 
 type compilerImpl struct {
-	ictx   imagedataloader.ImageContext
-	lister k8scorev1.SecretInterface
-	reqGVR *metav1.GroupVersionResource
+	ictx    imagedataloader.ImageContext
+	lister  corev1listers.SecretLister
+	reqGVR  *metav1.GroupVersionResource
+	ivCache imageverifycache.Client
 }
 
-func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
+func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException, verifications *imageverify.ImageVerificationResults) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
-	env, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy)
+
+	spec := ivpolicy.GetSpec()
+
+	// by default, try to use the options built globally from flags
+	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
+	if spec.Credentials != nil {
+		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace())
+	}
+
+	// keep required failing closed rather than reading from nil
+	if verifications == nil {
+		verifications = imageverify.NewImageVerificationResults()
+	}
+
+	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts, verifications)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	spec := ivpolicy.GetSpec()
+	env, err := ivpolEnvSet.Env(environment.StoredExpressions)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
+
 	path := field.NewPath("spec")
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
 	{
@@ -141,6 +179,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 
 	return &compiledPolicy{
 		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		verifyDigest:         spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
 		matchConditions:      matchConditions,
 		matchImageReferences: matchImageReferences,
 		validations:          validations,
@@ -148,13 +187,16 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		imageExtractors:      imageExtractors,
 		attestors:            compiledAttestors,
 		attestationList:      getAttestations(spec.Attestations),
-		creds:                spec.Credentials,
+		nameOpts:             nameOpts,
+		authOpts:             authOpts,
 		exceptions:           compiledExceptions,
 		variables:            variables,
+		validationConfig:     spec.ValidationConfigurations,
+		verifications:        verifications,
 	}, nil
 }
 
-func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike) (*cel.Env, *engine.VariablesProvider, error) {
+func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1beta1.ImageValidatingPolicyLike, remoteOpts []remote.Option, verifications *imageverify.ImageVerificationResults) (*environment.EnvSet, *engine.VariablesProvider, error) {
 	baseOpts := engine.DefaultEnvOptions()
 	baseOpts = append(baseOpts,
 		cel.Variable(engine.ResourceKey, resource.ContextType),
@@ -173,7 +215,8 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		)
 	}
 
-	env, err := cel.NewEnv()
+	base := environment.MustBaseEnvSet(ivpolCompilerVersion)
+	env, err := base.Env(environment.StoredExpressions)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -191,59 +234,73 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: libsctx},
-			engine.KyvernoVersion,
+			globalcontext.Latest(),
 		),
 		image.Lib(
-			engine.KyvernoVersion,
+			image.Latest(),
 		),
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
-			engine.KyvernoVersion,
+			imagedata.Latest(),
+			remoteOpts,
 		),
 		imageverify.Lib(
-			engine.KyvernoVersion, c.ictx, ivpol, c.lister,
+			imageverify.Latest(), c.ictx, ivpol, c.lister,
+			logging.WithName("ivpol/imageverify").WithValues("policy", ivpol.GetName(), "namespace", namespace),
+			c.ivCache,
+			verifications,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},
 			namespace,
-			engine.KyvernoVersion,
+			resource.Latest(),
 		),
 		user.Lib(
-			engine.KyvernoVersion,
+			user.Latest(),
 		),
 		math.Lib(
-			engine.KyvernoVersion,
+			math.Latest(),
 		),
 		hash.Lib(
-			engine.KyvernoVersion,
+			hash.Latest(),
 		),
 		json.Lib(
 			&json.JsonImpl{},
-			engine.KyvernoVersion,
+			json.Latest(),
 		),
 		yaml.Lib(
 			&yaml.YamlImpl{},
-			engine.KyvernoVersion,
+			yaml.Latest(),
 		),
 		random.Lib(
-			engine.KyvernoVersion,
+			random.Latest(),
 		),
 		time.Lib(
-			engine.KyvernoVersion,
+			time.Latest(),
 		),
 		transform.Lib(
-			engine.KyvernoVersion,
+			transform.Latest(),
 		),
 		gzip.Lib(
-			engine.KyvernoVersion,
+			gzip.Latest(),
 		),
 		http.Lib(
-			http.Context{ContextInterface: engine.NewLazyCELHTTPContext(namespace)},
-			engine.KyvernoVersion,
+			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
+			http.Latest(),
 		),
 	}
 
-	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
+	extendedBase, err := base.Extend(
+		environment.VersionedOptions{
+			IntroducedVersion: ivpolCompilerVersion,
+			EnvOptions:        baseOpts,
+		},
+		// libaries
+		environment.VersionedOptions{
+			IntroducedVersion: ivpolCompilerVersion,
+			EnvOptions:        libEnvOpts,
+		},
+	)
 	if err != nil {
 		return nil, nil, err
 	}

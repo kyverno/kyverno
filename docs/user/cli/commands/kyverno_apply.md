@@ -46,7 +46,7 @@ kyverno apply [flags]
       --context-file string                File containing context data for CEL policies
       --continue-on-error                  Continue processing despite resource loading errors (default true)
       --continue-on-fail                   If set to true, will continue to apply policies on the next resource upon failure to apply to the current resource instead of exiting out
-      --crd-path string                    crd path to be used for apply command
+      --crd-paths strings                  List of paths to CRD files to be used for apply command
       --detailed-results                   If set to true, display detailed results
       --envoy-payload strings              Path to Envoy check request payload files (JSON)
   -e, --exception strings                  Policy exception to be considered when evaluating policies against resources
@@ -82,6 +82,7 @@ kyverno apply [flags]
   -f, --values-file string                 File containing values for policy variables
       --warn-exit-code int                 Set the exit code for warnings; if failures or errors are found, will exit 1
       --warn-no-pass                       Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag
+      --warnings-as-errors                 Treat deprecation warnings as errors
 ```
 
 ### Options inherited from parent commands

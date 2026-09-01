@@ -342,6 +342,8 @@ We are using code generation tools to create the following portions of code:
 
 > **Note**: You can run `make codegen-all` to build all generated code at once.
 
+> **Note**: After bumping the `github.com/kyverno/api` dependency, run `make codegen-api-bump` (or `make codegen-all`): besides the CRD manifests, the API reference docs under `docs/user/crd/` are generated from the api module types and are checked by the "Verify codegen (docs)" CI job. If that job fails anyway, it uploads a `codegen-*-patch` artifact you can apply directly with `git apply` instead of re-running codegen locally.
+
 ### Generating kubernetes API client
 
 Based on the [APIs golang code definitions](./api), you can generate the corresponding Kubernetes client by running:
@@ -444,7 +446,7 @@ Based on the [APIs golang code definitions](./api), you can generate the corresp
 make codegen-helm-crds
 ```
 
-This will output CRDs templates in [/charts/kyverno/templates/crds.yaml](./charts/kyverno/templates/crds.yaml).
+This will output CRD templates in [`charts/kyverno/charts/crds/templates`](./charts/kyverno/charts/crds/templates).
 
 > **Note**: You can run `make codegen-helm-all` to generate CRDs and docs at once.
 
@@ -482,7 +484,7 @@ You can run Kyverno locally or in your IDE of choice with a few steps:
 1. There are multiple environment variables that need to be configured. The variables can be found in [here](./.vscode/launch.json). Their values can be set using the command `export $NAME=value`
 1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
    - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
-   - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
+   - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip address of your local machine)
    - `--backgroundServiceAccountName` must be set to `system:serviceaccount:kyverno:kyverno-background-controller`
    - `--caSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-ca`
    - `--tlsSecretName` must be set to `kyverno-svc.kyverno.svc.kyverno-tls-pair`

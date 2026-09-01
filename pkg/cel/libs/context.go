@@ -3,21 +3,23 @@ package libs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"github.com/kyverno/sdk/cel/libs/generator"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/libs/generator"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
 )
 
@@ -47,20 +50,24 @@ type Context interface {
 	resource.ContextInterface
 	generator.ContextInterface
 
+	GetHTTPMocks() map[string]interface{}
 	GetGeneratedResources() []*unstructured.Unstructured
 	ClearGeneratedResources()
-	SetGenerateContext(polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache bool)
+	SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool)
+	Clone() Context
 }
 
 type generateContext struct {
-	policyName        string
-	triggerName       string
-	triggerNamespace  string
-	triggerAPIVersion string
-	triggerGroup      string
-	triggerKind       string
-	triggerUID        string
-	restoreCache      bool
+	policyName         string
+	policyNamespace    string
+	triggerName        string
+	triggerNamespace   string
+	triggerAPIVersion  string
+	triggerGroup       string
+	triggerKind        string
+	triggerUID         string
+	restoreCache       bool
+	useServerSideApply bool
 }
 
 type contextProvider struct {
@@ -69,18 +76,23 @@ type contextProvider struct {
 	gctxStore          gctxstore.Store
 	generatedResources []*unstructured.Unstructured
 	genCtx             generateContext
-	cliEvaluation      bool
+	cliEvaluation      bool // if true, libraries that create resources (like the generator library) don't post the created resource to an actual cluster
 	restMapper         meta.RESTMapper
 }
 
 func NewContextProvider(
 	client dclient.Interface,
-	imageOpts []imagedataloader.Option,
+	secretLister corev1listers.SecretLister,
 	gctxStore gctxstore.Store,
 	restMapper meta.RESTMapper,
 	cliEvaluation bool,
 ) (Context, error) {
-	idl, err := imagedataloader.New(client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()), imageOpts...)
+	// By default, the libraries context uses the global registry client credentials.
+	// callers who will need to pass in different authentication options (the ivpol)
+	// will simply pass different opts to the image data loader during image fetching
+	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
+
+	idl, err := imagedataloader.New(secretLister, authOpts, nameOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +100,16 @@ func NewContextProvider(
 		client:             client,
 		imagedata:          idl,
 		gctxStore:          gctxStore,
-		cliEvaluation:      cliEvaluation,
 		restMapper:         restMapper,
+		cliEvaluation:      cliEvaluation,
 		generatedResources: make([]*unstructured.Unstructured, 0),
 	}
 	LibraryContext = ctx
 	return ctx, nil
+}
+
+func (cp *contextProvider) GetHTTPMocks() map[string]interface{} {
+	return nil
 }
 
 func (cp *contextProvider) GetGlobalReference(name, projection string) (any, error) {
@@ -122,9 +138,15 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 	}
 }
 
-func (cp *contextProvider) GetImageData(image string) (map[string]any, error) {
-	// TODO: get image credentials from image verification policies?
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image)
+func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	// NOTE: we deliberately not pass name options here because there is currently only one
+	// name option we build, which is name.Insecure. This option already gets build and passed
+	// during the fetching of the global registry client options and then building the image data
+	// loader from those options.
+	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
+	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
+	// but the if the flag is set, the registry client opts will come with the name insecure option
+	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +216,26 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 		for _, item := range items {
 			targetNamespace := namespace
 			if !cp.isNamespacedResource(item.GetAPIVersion(), item.GetKind()) {
+				// A non-empty namespace means the call is scoped to a single
+				// namespace, which for a namespaced policy is its own namespace
+				// (enforced in the generator lib). Cluster-scoped resources have
+				// no namespace, so generating one would escape that scope. Reject
+				// it instead of silently creating the resource cluster-wide.
+				if namespace != "" && cp.genCtx.policyNamespace != "" {
+					return fmt.Errorf("cross-scope generation denied: a policy scoped to namespace %q cannot generate cluster-scoped resource %s/%s", namespace, item.GetAPIVersion(), item.GetKind())
+				}
 				targetNamespace = ""
+			}
+
+			// When generating a namespaced resource into a different namespace than
+			// its source (the typical cross-namespace clone case), inherited
+			// ownerReferences may point to a namespaced owner that does not exist in
+			// the target namespace, causing the garbage collector to delete the
+			// generated resource almost immediately. Mirror the legacy clone behavior
+			// (see pkg/background/generate/clone.go) by stripping all ownerReferences
+			// when the source namespace is set and differs from the target.
+			if srcNamespace := item.GetNamespace(); srcNamespace != "" && srcNamespace != targetNamespace && item.GetOwnerReferences() != nil {
+				item.SetOwnerReferences(nil)
 			}
 
 			// In CLI evaluation mode, we do not create the resource in the cluster
@@ -210,39 +251,132 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				continue
 			}
 			cp.addGenerateLabels(item)
-			item.SetNamespace(targetNamespace)
+			// Clean up server-populated metadata that must not be copied to the
+			// generated resource, mirroring the legacy clone behavior
+			// (see pkg/background/generate/clone.go). In particular, a non-nil
+			// managedFields is rejected by server-side apply. This must run after
+			// addGenerateLabels, which reads the source UID and resourceVersion to
+			// set the generate.kyverno.io/source-uid label.
+			item.SetUID("")
+			item.SetSelfLink("")
+			item.SetCreationTimestamp(metav1.Time{})
+			item.SetManagedFields(nil)
 			item.SetResourceVersion("")
-			// check if the resource is already generated
-			_, err := cp.client.GetResource(
+			item.SetNamespace(targetNamespace)
+			// check if the resource already exists
+			existing, err := cp.client.GetResource(
 				context.TODO(),
 				item.GetAPIVersion(),
 				item.GetKind(),
 				targetNamespace,
 				item.GetName(),
 			)
-
-			// if the resource is not found, create it
-			if err != nil && apierrors.IsNotFound(err) {
-				if !cp.genCtx.restoreCache {
-					generatedRes, err := cp.client.CreateResource(
-						context.TODO(),
-						item.GetAPIVersion(),
-						item.GetKind(),
-						targetNamespace,
-						item,
-						false,
-					)
-					if err != nil {
-						return err
+			if err != nil {
+				// if the resource is not found, create it
+				if apierrors.IsNotFound(err) {
+					if !cp.genCtx.restoreCache {
+						var generatedRes *unstructured.Unstructured
+						if cp.genCtx.useServerSideApply {
+							generatedRes, err = cp.client.ApplyResource(
+								context.TODO(),
+								item.GetAPIVersion(),
+								item.GetKind(),
+								targetNamespace,
+								item.GetName(),
+								item,
+								false,
+								"generate",
+							)
+						} else {
+							generatedRes, err = cp.client.CreateResource(
+								context.TODO(),
+								item.GetAPIVersion(),
+								item.GetKind(),
+								targetNamespace,
+								item,
+								false,
+							)
+						}
+						if err != nil {
+							return err
+						}
+						cp.generatedResources = append(cp.generatedResources, generatedRes)
 					}
-					cp.generatedResources = append(cp.generatedResources, generatedRes)
+					continue
 				}
-			} else if err != nil {
 				return err
 			}
+			if !cp.isManagedByPolicy(existing) {
+				// If the existing resource is NOT labeled as managed by this
+				// policy (e.g. an unrelated, user-created resource that
+				// happens to share the same name/kind/namespace), it must not
+				// be reported or updated here, otherwise it would be silently adopted.
+				continue
+			}
+			// the resource already exists and is managed by this policy
+			// (e.g. a resync, a retry, or a cacheRestore pass over a
+			// resource generated by an earlier UR).
+			if cp.genCtx.restoreCache {
+				// Report existing generated resource so callers relying on the generated
+				// resources list (e.g. WatchManager.SyncWatchers) keep the watcher/cache.
+				cp.generatedResources = append(cp.generatedResources, existing)
+				continue
+			}
+			if cp.genCtx.useServerSideApply {
+				generatedRes, err := cp.client.ApplyResource(
+					context.TODO(),
+					item.GetAPIVersion(),
+					item.GetKind(),
+					targetNamespace,
+					item.GetName(),
+					item,
+					false,
+					"generate",
+				)
+				if err != nil {
+					return err
+				}
+				cp.generatedResources = append(cp.generatedResources, generatedRes)
+				continue
+			}
+			// Update the downstream resource in place with the newly rendered
+			// content so trigger updates are propagated without deleting and
+			// recreating it. The UPDATE API requires UID and resourceVersion to
+			// match the existing object; copy them from the fetched resource.
+			item.SetUID(existing.GetUID())
+			item.SetResourceVersion(existing.GetResourceVersion())
+			generatedRes, err := cp.client.UpdateResource(
+				context.TODO(),
+				item.GetAPIVersion(),
+				item.GetKind(),
+				targetNamespace,
+				item,
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			cp.generatedResources = append(cp.generatedResources, generatedRes)
 		}
 	}
 	return nil
+}
+
+// isManagedByPolicy reports whether obj is already labeled as a downstream
+// resource generated by this provider's policy for the trigger currently
+// being processed. It is used to avoid reporting a pre-existing, unrelated
+// resource (one that merely shares the same GVK/namespace/name) as if it
+// were generated by us. The trigger UID check additionally prevents two
+// different triggers of the same policy from "adopting" each other's
+// downstream resource when they happen to render the same target name.
+func (cp *contextProvider) isManagedByPolicy(obj *unstructured.Unstructured) bool {
+	if obj == nil {
+		return false
+	}
+	labels := obj.GetLabels()
+	return labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp &&
+		labels[common.GeneratePolicyLabel] == cp.genCtx.policyName &&
+		labels[common.GenerateTriggerUIDLabel] == cp.genCtx.triggerUID
 }
 
 func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
@@ -269,10 +403,11 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 }
 
 func (cp *contextProvider) SetGenerateContext(
-	polName, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string,
-	restoreCache bool,
+	polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string,
+	restoreCache, useServerSideApply bool,
 ) {
 	cp.genCtx.policyName = polName
+	cp.genCtx.policyNamespace = policyNamespace
 	cp.genCtx.triggerName = triggerName
 	cp.genCtx.triggerNamespace = triggerNamespace
 	cp.genCtx.triggerAPIVersion = triggerAPIVersion
@@ -280,6 +415,7 @@ func (cp *contextProvider) SetGenerateContext(
 	cp.genCtx.triggerKind = triggerKind
 	cp.genCtx.triggerUID = triggerUID
 	cp.genCtx.restoreCache = restoreCache
+	cp.genCtx.useServerSideApply = useServerSideApply
 }
 
 func (cp *contextProvider) GetGeneratedResources() []*unstructured.Unstructured {
@@ -341,4 +477,15 @@ func isLikelyKubernetesObject(data any) bool {
 		return true
 	}
 	return false
+}
+
+func (cp *contextProvider) Clone() Context {
+	// Returns a shallow copy. Maps, clients, and other referenced mutable state remain shared.
+	// Only the copied top-level struct fields and the per-worker generatedResources list are isolated here.
+	clone := *cp
+
+	// generatedResources is per-evaluation state. Ensure each worker starts with a clean slate.
+	clone.generatedResources = make([]*unstructured.Unstructured, 0)
+
+	return &clone
 }

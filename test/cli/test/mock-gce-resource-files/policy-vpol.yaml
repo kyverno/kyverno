@@ -1,0 +1,19 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-deployment-replicas-cel
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        operations: [CREATE, UPDATE]
+        resources: [deployments]
+  variables:
+    - name: deploymentData
+      expression: >-
+        globalContext.Get("gctxentry-inline-deployments", "")
+  validations:
+    - expression: >-
+        variables.deploymentData != null && size(variables.deploymentData) >= 2
+      message: "At least 2 existing deployments required in global context"

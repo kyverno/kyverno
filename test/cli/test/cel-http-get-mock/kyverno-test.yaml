@@ -1,0 +1,22 @@
+apiCallResponses:
+- method: GET
+  response:
+    body:
+      allowed: true
+    statusCode: 200
+  url: https://example.com/config
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: cel-http-get-mock-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: check-external-config
+  resources:
+  - test-pod
+  result: pass

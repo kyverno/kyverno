@@ -162,3 +162,46 @@ func TestRuleResponse_HasStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestRuleResponse_WithSkipReason(t *testing.T) {
+	tests := []struct {
+		name           string
+		skipReason     SkipReason
+		expectedReason SkipReason
+	}{
+		{
+			name:           "no skip reason set returns empty",
+			skipReason:     "",
+			expectedReason: "",
+		},
+		{
+			name:           "SkipReasonMatchConditions is set and returned",
+			skipReason:     SkipReasonMatchConditions,
+			expectedReason: SkipReasonMatchConditions,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := RuleSkip("test-rule", Validation, "skip", nil)
+			if tt.skipReason != "" {
+				r = r.WithSkipReason(tt.skipReason)
+			}
+			if got := r.SkipReason(); got != tt.expectedReason {
+				t.Errorf("RuleResponse.SkipReason() = %v, want %v", got, tt.expectedReason)
+			}
+		})
+	}
+}
+
+func TestRuleResponse_SkipReasonNotPersistedToProperties(t *testing.T) {
+	// SkipReason is internal routing metadata and must not appear in Properties
+	// which are written to PolicyReport results.
+	r := RuleSkip("test-rule", Validation, "skip", nil).WithSkipReason(SkipReasonMatchConditions)
+	if r.Properties() != nil {
+		for k := range r.Properties() {
+			if k == "skipReason" || k == string(SkipReasonMatchConditions) {
+				t.Errorf("SkipReason must not be persisted to Properties, found key: %v", k)
+			}
+		}
+	}
+}

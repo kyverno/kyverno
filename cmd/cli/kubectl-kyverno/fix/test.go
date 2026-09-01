@@ -3,6 +3,7 @@ package fix
 import (
 	"cmp"
 	"slices"
+	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,6 +37,11 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			messages = append(messages, "test results contains duplicate resources")
 			result.Resources = unique.UnsortedList()
 		}
+		uniqueGenerated := sets.New(result.GeneratedResources...)
+		if len(result.GeneratedResources) != len(uniqueGenerated) {
+			messages = append(messages, "test results contains duplicate generated resources")
+			result.GeneratedResources = uniqueGenerated.UnsortedList()
+		}
 		results = append(results, result)
 	}
 	if compress {
@@ -44,6 +50,7 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			data := compressed[result.TestResultBase]
 			data.Resources = append(data.Resources, result.Resources...)
 			data.ResourceSpecs = append(data.ResourceSpecs, result.ResourceSpecs...)
+			data.GeneratedResources = append(data.GeneratedResources, result.GeneratedResources...)
 			compressed[result.TestResultBase] = data
 		}
 		results = nil
@@ -52,6 +59,11 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 			if len(v.Resources) != len(unique) {
 				messages = append(messages, "test results contains duplicate resources")
 				v.Resources = unique.UnsortedList()
+			}
+			uniqueGenerated := sets.New(v.GeneratedResources...)
+			if len(v.GeneratedResources) != len(uniqueGenerated) {
+				messages = append(messages, "test results contains duplicate generated resources")
+				v.GeneratedResources = uniqueGenerated.UnsortedList()
 			}
 			results = append(results, v1alpha1.TestResult{
 				TestResultBase: k,
@@ -90,9 +102,35 @@ func FixTest(test v1alpha1.Test, compress bool) (v1alpha1.Test, []string, error)
 				}
 			}
 		}
+		slices.Sort(a.GeneratedResources)
+		slices.Sort(b.GeneratedResources)
+		if x := cmp.Compare(len(a.GeneratedResources), len(b.GeneratedResources)); x != 0 {
+			return x
+		}
+		if len(a.GeneratedResources) == len(b.GeneratedResources) {
+			for i := range a.GeneratedResources {
+				if x := cmp.Compare(a.GeneratedResources[i], b.GeneratedResources[i]); x != 0 {
+					return x
+				}
+			}
+		}
 		// TODO resource specs
 		return 0
 	})
 	test.Results = results
+	// Sort globalContextEntries by name for deterministic output.
+	if len(test.GlobalContextEntries) > 0 {
+		slices.SortFunc(test.GlobalContextEntries, func(a, b v1alpha1.GlobalContextEntryValue) int {
+			return cmp.Compare(a.Name, b.Name)
+		})
+		for _, entry := range test.GlobalContextEntries {
+			hasData := entry.Data != nil && len(strings.TrimSpace(string(entry.Data.Raw))) > 0 && strings.TrimSpace(string(entry.Data.Raw)) != "null"
+			hasResources := entry.Resources != nil
+			hasResourceFiles := entry.ResourceFiles != nil
+			if !hasData && !hasResources && !hasResourceFiles {
+				messages = append(messages, "globalContextEntries entry "+entry.Name+" has no data source")
+			}
+		}
+	}
 	return test, messages, nil
 }

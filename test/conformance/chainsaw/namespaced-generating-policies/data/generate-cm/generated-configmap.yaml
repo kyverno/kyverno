@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: generated-config
-  namespace: trigger-ns
+  namespace: test-namespace
 data:
   environment: namespaced-policy
   managed-by: kyverno

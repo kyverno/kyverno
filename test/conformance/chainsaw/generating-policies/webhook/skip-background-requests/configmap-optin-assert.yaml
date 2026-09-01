@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: generated-optin
+  namespace: gpol-skip-background-ns
+data:
+  source: opt-in
