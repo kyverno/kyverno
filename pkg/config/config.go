@@ -121,6 +121,8 @@ const (
 	webhookLabels                 = "webhookLabels"
 	matchConditions               = "matchConditions"
 	updateRequestThreshold        = "updateRequestThreshold"
+	enableUpdateRequestCleanup    = "enableUpdateRequestCleanup"
+	updateRequestCleanupTTL       = "updateRequestCleanupTTL"
 	maxContextSize                = "maxContextSize"
 )
 
@@ -218,6 +220,10 @@ type Configuration interface {
 	OnChanged(func())
 	// GetUpdateRequestThreshold gets the threshold limit for the total number of updaterequests
 	GetUpdateRequestThreshold() int64
+	// GetEnableUpdateRequestCleanup returns if update request cleanup is enabled
+	GetEnableUpdateRequestCleanup() bool
+	// GetUpdateRequestCleanupTTL returns the TTL for update request cleanup
+	GetUpdateRequestCleanupTTL() string
 	// GetMaxContextSize gets the maximum context size in bytes for policy evaluation
 	GetMaxContextSize() int64
 }
@@ -239,6 +245,8 @@ type configuration struct {
 	mux                           sync.RWMutex
 	callbacks                     []func()
 	updateRequestThreshold        int64
+	enableUpdateRequestCleanup    bool
+	updateRequestCleanupTTL       string
 	maxContextSize                int64
 }
 
@@ -380,6 +388,18 @@ func (cd *configuration) GetUpdateRequestThreshold() int64 {
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	return cd.updateRequestThreshold
+}
+
+func (cd *configuration) GetEnableUpdateRequestCleanup() bool {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.enableUpdateRequestCleanup
+}
+
+func (cd *configuration) GetUpdateRequestCleanupTTL() string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.updateRequestCleanupTTL
 }
 
 func (cd *configuration) GetMaxContextSize() int64 {
@@ -580,6 +600,27 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			logger.V(2).Info("enableDefaultRegistryMutation configured")
 		}
 	}
+	// load enableUpdateRequestCleanup
+	enableCleanup, ok := data[enableUpdateRequestCleanup]
+	if !ok {
+		logger.V(2).Info("enableUpdateRequestCleanup not set")
+	} else {
+		enableCleanupBool, err := strconv.ParseBool(enableCleanup)
+		if err != nil {
+			logger.Error(err, "enableUpdateRequestCleanup is not a boolean")
+		} else {
+			cd.enableUpdateRequestCleanup = enableCleanupBool
+			logger.V(2).Info("enableUpdateRequestCleanup configured")
+		}
+	}
+	// load updateRequestCleanupTTL
+	ttl, ok := data[updateRequestCleanupTTL]
+	if !ok {
+		logger.V(2).Info("updateRequestCleanupTTL not set")
+	} else {
+		cd.updateRequestCleanupTTL = ttl
+		logger.V(2).Info("updateRequestCleanupTTL configured")
+	}
 	// load maxContextSize (supports Kubernetes quantity format: 100Mi, 2Gi, etc.)
 	cd.maxContextSize = DefaultMaxContextSize
 	if maxCtxSizeStr, ok := data[maxContextSize]; ok {
@@ -611,6 +652,8 @@ func (cd *configuration) unload() {
 	cd.webhookAnnotations = nil
 	cd.webhookLabels = nil
 	cd.maxContextSize = DefaultMaxContextSize
+	cd.enableUpdateRequestCleanup = false
+	cd.updateRequestCleanupTTL = ""
 	logger.V(2).Info("configuration unloaded")
 }
 
