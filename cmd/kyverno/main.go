@@ -90,8 +90,9 @@ const (
 )
 
 var (
-	caSecretName  string
-	tlsSecretName string
+	caSecretName                 string
+	tlsSecretName                string
+	disableCertManagerController bool
 )
 
 func showWarnings(ctx context.Context, logger logr.Logger) {
@@ -152,14 +153,17 @@ func createrLeaderControllers(
 	stateRecorder webhookcontroller.StateRecorder,
 ) ([]internal.Controller, func(context.Context) error, error) {
 	var leaderControllers []internal.Controller
-	certManager := certmanager.NewController(
-		caInformer,
-		tlsInformer,
-		certRenewer,
-		caSecretName,
-		tlsSecretName,
-		config.KyvernoNamespace(),
-	)
+	if !disableCertManagerController {
+		certManager := certmanager.NewController(
+			caInformer,
+			tlsInformer,
+			certRenewer,
+			caSecretName,
+			tlsSecretName,
+			config.KyvernoNamespace(),
+		)
+		leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
+	}
 	webhookController := webhookcontroller.NewController(
 		dynamicClient.Discovery(),
 		kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
@@ -232,7 +236,7 @@ func createrLeaderControllers(
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
-				APIVersions: []string{"v1alpha1"},
+				APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
@@ -285,7 +289,6 @@ func createrLeaderControllers(
 		reportsServiceAccountName,
 		stateRecorder,
 	)
-	leaderControllers = append(leaderControllers, internal.NewController(certmanager.ControllerName, certManager, certmanager.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers))
 	leaderControllers = append(leaderControllers, internal.NewController(exceptionWebhookControllerName, exceptionWebhookController, 1))
 	leaderControllers = append(leaderControllers, internal.NewController(celExceptionWebhookControllerName, celExceptionWebhookController, 1))
@@ -412,6 +415,7 @@ func main() {
 	flagset.StringVar(&reportsServiceAccountName, "reportsServiceAccountName", "", "Reports controller service account name.")
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
+	flagset.BoolVar(&disableCertManagerController, "disableCertManagerController", false, "Disable the in-process certificate manager controller.")
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
@@ -784,6 +788,7 @@ func main() {
 				matching.NewMatcher(),
 				setup.RegistrySecretLister,
 				setup.ImageVerifyCacheClient,
+				setup.Configuration,
 			), metrics.AdmissionRequest)
 			mpolEngine = mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 				mpolProvider,
