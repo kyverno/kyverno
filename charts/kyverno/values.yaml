@@ -67,7 +67,7 @@ upgrade:
   fromV2: false
 
 apiVersionOverride:
-  # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
+  # -- (string) Override api version used to create `PodDisruptionBudget` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
   # determine the api version automatically.
   podDisruptionBudget: ~
