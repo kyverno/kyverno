@@ -172,6 +172,9 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, itemKey 
 		execErr = c.client.Namespace(namespace).Delete(ctx, metaObj.GetName(), deleteOptions)
 		if execErr != nil {
 			logger.Error(execErr, "failed to delete resource")
+		err = c.client.Namespace(namespace).Delete(ctx, metaObj.GetName(), deleteOptions)
+		if err != nil {
+			logger.Error(err, "failed to delete resource")
 			if c.metrics != nil {
 				c.metrics.RecordTTLFailure(ctx, c.gvr, metaObj.GetNamespace())
 			}
