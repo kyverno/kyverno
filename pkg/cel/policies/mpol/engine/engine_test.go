@@ -461,7 +461,9 @@ func TestEvaluate(t *testing.T) {
 		// The resource does not satisfy spec.matchConditions: mutateExisting/background
 		// evaluation must skip it just like admission-time evaluation would.
 		providerSkip, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		engSkip := NewEngine(providerSkip, nsResolver, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
 		respSkip, err := engSkip.Evaluate(ctx, newAttr(nil), req, predicate)
 		assert.NoError(t, err)
@@ -469,7 +471,9 @@ func TestEvaluate(t *testing.T) {
 
 		// The resource satisfies spec.matchConditions: it should be mutated.
 		providerMatch, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
-		assert.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		engMatch := NewEngine(providerMatch, nsResolver, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
 		respMatch, err := engMatch.Evaluate(ctx, newAttr(map[string]interface{}{"enabled": "true"}), req, predicate)
 		assert.NoError(t, err)
