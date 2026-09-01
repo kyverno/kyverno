@@ -39,7 +39,6 @@ webhooks:
     - CREATE
     resources:
     - pods
-    - pods/ephemeralcontainers
     scope: '*'
   - apiGroups:
     - apps
@@ -116,7 +115,6 @@ webhooks:
     - CREATE
     resources:
     - pods
-    - pods/ephemeralcontainers
     scope: '*'
   - apiGroups:
     - apps

@@ -8,6 +8,7 @@ import (
 // It returns false if:
 //   - the matching logic has an object selector
 //   - the matching logic has exclusion rules
+//   - the matching logic does not match pods
 //   - the matching logic matches resources other than pods and pods/ephemeralcontainers
 //   - the matching logic filters on resource names
 func CanAutoGen(match *admissionregistrationv1.MatchResources) bool {
