@@ -17,7 +17,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
@@ -27,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
@@ -54,9 +54,7 @@ import (
 	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/spf13/cobra"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -66,8 +64,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/metadata"
 )
 
@@ -105,6 +104,7 @@ type ApplyCommandConfig struct {
 	GitPassword               string
 	warnExitCode              int
 	warnNoPassed              bool
+	warningsAsErrors          bool
 	Exception                 []string
 	ContinueOnFail            bool
 	inlineExceptions          bool
@@ -121,6 +121,7 @@ type ApplyCommandConfig struct {
 	ContinueOnError           bool
 	ShowPerformance           bool
 	CrdPaths                  []string
+	deprecationWarnings       []string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -240,6 +241,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
+	cmd.Flags().BoolVar(&applyCommandConfig.warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
@@ -266,6 +268,7 @@ func Command() *cobra.Command {
 
 func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
+	c.deprecationWarnings = nil
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -293,10 +296,16 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("failed to decode yaml (%w)", err)
 	}
+	if _, err := processor.NormalizeValuesOperation(variables.GlobalOperation()); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(out)
 	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps)+len(cps))
@@ -387,9 +396,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 		}
 		if results != nil {
+			for _, warning := range results.Warnings {
+				msg := fmt.Sprintf("Warning: %s", warning)
+				fmt.Fprintln(out, msg)
+				c.deprecationWarnings = append(c.deprecationWarnings, msg)
+			}
 			exceptions = results.Exceptions
 			celExceptions = results.CELExceptions
 		}
+	}
+	if err := c.failOnDeprecationWarnings(); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 
 	if c.exceptionsWithinPolicies {
@@ -463,7 +480,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient)
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -666,6 +683,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	userInfo *kyvernov2.RequestInfo,
 	rc *processor.ResultCounts,
 	dclient dclient.Interface,
+	operation string,
 ) ([]engineapi.EngineResponse, error) {
 	if len(ivps) == 0 {
 		return nil, nil
@@ -674,17 +692,28 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
-	var lister k8scorev1.SecretInterface
+
+	var lister corev1listers.SecretLister
 	if dclient != nil {
-		lister = dclient.GetKubeClient().CoreV1().Secrets("")
+		kubeClient := dclient.GetKubeClient()
+		informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+
+		stopCh := make(chan struct{})
+		// This informer will automatically die at the end of this function and thats ok,
+		// we don't care about it past applying image validating policies anyways
+		defer close(stopCh)
+		informerFactory.Start(stopCh)
+		informerFactory.WaitForCacheSync(stopCh)
+
+		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
 	engine := ivpolengine.NewEngine(
 		provider,
 		namespaceProvider,
 		matching.NewMatcher(),
 		lister,
-		[]imagedataloader.Option{imagedataloader.WithLocalCredentials(c.RegistryAccess)},
 		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
 	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -712,6 +741,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if userInfo != nil {
 			user = userInfo.AdmissionUserInfo
 		}
+		op, object, oldObject := processor.AdmissionRequestShape(operation, resource)
 		request := celengine.Request(
 			contextProvider,
 			resource.GroupVersionKind(),
@@ -719,14 +749,14 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			"",
 			resource.GetName(),
 			resource.GetNamespace(),
-			admissionv1.Create,
+			op,
 			user,
-			resource,
-			nil,
+			object,
+			oldObject,
 			false,
 			nil,
 		)
-		engineResponse, _, err := engine.HandleMutating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -749,13 +779,15 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 	ivpols := make([]*eval.CompiledImageValidatingPolicy, 0)
 	pMap := make(map[string]policiesv1beta1.ImageValidatingPolicyLike)
+
 	for i := range ivps {
 		p := ivps[i]
 		pMap[p.GetName()] = p
 		ivpols = append(ivpols, &eval.CompiledImageValidatingPolicy{Policy: p})
 	}
+
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, nil)
+		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -848,6 +880,13 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			status := engineapi.RuleStatusPass
 			message := fmt.Sprintf("%s matched", payloadType)
 			if !resp.Match {
+				if !resp.PolicyMatched {
+					// The resource is not selected by the policy's matchConstraints
+					// (resourceRules, objectSelector, namespaceSelector). Align with
+					// the other CEL policy types (vpol/mpol), which emit no result
+					// row for constraint-excluded resources.
+					continue
+				}
 				status = engineapi.RuleStatusFail
 				message = fmt.Sprintf("%s did not match", payloadType)
 			}
@@ -1048,7 +1087,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies() (
+func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
@@ -1121,6 +1160,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				if err != nil {
 					continue
 				}
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1147,6 +1187,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1171,6 +1212,21 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		}
 	}
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
+}
+
+func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {
+	for _, warning := range warnings {
+		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
+		fmt.Fprintln(out, msg)
+		c.deprecationWarnings = append(c.deprecationWarnings, msg)
+	}
+}
+
+func (c *ApplyCommandConfig) failOnDeprecationWarnings() error {
+	if c.warningsAsErrors && len(c.deprecationWarnings) > 0 {
+		return fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(c.deprecationWarnings))
+	}
+	return nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {

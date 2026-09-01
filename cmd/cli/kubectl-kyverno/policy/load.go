@@ -20,9 +20,12 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils"
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/utils/git"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -73,8 +76,10 @@ var (
 	mpV1               = schema.GroupVersion(policiesv1.GroupVersion).WithKind("MutatingPolicy")
 	nmpV1beta1         = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("NamespacedMutatingPolicy")
 	nmpV1              = schema.GroupVersion(policiesv1.GroupVersion).WithKind("NamespacedMutatingPolicy")
+	mapV1              = admissionregistrationv1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapV1alpha1        = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
 	mapV1beta1         = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicy")
+	mapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	mapBindingV1beta1  = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	defaultLoader      = kubectlValidateLoader
@@ -83,6 +88,11 @@ var (
 type LoaderError struct {
 	Path  string
 	Error error
+}
+
+type LoaderWarning struct {
+	Path    string
+	Warning string
 }
 
 type LoaderResults struct {
@@ -103,6 +113,7 @@ type LoaderResults struct {
 	MutatingPolicies        []policiesv1beta1.MutatingPolicyLike
 	PolicyCelExceptions     []*policiesv1beta1.PolicyException
 	NonFatalErrors          []LoaderError
+	Warnings                []LoaderWarning
 }
 
 func (l *LoaderResults) merge(results *LoaderResults) {
@@ -120,6 +131,7 @@ func (l *LoaderResults) merge(results *LoaderResults) {
 	l.ImageValidatingPolicies = append(l.ImageValidatingPolicies, results.ImageValidatingPolicies...)
 	l.GeneratingPolicies = append(l.GeneratingPolicies, results.GeneratingPolicies...)
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
+	l.Warnings = append(l.Warnings, results.Warnings...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
 	l.CleanupPolicies = append(l.CleanupPolicies, results.CleanupPolicies...)
 	l.PolicyExceptions = append(l.PolicyExceptions, results.PolicyExceptions...)
@@ -131,6 +143,13 @@ func (l *LoaderResults) addError(path string, err error) {
 	l.NonFatalErrors = append(l.NonFatalErrors, LoaderError{
 		Path:  path,
 		Error: err,
+	})
+}
+
+func (l *LoaderResults) addWarning(path, warning string) {
+	l.Warnings = append(l.Warnings, LoaderWarning{
+		Path:    path,
+		Warning: warning,
 	})
 }
 
@@ -212,7 +231,7 @@ func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) 
 		}
 
 		// Process regular documents (non-List)
-		if err := processDocumentItem(gvk, &untyped, results); err != nil {
+		if err := processDocumentItem(path, gvk, &untyped, results); err != nil {
 			return nil, fmt.Errorf("policy type not supported %s", gvk)
 		}
 	}
@@ -253,7 +272,7 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 		itemUnstructured := &unstructured.Unstructured{Object: itemMap}
 		itemGVK := itemUnstructured.GroupVersionKind()
 
-		if err := processDocumentItem(itemGVK, itemUnstructured, results); err != nil {
+		if err := processDocumentItem(path, itemGVK, itemUnstructured, results); err != nil {
 			results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
 		}
 	}
@@ -262,7 +281,10 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 }
 
 // processDocumentItem handles the processing of individual documents based on their GVK
-func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults) error {
+func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults) error {
+	if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
+		results.addWarning(path, warning.Message)
+	}
 	switch gvk {
 	case policyV1, policyV2:
 		typed, err := convert.To[kyvernov1.Policy](*untyped)
@@ -331,12 +353,24 @@ func processDocumentItem(gvk schema.GroupVersionKind, untyped *unstructured.Unst
 			return err
 		}
 		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+	case mapV1:
+		typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicy](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MAPs = append(results.MAPs, *admissionpolicy.ConvertMutatingAdmissionPolicyToBeta(typed))
 	case mapV1alpha1, mapV1beta1:
 		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](*untyped)
 		if err != nil {
 			return err
 		}
 		results.MAPs = append(results.MAPs, *typed)
+	case mapBindingV1:
+		typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicyBinding](*untyped)
+		if err != nil {
+			return err
+		}
+		results.MAPBindings = append(results.MAPBindings, *admissionpolicy.ConvertMutatingAdmissionPolicyBindingToBeta(typed))
 	case mapBindingV1alpha1, mapBindingV1beta1:
 		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](*untyped)
 		if err != nil {
@@ -433,15 +467,21 @@ func fsLoad(loader loader, path string) (*LoaderResults, error) {
 	return aggregateResults, nil
 }
 
+var remoteHTTPTimeout = utils.RemoteHTTPTimeout
+
 func httpLoad(loader loader, path string) (*LoaderResults, error) {
 	// We accept here that a random URL might be called based on user provided input.
-	req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), remoteHTTPTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: %w", path, err)
 	}
-	resp, err := http.DefaultClient.Do(req)
+
+	resp, err := utils.RemoteHTTPClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: %w", path, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -449,7 +489,7 @@ func httpLoad(loader loader, path string) (*LoaderResults, error) {
 	}
 	fileBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("failed to process %v: %v", path, err)
+		return nil, fmt.Errorf("failed to process %v: %w", path, err)
 	}
 	return loader(path, fileBytes)
 }

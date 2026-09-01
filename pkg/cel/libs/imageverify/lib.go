@@ -10,33 +10,38 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 const libraryName = "kyverno.imageverify"
 
 type lib struct {
-	logger  logr.Logger
-	version *version.Version
-	imgCtx  imagedataloader.ImageContext
-	ivpol   policiesv1beta1.ImageValidatingPolicyLike
-	lister  k8scorev1.SecretInterface
-	ivCache imageverifycache.Client
+	logger        logr.Logger
+	version       *version.Version
+	imgCtx        imagedataloader.ImageContext
+	ivpol         policiesv1beta1.ImageValidatingPolicyLike
+	lister        corev1listers.SecretLister
+	ivCache       imageverifycache.Client
+	verifications *ImageVerificationResults
 }
 
 func Latest() *version.Version {
 	return versions.KyvernoLatest
 }
 
-func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface, logger logr.Logger, ivCache imageverifycache.Client) cel.EnvOption {
+// Lib builds the image verification CEL library. The verification results are shared
+// with the caller, which reads them back after evaluation to enforce
+// validationConfigurations.required; pass nil when that enforcement is not needed.
+func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister, logger logr.Logger, ivCache imageverifycache.Client, verifications *ImageVerificationResults) cel.EnvOption {
 	// create the cel lib env option
 	return cel.Lib(&lib{
-		logger:  logger,
-		version: v,
-		imgCtx:  imgCtx,
-		ivpol:   ivpol,
-		lister:  lister,
-		ivCache: ivCache,
+		logger:        logger,
+		version:       v,
+		imgCtx:        imgCtx,
+		ivpol:         ivpol,
+		lister:        lister,
+		ivCache:       ivCache,
+		verifications: verifications,
 	})
 }
 
@@ -59,7 +64,7 @@ func (*lib) ProgramOptions() []cel.ProgramOption {
 }
 
 func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, c.ivCache, env.CELTypeAdapter())
+	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, c.ivCache, env.CELTypeAdapter(), c.verifications)
 	if err != nil {
 		return nil, err
 	}

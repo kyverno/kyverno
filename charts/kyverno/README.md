@@ -268,7 +268,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 |-----|------|---------|-------------|
 | crds.install | bool | `true` | Whether to have Helm install the Kyverno CRDs, if the CRDs are not installed by Helm, they must be added before policies can be created |
 | crds.reportsServer.enabled | bool | `false` | Kyverno reports-server is used in your cluster |
-| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io` |
+| crds.groups.kyverno | object | `{"cleanuppolicies":true,"clustercleanuppolicies":true,"clusterpolicies":true,"globalcontextentries":true,"policies":true,"policyexceptions":true,"updaterequests":true}` | Install CRDs in group `kyverno.io`. Note: the legacy policy types in this group (`ClusterPolicy`, `Policy`, `ClusterCleanupPolicy`, `CleanupPolicy`, `PolicyException`) are deprecated and will be removed in a future release, migrate to the `policies.kyverno.io` policy types (see https://kyverno.io/docs/guides/migration-to-cel/). |
 | crds.groups.policies | object | `{"deletingpolicies":true,"generatingpolicies":true,"imagevalidatingpolicies":true,"mutatingpolicies":true,"namespaceddeletingpolicies":true,"namespacedimagevalidatingpolicies":true,"namespacedmutatingpolicies":true,"namespacedvalidatingpolicies":true,"policyexceptions":true,"validatingpolicies":true}` | Install CRDs in group `policies.kyverno.io` |
 | crds.groups.reports | object | `{"clusterephemeralreports":true,"ephemeralreports":true}` | Install CRDs in group `reports.kyverno.io` |
 | crds.groups.wgpolicyk8s | object | `{"clusterpolicyreports":true,"policyreports":true}` | Install CRDs in group `wgpolicyk8s.io` |
@@ -284,7 +284,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | crds.migration.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | crds.migration.imagePullSecrets | list | `[]` | Image pull secrets |
 | crds.migration.podSecurityContext | object | `{}` | Security context for the pod |
-| crds.migration.nodeSelector | object | `{}` | Node labels for pod assignment |
+| crds.migration.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | crds.migration.tolerations | list | `[]` | List of node taints to tolerate |
 | crds.migration.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | crds.migration.podAffinity | object | `{}` | Pod affinity constraints. |
@@ -339,7 +339,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | metricsConfig.namespaces.exclude | list | `[]` | list of namespaces to NOT capture metrics for. |
 | metricsConfig.metricsRefreshInterval | string | `nil` | Rate at which metrics should reset so as to clean up the memory footprint of kyverno metrics, if you might be expecting high memory footprint of Kyverno's metrics. Default: 0, no refresh of metrics. WARNING: This flag is not working since Kyverno 1.8.0 |
 | metricsConfig.bucketBoundaries | list | `[0.005,0.01,0.025,0.05,0.1,0.25,0.5,1,2.5,5,10,15,20,25,30]` | Configures the bucket boundaries for all Histogram metrics, changing this configuration requires restart of the kyverno admission controller |
-| metricsConfig.metricsExposure | map | `{"kyverno_admission_requests_total":{"disabledLabelDimensions":["resource_namespace"]},"kyverno_admission_review_duration_seconds":{"disabledLabelDimensions":["resource_namespace"]},"kyverno_cleanup_controller_deletedobjects_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_generating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_image_validating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_mutating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_policy_results_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_policy_rule_info_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_validating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]}}` | Configures the exposure of individual metrics, by default all metrics and all labels are exported, changing this configuration requires restart of the kyverno admission controller |
+| metricsConfig.metricsExposure | map | `{"kyverno_admission_requests_total":{"disabledLabelDimensions":["resource_namespace"]},"kyverno_admission_review_duration_seconds":{"disabledLabelDimensions":["resource_namespace"]},"kyverno_cleanup_controller_deletedobjects_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_generating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_generating_policy_results_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_image_validating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_image_validating_policy_results_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_mutating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_mutating_policy_results_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_policy_results_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_policy_rule_info_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]},"kyverno_validating_policy_execution_duration_seconds":{"disabledLabelDimensions":["resource_namespace","resource_request_operation"]},"kyverno_validating_policy_results_total":{"disabledLabelDimensions":["resource_namespace","policy_namespace"]}}` | Configures the exposure of individual metrics, by default all metrics and all labels are exported, changing this configuration requires restart of the kyverno admission controller |
 
 ### Features
 
@@ -356,6 +356,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.reporting.imageVerify | bool | `true` | Enables the feature |
 | features.reporting.generate | bool | `true` | Enables the feature |
 | features.autoUpdateWebhooks.enabled | bool | `true` | Enables the feature |
+| features.excludeBootstrapResources.enabled | bool | `false` | Excludes cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks to avoid a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while enabled. |
 | features.backgroundScan.enabled | bool | `true` | Enables the feature |
 | features.backgroundScan.backgroundScanWorkers | int | `2` | Number of background scan workers |
 | features.backgroundScan.backgroundScanInterval | string | `"1h"` | Background scan interval |
@@ -370,6 +371,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
 | features.globalContext.maxApiCallResponseLength | int | `2000000` | Maximum allowed response size from API Calls. A value of 0 bypasses checks (not recommended) |
 | features.globalContext.apiCallTimeout | string | `"30s"` | Timeout for HTTP API calls made by policies. A value of 0s means no timeout. |
+| features.globalContext.maxGlobalContextEntries | int | `0` | Maximum number of entries in the global context store. A value of 0 means unbounded. |
 | features.logging.format | string | `"text"` | Logging format |
 | features.logging.verbosity | int | `2` | Logging verbosity |
 | features.omitEvents.eventTypes | list | `["PolicyApplied","PolicySkipped"]` | Events which should not be emitted (possible values `PolicyViolation`, `PolicyApplied`, `PolicyError`, and `PolicySkipped`) |
@@ -443,7 +445,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | admissionController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
-| admissionController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
+| admissionController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | admissionController.tolerations | list | `[]` | List of node taints to tolerate |
 | admissionController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | admissionController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -478,6 +480,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
+| admissionController.container.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | admissionController.container.extraArgs | object | `{}` | Additional container args. |
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.extraInitContainers | list | `[]` | Array of extra init containers |
@@ -562,7 +565,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | backgroundController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | backgroundController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
-| backgroundController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
+| backgroundController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | backgroundController.tolerations | list | `[]` | List of node taints to tolerate |
 | backgroundController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | backgroundController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -571,6 +574,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 | backgroundController.podSecurityContext | object | `{}` | Security context for the pod |
 | backgroundController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| backgroundController.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | backgroundController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | backgroundController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | backgroundController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
@@ -672,7 +676,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | cleanupController.livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | cleanupController.readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
-| cleanupController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
+| cleanupController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | cleanupController.tolerations | list | `[]` | List of node taints to tolerate |
 | cleanupController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | cleanupController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -681,6 +685,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 | cleanupController.podSecurityContext | object | `{}` | Security context for the pod |
 | cleanupController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupController.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | cleanupController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | cleanupController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | cleanupController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
@@ -767,7 +772,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.extraEnvVars | list | `[]` | Additional container environment variables. |
 | reportsController.resources.limits | object | `{"memory":"128Mi"}` | Pod resource limits |
 | reportsController.resources.requests | object | `{"cpu":"100m","memory":"64Mi"}` | Pod resource requests |
-| reportsController.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Node labels for pod assignment |
+| reportsController.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | reportsController.tolerations | list | `[]` | List of node taints to tolerate |
 | reportsController.antiAffinity.enabled | bool | `true` | Pod antiAffinities toggle. Enabled by default but can be disabled if you want to schedule pods to the same node. |
 | reportsController.podAntiAffinity | object | See [values.yaml](values.yaml) | Pod anti affinity constraints. |
@@ -776,6 +781,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 | reportsController.podSecurityContext | object | `{}` | Security context for the pod |
 | reportsController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| reportsController.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | reportsController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | reportsController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
 | reportsController.podDisruptionBudget.maxUnavailable | string | `nil` | Configures the maximum unavailable pods for disruptions. Cannot be used if `minAvailable` is set. |
@@ -844,7 +850,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | webhooksCleanup.imagePullSecrets | list | `[]` | Image pull secrets |
 | webhooksCleanup.podSecurityContext | object | `{}` | Security context for the pod |
-| webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment |
+| webhooksCleanup.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | webhooksCleanup.tolerations | list | `[]` | List of node taints to tolerate |
 | webhooksCleanup.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
 | webhooksCleanup.podAffinity | object | `{}` | Pod affinity constraints. |
@@ -876,7 +882,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | test.projectedServiceAccountToken | object | `{"audience":"","expirationSeconds":3600}` | Projected service account token configuration (only used when automountServiceAccountToken is false) |
 | test.projectedServiceAccountToken.expirationSeconds | int | `3600` | Token expiration time in seconds. The kubelet will request a new token before the token expires. |
 | test.projectedServiceAccountToken.audience | string | `""` | Audience for the projected service account token. If not set, the token will have no audience restriction. |
-| test.nodeSelector | object | `{}` | Node labels for pod assignment |
+| test.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
 | test.podAnnotations | object | `{}` | Additional Pod annotations |
 | test.tolerations | list | `[]` | List of node taints to tolerate |
 
@@ -884,7 +890,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget`` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
+| apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
 
 ### Other
 
@@ -898,7 +904,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | global.caCertificates.volume | object | `{}` | Global value to set single volume to be mounted for CA certificates for all deployments. Not used when `.Values.global.caCertificates.data` is defined Individual  controller values will override this global value |
 | global.priorityClassName | string | `""` | Global priority class name for pod priority. Non-global values will override the global value. |
 | global.extraEnvVars | list | `[]` | Additional container environment variables to apply to all containers and init containers |
-| global.nodeSelector | object | `{}` | Global node labels for pod assignment. Non-global values will override the global value. |
+| global.nodeSelector | object | `{"kubernetes.io/os":"linux"}` | Global node labels for pod assignment, applied to all chart workloads including controller Deployments, hook Jobs, and Helm test Pods. Non-global (controller) values will override the global value when non-empty. The default `kubernetes.io/os: linux` key is always merged into any user-supplied value and cannot be unset by design, because Kyverno images only run on Linux nodes. |
 | global.tolerations | list | `[]` | Global List of node taints to tolerate. Non-global values will override the global value. |
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
@@ -930,7 +936,7 @@ If `admissionController.createSelfSignedCert` is `false`, Kyverno will generate 
 
 ## Default resource filters
 
-[Kyverno resource filters](https://kyverno.io/docs/installation/#resource-filters) are a used to exclude resources from the Kyverno engine rules processing.
+[Kyverno resource filters](https://kyverno.io/docs/installation/#resource-filters) are used to exclude resources from the Kyverno engine rules processing.
 
 This chart comes with default resource filters that apply exclusions on a couple of namespaces and resource kinds:
 - all resources in `kube-system`, `kube-public` and `kube-node-lease` namespaces
@@ -956,11 +962,11 @@ A cluster can become unresponsive if Kyverno is not up and running, ultimately p
 You can however override the default resource filters by setting the `config.resourceFilters` stanza.
 It contains an array of string templates that are passed through the `tpl` Helm function and joined together to produce the final `resourceFilters` written in the Kyverno config map.
 
-Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
+Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the appropriate templates to build your desired exclusions list.
 
 Add entries to `config.resourceFiltersExclude` that you wish to omit from `config.resourceFilters`.
 
-Add entries to `config.resourceFiltersInclude` that you with to add to `config.resourceFilters`.
+Add entries to `config.resourceFiltersInclude` that you wish to add to `config.resourceFilters`.
 
 ## High availability
 
@@ -969,7 +975,7 @@ Running a highly-available Kyverno installation is crucial in a production envir
 In order to run Kyverno in high availability mode, you should set `replicas` to `3` or more for desired components.
 You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
 
-Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.
+Please see https://kyverno.io/docs/installation/#security-vs-operability for more information.
 
 ## Source Code
 
@@ -984,7 +990,7 @@ Kubernetes: `>=1.25.0-0`
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
 | https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.2 |
-| https://kyverno.github.io/reports-server/ | reports-server | 0.1.6 |
+| https://kyverno.github.io/reports-server/ | reports-server | 0.1.7 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 
 ----------------------------------------------
