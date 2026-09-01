@@ -47,7 +47,15 @@ func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned
 			"current count", count, "threshold", threshold)
 		return nil, nil
 	}
-
+	if g.config.GetEnableUpdateRequestCleanup() {
+		ttl := g.config.GetUpdateRequestCleanupTTL()
+		if ttl != "" {
+			if resource.Labels == nil {
+				resource.Labels = make(map[string]string)
+			}
+			resource.Labels["cleanup.kyverno.io/ttl"] = ttl
+		}
+	}
 	created, err := client.KyvernoV2().UpdateRequests(configutils.KyvernoNamespace()).Create(ctx, resource, metav1.CreateOptions{})
 	return created, err
 }
