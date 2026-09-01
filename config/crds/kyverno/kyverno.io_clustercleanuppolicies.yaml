@@ -1319,6 +1319,9 @@ spec:
       name: Age
       type: date
     deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 ClusterCleanupPolicy is deprecated and
+      will be removed in a future release; migrate to DeletingPolicy (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2beta1
     schema:
       openAPIV3Schema:

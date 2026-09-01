@@ -10363,6 +10363,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 ClusterPolicy is deprecated and will be
+      removed in a future release; migrate to ValidatingPolicy, MutatingPolicy, GeneratingPolicy
+      or ImageValidatingPolicy (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2beta1
     schema:
       openAPIV3Schema:
