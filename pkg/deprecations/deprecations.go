@@ -20,7 +20,7 @@ const MigrationGuideURL = "https://kyverno.io/docs/guides/migration-to-cel/"
 // replacements maps a legacy kyverno.io kind to its policies.kyverno.io replacement(s).
 var replacements = map[string]string{
 	"ClusterPolicy":        "ValidatingPolicy, MutatingPolicy, GeneratingPolicy or ImageValidatingPolicy",
-	"Policy":               "NamespacedValidatingPolicy, NamespacedMutatingPolicy, NamespacedGeneratingPolicy or NamespacedImageValidatingPolicy",
+	"Policy":               "NamespacedValidatingPolicy and the other namespaced policy types",
 	"ClusterCleanupPolicy": "DeletingPolicy",
 	"CleanupPolicy":        "NamespacedDeletingPolicy",
 	"PolicyException":      "PolicyException",
