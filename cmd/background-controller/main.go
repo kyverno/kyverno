@@ -268,11 +268,11 @@ func main() {
 				return count > maxBackgroundReports
 			}
 		}
-		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			go func() {
 				for {
-					ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+					ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
 					if err != nil {
 						setup.Logger.Error(err, "failed to start background scan reports watcher, retrying...")
 						time.Sleep(2 * time.Second)
