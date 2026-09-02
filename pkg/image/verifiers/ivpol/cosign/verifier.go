@@ -75,6 +75,10 @@ func ignoreTlog(cosignAttestor *policiesv1beta1.Cosign) bool {
 	return cosignAttestor.CTLog != nil && (cosignAttestor.CTLog.InsecureIgnoreTlog || cosignAttestor.CTLog.InsecureIgnoreSCT)
 }
 
+// verifyImageAttestationsFn indirects cosign.VerifyImageAttestations so tests
+// can stub the verified=false/err=nil case without a live registry.
+var verifyImageAttestationsFn = cosign.VerifyImageAttestations
+
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1beta1.Attestor) error {
 	if attestor.Cosign == nil {
 		return fmt.Errorf("cosign verifier only supports cosign attestor")
@@ -159,7 +163,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	// Attestations always use IntotoSubjectClaimVerifier
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 
-	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+	sigs, verified, err := verifyImageAttestationsFn(ctx, image.NameRef(), cOpts)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
