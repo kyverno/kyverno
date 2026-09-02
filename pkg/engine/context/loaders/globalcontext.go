@@ -59,8 +59,8 @@ func (g *gctxLoader) LoadData() error {
 	}
 	contextData, err := g.loadGctxData()
 	if err != nil {
-		g.logger.Error(err, "failed to marshal globalReference data for context entry")
-		return fmt.Errorf("failed to marshal globalReference data for context entry %s: %w", g.entry.Name, err)
+		g.logger.Error(err, "failed to marshal APICall data for context entry")
+		return fmt.Errorf("failed to marshal APICall data for context entry %s: %w", g.entry.Name, err)
 	}
 
 	err = g.enginectx.AddContextEntry(g.entry.Name, contextData)

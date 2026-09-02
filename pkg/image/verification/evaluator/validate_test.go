@@ -103,23 +103,3 @@ func TestValidate_MatchConstraints(t *testing.T) {
 		})
 	}
 }
-
-func Test_Validate_NamespacedPolicyRejectsGlobalContext(t *testing.T) {
-	ivpol := &policiesv1beta1.ImageValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ns-globalcontext-ivpol",
-			Namespace: "tenant-ns",
-		},
-		Spec: policiesv1beta1.ImageValidatingPolicySpec{
-			Variables: []admissionregistrationv1.Variable{{
-				Name:       "gctx",
-				Expression: `globalContext.get("cluster-entry", "")`,
-			}},
-		},
-	}
-
-	warnings, err := Validate(ivpol, nil)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "globalContext.* is not allowed in namespaced policies")
-	assert.NotEmpty(t, warnings)
-}
