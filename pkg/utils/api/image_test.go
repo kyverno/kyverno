@@ -251,6 +251,45 @@ func Test_extractImageInfo(t *testing.T) {
 		},
 		{
 			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"ClusterTask": []kyvernov1.ImageExtractorConfig{
+					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
+				},
+			},
+			raw: []byte(`{
+				"apiVersion":"tekton.dev/v1beta1",
+				"kind":"ClusterTask",
+				"metadata":{
+					"name":"hello"
+				},
+				"spec":{
+					"steps":{
+						"valid":{
+							"image":"nginx",
+							"name":"web"
+						},
+						"invalid":"scalar"
+					}
+				}
+			}`),
+			images: map[string]map[string]ImageInfo{
+				"steps": {
+					"web": {
+						imageutils.ImageInfo{
+							Registry:         "docker.io",
+							Name:             "nginx",
+							Path:             "nginx",
+							Tag:              "latest",
+							Reference:        "docker.io/nginx:latest",
+							ReferenceWithTag: "docker.io/nginx:latest",
+						},
+						"/spec/steps/valid/image",
+						[]string{},
+					},
+				},
+			},
+		},
+		{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
 				"Task": []kyvernov1.ImageExtractorConfig{
 					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
 				},
@@ -303,6 +342,105 @@ func Test_extractImageInfo(t *testing.T) {
 							ReferenceWithTag: "docker.io/alpine:latest",
 						},
 						"/spec/steps/0/image",
+						[]string{},
+					},
+				},
+			},
+		},
+		{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"ClusterTask": []kyvernov1.ImageExtractorConfig{
+					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
+				},
+			},
+			raw: []byte(`{
+				"apiVersion":"tekton.dev/v1beta1",
+				"kind":"ClusterTask",
+				"metadata":{
+					"name":"hello"
+				},
+				"spec":{
+					"steps":[
+						{
+							"image":"alpine",
+							"name":"echo"
+						},
+						"hello",
+						123,
+						true,
+						null,
+						{
+							"image":"nginx",
+							"name":"web"
+						}
+					]
+				}
+			}`),
+			images: map[string]map[string]ImageInfo{
+				"steps": {
+					"echo": {
+						imageutils.ImageInfo{
+							Registry:         "docker.io",
+							Name:             "alpine",
+							Path:             "alpine",
+							Tag:              "latest",
+							Reference:        "docker.io/alpine:latest",
+							ReferenceWithTag: "docker.io/alpine:latest",
+						},
+						"/spec/steps/0/image",
+						[]string{},
+					},
+					"web": {
+						imageutils.ImageInfo{
+							Registry:         "docker.io",
+							Name:             "nginx",
+							Path:             "nginx",
+							Tag:              "latest",
+							Reference:        "docker.io/nginx:latest",
+							ReferenceWithTag: "docker.io/nginx:latest",
+						},
+						"/spec/steps/5/image",
+						[]string{},
+					},
+				},
+			},
+		},
+		{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"ClusterTask": []kyvernov1.ImageExtractorConfig{
+					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
+				},
+			},
+			raw: []byte(`{
+				"apiVersion":"tekton.dev/v1beta1",
+				"kind":"ClusterTask",
+				"metadata":{
+					"name":"hello"
+				},
+				"spec":{
+					"steps":[
+						[
+							{
+								"image":"nginx",
+								"name":"nested"
+							}
+						],
+						"invalid"
+					]
+				}
+			}`),
+			images: map[string]map[string]ImageInfo{
+				"steps": {
+					"nested": {
+						imageutils.ImageInfo{
+							Registry:         "docker.io",
+							Name:             "nginx",
+							Path:             "nginx",
+							Tag:              "latest",
+							Reference:        "docker.io/nginx:latest",
+							ReferenceWithTag: "docker.io/nginx:latest",
+						},
+						"/spec/steps/0/0/image",
 						[]string{},
 					},
 				},
