@@ -605,6 +605,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load enableUpdateRequestCleanup
+	cd.enableUpdateRequestCleanup = false
 	enableCleanup, ok := data[enableUpdateRequestCleanup]
 	if !ok {
 		logger.V(2).Info("enableUpdateRequestCleanup not set")
@@ -618,6 +619,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 	}
 	// load updateRequestCleanupTTL
+	cd.updateRequestCleanupTTL = ""
 	ttl, ok := data[updateRequestCleanupTTL]
 	if !ok {
 		logger.V(2).Info("updateRequestCleanupTTL not set")
