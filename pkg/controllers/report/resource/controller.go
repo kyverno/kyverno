@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -22,9 +23,11 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -48,6 +51,7 @@ const (
 	Workers        = 1
 	ControllerName = "resource-report-controller"
 	maxRetries     = 5
+	listPageSize   = 100
 )
 
 type Resource struct {
@@ -305,21 +309,12 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 	w, ok := c.dynamicWatchers[gvr]
 	// if we never started a watcher for this resource before, list the resources initially
 	if !ok {
-		objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
+		rv, err := listResourcesPaginated(ctx, c.client.GetDynamicInterface().Resource(gvr), hashes)
 		if err != nil {
 			logger.Error(err, "failed to list resources")
 			return nil, err
 		}
-		resourceVersion = objs.GetResourceVersion()
-		for _, obj := range objs.Items {
-			uid := obj.GetUID()
-			hash := reportutils.CalculateResourceHash(obj)
-			hashes[uid] = Resource{
-				Hash:      hash,
-				Namespace: obj.GetNamespace(),
-				Name:      obj.GetName(),
-			}
-		}
+		resourceVersion = rv
 		// we started watcher for this resource before, use the previously existing hashes
 	} else {
 		// fetch the metadata to get the resource version
@@ -397,7 +392,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	kinds := utils.BuildKindSet(logger, utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)
+	kinds := utils.BuildKindSet(logger, utils.RemoveNonBackgroundPolicies(utils.RemoveNonValidationPolicies(append(clusterPolicies, policies...)...)...)...)
 	gvkToGvr := map[schema.GroupVersionKind]schema.GroupVersionResource{}
 	for _, policyKind := range sets.List(kinds) {
 		group, version, kind, subresource := kubeutils.ParseKindSelector(policyKind)
@@ -476,17 +471,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from validating admission policies
-		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
+			c.addKindsFromMatchConstraints(policy.Spec.MatchConstraints, restMapper, gvkToGvr)
 			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addKindsFromMatchConstraints(autogen.Spec.MatchConstraints, restMapper, gvkToGvr)
 			}
 		}
 	}
@@ -495,17 +483,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from validating admission policies
-		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(vpols) {
+			c.addKindsFromMatchConstraints(policy.Spec.MatchConstraints, restMapper, gvkToGvr)
 			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+				c.addKindsFromMatchConstraints(autogen.Spec.MatchConstraints, restMapper, gvkToGvr)
 			}
 		}
 	}
@@ -514,19 +495,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, policy := range mpols {
-			matchConstraints := policy.Spec.MatchConstraints
-			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-			for _, policy := range policy.Status.Autogen.Configs {
-				matchConstraints := policy.Spec.MatchConstraints
-				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(mpols) {
+			c.addKindsFromMatchConstraints(policy.Spec.MatchConstraints, restMapper, gvkToGvr)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				c.addKindsFromMatchConstraints(autogen.Spec.MatchConstraints, restMapper, gvkToGvr)
 			}
 		}
 	}
@@ -535,19 +507,10 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, policy := range mpols {
-			matchConstraints := policy.Spec.MatchConstraints
-			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-			for _, policy := range policy.Status.Autogen.Configs {
-				matchConstraints := policy.Spec.MatchConstraints
-				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-
-				kinds = append(kinds, genKinds...)
-			}
-
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(mpols) {
+			c.addKindsFromMatchConstraints(policy.Spec.MatchConstraints, restMapper, gvkToGvr)
+			for _, autogen := range policy.Status.Autogen.Configs {
+				c.addKindsFromMatchConstraints(autogen.Spec.MatchConstraints, restMapper, gvkToGvr)
 			}
 		}
 	}
@@ -556,13 +519,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from image verification admission policies
-		for _, policy := range ivpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
+			c.addKindsFromMatchConstraints(policy.Spec.MatchConstraints, restMapper, gvkToGvr)
 		}
 	}
 	if c.nivpolLister != nil {
@@ -570,13 +528,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from image verification admission policies
-		for _, policy := range ivpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
-			for _, kind := range kinds {
-				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
-			}
+		for _, policy := range celpolicies.RemoveNoneBackgroundPolicies(ivpols) {
+			c.addKindsFromMatchConstraints(policy.Spec.MatchConstraints, restMapper, gvkToGvr)
 		}
 	}
 	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
@@ -605,6 +558,14 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (c *controller) addKindsFromMatchConstraints(matchConstraints *admissionregistrationv1.MatchResources, restMapper meta.RESTMapper, gvkToGvr map[schema.GroupVersionKind]schema.GroupVersionResource) {
+	kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
+	for _, kind := range kinds {
+		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+		c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+	}
 }
 
 func (c *controller) addGVKToGVRMapping(group, version, kind, subresource string, gvrMap map[schema.GroupVersionKind]schema.GroupVersionResource) {
@@ -676,6 +637,67 @@ func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.Group
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	return c.updateDynamicWatchers(ctx)
+}
+
+type resourceListClient interface {
+	List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error)
+}
+
+func listResourcesPaginated(ctx context.Context, client resourceListClient, hashes map[types.UID]Resource) (string, error) {
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		clearResourceHashes(hashes)
+		resourceVersion, err := listResourcesPaginatedOnce(ctx, client, hashes)
+		if err == nil {
+			return resourceVersion, nil
+		}
+		lastErr = err
+		if !apierrors.IsResourceExpired(err) {
+			return "", err
+		}
+	}
+	return "", lastErr
+}
+
+func listResourcesPaginatedOnce(ctx context.Context, client resourceListClient, hashes map[types.UID]Resource) (string, error) {
+	var resourceVersion string
+	continueToken := ""
+	for {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
+		list, err := client.List(ctx, metav1.ListOptions{
+			Limit:    listPageSize,
+			Continue: continueToken,
+		})
+		if err != nil {
+			return "", err
+		}
+		if resourceVersion == "" {
+			resourceVersion = list.GetResourceVersion()
+		}
+		for i := range list.Items {
+			obj := list.Items[i]
+			hashes[obj.GetUID()] = Resource{
+				Hash:      reportutils.CalculateResourceHash(obj),
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			}
+		}
+		continueToken = list.GetContinue()
+		if continueToken == "" {
+			return resourceVersion, nil
+		}
+	}
+}
+
+func clearResourceHashes(hashes map[types.UID]Resource) {
+	for uid := range hashes {
+		delete(hashes, uid)
+	}
 }
 
 func convertResourceRulesForResourceController(rules []admissionregistrationv1alpha1.NamedRuleWithOperations) []admissionregistrationv1beta1.NamedRuleWithOperations {
