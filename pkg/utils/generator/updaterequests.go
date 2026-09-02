@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	configutils "github.com/kyverno/kyverno/pkg/config"
@@ -53,7 +54,7 @@ func (g *updaterequestsgenerator) Generate(ctx context.Context, client versioned
 			if resource.Labels == nil {
 				resource.Labels = make(map[string]string)
 			}
-			resource.Labels["cleanup.kyverno.io/ttl"] = ttl
+			resource.Labels[kyverno.LabelCleanupTtl] = ttl
 		}
 	}
 	created, err := client.KyvernoV2().UpdateRequests(configutils.KyvernoNamespace()).Create(ctx, resource, metav1.CreateOptions{})

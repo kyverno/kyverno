@@ -33,6 +33,8 @@ func (m *mockConfiguration) GetMatchConditions() []admissionregistrationv1.Match
 }
 func (m *mockConfiguration) Load(*corev1.ConfigMap) {}
 func (m *mockConfiguration) OnChanged(func())       {}
+func (m *mockConfiguration) GetEnableUpdateRequestCleanup() bool { return false }
+func (m *mockConfiguration) GetUpdateRequestCleanupTTL() string  { return "" }
 func (m *mockConfiguration) GetUpdateRequestThreshold() int64 {
 	return 0
 }
