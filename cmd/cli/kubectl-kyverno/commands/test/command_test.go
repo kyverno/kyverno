@@ -13,6 +13,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
@@ -1036,6 +1037,77 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	// produce any result row, matching vpol/mpol CLI behavior.
 	_, found := got["secret-skip"]
 	assert.False(t, found, "constraint-excluded resource must not produce a rule response")
+}
+
+func TestPrintTestResultDeletingPolicyExcludedResource(t *testing.T) {
+	color.Init(true)
+	tests := []struct {
+		name     string
+		policy   string
+		deleting map[string]struct{}
+		wantSkip int
+		wantFail int
+	}{
+		{
+			name:     "known deleting policy is reported as skipped",
+			policy:   "cleanup-invalidated-legacy-sa-tokens",
+			deleting: map[string]struct{}{"/cleanup-invalidated-legacy-sa-tokens": {}},
+			wantSkip: 1,
+			wantFail: 0,
+		},
+		{
+			name:     "unknown deleting policy remains not found",
+			policy:   "nonexistent-deleting-policy",
+			deleting: map[string]struct{}{},
+			wantSkip: 0,
+			wantFail: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			responses := &TestResponse{
+				Trigger: map[string][]engineapi.EngineResponse{
+					"v1,Secret,default,secret-skip": {},
+				},
+				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+				Target:             map[string][]engineapi.EngineResponse{},
+				SkippedPolicies:    map[string]string{},
+				DeletingPolicies:   tt.deleting,
+			}
+
+			tests := []v1alpha1.TestResult{
+				{
+					TestResultBase: v1alpha1.TestResultBase{
+						Policy:           tt.policy,
+						Rule:             "cleanup-invalidated-legacy-sa-tokens",
+						Result:           openreportsv1alpha1.Result(openreports.StatusSkip),
+						IsDeletingPolicy: true,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{"secret-skip"},
+					},
+				},
+			}
+
+			rc := &resultCounts{}
+			resultsTable := table.Table{}
+
+			err := printTestResult(
+				tests,
+				responses,
+				rc,
+				&resultsTable,
+				nil,
+				"",
+				true,
+			)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantSkip, rc.Skip)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+		})
+	}
 }
 
 func Test_OperationDelete(t *testing.T) {
