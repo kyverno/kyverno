@@ -93,11 +93,13 @@ func printTestResult(
 			var rows []table.Row
 			var resourceSkipped bool
 			if _, ok := trigger[resource]; ok {
+				var policyResponseFound bool
 				for _, response := range trigger[resource] {
 					polNameNs := strings.Split(test.Policy, "/")
 					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
 						continue
 					}
+					policyResponseFound = true
 					var (
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
@@ -139,28 +141,34 @@ func printTestResult(
 							}
 						}
 					}
+				}
 
-					// if there are no RuleResponse, the resource has been excluded. This is a pass.
-					if len(rows) == 0 && !resourceSkipped {
-						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-						resourceParts := strings.Split(resourceGVKAndName, "/")
-
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
-						}
-						rc.Skip++
-						testCount++
-						rows = append(rows, row)
+				// The resource was excluded by the DeletingPolicy.
+				if !policyResponseFound &&
+					test.IsDeletingPolicy &&
+					string(test.Result) == "skip" {
+					resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
+					resourceParts := strings.Split(resourceGVKAndName, "/")
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:     testCount,
+							Policy: color.Policy("", test.Policy),
+							Rule:   color.Rule(test.Rule),
+							Resource: color.Resource(
+								strings.Join(resourceParts[:len(resourceParts)-1], "/"),
+								"",
+								resourceParts[len(resourceParts)-1],
+							),
+							Result:    color.ResultSkip(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+						},
+						Message: color.Excluded(),
 					}
+
+					rc.Skip++
+					testCount++
+					rows = append(rows, row)
 				}
 			}
 
