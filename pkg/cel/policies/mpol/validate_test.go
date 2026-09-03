@@ -278,3 +278,61 @@ func TestValidate(t *testing.T) {
 		})
 	}
 }
+
+func Test_Validate_NamespacedPolicyRejectsGlobalContextInTargetSelection(t *testing.T) {
+	basePolicy := func() *v1beta1.MutatingPolicy {
+		return &v1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "ns-globalcontext-targets-mpol",
+				Namespace: "tenant-ns",
+			},
+			Spec: v1beta1.MutatingPolicySpec{
+				MatchConstraints: &v1.MatchResources{
+					ResourceRules: []v1.NamedRuleWithOperations{{
+						RuleWithOperations: v1.RuleWithOperations{
+							Rule: v1.Rule{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+							},
+						},
+					}},
+				},
+				EvaluationConfiguration: &v1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &v1beta1.MutateExistingConfiguration{
+						Enabled: ptr.To(true),
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("globalContext in targetMatchConstraints expression is rejected", func(t *testing.T) {
+		pol := basePolicy()
+		pol.Spec.TargetMatchConstraints = &v1beta1.TargetMatchConstraints{
+			Expression: `globalContext.get("cluster-entry", "")`,
+		}
+		_, err := Validate(pol)
+		assert.ErrorContains(t, err, "globalContext.* is not allowed in namespaced policies")
+	})
+
+	t.Run("globalContext in targetMatchConditions is rejected", func(t *testing.T) {
+		pol := basePolicy()
+		pol.Spec.TargetMatchConditions = []v1.MatchCondition{{
+			Name:       "uses-gctx",
+			Expression: `globalContext.get("cluster-entry", "") != ""`,
+		}}
+		_, err := Validate(pol)
+		assert.ErrorContains(t, err, "globalContext.* is not allowed in namespaced policies")
+	})
+
+	t.Run("cluster-scoped policy may use globalContext in target selection", func(t *testing.T) {
+		pol := basePolicy()
+		pol.Namespace = ""
+		pol.Spec.TargetMatchConditions = []v1.MatchCondition{{
+			Name:       "uses-gctx",
+			Expression: `globalContext.get("cluster-entry", "") != ""`,
+		}}
+		_, err := Validate(pol)
+		assert.NoError(t, err)
+	})
+}

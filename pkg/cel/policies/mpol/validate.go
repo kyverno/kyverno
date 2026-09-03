@@ -86,5 +86,13 @@ func mpolExpressions(spec *v1beta1.MutatingPolicySpec) []string {
 	for _, a := range spec.AuditAnnotations {
 		exprs = append(exprs, a.ValueExpression)
 	}
+	// target selection expressions are compiled and evaluated by the mpol
+	// compiler as well, so they must be scanned for forbidden libraries too
+	if spec.TargetMatchConstraints != nil && spec.TargetMatchConstraints.Expression != "" {
+		exprs = append(exprs, spec.TargetMatchConstraints.Expression)
+	}
+	for _, mc := range spec.TargetMatchConditions {
+		exprs = append(exprs, mc.Expression)
+	}
 	return exprs
 }
