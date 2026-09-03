@@ -73,6 +73,13 @@ type TestResponse struct {
 	DeletingPolicies   map[string]struct{}
 }
 
+func deletingPolicyKey(namespace, name string) string {
+    if namespace == "" {
+        return name
+    }
+    return namespace + "/" + name
+}
+
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
 func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
@@ -483,7 +490,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		DeletingPolicies:   map[string]struct{}{},
 	}
 	for _, policy := range results.DeletingPolicies {
-		testResponse.DeletingPolicies[policy.GetNamespace()+"/"+policy.GetName()] = struct{}{}
+		testResponse.DeletingPolicies[deletingPolicyKey(policy.GetNamespace(), policy.GetName())] = struct{}{}
 	}
 	// validate the operations declared on test results and collect the distinct
 	// explicit operations, each of which triggers a dedicated evaluation run
