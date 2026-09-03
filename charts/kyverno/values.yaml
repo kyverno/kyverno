@@ -67,7 +67,7 @@ upgrade:
   fromV2: false
 
 apiVersionOverride:
-  # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
+  # -- (string) Override api version used to create `PodDisruptionBudget` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
   # determine the api version automatically.
   podDisruptionBudget: ~
@@ -2328,12 +2328,19 @@ reportsController:
       extraResources: []
 
     clusterRole:
-      # -- Extra resource permissions to add in the cluster role
+      # -- Extra resource permissions to add in the cluster role (granted get/list/watch).
+      # Required for background-scan/PolicyReport coverage of custom workload CRDs (e.g. Argo Rollout,
+      # JobSet) referenced by a CEL policy's `spec.autogen.podControllers.controllers` - Kyverno cannot
+      # self-grant RBAC for arbitrary CRDs, so list/watch access for each such CRD must be added here.
       extraResources: []
       # - apiGroups:
       #     - ''
       #   resources:
       #     - pods
+      # - apiGroups:
+      #     - argoproj.io
+      #   resources:
+      #     - rollouts
 
   image:
     # -- Image registry
