@@ -68,6 +68,7 @@ type TestResponse struct {
 	TriggerByOperation map[string]map[string][]engineapi.EngineResponse
 	Target             map[string][]engineapi.EngineResponse
 	SkippedPolicies    map[string]string
+	DeletingPolicies   map[string]struct{}
 }
 
 func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
@@ -451,6 +452,10 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
 		Target:             map[string][]engineapi.EngineResponse{},
 		SkippedPolicies:    skippedPolicyNames,
+		DeletingPolicies:   map[string]struct{}{},
+	}
+	for _, policy := range results.DeletingPolicies {
+		testResponse.DeletingPolicies[policy.GetNamespace()+"/"+policy.GetName()] = struct{}{}
 	}
 	// validate the operations declared on test results and collect the distinct
 	// explicit operations, each of which triggers a dedicated evaluation run
