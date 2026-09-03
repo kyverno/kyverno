@@ -142,6 +142,75 @@ func TestConfiguration_GetSuccessEventActions_NotSet(t *testing.T) {
 	assert.Equal(t, 0, cfg.GetSuccessEventActions().Len())
 }
 
+func TestNewDefaultConfiguration_Defaults(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	assert.Equal(t, "docker.io", cfg.GetDefaultRegistry())
+	assert.True(t, cfg.GetEnableDefaultRegistryMutation())
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+	assert.Equal(t, DefaultMaxContextSize, cfg.GetMaxContextSize())
+}
+
+func TestConfiguration_UnloadResetsMatchConditions(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+
+	cfg.Load(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"matchConditions": `[{"name":"exclude-leases","expression":"!(request.resource.resource == 'leases')"}]`,
+		},
+	})
+	assert.NotEmpty(t, cfg.GetMatchConditions())
+
+	cfg.Load(nil)
+	assert.Empty(t, cfg.GetMatchConditions())
+}
+
+func TestConfiguration_UnloadResetsUpdateRequestThreshold(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+
+	cfg.Load(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"updateRequestThreshold": "500",
+		},
+	})
+	assert.Equal(t, int64(500), cfg.GetUpdateRequestThreshold())
+
+	cfg.Load(nil)
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+}
+
+func TestConfiguration_LoadUpdateRequestThreshold(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected int64
+	}{
+		{"custom value", "500", 500},
+		{"zero", "0", 0},
+		{"large value", "5000", 5000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := NewDefaultConfiguration(false)
+			cfg.Load(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+				Data:       map[string]string{"updateRequestThreshold": tt.value},
+			})
+			assert.Equal(t, tt.expected, cfg.GetUpdateRequestThreshold())
+		})
+	}
+}
+
+func TestConfiguration_LoadUpdateRequestThreshold_Invalid(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data:       map[string]string{"updateRequestThreshold": "not-a-number"},
+	})
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+}
+
 func TestConfiguration_GetMaxContextSize_KubernetesQuantityFormat(t *testing.T) {
 	tests := []struct {
 		name     string
