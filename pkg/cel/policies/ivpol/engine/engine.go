@@ -47,12 +47,13 @@ type Engine interface {
 type NamespaceResolver = engine.NamespaceResolver
 
 type engineImpl struct {
-	provider      Provider
-	nsResolver    NamespaceResolver
-	matcher       matching.Matcher
-	lister        corev1listers.SecretLister
-	ivCache       imageverifycache.Client
-	configuration config.Configuration
+	provider        Provider
+	nsResolver      NamespaceResolver
+	matcher         matching.Matcher
+	lister          corev1listers.SecretLister
+	ivCache         imageverifycache.Client
+	configuration   config.Configuration
+	newImageContext func() (imagedataloader.ImageContext, error)
 }
 
 func NewEngine(
@@ -70,6 +71,9 @@ func NewEngine(
 		lister:        lister,
 		ivCache:       ivCache,
 		configuration: configuration,
+		newImageContext: func() (imagedataloader.ImageContext, error) {
+			return imagedataloader.NewImageContext(lister, nil, nil)
+		},
 	}
 }
 
@@ -227,7 +231,7 @@ func (e *engineImpl) handleMutation(
 ) ([]jsonpatch.JsonPatchOperation, []eval.ImageVerifyPolicyResponse, error) {
 	// leave remote and name options blank, each compiled policy will provide
 	// its own credentials or the default global ones.
-	ictx, err := imagedataloader.NewImageContext(e.lister, nil, nil)
+	ictx, err := e.newImageContext()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -487,7 +491,7 @@ func (e *engineImpl) evaluatePolicies(
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
 	// leave remote and name options blank, each compiled policy will provide
 	// its own credentials or the default global ones.
-	ictx, err := imagedataloader.NewImageContext(e.lister, nil, nil)
+	ictx, err := e.newImageContext()
 	if err != nil {
 		return nil, err
 	}
