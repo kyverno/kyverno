@@ -55,6 +55,7 @@ type CompiledPolicy interface {
 }
 
 type compiledPolicy struct {
+	namespace            string
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	verifyDigest         bool
 	matchConditions      []cel.Program
@@ -145,7 +146,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.ObjectKey] = objectVal
 		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
-		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
+		// The activation overrides the Lib's cel.Globals binding, so confine here too
+		// or a namespaced policy would reach the raw context at evaluation time.
+		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(context, c.namespace)}
 		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
