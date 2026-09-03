@@ -388,7 +388,6 @@ func TestMatchesException_ClusterScopedResource_SkipsNamespaceGet(t *testing.T) 
 	assert.Equal(t, 0, client.getNamespaceCalls, "cluster-scoped resources have no namespace to fetch")
 }
 
-
 func TestCheckResourceDescription_MatchingOperation(t *testing.T) {
 	conditionBlock := kyvernov1.ResourceDescription{
 		Operations: []kyvernov1.AdmissionOperation{kyvernov1.Create},
