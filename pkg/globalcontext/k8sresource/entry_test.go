@@ -2,6 +2,7 @@ package k8sresource
 
 import (
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -12,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -475,17 +477,26 @@ func TestEntry_ConcurrentAccess(t *testing.T) {
 	assert.Equal(t, "initial", e.projected["test"])
 }
 
+// TestEntry_Stop_Idempotent exercises the production stop closure created by
+// newOnceStop (the same closure New wires into the entry): repeated and
+// concurrent Stop calls must run the teardown exactly once.
 func TestEntry_Stop_Idempotent(t *testing.T) {
-	count := 0
-	var stopOnce sync.Once
-	stop := func() {
-		stopOnce.Do(func() {
-			count++
-		})
-	}
+	var count int32
+	var group wait.Group
+	cancel := func() { atomic.AddInt32(&count, 1) }
 
-	e := &entry{stop: stop}
+	e := &entry{stop: newOnceStop(cancel, &group)}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			e.Stop()
+		}()
+	}
+	wg.Wait()
 	e.Stop()
-	e.Stop()
-	assert.Equal(t, 1, count)
+
+	assert.Equal(t, int32(1), atomic.LoadInt32(&count))
 }

@@ -53,7 +53,8 @@ func New(
 	ctx, cancel := context.WithCancel(ctx)
 	stop := func() {
 		stopOnce.Do(func() {
-			// Send stop signal to informer's goroutine
+			// Signal the background polling worker (started below via
+			// group.StartWithContext) to stop
 			cancel()
 			// Wait for the group to terminate
 			group.Wait()

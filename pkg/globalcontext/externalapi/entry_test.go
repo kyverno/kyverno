@@ -531,34 +531,55 @@ func TestEntry_SetData_MultipleScenarios(t *testing.T) {
 	}
 }
 
-func TestEntry_Stop_ConcurrentSetData(t *testing.T) {
-	stopped := false
-	e := &entry{
-		dataMap: make(map[string]any),
-		stop: func() {
-			stopped = true
-		},
+// TestEntry_Stop_DoesNotHoldLockWhileWaitingForWorker is a regression test
+// for the deadlock where Stop() held e.Lock() while waiting for the polling
+// worker: a worker blocked in setData (which needs e.Lock()) could then never
+// finish, so Stop's wait never returned. The channels below force exactly
+// that interleaving deterministically: the worker only enters setData after
+// Stop has begun waiting for it. With the old lock-holding Stop this test
+// times out; with the fix it completes.
+func TestEntry_Stop_DoesNotHoldLockWhileWaitingForWorker(t *testing.T) {
+	workerReady := make(chan struct{})
+	release := make(chan struct{})
+	var worker sync.WaitGroup // stands in for the wait.Group in New
+
+	e := &entry{dataMap: make(map[string]any)}
+	worker.Add(1)
+	e.stop = func() {
+		// mirrors the production stop: signal the worker, then wait for it
+		close(release)
+		worker.Wait()
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-
 	go func() {
-		defer wg.Done()
-		for i := 0; i < 100; i++ {
-			e.setData([]byte(`{"key":"val"}`), nil)
-			time.Sleep(10 * time.Microsecond)
-		}
+		defer worker.Done()
+		close(workerReady)
+		<-release
+		// needs e.Lock(); deadlocks if Stop still holds it while waiting
+		e.setData([]byte(`{"key":"val"}`), nil)
 	}()
 
+	<-workerReady
+	done := make(chan struct{})
 	go func() {
-		defer wg.Done()
-		time.Sleep(50 * time.Microsecond)
 		e.Stop()
+		close(done)
 	}()
 
-	wg.Wait()
-	assert.True(t, stopped, "expected stop callback to be invoked")
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop() deadlocked while a worker was calling setData")
+	}
+
+	// Stop is idempotent: a second call must not re-run the stop function
+	// (which would panic closing the already-closed release channel).
+	e.Stop()
+
+	// the worker's setData must have completed and been applied
+	e.Lock()
+	defer e.Unlock()
+	assert.Equal(t, map[string]any{"key": "val"}, e.dataMap[""])
 }
 
 func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
