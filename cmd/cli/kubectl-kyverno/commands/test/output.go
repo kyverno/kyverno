@@ -146,7 +146,7 @@ func printTestResult(
 				// The resource was excluded by the DeletingPolicy.
 				if !policyResponseFound &&
 					test.IsDeletingPolicy &&
-					string(test.Result) == "skip" {
+					test.Result == openreports.StatusSkip {
 					resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
 					resourceParts := strings.Split(resourceGVKAndName, "/")
 					row := table.Row{
