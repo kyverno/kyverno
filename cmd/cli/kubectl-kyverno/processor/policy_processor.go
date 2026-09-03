@@ -396,9 +396,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			// mutateExisting MutatingPolicies - process target resources
 			if len(p.TargetResources) > 0 {
-				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
-				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
-				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
+				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 				targetMatcher := matching.NewMatcher()
 				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
 				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
