@@ -183,7 +183,7 @@ func wirePolicyType(ctx context.Context, env *TestEnv, pt PolicyType, polexEnabl
 			err      error
 		)
 		if polexEnabled {
-			engine, provider, err = NewMpolEngineWithExceptions(ctx, env.Mgr, env.KubeClient, env.KyvernoClient, env.ContextProvider)
+			engine, provider, err = NewMpolEngineWithExceptions(ctx, env.Mgr, env.KubeClient, env.ContextProvider)
 		} else {
 			engine, provider, err = NewMpolEngine(ctx, env.Mgr, env.KubeClient, env.ContextProvider)
 		}
