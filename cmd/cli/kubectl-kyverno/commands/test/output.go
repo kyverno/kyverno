@@ -99,13 +99,14 @@ func printTestResult(
 					policyNamespace = ns
 					policyName = name
 				}
+
 				for _, response := range trigger[resource] {
-					if response.Policy().GetName() != policyName ||
-						response.Policy().GetNamespace() != policyNamespace {
+					if response.Policy().GetName() != policyName {
 						continue
 					}
 
 					policyResponseFound = true
+
 					var (
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
@@ -115,6 +116,7 @@ func printTestResult(
 					} else {
 						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
 					}
+
 					for _, rule := range rulesToCheck {
 						r := response.Resource
 						ruleName = rule.Name()
@@ -147,13 +149,41 @@ func printTestResult(
 							}
 						}
 					}
+
+					// A matching policy response with no rule responses means
+					// the resource was excluded by the policy.
+					if len(rows) == 0 && !resourceSkipped {
+						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
+						resourceParts := strings.Split(resourceGVKAndName, "/")
+
+						row := table.Row{
+							RowCompact: table.RowCompact{
+								ID:     testCount,
+								Policy: color.Policy("", test.Policy),
+								Rule:   color.Rule(test.Rule),
+								Resource: color.Resource(
+									strings.Join(resourceParts[:len(resourceParts)-1], "/"),
+									"",
+									resourceParts[len(resourceParts)-1],
+								),
+								Result:    color.ResultPass(),
+								Reason:    color.Excluded(),
+								IsFailure: false,
+							},
+							Message: color.Excluded(),
+						}
+						rc.Skip++
+						testCount++
+						rows = append(rows, row)
+					}
 				}
 
-				// The resource was excluded by the DeletingPolicy.
+				// A DeletingPolicy that was loaded but produced no EngineResponse
+				// means the resource was excluded by its match constraints.
 				if !policyResponseFound &&
 					test.IsDeletingPolicy &&
 					test.Result == openreports.StatusSkip {
-					if _, ok := responses.DeletingPolicies[policyNamespace+"/"+policyName]; ok {
+					if _, ok := responses.DeletingPolicies[deletingPolicyKey(policyNamespace, policyName)]; ok {
 						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
 						resourceParts := strings.Split(resourceGVKAndName, "/")
 						row := table.Row{
