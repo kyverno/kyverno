@@ -163,14 +163,7 @@ func NewProvider(
 ) (Provider, error) {
 	out := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
-		var matchedExceptions []*policiesv1beta1.PolicyException
-		for _, polex := range exceptions {
-			for _, ref := range polex.Spec.PolicyRefs {
-				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
-					matchedExceptions = append(matchedExceptions, polex)
-				}
-			}
-		}
+		matchedExceptions := engine.MatchExceptions(exceptions, policy.GetKind(), policy.GetName())
 		compiled, errs := compiler.Compile(policy, matchedExceptions)
 		if len(errs) > 0 {
 			return nil, fmt.Errorf("failed to compile policy %s (%w)", policy.GetName(), errs.ToAggregate())
