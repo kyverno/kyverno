@@ -74,10 +74,10 @@ type TestResponse struct {
 }
 
 func deletingPolicyKey(namespace, name string) string {
-    if namespace == "" {
-        return name
-    }
-    return namespace + "/" + name
+	if namespace == "" {
+		return name
+	}
+	return namespace + "/" + name
 }
 
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
