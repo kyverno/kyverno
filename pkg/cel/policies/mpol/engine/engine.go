@@ -195,18 +195,27 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	startTime := time.Now()
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
+		skipMatching := false
 		if target {
 			targetConstraints := mpol.Policy.GetTargetMatchConstraints()
 			if len(targetConstraints.ResourceRules) > 0 {
 				constraints = targetConstraints.MatchResources
+			} else if targetConstraints.Expression != "" {
+				// Expression-only targets: the CEL expression (e.g. resource.get(...))
+				// resolves the target set directly. There are no resourceRules to match
+				// against, so skip constraint matching to avoid incorrectly filtering
+				// the resolved target against the trigger's matchConstraints.
+				skipMatching = true
 			}
 		}
-		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
-		if err != nil {
-			ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
-			return ruleResponse, nil
-		} else if !matches {
-			return ruleResponse, nil
+		if !skipMatching {
+			matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
+			if err != nil {
+				ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+				return ruleResponse, nil
+			} else if !matches {
+				return ruleResponse, nil
+			}
 		}
 	}
 	var result *compiler.EvaluationResult
