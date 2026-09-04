@@ -1008,3 +1008,87 @@ func TestEvaluate_NilMatcherSkipsNamespaceSelector(t *testing.T) {
 		}
 	})
 }
+
+// TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher is a regression test
+// for the case where targetMatchConstraints uses an expression (e.g.
+// resource.get(...)) with no resourceRules. Previously, wiring a real matcher
+// caused handlePolicy to fall back to the trigger's matchConstraints, which
+// would incorrectly filter out the resolved target (e.g. a ConfigMap) because
+// it doesn't match the trigger resource (e.g. secrets/CREATE).
+//
+// The fix skips constraint matching when targetMatchConstraints has an
+// expression but no resourceRules, since the expression itself resolves
+// the target set.
+func TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher(t *testing.T) {
+	mutateExisting := true
+
+	// Policy: trigger = secrets/CREATE, target = expression-only (no resourceRules).
+	// This mirrors the conformance test at
+	// test/conformance/chainsaw/mutating-policies/existing/expression/get/policy.yaml
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "expression-target"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+					Enabled: &mutateExisting,
+				},
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"secrets"},
+						},
+					},
+				}},
+			},
+			// Expression-only targetMatchConstraints — no ResourceRules.
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				Expression: `resource.get("v1", "configmaps", object.metadata.namespace, "test-cm")`,
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"patched": "yes"}}}`,
+				},
+			}},
+		},
+	}
+
+	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
+	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
+	assert.NoError(t, err)
+
+	nsResolverDefault := func(ns string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	}
+
+	// Simulate evaluating a ConfigMap target — this is the resolved target, NOT a secret.
+	target := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1", "kind": "ConfigMap",
+		"metadata": map[string]interface{}{"name": "test-cm", "namespace": "default"},
+	}}
+	attr := admission.NewAttributesRecord(
+		target, nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+		"default", "test-cm",
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+		"", admission.Update, nil, false, &user.DefaultInfo{},
+	)
+
+	eng := NewEngine(provider, nsResolverDefault, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+	resp, err := eng.Evaluate(ctx, attr, admissionv1.AdmissionRequest{
+		Operation: admissionv1.Update,
+		Name:      "test-cm",
+		Namespace: "default",
+	}, predicate)
+
+	assert.NoError(t, err)
+	// The policy must NOT be filtered out — expression-only targets should
+	// bypass the matcher's constraint check.
+	if assert.Len(t, resp.Policies, 1) {
+		assert.NotEmpty(t, resp.Policies[0].Rules,
+			"expression-only target should not be filtered by trigger matchConstraints")
+	}
+}
