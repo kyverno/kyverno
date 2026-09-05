@@ -288,8 +288,21 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 }
 
 func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmissionPolicy, bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding, resource unstructured.Unstructured, namespace *corev1.Namespace, params []runtime.Object, a admission.Attributes, resPath string) (engineapi.EngineResponse, error) {
+	startTime := time.Now()
 	matcher := celmatching.NewMatcher()
 	er := engineapi.NewEngineResponse(resource, engineapi.NewValidatingAdmissionPolicy(policy), nil)
+
+	isMatch, err := matcher.Match(&celmatching.MatchCriteria{Constraints: policy.Spec.MatchConstraints}, a, namespace)
+	if err != nil {
+		vapLogger.Error(err, "failed to match policy definition for validatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
+		return er, err
+	}
+	if !isMatch {
+		ruleResp := engineapi.RuleSkip(policy.GetName(), engineapi.Validation, "resource not matched by policy matchConstraints", nil)
+		policyResp := engineapi.NewPolicyResponse()
+		policyResp.Add(engineapi.NewExecutionStats(startTime, time.Now()), *ruleResp)
+		return er.WithPolicyResponse(policyResp), nil
+	}
 
 	for i, binding := range bindings {
 		if binding.Spec.MatchResources != nil {
