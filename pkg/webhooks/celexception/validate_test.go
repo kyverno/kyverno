@@ -182,3 +182,102 @@ func TestValidateUpdateAllowsValidExpression(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateNamespace(t *testing.T) {
+	t.Parallel()
+	validException := policyException("object.metadata.name == 'allowed-pod'")
+
+	tests := []struct {
+		name        string
+		options     validation.ValidationOptions
+		request     handlers.AdmissionRequest
+		allowed     bool
+		hasWarnings bool
+		warningMsg  string
+	}{
+		{
+			name: "valid exception with matching namespace",
+			options: validation.ValidationOptions{
+				Enabled:   true,
+				Namespace: "default",
+			},
+			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
+			allowed:     true,
+			hasWarnings: false,
+		},
+		{
+			name: "exception disabled produces warning",
+			options: validation.ValidationOptions{
+				Enabled: false,
+			},
+			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
+			allowed:     true,
+			hasWarnings: true,
+			warningMsg:  "PolicyException resources would not be processed until it is enabled.",
+		},
+		{
+			name: "namespace mismatch produces warning",
+			options: validation.ValidationOptions{
+				Enabled:   true,
+				Namespace: "other-ns",
+			},
+			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
+			allowed:     true,
+			hasWarnings: true,
+			warningMsg:  "PolicyException resource namespace must match the defined namespace.",
+		},
+		{
+			name: "wildcard namespace allows all namespaces without warning",
+			options: validation.ValidationOptions{
+				Enabled:   true,
+				Namespace: "*",
+			},
+			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
+			allowed:     true,
+			hasWarnings: false,
+		},
+		{
+			name: "unmarshal error denies request",
+			options: validation.ValidationOptions{
+				Enabled:   true,
+				Namespace: "default",
+			},
+			request: handlers.AdmissionRequest{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UID: types.UID("bad-uid"),
+					Object: runtime.RawExtension{
+						Raw: []byte("{invalid-json"),
+					},
+					Operation: admissionv1.Create,
+				},
+			},
+			allowed:     false,
+			hasWarnings: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			handler := NewHandlers(tt.options)
+			response := handler.Validate(
+				context.Background(),
+				logr.Discard(),
+				tt.request,
+				"",
+				time.Now(),
+			)
+
+			assert.Equal(t, tt.allowed, response.Allowed)
+			if tt.hasWarnings {
+				assert.NotEmpty(t, response.Warnings)
+				if tt.warningMsg != "" {
+					assert.Contains(t, response.Warnings, tt.warningMsg)
+				}
+			} else {
+				assert.Empty(t, response.Warnings)
+			}
+		})
+	}
+}
+
