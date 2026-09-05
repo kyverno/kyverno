@@ -45,7 +45,7 @@ func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
 	return func(ctx context.EvalInterface, variable string) (interface{}, error) {
 		value, err := DefaultVariableResolver(ctx, variable)
 		if err != nil {
-			log.V(4).Info(fmt.Sprintf("Variable substitution failed in preconditions, therefore nil value assigned to variable,  \"%s\" ", variable))
+			log.V(4).Info("Variable substitution failed in preconditions, therefore nil value assigned to variable", "variable", variable)
 			return value, err
 		}
 

@@ -9,7 +9,7 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	ju "github.com/kyverno/kyverno/pkg/engine/jsonutils"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_subVars_success(t *testing.T) {

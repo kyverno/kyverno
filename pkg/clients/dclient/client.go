@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	eventsv1 "k8s.io/client-go/kubernetes/typed/events/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/restmapper"
 )
 
 type Interface interface {
@@ -79,9 +80,11 @@ func NewClient(
 		kube: kube,
 		rest: disco.RESTClient(),
 	}
+	cachedClient := memory.NewMemCacheClient(disco)
 	// Set discovery client
 	discoveryClient := &serverResources{
-		cachedClient: memory.NewMemCacheClient(disco),
+		cachedClient: cachedClient,
+		mapper:       restmapper.NewDeferredDiscoveryRESTMapper(cachedClient),
 	}
 	// client will invalidate registered resources cache every x seconds,
 	// As there is no way to identify if the registered resource is available or not

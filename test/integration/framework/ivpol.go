@@ -1,6 +1,7 @@
 package framework
 
 import (
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -37,10 +38,10 @@ func NewIvpolEngine(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpoleng
 }
 
 // NewIvpolEngineWithExceptions creates an ivpol engine with PolicyException support enabled.
-// Reuses managerPolexLister (defined in vpol.go) so the controller watches and the lister share
-// the manager's cache, avoiding the dual-cache race.
+// Uses celengine.NewManagerPolicyExceptionLister so the controller watches and the lister
+// share the manager's cache, avoiding the dual-cache race.
 func NewIvpolEngineWithExceptions(mgr ctrl.Manager, kubeClient kubernetes.Interface) (ivpolengine.Engine, ivpolengine.Provider, error) {
-	polexLister := &managerPolexLister{client: mgr.GetClient()}
+	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "")
 
 	provider, err := ivpolengine.NewKubeProvider(mgr, polexLister, true)
 	if err != nil {

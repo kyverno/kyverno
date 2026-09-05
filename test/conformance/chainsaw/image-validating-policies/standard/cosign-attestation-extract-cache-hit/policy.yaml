@@ -1,0 +1,45 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: ivpol-cosign-attestation-extract-cache
+spec:
+  webhookConfiguration:
+    timeoutSeconds: 30
+  failurePolicy: Fail
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+  matchImageReferences:
+    - glob: ghcr.io/kyverno/test-images/cosign:*
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
+  attestors:
+    - name: cosign
+      cosign:
+        keyless:
+          identities:
+            - issuer: https://token.actions.githubusercontent.com
+              subject: https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main
+        ctlog:
+          url: https://rekor.sigstore.dev
+          insecureIgnoreSCT: true
+  attestations:
+    - name: slsa
+      intoto:
+        type: https://slsa.dev/provenance/v1
+  validations:
+    # Cache miss verifies Cosign intoto and stores the payload; cache hit must restore it
+    # so extractPayload still succeeds across admission requests.
+    - expression: >-
+        images.containers.map(image, verifyAttestationSignatures(image, attestations.slsa, [attestors.cosign])).all(e, e > 0)
+      message: failed to verify SLSA intoto attestation with Cosign keyless
+    - expression: >-
+        images.containers.map(image, has(extractPayload(image, attestations.slsa).predicate.buildDefinition)).all(e, e)
+      message: failed to extract SLSA intoto attestation payload after verification

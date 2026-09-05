@@ -424,7 +424,7 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *engine
 			for _, err := range skippedAnyPatternErrors {
 				errorStr = append(errorStr, err.Error())
 			}
-			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' skipped. %s", v.rule.Name, errorStr))
+			v.log.V(4).Info("Validation rule skipped", "rule", v.rule.Name, "errors", errorStr)
 			return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, strings.Join(errorStr, " "), v.rule.ReportProperties)
 		} else if len(failedAnyPatternsErrors) > 0 {
 			var errorStr []string

@@ -74,9 +74,7 @@ area/image-verify:
         - any-glob-to-any-file:
             - pkg/engine/image_verify.go
             - pkg/engine/image_verify_test.go
-            - pkg/imageverification/**
-            - pkg/imageverifycache/**
-            - pkg/images/**
+            - pkg/image/**
 
 area/cosign:
   color: 3F51B5
@@ -84,7 +82,8 @@ area/cosign:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/cosign/**
+            - pkg/image/verifiers/cpol/cosign/**
+            - pkg/image/verifiers/ivpol/cosign/**
 
 area/notary:
   color: 3F51B5
@@ -92,7 +91,8 @@ area/notary:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/notary/**
+            - pkg/image/verifiers/cpol/notary/**
+            - pkg/image/verifiers/ivpol/notary/**
 
 # ── Area: CEL (cyan #00BCD4) ─────────────────────────────────────────────────
 # ── CEL ─────────────────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ area/registry:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/registryclient/**
+            - pkg/engine/factories/registryclientfactory.go
             - cmd/internal/registry.go
 
 # ── Area: Infrastructure (blue-grey #607D8B) ────────────────────────────────
@@ -463,7 +463,6 @@ kind/documentation:
             - README.md
             - ROADMAP.md
             - SECURITY.md
-            - Kyverno_Architecture_Roadmap.md
 
 # ── Kind: CI & Build (dark magenta #8E24AA) ─────────────────────────────────
 kind/ci:
@@ -485,7 +484,6 @@ kind/codegen:
         - any-glob-to-any-file:
             - hack/**
             - scripts/**
-            - cmd/tools/**
 
 # ── Kind: Dependencies (brown #795548) ──────────────────────────────────────
 kind/dependencies:

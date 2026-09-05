@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/deprecations"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -29,8 +30,11 @@ func (h *exceptionHandlers) Validate(ctx context.Context, logger logr.Logger, re
 		return admissionutils.Response(request.UID, err)
 	}
 	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)
-	if warning := deprecations.Warning(request.Kind.Kind); warning != "" {
-		warnings = append(warnings, warning)
+	if warning, ok := deprecations.BuildKindWarning(request.Kind.Group, request.Kind.Version, request.Kind.Kind); ok {
+		warnings = append(warnings, warning.Message)
+		if deprecatedMetric := metrics.GetDeprecatedAPIRequestMetrics(); deprecatedMetric != nil {
+			deprecatedMetric.Record(ctx, request.Namespace, warning.Group, warning.Version, warning.Kind, "")
+		}
 	}
 	errs := polex.Validate()
 	return admissionutils.Response(request.UID, errs.ToAggregate(), warnings...)

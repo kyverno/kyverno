@@ -49,6 +49,7 @@ type MetricsConfig struct {
 	policyEngineMetrics  *policyEngineMetrics
 	eventMetrics         *eventMetrics
 	admissionMetrics     *admissionMetrics
+	deprecatedMetrics    *deprecatedAPIRequestMetrics
 	httpMetrics          *httpMetrics
 	vpolMetrics          *validatingMetrics
 	ivpolMetrics         *imageValidatingMetrics
@@ -74,6 +75,7 @@ type MetricsConfigManager interface {
 	PolicyEngineMetrics() PolicyEngineMetrics
 	EventMetrics() EventMetrics
 	AdmissionMetrics() AdmissionMetrics
+	DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics
 	HTTPMetrics() HTTPMetrics
 	VPOLMetrics() ValidatingMetrics
 	IVPOLMetrics() ImageValidatingMetrics
@@ -123,6 +125,10 @@ func (m *MetricsConfig) EventMetrics() EventMetrics {
 
 func (m *MetricsConfig) AdmissionMetrics() AdmissionMetrics {
 	return m.admissionMetrics
+}
+
+func (m *MetricsConfig) DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics {
+	return m.deprecatedMetrics
 }
 
 func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
@@ -180,6 +186,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.policyEngineMetrics.init(meter)
 	m.eventMetrics.init(meter)
 	m.admissionMetrics.init(meter)
+	m.deprecatedMetrics.init(meter)
 	m.httpMetrics.init(meter)
 	m.vpolMetrics.init(meter)
 	m.ivpolMetrics.init(meter)
@@ -343,6 +350,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		policyEngineMetrics:  &policyEngineMetrics{logger: logger.WithName("policy-engine")},
 		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},
 		admissionMetrics:     &admissionMetrics{logger: logger.WithName("admission")},
+		deprecatedMetrics:    &deprecatedAPIRequestMetrics{logger: logger.WithName("deprecated-api-requests")},
 		httpMetrics:          &httpMetrics{logger: logger.WithName("http")},
 		vpolMetrics:          &validatingMetrics{logger: logger.WithName("validating-policy")},
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},

@@ -812,14 +812,14 @@ func jpRegexMatch(arguments []any) (any, error) {
 }
 
 func jpPatternMatch(arguments []any) (any, error) {
-	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
+	pattern, err := validateArg(patternMatch, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
 
 	src, err := ifaceToString(arguments[1])
 	if err != nil {
-		return nil, formatError(invalidArgumentTypeError, regexMatch, 2, "String or Real")
+		return nil, formatError(invalidArgumentTypeError, patternMatch, 2, "String or Real")
 	}
 
 	return wildcard.Match(pattern.String(), src), nil
@@ -952,7 +952,7 @@ func jpRound(arguments []any) (any, error) {
 
 func jpBase64Decode(arguments []any) (any, error) {
 	var err error
-	str, err := validateArg("", arguments, 0, reflect.String)
+	str, err := validateArg(base64Decode, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -967,7 +967,7 @@ func jpBase64Decode(arguments []any) (any, error) {
 
 func jpBase64Encode(arguments []any) (any, error) {
 	var err error
-	str, err := validateArg("", arguments, 0, reflect.String)
+	str, err := validateArg(base64Encode, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -1275,7 +1275,7 @@ func jpImageNormalize(configuration config.Configuration) gojmespath.JpFunction 
 
 func jpIsExternalURL(arguments []any) (any, error) {
 	var err error
-	str, err := validateArg(pathCanonicalize, arguments, 0, reflect.String)
+	str, err := validateArg(isExternalURL, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -1302,7 +1302,7 @@ func jpIsExternalURL(arguments []any) (any, error) {
 
 func jpSha256(arguments []any) (any, error) {
 	var err error
-	str, err := validateArg("", arguments, 0, reflect.String)
+	str, err := validateArg(SHA256, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -1317,7 +1317,7 @@ func jpSha256(arguments []any) (any, error) {
 
 func jpSha1(arguments []any) (any, error) {
 	var err error
-	str, err := validateArg("", arguments, 0, reflect.String)
+	str, err := validateArg(SHA1, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
@@ -1332,7 +1332,7 @@ func jpSha1(arguments []any) (any, error) {
 
 func jpMd5(arguments []any) (any, error) {
 	var err error
-	str, err := validateArg("", arguments, 0, reflect.String)
+	str, err := validateArg(MD5, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
