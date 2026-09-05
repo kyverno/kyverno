@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5" // #nosec G501
-	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1" // #nosec G505
 	"crypto/sha256"
@@ -1168,18 +1167,15 @@ func ifaceToString(iface any) (string, error) {
 }
 
 func jpRandom(arguments []any) (any, error) {
-	pattern := arguments[0].(string)
-	if pattern == "" {
-		return "", errors.New("no pattern provided")
-	}
-
-	b := make([]byte, 8)
-	_, err := rand.Read(b)
+	pattern, err := validateArg(random, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
+	if pattern.String() == "" {
+		return "", errors.New("no pattern provided")
+	}
 
-	ans, err := regen.Generate(pattern)
+	ans, err := regen.Generate(pattern.String())
 	if err != nil {
 		return nil, err
 	}

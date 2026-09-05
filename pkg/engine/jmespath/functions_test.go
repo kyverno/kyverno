@@ -1825,3 +1825,67 @@ func Test_CustomFunctions_ValidationErrors(t *testing.T) {
 		assert.ErrorContains(t, err, "JMESPath function 'md5': argument #1 is not of type string")
 	})
 }
+
+func Test_Random(t *testing.T) {
+	type args struct {
+		arguments []any
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{{
+		name: "valid pattern",
+		args: args{
+			arguments: []any{"[0-9a-z]{8}"},
+		},
+	}, {
+		name: "nil argument",
+		args: args{
+			arguments: []any{nil},
+		},
+		wantErr: true,
+	}, {
+		name: "float64 argument",
+		args: args{
+			arguments: []any{float64(10)},
+		},
+		wantErr: true,
+	}, {
+		name: "bool argument",
+		args: args{
+			arguments: []any{true},
+		},
+		wantErr: true,
+	}, {
+		name: "no arguments",
+		args: args{
+			arguments: []any{},
+		},
+		wantErr: true,
+	}, {
+		name: "empty pattern",
+		args: args{
+			arguments: []any{""},
+		},
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := jpRandom(tt.args.arguments)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("jpRandom() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr {
+				res, ok := got.(string)
+				if !ok {
+					t.Errorf("jpRandom() returned non-string result: %T", got)
+				}
+				if res == "" {
+					t.Errorf("jpRandom() returned empty string for valid pattern")
+				}
+			}
+		})
+	}
+}
