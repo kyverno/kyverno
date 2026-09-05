@@ -43,7 +43,7 @@ func (rc *ResultCounts) addEngineResponse(auditWarn bool, response engineapi.Eng
 							if !scored {
 								rc.Warn++
 								break
-							} else if auditWarn && response.GetValidationFailureAction().Audit() {
+							} else if auditWarn && response.GetValidationFailureActionForRule(valResponseRule.Name()).Audit() {
 								rc.Warn++
 							} else {
 								rc.Fail++
