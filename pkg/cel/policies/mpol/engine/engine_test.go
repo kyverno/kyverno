@@ -502,6 +502,100 @@ func TestEvaluate(t *testing.T) {
 		assert.Equal(t, "staging", labels["env"], "first policy mutation should be present")
 		assert.Equal(t, "backend", labels["team"], "second policy mutation should be present")
 	})
+
+	// Regression test for https://github.com/kyverno/kyverno/issues/16953:
+	// Evaluate() must resolve the namespace via nsResolver so that namespaceSelector
+	// in matchConstraints is correctly evaluated during mutate-existing background scans.
+	t.Run("Evaluate respects namespaceSelector via nsResolver", func(t *testing.T) {
+		mutateExisting := true
+		mpol := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "add-label-production-only",
+			},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &mutateExisting,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{"*"},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"env": "production"},
+					},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{
+					{
+						PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+						ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+							Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
+						},
+					},
+				},
+			},
+		}
+
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
+		if !assert.NoError(t, err) {
+			return
+		}
+
+		target := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1", "kind": "ConfigMap",
+			"metadata": map[string]interface{}{"name": "cm", "namespace": "production"},
+		}}
+		attr := admission.NewAttributesRecord(
+			target, nil, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			"production", "cm", schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+			"", admission.Update, nil, false, &user.DefaultInfo{},
+		)
+		request := admissionv1.AdmissionRequest{Operation: admissionv1.Update, Name: "cm", Namespace: "production"}
+
+		// Sub-test 1: nsResolver returns a namespace with label env=production → policy should apply.
+		t.Run("applies mutation when namespace label matches selector", func(t *testing.T) {
+			nsRes := func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   ns,
+						Labels: map[string]string{"env": "production"},
+					},
+				}
+			}
+			eng := NewEngine(provider, nsRes, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+			resp, err := eng.Evaluate(ctx, attr, request, predicate)
+			assert.NoError(t, err)
+			if assert.NotNil(t, resp.PatchedResource, "expected mutation to be applied for matching namespace") {
+				assert.Equal(t, "true", resp.PatchedResource.GetLabels()["mutated"])
+			}
+		})
+
+		// Sub-test 2: nsResolver returns a namespace WITHOUT the required label → policy should not apply.
+		t.Run("skips mutation when namespace label does not match selector", func(t *testing.T) {
+			nsRes := func(ns string) *corev1.Namespace {
+				return &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   ns,
+						Labels: map[string]string{"env": "staging"},
+					},
+				}
+			}
+			eng := NewEngine(provider, nsRes, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+			resp, err := eng.Evaluate(ctx, attr, request, predicate)
+			assert.NoError(t, err)
+			assert.Nil(t, resp.PatchedResource, "expected no mutation for non-matching namespace")
+		})
+	})
 }
 
 func TestHandle(t *testing.T) {
@@ -830,4 +924,171 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 
 		assert.Nil(t, resp)
 	})
+}
+
+// TestEvaluate_NilMatcherSkipsNamespaceSelector is a regression test for
+// https://github.com/kyverno/kyverno/issues/16953.
+// When the engine is constructed with a nil matcher (as the background controller
+// formerly did), handlePolicy skips the matchConstraints block entirely — including
+// namespaceSelector evaluation. This means policies that should be scoped to
+// specific namespaces end up applying everywhere.
+//
+// The fix wires matching.NewMatcher() into the background controller and CLI
+// mutate-existing engine construction so namespaceSelector is honoured.
+func TestEvaluate_NilMatcherSkipsNamespaceSelector(t *testing.T) {
+	mutateExisting := true
+
+	// Policy with a namespaceSelector that requires label "env=production".
+	// The resolved namespace ("default") will NOT have this label, so the
+	// policy should be filtered out when a real matcher is used.
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-scoped"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+					Enabled: &mutateExisting,
+				},
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"env": "production"},
+				},
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"apps"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"deployments"},
+						},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"injected": "true"}}}`,
+				},
+			}},
+		},
+	}
+
+	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
+	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
+	assert.NoError(t, err)
+
+	// nsResolver returns a namespace WITHOUT the "env=production" label.
+	nsResolverNoLabel := func(ns string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	}
+
+	t.Run("nil matcher ignores namespaceSelector (pre-fix bug path)", func(t *testing.T) {
+		eng := NewEngine(provider, nsResolverNoLabel, nil, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+		resp, err := eng.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+
+		assert.NoError(t, err)
+		// With nil matcher the matchConstraints block is skipped entirely,
+		// so the policy evaluates even though namespaceSelector doesn't match.
+		// handlePolicy always appends a policy response; check that rules were actually produced.
+		if assert.Len(t, resp.Policies, 1) {
+			assert.NotEmpty(t, resp.Policies[0].Rules, "nil matcher should evaluate the policy and produce rule responses")
+		}
+	})
+
+	t.Run("real matcher honours namespaceSelector", func(t *testing.T) {
+		eng := NewEngine(provider, nsResolverNoLabel, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+		resp, err := eng.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+
+		assert.NoError(t, err)
+		// With a real matcher the namespaceSelector is evaluated and the
+		// namespace lacks the "env=production" label. handlePolicy returns
+		// early with an empty Rules slice, proving the policy was filtered out.
+		if assert.Len(t, resp.Policies, 1) {
+			assert.Empty(t, resp.Policies[0].Rules, "real matcher should filter out policy when namespaceSelector doesn't match")
+		}
+	})
+}
+
+// TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher is a regression test
+// for the case where targetMatchConstraints uses an expression (e.g.
+// resource.get(...)) with no resourceRules. Previously, wiring a real matcher
+// caused handlePolicy to fall back to the trigger's matchConstraints, which
+// would incorrectly filter out the resolved target (e.g. a ConfigMap) because
+// it doesn't match the trigger resource (e.g. secrets/CREATE).
+//
+// The fix skips constraint matching when targetMatchConstraints has an
+// expression but no resourceRules, since the expression itself resolves
+// the target set.
+func TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher(t *testing.T) {
+	mutateExisting := true
+
+	// Policy: trigger = secrets/CREATE, target = expression-only (no resourceRules).
+	// This mirrors the conformance test at
+	// test/conformance/chainsaw/mutating-policies/existing/expression/get/policy.yaml
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "expression-target"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+					Enabled: &mutateExisting,
+				},
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"secrets"},
+						},
+					},
+				}},
+			},
+			// Expression-only targetMatchConstraints — no ResourceRules.
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				Expression: `resource.get("v1", "configmaps", object.metadata.namespace, "test-cm")`,
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"patched": "yes"}}}`,
+				},
+			}},
+		},
+	}
+
+	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
+	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
+	assert.NoError(t, err)
+
+	nsResolverDefault := func(ns string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	}
+
+	// Simulate evaluating a ConfigMap target — this is the resolved target, NOT a secret.
+	target := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1", "kind": "ConfigMap",
+		"metadata": map[string]interface{}{"name": "test-cm", "namespace": "default"},
+	}}
+	attr := admission.NewAttributesRecord(
+		target, nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+		"default", "test-cm",
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+		"", admission.Update, nil, false, &user.DefaultInfo{},
+	)
+
+	eng := NewEngine(provider, nsResolverDefault, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+	resp, err := eng.Evaluate(ctx, attr, admissionv1.AdmissionRequest{
+		Operation: admissionv1.Update,
+		Name:      "test-cm",
+		Namespace: "default",
+	}, predicate)
+
+	assert.NoError(t, err)
+	// The policy must NOT be filtered out — expression-only targets should
+	// bypass the matcher's constraint check.
+	if assert.Len(t, resp.Policies, 1) {
+		assert.NotEmpty(t, resp.Policies[0].Rules,
+			"expression-only target should not be filtered by trigger matchConstraints")
+	}
 }
