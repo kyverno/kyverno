@@ -10,6 +10,7 @@ func Probe(check func(context.Context) bool) http.HandlerFunc {
 		if check != nil {
 			if !check(r.Context()) {
 				w.WriteHeader(http.StatusInternalServerError)
+				return
 			}
 		}
 		w.WriteHeader(http.StatusOK)
