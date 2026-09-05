@@ -10,6 +10,8 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	kyvernoinformers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -928,4 +930,40 @@ func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, r
 	}
 	b.contexts = append(b.contexts, pc)
 	return pc, err
+}
+
+func Test_NewHandlers(t *testing.T) {
+	ctx := context.Background()
+	policyCache := policycache.NewCache()
+	h := NewFakeHandlers(ctx, policyCache)
+	assert.Assert(t, h != nil)
+	assert.Assert(t, h.auditPool != nil)
+	assert.Assert(t, h.reportsPool != nil)
+
+	kyvernoclient := fakekyvernov1.NewSimpleClientset()
+	kyvernoInformers := kyvernoinformers.NewSharedInformerFactory(kyvernoclient, 0)
+
+	realH := NewHandlers(
+		h.engine,
+		h.client,
+		h.kyvernoClient,
+		h.configuration,
+		h.metricsConfig,
+		h.pCache,
+		h.nsLister,
+		h.urLister,
+		kyvernoInformers.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformers.Kyverno().V1().Policies(),
+		h.urGenerator,
+		h.eventGen,
+		h.admissionReports,
+		h.backgroundServiceAccountName,
+		h.reportsServiceAccountName,
+		nil,
+		0,
+		0,
+	)
+	assert.Assert(t, realH != nil)
+	assert.Assert(t, realH.auditPool != nil)
+	assert.Assert(t, realH.reportsPool != nil)
 }

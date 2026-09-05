@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alitto/pond/v2"
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/internal"
@@ -692,6 +693,7 @@ func main() {
 			setup.KyvernoClient,
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 			urGenerator,
+			pond.NewPool(maxAuditWorkers, pond.WithQueueSize(maxAuditCapacity)),
 		)
 		policyHandlers := webhookspolicy.NewHandlers(
 			setup.KyvernoDynamicClient,
