@@ -81,7 +81,7 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	}
 	cleanPath := path.Clean(unescapedPath)
 
-	if a.policyNamespace != "" {
+	if a.policyNamespace != "" && call.APICall.URLPath != "" {
 		// Namespaced Policy: verify path accesses only the policy's namespace
 		if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
 			ns := matches[2]
