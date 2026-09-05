@@ -67,6 +67,10 @@ spec:
           spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
           must be set to `true`.
         anyPattern:
+        {{- if .Values.podSecurityUserNamespaces }}
+        - spec:
+            hostUsers: false
+        {{- end }}
         - spec:
             securityContext:
               runAsNonRoot: true
