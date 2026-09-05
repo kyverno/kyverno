@@ -11,6 +11,8 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,5 +170,63 @@ func TestValidateImageHandler_FailureReportsCorrectImages(t *testing.T) {
 		msg := responses[0].Message()
 		assert.Contains(t, msg, "ghcr.io/verified/app:v1", "iteration %d: app image must appear in failure message", i)
 		assert.Contains(t, msg, "ghcr.io/verified/sidecar:v1", "iteration %d: sidecar image must appear in failure message", i)
+	}
+}
+
+// TestValidateImage_MissingDigestCheck covers the interaction between verifyDigest
+// and mutateDigest: when verifyDigest is true but the image has no digest, the
+// "missing digest" error must only be raised when mutateDigest is also true.
+// With mutateDigest false (required for Audit policies / background scans) the
+// verify pass resolves the digest without patching the resource, so the missing
+// digest check must be bypassed.
+func TestValidateImage_MissingDigestCheck(t *testing.T) {
+	t.Parallel()
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(multiContainerPod))
+	require.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithNewResource(*resource)
+
+	taggedImage := apiutils.ImageInfo{ImageInfo: imageutils.ImageInfo{
+		Registry: "ghcr.io",
+		Name:     "app",
+		Path:     "verified/app",
+		Tag:      "v1",
+	}}
+	digestedImage := taggedImage
+	digestedImage.Digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+	tests := []struct {
+		name         string
+		verifyDigest bool
+		mutateDigest bool
+		image        apiutils.ImageInfo
+		wantErr      bool
+	}{
+		{"verifyDigest+mutateDigest, digest missing -> fail", true, true, taggedImage, true},
+		{"verifyDigest without mutateDigest, digest missing -> bypass", true, false, taggedImage, false},
+		{"verifyDigest+mutateDigest, digest present -> ok", true, true, digestedImage, false},
+		{"verifyDigest disabled, digest missing -> ok", false, false, taggedImage, false},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			iv := &kyvernov1.ImageVerification{
+				VerifyDigest: tt.verifyDigest,
+				MutateDigest: tt.mutateDigest,
+			}
+			_, err := validateImage(policyContext, "verify-image", iv, tt.image, logr.Discard())
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "missing digest")
+			} else {
+				require.NoError(t, err)
+			}
+		})
 	}
 }
