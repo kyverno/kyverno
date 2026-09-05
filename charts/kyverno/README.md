@@ -291,7 +291,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | crds.migration.podLabels | object | `{}` | Pod labels. |
 | crds.migration.podAnnotations | object | `{}` | Pod annotations. |
 | crds.migration.nodeAffinity | object | `{}` | Node affinity constraints. |
-| crds.migration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
+| crds.migration.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | crds.migration.podResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | crds.migration.podResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | crds.migration.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
@@ -469,7 +469,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.initContainer.image.pullPolicy | string | `nil` | Image pull policy If missing, defaults to image.pullPolicy |
 | admissionController.initContainer.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | admissionController.initContainer.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
-| admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
+| admissionController.initContainer.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | admissionController.initContainer.extraArgs | object | `{}` | Additional container args. |
 | admissionController.initContainer.extraEnvVars | list | `[]` | Additional container environment variables. |
 | admissionController.container.image.registry | string | `nil` | Image registry |
@@ -479,7 +479,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | admissionController.container.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | admissionController.container.resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | admissionController.container.resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
-| admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context |
+| admissionController.container.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Container security context. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | admissionController.container.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | admissionController.container.extraArgs | object | `{}` | Additional container args. |
 | admissionController.container.extraEnvVars | list | `[]` | Additional container environment variables. |
@@ -573,7 +573,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.nodeAffinity | object | `{}` | Node affinity constraints. |
 | backgroundController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 | backgroundController.podSecurityContext | object | `{}` | Security context for the pod |
-| backgroundController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| backgroundController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | backgroundController.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | backgroundController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | backgroundController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
@@ -684,7 +684,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | cleanupController.nodeAffinity | object | `{}` | Node affinity constraints. |
 | cleanupController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 | cleanupController.podSecurityContext | object | `{}` | Security context for the pod |
-| cleanupController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| cleanupController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | cleanupController.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | cleanupController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | cleanupController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
@@ -780,7 +780,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.nodeAffinity | object | `{}` | Node affinity constraints. |
 | reportsController.topologySpreadConstraints | list | `[]` | Topology spread constraints. |
 | reportsController.podSecurityContext | object | `{}` | Security context for the pod |
-| reportsController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers |
+| reportsController.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the containers. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | reportsController.lifecycle | object | `{}` | Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+. |
 | reportsController.podDisruptionBudget.enabled | bool | `false` | Enable PodDisruptionBudget. Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking. |
 | reportsController.podDisruptionBudget.minAvailable | int | `1` | Configures the minimum available pods for disruptions. Cannot be used if `maxUnavailable` is set. |
@@ -857,7 +857,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | webhooksCleanup.podLabels | object | `{}` | Pod labels. |
 | webhooksCleanup.podAnnotations | object | `{}` | Pod annotations. |
 | webhooksCleanup.nodeAffinity | object | `{}` | Node affinity constraints. |
-| webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers |
+| webhooksCleanup.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook containers. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | webhooksCleanup.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | webhooksCleanup.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | webhooksCleanup.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
@@ -877,7 +877,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | test.imagePullSecrets | list | `[]` | Image pull secrets |
 | test.resources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | test.resources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
-| test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers |
+| test.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsNonRoot":true,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the test containers. UID/GID are unset by default so platforms such as OpenShift can assign them. |
 | test.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
 | test.projectedServiceAccountToken | object | `{"audience":"","expirationSeconds":3600}` | Projected service account token configuration (only used when automountServiceAccountToken is false) |
 | test.projectedServiceAccountToken.expirationSeconds | int | `3600` | Token expiration time in seconds. The kubelet will request a new token before the token expires. |

@@ -27,8 +27,6 @@ Reports Server readiness init container
     - --namespace={{ .Release.Namespace }}
     - --timeout={{ .Values.reportsServer.readinessTimeout }}
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
