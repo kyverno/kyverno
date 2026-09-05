@@ -325,11 +325,11 @@ func MutationEngineResponseToReportResults(response engineapi.EngineResponse) []
 func GenerationEngineResponseToReportResults(response engineapi.EngineResponse) []openreportsv1alpha1.ReportResult {
 	results := make([]openreportsv1alpha1.ReportResult, 0, len(response.PolicyResponse.Rules))
 	for _, ruleResult := range response.PolicyResponse.Rules {
+		if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
+			continue
+		}
 		result := ToPolicyReportResult(response.Policy(), ruleResult, nil)
 		if generatedResources := ruleResult.GeneratedResources(); len(generatedResources) != 0 {
-			if !ReportingCfg.IsStatusAllowed(ruleResult.Status()) {
-				continue
-			}
 			property := make([]string, 0, len(generatedResources))
 			for _, r := range generatedResources {
 				property = append(property, getResourceInfo(r.GroupVersionKind(), r.GetName(), r.GetNamespace()))

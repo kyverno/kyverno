@@ -314,3 +314,50 @@ func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
 		assert.Equal(t, "resource is compliant", r.Description, "goroutine %d", i)
 	}
 }
+
+func Test_GenerationEngineResponseToReportResults(t *testing.T) {
+	oldReportingCfg := ReportingCfg
+	defer func() {
+		ReportingCfg = oldReportingCfg
+	}()
+	ReportingCfg = nil
+	NewReportingConfig([]string{"fail"}, "generate")
+
+	// 1. Create a Skip rule result with empty generated resources
+	skipProps := map[string]string{}
+	skipRule := engineapi.NewRuleResponse(
+		"generate-skip",
+		engineapi.Generation,
+		"rule skipped",
+		engineapi.RuleStatusSkip,
+		skipProps,
+	)
+
+	// 2. Create a Fail rule result with empty generated resources
+	failProps := map[string]string{}
+	failRule := engineapi.NewRuleResponse(
+		"generate-fail",
+		engineapi.Generation,
+		"rule failed",
+		engineapi.RuleStatusFail,
+		failProps,
+	)
+
+	// Create engine response with both rules and policy
+	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+	})
+	er := engineapi.EngineResponse{}.WithPolicy(pol)
+	er.PolicyResponse.Rules = append(er.PolicyResponse.Rules, *skipRule, *failRule)
+
+	// Call GenerationEngineResponseToReportResults
+	results := GenerationEngineResponseToReportResults(er)
+
+	// Assertions
+	// We expect only 1 result (failRule), and skipRule should be filtered out
+	assert.Equal(t, 1, len(results))
+	assert.Equal(t, "generate-fail", results[0].Rule)
+	assert.Equal(t, openreportsv1alpha1.Result(openreports.StatusFail), results[0].Result)
+}
