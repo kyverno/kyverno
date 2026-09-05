@@ -89,15 +89,55 @@ func TestScanResource_NamespacedImageValidatingPolicy(t *testing.T) {
 
 func TestScanResource_ImageValidatingPolicy(t *testing.T) {
 	ivp := &policiesv1beta1.ImageValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-ivp", ResourceVersion: "1"},
-		Spec:       podMatchSpec,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "test-ivp",
+			ResourceVersion: "1",
+		},
+		Spec: podMatchSpec,
 	}
+
 	policy := engineapi.NewImageValidatingPolicy(ivp)
 
-	resource, gvr := newDeploymentResource()
-	results := newTestScanner(t).ScanResource(t.Context(), resource, gvr, "", nil, nil, nil, nil, policy)
+	tests := []struct {
+		name     string
+		resource func() (unstructured.Unstructured, schema.GroupVersionResource)
+		wantLen  int
+	}{
+		{
+			name:     "matching resource",
+			resource: newPodResource,
+			wantLen:  1,
+		},
+		{
+			name:     "non-matching resource",
+			resource: newServiceResource,
+			wantLen:  0,
+		},
+	}
 
-	assert.Len(t, results, 1, "ImageValidatingPolicy must not be silently skipped by the scanner")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resource, gvr := tt.resource()
+
+			results := newTestScanner(t).ScanResource(
+				t.Context(),
+				resource,
+				gvr,
+				"",
+				nil,
+				nil,
+				nil,
+				nil,
+				policy,
+			)
+
+			if tt.wantLen == 0 {
+				assert.Empty(t, results, "non-matching resources must not produce an ImageValidatingPolicy scan result")
+			} else {
+				assert.Len(t, results, tt.wantLen, "matching resources must produce an ImageValidatingPolicy scan result")
+			}
+		})
+	}
 }
 
 func newPodResource() (unstructured.Unstructured, schema.GroupVersionResource) {
@@ -107,6 +147,23 @@ func newPodResource() (unstructured.Unstructured, schema.GroupVersionResource) {
 	resource.SetNamespace("test-ns")
 	resource.SetLabels(map[string]string{"app": "demo"})
 	return resource, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+}
+
+func newServiceResource() (unstructured.Unstructured, schema.GroupVersionResource) {
+	resource := unstructured.Unstructured{}
+	resource.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "Service",
+	})
+	resource.SetName("test-service")
+	resource.SetNamespace("test-ns")
+
+	return resource, schema.GroupVersionResource{
+		Group:    "",
+		Version:  "v1",
+		Resource: "services",
+	}
 }
 
 // TestScanResource_MutatingPolicy_MutateExisting reproduces the background-scan
