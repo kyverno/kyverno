@@ -30,6 +30,8 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 	var vapName string
 	if polType == "ClusterPolicy" {
 		vapName = "cpol-" + policy.GetName()
+	} else if polType == "NamespacedValidatingPolicy" {
+		vapName = "nvpol-" + policy.GetNamespace() + "-" + policy.GetName()
 	} else {
 		vapName = "vpol-" + policy.GetName()
 	}
@@ -73,13 +75,18 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
 		}
 	} else {
-		pol := policy.AsValidatingPolicy()
+		pol := policy.AsValidatingPolicyLike()
 		wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
 		shouldDelete := !wantVap
 
 		var reason string
 		if wantVap {
-			isAutogen := len(pol.GetStatus().Autogen.Configs) > 0
+			var isAutogen bool
+			if vpol := policy.AsValidatingPolicy(); vpol != nil {
+				isAutogen = len(vpol.GetStatus().Autogen.Configs) > 0
+			} else if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
+				isAutogen = len(nvpol.GetStatus().Autogen.Configs) > 0
+			}
 			if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
