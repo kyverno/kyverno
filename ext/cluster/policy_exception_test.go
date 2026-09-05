@@ -95,5 +95,33 @@ func TestPolicyExceptionSelector_Find_RuleMismatch(t *testing.T) {
 	result, err := selector.Find("policy", "rule")
 
 	assert.NoError(t, err)
-	assert.Len(t, result, 1)
+	assert.Len(t, result, 0)
+}
+
+func TestPolicyExceptionSelector_Find_PolicyMismatch(t *testing.T) {
+	exception := &kyvernov2.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "policy-mismatch",
+			Namespace: "default",
+		},
+		Spec: kyvernov2.PolicyExceptionSpec{
+			Exceptions: []kyvernov2.Exception{
+				{
+					PolicyName: "other",
+					RuleNames:  []string{"rule"},
+				},
+			},
+		},
+	}
+
+	selector := NewPolicyExceptionSelector(
+		"default",
+		nil,
+		exception,
+	)
+
+	result, err := selector.Find("policy", "rule")
+
+	assert.NoError(t, err)
+	assert.Len(t, result, 0)
 }
