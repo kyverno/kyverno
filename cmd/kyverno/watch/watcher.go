@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +40,7 @@ type RetryWatcher struct {
 	stopChan            chan struct{}
 	doneChan            chan struct{}
 	minRestartDelay     time.Duration
-	isRunning           bool
+	isRunning           atomic.Bool
 }
 
 // NewRetryWatcher creates a new RetryWatcher.
@@ -66,7 +67,6 @@ func newRetryWatcher(initialResourceVersion string, watcherClient cache.Watcher,
 		doneChan:            make(chan struct{}),
 		resultChan:          make(chan watch.Event),
 		minRestartDelay:     minRestartDelay,
-		isRunning:           false,
 	}
 
 	go rw.receive()
@@ -121,6 +121,13 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 			return false, 0
 		}
 
+		if apierrors.IsResourceExpired(err) || apierrors.IsGone(err) {
+			// The apiserver rejected the resource version we hold, retrying it can
+			// never succeed. Stop and let the consumer relist, like a reflector does.
+			klog.V(1).InfoS("Watch rejected the resource version, stopping", "err", err, "resourceVersion", currentRV)
+			return true, 0
+		}
+
 		klog.ErrorS(err, msg)
 		// Retry
 		return false, 0
@@ -135,10 +142,8 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 	ch := watcher.ResultChan()
 	defer watcher.Stop()
 
-	rw.isRunning = true
-	defer func() {
-		rw.isRunning = false
-	}()
+	rw.isRunning.Store(true)
+	defer rw.isRunning.Store(false)
 
 	for {
 		select {
@@ -301,7 +306,7 @@ func (rw *RetryWatcher) Done() <-chan struct{} {
 	return rw.doneChan
 }
 
-// Done allows the caller to be notified when Retry watcher stops.
+// IsRunning tells whether a watch connection is currently established.
 func (rw *RetryWatcher) IsRunning() bool {
-	return rw.isRunning
+	return rw.isRunning.Load()
 }
