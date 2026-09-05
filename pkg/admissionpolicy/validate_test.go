@@ -290,3 +290,115 @@ func Test_ValidateResourceNilMatchConstraints(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(response.PolicyResponse.Rules), 1)
 }
+
+func Test_VAPWithoutClientMatchConstraints(t *testing.T) {
+	policy := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "deployments-only",
+		},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+							Operations: []admissionregistrationv1.OperationType{
+								admissionregistrationv1.Create,
+								admissionregistrationv1.Update,
+							},
+						},
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{
+					Expression: "false",
+					Message:    "should fail when evaluated",
+				},
+			},
+		},
+	}
+
+	binding := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "deployments-only",
+		},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+			PolicyName:        policy.Name,
+			ValidationActions: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		rawResource string
+		wantRules   int
+	}{
+		{
+			name: "matching deployment",
+			rawResource: `{
+				"apiVersion": "apps/v1",
+				"kind": "Deployment",
+				"metadata": {
+					"name": "my-deployment",
+					"namespace": "default"
+				}
+			}`,
+			wantRules: 1,
+		},
+		{
+			name: "non-matching service",
+			rawResource: `{
+				"apiVersion": "v1",
+				"kind": "Service",
+				"metadata": {
+					"name": "my-service",
+					"namespace": "default"
+				}
+			}`,
+			wantRules: 0,
+		},
+		{
+			name: "non-matching configmap",
+			rawResource: `{
+				"apiVersion": "v1",
+				"kind": "ConfigMap",
+				"metadata": {
+					"name": "my-configmap",
+					"namespace": "default"
+				}
+			}`,
+			wantRules: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resource, err := kubeutils.BytesToUnstructured([]byte(tt.rawResource))
+			assert.NilError(t, err)
+
+			gvk := resource.GroupVersionKind()
+			restMapper, err := utils.GetRESTMapper(nil)
+			assert.NilError(t, err)
+
+			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			assert.NilError(t, err)
+
+			a := admission.NewAttributesRecord(resource.DeepCopyObject(), nil, gvk, resource.GetNamespace(), resource.GetName(), mapping.Resource, "", admission.Create, nil, false, nil)
+
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: resource.GetNamespace(),
+				},
+			}
+
+			response, err := processVAPWithoutClient(policy, []admissionregistrationv1.ValidatingAdmissionPolicyBinding{binding}, *resource, namespace, nil, a, tt.name)
+			assert.NilError(t, err)
+			assert.Equal(t, len(response.PolicyResponse.Rules), tt.wantRules)
+		})
+	}
+}
