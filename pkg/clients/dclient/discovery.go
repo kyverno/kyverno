@@ -57,6 +57,7 @@ type IDiscovery interface {
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	CachedDiscoveryInterface() discovery.CachedDiscoveryInterface
+	RESTMapper() meta.RESTMapper
 	OnChanged(callback func())
 }
 
@@ -72,6 +73,10 @@ type serverResources struct {
 	mapper       meta.ResettableRESTMapper
 	mux          sync.RWMutex
 	callbacks    []func()
+}
+
+func (c *serverResources) RESTMapper() meta.RESTMapper {
+	return c.mapper
 }
 
 func (c *serverResources) OnChanged(callback func()) {
