@@ -161,6 +161,7 @@ func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t 
 }
 
 func Test_ExecuteServiceCall_MaxResponseLengthExceeded(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("12345678901234567890"))
@@ -181,6 +182,7 @@ func Test_ExecuteServiceCall_MaxResponseLengthExceeded(t *testing.T) {
 }
 
 func Test_ExecuteServiceCall_WithinMaxResponseLength(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("12345"))
@@ -202,6 +204,7 @@ func Test_ExecuteServiceCall_WithinMaxResponseLength(t *testing.T) {
 }
 
 func Test_ExecuteServiceCall_MaxResponseLengthExceededOnErrorResponse(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("12345678901234567890"))
@@ -222,6 +225,7 @@ func Test_ExecuteServiceCall_MaxResponseLengthExceededOnErrorResponse(t *testing
 }
 
 func Test_ExecuteServiceCall_MaxInt64ResponseLengthDoesNotOverflow(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("1"))
