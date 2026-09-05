@@ -85,7 +85,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 		wantRoles        []string
 		wantClusterRoles []string
 	}{{
-		name: "service account and role binding explicitely in the same namespace",
+		name: "service account and role binding explicitly in the same namespace",
 		args: args{
 			roleBindings: []*rbacv1.RoleBinding{
 				roleInSameNsExplicit,
@@ -96,7 +96,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 			"ns-1:role-1",
 		},
 	}, {
-		name: "service account and role binding implicitely in the same namespace",
+		name: "service account and role binding implicitly in the same namespace",
 		args: args{
 			roleBindings: []*rbacv1.RoleBinding{
 				roleInSameNsImplicit,
