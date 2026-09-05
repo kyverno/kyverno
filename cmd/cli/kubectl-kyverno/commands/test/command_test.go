@@ -930,6 +930,67 @@ spec:
 	}
 }
 
+// Two policies share the rule name "sync-image-pull-secret" but clone different
+// secrets. Keying clone sources by rule name alone made one policy's clone source
+// overwrite the other's, so both policies generated the same secret.
+func TestRunTest_DuplicateRuleNameCloneSources(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-generate", "duplicate-rule-clone-source")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test")
+	t.Logf("Test output: %s", out.String())
+
+	// each policy must generate the secret cloned from its own clone source
+	expected := map[string]struct {
+		name      string
+		namespace string
+		password  string
+	}{
+		"sync-secrets-a": {name: "regcred-a", namespace: "namespace-a", password: "YWxwaGE="},
+		"sync-secrets-b": {name: "regcred-b", namespace: "namespace-b", password: "YmV0YQ=="},
+	}
+
+	seen := map[string]bool{}
+	for _, responses := range testResponse.Trigger {
+		for _, response := range responses {
+			want, ok := expected[response.Policy().GetName()]
+			if !ok {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				generated := rule.GeneratedResources()
+				if len(generated) == 0 {
+					continue
+				}
+				require.Len(t, generated, 1, "policy %s generated unexpected resources", response.Policy().GetName())
+				resource := generated[0]
+				assert.Equal(t, want.name, resource.GetName())
+				assert.Equal(t, want.namespace, resource.GetNamespace())
+				password, found, err := unstructured.NestedString(resource.Object, "data", "password")
+				require.NoError(t, err)
+				require.True(t, found, "generated secret has no data.password")
+				// the actual regression: a wrong clone source yields the other policy's password
+				assert.Equal(t, want.password, password, "policy %s cloned the wrong source resource", response.Policy().GetName())
+				seen[response.Policy().GetName()] = true
+			}
+		}
+	}
+	require.Len(t, seen, len(expected), "expected generated resources from both policies, got %v", seen)
+}
+
 func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
