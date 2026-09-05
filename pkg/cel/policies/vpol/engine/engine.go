@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/client-go/tools/cache"
 )
@@ -145,8 +146,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
 		keys := make([]string, 0, len(result.Exceptions))
-
+		// Check if any exception has ValidationActions on the matching PolicyRef
 		var (
+			overrideAction  admissionregistrationv1.ValidationAction
 			highestPriority int
 			selectedIndex   int
 		)
@@ -173,28 +175,44 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 				if p, err := strconv.Atoi(val); err == nil && p > highestPriority {
 					highestPriority = p
 					selectedIndex = i
+					if action := compiler.FindOverrideAction(ex, policy.Policy.GetName(), policy.Policy.GetKind()); action != "" {
+						overrideAction = action
+					}
 				}
 			}
 		}
-		// determine final result based on highest-priority exception
-		selectedException := result.Exceptions[selectedIndex]
-		reportResult := selectedException.Spec.ReportResult
 
-		joinedKeys := strings.Join(keys, ", ")
-		msgPrefix := "rule is %s due to policy exception: " + joinedKeys
-		switch reportResult {
-		case string(engineapi.RuleStatusPass):
-			response.Rules = handlers.WithResponses(
-				engineapi.RulePass("exception", engineapi.Validation,
-					fmt.Sprintf(msgPrefix, "passed"), nil,
-				).WithExceptions(exceptions),
-			)
-		default:
-			response.Rules = handlers.WithResponses(
-				engineapi.RuleSkip("exception", engineapi.Validation,
-					fmt.Sprintf(msgPrefix, "skipped"), nil,
-				).WithExceptions(exceptions),
-			)
+		if overrideAction != "" {
+			response.Actions = sets.New(overrideAction)
+			ruleName := ""
+			if result.Error != nil {
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)).WithExceptions(exceptions))
+			} else if result.Result {
+				response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations).WithExceptions(exceptions))
+			} else {
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)).WithExceptions(exceptions))
+			}
+		} else {
+			// determine final result based on highest-priority exception
+			selectedException := result.Exceptions[selectedIndex]
+			reportResult := selectedException.Spec.ReportResult
+
+			joinedKeys := strings.Join(keys, ", ")
+			msgPrefix := "rule is %s due to policy exception: " + joinedKeys
+			switch reportResult {
+			case string(engineapi.RuleStatusPass):
+				response.Rules = handlers.WithResponses(
+					engineapi.RulePass("exception", engineapi.Validation,
+						fmt.Sprintf(msgPrefix, "passed"), nil,
+					).WithExceptions(exceptions),
+				)
+			default:
+				response.Rules = handlers.WithResponses(
+					engineapi.RuleSkip("exception", engineapi.Validation,
+						fmt.Sprintf(msgPrefix, "skipped"), nil,
+					).WithExceptions(exceptions),
+				)
+			}
 		}
 	} else {
 		// TODO: do we want to set a rule name?
