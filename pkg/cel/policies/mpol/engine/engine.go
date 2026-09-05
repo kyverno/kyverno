@@ -218,6 +218,17 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			}
 		}
 	}
+	if mpol.ExtractionMode {
+		// Mutating a custom workload CRD correctly requires writing the
+		// patch back into the parent object at the extracted template's
+		// path, not the top level - not implemented yet. Skip rather than
+		// apply the policy's Pod-shaped ApplyConfiguration to the literal
+		// admitted object, which would produce a meaningless or broken
+		// patch. ValidatingPolicy/ImageValidatingPolicy extraction-mode
+		// targets are unaffected - this only concerns mutation.
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "extraction mode: mutation for custom workload CRDs is not yet supported", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		return ruleResponse, nil
+	}
 	var result *compiler.EvaluationResult
 	if target {
 		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)

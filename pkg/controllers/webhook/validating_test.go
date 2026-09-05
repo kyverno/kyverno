@@ -350,6 +350,134 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 	}
 }
 
+func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
+	tests := []struct {
+		name             string
+		nvpols           []*policiesv1beta1.NamespacedValidatingPolicy
+		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
+	}{
+		{
+			name: "Autogen Single Ignore Policy",
+			nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-nvpol",
+						Namespace: "test-ns",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"pods"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.NamespacedValidatingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"daemonsets", "deployments", "replicasets", "statefulsets"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"batch"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"jobs"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"batch"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"cronjobs"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
+			var nvpols []engineapi.GenericPolicy
+			for _, nvpol := range tt.nvpols {
+				nvpols = append(nvpols, engineapi.NewNamespacedValidatingPolicy(nvpol))
+				expressionCache.AddPolicyExpressions(nvpol.GetMatchConditions())
+			}
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.NamespacedValidatingPolicyWebhookName,
+				"/nvpol",
+				0,
+				nil,
+				nvpols,
+				expressionCache,
+			)
+			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
+			for i, expect := range tt.expectedWebhooks {
+				assert.Equal(t, expect.Name, webhooks[i].Name)
+				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
+				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules), fmt.Sprintf("expected: %v,\n got: %v", expect.Rules, webhooks[i].Rules))
+
+				if expect.MatchConditions != nil {
+					assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
+				}
+				if expect.MatchPolicy != nil {
+					assert.Equal(t, expect.MatchPolicy, webhooks[i].MatchPolicy)
+				}
+				if expect.TimeoutSeconds != nil {
+					assert.Equal(t, expect.TimeoutSeconds, webhooks[i].TimeoutSeconds)
+				}
+				if expect.ClientConfig.Service != nil {
+					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
+				}
+				if expect.NamespaceSelector != nil {
+					assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
+				}
+				if expect.ObjectSelector != nil {
+					assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
+				}
+			}
+		})
+	}
+}
+
 func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 	fineGrainedSpec := func(resource string) policiesv1beta1.ValidatingPolicySpec {
 		return policiesv1beta1.ValidatingPolicySpec{
@@ -745,19 +873,14 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 		rules := buildRules(t, ivpol)
 		assert.Contains(t, resourcesOf(rules), "pods/ephemeralcontainers")
 
-		// Related gap (tracked separately, not part of #16275/#16336): CanAutoGen
-		// (pkg/cel/autogen/support.go) requires the rule's Resources to be exactly
-		// ["pods"], so opting into ephemeral container coverage currently disables
-		// autogen entirely -- the resulting webhook has no extra rules for
-		// Deployments/DaemonSets/Jobs/CronJobs/etc. Assert that here so a future
-		// change to either behavior is caught.
-		assert.Len(t, rules, 1, "expected autogen to be disabled once pods/ephemeralcontainers is added")
+		assert.Len(t, rules, 4, "expected autogen to remain enabled with pods/ephemeralcontainers")
 	})
 
 	t.Run("matching pods alone does not implicitly cover ephemeral containers", func(t *testing.T) {
 		ivpol := newIVPol([]string{"pods"})
 		rules := buildRules(t, ivpol)
 		assert.NotContains(t, resourcesOf(rules), "pods/ephemeralcontainers")
+		assert.Len(t, rules, 4)
 	})
 }
 
