@@ -890,6 +890,80 @@ func TestSortedRules(t *testing.T) {
 	}
 }
 
+func TestSortedRules_NilScope(t *testing.T) {
+	ruleNilScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+	ruleNamespacedScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+	ruleClusterScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+			Scope:       ptr.To(admissionregistrationv1.ClusterScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+
+	t.Run("nil scope does not panic", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			sortedRules([]admissionregistrationv1.RuleWithOperations{ruleNilScope, ruleNamespacedScope})
+		})
+	})
+
+	t.Run("both nil scopes do not panic", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			sortedRules([]admissionregistrationv1.RuleWithOperations{ruleNilScope, ruleNilScope})
+		})
+	})
+
+	t.Run("nil scope treated as AllScopes sorts before Cluster and Namespaced", func(t *testing.T) {
+		result := sortedRules([]admissionregistrationv1.RuleWithOperations{
+			ruleNamespacedScope, ruleNilScope, ruleClusterScope,
+		})
+		assert.Equal(t, scopeString(result[0].Scope), string(admissionregistrationv1.AllScopes))
+		assert.Equal(t, scopeString(result[1].Scope), string(admissionregistrationv1.ClusterScope))
+		assert.Equal(t, scopeString(result[2].Scope), string(admissionregistrationv1.NamespacedScope))
+	})
+}
+
+func TestScopeString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *admissionregistrationv1.ScopeType
+		expected string
+	}{
+		{"nil returns AllScopes", nil, string(admissionregistrationv1.AllScopes)},
+		{"Namespaced", ptr.To(admissionregistrationv1.NamespacedScope), string(admissionregistrationv1.NamespacedScope)},
+		{"Cluster", ptr.To(admissionregistrationv1.ClusterScope), string(admissionregistrationv1.ClusterScope)},
+		{"AllScopes", ptr.To(admissionregistrationv1.AllScopes), string(admissionregistrationv1.AllScopes)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, scopeString(tt.input))
+		})
+	}
+}
+
 func TestIvpolsNeedingMutation(t *testing.T) {
 	trueVal := true
 	falseVal := false
