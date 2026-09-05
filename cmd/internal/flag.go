@@ -84,7 +84,7 @@ var (
 
 func initLoggingFlags() {
 	logging.InitFlags(nil)
-	flag.StringVar(&loggingFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.StringVar(&loggingFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger. Valid values are: text, text-nocolor, json.")
 	flag.BoolVar(&disableLogColor, "disableLogColor", false, "Disable colored output in logs.")
 	flag.StringVar(&loggingTsFormat, "loggingtsFormat", logging.DefaultTime, "This determines the timestamp format of the logger.")
 	checkErr(flag.Set("v", "2"), "failed to init flags")
