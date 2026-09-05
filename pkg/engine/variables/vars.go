@@ -495,12 +495,16 @@ func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string 
 		}
 
 		// try to get rule index from the reference
+		// Use a local effectivePivot so the outer pivot is not mutated across iterations.
+		// Without this, the second+ references in the same string would be searched
+		// using a stale index-specific pivot (e.g., "anyPattern/0") instead of "anyPattern".
+		effectivePivot := pivot
 		if pivot == "anyPattern" {
 			ruleIndex := strings.Split(reference[index+len(pivot)+1:], "/")[0]
-			pivot = pivot + "/" + ruleIndex
+			effectivePivot = pivot + "/" + ruleIndex
 		}
 
-		shiftedReference := strings.Replace(reference, pivot, pivot+"/"+shift, -1)
+		shiftedReference := strings.Replace(reference, effectivePivot, effectivePivot+"/"+shift, -1)
 		replacement := ""
 
 		if !initial {
