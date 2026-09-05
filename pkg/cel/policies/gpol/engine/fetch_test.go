@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
@@ -79,6 +80,42 @@ func TestGet(t *testing.T) {
 		assert.Equal(t, "test-policy", policy.Policy.GetName())
 		assert.Len(t, policy.Exceptions, 1)
 		assert.NotNil(t, policy.CompiledPolicy)
+	})
+
+	t.Run("expired exception is not attached", func(t *testing.T) {
+		comp := compiler.NewCompiler()
+		gpol := &policiesv1beta1.GeneratingPolicy{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "test-policy",
+			},
+		}
+		gpol.TypeMeta.Kind = "GeneratingPolicy"
+
+		expiresAt := v1.NewTime(time.Now().Add(-1 * time.Hour))
+		exception := &policiesv1beta1.PolicyException{
+			ObjectMeta: v1.ObjectMeta{Name: "expired"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				ExpiresAt: &expiresAt,
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{
+						Name: "test-policy",
+						Kind: "GeneratingPolicy",
+					},
+				},
+			},
+		}
+
+		fp := NewFetchProvider(
+			comp,
+			&fakeGpolLister{policy: gpol},
+			&fakeNgpolLister{},
+			&fakePolexLister{exceptions: []*policiesv1beta1.PolicyException{exception}},
+			true,
+		)
+
+		policy, err := fp.Get(context.Background(), "test-policy")
+		assert.NoError(t, err)
+		assert.Empty(t, policy.Exceptions)
 	})
 
 	t.Run("", func(t *testing.T) {
