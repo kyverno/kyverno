@@ -91,7 +91,7 @@ func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string)
 					generator.Latest(),
 				),
 				globalcontext.Lib(
-					globalcontext.Context{ContextInterface: libsctx},
+					globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 					globalcontext.Latest(),
 				),
 				resource.Lib(

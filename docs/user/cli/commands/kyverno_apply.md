@@ -82,6 +82,7 @@ kyverno apply [flags]
   -f, --values-file string                 File containing values for policy variables
       --warn-exit-code int                 Set the exit code for warnings; if failures or errors are found, will exit 1
       --warn-no-pass                       Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag
+      --warnings-as-errors                 Treat deprecation warnings as errors
 ```
 
 ### Options inherited from parent commands

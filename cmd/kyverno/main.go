@@ -236,7 +236,7 @@ func createrLeaderControllers(
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
 				APIGroups:   []string{"policies.kyverno.io"},
-				APIVersions: []string{"v1alpha1"},
+				APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
@@ -735,7 +735,13 @@ func main() {
 				setup.Logger.Error(err, "failed to construct manager")
 				os.Exit(1)
 			}
-			celExceptionLister := celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace())
+			// The vpol/ivpol/mpol reconcilers below register their PolicyException watch
+			// on this manager's cache and cache compiled results between triggering events.
+			// Sourcing the exception list from the same manager cache (rather than a
+			// separately synced informer) avoids a race where the reconcile triggered by
+			// the watch reads a lister that hasn't caught up yet, compiles the policy
+			// without the exception, and never gets retried.
+			celExceptionLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace())
 			// create compiler
 			compiler := vpolcompiler.NewCompiler()
 			// create vpolProvider
