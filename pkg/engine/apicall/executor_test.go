@@ -160,6 +160,7 @@ func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t 
 }
 
 func Test_ExecuteServiceCall_DefaultContentTypeForPost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	var gotContentType string
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotContentType = r.Header.Get("Content-Type")
@@ -182,6 +183,7 @@ func Test_ExecuteServiceCall_DefaultContentTypeForPost(t *testing.T) {
 }
 
 func Test_ExecuteServiceCall_PreservesUserContentTypeForPost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	var gotContentType string
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotContentType = r.Header.Get("Content-Type")
