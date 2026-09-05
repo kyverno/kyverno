@@ -88654,9 +88654,7 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsGroup: 65534
             runAsNonRoot: true
-            runAsUser: 65534
             seccompProfile:
               type: RuntimeDefault
           env:
@@ -88734,9 +88732,7 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsGroup: 65534
             runAsNonRoot: true
-            runAsUser: 65534
             seccompProfile:
               type: RuntimeDefault
           ports:
@@ -88925,9 +88921,7 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsGroup: 65534
             runAsNonRoot: true
-            runAsUser: 65534
             seccompProfile:
               type: RuntimeDefault
           volumeMounts:
@@ -89060,9 +89054,7 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsGroup: 65534
             runAsNonRoot: true
-            runAsUser: 65534
             seccompProfile:
               type: RuntimeDefault
           startupProbe:
@@ -89228,9 +89220,7 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsGroup: 65534
             runAsNonRoot: true
-            runAsUser: 65534
             seccompProfile:
               type: RuntimeDefault
           volumeMounts:
