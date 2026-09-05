@@ -40,8 +40,12 @@ func Validate(dpol v1beta1.DeletingPolicyLike) ([]string, error) {
 		err = append(err, field.Invalid(field.NewPath("spec").Child("schedule"), spec.Schedule, "schedule spec in the deletingPolicy is not in proper cron format: "+parseErr.Error()))
 	}
 
-	if dpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
-		if compiler.ExpressionsUseHTTP(dpolExpressions(spec)...) {
+	if dpol.GetNamespace() != "" {
+		exprs := dpolExpressions(spec)
+		if compiler.ExpressionsUseGlobalContext(exprs...) {
+			err = append(err, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && compiler.ExpressionsUseHTTP(exprs...) {
 			err = append(err, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}

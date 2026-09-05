@@ -208,6 +208,35 @@ func TestValidate(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "namespaced policy using globalContext is rejected",
+			dpol: &v1beta1.DeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-globalcontext-dpol",
+					Namespace: "tenant-ns",
+				},
+				Spec: v1beta1.DeletingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{
+							{
+								RuleWithOperations: v1.RuleWithOperations{
+									Rule: v1.Rule{
+										APIGroups: []string{""},
+										Resources: []string{"pods"},
+									},
+								},
+							},
+						},
+					},
+					Schedule: "*/5 * * * *",
+					Variables: []v1.Variable{{
+						Name:       "gctx",
+						Expression: `globalContext.get("cluster-entry", "")`,
+					}},
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
