@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -108,11 +109,18 @@ func (a *executor) executeServiceCall(ctx context.Context, apiCall *kyvernov1.AP
 
 	var reader io.Reader = resp.Body
 	if a.config.maxAPICallResponseLength != 0 {
-		reader = io.LimitReader(resp.Body, a.config.maxAPICallResponseLength+1)
+		limit := a.config.maxAPICallResponseLength
+		if limit < math.MaxInt64 {
+			limit++
+		}
+		reader = io.LimitReader(resp.Body, limit)
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		b, err := io.ReadAll(reader)
+		if a.config.maxAPICallResponseLength != 0 && int64(len(b)) > a.config.maxAPICallResponseLength {
+			return nil, fmt.Errorf("response length must be less than max allowed response length of %d", a.config.maxAPICallResponseLength)
+		}
 		if err == nil {
 			return nil, fmt.Errorf("HTTP %s: %s", resp.Status, string(b))
 		}
