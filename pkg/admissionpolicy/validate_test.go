@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -337,6 +338,7 @@ func Test_VAPWithoutClientMatchConstraints(t *testing.T) {
 		name        string
 		rawResource string
 		wantRules   int
+		wantStatus  engineapi.RuleStatus
 	}{
 		{
 			name: "matching deployment",
@@ -348,7 +350,8 @@ func Test_VAPWithoutClientMatchConstraints(t *testing.T) {
 					"namespace": "default"
 				}
 			}`,
-			wantRules: 1,
+			wantRules:  1,
+			wantStatus: engineapi.RuleStatusFail,
 		},
 		{
 			name: "non-matching service",
@@ -360,7 +363,8 @@ func Test_VAPWithoutClientMatchConstraints(t *testing.T) {
 					"namespace": "default"
 				}
 			}`,
-			wantRules: 0,
+			wantRules:  1,
+			wantStatus: engineapi.RuleStatusSkip,
 		},
 		{
 			name: "non-matching configmap",
@@ -372,7 +376,8 @@ func Test_VAPWithoutClientMatchConstraints(t *testing.T) {
 					"namespace": "default"
 				}
 			}`,
-			wantRules: 0,
+			wantRules:  1,
+			wantStatus: engineapi.RuleStatusSkip,
 		},
 	}
 
@@ -399,6 +404,7 @@ func Test_VAPWithoutClientMatchConstraints(t *testing.T) {
 			response, err := processVAPWithoutClient(policy, []admissionregistrationv1.ValidatingAdmissionPolicyBinding{binding}, *resource, namespace, nil, a, tt.name)
 			assert.NilError(t, err)
 			assert.Equal(t, len(response.PolicyResponse.Rules), tt.wantRules)
+			assert.Equal(t, response.PolicyResponse.Rules[0].Status(), tt.wantStatus)
 		})
 	}
 }
