@@ -17,6 +17,7 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	logger.V(2).Info("setup registry client...")
 	ms := &multiLister{
+		client:     client,
 		listersMap: make(map[string]corev1listers.SecretLister),
 	}
 	addListerForNamespace := func(ns string) {
