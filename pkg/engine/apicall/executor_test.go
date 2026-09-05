@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -198,6 +199,47 @@ func Test_ExecuteServiceCall_WithinMaxResponseLength(t *testing.T) {
 	data, err := executor.Execute(context.TODO(), call)
 	assert.NilError(t, err)
 	assert.Equal(t, string(data), "12345")
+}
+
+func Test_ExecuteServiceCall_MaxResponseLengthExceededOnErrorResponse(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("12345678901234567890"))
+	}))
+	defer s.Close()
+
+	config := NewAPICallConfiguration(10, 0)
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, config)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.ErrorContains(t, err, "response length must be less than max allowed response length of 10")
+}
+
+func Test_ExecuteServiceCall_MaxInt64ResponseLengthDoesNotOverflow(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("1"))
+	}))
+	defer s.Close()
+
+	config := NewAPICallConfiguration(math.MaxInt64, 0)
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, config)
+	call := &kyvernov1.APICall{
+		Method: "GET",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	data, err := executor.Execute(context.TODO(), call)
+	assert.NilError(t, err)
+	assert.Equal(t, string(data), "1")
 }
 
 // Helper function to check if string contains substring
