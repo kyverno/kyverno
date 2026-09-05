@@ -283,6 +283,39 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			},
 		},
 		{
+			name:        "autogen preserves object.metadata.name in messageExpression",
+			controllers: sets.New("deployments"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [
+								""
+							],
+							"apiVersions": [
+								"v1"
+							],
+							"operations": [
+								"CREATE",
+								"UPDATE"
+							],
+							"resources": [
+								"pods"
+							]
+						}
+					]
+				},
+				"variables": [
+					{
+						"name": "violatingContainers",
+						"expression": "object.spec.containers.filter(c, !c.image.contains(':'))"
+					}
+				],
+				"validations": [
+					{
+						"expression": "variables.violatingContainers.size() == 0",
+						"message": "Don't do this",
+						"messageExpression": "\"Container \" + variables.violatingContainers.map(c, c.name).join(\", \") + \" in \" + object.kind + \" \" + object.metadata.name + \" is attempting to use a mutable image tag, which is not allowed.\""
 			name:        "autogen rule for deployments with namespace selector",
 			controllers: sets.New("deployments"),
 			policySpec: []byte(`{
@@ -335,6 +368,17 @@ func TestGenerateRuleForControllers(t *testing.T) {
 								},
 							},
 						},
+						Variables: []admissionregistrationv1.Variable{
+							{
+								Name:       "violatingContainers",
+								Expression: "object.spec.template.spec.containers.filter(c, !c.image.contains(':'))",
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression:        "variables.violatingContainers.size() == 0",
+								Message:           "Don't do this",
+								MessageExpression: "\"Container \" + variables.violatingContainers.map(c, c.name).join(\", \") + \" in \" + object.kind + \" \" + object.metadata.name + \" is attempting to use a mutable image tag, which is not allowed.\"",
 						Validations: []admissionregistrationv1.Validation{
 							{
 								Expression: "object.spec.template.spec.containers.all(container, has(container.securityContext) && has(container.securityContext.allowPrivilegeEscalation) && container.securityContext.allowPrivilegeEscalation == false)",
