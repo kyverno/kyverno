@@ -195,7 +195,7 @@ func TestGetGpolTriggers_SubresourceTrigger(t *testing.T) {
 					Rule: admissionregistrationv1.Rule{
 						APIGroups:   []string{""},
 						APIVersions: []string{"v1"},
-						Resources:   []string{"pods", "pods/status"},
+						Resources:   []string{"pods/status"},
 					},
 				},
 			},
@@ -203,7 +203,7 @@ func TestGetGpolTriggers_SubresourceTrigger(t *testing.T) {
 	}
 
 	triggers := pc.getGpolTriggers(match)
-	assert.NotEmpty(t, triggers)
+	assert.Len(t, triggers, 1)
 }
 
 func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
