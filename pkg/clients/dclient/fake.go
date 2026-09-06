@@ -8,6 +8,7 @@ import (
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -255,6 +256,10 @@ func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 }
 
 func (c *fakeDiscoveryClient) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
+	return nil
+}
+
+func (c *fakeDiscoveryClient) RESTMapper() meta.RESTMapper {
 	return nil
 }
 
