@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -138,6 +139,10 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 	for _, rule := range match.ResourceRules {
 		for _, group := range rule.APIGroups {
 			for _, resource := range rule.Resources {
+				baseResource := resource
+				if idx := strings.IndexByte(resource, '/'); idx != -1 {
+					baseResource = resource[:idx]
+				}
 				versions := rule.APIVersions
 				// RESTMapper does not support wildcard versions ("*"). When a wildcard is used,
 				// resolve it to a concrete version (the RESTMapper will pick the preferred version)
@@ -146,11 +151,11 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 					gvk, err := pc.restMapper.KindFor(
 						schema.GroupVersionResource{
 							Group:    group,
-							Resource: resource,
+							Resource: baseResource,
 						},
 					)
 					if err != nil {
-						pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", resource)
+						pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", baseResource)
 						continue
 					}
 					versions = []string{gvk.Version}
@@ -161,7 +166,8 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						Version: version,
 					}
 					gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-					gvk, err := pc.restMapper.KindFor(gvr)
+					baseGVR := schema.GroupVersionResource{Group: group, Version: version, Resource: baseResource}
+					gvk, err := pc.restMapper.KindFor(baseGVR)
 					if err != nil {
 						pc.log.Error(err, "mapping gvr to gvk failed", "gvr", gvr)
 						continue
