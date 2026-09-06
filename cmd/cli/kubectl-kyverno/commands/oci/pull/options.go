@@ -100,7 +100,7 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 	if err != nil {
 		return fmt.Errorf("reading layer blob: %v", err)
 	}
-	policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(layerBytes)
+	policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(layerBytes) //nolint:dogsled // GetPolicy returns 7 policy-kind slices; only ClusterPolicy/Policy results are relevant here
 	if err != nil {
 		return fmt.Errorf("unmarshaling layer blob: %v", err)
 	}
