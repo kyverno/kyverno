@@ -211,6 +211,7 @@ metadata:
     app.kubernetes.io/version: latest
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -2830,6 +2831,7 @@ metadata:
     app.kubernetes.io/version: latest
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -5449,6 +5451,7 @@ metadata:
     app.kubernetes.io/version: latest
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -26600,6 +26603,7 @@ metadata:
     app.kubernetes.io/version: latest
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -46970,6 +46974,7 @@ metadata:
     app.kubernetes.io/version: latest
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
