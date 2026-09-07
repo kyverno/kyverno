@@ -161,3 +161,59 @@ func TestCreateFakeClientFromResources_ResourceDataPreserved(t *testing.T) {
 	assert.Equal(t, "production", gotData["environment"])
 	assert.Equal(t, "3", gotData["replicas"])
 }
+
+func TestCreateFakeClientFromResources_ListObject(t *testing.T) {
+	listObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items": []interface{}{
+				map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "cm-in-list",
+						"namespace": "default",
+					},
+					"data": map[string]interface{}{
+						"key": "value",
+					},
+				},
+				map[string]interface{}{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata": map[string]interface{}{
+						"name":      "deploy-in-list",
+						"namespace": "default",
+					},
+				},
+			},
+		},
+	}
+
+	client, err := createFakeClientFromResources([]*unstructured.Unstructured{listObj}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	cm, err := client.GetResource(context.Background(), "v1", "ConfigMap", "default", "cm-in-list")
+	require.NoError(t, err)
+	assert.Equal(t, "cm-in-list", cm.GetName())
+
+	deploy, err := client.GetResource(context.Background(), "apps/v1", "Deployment", "default", "deploy-in-list")
+	require.NoError(t, err)
+	assert.Equal(t, "deploy-in-list", deploy.GetName())
+}
+
+func TestCreateFakeClientFromResources_EmptyList(t *testing.T) {
+	listObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items":      []interface{}{},
+		},
+	}
+
+	client, err := createFakeClientFromResources([]*unstructured.Unstructured{listObj}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+}
