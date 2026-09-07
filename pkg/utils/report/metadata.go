@@ -79,13 +79,13 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 		}
 		return LabelPrefixClusterPolicy
 	}
-	if policy.AsValidatingPolicy() != nil {
+	if policy.AsValidatingPolicyLike() != nil {
 		return LabelPrefixValidatingPolicy
 	}
-	if policy.AsImageValidatingPolicy() != nil {
+	if policy.AsImageValidatingPolicyLike() != nil {
 		return LabelPrefixImageValidatingPolicy
 	}
-	if policy.AsGeneratingPolicy() != nil {
+	if policy.AsGeneratingPolicyLike() != nil {
 		return LabelPrefixGeneratingPolicy
 	}
 	if policy.AsMutatingPolicyLike() != nil {
