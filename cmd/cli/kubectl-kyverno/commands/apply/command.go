@@ -1335,11 +1335,44 @@ func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
 }
 
+func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	var results []*unstructured.Unstructured
+	for _, r := range resources {
+		if r == nil {
+			continue
+		}
+		if r.IsList() {
+			list, err := r.ToList()
+			if err != nil {
+				return nil, err
+			}
+			items := make([]*unstructured.Unstructured, 0, len(list.Items))
+			for i := range list.Items {
+				items = append(items, &list.Items[i])
+			}
+			flat, err := flattenResources(items)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, flat...)
+		} else if r.GetKind() != "List" {
+			results = append(results, r)
+		}
+	}
+	return results, nil
+}
+
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
 	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
 	allResources = append(allResources, resources...)
 	allResources = append(allResources, targetResources...)
 	allResources = append(allResources, parameterResources...)
+
+	flatResources, err := flattenResources(allResources)
+	if err != nil {
+		return nil, err
+	}
+	allResources = flatResources
 
 	gvrToListKind := make(map[schema.GroupVersionResource]string)
 	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from
