@@ -62,6 +62,25 @@ kind: List
 	resources, err = GetUnstructuredResources(yamlDataNoItems)
 	require.NoError(t, err)
 	assert.Empty(t, resources)
+
+	// Typed list without items field
+	yamlDataTypedNoItems := []byte(`
+apiVersion: v1
+kind: PodList
+`)
+	resources, err = GetUnstructuredResources(yamlDataTypedNoItems)
+	require.NoError(t, err)
+	assert.Empty(t, resources)
+
+	// Typed list with empty items slice
+	yamlDataTypedEmpty := []byte(`
+apiVersion: v1
+kind: PodList
+items: []
+`)
+	resources, err = GetUnstructuredResources(yamlDataTypedEmpty)
+	require.NoError(t, err)
+	assert.Empty(t, resources)
 }
 
 func TestGetUnstructuredResources_TypedList(t *testing.T) {
@@ -74,11 +93,14 @@ items:
     namespace: test-ns
 - metadata:
     name: pod-2
+- kind: Pod
+  metadata:
+    name: pod-with-kind-only
 `)
 
 	resources, err := GetUnstructuredResources(yamlData)
 	require.NoError(t, err)
-	require.Len(t, resources, 2)
+	require.Len(t, resources, 3)
 
 	assert.Equal(t, "Pod", resources[0].GetKind())
 	assert.Equal(t, "v1", resources[0].GetAPIVersion())
@@ -89,6 +111,11 @@ items:
 	assert.Equal(t, "v1", resources[1].GetAPIVersion())
 	assert.Equal(t, "pod-2", resources[1].GetName())
 	assert.Equal(t, "default", resources[1].GetNamespace())
+
+	assert.Equal(t, "Pod", resources[2].GetKind())
+	assert.Equal(t, "v1", resources[2].GetAPIVersion(), "should inherit parent apiVersion when kind is explicitly set")
+	assert.Equal(t, "pod-with-kind-only", resources[2].GetName())
+	assert.Equal(t, "default", resources[2].GetNamespace())
 }
 
 func TestGetUnstructuredResources_NestedList(t *testing.T) {
