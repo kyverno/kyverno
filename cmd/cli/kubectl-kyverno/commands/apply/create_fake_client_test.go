@@ -216,4 +216,27 @@ func TestCreateFakeClientFromResources_EmptyList(t *testing.T) {
 	client, err := createFakeClientFromResources([]*unstructured.Unstructured{listObj}, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, client)
+
+	// Typed list with empty items slice
+	typedListObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "PodList",
+			"items":      []interface{}{},
+		},
+	}
+	client, err = createFakeClientFromResources([]*unstructured.Unstructured{typedListObj}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	// Typed list without items field
+	typedListNoItems := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "PodList",
+		},
+	}
+	client, err = createFakeClientFromResources([]*unstructured.Unstructured{typedListNoItems}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
 }

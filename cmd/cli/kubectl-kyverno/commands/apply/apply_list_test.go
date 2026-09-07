@@ -27,7 +27,7 @@ spec:
         any:
           - resources:
               kinds:
-                - Pod
+                - Service
       validate:
         message: The label is required.
         pattern:
@@ -82,4 +82,5 @@ items:
 	require.NotNil(t, rc)
 	assert.Empty(t, skipped.invalid)
 	require.Len(t, resources, 2)
+	assert.Equal(t, 1, rc.Fail, "Service should fail validation for missing testlabel")
 }
