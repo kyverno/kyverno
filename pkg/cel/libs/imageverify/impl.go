@@ -41,7 +41,7 @@ type ivfuncs struct {
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
 	attestationList map[string]v1beta1.Attestation
-	cosignVerifier  *cosign.Verifier
+	cosignVerifier  cosignImageVerifier
 	notaryVerifier  *notary.Verifier
 	ivCache         imageverifycache.Client
 	authOpts        []remote.Option
@@ -61,6 +61,13 @@ type ivfuncs struct {
 	// never completes the write -- so it would never get a real cache hit
 	// again, defeating caching entirely for that common case.
 	pendingIntotoRestores map[string]map[string][]byte
+}
+
+// cosignImageVerifier is the subset of the cosign verifier used here, as an
+// interface so tests can inject a fake for the setup-error path.
+type cosignImageVerifier interface {
+	VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *v1beta1.Attestor) error
+	VerifyAttestationSignature(ctx context.Context, image *imagedataloader.ImageData, attestation *v1beta1.Attestation, attestor *v1beta1.Attestor) error
 }
 
 func ImageVerifyCELFuncs(
@@ -176,6 +183,9 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+					if cosign.IsSetup(err) {
+						return types.NewErr("failed to verify image signature: %v", err)
+					}
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "cosign", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "cosign")
@@ -272,6 +282,11 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
+					// Setup errors mean verification could not run at all;
+					// surface them as evaluation errors so failurePolicy applies.
+					if cosign.IsSetup(err) {
+						return types.NewErr("attestation signature verification failed for %s (%s): %v", image, attestation, err)
+					}
 					f.logger.V(6).Info("attestation signature verification failed", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign", "error", err)
 				} else {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")

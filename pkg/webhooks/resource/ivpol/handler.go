@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -113,7 +114,7 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 	group.Start(func() {
 		h.audit(ctx, logger, admissionRequest, request, response)
 	})
-	return h.validationResponse(request, response)
+	return h.validationResponse(ctx, request, response)
 }
 
 func (h *handler) mutationResponse(request celengine.EngineRequest, response eval.ImageVerifyEngineResponse, rawPatches []byte) handlers.AdmissionResponse {
@@ -171,16 +172,27 @@ func (h *handler) mutationEvents(ctx context.Context, response eval.ImageVerifyE
 	h.admissionEvent(ctx, responses, blocked)
 }
 
-func (h *handler) validationResponse(request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) handlers.AdmissionResponse {
+func (h *handler) validationResponse(ctx context.Context, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) handlers.AdmissionResponse {
+	forceFailurePolicyIgnore := toggle.FromContext(ctx).ForceFailurePolicyIgnore()
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
+		// errorWarned prevents the Warn branch from emitting a duplicate warning
+		// for a RuleStatusError already warned under Deny.
+		errorWarned := false
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
 			switch policy.Result.Status() {
 			case engineapi.RuleStatusFail:
 				errs = append(errs, fmt.Errorf("Policy %s failed: %s", policy.Policy.GetName(), policy.Result.Message()))
 			case engineapi.RuleStatusError:
-				errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				// Evaluation errors honor failurePolicy: warn and admit under
+				// Ignore, deny under Fail.
+				if policy.Policy.GetFailurePolicy(forceFailurePolicyIgnore) == admissionregistrationv1.Ignore {
+					warnings = append(warnings, fmt.Sprintf("Policy %s error (ignored by failurePolicy): %s", policy.Policy.GetName(), policy.Result.Message()))
+					errorWarned = true
+				} else {
+					errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				}
 			}
 		}
 		if policy.Actions.Has(admissionregistrationv1.Warn) {
@@ -188,7 +200,9 @@ func (h *handler) validationResponse(request celengine.EngineRequest, response e
 			case engineapi.RuleStatusFail:
 				warnings = append(warnings, fmt.Sprintf("Policy %s failed: %s", policy.Policy.GetName(), policy.Result.Message()))
 			case engineapi.RuleStatusError:
-				warnings = append(warnings, fmt.Sprintf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				if !errorWarned {
+					warnings = append(warnings, fmt.Sprintf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				}
 			}
 		}
 	}
