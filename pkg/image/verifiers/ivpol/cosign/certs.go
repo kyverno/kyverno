@@ -5,11 +5,13 @@ import (
 	"crypto"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 )
 
 var signatureAlgorithmMap = map[string]crypto.Hash{
@@ -86,16 +88,28 @@ func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, 
 	return signature.LoadVerifier(pubKey, signatureAlgorithm)
 }
 
-// this is the equivalent of checkAnnotations in the cpol
+// checkSignatureAnnotations verifies the required annotations against the
+// optional annotations carried in the cosign signature payload. cosign
+// populates the payload's "optional" map via `cosign sign -a`, so this matches
+// the semantics of the ClusterPolicy cosign verifier's checkAnnotations. The
+// previous implementation compared against the signature's OCI descriptor
+// annotations (oci.Signature.Annotations()), which are a different concept and
+// are not populated by `cosign sign -a`.
 func checkSignatureAnnotations(sig oci.Signature, annotations map[string]string) error {
-	sigAnnotations, err := sig.Annotations()
+	pld, err := sig.Payload()
 	if err != nil {
-		return fmt.Errorf("failed to fetch annotation from signature")
+		return fmt.Errorf("failed to get signature payload: %w", err)
 	}
+
+	sci := payload.SimpleContainerImage{}
+	if err := json.Unmarshal(pld, &sci); err != nil {
+		return fmt.Errorf("failed to decode signature payload: %w", err)
+	}
+
 	for key, val := range annotations {
-		if val != sigAnnotations[key] {
+		if val != sci.Optional[key] {
 			return fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
-				sigAnnotations[key], val, key)
+				sci.Optional[key], val, key)
 		}
 	}
 	return nil
