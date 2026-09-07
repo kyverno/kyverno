@@ -196,3 +196,20 @@ items:
 	assert.Equal(t, "ClusterRole", resources[0].GetKind())
 	assert.Empty(t, resources[0].GetNamespace())
 }
+
+func TestGetUnstructuredResources_NonListWithItems(t *testing.T) {
+	yamlData := []byte(`
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: test-widget
+items:
+- foo: bar
+- baz: qux
+`)
+	resources, err := GetUnstructuredResources(yamlData)
+	require.NoError(t, err)
+	require.Len(t, resources, 1)
+	assert.Equal(t, "Widget", resources[0].GetKind())
+	assert.Equal(t, "test-widget", resources[0].GetName())
+}
