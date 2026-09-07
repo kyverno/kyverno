@@ -175,3 +175,24 @@ items:
 	assert.Equal(t, "cm-explicit", resources[1].GetName())
 	assert.Equal(t, "explicit-ns", resources[1].GetNamespace())
 }
+
+func TestExpandIfList_NilAndClusterScoped(t *testing.T) {
+	res, err := expandIfList(nil)
+	require.NoError(t, err)
+	assert.Nil(t, res)
+
+	yamlData := []byte(`
+apiVersion: v1
+kind: List
+items:
+- apiVersion: rbac.authorization.k8s.io/v1
+  kind: ClusterRole
+  metadata:
+    name: test-clusterrole
+`)
+	resources, err := GetUnstructuredResources(yamlData)
+	require.NoError(t, err)
+	require.Len(t, resources, 1)
+	assert.Equal(t, "ClusterRole", resources[0].GetKind())
+	assert.Empty(t, resources[0].GetNamespace())
+}
