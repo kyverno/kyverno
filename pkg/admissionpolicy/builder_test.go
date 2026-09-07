@@ -81,7 +81,7 @@ func TestBuildMutatingAdmissionPolicyBeta(t *testing.T) {
 		},
 	}
 
-	BuildMutatingAdmissionPolicyBeta(mapol, mp, exceptions)
+	BuildMutatingAdmissionPolicyBeta(mapol, mp, exceptions, nil)
 
 	// Verify owner reference
 	assert.Len(t, mapol.OwnerReferences, 1)
@@ -147,7 +147,7 @@ func TestBuildMutatingAdmissionPolicyV1(t *testing.T) {
 
 	mapol := &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-test-mpol"}}
 
-	BuildMutatingAdmissionPolicyV1(mapol, mp, nil)
+	BuildMutatingAdmissionPolicyV1(mapol, mp, nil, nil)
 
 	assert.Len(t, mapol.OwnerReferences, 1)
 	assert.Equal(t, mp.GetName(), mapol.OwnerReferences[0].Name)
@@ -167,7 +167,7 @@ func TestBuildMutatingAdmissionPolicyBindingV1(t *testing.T) {
 	mp := &policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "test-mpol", UID: "test-uid"}}
 	mapbinding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "mpol-test-mpol-binding"}}
 
-	BuildMutatingAdmissionPolicyBindingV1(mapbinding, mp)
+	BuildMutatingAdmissionPolicyBindingV1(mapbinding, mp, "mpol-test-mpol")
 
 	assert.Len(t, mapbinding.OwnerReferences, 1)
 	assert.Equal(t, mp.GetName(), mapbinding.OwnerReferences[0].Name)
@@ -189,7 +189,7 @@ func TestBuildMutatingAdmissionPolicyBindingBeta(t *testing.T) {
 		},
 	}
 
-	BuildMutatingAdmissionPolicyBindingBeta(mapbinding, mp)
+	BuildMutatingAdmissionPolicyBindingBeta(mapbinding, mp, "mpol-test-mpol")
 
 	// Verify owner reference
 	assert.Len(t, mapbinding.OwnerReferences, 1)
@@ -235,7 +235,7 @@ func TestBuildMutatingAdmissionPolicyBeta_WithFailurePolicy(t *testing.T) {
 		},
 	}
 
-	BuildMutatingAdmissionPolicyBeta(mapol, mp, nil)
+	BuildMutatingAdmissionPolicyBeta(mapol, mp, nil, nil)
 
 	// Verify failure policy
 	assert.NotNil(t, mapol.Spec.FailurePolicy)
@@ -276,7 +276,7 @@ func TestBuildMutatingAdmissionPolicyBeta_MutationTypeConversion(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},
 	}
 
-	BuildMutatingAdmissionPolicyBeta(mapol, mp, nil)
+	BuildMutatingAdmissionPolicyBeta(mapol, mp, nil, nil)
 
 	assert.Len(t, mapol.Spec.Mutations, 1)
 	assert.Equal(t, admissionregistrationv1beta1.PatchTypeApplyConfiguration, mapol.Spec.Mutations[0].PatchType)
@@ -316,7 +316,7 @@ func TestBuildMutatingAdmissionPolicyBeta_MutationTypeConversion(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test2"},
 	}
 
-	BuildMutatingAdmissionPolicyBeta(mapol2, mp2, nil)
+	BuildMutatingAdmissionPolicyBeta(mapol2, mp2, nil, nil)
 
 	assert.Len(t, mapol2.Spec.Mutations, 1)
 	assert.Equal(t, admissionregistrationv1beta1.PatchTypeJSONPatch, mapol2.Spec.Mutations[0].PatchType)
