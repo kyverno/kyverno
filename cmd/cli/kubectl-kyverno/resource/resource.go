@@ -52,8 +52,10 @@ func expandIfList(res *unstructured.Unstructured) ([]*unstructured.Unstructured,
 		var results []*unstructured.Unstructured
 		for i := range list.Items {
 			item := &list.Items[i]
-			if item.GetKind() == "" && strings.HasSuffix(res.GetKind(), "List") && res.GetKind() != "List" {
-				item.SetKind(strings.TrimSuffix(res.GetKind(), "List"))
+			if strings.HasSuffix(res.GetKind(), "List") && res.GetKind() != "List" {
+				if item.GetKind() == "" {
+					item.SetKind(strings.TrimSuffix(res.GetKind(), "List"))
+				}
 				if item.GetAPIVersion() == "" {
 					item.SetAPIVersion(res.GetAPIVersion())
 				}
@@ -74,7 +76,7 @@ func expandIfList(res *unstructured.Unstructured) ([]*unstructured.Unstructured,
 		}
 		return results, nil
 	}
-	if res.GetKind() == "List" {
+	if res.GetKind() == "List" || strings.HasSuffix(res.GetKind(), "List") {
 		return nil, nil
 	}
 	return []*unstructured.Unstructured{res}, nil
