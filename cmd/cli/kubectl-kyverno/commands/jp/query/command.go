@@ -7,8 +7,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode/utf8"
 
 	gojmespath "github.com/kyverno/go-jmespath"
+	"github.com/mattn/go-runewidth"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -16,6 +19,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// Command creates the cobra.Command for the jp query subcommand.
 func Command() *cobra.Command {
 	var compact, unquoted bool
 	var input string
@@ -71,6 +75,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+// readFile reads all bytes from the provided io.Reader.
 func readFile(reader io.Reader) ([]byte, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
@@ -79,6 +84,7 @@ func readFile(reader io.Reader) ([]byte, error) {
 	return data, nil
 }
 
+// loadFile opens the given file and reads its content.
 func loadFile(cmd *cobra.Command, file string) ([]byte, error) {
 	reader, err := os.Open(filepath.Clean(file))
 	if err != nil {
@@ -96,6 +102,7 @@ func loadFile(cmd *cobra.Command, file string) ([]byte, error) {
 	return content, nil
 }
 
+// readQuery reads a JMESPath expression from the terminal input.
 func readQuery(cmd *cobra.Command) (string, error) {
 	fmt.Fprintln(cmd.OutOrStdout(), "Reading from terminal input.")
 	fmt.Fprintln(cmd.OutOrStdout(), "Enter a jmespath expression and hit Ctrl+D.")
@@ -106,6 +113,7 @@ func readQuery(cmd *cobra.Command) (string, error) {
 	return string(data), nil
 }
 
+// loadQueries aggregates queries from provided inline arguments and files.
 func loadQueries(cmd *cobra.Command, args []string, files []string) ([]string, error) {
 	queries := make([]string, 0, len(args))
 	queries = append(queries, args...)
@@ -119,6 +127,7 @@ func loadQueries(cmd *cobra.Command, args []string, files []string) ([]string, e
 	return queries, nil
 }
 
+// readInput reads JSON or YAML input from the terminal.
 func readInput(cmd *cobra.Command) (interface{}, error) {
 	fmt.Fprintln(cmd.OutOrStdout(), "Reading from terminal input.")
 	fmt.Fprintln(cmd.OutOrStdout(), "Enter input object and hit Ctrl+D.")
@@ -133,6 +142,7 @@ func readInput(cmd *cobra.Command) (interface{}, error) {
 	return input, nil
 }
 
+// loadInput loads JSON or YAML input from the specified file.
 func loadInput(cmd *cobra.Command, file string) (interface{}, error) {
 	if file == "" {
 		return nil, nil
@@ -148,22 +158,72 @@ func loadInput(cmd *cobra.Command, file string) (interface{}, error) {
 	return input, nil
 }
 
+// formatSyntaxError formats a gojmespath.SyntaxError with a column-aware caret marker.
+// It ensures that the caret position aligns correctly with the syntax error column,
+// even when the expression contains multi-byte Unicode characters.
+func formatSyntaxError(e gojmespath.SyntaxError) string {
+	expr := e.Expression
+	offset := e.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > len(expr) {
+		offset = len(expr)
+	}
+
+	var currentOffset int
+	for currentOffset < len(expr) {
+		_, size := utf8.DecodeRuneInString(expr[currentOffset:])
+		if currentOffset+size > offset {
+			offset = currentOffset
+			break
+		}
+		currentOffset += size
+		if currentOffset == offset {
+			break
+		}
+	}
+
+	lines := strings.Split(expr, "\n")
+	lineOffset := 0
+	targetLine := ""
+	columnPrefix := ""
+
+	for _, line := range lines {
+		lineLen := len(line)
+		if lineOffset+lineLen >= offset {
+			targetLine = line
+			columnPrefix = line[:offset-lineOffset]
+			break
+		}
+		lineOffset += lineLen + 1
+	}
+
+	column := runewidth.StringWidth(columnPrefix)
+	return fmt.Sprintf("%s\n%s^", targetLine, strings.Repeat(" ", column))
+}
+
+// evaluate compiles the given JMESPath query and searches the input, returning the result or a formatted error.
 func evaluate(input interface{}, query string) (interface{}, error) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 	q, err := jp.Query(query)
 	if err != nil {
+		if syntaxError, ok := err.(gojmespath.SyntaxError); ok {
+			return nil, fmt.Errorf("%s\n%s", syntaxError, formatSyntaxError(syntaxError))
+		}
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
 	}
 	result, err := q.Search(input)
 	if err != nil {
 		if syntaxError, ok := err.(gojmespath.SyntaxError); ok {
-			return nil, fmt.Errorf("%s\n%s", syntaxError, syntaxError.HighlightLocation())
+			return nil, fmt.Errorf("%s\n%s", syntaxError, formatSyntaxError(syntaxError))
 		}
 		return nil, fmt.Errorf("error evaluating JMESPath expression: %w", err)
 	}
 	return result, nil
 }
 
+// printResult outputs the evaluated JMESPath query result in the requested format.
 func printResult(cmd *cobra.Command, query string, result interface{}, unquoted bool, compact bool) error {
 	converted, isString := result.(string)
 	fmt.Fprintln(cmd.OutOrStdout(), "#", query)
