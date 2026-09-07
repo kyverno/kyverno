@@ -240,3 +240,39 @@ func TestCreateFakeClientFromResources_EmptyList(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, client)
 }
+
+func TestFlattenResources_NilAndNested(t *testing.T) {
+	res, err := flattenResources(nil)
+	require.NoError(t, err)
+	assert.Nil(t, res)
+
+	cm := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name": "cm-nested",
+			},
+		},
+	}
+	nestedList := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items": []interface{}{
+				map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "List",
+					"items": []interface{}{
+						cm.Object,
+					},
+				},
+			},
+		},
+	}
+
+	flat, err := flattenResources([]*unstructured.Unstructured{nil, nestedList})
+	require.NoError(t, err)
+	require.Len(t, flat, 1)
+	assert.Equal(t, "cm-nested", flat[0].GetName())
+}
