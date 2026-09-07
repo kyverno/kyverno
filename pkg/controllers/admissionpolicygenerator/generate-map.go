@@ -22,9 +22,12 @@ import (
 
 // mapVariant is one desired MutatingAdmissionPolicy for a policy: either the base (unmodified)
 // policy, or the rewritten rule for one autogen group (e.g. "defaults", "cronjobs").
-// specOverride is nil for the base variant.
+// group/specOverride are "" / nil for the base variant. group is also needed (independent of
+// specOverride) to correctly rewrite any PolicyException embedded into this variant - see
+// BuildMutatingAdmissionPolicy's group parameter.
 type mapVariant struct {
 	name         string
+	group        string
 	specOverride *policiesv1beta1.MutatingPolicySpec
 }
 
@@ -39,7 +42,7 @@ func desiredMAPVariants(mpol *policiesv1beta1.MutatingPolicy, baseName string) (
 			skippedGroups = append(skippedGroups, group)
 			continue
 		}
-		variants = append(variants, mapVariant{name: baseName + "-" + group, specOverride: configs[group].Spec})
+		variants = append(variants, mapVariant{name: baseName + "-" + group, group: group, specOverride: configs[group].Spec})
 	}
 	return variants, skippedGroups
 }
@@ -184,13 +187,13 @@ func (c *controller) applyMAPV1(ctx context.Context, variant mapVariant, mpol *p
 	}
 
 	if observedMAP.ResourceVersion == "" {
-		admissionpolicy.BuildMutatingAdmissionPolicyV1(observedMAP, mpol, celexceptions, variant.specOverride)
+		admissionpolicy.BuildMutatingAdmissionPolicyV1(observedMAP, mpol, celexceptions, variant.group, variant.specOverride)
 		if _, err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", variant.name, err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAP, c.client.AdmissionregistrationV1().MutatingAdmissionPolicies(), func(observed *admissionregistrationv1.MutatingAdmissionPolicy) error {
-			admissionpolicy.BuildMutatingAdmissionPolicyV1(observed, mpol, celexceptions, variant.specOverride)
+			admissionpolicy.BuildMutatingAdmissionPolicyV1(observed, mpol, celexceptions, variant.group, variant.specOverride)
 			return nil
 		}); err != nil {
 			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %v", variant.name, err)
@@ -232,14 +235,14 @@ func (c *controller) applyMAPAlpha(ctx context.Context, variant mapVariant, mpol
 	}
 
 	if observedMAP.ResourceVersion == "" {
-		admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol, celexceptions, variant.specOverride)
+		admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol, celexceptions, variant.group, variant.specOverride)
 		if _, err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", variant.name, err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAP, c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1alpha1.MutatingAdmissionPolicy) error {
-				admissionpolicy.BuildMutatingAdmissionPolicy(observed, mpol, celexceptions, variant.specOverride)
+				admissionpolicy.BuildMutatingAdmissionPolicy(observed, mpol, celexceptions, variant.group, variant.specOverride)
 				return nil
 			}); err != nil {
 			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %v", variant.name, err)
@@ -282,14 +285,14 @@ func (c *controller) applyMAPBeta(ctx context.Context, variant mapVariant, mpol 
 	}
 
 	if observedMAP.ResourceVersion == "" {
-		admissionpolicy.BuildMutatingAdmissionPolicyBeta(observedMAP, mpol, celexceptions, variant.specOverride)
+		admissionpolicy.BuildMutatingAdmissionPolicyBeta(observedMAP, mpol, celexceptions, variant.group, variant.specOverride)
 		if _, err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", variant.name, err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAP, c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1beta1.MutatingAdmissionPolicy) error {
-				admissionpolicy.BuildMutatingAdmissionPolicyBeta(observed, mpol, celexceptions, variant.specOverride)
+				admissionpolicy.BuildMutatingAdmissionPolicyBeta(observed, mpol, celexceptions, variant.group, variant.specOverride)
 				return nil
 			}); err != nil {
 			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %v", variant.name, err)

@@ -21,9 +21,12 @@ import (
 
 // vapVariant is one desired ValidatingAdmissionPolicy for a policy: either the base
 // (unmodified) policy, or the rewritten rule for one autogen group (e.g. "defaults",
-// "cronjobs"). specOverride is nil for the base variant.
+// "cronjobs"). group/specOverride are "" / nil for the base variant. group is also needed
+// (independent of specOverride) to correctly rewrite any PolicyException embedded into this
+// variant - see BuildValidatingAdmissionPolicy's group parameter.
 type vapVariant struct {
 	name         string
+	group        string
 	specOverride *policiesv1beta1.ValidatingPolicySpec
 }
 
@@ -41,7 +44,7 @@ func desiredVAPVariants(vpol *policiesv1beta1.ValidatingPolicy, baseName string)
 			skippedGroups = append(skippedGroups, group)
 			continue
 		}
-		variants = append(variants, vapVariant{name: baseName + "-" + group, specOverride: configs[group].Spec})
+		variants = append(variants, vapVariant{name: baseName + "-" + group, group: group, specOverride: configs[group].Spec})
 	}
 	return variants, skippedGroups
 }
@@ -209,7 +212,7 @@ func (c *controller) applyVAP(
 	}
 
 	if observedVAP.ResourceVersion == "" {
-		if err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions, variant.specOverride); err != nil {
+		if err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions, variant.group, variant.specOverride); err != nil {
 			return fmt.Errorf("failed to build validatingadmissionpolicy %s: %v", variant.name, err)
 		}
 		if _, err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{}); err != nil {
@@ -221,7 +224,7 @@ func (c *controller) applyVAP(
 			observedVAP,
 			c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies(),
 			func(observed *admissionregistrationv1.ValidatingAdmissionPolicy) error {
-				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, genericExceptions, variant.specOverride)
+				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, genericExceptions, variant.group, variant.specOverride)
 			}); err != nil {
 			return fmt.Errorf("failed to update validatingadmissionpolicy %s: %v", variant.name, err)
 		}

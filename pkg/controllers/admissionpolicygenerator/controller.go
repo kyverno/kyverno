@@ -293,17 +293,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 // no requeue (the reconcile still returns nil), leaving status.generated/the status message stale
 // indefinitely - exactly the kind of staleness that matters here now that generated/msg reflect a
 // real, user-visible distinction (fully native vs. partially webhook-covered autogen fan-out) and
-// not just a boolean toggle. Refetching via the lister on each attempt (rather than reusing the
-// first DeepCopy) is required for RetryOnConflict to make forward progress.
+// not just a boolean toggle. Each retry attempt re-fetches with a live client Get (not the
+// informer-backed lister): the lister's cache may not have observed the concurrent write that
+// caused the conflict yet, so refetching from the lister would just return the same stale
+// ResourceVersion on every attempt and fail identically each time, defeating the retry entirely.
 func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) {
 	if pol := policy.AsKyvernoPolicy(); pol != nil {
 		cpol := pol.(*kyvernov1.ClusterPolicy)
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			latest, err := c.cpolLister.Get(cpol.GetName())
+			latest, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, cpol.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
-			latest = latest.DeepCopy()
 			latest.Status.ValidatingAdmissionPolicy.Generated = generated
 			latest.Status.ValidatingAdmissionPolicy.Message = msg
 			_, err = c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
@@ -318,11 +319,10 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "generated", generated, "message", msg)
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			latest, err := c.vpolLister.Get(vpol.GetName())
+			latest, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, vpol.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
-			latest = latest.DeepCopy()
 			latest.Status.Generated = generated
 			latest.Status.GetConditionStatus().Message = msg
 			_, err = c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
@@ -337,11 +337,10 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "generated", generated, "message", msg)
 	} else if mpol := policy.AsMutatingPolicy(); mpol != nil {
 		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-			latest, err := c.mpolLister.Get(mpol.GetName())
+			latest, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.GetName(), metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
-			latest = latest.DeepCopy()
 			latest.Status.Generated = generated
 			latest.Status.GetConditionStatus().Message = msg
 			_, err = c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
