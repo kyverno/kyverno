@@ -276,3 +276,23 @@ func TestFlattenResources_NilAndNested(t *testing.T) {
 	require.Len(t, flat, 1)
 	assert.Equal(t, "cm-nested", flat[0].GetName())
 }
+
+func TestFlattenResources_NonListWithItems(t *testing.T) {
+	widget := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "Widget",
+			"metadata": map[string]interface{}{
+				"name": "widget-1",
+			},
+			"items": []interface{}{
+				map[string]interface{}{"foo": "bar"},
+			},
+		},
+	}
+	flat, err := flattenResources([]*unstructured.Unstructured{widget})
+	require.NoError(t, err)
+	require.Len(t, flat, 1)
+	assert.Equal(t, "Widget", flat[0].GetKind())
+	assert.Equal(t, "widget-1", flat[0].GetName())
+}

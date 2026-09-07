@@ -1364,7 +1364,8 @@ func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.U
 		if r == nil {
 			continue
 		}
-		if r.IsList() {
+		isListKind := r.GetKind() == "List" || strings.HasSuffix(r.GetKind(), "List")
+		if isListKind && r.IsList() {
 			list, err := r.ToList()
 			if err != nil {
 				return nil, err
@@ -1378,7 +1379,7 @@ func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.U
 				return nil, err
 			}
 			results = append(results, flat...)
-		} else if r.GetKind() != "List" && !strings.HasSuffix(r.GetKind(), "List") {
+		} else if !isListKind {
 			results = append(results, r)
 		}
 	}
