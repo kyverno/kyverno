@@ -26,12 +26,20 @@ func newRepository(remoteOpts []remote.Option, ref name.Reference) notationregis
 	}
 }
 
+// options binds the per-call context to the registry options. notation calls
+// every Repository method with the verification context, so the request's
+// deadline and cancellation have to reach the registry round trips; the
+// options captured at construction time carry whichever context built them.
+func (c *repositoryClient) options(ctx context.Context) []remote.Option {
+	return append(append([]remote.Option{}, c.remoteOpts...), remote.WithContext(ctx))
+}
+
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	nameRef, err := name.ParseReference(c.getReferenceFromDigest(reference))
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
-	head, err := remote.Head(nameRef, c.remoteOpts...)
+	head, err := remote.Head(nameRef, c.options(ctx)...)
 	if err != nil {
 		return ocispec.Descriptor{}, err
 	}
@@ -40,7 +48,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 }
 
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
-	referrers, err := remote.Referrers(c.ref.Context().Digest(desc.Digest.String()), c.remoteOpts...)
+	referrers, err := remote.Referrers(c.ref.Context().Digest(desc.Digest.String()), c.options(ctx)...)
 	if err != nil {
 		return err
 	}
@@ -71,7 +79,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 
-	remoteDesc, err := remote.Get(manifestRef, c.remoteOpts...)
+	remoteDesc, err := remote.Get(manifestRef, c.options(ctx)...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
@@ -97,7 +105,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	}
 
 	digest := signatureBlobRef.Identifier()
-	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(digest), c.remoteOpts...)
+	signatureBlobLayer, err := remote.Layer(signatureBlobRef.Context().Digest(digest), c.options(ctx)...)
 	if err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
