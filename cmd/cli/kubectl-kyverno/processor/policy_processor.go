@@ -1155,6 +1155,12 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 			rules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
 		}
 		constraints.ResourceRules = rules
+		// Clear namespace/object selectors — this predicate only checks resource
+		// rules. Selector evaluation is handled by engine.handlePolicy() which
+		// has the properly resolved namespace object. Passing nil here would
+		// cause policies with a namespaceSelector to be incorrectly rejected.
+		constraints.NamespaceSelector = nil
+		constraints.ObjectSelector = nil
 		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, nil)
 		if err != nil {
 			return false
