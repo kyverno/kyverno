@@ -19,12 +19,12 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/restmapper"
 )
 
 // CELGenerateController is used to process URs that are generated as a result of an event from the trigger resource.
@@ -64,8 +64,11 @@ func NewCELGenerateController(
 	log logr.Logger,
 	configuration config.Configuration,
 ) *CELGenerateController {
-	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
-	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	restMapper, err := restmapperutils.GetRESTMapper(client)
+	if err != nil || restMapper == nil {
+		log.Error(err, "failed to get RESTMapper, falling back to default mapper")
+		restMapper = meta.NewDefaultRESTMapper(nil)
+	}
 	return &CELGenerateController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
