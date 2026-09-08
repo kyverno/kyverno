@@ -74,30 +74,39 @@ func extract(
 			if filter != "" && keyPath == "" {
 				return fmt.Errorf("filter requires key to be set in imageExtractor config")
 			}
-			for idx, v := range typedObj {
-				if filter != "" && len(fields) == 1 {
-					elem, ok := v.(map[string]interface{})
-					if !ok {
-						continue
+			for i, v := range typedObj {
+				switch elem := v.(type) {
+				case map[string]interface{}:
+					if filter != "" && len(fields) == 1 {
+						if val, ok := elem[keyPath].(string); !ok || val != filter {
+							continue
+						}
 					}
-					if val, ok := elem[keyPath].(string); !ok || val != filter {
-						continue
+					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], jmesPath, filter, imageInfos, cfg, pullSecrets); err != nil {
+						return err
 					}
-				}
-				if err := extract(v, append(path, strconv.Itoa(idx)), keyPath, valuePath, fields[1:], jmesPath, filter, imageInfos, cfg, pullSecrets); err != nil {
-					return err
+				case []interface{}:
+					fieldsToPass := fields
+					if len(fields) > 1 && fields[1] == "*" {
+						fieldsToPass = fields[1:]
+					}
+					if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fieldsToPass, jmesPath, filter, imageInfos, cfg, pullSecrets); err != nil {
+						return err
+					}
 				}
 			}
+			return nil
 		case map[string]interface{}:
 			for i, v := range typedObj {
-				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, filter, imageInfos, cfg, pullSecrets); err != nil {
-					return err
+				switch v.(type) {
+				case map[string]interface{}, []interface{}:
+					if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], jmesPath, filter, imageInfos, cfg, pullSecrets); err != nil {
+						return err
+					}
 				}
 			}
-		case interface{}:
-			return fmt.Errorf("invalid type")
+			return nil
 		}
-		return nil
 	}
 	output, ok := obj.(map[string]interface{})
 	if !ok {
