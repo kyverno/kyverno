@@ -26,6 +26,14 @@ rules:
       - customresourcedefinitions
     verbs:
       - get
+      {{- $crdWatcher := .Values.global.crdWatcher }}
+      {{- if hasKey .Values.backgroundController "crdWatcher" }}
+      {{- $crdWatcher = .Values.backgroundController.crdWatcher }}
+      {{- end }}
+      {{- if $crdWatcher }}
+      - list
+      - watch
+      {{- end }}
   - apiGroups:
       - kyverno.io
     resources:

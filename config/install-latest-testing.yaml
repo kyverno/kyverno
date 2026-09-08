@@ -88923,6 +88923,7 @@ spec:
             - --otelConfig=prometheus
             - --metricsPort=8000
             - --resyncPeriod=15m
+            - --crdWatcher=false
             - --enableConfigMapCaching=true
             - --controllerRuntimeMetricsAddress=:8080
             - --enableDeferredLoading=true
