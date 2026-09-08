@@ -2236,6 +2236,66 @@ func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 	assert.Equal(t, expectedErr.Error(), actualErr.Error())
 }
 
+func Test_Validate_RuleImageExtractorsFilter(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "filter-requires-key"
+		},
+		"spec": {
+			"rules": [
+				{
+					"match": {
+						"resources": {
+							"kinds": [
+								"TaskRun"
+							]
+						}
+					},
+					"imageExtractors": {
+						"TaskRun": [
+							{
+								"path": "/spec/taskRef/params/*",
+								"value": "value",
+								"filter": "image"
+							}
+						]
+					},
+					"verifyImages": [
+						{
+							"imageReferences": [
+								"*"
+							],
+							"attestors": [
+								{
+									"count": 1,
+									"entries": [
+										{
+											"keys": {
+												"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
+											}
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			]
+		}
+	}`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	expectedErr := fmt.Errorf("path: spec.rules[0]: filter requires key to be set in imageExtractor config")
+
+	_, actualErr := Validate(policy, nil, nil, true, "", "")
+	assert.Equal(t, expectedErr.Error(), actualErr.Error())
+}
+
 func Test_GenerateFieldsUpdates(t *testing.T) {
 	tests := []struct {
 		name          string
