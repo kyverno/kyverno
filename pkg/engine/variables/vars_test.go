@@ -610,6 +610,29 @@ func Test_SubstituteShallowNonString(t *testing.T) {
 	assert.Equal(t, results.(string), `"replicas: 3 now"`)
 }
 
+// A shallow map or slice is marshalled to JSON before it is spliced into the
+// pattern, and that JSON can carry "{{" of its own. Without escaping it, the
+// next variable's replacement lands on the braces that came out of the map
+// instead of on the real reference further along the string.
+func Test_SubstituteShallowMapWithBraces(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"cfg":   map[string]interface{}{"k": "{{ other }}"},
+		"other": "resolved",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  `{{- cfg }} and {{ other }}`,
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), `{"k":"{{ other }}"} and resolved`)
+}
+
 // TODO: this test fails, not sure how we could merge this !
 // func Test_subVars_withShallowReplaceAll(t *testing.T) {
 // 	patternMap := []byte(`{
