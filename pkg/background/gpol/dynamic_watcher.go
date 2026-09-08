@@ -645,11 +645,19 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				downstream.SetCreationTimestamp(metav1.Time{})
 				downstream.SetManagedFields(nil)
 				downstream.SetResourceVersion("")
-				_, err := wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				created, err := wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
 				if err != nil {
 					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
 				} else {
 					wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					// The API server assigns a new UID to the recreated resource. Re-register
+					// the cache entry under the new UID, otherwise the recreated resource is
+					// unknown to the cache and a subsequent deletion is not reverted
+					// (https://github.com/kyverno/kyverno/issues/17265).
+					if created != nil && created.GetUID() != "" && created.GetUID() != uid {
+						watcher.metadataCache[created.GetUID()] = watcher.metadataCache[uid]
+						delete(watcher.metadataCache, uid)
+					}
 				}
 			}
 		}
