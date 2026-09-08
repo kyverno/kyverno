@@ -312,7 +312,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, err
 		}
 
-		if err := validateRuleContext(rule); err != nil {
+		if err := validateRuleContext(rule, policy.IsNamespaced()); err != nil {
 			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
@@ -1280,7 +1280,7 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 	return "", nil
 }
 
-func validateRuleContext(rule kyvernov1.Rule) error {
+func validateRuleContext(rule kyvernov1.Rule, namespaced bool) error {
 	if len(rule.Context) == 0 {
 		return nil
 	}
@@ -1305,7 +1305,11 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 		} else if entry.ConfigMap == nil && entry.APICall != nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable == nil {
 			err = validateAPICall(entry)
 		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference != nil && entry.ImageRegistry == nil && entry.Variable == nil {
-			err = validateGlobalReference(entry)
+			if namespaced {
+				err = fmt.Errorf("globalReference is not allowed in namespaced policies")
+			} else {
+				err = validateGlobalReference(entry)
+			}
 		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry != nil && entry.Variable == nil {
 			err = validateImageRegistry(entry)
 		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable != nil {

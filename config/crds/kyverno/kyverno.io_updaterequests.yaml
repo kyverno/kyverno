@@ -44,6 +44,8 @@ spec:
       name: Age
       type: date
     deprecated: true
+    deprecationWarning: kyverno.io/v1beta1 UpdateRequest is deprecated; use kyverno.io/v2
+      UpdateRequest
     name: v1beta1
     schema:
       openAPIV3Schema:
