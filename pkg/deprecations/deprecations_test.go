@@ -15,7 +15,7 @@ func TestWarning(t *testing.T) {
 		replacement string
 	}{
 		{"ClusterPolicy", "ValidatingPolicy, MutatingPolicy, GeneratingPolicy or ImageValidatingPolicy"},
-		{"Policy", "NamespacedValidatingPolicy, NamespacedMutatingPolicy, NamespacedGeneratingPolicy or NamespacedImageValidatingPolicy"},
+		{"Policy", "NamespacedValidatingPolicy and the other namespaced policy types"},
 		{"ClusterCleanupPolicy", "DeletingPolicy"},
 		{"CleanupPolicy", "NamespacedDeletingPolicy"},
 		{"PolicyException", "PolicyException (policies.kyverno.io)"},
@@ -70,6 +70,25 @@ func TestPolicyFieldWarnings(t *testing.T) {
 		}
 		if !strings.Contains(warning.Message, "deprecated") {
 			t.Fatalf("expected deprecation message, got %q", warning.Message)
+		}
+	}
+}
+
+// TestWarningLength ensures kind deprecation messages stay within the 256
+// character limit Kubernetes enforces for CRD .spec.versions[].deprecationWarning,
+// so the same wording can be reused in kubebuilder deprecatedversion markers.
+func TestWarningLength(t *testing.T) {
+	t.Parallel()
+	for kind := range replacements {
+		for _, version := range []string{"v1", "v2", "v2beta1"} {
+			warning, ok := BuildKindWarning("kyverno.io", version, kind)
+			if !ok {
+				t.Fatalf("expected warning for kind %q", kind)
+			}
+			if len(warning.Message) > 256 {
+				t.Errorf("warning for %s/%s %s is %d characters, exceeding the 256 character CRD deprecationWarning limit: %q",
+					"kyverno.io", version, kind, len(warning.Message), warning.Message)
+			}
 		}
 	}
 }
