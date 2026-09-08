@@ -38,6 +38,7 @@ func main() {
 		internal.WithKyvernoDynamicClient(),
 		internal.WithOpenreports(),
 		internal.WithApiServerClient(),
+		internal.WithEventsClient(),
 	)
 	// parse flags
 	internal.ParseFlags(appConfig)
@@ -65,6 +66,18 @@ func main() {
 	done := make(chan struct{})
 	defer close(done)
 	failure := false
+
+	// Report legacy (non policies.kyverno.io) policy custom resources still present in
+	// the cluster. This runs unconditionally on every kyverno-init replica, rather than
+	// gated behind the 'kyvernopre-lock' leader lease below, because that lease is
+	// created once and never deleted: only the pod that wins it on first install would
+	// ever reach a leader-gated check again. Firing once per replica is intentional and
+	// safe -- this is purely observational, independent of the resource-cleanup outcome
+	// below. The log and event are one-shot per pod start and are NOT deduplicated: each
+	// event gets a unique name (see emitLegacyPolicyEvent), so an HA admission-controller
+	// deployment with N replicas produces N events per rollout. This is acceptable and
+	// relies on normal Kubernetes event garbage collection (default TTL) to age them out.
+	checkLegacyPolicies(ctx, setup)
 
 	run := func(context.Context) {
 		if err := acquireLeader(ctx, setup.KubeClient); err != nil {

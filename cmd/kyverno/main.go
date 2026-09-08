@@ -34,11 +34,13 @@ import (
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
+	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
@@ -67,6 +69,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/labels"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -564,6 +567,30 @@ func main() {
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		)
+		// kyverno_legacy_policies_total gauge: only the legacy kinds natively watched
+		// by the admission controller through synced listers -- ClusterPolicy, Policy,
+		// and legacy PolicyException when policy exceptions are enabled. CleanupPolicy
+		// and ClusterCleanupPolicy are gauged by the cleanup-controller instead, which
+		// natively watches those kinds.
+		legacyPolicyCounters := map[string]deprecations.KindCounter{
+			"ClusterPolicy": func() (int, error) {
+				pols, err := kyvernoInformer.Kyverno().V1().ClusterPolicies().Lister().List(labels.Everything())
+				return len(pols), err
+			},
+			"Policy": func() (int, error) {
+				pols, err := kyvernoInformer.Kyverno().V1().Policies().Lister().List(labels.Everything())
+				return len(pols), err
+			},
+		}
+		if internal.PolicyExceptionEnabled() {
+			legacyPolicyCounters["PolicyException"] = func() (int, error) {
+				polexs, err := kyvernoInformer.Kyverno().V2().PolicyExceptions().Lister().List(labels.Everything())
+				return len(polexs), err
+			}
+		} else {
+			setup.Logger.V(2).Info("policy exceptions are disabled, skipping legacy PolicyException count for kyverno_legacy_policies_total")
+		}
+		legacypolicymetricscontroller.NewController(metrics.GetLegacyPolicyMetrics(), "kyverno.io", legacyPolicyCounters)
 		// log policy changes
 		genericloggingcontroller.NewController(
 			setup.Logger.WithName("policy"),
