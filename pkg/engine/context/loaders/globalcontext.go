@@ -19,13 +19,14 @@ type Store interface {
 }
 
 type gctxLoader struct {
-	ctx       context.Context //nolint:containedctx
-	logger    logr.Logger
-	entry     kyvernov1.ContextEntry
-	enginectx enginecontext.Interface
-	jp        jmespath.Interface
-	gctxStore Store
-	data      []byte
+	ctx             context.Context //nolint:containedctx
+	logger          logr.Logger
+	entry           kyvernov1.ContextEntry
+	enginectx       enginecontext.Interface
+	jp              jmespath.Interface
+	gctxStore       Store
+	policyNamespace string
+	data            []byte
 }
 
 func NewGCTXLoader(
@@ -35,14 +36,16 @@ func NewGCTXLoader(
 	enginectx enginecontext.Interface,
 	jp jmespath.Interface,
 	gctxStore Store,
+	policyNamespace string,
 ) enginecontext.Loader {
 	return &gctxLoader{
-		ctx:       ctx,
-		logger:    logger,
-		entry:     entry,
-		enginectx: enginectx,
-		jp:        jp,
-		gctxStore: gctxStore,
+		ctx:             ctx,
+		logger:          logger,
+		entry:           entry,
+		enginectx:       enginectx,
+		jp:              jp,
+		gctxStore:       gctxStore,
+		policyNamespace: policyNamespace,
 	}
 }
 
@@ -51,6 +54,9 @@ func (g *gctxLoader) HasLoaded() bool {
 }
 
 func (g *gctxLoader) LoadData() error {
+	if g.policyNamespace != "" {
+		return fmt.Errorf("context entry %s: globalReference is not allowed in namespaced policies", g.entry.Name)
+	}
 	contextData, err := g.loadGctxData()
 	if err != nil {
 		g.logger.Error(err, "failed to marshal APICall data for context entry")

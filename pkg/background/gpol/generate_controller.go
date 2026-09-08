@@ -19,12 +19,12 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/restmapper"
 )
 
 // CELGenerateController is used to process URs that are generated as a result of an event from the trigger resource.
@@ -64,8 +64,11 @@ func NewCELGenerateController(
 	log logr.Logger,
 	configuration config.Configuration,
 ) *CELGenerateController {
-	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
-	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	restMapper, err := restmapperutils.GetRESTMapper(client)
+	if err != nil || restMapper == nil {
+		log.Error(err, "failed to get RESTMapper, falling back to default mapper")
+		restMapper = meta.NewDefaultRESTMapper(nil)
+	}
 	return &CELGenerateController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
@@ -164,6 +167,13 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 			if res.Result.Status() == engineapi.RuleStatusSkip {
 				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
+			} else if res.Result.Status() == engineapi.RuleStatusError || res.Result.Status() == engineapi.RuleStatusFail {
+				// surface evaluation/generation errors instead of silently
+				// reporting the UR as Completed, so users can diagnose why no
+				// resources were generated (https://github.com/kyverno/kyverno/issues/16983)
+				err := fmt.Errorf("gpol %s rule %s %s for trigger %s: %s", ur.Spec.GetPolicyKey(), res.Result.Name(), res.Result.Status(), ur.Spec.RuleContext[i].Trigger.String(), res.Result.Message())
+				logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey(), "rule", res.Result.Name(), "status", res.Result.Status())
+				failures = append(failures, err)
 			} else {
 				resourcesToSync := res.Result.GeneratedResources()
 				for _, resource := range resourcesToSync {

@@ -251,6 +251,20 @@ func TestCreateMatchConditions(t *testing.T) {
 			Name:       "autogen-test-foo",
 			Expression: "!((object.apiVersion == 'foo/v1' && object.kind =='Bar')) || (something)",
 		}},
+	}, {
+		name:         "extraction target omits unrewritten conditions",
+		replacements: ExtractionReplacementsRef,
+		targets: []policiesv1beta1.Target{{
+			Group:    "jobset.x-k8s.io",
+			Version:  "v1alpha2",
+			Resource: "jobsets",
+			Kind:     "JobSet",
+		}},
+		conditions: []admissionregistrationv1.MatchCondition{{
+			Name:       "foo",
+			Expression: "object.spec.containers.exists(c, c.image.endsWith(':latest'))",
+		}},
+		want: nil,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
