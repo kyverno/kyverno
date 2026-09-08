@@ -552,6 +552,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.replicas | int | `nil` | Desired number of pods |
 | backgroundController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | backgroundController.resyncPeriod | string | `"15m"` | Resync period for informers |
+| backgroundController.crdWatcher | bool | `false` | Enable/Disable custom resource watcher to invalidate cache |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | backgroundController.labels | object | `{}` | Deployment labels. |
@@ -747,7 +748,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | int | `3600` | Token expiration time in seconds. The kubelet will request a new token before the token expires. |
 | reportsController.rbac.serviceAccount.projectedServiceAccountToken.audience | string | `""` | Audience for the projected service account token. If not set, the token will have no audience restriction. |
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
-| reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
+| reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role (granted get/list/watch). Required for background-scan/PolicyReport coverage of custom workload CRDs (e.g. Argo Rollout, JobSet) referenced by a CEL policy's `spec.autogen.podControllers.controllers` - Kyverno cannot self-grant RBAC for arbitrary CRDs, so list/watch access for each such CRD must be added here. |
 | reportsController.image.registry | string | `nil` | Image registry |
 | reportsController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
