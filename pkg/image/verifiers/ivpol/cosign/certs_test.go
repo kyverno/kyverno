@@ -25,20 +25,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// mockSignature is a test double for oci.Signature that carries a configurable
+// payload so tests can exercise annotation checks against the payload contents.
 type mockSignature struct {
 	payload    []byte
 	payloadErr error
 }
 
+// Annotations is a no-op that satisfies oci.Signature; the code under test
+// reads annotations from the signature payload rather than the descriptor.
 func (m *mockSignature) Annotations() (map[string]string, error) { return nil, nil }
 
 // Implement other oci.Signature interface methods as no-ops for testing
-func (m *mockSignature) Digest() (v1.Hash, error)                            { return v1.Hash{}, nil }
-func (m *mockSignature) DiffID() (v1.Hash, error)                            { return v1.Hash{}, nil }
-func (m *mockSignature) Compressed() (io.ReadCloser, error)                  { return nil, nil }
-func (m *mockSignature) Uncompressed() (io.ReadCloser, error)                { return nil, nil }
-func (m *mockSignature) Size() (int64, error)                                { return 0, nil }
-func (m *mockSignature) MediaType() (types.MediaType, error)                 { return "", nil }
+func (m *mockSignature) Digest() (v1.Hash, error)             { return v1.Hash{}, nil }
+func (m *mockSignature) DiffID() (v1.Hash, error)             { return v1.Hash{}, nil }
+func (m *mockSignature) Compressed() (io.ReadCloser, error)   { return nil, nil }
+func (m *mockSignature) Uncompressed() (io.ReadCloser, error) { return nil, nil }
+func (m *mockSignature) Size() (int64, error)                 { return 0, nil }
+func (m *mockSignature) MediaType() (types.MediaType, error)  { return "", nil }
+
+// Payload returns the mock signature's configured payload bytes and error,
+// letting tests simulate both successful payload fetches and fetch failures.
 func (m *mockSignature) Payload() ([]byte, error)                            { return m.payload, m.payloadErr }
 func (m *mockSignature) Signature() ([]byte, error)                          { return nil, nil }
 func (m *mockSignature) Base64Signature() (string, error)                    { return "", nil }
@@ -732,6 +739,9 @@ func TestCertificateProperties(t *testing.T) {
 	}
 }
 
+// TestCheckSignatureAnnotations verifies that required annotations are matched
+// against the "optional" map of the cosign signature payload, covering matching,
+// mismatched, missing, empty, and payload-fetch-error cases.
 func TestCheckSignatureAnnotations(t *testing.T) {
 	makePayload := func(optional map[string]string) []byte {
 		optionalAny := make(map[string]interface{}, len(optional))
