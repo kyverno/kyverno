@@ -122,7 +122,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			compiler.KyvernoVersion,
 		),
 		image.Lib(
