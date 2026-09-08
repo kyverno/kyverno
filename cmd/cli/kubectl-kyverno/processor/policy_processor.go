@@ -129,7 +129,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	rclient := p.Store.GetRegistryClient()
 	if rclient == nil {
-		rclient = registryclient.New(nil, "", "", "", false)
+		rclient = registryclient.New()
 	}
 	isCluster := false
 	if len(p.CrdPaths) > 0 {

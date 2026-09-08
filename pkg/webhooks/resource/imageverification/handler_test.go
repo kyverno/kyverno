@@ -49,7 +49,7 @@ func newFakeImageVerificationHandler(t *testing.T, ctx context.Context) (ImageVe
 	dclientInstance := dclient.NewEmptyFakeClient()
 	configuration := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(configuration)
-	rclient := registryclient.New(nil, "", "", "", false)
+	rclient := registryclient.New()
 	configMapResolver, _ := resolvers.NewClientBasedResolver(client)
 	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
 

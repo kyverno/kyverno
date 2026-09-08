@@ -55,6 +55,7 @@ type CompiledPolicy interface {
 }
 
 type compiledPolicy struct {
+	namespace            string
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	verifyDigest         bool
 	matchConditions      []cel.Program
@@ -83,16 +84,29 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	// check if the resource matches an exception
 	if len(c.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+		fullExemptionFound := false
 		for _, polex := range c.exceptions {
 			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
 			if err != nil {
+				if fullExemptionFound {
+					// exception already granted; a broken later exception must not negate it
+					continue
+				}
 				return nil, err
 			}
 			if match {
+				// ImageValidatingPolicy does not yet expose exceptions.allowedImages /
+				// exceptions.allowedValues to CEL the way vpol/gpol/mpol do. A partial
+				// exception (Images or AllowedValues set) must not fully skip evaluation
+				// or every image on the resource is exempted, including ones never listed.
+				if len(polex.Exception.Spec.Images) > 0 || len(polex.Exception.Spec.AllowedValues) > 0 {
+					continue
+				}
 				matchedExceptions = append(matchedExceptions, polex.Exception)
+				fullExemptionFound = true
 			}
 		}
-		if len(matchedExceptions) > 0 {
+		if fullExemptionFound {
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
@@ -132,7 +146,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.ObjectKey] = objectVal
 		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
-		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
+		// The activation overrides the Lib's cel.Globals binding, so confine here too
+		// or a namespaced policy would reach the raw context at evaluation time.
+		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(context, c.namespace)}
 		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	} else {
@@ -167,8 +183,12 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return result, err
 	}
 
-	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
-		return nil, err
+	// Prefetch image data through Get() one image at a time to avoid triggering
+	// racy concurrent map writes in the SDK AddImages() implementation.
+	for _, image := range imgList {
+		if _, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+			return nil, err
+		}
 	}
 
 	data[engine.ImagesKey] = filteredImages
@@ -303,14 +323,18 @@ func (c *compiledPolicy) MutateDigest(
 	if !matched {
 		return nil, nil
 	}
-	// skip mutation if the resource matches an exception; the validating webhook
-	// will skip the corresponding validation for the same resource
+	// skip mutation only for a full exemption (no Images / AllowedValues). Partial
+	// exceptions must not skip digest pinning for the whole resource — same rule as
+	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
 		match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
 		if err != nil {
 			return nil, err
 		}
 		if match {
+			if len(polex.Exception.Spec.Images) > 0 || len(polex.Exception.Spec.AllowedValues) > 0 {
+				continue
+			}
 			return nil, nil
 		}
 	}
