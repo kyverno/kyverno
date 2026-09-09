@@ -1149,7 +1149,9 @@ func jpObjectFromLists(arguments []any) (any, error) {
 	return output, nil
 }
 
-// InterfaceToString casts an interface to a string type
+// ifaceToString converts supported scalar values to strings and rejects other types.
+// Floating-point values use their original bit size and the shortest fixed-point
+// representation that preserves their precision when parsed back.
 func ifaceToString(iface any) (string, error) {
 	switch i := iface.(type) {
 	case int:

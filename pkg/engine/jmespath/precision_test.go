@@ -8,6 +8,8 @@ import (
 	"gotest.tools/v3/assert"
 )
 
+// Test_IfaceToStringPrecision checks exact scalar conversions, including values
+// that lose precision when a float64 is formatted as a float32, and unsupported types.
 func Test_IfaceToStringPrecision(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -39,6 +41,8 @@ func Test_IfaceToStringPrecision(t *testing.T) {
 	})
 }
 
+// Test_NumericFunctionsPrecision verifies that matching, replacement, and object
+// keys use the original numeric value rather than its rounded float32 equivalent.
 func Test_NumericFunctionsPrecision(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -63,6 +67,8 @@ func Test_NumericFunctionsPrecision(t *testing.T) {
 	}
 }
 
+// Fuzz_IfaceToStringFloat64RoundTrip checks that converting finite float64 values
+// to text and parsing them back preserves every bit, including the sign of zero.
 func Fuzz_IfaceToStringFloat64RoundTrip(f *testing.F) {
 	for _, value := range []float64{0, math.Copysign(0, -1), 16777217, -16777217, 1000000007, 1.0000000000000002, math.SmallestNonzeroFloat64, math.MaxFloat64} {
 		f.Add(value)
