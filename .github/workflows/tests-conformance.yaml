@@ -939,6 +939,20 @@ jobs:
         run: |
           set -e
           kind load image-archive kyverno.tar --name kind
+      - name: Verify legacy policy gate
+        shell: bash
+        # No VERIFY_ALLOW_DESTRUCTIVE override here: this cluster is created by
+        # helm/kind-action, which is a thin wrapper around the same `kind create
+        # cluster` used locally, so its context ("kind-<cluster_name>") and every
+        # node's spec.providerID ("kind://docker/<cluster>/<node>") pass the
+        # script's own live identity check on their own merits - verified by
+        # actually running that check against both a local `kind create cluster`
+        # and a cluster created from this exact kind config. Letting the check run
+        # for real here (instead of bypassing it) is what actually exercises it in
+        # CI.
+        run: |
+          set -e
+          make verify-legacy-policy-gate
       - name: Install kyverno
         shell: bash
         run: |
@@ -946,6 +960,15 @@ jobs:
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno/wait-ready
+      - name: Verify legacy policy hook (e2e)
+        shell: bash
+        # Same rationale as the "Verify legacy policy gate" step above: no
+        # VERIFY_ALLOW_DESTRUCTIVE override, so the script's live kind-identity
+        # check (context name + every node's kind:// spec.providerID) actually
+        # runs against this kind-action cluster instead of being bypassed.
+        run: |
+          set -e
+          make verify-legacy-policy-hook
       - name: Helm test
         run: |
           set -e

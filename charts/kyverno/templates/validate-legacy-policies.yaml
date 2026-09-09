@@ -1,0 +1,91 @@
+{{- if not .Values.upgrade.allowLegacyPolicies -}}
+  {{- $lines := list -}}
+  {{- $total := 0 -}}
+  {{- $maxNames := 5 -}}
+  {{/*
+    One lookup per legacy kind, at its stored version:
+    - ClusterPolicy and Policy are stored at kyverno.io/v1 (also serve v2beta1)
+    - CleanupPolicy, ClusterCleanupPolicy and PolicyException are stored at kyverno.io/v2 (also serve v2beta1)
+    Confirmed against charts/kyverno/charts/crds/templates/kyverno.io/*.yaml: every one of the five
+    CRDs currently serves exactly two versions, its stored version plus one beta alternate, and the
+    API server converts objects to the requested version on read - so looking up a single version
+    per kind is enough to see every instance regardless of the version it was written with. This is
+    a point-in-time assumption about the shipped CRDs, not something the template can verify: if a
+    future release adds a third served version or changes which version is stored, this list (and
+    the `.Capabilities.APIVersions.Has` guard below, which checks the exact "apiVersion/Kind" pair)
+    needs to be updated to match.
+    Namespaced kinds pass "" as the namespace so lookup lists cluster-wide; passing
+    .Release.Namespace would silently miss policies created in other namespaces.
+  */}}
+  {{- $kinds := list
+    (dict "apiVersion" "kyverno.io/v1" "kind" "ClusterPolicy" "namespaced" false)
+    (dict "apiVersion" "kyverno.io/v1" "kind" "Policy" "namespaced" true)
+    (dict "apiVersion" "kyverno.io/v2" "kind" "CleanupPolicy" "namespaced" true)
+    (dict "apiVersion" "kyverno.io/v2" "kind" "ClusterCleanupPolicy" "namespaced" false)
+    (dict "apiVersion" "kyverno.io/v2" "kind" "PolicyException" "namespaced" true)
+  -}}
+  {{- range $k := $kinds -}}
+    {{/*
+      Guard the lookup with an APIVersions.Has check first. A CRD that is not registered on the
+      cluster (crds.install=false, or a fresh cluster before the legacy CRDs were ever applied)
+      makes `lookup` itself return a template execution error rather than an empty result, so
+      calling `lookup` unconditionally would turn an absent CRD into a false block.
+    */}}
+    {{- if $.Capabilities.APIVersions.Has (printf "%s/%s" $k.apiVersion $k.kind) -}}
+    {{- $ns := "" -}}
+    {{- $result := lookup $k.apiVersion $k.kind $ns "" -}}
+    {{- if and $result $result.items -}}
+      {{- $count := len $result.items -}}
+      {{- $total = add $total $count -}}
+      {{- $lines = append $lines (printf "  | - %s: %d" $k.kind $count) -}}
+      {{/*
+        Collect every name first, sort the full set, then truncate - so which names are shown is
+        deterministic (alphabetically first) rather than dependent on whatever order lookup
+        happened to return the list in.
+      */}}
+      {{- $names := list -}}
+      {{- range $item := $result.items -}}
+        {{- $name := $item.metadata.name -}}
+        {{- if and $k.namespaced $item.metadata.namespace -}}
+          {{- $name = printf "%s/%s" $item.metadata.namespace $name -}}
+        {{- end -}}
+        {{- $names = append $names $name -}}
+      {{- end -}}
+      {{- $names = sortAlpha $names -}}
+      {{- range $i, $name := $names -}}
+        {{- if lt $i $maxNames -}}
+          {{- $lines = append $lines (printf "  |     %s" $name) -}}
+        {{- end -}}
+      {{- end -}}
+      {{- if gt $count $maxNames -}}
+        {{- $lines = append $lines (printf "  |     ... and %d more" (sub $count $maxNames)) -}}
+      {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if gt $total 0 -}}
+    {{/*
+      The right-hand border used by validate.yaml's fixed-width box is deliberately dropped here:
+      offending resource names are unbounded in length, so a right border would either overflow or
+      require padding logic per line. Keep only the left "| " marker and the top/bottom "+---+" rules.
+    */}}
+    {{- $header := list
+      ""
+      ""
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      (printf "  | Found %d legacy kyverno.io policy resource(s) on the cluster." $total)
+      "  | Installing or upgrading Kyverno is blocked while legacy ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, or PolicyException"
+      "  | resources exist. Migrate them to the policies.kyverno.io policy types, see the guide below, then re-run this command."
+      "  |"
+    -}}
+    {{- $footer := list
+      "  |"
+      "  | Migration guide: https://kyverno.io/docs/guides/migration-to-cel/"
+      "  |"
+      "  | To bypass this check (not recommended until migration is complete), set: upgrade.allowLegacyPolicies=true"
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      ""
+    -}}
+    {{- fail (join "\n" (concat $header $lines $footer)) -}}
+  {{- end -}}
+{{- end -}}

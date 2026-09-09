@@ -238,6 +238,48 @@ In `v3` chart values changed significantly, please read the instructions below t
 
 Hardcoded defaults for `config.excludeGroups` and `config.excludeUsernames` have been removed, please review those fields if you provide your own exclusions.
 
+## Legacy policy resources gate
+
+Starting with 1.20, installing or upgrading this chart is blocked by default while legacy `kyverno.io` policy resources (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, and `kyverno.io/v2` `PolicyException`) still exist on the cluster. These types are deprecated in favor of the `policies.kyverno.io` policy types; see the [migration guide](https://kyverno.io/docs/guides/migration-to-cel/).
+
+The gate has two independent layers:
+
+1. **A render-time check.** On `helm install` and `helm upgrade` against a live cluster, the chart evaluates a `lookup` against the five legacy kinds and fails the render with the counts, a sample of offending resource names, the migration guide link, and the opt-out value when any are found. Helm only populates `lookup` against a live cluster, so offline renders (`helm template`, `helm install --dry-run`) do not trigger this check; see the known bypasses below.
+2. **A `pre-install,pre-upgrade` hook Job** (`upgrade.legacyPolicyCheck.*`) that runs `kyverno check-legacy-policies` (an internal, hidden `kyverno-cli` command) against the live cluster with its own bundled, read-only RBAC, for GitOps tools that apply hooks server-side.
+
+Once you have migrated your legacy policies, or if you need to bypass the check temporarily, set:
+
+```console
+helm upgrade --install kyverno --namespace kyverno kyverno/kyverno --set upgrade.allowLegacyPolicies=true
+```
+
+`upgrade.allowLegacyPolicies=true` disables both layers. `upgrade.legacyPolicyCheck.enabled=false` disables only the hook Job.
+
+**Known bypasses.** Both layers rely on Helm evaluating against a live cluster, so the following paths are not covered:
+
+- `helm template`, `helm install --dry-run`, and `ct lint` never populate `lookup`, so the render-time check always passes offline.
+- `helm upgrade/install --no-hooks` skips the hook Job.
+- ArgoCD `Skip Hooks` sync option, or simply not syncing hook resources, skips the hook Job.
+- Flux `HelmRelease.spec.install.disableHooks` / `spec.upgrade.disableHooks` skips the hook Job.
+- Installing from Kyverno's statically generated manifests (rendered with `global.templating.enabled`) has neither layer, since all hooks are guarded by that flag.
+
+If any of these apply to your install method, run the check manually before installing or upgrading:
+
+```console
+kyverno check-legacy-policies
+```
+
+(`check-legacy-policies` is a hidden `kyverno-cli` command: it does not appear in `--help`, but it is still directly invokable.)
+
+or, without the `kyverno-cli` binary:
+
+```console
+kubectl get clusterpolicies,policies,cleanuppolicies,clustercleanuppolicies -A
+kubectl get policyexceptions.kyverno.io -A
+```
+
+**Note on the hook Job's failure mode.** When the hook Job blocks a first install, Helm records a `failed` release that you must remove with `helm uninstall` before retrying, even after you have migrated your policies or set the opt-out.
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
@@ -911,6 +953,29 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
+| upgrade.allowLegacyPolicies | bool | `false` | Installing or upgrading is blocked by default when legacy kyverno.io policy resources (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, `PolicyException`) are found on the cluster. Migrate them to the `policies.kyverno.io` policy types (see https://kyverno.io/docs/guides/migration-to-cel/), or set this to true to bypass the check. This disables both the render-time check and the `legacyPolicyCheck` hook Job. |
+| upgrade.legacyPolicyCheck.enabled | bool | `true` | Enable the pre-install/pre-upgrade hook Job that checks for legacy kyverno.io policy resources on the cluster. This is a second, server-side check for GitOps tools that honor Helm hooks; it is independent from the render-time `lookup` check, which some GitOps tools and `helm template`/`--dry-run` do not evaluate against a live cluster. |
+| upgrade.legacyPolicyCheck.image.registry | string | `nil` | Image registry |
+| upgrade.legacyPolicyCheck.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
+| upgrade.legacyPolicyCheck.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |
+| upgrade.legacyPolicyCheck.image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
+| upgrade.legacyPolicyCheck.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
+| upgrade.legacyPolicyCheck.imagePullSecrets | list | `[]` | Image pull secrets |
+| upgrade.legacyPolicyCheck.podSecurityContext | object | `{}` | Security context for the pod |
+| upgrade.legacyPolicyCheck.nodeSelector | object | `{}` | Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`. |
+| upgrade.legacyPolicyCheck.tolerations | list | `[]` | List of node taints to tolerate |
+| upgrade.legacyPolicyCheck.podAntiAffinity | object | `{}` | Pod anti affinity constraints. |
+| upgrade.legacyPolicyCheck.podAffinity | object | `{}` | Pod affinity constraints. |
+| upgrade.legacyPolicyCheck.podLabels | object | `{}` | Pod labels. |
+| upgrade.legacyPolicyCheck.podAnnotations | object | `{}` | Pod annotations. |
+| upgrade.legacyPolicyCheck.nodeAffinity | object | `{}` | Node affinity constraints. |
+| upgrade.legacyPolicyCheck.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":65534,"runAsNonRoot":true,"runAsUser":65534,"seccompProfile":{"type":"RuntimeDefault"}}` | Security context for the hook container |
+| upgrade.legacyPolicyCheck.podResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
+| upgrade.legacyPolicyCheck.podResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| upgrade.legacyPolicyCheck.serviceAccount.automountServiceAccountToken | bool | `true` | Toggle automounting of the ServiceAccount. When set to false, a projected service account token is used instead which provides time-limited and audience-bound tokens for improved security. |
+| upgrade.legacyPolicyCheck.serviceAccount.projectedServiceAccountToken | object | `{"audience":"","expirationSeconds":3600}` | Projected service account token configuration (only used when automountServiceAccountToken is false) |
+| upgrade.legacyPolicyCheck.serviceAccount.projectedServiceAccountToken.expirationSeconds | int | `3600` | Token expiration time in seconds. The kubelet will request a new token before the token expires. |
+| upgrade.legacyPolicyCheck.serviceAccount.projectedServiceAccountToken.audience | string | `""` | Audience for the projected service account token. If not set, the token will have no audience restriction. |
 | rbac.roles.aggregate | object | `{"admin":true,"view":true}` | Aggregate ClusterRoles to Kubernetes default user-facing roles. For more information, see [User-facing roles](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) |
 | openreports.enabled | bool | `false` | Enable OpenReports feature in controllers |
 | openreports.installCrds | bool | `false` | Whether to install CRDs from the upstream OpenReports chart. Setting this to true requires enabled to also be true. |
