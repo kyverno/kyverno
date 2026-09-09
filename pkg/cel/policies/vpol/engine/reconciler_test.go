@@ -9,6 +9,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -196,4 +197,45 @@ func TestReconcile_ManagerCacheExceptionLister_SeesException(t *testing.T) {
 	// Fixed: the exception is honored and the rule is skipped instead of failing.
 	require.Equal(t, engineapi.RuleStatusSkip, resp.Policies[0].Rules[0].Status(),
 		"the manager-cache-backed lister must honor a PolicyException present in the same cache used to trigger reconciliation")
+}
+
+// TestReconcile_ExtractionMode is the regression test for the gap that let the JobSet extraction
+// mechanism ship without actually working end to end: provider.go (used by NewProvider, the CLI/test
+// path) set Policy.ExtractionMode correctly, but reconciler.go (used by the live cluster controller)
+// had its own separate copy of the same loop that never set it, so the live admission path evaluated
+// the custom-CRD target directly against the real object instead of extracting its pod template -
+// exactly the "no such key: containers" failure this test would have caught.
+func TestReconcile_ExtractionMode(t *testing.T) {
+	ctx := context.Background()
+	rec := newReconciler(
+		compiler.NewCompiler(),
+		&fakeClient{policy: disallowLatestTagPolicy()},
+		nil, false,
+	)
+
+	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "disallow-latest-tag"}})
+	require.NoError(t, err)
+
+	fetched, err := rec.Fetch(ctx)
+	require.NoError(t, err)
+	require.Len(t, fetched, 3, "expected the base policy plus one autogen'd variant per ReplacementsRef group")
+
+	var sawDeploymentVariant, sawJobSetVariant bool
+	for _, p := range fetched {
+		mc := p.Policy.GetValidatingPolicySpec().MatchConstraints
+		if mc == nil || len(mc.ResourceRules) == 0 {
+			continue // the base, Pod-targeted policy
+		}
+		resources := mc.ResourceRules[0].Resources
+		switch {
+		case len(resources) > 0 && resources[0] == "deployments":
+			sawDeploymentVariant = true
+			assert.False(t, p.ExtractionMode, "the built-in deployments variant must not be extraction-mode")
+		case len(resources) > 0 && resources[0] == "jobsets":
+			sawJobSetVariant = true
+			assert.True(t, p.ExtractionMode, "the custom-CRD jobsets variant must be extraction-mode")
+		}
+	}
+	assert.True(t, sawDeploymentVariant, "expected a deployments autogen variant")
+	assert.True(t, sawJobSetVariant, "expected a jobsets autogen variant")
 }
