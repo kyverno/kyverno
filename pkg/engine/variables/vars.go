@@ -367,13 +367,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					prefix = string(old[0])
 				}
 
-				// Escaping protects a substituted value that itself contains
-				// "{{" from being re-matched as a variable while the rest of
-				// the pattern is substituted. A map or slice can carry "{{"
-				// inside its JSON, so marshal it here rather than leaving it
-				// to substituteVarInPattern, which would splice the braces in
-				// unescaped and let the next variable's replacement land
-				// inside them.
+				// Marshal here so "{{" inside a map or slice is escaped too.
 				if shallowSubstitution && substitutedVar != nil {
 					s, ok := substitutedVar.(string)
 					if !ok {

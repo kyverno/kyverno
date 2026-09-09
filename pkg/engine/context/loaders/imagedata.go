@@ -86,10 +86,6 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
 	}
 
-	// entry.ImageRegistry.JMESPath is optional; SubstituteAll("") returns
-	// the empty string unchanged, so pathString == "" still means "no
-	// JMESPath filtering" below. A non-string, non-empty result means the
-	// substituted value genuinely can't be used as a JMESPath expression.
 	pathString, ok := path.(string)
 	if !ok {
 		return nil, fmt.Errorf("invalid JMESPath %v for context entry %s, JMESPath must be a string", path, entry.Name)
