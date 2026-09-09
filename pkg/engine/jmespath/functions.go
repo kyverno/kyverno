@@ -1155,7 +1155,7 @@ func ifaceToString(iface any) (string, error) {
 	case int:
 		return strconv.Itoa(i), nil
 	case float64:
-		return strconv.FormatFloat(i, 'f', -1, 32), nil
+		return strconv.FormatFloat(i, 'f', -1, 64), nil
 	case float32:
 		return strconv.FormatFloat(float64(i), 'f', -1, 32), nil
 	case string:
