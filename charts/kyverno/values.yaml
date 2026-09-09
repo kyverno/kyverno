@@ -66,6 +66,100 @@ upgrade:
   # -- Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed.
   fromV2: false
 
+  # -- Installing or upgrading is blocked by default when legacy kyverno.io policy resources
+  # (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, `PolicyException`) are found
+  # on the cluster. Migrate them to the `policies.kyverno.io` policy types
+  # (see https://kyverno.io/docs/guides/migration-to-cel/), or set this to true to bypass the check.
+  # This disables both the render-time check and the `legacyPolicyCheck` hook Job.
+  allowLegacyPolicies: false
+
+  legacyPolicyCheck:
+
+    # -- Enable the pre-install/pre-upgrade hook Job that checks for legacy kyverno.io policy
+    # resources on the cluster. This is a second, server-side check for GitOps tools that honor
+    # Helm hooks; it is independent from the render-time `lookup` check, which some GitOps tools
+    # and `helm template`/`--dry-run` do not evaluate against a live cluster.
+    enabled: true
+
+    image:
+      # -- (string) Image registry
+      registry: ~
+      defaultRegistry: reg.kyverno.io
+      # -- (string) Image repository
+      repository: kyverno/kyverno-cli
+      # -- (string) Image tag
+      # Defaults to appVersion in Chart.yaml if omitted
+      tag: ~
+      # -- (string) Image pull policy
+      pullPolicy: IfNotPresent
+
+    # -- Image pull secrets
+    imagePullSecrets: []
+    # - name: secretName
+
+    # -- Security context for the pod
+    podSecurityContext: {}
+
+    # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+    nodeSelector: {}
+
+    # -- List of node taints to tolerate
+    tolerations: []
+
+    # -- Pod anti affinity constraints.
+    podAntiAffinity: {}
+
+    # -- Pod affinity constraints.
+    podAffinity: {}
+
+    # -- Pod labels.
+    podLabels: {}
+
+    # -- Pod annotations.
+    podAnnotations: {}
+
+    # -- Node affinity constraints.
+    nodeAffinity: {}
+
+    # -- Security context for the hook container
+    securityContext:
+      runAsUser: 65534
+      runAsGroup: 65534
+      runAsNonRoot: true
+      privileged: false
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
+
+    podResources:
+      # -- Pod resource limits
+      limits:
+        cpu: 100m
+        memory: 256Mi
+      # -- Pod resource requests
+      requests:
+        cpu: 10m
+        memory: 64Mi
+
+    serviceAccount:
+      # -- Toggle automounting of the ServiceAccount.
+      # When set to false, a projected service account token is used instead
+      # which provides time-limited and audience-bound tokens for improved security.
+      automountServiceAccountToken: true
+
+      # -- Projected service account token configuration (only used when automountServiceAccountToken is false)
+      projectedServiceAccountToken:
+        # -- Token expiration time in seconds.
+        # The kubelet will request a new token before the token expires.
+        expirationSeconds: 3600
+        # -- Audience for the projected service account token.
+        # If not set, the token will have no audience restriction.
+        audience: ""
+
 apiVersionOverride:
   # -- (string) Override api version used to create `PodDisruptionBudget` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to

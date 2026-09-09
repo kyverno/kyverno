@@ -987,6 +987,16 @@ helm-test: $(HELM) ## Run helm test
 	@$(HELM) dependency build ./charts/kyverno
 	@$(HELM) test --namespace kyverno kyverno
 
+.PHONY: verify-legacy-policy-gate
+verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
+	@echo Verify legacy policy gate... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-policy-gate.sh
+
+.PHONY: verify-legacy-policy-hook
+verify-legacy-policy-hook: helm-setup-dependency-charts ## Verify the legacy-policy pre-install/pre-upgrade hook Job blocks and passes correctly (needs Kyverno already installed with the local CLI image loaded, e.g. via kind-install-kyverno)
+	@echo Verify legacy policy hook... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) LOCAL_REGISTRY=$(LOCAL_REGISTRY) LOCAL_CLI_REPO=$(LOCAL_CLI_REPO) GIT_SHA=$(GIT_SHA) ./scripts/verify-legacy-policy-hook.sh
+
 #################
 # RELEASE NOTES #
 #################
@@ -1110,6 +1120,9 @@ kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 		--set crds.migration.image.registry=$(LOCAL_REGISTRY) \
 		--set crds.migration.image.repository=$(LOCAL_CLI_REPO) \
 		--set crds.migration.image.tag=$(GIT_SHA) \
+		--set upgrade.legacyPolicyCheck.image.registry=$(LOCAL_REGISTRY) \
+		--set upgrade.legacyPolicyCheck.image.repository=$(LOCAL_CLI_REPO) \
+		--set upgrade.legacyPolicyCheck.image.tag=$(GIT_SHA) \
 		--values ./scripts/config/resources/kyverno.yaml \
 		$(foreach CONFIG,$(subst $(COMMA), ,$(USE_CONFIG)),--values ./scripts/config/$(CONFIG)/kyverno.yaml) \
 		$(EXPLICIT_INSTALL_SETTINGS)
