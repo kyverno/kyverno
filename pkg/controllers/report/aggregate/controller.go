@@ -106,6 +106,7 @@ type PolicyMapEntry struct {
 	Rules  sets.Set[string]
 }
 
+// NewController returns the controller that aggregates ephemeral reports into policy reports.
 func NewController(
 	client versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
@@ -403,6 +404,7 @@ func NewController(
 	return &c
 }
 
+// Run starts the cache cleanup loop and the reconcile workers, and blocks until ctx is cancelled.
 func (c *controller) Run(ctx context.Context, workers int) {
 	var group wait.Group
 	group.StartWithContext(ctx, func(ctx context.Context) {
