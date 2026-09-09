@@ -176,15 +176,15 @@ runs:
             const MAX = 50;
             const shown = result.failed.slice(0, MAX);
             // Each name links to the job's detailed log in the Actions UI.
-            // GitHub expires those logs (default retention: 90 days), so the
-            // note names the date after which only the excerpts remain.
-            const expiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-              .toISOString().slice(0, 10);
+            // Those logs are deleted once the Actions retention period elapses.
+            // The period is configurable per repository, organization and
+            // enterprise, so the note states the outcome rather than a date
+            // computed from the 90-day default.
             const lines = [
               '',
               `### Failed job instances (${result.failed.length})`,
               '',
-              `_Each name links to the detailed log. GitHub expires these logs around ${expiry}; after that, the excerpts below are the surviving record._`,
+              '_Each name links to the detailed log. Those logs are deleted once the configured Actions retention period elapses; after that, the excerpts below are the surviving record._',
               '',
             ];
             let spent = 0;
@@ -215,7 +215,7 @@ runs:
                   ''
                 );
               } else {
-                lines.push(job.url ? `- [\`${job.name}\`](${job.url})` : `- \`${job.name}\``);
+                lines.push(`- ${summaryName}`);
               }
             }
             if (result.failed.length > MAX) {
