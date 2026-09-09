@@ -23,6 +23,7 @@ jobs:
           except-author-associations: |
             MEMBER
             OWNER
+          except-users: "dependabot[bot],app/dependabot"
           comment-limit: 9
           comment: >
             You already have 8 pull requests open. Please work on getting
