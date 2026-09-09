@@ -34,6 +34,7 @@ func (c *repositoryClient) options(ctx context.Context) []remote.Option {
 	return append(append([]remote.Option{}, c.remoteOpts...), remote.WithContext(ctx))
 }
 
+// Resolve returns the descriptor of the manifest the reference points at.
 func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocispec.Descriptor, error) {
 	nameRef, err := name.ParseReference(c.getReferenceFromDigest(reference))
 	if err != nil {
@@ -47,6 +48,7 @@ func (c *repositoryClient) Resolve(ctx context.Context, reference string) (ocisp
 	return descriptor, nil
 }
 
+// ListSignatures passes the notation signature manifests attached to desc to fn.
 func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Descriptor, fn func(signatureManifests []ocispec.Descriptor) error) error {
 	referrers, err := remote.Referrers(c.ref.Context().Digest(desc.Digest.String()), c.options(ctx)...)
 	if err != nil {
@@ -73,6 +75,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 	return fn(descList)
 }
 
+// FetchSignatureBlob returns the signature envelope carried by the signature manifest desc.
 func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.Descriptor) ([]byte, ocispec.Descriptor, error) {
 	manifestRef, err := name.ParseReference(c.getReferenceFromDescriptor(desc))
 	if err != nil {
