@@ -28,6 +28,7 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:shortName=polex,categories=kyverno
 // +kubebuilder:storageversion
+// +kubebuilder:deprecatedversion:warning="kyverno.io/v2 PolicyException is deprecated and will be removed in a future release; migrate to PolicyException (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/"
 
 // PolicyException declares resources to be excluded from specified policies.
 type PolicyException struct {

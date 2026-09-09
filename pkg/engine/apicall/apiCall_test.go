@@ -79,6 +79,7 @@ func buildTestServer(responseData []byte, useChunked bool) *httptest.Server {
 }
 
 func Test_serviceGetRequest(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	testfn := func(t *testing.T, useChunked bool) {
 		serverResponse := []byte(`{ "day": "Sunday" }`)
 		s := buildTestServer(serverResponse, useChunked)
@@ -141,6 +142,7 @@ func Test_serviceGetRequest(t *testing.T) {
 }
 
 func Test_servicePostRequest(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	serverResponse := []byte(`{ "day": "Monday" }`)
 	s := buildTestServer(serverResponse, false)
 	defer s.Close()
@@ -219,6 +221,7 @@ func Test_servicePostRequest(t *testing.T) {
 }
 
 func Test_fallbackToDefault(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	serverResponse := []byte(`Error from server (NotFound): the server could not find the requested resource`)
 	defaultResponse := []byte(`{ "day": "Monday" }`)
 	s := buildTestServer(serverResponse, false)
@@ -275,6 +278,7 @@ func buildEchoHeaderTestServer() *httptest.Server {
 }
 
 func Test_serviceHeaders(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	s := buildEchoHeaderTestServer()
 	defer s.Close()
 
@@ -357,8 +361,14 @@ func Test_CrossNamespaceAccess(t *testing.T) {
 	_, err = call.Fetch(context.TODO())
 	assert.ErrorContains(t, err, "does not contain a namespace segment, which is required for namespaced policies")
 
-	// ClusterPolicy (empty namespace) accessing any namespace - should pass
+	// ClusterPolicy (empty namespace) accessing namespace-scoped resource - should pass
 	call, err = New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.NilError(t, err)
+
+	// ClusterPolicy (empty namespace) accessing cluster-scoped resource - should pass
+	call, err = New(logr.Discard(), jp, clusterScopedEntry, ctx, client, apiConfig, "")
 	assert.NilError(t, err)
 	_, err = call.Fetch(context.TODO())
 	assert.NilError(t, err)
@@ -396,6 +406,7 @@ func Test_CrossNamespaceAccess_WithVariableSubstitution(t *testing.T) {
 }
 
 func Test_contextCancellation(t *testing.T) {
+	withEmptyEgressBlocklist(t)
 	// Server that delays response longer than our context timeout
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(5 * time.Second)
@@ -429,6 +440,44 @@ func Test_contextCancellation(t *testing.T) {
 	_, err = call.FetchAndLoad(ctx)
 	assert.Assert(t, err != nil, "expected error due to context cancellation")
 	assert.Assert(t, context.DeadlineExceeded == ctx.Err(), "context should be cancelled")
+}
+
+func Test_PercentEncodedPathTraversal(t *testing.T) {
+	ctx := enginecontext.NewContext(jp)
+	client := &mockClient{}
+
+	makeEntry := func(urlPath string) kyvernov1.ContextEntry {
+		return kyvernov1.ContextEntry{
+			Name: "test",
+			APICall: &kyvernov1.ContextAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: urlPath,
+					Method:  "GET",
+				},
+			},
+		}
+	}
+
+	// Namespaced policy escaping its namespace via percent-encoded dot-segments - should fail
+	entry := makeEntry("/api/v1/namespaces/default/%2e%2e/kube-system/secrets/top-secret")
+	call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
+
+	// Namespaced policy escaping to a cluster-scoped API via encoded traversal - should fail
+	entry = makeEntry("/api/v1/namespaces/default/%2e%2e/%2e%2e/%2e%2e/apis/rbac.authorization.k8s.io/v1/clusterrolebindings")
+	call, err = New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "does not contain a namespace segment, which is required for namespaced policies")
+
+	// Unencoded traversal is also caught (path.Clean handles literal dot-segments)
+	entry = makeEntry("/api/v1/namespaces/default/../kube-system/secrets/top-secret")
+	call, err = New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+	assert.NilError(t, err)
+	_, err = call.Fetch(context.TODO())
+	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
 }
 
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {
