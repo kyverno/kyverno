@@ -26,7 +26,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) (warnings []string, err error) {
+func validateActions(ctx context.Context, idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) (warnings []string, err error) {
 	if rule == nil {
 		return nil, nil
 	}
@@ -36,7 +36,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	// Mutate
 	if rule.HasMutate() {
 		checker = mutate.NewMutateFactory(rule, client, mock, backgroundSA, reportsSA)
-		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+		if w, path, err := checker.Validate(ctx, nil); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		} else if w != nil {
 			warnings = append(warnings, w...)
@@ -47,14 +47,14 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	if rule.HasValidate() {
 		if reportsSA != "" {
 			checker = validate.NewValidateFactory(rule, client, mock, reportsSA)
-			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+			if w, path, err := checker.Validate(ctx, nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
 			} else if w != nil {
 				warnings = append(warnings, w...)
 			}
 		}
 
-		if client != nil && rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
+		if client != nil && rule.HasValidateCEL() && toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() {
 			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
 			if !admissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
@@ -73,7 +73,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		// this need to modified to use different implementation for online and offline mode
 		if mock {
 			checker = generate.NewFakeGenerate(*rule.Generation)
-			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+			if w, path, err := checker.Validate(ctx, nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if w != nil {
 				warnings = append(warnings, w...)
@@ -89,7 +89,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				}
 			}
 			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
-			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+			if w, path, err := checker.Validate(ctx, nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if w != nil {
 				warnings = append(warnings, w...)

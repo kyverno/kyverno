@@ -435,7 +435,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 	for _, pol := range results.Policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		_, err := policyvalidation.Validate(context.Background(), pol, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
 			skippedPolicyNames[pol.GetName()] = err.Error()
