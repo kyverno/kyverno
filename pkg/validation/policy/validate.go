@@ -320,6 +320,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
+		if err := validateRuleImageExtractorsFilter(rule); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+		}
+
 		// If a rule's match block does not match any kind,
 		// we should only allow it to have metadata in its overlay
 		if len(rule.MatchResources.Any) > 0 {
@@ -1358,6 +1362,25 @@ func validateRuleImageExtractorsJMESPath(rule kyvernov1.Rule) error {
 
 	if anyJMESPath {
 		return fmt.Errorf("jmespath may not be used in an image extractor when mutating digests with verify images")
+	}
+
+	return nil
+}
+
+// validateRuleImageExtractorsFilter ensures that if an image extractor defines a filter,
+// it also defines a key.
+func validateRuleImageExtractorsFilter(rule kyvernov1.Rule) error {
+	imageExtractorConfigs := rule.ImageExtractors
+	if imageExtractorConfigs == nil {
+		return nil
+	}
+
+	for _, imageExtractors := range imageExtractorConfigs {
+		for _, imageExtractor := range imageExtractors {
+			if imageExtractor.Filter != "" && imageExtractor.Key == "" {
+				return fmt.Errorf("filter requires key to be set in imageExtractor config")
+			}
+		}
 	}
 
 	return nil
