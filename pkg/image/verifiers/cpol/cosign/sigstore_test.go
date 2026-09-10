@@ -25,7 +25,7 @@ func TestSigstoreBundleSignatureVerification(t *testing.T) {
 		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -45,7 +45,7 @@ func TestSigstoreBundleSignatureResponse(t *testing.T) {
 		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
@@ -71,7 +71,7 @@ func TestSigstoreBundleAttestation(t *testing.T) {
 		Type:           "https://slsa.dev/provenance/v1",
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}

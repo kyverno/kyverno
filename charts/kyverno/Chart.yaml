@@ -31,6 +31,8 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
+      description: Bump bundled reports-server dependency to v0.1.7 to fix APIServices being de-registered on pod termination when another replica is still ready.
+    - kind: fixed
       description: Ensure spec.template.metadata isn't null
     - kind: removed
       description: Remove the `delete` permission for policyexceptions in the admission controller
@@ -56,6 +58,6 @@ dependencies:
     repository: "https://openreports.github.io/reports-api"
     condition: openreports.installCrds
   - name: reports-server
-    version: 0.1.6
+    version: 0.1.7
     repository: "https://kyverno.github.io/reports-server/"
     condition: reportsServer.enabled
