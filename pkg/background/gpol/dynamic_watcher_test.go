@@ -1447,12 +1447,36 @@ func TestHandleUpdate(t *testing.T) {
 				},
 			},
 		}
+	t.Run("list error does not panic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Errorf("handleUpdate panicked on list error: %v", r)
+			}
+		}()
 
-		wm.InvalidateDownstreams(policyName, nil)
-		wm.handleUpdate(updated, gvr)
-		assert.Empty(t, client.updated)
+		listClient := &fullMockClient{
+			listResult: nil,
+			listErr:    fmt.Errorf("api server unavailable"),
+		}
+		wm := &WatchManager{
+			log:    logging.WithName("test"),
+			client: listClient,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {metadataCache: map[types.UID]Resource{}},
+			},
+		}
+
+		// src-uid is not in the cache, so handleUpdate takes the source-sync
+		// branch and calls ListResource — which returns an error.
+		src := makeObj("src-uid", "src-pod", "default", nil)
+		wm.handleUpdate(src, gvr)
 	})
-}
+
+			wm.InvalidateDownstreams(policyName, nil)
+			wm.handleUpdate(updated, gvr)
+			assert.Empty(t, client.updated)
+		})
+	}
 
 func TestWatchManager_CacheIntegrity(t *testing.T) {
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
