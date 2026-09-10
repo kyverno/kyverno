@@ -57,20 +57,31 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHART_DIR="${ROOT_DIR}/charts/kyverno"
-# The rendered resource names (kyverno:check-legacy-policies ClusterRole/
-# ClusterRoleBinding, kyverno-check-legacy-policies ServiceAccount/Job) come
-# from `kyverno.fullname`, which is just the release name when it equals
-# the chart name. Render as release "kyverno" so those names match the
-# fixed names this script's cleanup deletes, regardless of what the actual
-# installed release happens to be called.
-RELEASE_NAME="kyverno"
+# The rendered resource names (ClusterRole/ClusterRoleBinding/ServiceAccount/
+# Job) come from `kyverno.fullname`, which is derived from the Helm RELEASE
+# NAME. A real `helm install/upgrade kyverno` release renders these same
+# templates with release name "kyverno", producing the FIXED names
+# "kyverno-check-legacy-policies" (Job/ServiceAccount) and
+# "kyverno:check-legacy-policies" (ClusterRole/ClusterRoleBinding). If this
+# script rendered under that same "kyverno" release name, its own
+# cleanup could delete a real, concurrently-running hook's resources instead
+# of only its own - so it renders under a RUN-SPECIFIC release name instead,
+# making every rendered resource name unique to this run, and never deletes
+# by the chart's fixed hook-resource names. All cleanup/wait/log calls below
+# derive the Job's name from what was actually rendered this run, not from
+# any hardcoded name.
+RUN_ID="$$-${RANDOM}"
+RELEASE_NAME="legacy-hook-verify-${RUN_ID}"
 NAMESPACE="kyverno"
-# Give the test ClusterPolicy a run-unique name so this script can never
-# delete a real ClusterPolicy that happens to share a fixed name. (The hook
-# RBAC/Job/ServiceAccount names below are the chart's own hook resource names,
-# derived from the render release name, not user data, so they stay fixed.)
-CR_NAME="legacy-policy-hook-verify-$$-${RANDOM}"
-JOB_NAME="kyverno-check-legacy-policies"
+# Run-unique name for the test ClusterPolicy fixture too, so this script can
+# never delete a real ClusterPolicy that happens to share a fixed name.
+CR_NAME="legacy-policy-hook-verify-${RUN_ID}"
+# Populated once the hook is first rendered (see apply_hook_and_wait): the
+# actual rendered Job name for this run, and the manifest file that was
+# applied to the cluster (used by cleanup() to delete exactly what this run
+# created, via `kubectl delete -f`, instead of any fixed resource name).
+JOB_NAME=""
+HOOK_MANIFEST=""
 
 HELM="${HELM:-helm}"
 KUBE_VERSION="${KUBE_VERSION:-v1.25.0}"
@@ -152,19 +163,10 @@ else
   log "current kubectl context '${CURRENT_CONTEXT}' verified as a genuine kind cluster (name starts with kind-, and every node's providerID is kind://...), proceeding"
 fi
 
-# Delete the cluster-scoped resources this script owns, without touching
-# WORK_DIR (created below). Idempotent: safe to call both up front, in case
-# a previous interrupted run left these behind, and on exit.
-cleanup_resources() {
-  kubectl delete job "${JOB_NAME}" --namespace "${NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete clusterrolebinding "kyverno:check-legacy-policies" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete clusterrole "kyverno:check-legacy-policies" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete serviceaccount "kyverno-check-legacy-policies" --namespace "${NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete clusterpolicy "${CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
-}
-
-# Make sure we're starting clean (in case a previous run was interrupted).
-cleanup_resources
+# With a run-unique RELEASE_NAME/CR_NAME (see above), no fixed-name
+# resources from a *previous* run of this script could exist to pre-clean:
+# every run's resources are named uniquely to that run, so there is nothing
+# to collide with. The exit trap below handles this run's own cleanup.
 
 # This script must run after Kyverno (and its CRDs) is installed: with the
 # legacy CRDs absent, `check-legacy-policies` treats every kind as zero
@@ -176,8 +178,18 @@ fi
 
 WORK_DIR="$(mktemp -d)"
 
+# Deletes exactly the resources this run applied to the cluster - the hook
+# Job/ServiceAccount/ClusterRole/ClusterRoleBinding via the last-applied
+# rendered manifest (`kubectl delete -f`, so it can never touch a
+# differently-named resource, fixed or otherwise), plus this run's own
+# ClusterPolicy fixture. Guarded so it's safe to fire before the manifest
+# has been rendered (e.g. the script fails before scenario A even applies
+# anything) and safe to call more than once.
 cleanup() {
-  cleanup_resources
+  if [ -n "${HOOK_MANIFEST}" ] && [ -f "${HOOK_MANIFEST}" ]; then
+    kubectl delete -f "${HOOK_MANIFEST}" --ignore-not-found >/dev/null 2>&1 || true
+  fi
+  kubectl delete clusterpolicy "${CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
   rm -rf "${WORK_DIR}"
 }
 trap cleanup EXIT
@@ -197,6 +209,19 @@ render_hook() {
     --set upgrade.legacyPolicyCheck.image.tag="${GIT_SHA}"
 }
 
+# job_name_from_manifest extracts the Job's metadata.name from a rendered
+# multi-document hook manifest, without assuming any fixed name: it tracks
+# the `kind:` of the current `---`-separated document and prints the first
+# top-level (2-space-indented) `name:` it sees once that document's kind is
+# "Job".
+job_name_from_manifest() {
+  awk '
+    /^---/ { kind="" }
+    /^kind: / { kind=$2 }
+    kind == "Job" && /^  name: / { print $2; exit }
+  ' "$1"
+}
+
 apply_hook_and_wait() {
   # We `kubectl apply` this render directly rather than going through a real
   # Helm install/upgrade, so Helm's hook-delete-policy annotations
@@ -208,6 +233,14 @@ apply_hook_and_wait() {
   # applied matches what a real Helm hook execution would apply.)
   local out_file="$1"
   render_hook > "${out_file}"
+  HOOK_MANIFEST="${out_file}"
+  if [ -z "${JOB_NAME}" ]; then
+    JOB_NAME="$(job_name_from_manifest "${out_file}")"
+    if [ -z "${JOB_NAME}" ]; then
+      fail "could not determine the rendered hook Job's name from ${out_file}; the template's output shape may have changed"
+    fi
+    log "this run's rendered hook Job name: ${JOB_NAME} (release ${RELEASE_NAME})"
+  fi
   kubectl delete job "${JOB_NAME}" --namespace "${NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
   kubectl apply -f "${out_file}" >/dev/null
 
