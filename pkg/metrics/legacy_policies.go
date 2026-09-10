@@ -41,7 +41,7 @@ func (m *legacyPolicyMetrics) init(meter metric.Meter) {
 
 	m.legacyPoliciesMetric, err = meter.Int64ObservableGauge(
 		"kyverno_legacy_policies_total",
-		metric.WithDescription("can be used to track the number of legacy (non policies.kyverno.io) policy custom resources still present in the cluster, labeled by kind"),
+		metric.WithDescription("can be used to track the number of legacy (non policies.kyverno.io) policy custom resources still present in the cluster, labeled by group and kind"),
 	)
 	if err != nil {
 		m.logger.Error(err, "Failed to create instrument, kyverno_legacy_policies_total")
