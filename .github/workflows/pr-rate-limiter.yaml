@@ -20,9 +20,8 @@ jobs:
       - name: Limit open pull requests per user
         uses: Homebrew/actions/limit-pull-requests@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
         with:
-          except-author-associations: |
-            MEMBER
-            OWNER
+          except-author-associations: "MEMBER,OWNER"
+          except-users: "dependabot[bot],app/dependabot"
           comment-limit: 9
           comment: >
             You already have 8 pull requests open. Please work on getting
