@@ -25,24 +25,25 @@ cmd/                  # Entry points for all binaries
   cleanup-controller/ #   Cleanup controller
   reports-controller/ #   Reports controller
   background-controller/ # Background controller (generate/mutate existing)
-  readiness-checker/  #   Readiness checker
-  internal/           #   Shared internal cmd helpers
-  tools/              #   Internal tooling (webhook-cleanup, etc.)
+  readiness-checker/  #   Readiness checker (check-endpoints, check-http, scale-deploy, delete-webhooks)
+  internal/           #   Shared bootstrap helpers composed by every cmd/*/main.go
 pkg/                  # Core library code
   engine/             #   Policy engine (rule evaluation, matching, context)
   webhooks/           #   Admission webhook handlers
   controllers/        #   Controller implementations
   cel/                #   CEL-based policy evaluation
-  client/             #   Generated Kubernetes clientset, listers, informers
-  clients/            #   Client wrappers with tracing/metrics
+  client/             #   Generated Kubernetes clientset, listers, informers for kyverno's own CRDs (never hand-edit)
+  clients/            #   Instrumented client wrappers (metrics/tracing/logging); dclient is the preferred
+                      #   entry point for new code needing dynamic/discovery-based access to arbitrary GVKs
   config/             #   Runtime configuration
   toggle/             #   Feature flags
   logging/            #   Structured logging utilities
   metrics/            #   Prometheus metrics
   validation/         #   Policy validation logic
   autogen/            #   Auto-generation of rules for Pod controllers
-  cosign/             #   Cosign image signature verification
-  notary/             #   Notary image signature verification
+  image/              #   Image signature/attestation verification (cosign + notary verifiers live under
+                      #   image/verifiers/{cpol,ivpol}/{cosign,notary}; pkg/cosign and pkg/notary no longer exist)
+  sigstoretuf/        #   TUF root/trust management for sigstore, used by pkg/image's cosign verifiers
   utils/              #   Shared utilities
 ext/                  # Small standalone utility packages
 charts/               # Helm charts
@@ -162,25 +163,29 @@ Override `KIND_IMAGE` for k8s version, `KIND_NAME` for cluster name.
 
 ## Architecture
 
-Kyverno runs as multiple controllers in a Kubernetes cluster:
+See **[ARCHITECTURE.md](./ARCHITECTURE.md)** for the full map: runtime boundaries for every binary, how `pkg/`
+is layered (including the legacy `pkg/engine` vs. the newer CEL `pkg/cel` stack), sanctioned defaults (which
+client package to use, how feature flags and user-facing events work), and the confirmed generated/no-edit zones.
+Read it before making a structural change; don't restate it here as this section drifts otherwise.
 
-- **Admission Controller** (`cmd/kyverno/`): The core component. Receives AdmissionReview requests, evaluates validate/mutate rules synchronously, and queues generate/audit rules for async processing. Also validates policies and configures webhooks.
-- **Background Controller** (`cmd/background-controller/`): Handles generate and mutate-existing rules for existing resources via UpdateRequests.
-- **Reports Controller** (`cmd/reports-controller/`): Creates policy reports from admission and background scans. Aggregates intermediary reports into `PolicyReport`/`ClusterPolicyReport`.
-- **Cleanup Controller** (`cmd/cleanup-controller/`): Executes resource deletion based on `CleanupPolicy`/`ClusterCleanupPolicy` via CronJobs.
-- **Init Container** (`cmd/kyverno-init/`): Runs pre-flight cleanup before the admission controller starts.
-- **CLI** (`cmd/cli/kubectl-kyverno/`): Offline policy testing and validation tool.
+### Nested AGENTS.md files
 
-Controller code is primarily in `pkg/controllers/`. Webhook handlers are in `pkg/webhooks/`. The policy engine is in `pkg/engine/`.
+These packages have real, package-specific gotchas that don't belong at root scope — read the relevant one before
+working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AGENTS.md),
+[`pkg/cel/`](./pkg/cel/AGENTS.md), [`pkg/webhooks/`](./pkg/webhooks/AGENTS.md),
+[`pkg/background/`](./pkg/background/AGENTS.md), [`pkg/image/`](./pkg/image/AGENTS.md),
+[`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
+[`pkg/controllers/`](./pkg/controllers/AGENTS.md). Every claim in them is grounded in code actually read in the
+session that wrote them, not inferred from directory structure — if one goes stale, fix it in place rather than
+letting drift accumulate the way the old `pkg/cosign`/`cmd/tools` references did.
 
 ## API Design Rules
 
-- API types live in `api/` with versioned packages
-- API groups: `kyverno.io`, `policies.kyverno.io`, `policyreport.io`, `reports.kyverno.io`
-- New resource types must NOT be added to `kyverno.io/v1`; use `v2alpha1` and promote as they stabilize
-- New attributes can be added without a new version
-- Attributes cannot be deleted or modified in a version; deprecate and remove after 3 minor releases
-- Newer API versions may reference older stable types, but not vice versa
+API types for `kyverno.io`, `policyreport` (`wgpolicyk8s.io`), and `reports.kyverno.io` live in `api/` with
+versioned packages. **`policies.kyverno.io` (the CEL-based types) does not** — it lives in the external
+`github.com/kyverno/api` module; see `api/AGENTS.md`. For versioning/stability/deprecation rules, see
+[docs/context/shared/api-versioning.md](./docs/context/shared/api-versioning.md) — the single canonical copy;
+don't restate rules here.
 
 ## Coding Conventions
 
@@ -236,6 +241,7 @@ Use this checklist before every push to avoid repeated CI failures:
 
 ## Useful References
 
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — Runtime boundaries, `pkg/` domain layering, sanctioned defaults, no-edit zones
 - [Development Guide](./DEVELOPMENT.md) — Full build, test, debug, and deploy instructions
 - [Contributing Guide](./CONTRIBUTING.md) — Contribution process and PR guidelines
 - [API Design](./docs/dev/api/README.md) — API versioning and extension rules
