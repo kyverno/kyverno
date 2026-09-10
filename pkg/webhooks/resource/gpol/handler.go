@@ -2,6 +2,7 @@ package gpol
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"time"
 
@@ -126,6 +127,12 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 					}
 				}
 			} else {
+				if request.Operation == admissionv1.Update &&
+					oldTrigger.Object != nil &&
+					reflect.DeepEqual(trigger.Object, oldTrigger.Object) {
+					logger.V(4).Info("skipping no-op trigger update, object unchanged", "policy", policy, "trigger", triggerSpec.String())
+					continue
+				}
 				synchronize := false
 				if request.Operation == admissionv1.Update {
 					synchronize = gpol.Spec.SynchronizationEnabled()
@@ -232,6 +239,12 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 					}
 				}
 			} else {
+				if request.Operation == admissionv1.Update &&
+					oldTrigger.Object != nil &&
+					reflect.DeepEqual(trigger.Object, oldTrigger.Object) {
+					logger.V(4).Info("skipping no-op trigger update, object unchanged", "policy", policy, "namespace", namespace, "trigger", triggerSpec.String())
+					continue
+				}
 				synchronize := false
 				if request.Operation == admissionv1.Update {
 					synchronize = ngpol.Spec.SynchronizationEnabled()

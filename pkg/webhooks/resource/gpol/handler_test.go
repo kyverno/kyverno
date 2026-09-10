@@ -151,3 +151,51 @@ func TestGenerate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	assert.Equal(t, int32(1), mock.called.Load(), "background request must be processed when explicitly disabled")
 }
+
+func TestGenerate_NoOpUpdateDoesNotCreateUpdateRequest(t *testing.T) {
+	mock := &mockURGenerator{}
+	h := New(
+		mock,
+		&mockGeneratingPolicyLister{
+			policies: map[string]*policiesv1beta1.GeneratingPolicy{
+				"test-policy": {
+					ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+					Spec: policiesv1beta1.GeneratingPolicySpec{
+						EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+							SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+								Enabled: ptr.To(true),
+							},
+						},
+					},
+				},
+			},
+		},
+		nil,
+		"system:serviceaccount:kyverno:kyverno-background-controller",
+	)
+
+	ctx := context.WithValue(context.Background(), httprouter.ParamsKey, httprouter.Params{
+		{Key: "policies", Value: "/test-policy"},
+	})
+
+	noOpObject := []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test","uid":"d4ba2952-e07b-46e0-9f33-bf5304e4466e","resourceVersion":"31796"}}`)
+
+	req := handlers.AdmissionRequest{
+		AdmissionRequest: admissionv1.AdmissionRequest{
+			UID:       types.UID("test-uid"),
+			Operation: admissionv1.Update,
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			Object:    runtime.RawExtension{Raw: noOpObject},
+			OldObject: runtime.RawExtension{Raw: noOpObject},
+			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+		},
+	}
+
+	resp := h.Generate(ctx, logr.Discard(), req, "", time.Now())
+	assert.True(t, resp.Allowed)
+
+	time.Sleep(200 * time.Millisecond)
+	assert.Equal(t, int32(0), mock.called.Load(),
+		"a zero-delta UPDATE (object identical to oldObject) must not create an UpdateRequest, "+
+			"or the background controller will re-evaluate the trigger and delete the synced downstream (#17452)")
+}
