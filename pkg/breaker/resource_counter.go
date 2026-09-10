@@ -54,6 +54,10 @@ func (c *counter) Count() (int, bool) {
 	return c.entries.Len(), c.retryWatcher.IsRunning()
 }
 
+func (c *counter) Stop() {
+	c.retryWatcher.Stop()
+}
+
 func StartResourceCounter(ctx context.Context, client metadataclient.Interface, gvr schema.GroupVersionResource, tweakListOptions internalinterfaces.TweakListOptionsFunc) (*counter, error) {
 	objs, err := client.Resource(gvr).List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -107,6 +111,8 @@ func StartAdmissionReportsCounter(ctx context.Context, client metadataclient.Int
 	}
 	cephrs, err := StartResourceCounter(ctx, client, reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"), tweakListOptions)
 	if err != nil {
+		// stop the first watcher so retried calls don't accumulate goroutines
+		ephrs.Stop()
 		return nil, err
 	}
 	return composite{
@@ -124,6 +130,8 @@ func StartBackgroundReportsCounter(ctx context.Context, client metadataclient.In
 	}
 	cephrs, err := StartResourceCounter(ctx, client, reportsv1.SchemeGroupVersion.WithResource("clusterephemeralreports"), tweakListOptions)
 	if err != nil {
+		// stop the first watcher so retried calls don't accumulate goroutines
+		ephrs.Stop()
 		return nil, err
 	}
 	return composite{
