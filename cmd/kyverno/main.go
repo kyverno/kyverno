@@ -209,8 +209,12 @@ func createrLeaderControllers(
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
 			Rule: admissionregistrationv1.Rule{
-				APIGroups:   []string{"kyverno.io"},
-				APIVersions: []string{"v2alpha1", "v2beta1"},
+				APIGroups: []string{"kyverno.io"},
+				// v2 is the storage version for policyexceptions.kyverno.io; v2alpha1 is kept
+				// here for backwards compatibility even though no v2alpha1 PolicyException type
+				// has ever existed. Without v2, a "kyverno.io/v2" PolicyException (the version
+				// most manifests actually use) never reaches this webhook at all.
+				APIVersions: []string{"v2", "v2alpha1", "v2beta1"},
 				Resources:   []string{"policyexceptions"},
 			},
 			Operations: []admissionregistrationv1.OperationType{
@@ -407,6 +411,7 @@ func main() {
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
 	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
+	flagset.Func(toggle.BlockLegacyPolicyAPIsFlagName, toggle.BlockLegacyPolicyAPIsDescription, toggle.BlockLegacyPolicyAPIs.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&webhookServerHost, "webhookServerHost", "", "Host used by the webhook server. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
@@ -735,7 +740,13 @@ func main() {
 				setup.Logger.Error(err, "failed to construct manager")
 				os.Exit(1)
 			}
-			celExceptionLister := celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace())
+			// The vpol/ivpol/mpol reconcilers below register their PolicyException watch
+			// on this manager's cache and cache compiled results between triggering events.
+			// Sourcing the exception list from the same manager cache (rather than a
+			// separately synced informer) avoids a race where the reconcile triggered by
+			// the watch reads a lister that hasn't caught up yet, compiles the policy
+			// without the exception, and never gets retried.
+			celExceptionLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace())
 			// create compiler
 			compiler := vpolcompiler.NewCompiler()
 			// create vpolProvider
