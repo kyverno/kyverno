@@ -110,6 +110,7 @@ func main() {
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
 	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
+	flagset.Func(toggle.BlockLegacyPolicyAPIsFlagName, toggle.BlockLegacyPolicyAPIsDescription, toggle.BlockLegacyPolicyAPIs.Parse)
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
@@ -323,8 +324,11 @@ func main() {
 						[]admissionregistrationv1.RuleWithOperations{
 							{
 								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"kyverno.io"},
-									APIVersions: []string{"v2beta1"},
+									APIGroups: []string{"kyverno.io"},
+									// v2 is the storage version for cleanuppolicies/clustercleanuppolicies.kyverno.io.
+									// Without it, a "kyverno.io/v2" CleanupPolicy (the version most manifests
+									// actually use) never reaches this webhook at all.
+									APIVersions: []string{"v2", "v2beta1"},
 									Resources: []string{
 										"cleanuppolicies/*",
 										"clustercleanuppolicies/*",
