@@ -40,13 +40,17 @@ func NewController(m metrics.LegacyPolicyMetrics, group string, counters map[str
 }
 
 func (c *controller) report(ctx context.Context, observer metric.Observer) error {
+	// CountLegacyPolicies omits any kind whose counter failed (it does not
+	// report that kind as zero) and returns the successful counts alongside the
+	// error. Each kind is an independent gauge series, so observe whatever was
+	// collected and return nil: a single failing lister then drops only its own
+	// kind's series rather than making the whole metric disappear from the scrape.
 	counts, err := deprecations.CountLegacyPolicies(c.counters)
 	if err != nil {
-		logger.Error(err, "failed to count legacy policies")
-		return err
+		logger.Error(err, "failed to count some legacy policies; exporting the counts that succeeded")
 	}
 	for kind, count := range counts {
 		c.metrics.ObserveLegacyPolicyCount(ctx, observer, c.group, kind, count)
 	}
-	return err
+	return nil
 }
