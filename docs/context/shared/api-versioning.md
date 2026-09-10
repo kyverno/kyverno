@@ -1,0 +1,58 @@
+# API versioning and stability
+
+Canonical source for Kyverno's API versioning, stability, and deprecation rules. `AGENTS.md`, `api/AGENTS.md`, and
+`docs/dev/api/README.md` all link here instead of restating these rules — if you're updating them, this is the only
+file to edit.
+
+## Where the types live
+
+- `kyverno.io`, `wgpolicyk8s.io` (as `policyreport`), and `reports.kyverno.io` are defined **in this repo**, under
+  `api/kyverno/{v1,v1beta1,v2,v2alpha1,v2beta1}`, `api/policyreport/v1alpha2`, and `api/reports/v1`.
+- **`policies.kyverno.io`** (the CEL-based types: ValidatingPolicy, MutatingPolicy, GeneratingPolicy, DeletingPolicy,
+  ImageValidatingPolicy, PolicyException, and their Namespaced\* variants) is defined in the **separate
+  `github.com/kyverno/api` Go module**, not in this repo's `api/` directory. It's pinned in `go.mod` and imported
+  like `policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"`. Only the generated CRD manifests
+  (`config/crds/policies.kyverno.io/*.yaml`) and consuming Go code live here. See
+  [repo-boundaries.md](./repo-boundaries.md) and
+  [ADR-0003](../../decisions/ADR-0003-policies-api-externalized.md) for why.
+
+## Stability tiers
+
+| Version tier | Compatibility guarantee | Minimum deprecation notice |
+|---|---|---|
+| `v1alpha1` / `v2alpha1` | No guarantee; fields may be renamed, removed, or restructured between minor releases | 1 minor release |
+| `v1beta1` / `v2beta1` | Breaking changes discouraged; deprecated fields are retained with a `// Deprecated.` Go comment and noted in release notes | 2 minor releases |
+| `v1` / `v2` (stable) | No breaking changes; deprecated fields are retained but may be removed after the notice period | 3 minor releases |
+
+## Rules
+
+- **Adding a new kind:** never add new types to `v1` (`kyverno.io`) — introduce them at `v2alpha1` and promote as
+  they stabilize. New CEL-policy types go in `policies.kyverno.io` (in `github.com/kyverno/api`, not here).
+- **Adding an attribute:** free to add to existing resources without a new version; does not affect compatibility.
+- **Deleting an attribute:** never delete in place within a version. Mark it deprecated and remove after 3 minor
+  releases (stable tiers) per the notice periods above.
+- **Modifying an attribute:** never modify in place. Deprecate the existing attribute and add a new one following
+  the same compatibility rules.
+- **Stable references:** newer API versions may reference older stable types; never the reverse (a `v1` resource
+  must not reference a `v2alpha1` type; a `v2alpha1` type referencing `v1` is fine).
+
+**Deprecation procedure:** mark the field/type deprecated in the Go struct comment and OpenAPI schema description →
+announce in release notes with the planned removal minor version → remove once the notice window has elapsed. The
+published deprecation schedule for legacy `kyverno.io` v1 types (`ClusterPolicy`, `Policy`) and their v2 migration
+path lives at [kyverno.io's deprecation schedule](https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types)
+— that page, not this one, is authoritative for which specific fields are currently deprecated.
+
+None of the above is enforced by a linter or CI check today — it's a reviewer-enforced convention. If you're adding
+tooling to check it, start here.
+
+## A real worked example of the full lifecycle: `GlobalContextEntry`
+
+`v2alpha1` is not an empty staging ground waiting for the next new type — right now it holds exactly one type,
+`GlobalContextEntry`, and that type has *already been promoted*: `api/kyverno/v2/global_context_entry_types.go`
+defines the same type with no deprecation marker (the current, storage-version copy), while
+`api/kyverno/v2alpha1/global_context_entry_types.go` carries
+`+kubebuilder:deprecatedversion:warning="kyverno.io/v2alpha1 GlobalContextEntry is deprecated; use kyverno.io/v2
+GlobalContextEntry"`. This is the versioning rule working exactly as designed: introduce at `vNalpha1` → stabilize
+and copy to `vN` → mark the alpha copy deprecated → remove it after the notice period. Don't read "`v2alpha1`
+currently has content" as evidence it's a landing zone for a brand-new type today — check what's actually in a
+version before assuming its role.

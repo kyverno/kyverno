@@ -15,3 +15,6 @@ cmd/background-controller/background-controller
 cmd/readiness-checker/readiness-checker
 coverage.out
 kyverno.tar
+# Personal, per-contributor agent context
+CLAUDE.local.md
+GEMINI.local.md

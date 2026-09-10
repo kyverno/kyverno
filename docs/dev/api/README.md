@@ -9,7 +9,7 @@ The generated HTML reference docs live in [`docs/user/crd/`](../../user/crd/) an
 | API group | Versions | Reference | Status |
 |---|---|---|---|
 | `kyverno.io` | v1, v1beta1, v2, v2alpha1, v2beta1 | [v1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v1.html) · [v1beta1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v1beta1.html) · [v2](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v2.html) · [v2alpha1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v2alpha1.html) · [v2beta1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno.v2beta1.html) | v1 deprecated → v2; see [deprecation schedule](https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types) |
-| `policies.kyverno.io` | v1alpha1, v1beta1, v1 | [v1alpha1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1alpha1.html) · [v1beta1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1beta1.html) · [v1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1.html) | CEL-based policies; v1 is current |
+| `policies.kyverno.io` | v1alpha1, v1beta1, v1 | [v1alpha1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1alpha1.html) · [v1beta1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1beta1.html) · [v1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_cel_policies.v1.html) | CEL-based policies; v1 is current. **Go types are not in this repo** — they live in the separate [`github.com/kyverno/api`](https://github.com/kyverno/api) module; only the generated CRD manifests are here. |
 | `wgpolicyk8s.io` | v1alpha2 | [v1alpha2](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_policyreport.v1alpha2.html) | Shared policy report schema |
 | `reports.kyverno.io` | v1 | [v1](https://htmlpreview.github.io/?https://github.com/kyverno/kyverno/blob/main/docs/user/crd/kyverno_reports.v1.html) | Kyverno-specific admission reports |
 
@@ -35,45 +35,10 @@ The v1 API group is currently the storage version but is being deprecated. The g
 * https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definition-versioning/
 
 
-## API Stability Policy
+## API Stability Policy, versioning rules, and stable-reference direction
 
-Each version tier carries different compatibility guarantees:
-
-| Version tier | Compatibility guarantee | Minimum deprecation notice |
-|---|---|---|
-| `v1alpha1` / `v2alpha1` | No guarantee; fields may be renamed, removed, or restructured between minor releases | 1 minor release |
-| `v1beta1` / `v2beta1` | Breaking changes discouraged; deprecated fields are retained with a `// Deprecated.` Go comment and noted in release notes | 2 minor releases |
-| `v1` / `v2` (stable) | No breaking changes; deprecated fields are retained but may be removed after the notice period | 3 minor releases |
-
-**Deprecation procedure:**
-1. Mark the field/type as deprecated in the Go struct comment and OpenAPI schema description.
-2. Announce in the release notes with the planned removal minor version.
-3. Remove after the minimum notice window has elapsed.
-
-Attributes cannot be deleted or modified in place within a version — new attributes are added freely; breaking changes require a new version. See [Deleting an attribute](#deleting-an-attribute) and [Modifying an attribute](#modifying-an-attribute) for the step-by-step process.
-
-The deprecation schedule for existing v1 types is published at [kyverno.io deprecation schedule](https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types).
-
-## Adding a new Kind (Resource)
-
-New types should not be added to `v1` in the `kyverno.io` API group but should be introduced as `v2alpha1` and then promoted as they stabilize. For CEL-based policies, new types should be added to the `policies.kyverno.io` API group.
-
-## Adding a new attribute
-
-New attributes can be added to existing resources without impacting compatibility. They do not require a new version.
-
-## Deleting an attribute
-
-Attributes cannot be deleted in a version. They should be marked for deprecation and removed after 3 minor releases.
-
-## Modifying an attribute
-
-Attributes cannot be modified in a version. The existing attribute should be marked for deprecation and a new attribute should be added following version compatibility guidelines.
-
-
-## Stable References
-
-Within the API, newer versions can reference older stable types, but not the other way around. For example, a `v1` resource should not refer to a `v2alpha1` type. However, a `v2alpha1` type can reference `v1` types.
+Moved to [docs/context/shared/api-versioning.md](../../context/shared/api-versioning.md) — the single canonical copy
+(also linked from `AGENTS.md` and `api/AGENTS.md`). Edit rules there, not here.
 
 
 
