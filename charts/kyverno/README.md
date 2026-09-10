@@ -257,7 +257,7 @@ helm upgrade --install kyverno --namespace kyverno kyverno/kyverno --set upgrade
 
 **Known bypasses.** Both layers rely on Helm evaluating against a live cluster, so the following paths are not covered:
 
-- `helm template`, `helm install --dry-run`, and `ct lint` never populate `lookup`, so the render-time check always passes offline.
+- `helm template`, client-side `helm install --dry-run` (`--dry-run=client`), and `ct lint` never populate `lookup`, so the render-time check always passes for them. Server-side `helm install --dry-run=server` does connect to the cluster and evaluate `lookup`, so it is still covered by the render-time check.
 - `helm upgrade/install --no-hooks` skips the hook Job.
 - ArgoCD `Skip Hooks` sync option, or simply not syncing hook resources, skips the hook Job.
 - Flux `HelmRelease.spec.install.disableHooks` / `spec.upgrade.disableHooks` skips the hook Job.

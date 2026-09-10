@@ -65,7 +65,11 @@ CHART_DIR="${ROOT_DIR}/charts/kyverno"
 # installed release happens to be called.
 RELEASE_NAME="kyverno"
 NAMESPACE="kyverno"
-CR_NAME="legacy-policy-hook-verify"
+# Give the test ClusterPolicy a run-unique name so this script can never
+# delete a real ClusterPolicy that happens to share a fixed name. (The hook
+# RBAC/Job/ServiceAccount names below are the chart's own hook resource names,
+# derived from the render release name, not user data, so they stay fixed.)
+CR_NAME="legacy-policy-hook-verify-$$-${RANDOM}"
 JOB_NAME="kyverno-check-legacy-policies"
 
 HELM="${HELM:-helm}"
