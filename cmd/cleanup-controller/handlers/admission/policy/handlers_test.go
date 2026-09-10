@@ -109,10 +109,11 @@ func TestValidateBlocksLegacyWrites(t *testing.T) {
 	metadataOnlyChange.ObjectMeta.Labels = map[string]string{"foo": "bar"}
 
 	tests := []struct {
-		name      string
-		toggleOff bool
-		request   handlers.AdmissionRequest
-		allowed   bool
+		name       string
+		toggleOff  bool
+		request    handlers.AdmissionRequest
+		allowed    bool
+		wantSilent bool // if true, assert resp.Warnings is empty too, not just Allowed
 	}{
 		{
 			name:    "create is blocked",
@@ -135,9 +136,15 @@ func TestValidateBlocksLegacyWrites(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:    "status subresource update is allowed (cleanup controller's own status writes)",
-			request: newCleanupPolicyRequest(t, admissionv1.Update, changedPolicy, policy, "status"),
-			allowed: true,
+			// This is the case that matters most for this controller: it short-circuits
+			// before validation.Validate/BuildKindWarning entirely, so the cleanup
+			// controller's own UpdateStatus calls never re-run full policy validation (auth
+			// checks, schedule/match validation) on every reconcile, and never emit a
+			// deprecation warning for its own housekeeping writes.
+			name:       "status subresource update is allowed and silent (cleanup controller's own status writes)",
+			request:    newCleanupPolicyRequest(t, admissionv1.Update, changedPolicy, policy, "status"),
+			allowed:    true,
+			wantSilent: true,
 		},
 		{
 			name:      "toggle disabled allows create",
@@ -159,6 +166,9 @@ func TestValidateBlocksLegacyWrites(t *testing.T) {
 			h := New(newFakeClient())
 			resp := h.Validate(context.Background(), logr.Discard(), tt.request, time.Now())
 			assert.Equal(t, tt.allowed, resp.Allowed, "message: %v", resp.Result)
+			if tt.wantSilent {
+				assert.Empty(t, resp.Warnings)
+			}
 		})
 	}
 }

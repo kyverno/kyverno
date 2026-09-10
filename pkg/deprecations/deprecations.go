@@ -93,7 +93,7 @@ func BuildKindError(group, version, kind string) (error, bool) {
 		apiVersion = fmt.Sprintf("%s/%s", group, version)
 	}
 	return fmt.Errorf(
-		"%s %s is no longer accepted for create or update; migrate to %s (policies.kyverno.io), see %s",
+		"%s %s is no longer accepted for create, or for an update that changes spec; migrate to %s (policies.kyverno.io), see %s",
 		apiVersion, kind, replacement, MigrationGuideURL,
 	), true
 }

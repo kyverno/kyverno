@@ -205,10 +205,11 @@ func TestExceptionValidateBlocksLegacyWrites(t *testing.T) {
 	metadataOnlyChange.ObjectMeta.Labels = map[string]string{"foo": "bar"}
 
 	tests := []struct {
-		name      string
-		toggleOff bool
-		request   handlers.AdmissionRequest
-		allowed   bool
+		name       string
+		toggleOff  bool
+		request    handlers.AdmissionRequest
+		allowed    bool
+		wantSilent bool // if true, assert resp.Warnings is empty too, not just Allowed
 	}{
 		{
 			name:    "create is blocked",
@@ -231,9 +232,14 @@ func TestExceptionValidateBlocksLegacyWrites(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:    "status subresource update is allowed",
-			request: newLegacyExceptionRequest(t, admissionv1.Update, changedException, exception, "status"),
-			allowed: true,
+			// Legacy PolicyException has no status subresource today, so this case is
+			// defensive/future-proofing, matching the same short-circuit as the other two
+			// handlers: subresource writes skip validation/warnings entirely, not just the
+			// legacy-policy block.
+			name:       "status subresource update is allowed and silent",
+			request:    newLegacyExceptionRequest(t, admissionv1.Update, changedException, exception, "status"),
+			allowed:    true,
+			wantSilent: true,
 		},
 		{
 			name:      "toggle disabled allows create",
@@ -255,6 +261,9 @@ func TestExceptionValidateBlocksLegacyWrites(t *testing.T) {
 			h := NewHandlers(options)
 			resp := h.Validate(context.Background(), logr.Discard(), tt.request, "", time.Now())
 			assert.Equal(t, tt.allowed, resp.Allowed)
+			if tt.wantSilent {
+				assert.Empty(t, resp.Warnings)
+			}
 		})
 	}
 }

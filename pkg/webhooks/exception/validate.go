@@ -25,6 +25,15 @@ func NewHandlers(validationOptions validation.ValidationOptions) *exceptionHandl
 
 // Validate performs the validation check on policy exception resources
 func (h *exceptionHandlers) Validate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, startTime time.Time) handlers.AdmissionResponse {
+	// Subresource requests never touch spec, so there is nothing here to validate or warn
+	// about; short-circuit before validation and deprecation warnings, not just the
+	// legacy-policy block. Kubernetes guarantees a status-subresource write cannot change
+	// spec, see:
+	// https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
+	if request.SubResource != "" {
+		return admissionutils.ResponseSuccess(request.UID)
+	}
+
 	polex, oldPolex, err := admissionutils.GetPolicyExceptions(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policy exceptions from admission request")

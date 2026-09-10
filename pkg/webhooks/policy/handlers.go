@@ -86,6 +86,16 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if pol := policy.AsKyvernoPolicy(); pol != nil {
+		// Subresource requests (e.g. /status) never touch spec, so there is nothing here to
+		// validate or warn about; short-circuit before policy validation and deprecation
+		// warnings, not just the legacy-policy block, so Kyverno's own controllers can manage
+		// status on legacy policies without tripping full re-validation on every reconcile.
+		// Kubernetes guarantees a status-subresource write cannot change spec, see:
+		// https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
+		if request.SubResource != "" {
+			return admissionutils.ResponseSuccess(request.UID)
+		}
+
 		var old kyvernov1.PolicyInterface
 		if oldPolicy != nil {
 			old = oldPolicy.AsKyvernoPolicy()

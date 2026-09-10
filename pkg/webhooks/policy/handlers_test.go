@@ -119,10 +119,11 @@ func TestValidateBlocksLegacyWrites(t *testing.T) {
 	metadataOnlyChange.ObjectMeta.Labels = map[string]string{"foo": "bar"}
 
 	tests := []struct {
-		name      string
-		toggleOff bool
-		request   handlers.AdmissionRequest
-		allowed   bool
+		name       string
+		toggleOff  bool
+		request    handlers.AdmissionRequest
+		allowed    bool
+		wantSilent bool // if true, assert resp.Warnings is empty too, not just Allowed
 	}{
 		{
 			name:    "create is blocked",
@@ -145,9 +146,14 @@ func TestValidateBlocksLegacyWrites(t *testing.T) {
 			allowed: true,
 		},
 		{
-			name:    "status subresource update is allowed",
-			request: newClusterPolicyRequest(t, admissionv1.Update, changedPolicy, policy, "status"),
-			allowed: true,
+			// Subresource writes short-circuit before validation/warnings entirely (not just
+			// the legacy-policy block), so this must be genuinely silent: allowed with no
+			// warnings, unlike the no-op/metadata-only cases above which still carry the
+			// pre-existing 1.19 deprecation warning by design.
+			name:       "status subresource update is allowed and silent",
+			request:    newClusterPolicyRequest(t, admissionv1.Update, changedPolicy, policy, "status"),
+			allowed:    true,
+			wantSilent: true,
 		},
 		{
 			name:      "toggle disabled allows create",
@@ -169,6 +175,9 @@ func TestValidateBlocksLegacyWrites(t *testing.T) {
 			h := NewHandlers(newFakeClient(), nil, "", "")
 			resp := h.Validate(context.Background(), logr.Discard(), tt.request, "", time.Now())
 			assert.Equal(t, tt.allowed, resp.Allowed, "message: %v", resp.Result)
+			if tt.wantSilent {
+				assert.Empty(t, resp.Warnings)
+			}
 		})
 	}
 }

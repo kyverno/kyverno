@@ -149,7 +149,7 @@ func TestBuildKindError(t *testing.T) {
 			t.Fatalf("BuildKindError(%q) returned a nil error", tt.kind)
 		}
 		msg := err.Error()
-		if !strings.Contains(msg, "kyverno.io/v1 "+tt.kind+" is no longer accepted for create or update") {
+		if !strings.Contains(msg, "kyverno.io/v1 "+tt.kind+" is no longer accepted for create, or for an update that changes spec") {
 			t.Errorf("BuildKindError(%q) = %q, expected a rejection notice for the kind", tt.kind, msg)
 		}
 		if !strings.Contains(msg, tt.replacement) {

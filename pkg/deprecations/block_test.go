@@ -106,7 +106,7 @@ func TestShouldBlock(t *testing.T) {
 			assert.Equal(t, tt.wantBlock, blocked)
 			if tt.wantBlock {
 				require.Error(t, err)
-				assert.True(t, strings.Contains(err.Error(), "no longer accepted for create or update"))
+				assert.True(t, strings.Contains(err.Error(), "no longer accepted for create, or for an update that changes spec"))
 			} else {
 				assert.NoError(t, err)
 			}
