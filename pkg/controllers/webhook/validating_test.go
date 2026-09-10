@@ -873,19 +873,14 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 		rules := buildRules(t, ivpol)
 		assert.Contains(t, resourcesOf(rules), "pods/ephemeralcontainers")
 
-		// Related gap (tracked separately, not part of #16275/#16336): CanAutoGen
-		// (pkg/cel/autogen/support.go) requires the rule's Resources to be exactly
-		// ["pods"], so opting into ephemeral container coverage currently disables
-		// autogen entirely -- the resulting webhook has no extra rules for
-		// Deployments/DaemonSets/Jobs/CronJobs/etc. Assert that here so a future
-		// change to either behavior is caught.
-		assert.Len(t, rules, 1, "expected autogen to be disabled once pods/ephemeralcontainers is added")
+		assert.Len(t, rules, 4, "expected autogen to remain enabled with pods/ephemeralcontainers")
 	})
 
 	t.Run("matching pods alone does not implicitly cover ephemeral containers", func(t *testing.T) {
 		ivpol := newIVPol([]string{"pods"})
 		rules := buildRules(t, ivpol)
 		assert.NotContains(t, resourcesOf(rules), "pods/ephemeralcontainers")
+		assert.Len(t, rules, 4)
 	})
 }
 

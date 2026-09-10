@@ -446,7 +446,7 @@ Based on the [APIs golang code definitions](./api), you can generate the corresp
 make codegen-helm-crds
 ```
 
-This will output CRDs templates in [/charts/kyverno/templates/crds.yaml](./charts/kyverno/templates/crds.yaml).
+This will output CRD templates in [`charts/kyverno/charts/crds/templates`](./charts/kyverno/charts/crds/templates).
 
 > **Note**: You can run `make codegen-helm-all` to generate CRDs and docs at once.
 

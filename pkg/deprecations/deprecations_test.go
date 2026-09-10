@@ -15,7 +15,7 @@ func TestWarning(t *testing.T) {
 		replacement string
 	}{
 		{"ClusterPolicy", "ValidatingPolicy, MutatingPolicy, GeneratingPolicy or ImageValidatingPolicy"},
-		{"Policy", "NamespacedValidatingPolicy, NamespacedMutatingPolicy, NamespacedGeneratingPolicy or NamespacedImageValidatingPolicy"},
+		{"Policy", "NamespacedValidatingPolicy and the other namespaced policy types"},
 		{"ClusterCleanupPolicy", "DeletingPolicy"},
 		{"CleanupPolicy", "NamespacedDeletingPolicy"},
 		{"PolicyException", "PolicyException (policies.kyverno.io)"},
@@ -74,6 +74,25 @@ func TestPolicyFieldWarnings(t *testing.T) {
 	}
 }
 
+// TestWarningLength ensures kind deprecation messages stay within the 256
+// character limit Kubernetes enforces for CRD .spec.versions[].deprecationWarning,
+// so the same wording can be reused in kubebuilder deprecatedversion markers.
+func TestWarningLength(t *testing.T) {
+	t.Parallel()
+	for kind := range replacements {
+		for _, version := range []string{"v1", "v2", "v2beta1"} {
+			warning, ok := BuildKindWarning("kyverno.io", version, kind)
+			if !ok {
+				t.Fatalf("expected warning for kind %q", kind)
+			}
+			if len(warning.Message) > 256 {
+				t.Errorf("warning for %s/%s %s is %d characters, exceeding the 256 character CRD deprecationWarning limit: %q",
+					"kyverno.io", version, kind, len(warning.Message), warning.Message)
+			}
+		}
+	}
+}
+
 func TestWarningNonLegacyKind(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"ValidatingPolicy", "DeletingPolicy", ""} {
@@ -86,6 +105,74 @@ func TestWarningNonLegacyKind(t *testing.T) {
 func TestBuildKindWarningIgnoresNonKyvernoGroup(t *testing.T) {
 	t.Parallel()
 	if _, ok := BuildKindWarning("policies.kyverno.io", "v1", "PolicyException"); ok {
+		t.Fatalf("expected non-kyverno.io group to be ignored")
+	}
+}
+
+func TestIsLegacyPolicyKind(t *testing.T) {
+	t.Parallel()
+	for kind := range replacements {
+		if !IsLegacyPolicyKind("kyverno.io", kind) {
+			t.Errorf("IsLegacyPolicyKind(%q, %q) = false, want true", "kyverno.io", kind)
+		}
+	}
+	for _, tt := range []struct{ group, kind string }{
+		{"policies.kyverno.io", "PolicyException"},
+		{"policies.kyverno.io", "ValidatingPolicy"},
+		{"kyverno.io", "ValidatingPolicy"},
+		{"kyverno.io", ""},
+	} {
+		if IsLegacyPolicyKind(tt.group, tt.kind) {
+			t.Errorf("IsLegacyPolicyKind(%q, %q) = true, want false", tt.group, tt.kind)
+		}
+	}
+}
+
+func TestBuildKindError(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		kind        string
+		replacement string
+	}{
+		{"ClusterPolicy", "ValidatingPolicy, MutatingPolicy, GeneratingPolicy or ImageValidatingPolicy"},
+		{"Policy", "NamespacedValidatingPolicy and the other namespaced policy types"},
+		{"ClusterCleanupPolicy", "DeletingPolicy"},
+		{"CleanupPolicy", "NamespacedDeletingPolicy"},
+		{"PolicyException", "PolicyException (policies.kyverno.io)"},
+	}
+	for _, tt := range tests {
+		err, ok := BuildKindError("kyverno.io", "v1", tt.kind)
+		if !ok {
+			t.Fatalf("BuildKindError(%q) ok = false, want true", tt.kind)
+		}
+		if err == nil {
+			t.Fatalf("BuildKindError(%q) returned a nil error", tt.kind)
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, "kyverno.io/v1 "+tt.kind+" is no longer accepted for create, or for an update that changes spec") {
+			t.Errorf("BuildKindError(%q) = %q, expected a rejection notice for the kind", tt.kind, msg)
+		}
+		if !strings.Contains(msg, tt.replacement) {
+			t.Errorf("BuildKindError(%q) = %q, expected replacement %q", tt.kind, msg, tt.replacement)
+		}
+		if !strings.Contains(msg, MigrationGuideURL) {
+			t.Errorf("BuildKindError(%q) = %q, expected migration guide URL", tt.kind, msg)
+		}
+	}
+}
+
+func TestBuildKindErrorNonLegacyKind(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []string{"ValidatingPolicy", "DeletingPolicy", ""} {
+		if err, ok := BuildKindError("kyverno.io", "v1", kind); ok || err != nil {
+			t.Errorf("BuildKindError(%q) = (%v, %v), expected (nil, false)", kind, err, ok)
+		}
+	}
+}
+
+func TestBuildKindErrorIgnoresNonKyvernoGroup(t *testing.T) {
+	t.Parallel()
+	if _, ok := BuildKindError("policies.kyverno.io", "v1", "PolicyException"); ok {
 		t.Fatalf("expected non-kyverno.io group to be ignored")
 	}
 }
