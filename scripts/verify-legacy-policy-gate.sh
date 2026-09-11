@@ -7,13 +7,20 @@
 # current kubectl context, covering the scenarios from the design doc's
 # risk register and test plan:
 #
-#   1. legacy CRDs absent                            -> install must PASS
-#   2. legacy CRDs present, zero instances            -> install must PASS
-#   3. legacy CRDs present, an instance exists         -> install must be BLOCKED,
-#                                                          with the count, the
-#                                                          offending name, and the
-#                                                          opt-out hint in the error
-#   4. legacy CRDs present, an instance exists, opt-out -> install must PASS
+#   1. legacy CRDs absent                              -> install must PASS
+#   2. legacy CRDs present, zero instances              -> install must PASS
+#   3. legacy CRDs present, an instance of EACH of the
+#      five legacy kinds exists (ClusterPolicy, Policy,
+#      CleanupPolicy, ClusterCleanupPolicy,
+#      PolicyException)                                 -> install must be
+#                                                          BLOCKED, with the
+#                                                          count, the offending
+#                                                          name, and the
+#                                                          migration guidance
+#                                                          for EACH kind, plus
+#                                                          the opt-out hint,
+#                                                          in the error
+#   4. same five instances still present, opt-out set   -> install must PASS
 #
 # It uses `helm install --dry-run=server`, which evaluates `lookup` against
 # the live cluster without actually installing Kyverno, so this does not
@@ -63,6 +70,22 @@ CRD_NAMES=(
   clustercleanuppolicies.kyverno.io
   policyexceptions.kyverno.io
 )
+
+# Scenario 3/4 create one instance of EACH of the five legacy kinds, so a
+# regression that only detects ClusterPolicy (and silently stops counting
+# Policy/CleanupPolicy/ClusterCleanupPolicy/PolicyException) would still
+# fail CI. Every fixture name is run-unique (a fixed PID+RANDOM suffix), so
+# this script's cleanup can never delete a real resource that happens to
+# share a fixed name, and a concurrent run of this same script can't
+# collide with this one. The namespaced kinds (Policy, CleanupPolicy,
+# PolicyException) live in a dedicated, also run-unique, namespace.
+RUN_ID="$$-${RANDOM}"
+FIXTURE_NAMESPACE="legacy-policy-gate-verify-fixtures-${RUN_ID}"
+CLUSTERPOLICY_NAME="legacy-policy-gate-verify-clusterpolicy-${RUN_ID}"
+POLICY_NAME="legacy-policy-gate-verify-policy-${RUN_ID}"
+CLEANUPPOLICY_NAME="legacy-policy-gate-verify-cleanuppolicy-${RUN_ID}"
+CLUSTERCLEANUPPOLICY_NAME="legacy-policy-gate-verify-clustercleanuppolicy-${RUN_ID}"
+POLICYEXCEPTION_NAME="legacy-policy-gate-verify-policyexception-${RUN_ID}"
 
 log() { echo "[verify-legacy-policy-gate] $*"; }
 fail() { echo "[verify-legacy-policy-gate] FAIL: $*" >&2; exit 1; }
@@ -143,7 +166,18 @@ fi
 WORK_DIR="$(mktemp -d)"
 
 cleanup() {
-  kubectl delete clusterpolicy "${RELEASE_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+  # Delete this run's own fixture of each of the five legacy kinds by its
+  # run-unique name, fully group-qualified (e.g. "policyexceptions.kyverno.io"
+  # rather than bare "policyexception") since the newer policies.kyverno.io
+  # API group also has a PolicyException kind - an unqualified `kubectl
+  # delete policyexception` would be ambiguous once both CRDs are
+  # registered, as they are on a fully installed Kyverno.
+  kubectl delete clusterpolicies.kyverno.io "${CLUSTERPOLICY_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUPPOLICY_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete policies.kyverno.io "${POLICY_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete cleanuppolicies.kyverno.io "${CLEANUPPOLICY_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete policyexceptions.kyverno.io "${POLICYEXCEPTION_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
   for name in "${CRD_NAMES[@]}"; do
     kubectl delete crd "${name}" --ignore-not-found >/dev/null 2>&1 || true
   done
@@ -188,28 +222,126 @@ if ! install >"${WORK_DIR}/scenario2.log" 2>&1; then
 fi
 log "PASS: scenario 2"
 
-log "scenario 3: legacy CRDs present, an instance exists, expect BLOCK"
+log "scenario 3: legacy CRDs present, an instance of each of the five legacy kinds exists, expect BLOCK"
+kubectl create namespace "${FIXTURE_NAMESPACE}" >/dev/null
+
 kubectl apply -f - <<EOF >/dev/null
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: ${RELEASE_NAME}
+  name: ${CLUSTERPOLICY_NAME}
 spec:
   rules: []
 EOF
+
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: ${POLICY_NAME}
+  namespace: ${FIXTURE_NAMESPACE}
+spec:
+  rules: []
+EOF
+
+# CleanupPolicy/ClusterCleanupPolicy (kyverno.io/v2) require a schedule and
+# a match block; ClusterPolicy/Policy above don't require a rule to exist.
+# Shape sourced from the deprecation conformance fixtures added alongside
+# this chart's gate (test/conformance/chainsaw/deprecations/create-blocked/
+# cleanup-policy-v2.yaml and cluster-cleanup-policy-v2.yaml), which are
+# already proven schema-valid. This script never installs live Kyverno (only
+# the five bare CRDs), so unlike verify-legacy-policy-hook.sh there is no
+# live cleanup-controller admission webhook here to validate these specs'
+# RBAC - only the CRD's OpenAPI schema applies.
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v2
+kind: CleanupPolicy
+metadata:
+  name: ${CLEANUPPOLICY_NAME}
+  namespace: ${FIXTURE_NAMESPACE}
+spec:
+  schedule: "0 0 * * *"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        names:
+        - legacy-policy-gate-verify-does-not-exist
+EOF
+
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v2
+kind: ClusterCleanupPolicy
+metadata:
+  name: ${CLUSTERCLEANUPPOLICY_NAME}
+spec:
+  schedule: "0 0 * * *"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Namespace
+        names:
+        - legacy-policy-gate-verify-does-not-exist
+EOF
+
+# PolicyException (kyverno.io/v2) shape sourced from the same conformance
+# fixtures (policy-exception-v2.yaml): it requires at least one exception
+# entry and a match block.
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: ${POLICYEXCEPTION_NAME}
+  namespace: ${FIXTURE_NAMESPACE}
+spec:
+  exceptions:
+  - policyName: does-not-exist
+    ruleNames:
+    - "*"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+EOF
+
 if install >"${WORK_DIR}/scenario3.log" 2>&1; then
   cat "${WORK_DIR}/scenario3.log" >&2
-  fail "scenario 3 (legacy CR present) was expected to be blocked, but install succeeded"
+  fail "scenario 3 (legacy CRs present) was expected to be blocked, but install succeeded"
 fi
-grep -q "ClusterPolicy: 1" "${WORK_DIR}/scenario3.log" \
-  || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the per-kind count"; }
-grep -q "${RELEASE_NAME}" "${WORK_DIR}/scenario3.log" \
-  || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the offending resource name"; }
+
+# assert_kind_reported checks the per-kind count line and the offending
+# resource name for one kind. The count check is anchored on "- <Kind>: 1"
+# (matching the render's "  | - <Kind>: <count>" line format) rather than a
+# bare "<Kind>: 1", because several of these kind names are suffixes of each
+# other (e.g. "ClusterPolicy: 1" and "CleanupPolicy: 1" both literally end
+# in "Policy: 1") - an unanchored check for "Policy: 1" would spuriously
+# pass off of ClusterPolicy's or CleanupPolicy's line even if Policy's own
+# line were missing, silently defeating the point of checking each kind
+# individually. The "- " prefix immediately before the kind name in the
+# real line format is what makes each of these five patterns mutually
+# exclusive substrings of one another.
+assert_kind_reported() {
+  local kind="$1" name="$2"
+  grep -q -- "- ${kind}: 1" "${WORK_DIR}/scenario3.log" \
+    || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the per-kind count for ${kind}"; }
+  grep -q -- "${name}" "${WORK_DIR}/scenario3.log" \
+    || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the offending resource name for ${kind} (${name})"; }
+}
+assert_kind_reported "ClusterPolicy" "${CLUSTERPOLICY_NAME}"
+assert_kind_reported "Policy" "${FIXTURE_NAMESPACE}/${POLICY_NAME}"
+assert_kind_reported "CleanupPolicy" "${FIXTURE_NAMESPACE}/${CLEANUPPOLICY_NAME}"
+assert_kind_reported "ClusterCleanupPolicy" "${CLUSTERCLEANUPPOLICY_NAME}"
+assert_kind_reported "PolicyException" "${FIXTURE_NAMESPACE}/${POLICYEXCEPTION_NAME}"
+grep -q "https://kyverno.io/docs/guides/migration-to-cel/" "${WORK_DIR}/scenario3.log" \
+  || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the migration guidance"; }
 grep -q "upgrade.allowLegacyPolicies=true" "${WORK_DIR}/scenario3.log" \
   || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the opt-out hint"; }
 log "PASS: scenario 3"
 
-log "scenario 4: legacy CRDs present, an instance exists, opt-out set, expect PASS"
+log "scenario 4: same five legacy instances still present, opt-out set, expect PASS"
 if ! install --set upgrade.allowLegacyPolicies=true >"${WORK_DIR}/scenario4.log" 2>&1; then
   cat "${WORK_DIR}/scenario4.log" >&2
   fail "scenario 4 (opt-out) was expected to pass"
