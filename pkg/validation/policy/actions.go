@@ -82,7 +82,7 @@ func validateActions(ctx context.Context, idx int, rule *kyvernov1.Rule, client 
 			if rule.Generation.Synchronize {
 				admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
 				checker = generate.NewGenerateFactory(client, rule, admissionSA, reportsSA, logging.GlobalLogger())
-				if w, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
+				if w, path, err := checker.Validate(ctx, []string{"list", "get"}); err != nil {
 					return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 				} else if w != nil {
 					warnings = append(warnings, w...)
