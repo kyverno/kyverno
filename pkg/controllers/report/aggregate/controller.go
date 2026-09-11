@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -87,6 +88,12 @@ type controller struct {
 	// queues
 	frontQueue workqueue.TypedRateLimitingInterface[any]
 	backQueue  workqueue.TypedRateLimitingInterface[any]
+
+	// legacyReportSourceWarnOnce throttles the legacy kyverno.io report
+	// source deprecation log (see #17491) to a single line for the life of
+	// this controller, since backReconcile runs per report, per worker, on
+	// every resync. Zero value is ready to use.
+	legacyReportSourceWarnOnce sync.Once
 }
 
 // PolicyMapEntry holds an active traditional policy and its (autogen-expanded)
@@ -850,6 +857,19 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	policyMap, err := c.createPolicyMap()
 	if err != nil {
 		return err
+	}
+	// Note, throttled to once per controller lifetime and only when legacy
+	// policies are present, that legacy kyverno.io report sources
+	// (ClusterPolicy/Policy) are still being aggregated. DEPRECATED in 1.20,
+	// removed in 1.21 (see #17491). backReconcile runs per report across
+	// multiple workers on every resync, so this is gated by a sync.Once
+	// rather than logged unconditionally on every call. This is report-scoped
+	// and intentionally does not duplicate the legacy-policy-count gauge
+	// landing separately in #17488.
+	if len(policyMap) > 0 {
+		c.legacyReportSourceWarnOnce.Do(func() {
+			logger.Info("aggregating deprecated legacy kyverno.io policy report results", "source", reportutils.SourceKyverno, "legacyPolicies", len(policyMap), "guidance", deprecations.MigrationGuideURL)
+		})
 	}
 	vapMap, err := c.createVapMap()
 	if err != nil {

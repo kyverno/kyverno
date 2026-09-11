@@ -114,6 +114,14 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
+	// policyRule intercepts create and update requests for the legacy
+	// kyverno.io ClusterPolicy and Policy kinds. APIVersions keeps both "v1"
+	// and "v2beta1" in 1.20 so legacy create/update requests keep reaching
+	// the engine, which is where the 1.20 hard error on legacy writes is
+	// raised (see deprecations.BuildKindError and #17491). Dropping either
+	// version here would stop the API server from routing those requests to
+	// this webhook, letting them bypass the engine and skip the intended
+	// error entirely. The legacy versions are removed in 1.21.
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
