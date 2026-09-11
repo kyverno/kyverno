@@ -868,7 +868,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	// landing separately in #17488.
 	if len(policyMap) > 0 {
 		c.legacyReportSourceWarnOnce.Do(func() {
-			logger.Info("aggregating deprecated legacy kyverno.io policy report results", "source", reportutils.SourceKyverno, "legacyPolicies", len(policyMap), "guidance", deprecations.MigrationGuideURL)
+			logger.Info("deprecated legacy kyverno.io policies present; their report results are still aggregated", "source", reportutils.SourceKyverno, "legacyPolicies", len(policyMap), "guidance", deprecations.MigrationGuideURL)
 		})
 	}
 	vapMap, err := c.createVapMap()
