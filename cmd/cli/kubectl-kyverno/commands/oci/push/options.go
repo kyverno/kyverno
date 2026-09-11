@@ -35,7 +35,8 @@ func (o options) validate(policy string) error {
 }
 
 func (o options) execute(ctx context.Context, dir string, keychain authn.Keychain) error {
-	results, err := policy.Load(nil, "", dir)
+	// pushing an existing manifest is out of #17485's scope; allow legacy kinds through unchanged.
+	results, err := policy.Load(nil, "", true, dir)
 	if err != nil {
 		return fmt.Errorf("unable to read policy file or directory %s (%w)", dir, err)
 	}

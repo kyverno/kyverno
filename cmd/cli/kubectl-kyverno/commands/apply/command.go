@@ -43,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -105,6 +106,7 @@ type ApplyCommandConfig struct {
 	warnExitCode              int
 	warnNoPassed              bool
 	warningsAsErrors          bool
+	AllowLegacyPolicies       bool
 	Exception                 []string
 	ContinueOnFail            bool
 	inlineExceptions          bool
@@ -242,6 +244,7 @@ func Command() *cobra.Command {
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
 	cmd.Flags().BoolVar(&applyCommandConfig.warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
+	cmd.Flags().BoolVar(&applyCommandConfig.AllowLegacyPolicies, "allow-legacy-policies", false, "Allow legacy kyverno.io policy manifests (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException) instead of hard-erroring; use during the 1.20 migration grace window")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
@@ -391,7 +394,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		exceptions = results.Exceptions
 		celExceptions = results.CELExceptions
 	} else {
-		results, err := exception.Load(c.Exception...)
+		results, err := exception.Load(c.AllowLegacyPolicies, c.Exception...)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 		}
@@ -1151,13 +1154,16 @@ func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				loaderResults, err := policy.Load(fs, "", policyYaml)
+				loaderResults, err := policy.Load(fs, "", c.AllowLegacyPolicies, policyYaml)
 				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 					for _, err := range loaderResults.NonFatalErrors {
 						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 					}
 				}
 				if err != nil {
+					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+					}
 					continue
 				}
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
@@ -1178,11 +1184,14 @@ func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		} else {
-			loaderResults, err := policy.Load(nil, "", path)
+			loaderResults, err := policy.Load(nil, "", c.AllowLegacyPolicies, path)
 			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 				for _, err := range loaderResults.NonFatalErrors {
 					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 				}
+			}
+			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)

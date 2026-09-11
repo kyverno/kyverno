@@ -61,7 +61,8 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 }
 
 func (o options) processFile(out io.Writer, path string) {
-	results, err := policy.LoadWithLoader(nil, nil, "", path)
+	// reformatting an existing manifest is out of #17485's scope; allow legacy kinds through unchanged.
+	results, err := policy.LoadWithLoader(nil, nil, "", true, path)
 	if err != nil {
 		return
 	}

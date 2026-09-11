@@ -26,7 +26,7 @@ var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z0-9]*
 func Command() *cobra.Command {
 	var testCase, outputFormat string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, detailedResults, requireTests, warningsAsErrors bool
+	var registryAccess, failOnly, removeColor, detailedResults, requireTests, warningsAsErrors, allowLegacyPolicies bool
 	cmd := &cobra.Command{
 		Use:          "test [local folder or git repository]...",
 		Short:        command.FormatDescription(true, websiteUrl, false, description...),
@@ -39,7 +39,7 @@ func Command() *cobra.Command {
 				removeColor = true
 			}
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors)
+			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors, allowLegacyPolicies)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -52,6 +52,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVar(&requireTests, "require-tests", false, "If set to true, return an error if no tests are found")
 	cmd.Flags().BoolVar(&warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
+	cmd.Flags().BoolVar(&allowLegacyPolicies, "allow-legacy-policies", false, "Allow legacy kyverno.io policy manifests (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException) instead of hard-erroring; use during the 1.20 migration grace window")
 	return cmd
 }
 
@@ -74,6 +75,7 @@ func testCommandExecute(
 	requireTests bool,
 	removeColor bool,
 	warningsAsErrors bool,
+	allowLegacyPolicies bool,
 ) (err error) {
 	// check input dir
 	if len(dirPath) == 0 {
@@ -156,7 +158,7 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, registryAccess, warningsAsErrors)
+			responses, err := runTest(out, test, registryAccess, allowLegacyPolicies, warningsAsErrors)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}

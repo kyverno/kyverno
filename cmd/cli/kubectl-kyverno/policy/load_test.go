@@ -34,7 +34,7 @@ func TestLoad(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			_, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -68,7 +68,7 @@ func TestLoadInvalid(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			results, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
 			if tt.wantErr {
 				assert.NotNil(t, err, "result mismatch")
 			} else {
@@ -128,7 +128,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := LoadWithLoader(nil, tt.fs, tt.resourcePath, tt.paths...)
+			results, err := LoadWithLoader(nil, tt.fs, tt.resourcePath, true, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -193,7 +193,7 @@ func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(nil, "", tt.path)
+			results, err := Load(nil, "", true, tt.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -247,7 +247,7 @@ spec:
 			}))
 			defer server.Close()
 
-			results, err := Load(nil, "", server.URL)
+			results, err := Load(nil, "", true, server.URL)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
@@ -276,7 +276,7 @@ func TestLoadHTTPTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := Load(nil, "", server.URL)
+	_, err := Load(nil, "", true, server.URL)
 
 	assert.Error(t, err)
 	check := err
