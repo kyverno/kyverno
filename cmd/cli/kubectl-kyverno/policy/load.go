@@ -222,6 +222,9 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 				// Check if this is a List object and handle it explicitly
 				if gvk.Kind == "List" && gvk.Version == "v1" {
 					if err := handleListItems(document, path, results, allowLegacyPolicies); err != nil {
+						if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+							return nil, err
+						}
 						results.addError(path, fmt.Errorf("failed to process List: %w", err))
 					}
 					continue
@@ -279,6 +282,9 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 		itemGVK := itemUnstructured.GroupVersionKind()
 
 		if err := processDocumentItem(path, itemGVK, itemUnstructured, results, allowLegacyPolicies); err != nil {
+			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+				return fmt.Errorf("List item %d: %w", i, err)
+			}
 			results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
 		}
 	}
@@ -437,7 +443,7 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 		}
 		results.MutatingPolicies = append(results.MutatingPolicies, typed)
 	default:
-		return fmt.Errorf("policy type not supported %s", gvk)
+		return errors.New("policy type not supported")
 	}
 	return nil
 }

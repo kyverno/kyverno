@@ -34,9 +34,13 @@ func (o options) validate(policy string) error {
 	return nil
 }
 
+// allowLegacyPoliciesForPush is out of #17485's scope (apply/test/create): pushing an existing
+// manifest to an OCI registry isn't a write path the 1.20 legacy-policy block covers, so legacy
+// kinds pass through unchanged here.
+const allowLegacyPoliciesForPush = true
+
 func (o options) execute(ctx context.Context, dir string, keychain authn.Keychain) error {
-	// pushing an existing manifest is out of #17485's scope; allow legacy kinds through unchanged.
-	results, err := policy.Load(nil, "", true, dir)
+	results, err := policy.Load(nil, "", allowLegacyPoliciesForPush, dir)
 	if err != nil {
 		return fmt.Errorf("unable to read policy file or directory %s (%w)", dir, err)
 	}

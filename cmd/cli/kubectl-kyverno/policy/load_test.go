@@ -9,6 +9,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
@@ -211,6 +212,18 @@ func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
+	// testdata/list-single-clusterpolicy.yaml wraps a legacy kyverno.io/v1 ClusterPolicy in a
+	// v1 List; the block must fire for a List item exactly as it does for a standalone manifest.
+	_, err := Load(nil, "", false, "testdata/list-single-clusterpolicy.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+
+	results, err := Load(nil, "", true, "testdata/list-single-clusterpolicy.yaml")
+	require.NoError(t, err)
+	assert.Len(t, results.Policies, 1)
 }
 func TestLoadHTTP(t *testing.T) {
 	tests := []struct {
