@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"io"
@@ -19,30 +20,33 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/sigstore/cosign/v3/pkg/cosign/bundle"
+	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// mockSignature is a test double for oci.Signature that carries a configurable
+// payload so tests can exercise annotation checks against the payload contents.
 type mockSignature struct {
-	annotations map[string]string
-	annotErr    error
+	payload    []byte
+	payloadErr error
 }
 
-func (m *mockSignature) Annotations() (map[string]string, error) {
-	if m.annotErr != nil {
-		return nil, m.annotErr
-	}
-	return m.annotations, nil
-}
+// Annotations is a no-op that satisfies oci.Signature; the code under test
+// reads annotations from the signature payload rather than the descriptor.
+func (m *mockSignature) Annotations() (map[string]string, error) { return nil, nil }
 
 // Implement other oci.Signature interface methods as no-ops for testing
-func (m *mockSignature) Digest() (v1.Hash, error)                            { return v1.Hash{}, nil }
-func (m *mockSignature) DiffID() (v1.Hash, error)                            { return v1.Hash{}, nil }
-func (m *mockSignature) Compressed() (io.ReadCloser, error)                  { return nil, nil }
-func (m *mockSignature) Uncompressed() (io.ReadCloser, error)                { return nil, nil }
-func (m *mockSignature) Size() (int64, error)                                { return 0, nil }
-func (m *mockSignature) MediaType() (types.MediaType, error)                 { return "", nil }
-func (m *mockSignature) Payload() ([]byte, error)                            { return nil, nil }
+func (m *mockSignature) Digest() (v1.Hash, error)             { return v1.Hash{}, nil }
+func (m *mockSignature) DiffID() (v1.Hash, error)             { return v1.Hash{}, nil }
+func (m *mockSignature) Compressed() (io.ReadCloser, error)   { return nil, nil }
+func (m *mockSignature) Uncompressed() (io.ReadCloser, error) { return nil, nil }
+func (m *mockSignature) Size() (int64, error)                 { return 0, nil }
+func (m *mockSignature) MediaType() (types.MediaType, error)  { return "", nil }
+
+// Payload returns the mock signature's configured payload bytes and error,
+// letting tests simulate both successful payload fetches and fetch failures.
+func (m *mockSignature) Payload() ([]byte, error)                            { return m.payload, m.payloadErr }
 func (m *mockSignature) Signature() ([]byte, error)                          { return nil, nil }
 func (m *mockSignature) Base64Signature() (string, error)                    { return "", nil }
 func (m *mockSignature) Cert() (*x509.Certificate, error)                    { return nil, nil }
@@ -735,7 +739,20 @@ func TestCertificateProperties(t *testing.T) {
 	}
 }
 
+// TestCheckSignatureAnnotations verifies that required annotations are matched
+// against the "optional" map of the cosign signature payload, covering matching,
+// mismatched, missing, empty, and payload-fetch-error cases.
 func TestCheckSignatureAnnotations(t *testing.T) {
+	makePayload := func(optional map[string]string) []byte {
+		optionalAny := make(map[string]interface{}, len(optional))
+		for k, v := range optional {
+			optionalAny[k] = v
+		}
+		b, err := json.Marshal(payload.SimpleContainerImage{Optional: optionalAny})
+		require.NoError(t, err)
+		return b
+	}
+
 	tests := []struct {
 		name        string
 		sig         *mockSignature
@@ -744,13 +761,13 @@ func TestCheckSignatureAnnotations(t *testing.T) {
 		errContains string
 	}{
 		{
-			name: "matching annotations",
+			name: "matching annotations from payload optional map",
 			sig: &mockSignature{
-				annotations: map[string]string{
+				payload: makePayload(map[string]string{
 					"key1": "value1",
 					"key2": "value2",
 					"key3": "value3",
-				},
+				}),
 			},
 			expected: map[string]string{
 				"key1": "value1",
@@ -761,10 +778,10 @@ func TestCheckSignatureAnnotations(t *testing.T) {
 		{
 			name: "all annotations match",
 			sig: &mockSignature{
-				annotations: map[string]string{
+				payload: makePayload(map[string]string{
 					"io.kyverno.image": "myimage:v1",
 					"builder":          "github-actions",
-				},
+				}),
 			},
 			expected: map[string]string{
 				"io.kyverno.image": "myimage:v1",
@@ -775,10 +792,10 @@ func TestCheckSignatureAnnotations(t *testing.T) {
 		{
 			name: "mismatched value",
 			sig: &mockSignature{
-				annotations: map[string]string{
+				payload: makePayload(map[string]string{
 					"key1": "value1",
 					"key2": "wrongvalue",
-				},
+				}),
 			},
 			expected: map[string]string{
 				"key1": "value1",
@@ -790,9 +807,9 @@ func TestCheckSignatureAnnotations(t *testing.T) {
 		{
 			name: "missing key",
 			sig: &mockSignature{
-				annotations: map[string]string{
+				payload: makePayload(map[string]string{
 					"key1": "value1",
-				},
+				}),
 			},
 			expected: map[string]string{
 				"key1":       "value1",
@@ -804,18 +821,18 @@ func TestCheckSignatureAnnotations(t *testing.T) {
 		{
 			name: "empty expected",
 			sig: &mockSignature{
-				annotations: map[string]string{
+				payload: makePayload(map[string]string{
 					"key1": "value1",
 					"key2": "value2",
-				},
+				}),
 			},
 			expected: map[string]string{},
 			wantErr:  false,
 		},
 		{
-			name: "empty signature",
+			name: "empty payload optional map",
 			sig: &mockSignature{
-				annotations: map[string]string{},
+				payload: makePayload(map[string]string{}),
 			},
 			expected: map[string]string{
 				"key1": "value1",
@@ -824,35 +841,22 @@ func TestCheckSignatureAnnotations(t *testing.T) {
 			errContains: "annotations mismatch",
 		},
 		{
-			name: "annotations fetch error",
+			name: "payload fetch error",
 			sig: &mockSignature{
-				annotErr: errors.New("failed to fetch annotations"),
+				payloadErr: errors.New("failed to fetch payload"),
 			},
 			expected: map[string]string{
 				"key1": "value1",
 			},
 			wantErr:     true,
-			errContains: "failed to fetch annotation from signature",
-		},
-		{
-			name: "cosign standard annotations",
-			sig: &mockSignature{
-				annotations: map[string]string{
-					"dev.cosignproject.cosign/signature": "MEUCIQDxUX...",
-					"dev.sigstore.cosign/bundle":         `{"SignedEntryTimestamp":"..."}`,
-				},
-			},
-			expected: map[string]string{
-				"dev.cosignproject.cosign/signature": "MEUCIQDxUX...",
-			},
-			wantErr: false,
+			errContains: "failed to get signature payload",
 		},
 		{
 			name: "case sensitivity",
 			sig: &mockSignature{
-				annotations: map[string]string{
+				payload: makePayload(map[string]string{
 					"Key1": "Value1",
-				},
+				}),
 			},
 			expected: map[string]string{
 				"key1": "Value1", // Different case in key
@@ -861,13 +865,13 @@ func TestCheckSignatureAnnotations(t *testing.T) {
 			errContains: "annotations mismatch",
 		},
 		{
-			name: "extra annotations in signature",
+			name: "extra annotations in payload optional map",
 			sig: &mockSignature{
-				annotations: map[string]string{
+				payload: makePayload(map[string]string{
 					"key1":  "value1",
 					"key2":  "value2",
 					"extra": "annotation",
-				},
+				}),
 			},
 			expected: map[string]string{
 				"key1": "value1",
