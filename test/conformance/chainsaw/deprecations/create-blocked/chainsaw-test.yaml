@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: create-blocked
+spec:
+  description: >
+    Under the 1.20 default (features.blockLegacyPolicyAPIs.enabled=true), creating any legacy
+    kyverno.io policy kind, in any served version, is hard-denied at admission. This exercises
+    every legacy kind/version pair, including the storage versions (kyverno.io/v2 for
+    CleanupPolicy/ClusterCleanupPolicy/PolicyException) that previously bypassed the admission
+    webhook entirely because the webhook rules only listed v2beta1 (see #17483).
+  concurrent: false
+  steps:
+  - name: cluster-policy
+    try:
+    - error:
+        file: cluster-policy-v1.yaml
+    - error:
+        file: cluster-policy-v2beta1.yaml
+  - name: policy
+    try:
+    - error:
+        file: policy-v1.yaml
+    - error:
+        file: policy-v2beta1.yaml
+  - name: cluster-cleanup-policy
+    try:
+    - error:
+        file: cluster-cleanup-policy-v2.yaml
+    - error:
+        file: cluster-cleanup-policy-v2beta1.yaml
+  - name: cleanup-policy
+    try:
+    - error:
+        file: cleanup-policy-v2.yaml
+    - error:
+        file: cleanup-policy-v2beta1.yaml
+  - name: policy-exception
+    try:
+    - error:
+        file: policy-exception-v2.yaml
+    - error:
+        file: policy-exception-v2beta1.yaml

@@ -62,7 +62,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          export USE_CONFIG=standard
+          export USE_CONFIG=standard,legacy-policies
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno/wait-ready
