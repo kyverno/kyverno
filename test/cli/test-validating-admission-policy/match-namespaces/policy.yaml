@@ -8,6 +8,7 @@ spec:
     - apiGroups: [""]
       apiVersions: ["v1"]
       resources: ["namespaces"]
+      operations: ["CREATE", "UPDATE"]
   validations:
   - expression: "object.metadata.name.startsWith('valid-')"
     message: "Namespace name must start with 'valid-'."

@@ -335,7 +335,7 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 				matchedParams = paramList
 			}
 
-			engineResponse, err := validateResource(policy, &bindings[i], resource, matchedParams, namespace, a)
+			engineResponse, err := validateResource(policy, &bindings[i], resource, matchedParams, namespace, a) // #nosec G602 -- i comes from range over bindings, always in bounds
 			if err != nil {
 				vapLogger.Error(err, "failed to validate resource with params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
