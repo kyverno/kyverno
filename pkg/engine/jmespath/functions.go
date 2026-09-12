@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
@@ -1288,7 +1289,10 @@ func jpIsExternalURL(arguments []any) (any, error) {
 		return !(ip.IsLoopback() || ip.IsPrivate()), nil
 	}
 	// If it can't be parsed as an IP, then resolve the domain name
-	addrs, err := net.DefaultResolver.LookupIPAddr(context.Background(), parsedURL.Hostname())
+	// Use a timeout context to prevent DNS lookup from hanging the JMESPath evaluation indefinitely
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, parsedURL.Hostname())
 	if err != nil {
 		return nil, err
 	}
