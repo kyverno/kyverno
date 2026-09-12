@@ -19,6 +19,10 @@ spec:
         has(object.metadata.labels) && has(object.metadata.labels.prod) && object.metadata.labels.prod == 'true'
   matchImageReferences:
     - glob: ghcr.io/*
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
   attestors:
     - name: notary
       notary:

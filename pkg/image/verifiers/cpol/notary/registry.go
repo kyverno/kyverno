@@ -26,7 +26,7 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient verifie
 		return nil, err
 	}
 
-	remoteOpts, err := registryClient.Options(ctx)
+	remoteOpts, _, err := registryClient.Options(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func parseReferenceCrane(ctx context.Context, ref string, registryClient verifie
 	}
 
 	repository := newRepository(remoteOpts, nameRef)
-	err = resolveDigestCrane(repository, remoteOpts, nameRef)
+	err = resolveDigestCrane(ctx, repository, remoteOpts, nameRef)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to resolve digest")
 	}
@@ -67,8 +67,8 @@ func isDigestReference(reference string) bool {
 	return index != -1
 }
 
-func resolveDigestCrane(repo notationregistry.Repository, remoteOpts []gcrremote.Option, ref name.Reference) error {
-	_, err := repo.Resolve(context.Background(), ref.Identifier())
+func resolveDigestCrane(ctx context.Context, repo notationregistry.Repository, remoteOpts []gcrremote.Option, ref name.Reference) error {
+	_, err := repo.Resolve(ctx, ref.Identifier())
 	if err != nil {
 		return err
 	}

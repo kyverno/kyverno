@@ -1,0 +1,34 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-multiple-resources-template
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+  generate:
+    - template:
+        interpolate: cel
+        value: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: (( variables.nsName ))-config
+            namespace: (( variables.nsName ))
+          data:
+            key: value
+          ---
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: (( variables.nsName ))-secret
+            namespace: (( variables.nsName ))
+          type: Opaque
+          stringData:
+            password: static-value

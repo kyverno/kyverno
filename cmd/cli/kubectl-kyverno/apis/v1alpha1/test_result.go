@@ -53,6 +53,17 @@ type TestResultBase struct {
 	// Kind mentions the kind of the resource on which the policy is to be applied.
 	Kind string `json:"kind"`
 
+	// Operation mentions the admission operation to simulate when applying policies
+	// on the resources of this test result. Possible values are CREATE, UPDATE and
+	// DELETE. If unset, the operation defaults to CREATE, or to the operation
+	// declared via the `request.operation` global value in the values file.
+	// For UPDATE, both object and oldObject are set to the resource. For DELETE,
+	// object is null and oldObject is set to the resource, mirroring the API server.
+	// It is not supported for deleting policies and JSON payloads.
+	// +optional
+	// +kubebuilder:validation:Enum=CREATE;UPDATE;DELETE
+	Operation string `json:"operation,omitempty"`
+
 	// PatchedResource takes a resource configuration file in yaml format from
 	// the user to compare it against the Kyverno mutated resource configuration.
 	// Multiple resources can be passed in the same file

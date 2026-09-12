@@ -43,7 +43,7 @@ func buildGlobalContextStore(
 	client dclient.Interface,
 	jp jmespath.Interface,
 ) (gctxstore.Store, error) {
-	s := gctxstore.New()
+	s := gctxstore.New(0)
 	for _, gce := range gctxEntries {
 		if gce.Spec.KubernetesResource == nil {
 			continue
@@ -87,10 +87,12 @@ func buildGlobalContextStore(
 			projections[p.Name] = result
 		}
 
-		s.Set(gce.Name, &staticEntry{
+		if err := s.Set(gce.Name, &staticEntry{
 			objects:     objects,
 			projections: projections,
-		})
+		}); err != nil {
+			return nil, fmt.Errorf("failed to store GlobalContextEntry %s: %w", gce.Name, err)
+		}
 	}
 	return s, nil
 }

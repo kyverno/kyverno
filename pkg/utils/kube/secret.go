@@ -56,9 +56,6 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 			return *resource, fmt.Errorf("unable to convert metadata to map: %w", err)
 		}
 		updatedMeta := updateSecret["metadata"].(map[string]interface{})
-		if err != nil {
-			return *resource, fmt.Errorf("unable to convert object from secret: %w", err)
-		}
 		err = unstructured.SetNestedMap(metadata, updatedMeta["annotations"].(map[string]interface{}), "annotations")
 		if err != nil {
 			return *resource, fmt.Errorf("failed to set secret.annotations: %w", err)

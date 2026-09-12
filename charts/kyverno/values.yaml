@@ -46,8 +46,9 @@ global:
   # - name: HTTPS_PROXY
   #   value: 'https://proxy.example.com:3128'
 
-  # -- Global node labels for pod assignment. Non-global values will override the global value.
-  nodeSelector: {}
+  # -- Global node labels for pod assignment, applied to all chart workloads including controller Deployments, hook Jobs, and Helm test Pods. Non-global (controller) values will override the global value when non-empty. The default `kubernetes.io/os: linux` key is always merged into any user-supplied value and cannot be unset by design, because Kyverno images only run on Linux nodes.
+  nodeSelector:
+    kubernetes.io/os: linux
 
   # -- Global List of node taints to tolerate. Non-global values will override the global value.
   tolerations: []
@@ -66,7 +67,7 @@ upgrade:
   fromV2: false
 
 apiVersionOverride:
-  # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
+  # -- (string) Override api version used to create `PodDisruptionBudget` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
   # determine the api version automatically.
   podDisruptionBudget: ~
@@ -108,7 +109,10 @@ crds:
 
   groups:
 
-    # -- Install CRDs in group `kyverno.io`
+    # -- Install CRDs in group `kyverno.io`.
+    # Note: the legacy policy types in this group (`ClusterPolicy`, `Policy`, `ClusterCleanupPolicy`, `CleanupPolicy`, `PolicyException`)
+    # are deprecated and will be removed in a future release, migrate to the `policies.kyverno.io` policy types
+    # (see https://kyverno.io/docs/guides/migration-to-cel/).
     kyverno:
       cleanuppolicies: true
       clustercleanuppolicies: true
@@ -198,7 +202,7 @@ crds:
     # -- Security context for the pod
     podSecurityContext: {}
 
-    # -- Node labels for pod assignment
+    # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
     nodeSelector: {}
 
     # -- List of node taints to tolerate
@@ -544,6 +548,14 @@ metricsConfig:
       disabledLabelDimensions: ["resource_namespace"]
     kyverno_cleanup_controller_deletedobjects_total:
       disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_validating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_mutating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_generating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
+    kyverno_image_validating_policy_results_total:
+      disabledLabelDimensions: ["resource_namespace", "policy_namespace"]
 
 # -- Image pull secrets for image verification policies, this will define the `--imagePullSecrets` argument
 imagePullSecrets: {}
@@ -620,7 +632,7 @@ test:
     # If not set, the token will have no audience restriction.
     audience: ""
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
    # -- Additional Pod annotations
@@ -655,7 +667,7 @@ webhooksCleanup:
   # -- Security context for the pod
   podSecurityContext: {}
 
-  # -- Node labels for pod assignment
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
   nodeSelector: {}
 
   # -- List of node taints to tolerate
@@ -845,6 +857,9 @@ features:
   autoUpdateWebhooks:
     # -- Enables the feature
     enabled: true
+  excludeBootstrapResources:
+    # -- Excludes cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks to avoid a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while enabled.
+    enabled: false
   backgroundScan:
     # -- Enables the feature
     enabled: true
@@ -869,6 +884,9 @@ features:
   forceFailurePolicyIgnore:
     # -- Enables the feature
     enabled: false
+  blockLegacyPolicyAPIs:
+    # -- Blocks creates and spec-changing updates of legacy kyverno.io policy APIs (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, legacy PolicyException) in favor of the CEL-based policies.kyverno.io types. Existing legacy policies remain readable and enforced; no-op, metadata-only, and status-subresource updates remain allowed. Temporary migration escape hatch for 1.20, removed in 1.21.
+    enabled: true
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: true
@@ -883,6 +901,8 @@ features:
     maxApiCallResponseLength: 2000000
     # -- Timeout for HTTP API calls made by policies. A value of 0s means no timeout.
     apiCallTimeout: 30s
+    # -- Maximum number of entries in the global context store. A value of 0 means unbounded.
+    maxGlobalContextEntries: 0
   logging:
     # -- Logging format
     format: text
@@ -1172,9 +1192,8 @@ admissionController:
     failureThreshold: 6
     successThreshold: 1
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -1332,6 +1351,14 @@ admissionController:
           - ALL
       seccompProfile:
         type: RuntimeDefault
+
+    # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+    lifecycle: {}
+    # Example:
+    # lifecycle:
+    #   preStop:
+    #     sleep:
+    #       seconds: 10
 
     # -- Additional container args.
     extraArgs: {}
@@ -1590,6 +1617,9 @@ backgroundController:
   # -- Resync period for informers
   resyncPeriod: 15m
 
+  # -- Enable/Disable custom resource watcher to invalidate cache
+  crdWatcher: false
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1652,9 +1682,8 @@ backgroundController:
       cpu: 100m
       memory: 64Mi
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -1703,6 +1732,14 @@ backgroundController:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
 
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.
@@ -2066,9 +2103,8 @@ cleanupController:
     failureThreshold: 6
     successThreshold: 1
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -2117,6 +2153,14 @@ cleanupController:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
 
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.
@@ -2290,12 +2334,19 @@ reportsController:
       extraResources: []
 
     clusterRole:
-      # -- Extra resource permissions to add in the cluster role
+      # -- Extra resource permissions to add in the cluster role (granted get/list/watch).
+      # Required for background-scan/PolicyReport coverage of custom workload CRDs (e.g. Argo Rollout,
+      # JobSet) referenced by a CEL policy's `spec.autogen.podControllers.controllers` - Kyverno cannot
+      # self-grant RBAC for arbitrary CRDs, so list/watch access for each such CRD must be added here.
       extraResources: []
       # - apiGroups:
       #     - ''
       #   resources:
       #     - pods
+      # - apiGroups:
+      #     - argoproj.io
+      #   resources:
+      #     - rollouts
 
   image:
     # -- Image registry
@@ -2402,9 +2453,8 @@ reportsController:
       cpu: 100m
       memory: 64Mi
 
-  # -- Node labels for pod assignment
-  nodeSelector:
-    kubernetes.io/os: linux
+  # -- Node labels for pod assignment. Overrides `global.nodeSelector` when non-empty. When empty, the default is `kubernetes.io/os: linux`.
+  nodeSelector: {}
 
   # -- List of node taints to tolerate
   tolerations: []
@@ -2453,6 +2503,14 @@ reportsController:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
 
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.
