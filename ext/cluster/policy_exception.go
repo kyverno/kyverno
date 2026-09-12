@@ -36,7 +36,12 @@ func (c policyExceptionSelector) Find(policy, rule string) ([]*kyvernov2.PolicyE
 	}
 	for _, exception := range c.additional {
 		if c.namespace == "" || exception.GetNamespace() == c.namespace {
-			exceptions = append(exceptions, exception)
+			for _, e := range exception.Spec.Exceptions {
+				if e.PolicyName == policy && slices.Contains(e.RuleNames, rule) {
+					exceptions = append(exceptions, exception)
+					break
+				}
+			}
 		}
 	}
 	return exceptions, nil
