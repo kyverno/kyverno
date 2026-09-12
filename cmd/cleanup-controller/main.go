@@ -28,13 +28,16 @@ import (
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
+	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -44,6 +47,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -194,6 +198,20 @@ func main() {
 			kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
 			genericloggingcontroller.CheckGeneration,
 		)
+		// kyverno_legacy_policies_total gauge: only the legacy kinds natively watched
+		// by the cleanup-controller through synced listers -- CleanupPolicy and
+		// ClusterCleanupPolicy. ClusterPolicy, Policy, and legacy PolicyException are
+		// gauged by the admission controller instead, which natively watches those kinds.
+		legacypolicymetricscontroller.NewController(metrics.GetLegacyPolicyMetrics(), "kyverno.io", map[string]deprecations.KindCounter{
+			"CleanupPolicy": func() (int, error) {
+				pols, err := kyvernoInformer.Kyverno().V2().CleanupPolicies().Lister().List(labels.Everything())
+				return len(pols), err
+			},
+			"ClusterCleanupPolicy": func() (int, error) {
+				pols, err := kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies().Lister().List(labels.Everything())
+				return len(pols), err
+			},
+		})
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
