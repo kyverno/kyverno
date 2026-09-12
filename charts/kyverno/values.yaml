@@ -67,7 +67,7 @@ upgrade:
   fromV2: false
 
 apiVersionOverride:
-  # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
+  # -- (string) Override api version used to create `PodDisruptionBudget` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
   # determine the api version automatically.
   podDisruptionBudget: ~
@@ -884,6 +884,9 @@ features:
   forceFailurePolicyIgnore:
     # -- Enables the feature
     enabled: false
+  blockLegacyPolicyAPIs:
+    # -- Blocks creates and spec-changing updates of legacy kyverno.io policy APIs (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, legacy PolicyException) in favor of the CEL-based policies.kyverno.io types. Existing legacy policies remain readable and enforced; no-op, metadata-only, and status-subresource updates remain allowed. Temporary migration escape hatch for 1.20, removed in 1.21.
+    enabled: true
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: true
@@ -1614,6 +1617,9 @@ backgroundController:
   # -- Resync period for informers
   resyncPeriod: 15m
 
+  # -- Enable/Disable custom resource watcher to invalidate cache
+  crdWatcher: false
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -2328,12 +2334,19 @@ reportsController:
       extraResources: []
 
     clusterRole:
-      # -- Extra resource permissions to add in the cluster role
+      # -- Extra resource permissions to add in the cluster role (granted get/list/watch).
+      # Required for background-scan/PolicyReport coverage of custom workload CRDs (e.g. Argo Rollout,
+      # JobSet) referenced by a CEL policy's `spec.autogen.podControllers.controllers` - Kyverno cannot
+      # self-grant RBAC for arbitrary CRDs, so list/watch access for each such CRD must be added here.
       extraResources: []
       # - apiGroups:
       #     - ''
       #   resources:
       #     - pods
+      # - apiGroups:
+      #     - argoproj.io
+      #   resources:
+      #     - rollouts
 
   image:
     # -- Image registry

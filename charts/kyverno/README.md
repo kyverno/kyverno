@@ -366,6 +366,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.deferredLoading.enabled | bool | `true` | Enables the feature |
 | features.dumpPayload.enabled | bool | `false` | Enables the feature |
 | features.forceFailurePolicyIgnore.enabled | bool | `false` | Enables the feature |
+| features.blockLegacyPolicyAPIs.enabled | bool | `true` | Blocks creates and spec-changing updates of legacy kyverno.io policy APIs (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, legacy PolicyException) in favor of the CEL-based policies.kyverno.io types. Existing legacy policies remain readable and enforced; no-op, metadata-only, and status-subresource updates remain allowed. Temporary migration escape hatch for 1.20, removed in 1.21. |
 | features.generateValidatingAdmissionPolicy.enabled | bool | `true` | Enables the feature |
 | features.generateMutatingAdmissionPolicy.enabled | bool | `false` | Enables the feature |
 | features.dumpPatches.enabled | bool | `false` | Enables the feature |
@@ -552,6 +553,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.replicas | int | `nil` | Desired number of pods |
 | backgroundController.revisionHistoryLimit | int | `10` | The number of revisions to keep |
 | backgroundController.resyncPeriod | string | `"15m"` | Resync period for informers |
+| backgroundController.crdWatcher | bool | `false` | Enable/Disable custom resource watcher to invalidate cache |
 | backgroundController.podLabels | object | `{}` | Additional labels to add to each pod |
 | backgroundController.podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | backgroundController.labels | object | `{}` | Deployment labels. |
@@ -747,7 +749,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.rbac.serviceAccount.projectedServiceAccountToken.expirationSeconds | int | `3600` | Token expiration time in seconds. The kubelet will request a new token before the token expires. |
 | reportsController.rbac.serviceAccount.projectedServiceAccountToken.audience | string | `""` | Audience for the projected service account token. If not set, the token will have no audience restriction. |
 | reportsController.rbac.coreClusterRole.extraResources | list | See [values.yaml](values.yaml) | Extra resource permissions to add in the core cluster role. This was introduced to avoid breaking change in the chart but should ideally be moved in `clusterRole.extraResources`. |
-| reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role |
+| reportsController.rbac.clusterRole.extraResources | list | `[]` | Extra resource permissions to add in the cluster role (granted get/list/watch). Required for background-scan/PolicyReport coverage of custom workload CRDs (e.g. Argo Rollout, JobSet) referenced by a CEL policy's `spec.autogen.podControllers.controllers` - Kyverno cannot self-grant RBAC for arbitrary CRDs, so list/watch access for each such CRD must be added here. |
 | reportsController.image.registry | string | `nil` | Image registry |
 | reportsController.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
 | reportsController.image.repository | string | `"kyverno/reports-controller"` | Image repository |
@@ -890,7 +892,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget`` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
+| apiVersionOverride.podDisruptionBudget | string | `nil` | Override api version used to create `PodDisruptionBudget` resources. When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to determine the api version automatically. |
 
 ### Other
 
@@ -936,7 +938,7 @@ If `admissionController.createSelfSignedCert` is `false`, Kyverno will generate 
 
 ## Default resource filters
 
-[Kyverno resource filters](https://kyverno.io/docs/installation/#resource-filters) are a used to exclude resources from the Kyverno engine rules processing.
+[Kyverno resource filters](https://kyverno.io/docs/installation/#resource-filters) are used to exclude resources from the Kyverno engine rules processing.
 
 This chart comes with default resource filters that apply exclusions on a couple of namespaces and resource kinds:
 - all resources in `kube-system`, `kube-public` and `kube-node-lease` namespaces
@@ -962,11 +964,11 @@ A cluster can become unresponsive if Kyverno is not up and running, ultimately p
 You can however override the default resource filters by setting the `config.resourceFilters` stanza.
 It contains an array of string templates that are passed through the `tpl` Helm function and joined together to produce the final `resourceFilters` written in the Kyverno config map.
 
-Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
+Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the appropriate templates to build your desired exclusions list.
 
 Add entries to `config.resourceFiltersExclude` that you wish to omit from `config.resourceFilters`.
 
-Add entries to `config.resourceFiltersInclude` that you with to add to `config.resourceFilters`.
+Add entries to `config.resourceFiltersInclude` that you wish to add to `config.resourceFilters`.
 
 ## High availability
 
@@ -975,7 +977,7 @@ Running a highly-available Kyverno installation is crucial in a production envir
 In order to run Kyverno in high availability mode, you should set `replicas` to `3` or more for desired components.
 You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
 
-Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.
+Please see https://kyverno.io/docs/installation/#security-vs-operability for more information.
 
 ## Source Code
 
