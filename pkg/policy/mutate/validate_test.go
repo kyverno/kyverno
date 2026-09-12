@@ -393,19 +393,19 @@ func TestNewMutateFactory(t *testing.T) {
 	rule := &kyvernov1.Rule{Mutation: &kyvernov1.Mutation{}}
 
 	t.Run("mock mode", func(t *testing.T) {
-		m := NewMutateFactory(rule, nil, true, "bg-sa", "reports-sa")
+		m := NewMutateFactory(rule, nil, true, "bg-sa", "reports-sa", nil)
 		assert.NotNil(t, m)
 		assert.NotNil(t, m.authCheckerBackground)
 		assert.NotNil(t, m.authCheckerReports)
 	})
 
 	t.Run("empty background SA falls back to fake", func(t *testing.T) {
-		m := NewMutateFactory(rule, nil, false, "", "reports-sa")
+		m := NewMutateFactory(rule, nil, false, "", "reports-sa", nil)
 		assert.NotNil(t, m.authCheckerBackground)
 	})
 
 	t.Run("empty reports SA falls back to fake", func(t *testing.T) {
-		m := NewMutateFactory(rule, nil, false, "bg-sa", "")
+		m := NewMutateFactory(rule, nil, false, "bg-sa", "", nil)
 		assert.NotNil(t, m.authCheckerReports)
 	})
 }
