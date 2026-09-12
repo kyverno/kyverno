@@ -9,6 +9,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
@@ -34,7 +35,7 @@ func TestLoad(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			_, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -68,7 +69,7 @@ func TestLoadInvalid(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			results, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
 			if tt.wantErr {
 				assert.NotNil(t, err, "result mismatch")
 			} else {
@@ -128,7 +129,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := LoadWithLoader(nil, tt.fs, tt.resourcePath, tt.paths...)
+			results, err := LoadWithLoader(nil, tt.fs, tt.resourcePath, true, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -193,7 +194,7 @@ func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(nil, "", tt.path)
+			results, err := Load(nil, "", true, tt.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -211,6 +212,18 @@ func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
+	// testdata/list-single-clusterpolicy.yaml wraps a legacy kyverno.io/v1 ClusterPolicy in a
+	// v1 List; the block must fire for a List item exactly as it does for a standalone manifest.
+	_, err := Load(nil, "", false, "testdata/list-single-clusterpolicy.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+
+	results, err := Load(nil, "", true, "testdata/list-single-clusterpolicy.yaml")
+	require.NoError(t, err)
+	assert.Len(t, results.Policies, 1)
 }
 func TestLoadHTTP(t *testing.T) {
 	tests := []struct {
@@ -247,7 +260,7 @@ spec:
 			}))
 			defer server.Close()
 
-			results, err := Load(nil, "", server.URL)
+			results, err := Load(nil, "", true, server.URL)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
@@ -276,7 +289,7 @@ func TestLoadHTTPTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := Load(nil, "", server.URL)
+	_, err := Load(nil, "", true, server.URL)
 
 	assert.Error(t, err)
 	check := err

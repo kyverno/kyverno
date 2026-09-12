@@ -37,6 +37,7 @@ kyverno apply [flags]
 ### Options
 
 ```
+      --allow-legacy-policies              Allow legacy kyverno.io policy manifests (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException) instead of hard-erroring; use during the 1.20 migration grace window
       --audit-warn                         If set to true, will flag audit policies as warnings instead of failures
       --batch-size int                     Number of resources to fetch per API call (default 100)
   -c, --cluster                            Checks if policies should be applied to cluster in the current context

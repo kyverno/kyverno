@@ -891,7 +891,7 @@ test-cli: test-cli-policies test-cli-local ## Run all CLI tests
 .PHONY: test-cli-policies
 test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
 	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
-	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
+	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH) --allow-legacy-policies
 
 .PHONY: test-cli-local
 test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector test-cli-local-ruleless ## Run local CLI tests
@@ -899,7 +899,7 @@ test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpol
 .PHONY: test-cli-local-validate
 test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
 	@echo Running local cli validation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test
+	@$(CLI_BIN) test ./test/cli/test --allow-legacy-policies
 
 .PHONY: test-cli-local-ruleless
 test-cli-local-ruleless: $(CLI_BIN) ## Run local CLI ruleless policy tests
@@ -945,37 +945,37 @@ test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
 .PHONY: test-cli-local-maps
 test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 	@echo Running local cli MAP tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-mutating-admission-policy
+	@$(CLI_BIN) test ./test/cli/test-mutating-admission-policy --allow-legacy-policies
 
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
 	@echo Running local cli mutation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-mutate
+	@$(CLI_BIN) test ./test/cli/test-mutate --allow-legacy-policies
 
 .PHONY: test-cli-local-generate
 test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
 	@echo Running local cli generation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-generate
+	@$(CLI_BIN) test ./test/cli/test-generate --allow-legacy-policies
 
 .PHONY: test-cli-local-exceptions
 test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
 	@echo Running local cli exception tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-exceptions
+	@$(CLI_BIN) test ./test/cli/test-exceptions --allow-legacy-policies
 
 .PHONY: test-cli-local-selector
 test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
 	@echo Running local cli selector tests... >&2
-	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass" --allow-legacy-policies
 
 .PHONY: test-cli-local-registry
 test-cli-local-registry: $(CLI_BIN) ## Run local CLI registry tests
 	@echo Running local cli registry tests... >&2
-	@$(CLI_BIN) test ./test/cli/registry --registry
+	@$(CLI_BIN) test ./test/cli/registry --registry --allow-legacy-policies
 
 .PHONY: test-cli-local-scenarios
 test-cli-local-scenarios: $(CLI_BIN) ## Run local CLI scenarios tests
 	@echo Running local cli scenarios tests... >&2
-	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
+	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry --allow-legacy-policies
 
 #############
 # HELM TEST #

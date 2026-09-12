@@ -82,7 +82,6 @@ var (
 	mapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	mapBindingV1alpha1 = admissionregistrationv1alpha1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
 	mapBindingV1beta1  = admissionregistrationv1beta1.SchemeGroupVersion.WithKind("MutatingAdmissionPolicyBinding")
-	defaultLoader      = kubectlValidateLoader
 )
 
 type LoaderError struct {
@@ -155,26 +154,29 @@ func (l *LoaderResults) addWarning(path, warning string) {
 
 type loader = func(string, []byte) (*LoaderResults, error)
 
-func Load(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
-	return LoadWithLoader(nil, fs, resourcePath, paths...)
+// Load loads policies from the given paths. When allowLegacyPolicies is false, any legacy
+// kyverno.io policy kind (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException)
+// is rejected with a migration hint, matching the 1.20 admission-time block.
+func Load(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
+	return LoadWithLoader(nil, fs, resourcePath, allowLegacyPolicies, paths...)
 }
 
-func LoadWithLoader(loader loader, fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
-	if loader == nil {
-		loader = defaultLoader
+func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
+	if l == nil {
+		l = kubectlValidateLoaderFor(allowLegacyPolicies)
 	}
 	aggregateResults := &LoaderResults{}
 	for _, path := range paths {
 		var err error
 		var results *LoaderResults
 		if source.IsStdin(path) {
-			results, err = stdinLoad(loader)
+			results, err = stdinLoad(l)
 		} else if fs != nil {
-			results, err = gitLoad(loader, fs, filepath.Join(resourcePath, path))
+			results, err = gitLoad(l, fs, filepath.Join(resourcePath, path))
 		} else if source.IsHttp(path) {
-			results, err = httpLoad(loader, path)
+			results, err = httpLoad(l, path)
 		} else {
-			results, err = fsLoad(loader, path)
+			results, err = fsLoad(l, path)
 		}
 		if err != nil {
 			return nil, err
@@ -201,45 +203,52 @@ var loaderDelegate = sync.OnceValues(func() (resourceloader.Loader, error) {
 	return factory, err
 })
 
-func kubectlValidateLoader(path string, content []byte) (*LoaderResults, error) {
-	documents, err := extyaml.SplitDocuments(content)
-	if err != nil {
-		return nil, err
-	}
-	results := &LoaderResults{}
-	factory, err := loaderDelegate()
-	if err != nil {
-		return nil, err
-	}
-	for _, document := range documents {
-		gvk, untyped, err := factory.Load(document)
+// kubectlValidateLoaderFor returns a loader that rejects legacy kyverno.io policy kinds with a
+// migration-hint error unless allowLegacyPolicies is set, matching the 1.20 admission-time block.
+func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
+	return func(path string, content []byte) (*LoaderResults, error) {
+		documents, err := extyaml.SplitDocuments(content)
 		if err != nil {
-			// Check if this is a List object and handle it explicitly
-			if gvk.Kind == "List" && gvk.Version == "v1" {
-				if err := handleListItems(document, path, results); err != nil {
-					results.addError(path, fmt.Errorf("failed to process List: %w", err))
+			return nil, err
+		}
+		results := &LoaderResults{}
+		factory, err := loaderDelegate()
+		if err != nil {
+			return nil, err
+		}
+		for _, document := range documents {
+			gvk, untyped, err := factory.Load(document)
+			if err != nil {
+				// Check if this is a List object and handle it explicitly
+				if gvk.Kind == "List" && gvk.Version == "v1" {
+					if err := handleListItems(document, path, results, allowLegacyPolicies); err != nil {
+						if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+							return nil, err
+						}
+						results.addError(path, fmt.Errorf("failed to process List: %w", err))
+					}
+					continue
 				}
+				msg := err.Error()
+				if strings.Contains(msg, "Invalid value: value provided for unknown field") {
+					return nil, err
+				}
+				// skip non-Kubernetes YAMLs and invalid types
+				results.addError(path, err)
 				continue
 			}
-			msg := err.Error()
-			if strings.Contains(msg, "Invalid value: value provided for unknown field") {
-				return nil, err
-			}
-			// skip non-Kubernetes YAMLs and invalid types
-			results.addError(path, err)
-			continue
-		}
 
-		// Process regular documents (non-List)
-		if err := processDocumentItem(path, gvk, &untyped, results); err != nil {
-			return nil, fmt.Errorf("policy type not supported %s", gvk)
+			// Process regular documents (non-List)
+			if err := processDocumentItem(path, gvk, &untyped, results, allowLegacyPolicies); err != nil {
+				return nil, fmt.Errorf("failed to process %s: %w", gvk, err)
+			}
 		}
+		return results, nil
 	}
-	return results, nil
 }
 
 // handleListItems processes a v1.List object by extracting and processing its items
-func handleListItems(document []byte, path string, results *LoaderResults) error {
+func handleListItems(document []byte, path string, results *LoaderResults, allowLegacyPolicies bool) error {
 	var jsonData []byte
 	var parseErr error
 
@@ -272,7 +281,10 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 		itemUnstructured := &unstructured.Unstructured{Object: itemMap}
 		itemGVK := itemUnstructured.GroupVersionKind()
 
-		if err := processDocumentItem(path, itemGVK, itemUnstructured, results); err != nil {
+		if err := processDocumentItem(path, itemGVK, itemUnstructured, results, allowLegacyPolicies); err != nil {
+			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+				return fmt.Errorf("List item %d: %w", i, err)
+			}
 			results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
 		}
 	}
@@ -281,9 +293,14 @@ func handleListItems(document []byte, path string, results *LoaderResults) error
 }
 
 // processDocumentItem handles the processing of individual documents based on their GVK
-func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults) error {
+func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults, allowLegacyPolicies bool) error {
 	if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
 		results.addWarning(path, warning.Message)
+	}
+	if !allowLegacyPolicies {
+		if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+			return err
+		}
 	}
 	switch gvk {
 	case policyV1, policyV2:
@@ -426,7 +443,7 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 		}
 		results.MutatingPolicies = append(results.MutatingPolicies, typed)
 	default:
-		return fmt.Errorf("policy type not supported %s", gvk)
+		return errors.New("policy type not supported")
 	}
 	return nil
 }

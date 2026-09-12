@@ -4,6 +4,7 @@
 package deprecations
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -77,6 +78,20 @@ func IsLegacyPolicyKind(group, kind string) bool {
 	return ok
 }
 
+// legacyPolicyBlockError marks an error returned by BuildKindError, so callers that otherwise treat
+// load/parse failures as soft/skippable (e.g. the CLI silently skipping a non-Kyverno YAML file) can
+// tell this one apart and surface it as a hard failure instead.
+type legacyPolicyBlockError struct{ error }
+
+func (e legacyPolicyBlockError) Unwrap() error { return e.error }
+
+// IsLegacyPolicyBlockError reports whether err is (or wraps) the hard error returned by BuildKindError,
+// as opposed to an unrelated YAML/parsing error.
+func IsLegacyPolicyBlockError(err error) bool {
+	var e legacyPolicyBlockError
+	return errors.As(err, &e)
+}
+
 // BuildKindError returns a hard error rejecting a create or spec-changing update of a legacy
 // kyverno.io policy kind, or false if the kind is not a legacy policy type. It reuses the same
 // replacements table and migration URL as BuildKindWarning so the two messages stay consistent.
@@ -92,10 +107,10 @@ func BuildKindError(group, version, kind string) (error, bool) {
 	if version != "" {
 		apiVersion = fmt.Sprintf("%s/%s", group, version)
 	}
-	return fmt.Errorf(
+	return legacyPolicyBlockError{fmt.Errorf(
 		"%s %s is no longer accepted for create, or for an update that changes spec; migrate to %s (policies.kyverno.io), see %s",
 		apiVersion, kind, replacement, MigrationGuideURL,
-	), true
+	)}, true
 }
 
 // PolicyFieldWarnings returns field-level deprecation warnings for legacy policy fields.

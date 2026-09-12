@@ -34,14 +34,16 @@ type LoaderResults struct {
 	Warnings      []string
 }
 
-func Load(paths ...string) (*LoaderResults, error) {
+// Load loads policy exceptions from the given paths. When allowLegacyPolicies is false, a legacy
+// kyverno.io PolicyException is rejected with a migration hint, matching the 1.20 admission-time block.
+func Load(allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
 	loaderResults := &LoaderResults{}
 	for _, path := range paths {
 		bytes, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
 			return nil, fmt.Errorf("unable to read yaml (%w)", err)
 		}
-		results, err := load(bytes)
+		results, err := load(bytes, allowLegacyPolicies)
 		if err != nil {
 			return nil, fmt.Errorf("unable to load exceptions (%w)", err)
 		}
@@ -54,7 +56,7 @@ func Load(paths ...string) (*LoaderResults, error) {
 	return loaderResults, nil
 }
 
-func load(content []byte) (*LoaderResults, error) {
+func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 	results := &LoaderResults{}
 	documents, err := yamlutils.SplitDocuments(content)
 	if err != nil {
@@ -79,6 +81,11 @@ func load(content []byte) (*LoaderResults, error) {
 		case exceptionV2beta1, exceptionV2:
 			if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
 				results.Warnings = append(results.Warnings, warning.Message)
+			}
+			if !allowLegacyPolicies {
+				if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+					return nil, err
+				}
 			}
 			exception, err := convert.To[kyvernov2.PolicyException](untyped)
 			if err != nil {

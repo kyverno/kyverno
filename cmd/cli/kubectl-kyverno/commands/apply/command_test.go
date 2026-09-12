@@ -16,6 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -104,6 +105,7 @@ func Test_Apply(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
+				AllowLegacyPolicies:      true,
 				PolicyPaths:              []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
 				ResourcePaths:            []string{"../../../../../test/cli/apply/exception-within-policy/res"},
 				exceptionsWithinPolicies: true,
@@ -121,6 +123,7 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				AllowLegacyPolicies:       true,
 				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-resource/pol"},
 				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-resource/res"},
 				exceptionsWithinResources: true,
@@ -138,6 +141,7 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				AllowLegacyPolicies:       true,
 				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/pol"},
 				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/res"},
 				exceptionsWithinResources: true,
@@ -156,9 +160,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths:       []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -172,9 +177,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{localFileName},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{localFileName},
+				ResourcePaths:       []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -188,9 +194,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths:       []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -204,9 +211,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resource"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/apply/policies"},
+				ResourcePaths:       []string{"../../../../../test/cli/apply/resource"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -220,10 +228,11 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths:       []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:        true,
+				AuditWarn:           true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -237,11 +246,12 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"-"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
-				warnExitCode:  3,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"-"},
+				ResourcePaths:       []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:        true,
+				AuditWarn:           true,
+				warnExitCode:        3,
 			},
 			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -256,10 +266,11 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"-"},
-				PolicyReport:  true,
-				AuditWarn:     true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths:       []string{"-"},
+				PolicyReport:        true,
+				AuditWarn:           true,
 			},
 			stdinFile: "../../../../../test/resources/pod_with_latest_tag.yaml",
 			expectedReports: []openreportsv1alpha1.Report{{
@@ -274,10 +285,11 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies-set"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resources-set"},
-				Variables:     []string{"request.operation=UPDATE"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/apply/policies-set"},
+				ResourcePaths:       []string{"../../../../../test/cli/apply/resources-set"},
+				Variables:           []string{"request.operation=UPDATE"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -291,9 +303,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment1.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -307,9 +320,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/deployment2.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -323,9 +337,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -339,9 +354,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod2.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -355,9 +371,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment1.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -371,9 +388,10 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment2.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-admission-policy/check-deployment-labels/deployment2.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -387,7 +405,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-1/policy.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-1/policy.yaml"},
 				ResourcePaths: []string{
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-1/deployment1.yaml",
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-1/deployment2.yaml",
@@ -406,7 +425,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/policy.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/policy.yaml"},
 				ResourcePaths: []string{
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/deployment1.yaml",
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-2/deployment2.yaml",
@@ -425,7 +445,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/policy.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/policy.yaml"},
 				ResourcePaths: []string{
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/deployment1.yaml",
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-3/deployment2.yaml",
@@ -446,7 +467,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/policy.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/policy.yaml"},
 				ResourcePaths: []string{
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/deployment1.yaml",
 					"../../../../../test/cli/test-validating-admission-policy/with-bindings-4/deployment2.yaml",
@@ -465,7 +487,8 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-admission-policy/check-user-info/policy.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-admission-policy/check-user-info/policy.yaml"},
 				ResourcePaths: []string{
 					"../../../../../test/cli/test-validating-admission-policy/check-user-info/deployment.yaml",
 				},
@@ -484,11 +507,12 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths:       []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
+				GitBranch:           "main",
+				PolicyReport:        true,
+				Cloner:              fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -503,11 +527,12 @@ func Test_Apply(t *testing.T) {
 		{
 			// Same as the above test case but the policy paths are reordered
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
+				ResourcePaths:       []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
+				GitBranch:           "main",
+				PolicyReport:        true,
+				Cloner:              fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -521,6 +546,7 @@ func Test_Apply(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
+				AllowLegacyPolicies: true,
 				PolicyPaths: []string{
 					"../../../../../test/cli/apply/type/policy1.yaml",
 					"../../../../../test/cli/apply/type/policy2.yaml",
@@ -596,9 +622,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -612,9 +639,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment2.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment2.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -628,9 +656,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment1.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment1.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -644,9 +673,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment2.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/check-deployments-replica/deployment2.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -660,9 +690,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod1.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod1.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -676,9 +707,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/disallow-host-path/pod2.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -692,9 +724,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
-				JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
-				PolicyReport: true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml"},
+				JSONPaths:           []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -708,10 +741,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/skipped-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/skipped-deployment.yaml"},
+				Exception:           []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -725,10 +759,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/bad-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/bad-deployment.yaml"},
+				Exception:           []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -742,10 +777,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/good-deployment.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/good-deployment.yaml"},
+				Exception:           []string{"../../../../../test/cli/test-validating-policy/exceptions-check-deployment-labels/exception.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -759,10 +795,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod1.yaml"},
-				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod1.yaml"},
+				ContextPath:         "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -776,10 +813,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod2.yaml"},
-				ContextPath:   "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/policy-with-cm/pod2.yaml"},
+				ContextPath:         "../../../../../test/cli/test-validating-policy/policy-with-cm/context.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -793,11 +831,12 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/restrict-image-registries/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/restrict-image-registries/resource.yaml"},
-				ContextPath:   "../../../../../test/cli/test-validating-policy/restrict-image-registries/context.yaml",
-				ValuesFile:    "../../../../../test/cli/test-validating-policy/restrict-image-registries/value.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/restrict-image-registries/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/restrict-image-registries/resource.yaml"},
+				ContextPath:         "../../../../../test/cli/test-validating-policy/restrict-image-registries/context.yaml",
+				ValuesFile:          "../../../../../test/cli/test-validating-policy/restrict-image-registries/value.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -811,10 +850,11 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/allowed-base-images/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/allowed-base-images/resource.yaml"},
-				ContextPath:   "../../../../../test/cli/test-validating-policy/allowed-base-images/context.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/allowed-base-images/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/allowed-base-images/resource.yaml"},
+				ContextPath:         "../../../../../test/cli/test-validating-policy/allowed-base-images/context.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -828,8 +868,9 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/json-check-variables/policy.yaml"},
-				JSONPaths:   []string{"../../../../../test/cli/test-validating-policy/json-check-variables/payload.json"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/json-check-variables/policy.yaml"},
+				JSONPaths:           []string{"../../../../../test/cli/test-validating-policy/json-check-variables/payload.json"},
 
 				PolicyReport: true,
 			},
@@ -845,9 +886,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -861,9 +903,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-pass.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-pass.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -878,9 +921,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 		// JSON-mode policy applied to a K8s resource should evaluate via JSON path
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/json-mode-on-resource/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/json-mode-on-resource/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -906,9 +950,10 @@ func Test_Apply_ValidatingPolicies(t *testing.T) {
 // The K8s-mode policy should be gracefully skipped with zero results.
 func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
 	config := ApplyCommandConfig{
-		PolicyPaths:  []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/policy.yaml"},
-		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
-		PolicyReport: true,
+		AllowLegacyPolicies: true,
+		PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/policy.yaml"},
+		JSONPaths:           []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
+		PolicyReport:        true,
 	}
 	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
 	assert.NoError(t, err, "should not crash with segfault")
@@ -920,7 +965,8 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
 				ResourcePaths: []string{
 					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml",
 					"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/bad-pod.yaml",
@@ -939,7 +985,8 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-json.yaml"},
 				JSONPaths: []string{
 					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-pass.json",
 					"../../../../../test/cli/test-image-validating-policy/check-json/ivpol-payload-fail.json",
@@ -958,10 +1005,11 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/resources.yaml"},
-				Exception:     []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/exception.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/resources.yaml"},
+				Exception:           []string{"../../../../../test/cli/test-image-validating-policy/with-cel-exceptions/exception.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -975,9 +1023,10 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -991,9 +1040,10 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/good-pod.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-image-validating-policy/empty-message/good-pod.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1018,9 +1068,10 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1034,9 +1085,10 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:  []string{"../../../../../test/cli/test-deleting-policy/deleting-json/policy.yaml"},
-				JSONPaths:    []string{"../../../../../test/cli/test-deleting-policy/deleting-json/payload.json"},
-				PolicyReport: true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-deleting-policy/deleting-json/policy.yaml"},
+				JSONPaths:           []string{"../../../../../test/cli/test-deleting-policy/deleting-json/payload.json"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1050,10 +1102,11 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/resource.yaml"},
-				ValuesFile:    "../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/values.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/resource.yaml"},
+				ValuesFile:          "../../../../../test/cli/test-deleting-policy/deleting-pod-by-namespaceObject/values.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1067,10 +1120,11 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/resource.yaml"},
-				ContextPath:   "../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/context.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/resource.yaml"},
+				ContextPath:         "../../../../../test/cli/test-deleting-policy/use-resource-lib-pass/context.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1084,10 +1138,11 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/resource.yaml"},
-				ContextPath:   "../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/context.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/resource.yaml"},
+				ContextPath:         "../../../../../test/cli/test-deleting-policy/use-resource-lib-fail/context.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1121,9 +1176,10 @@ func Test_Apply_CleanupPolicies(t *testing.T) {
 		{
 			name: "namespaced-cleanup-policy-match-vs-nomatch",
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
+				PolicyReport:        true,
 			},
 			wantPass:  1, // cleanup-pod-1 would be deleted
 			wantFail:  1, // cleanup-pod-2 would NOT be deleted
@@ -1132,9 +1188,10 @@ func Test_Apply_CleanupPolicies(t *testing.T) {
 		{
 			name: "cluster-cleanup-policy-match-only",
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
+				PolicyReport:        true,
 			},
 			wantPass:  1,
 			wantFail:  0,
@@ -1173,9 +1230,10 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-admission-policy/with-match-conditions/resource.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1189,9 +1247,10 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-object-selector/resource.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1205,10 +1264,11 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/resource.yaml"},
-				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/values.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/resource.yaml"},
+				ValuesFile:          "../../../../../test/cli/test-mutating-admission-policy/with-binding-namespace-selector/values.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1222,9 +1282,10 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-exclude-resources/resource.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1238,9 +1299,10 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-admission-policy/with-binding-match-resources/resource.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1254,9 +1316,10 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/resource.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-admission-policy/specify-object-selector/resource.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1270,10 +1333,11 @@ func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/resource.yaml"},
-				ValuesFile:    "../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/values.yaml",
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/resource.yaml"},
+				ValuesFile:          "../../../../../test/cli/test-mutating-admission-policy/specify-namespace-selector/values.yaml",
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1349,6 +1413,7 @@ func TestCommand(t *testing.T) {
 		"../../_testdata/apply/test-1/policy.yaml",
 		"--resource",
 		"../../_testdata/apply/test-1/resources.yaml",
+		"--allow-legacy-policies",
 	})
 	err := cmd.Execute()
 	assert.NoError(t, err)
@@ -1406,6 +1471,7 @@ func TestCommandWarnExitCode(t *testing.T) {
 		"--audit-warn",
 		"--warn-exit-code",
 		strconv.Itoa(warnExitCode),
+		"--allow-legacy-policies",
 	})
 	err := cmd.Execute()
 	if err != nil {
@@ -1420,14 +1486,36 @@ func TestCommandWarnExitCode(t *testing.T) {
 
 func TestApplyWarningsAsErrors(t *testing.T) {
 	config := ApplyCommandConfig{
-		PolicyPaths:      []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
-		ResourcePaths:    []string{"../../../../../test/cli/apply/exception-within-policy/res"},
-		warningsAsErrors: true,
-		PolicyReport:     true,
+		AllowLegacyPolicies: true,
+		PolicyPaths:         []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
+		ResourcePaths:       []string{"../../../../../test/cli/apply/exception-within-policy/res"},
+		warningsAsErrors:    true,
+		PolicyReport:        true,
 	}
 	_, _, _, _, err := config.applyCommandHelper(io.Discard)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "--warnings-as-errors is set")
+}
+
+func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
+	blocked := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/resources.yaml"},
+		PolicyReport:  true,
+	}
+	_, _, _, _, err := blocked.applyCommandHelper(io.Discard)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
+
+	allowed := ApplyCommandConfig{
+		AllowLegacyPolicies: true,
+		PolicyPaths:         []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/policy.yaml"},
+		ResourcePaths:       []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/resources.yaml"},
+		PolicyReport:        true,
+	}
+	_, _, _, _, err = allowed.applyCommandHelper(io.Discard)
+	assert.NoError(t, err)
 }
 
 func TestCommandHelp(t *testing.T) {
@@ -1445,9 +1533,10 @@ func TestCommandHelp(t *testing.T) {
 
 func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
 	config := ApplyCommandConfig{
-		PolicyPaths:   []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
-		ResourcePaths: []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
-		PolicyReport:  true,
+		AllowLegacyPolicies: true,
+		PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/empty-message/policy.yaml"},
+		ResourcePaths:       []string{"../../../../../test/cli/test-validating-policy/empty-message/pod-fail.yaml"},
+		PolicyReport:        true,
 	}
 
 	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
@@ -1472,9 +1561,10 @@ func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
 
 func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 	config := ApplyCommandConfig{
-		PolicyPaths:   []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
-		ResourcePaths: []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
-		PolicyReport:  true,
+		AllowLegacyPolicies: true,
+		PolicyPaths:         []string{"../../../../../test/cli/test-image-validating-policy/empty-message/policy.yaml"},
+		ResourcePaths:       []string{"../../../../../test/cli/test-image-validating-policy/empty-message/bad-pod.yaml"},
+		PolicyReport:        true,
 	}
 
 	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
@@ -1501,10 +1591,11 @@ func Test_Apply_PoliciesWithCRD(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
-				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
-				CrdPaths:      []string{"../../_testdata/apply/test-3/crd/crd.yml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
+				ResourcePaths:       []string{"../../_testdata/apply/test-3/resources/resource.yml"},
+				CrdPaths:            []string{"../../_testdata/apply/test-3/crd/crd.yml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1518,10 +1609,11 @@ func Test_Apply_PoliciesWithCRD(t *testing.T) {
 		},
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/widget.yaml"},
-				CrdPaths:      []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/crds/widget-crd.yaml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/policy.yaml"},
+				ResourcePaths:       []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/widget.yaml"},
+				CrdPaths:            []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/crds/widget-crd.yaml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1546,10 +1638,11 @@ func Test_Apply_ValidatingPoliciesWithMultipleCRDS(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../_testdata/apply/test-4/resource-validating-policy/policy.yml"},
-				ResourcePaths: []string{"../../_testdata/apply/test-4/resources/foo.yml", "../../_testdata/apply/test-4/resources/bar.yml"},
-				CrdPaths:      []string{"../../_testdata/apply/test-4/crd/crds.yml"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../_testdata/apply/test-4/resource-validating-policy/policy.yml"},
+				ResourcePaths:       []string{"../../_testdata/apply/test-4/resources/foo.yml", "../../_testdata/apply/test-4/resources/bar.yml"},
+				CrdPaths:            []string{"../../_testdata/apply/test-4/crd/crds.yml"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1583,6 +1676,7 @@ func TestCommandCRDKubeEnable(t *testing.T) {
 		"./crd.yml",
 		"--kubeconfig",
 		"./kubeconfig.yaml",
+		"--allow-legacy-policies",
 	})
 	err := cmd.Execute()
 	assert.Error(t, err)
@@ -1597,9 +1691,10 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// HTTP allow
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:      []string{"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml"},
-				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
-				PolicyReport:     true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml"},
+				HTTPPayloadPaths:    []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1610,9 +1705,10 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// HTTP deny
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:      []string{"../../../../../test/cli/test-validating-policy/http-deny/policy.yaml"},
-				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-deny/request.json"},
-				PolicyReport:     true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/http-deny/policy.yaml"},
+				HTTPPayloadPaths:    []string{"../../../../../test/cli/test-validating-policy/http-deny/request.json"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1623,9 +1719,10 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// Envoy allow
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml"},
-				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-allow/request.json"},
-				PolicyReport:      true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/envoy-allow/policy.yaml"},
+				EnvoyPayloadPaths:   []string{"../../../../../test/cli/test-validating-policy/envoy-allow/request.json"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1636,9 +1733,10 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// Envoy deny
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths:       []string{"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml"},
-				EnvoyPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-deny/request.json"},
-				PolicyReport:      true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml"},
+				EnvoyPayloadPaths:   []string{"../../../../../test/cli/test-validating-policy/envoy-deny/request.json"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1649,7 +1747,8 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 		// Envoy JWT (3 requests: 2 denied, 1 allowed)
 		{
 			config: ApplyCommandConfig{
-				PolicyPaths: []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/test-validating-policy/envoy-jwt/policy.yaml"},
 				EnvoyPayloadPaths: []string{
 					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-empty.json",
 					"../../../../../test/cli/test-validating-policy/envoy-jwt/request-forbidden.json",
@@ -1676,6 +1775,7 @@ func Test_Apply_AuthzPolicies_MixedHTTPAndEnvoy(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
+				AllowLegacyPolicies: true,
 				PolicyPaths: []string{
 					"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
 					"../../../../../test/cli/test-validating-policy/envoy-deny/policy.yaml",
@@ -1783,9 +1883,10 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 			// Validates that GET-style apiCall context entries resolve against
 			// local resources supplied via --resource.
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall/res"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/apply/local-apicall/pol"},
+				ResourcePaths:       []string{"../../../../../test/cli/apply/local-apicall/res"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1801,9 +1902,10 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 			// Validates that LIST-style apiCall context entries resolve
 			// against local resources without hitting the Kubernetes API server.
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-list/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-list/res"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/apply/local-apicall-list/pol"},
+				ResourcePaths:       []string{"../../../../../test/cli/apply/local-apicall-list/res"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1821,9 +1923,10 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 			// ServiceAccount), exercising cross-resource resolution without a
 			// running cluster.
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/res"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/pol"},
+				ResourcePaths:       []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/res"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1841,9 +1944,10 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 			// the resolved context variable correctly reflects each resource's
 			// field value.
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-default/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-default/res"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/apply/local-apicall-default/pol"},
+				ResourcePaths:       []string{"../../../../../test/cli/apply/local-apicall-default/res"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
@@ -1857,9 +1961,10 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 			// ConfigMaps. Both Deployments should pass because "app-config"
 			// ConfigMap exists in the default namespace.
 			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-globalcontext/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-globalcontext/res"},
-				PolicyReport:  true,
+				AllowLegacyPolicies: true,
+				PolicyPaths:         []string{"../../../../../test/cli/apply/local-apicall-globalcontext/pol"},
+				ResourcePaths:       []string{"../../../../../test/cli/apply/local-apicall-globalcontext/res"},
+				PolicyReport:        true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
