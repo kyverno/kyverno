@@ -31,9 +31,56 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 		if err != nil {
 			return nil, err
 		}
-		resources = append(resources, resource)
+		expanded, err := expandIfList(resource)
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, expanded...)
 	}
 	return resources, nil
+}
+
+func expandIfList(res *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	if res == nil {
+		return nil, nil
+	}
+	isListKind := res.GetKind() == "List" || strings.HasSuffix(res.GetKind(), "List")
+	if isListKind && res.IsList() {
+		list, err := res.ToList()
+		if err != nil {
+			return nil, err
+		}
+		var results []*unstructured.Unstructured
+		for i := range list.Items {
+			item := &list.Items[i]
+			if strings.HasSuffix(res.GetKind(), "List") && res.GetKind() != "List" {
+				if item.GetKind() == "" {
+					item.SetKind(strings.TrimSuffix(res.GetKind(), "List"))
+				}
+				if item.GetAPIVersion() == "" {
+					item.SetAPIVersion(res.GetAPIVersion())
+				}
+			}
+			if item.GetNamespace() == "" && !isClusterScopedKind(item.GetAPIVersion(), item.GetKind()) {
+				if res.GetNamespace() != "" {
+					item.SetNamespace(res.GetNamespace())
+				} else {
+					item.SetNamespace("default")
+				}
+			}
+			normalizeNilMaps(item.Object)
+			expanded, err := expandIfList(item)
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, expanded...)
+		}
+		return results, nil
+	}
+	if isListKind {
+		return nil, nil
+	}
+	return []*unstructured.Unstructured{res}, nil
 }
 
 func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
