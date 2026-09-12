@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
@@ -45,6 +46,10 @@ var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
 func countPEMCertBlocks(pem []byte) int {
 	return bytes.Count(pem, pemCertBlockHeader)
 }
+
+// kmsVerifierCache caches KMS-based verifiers by key reference to avoid
+// creating a new unclosable KMS client per verification (goroutine leak).
+var kmsVerifierCache sync.Map
 
 func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
@@ -86,9 +91,16 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 			}
 		} else {
 			// this supports Kubernetes secrets and KMS
-			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithm)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load public key from %s: %w", opts.Key, err)
+			// Cache KMS-based verifiers by key reference to avoid creating a
+			// new unclosable KMS client per verification (goroutine leak).
+			if v, ok := kmsVerifierCache.Load(opts.Key); ok {
+				cosignOpts.SigVerifier = v.(signature.Verifier)
+			} else {
+				cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, opts.Key, signatureAlgorithm)
+				if err != nil {
+					return nil, fmt.Errorf("failed to load public key from %s: %w", opts.Key, err)
+				}
+				kmsVerifierCache.Store(opts.Key, cosignOpts.SigVerifier)
 			}
 		}
 	} else {

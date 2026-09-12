@@ -46,6 +46,10 @@ var (
 	}
 )
 
+// kmsVerifierCache caches KMS-based verifiers by key reference to avoid
+// creating a new unclosable KMS client per verification (goroutine leak).
+var kmsVerifierCache sync.Map
+
 // maxIntermediateCerts limits the number of intermediate certificates accepted
 // from user-provided certificate chains to mitigate CVE-2026-32280 (DoS via
 // unbounded work in crypto/x509 certificate chain building).
@@ -217,9 +221,16 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				return nil, fmt.Errorf("failed to load public key from PEM: %w", err)
 			}
 		} else if len(att.Key.KMS) != 0 {
-			opts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, att.Key.KMS, signatureAlgorithmMap[att.Key.HashAlgorithm])
-			if err != nil {
-				return nil, fmt.Errorf("failed to load public key from %s: %w", att.Key.KMS, err)
+			// Cache KMS verifiers by key reference to avoid creating a new
+			// unclosable KMS client per verification (goroutine leak).
+			if v, ok := kmsVerifierCache.Load(att.Key.KMS); ok {
+				opts.SigVerifier = v.(signature.Verifier)
+			} else {
+				opts.SigVerifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, att.Key.KMS, signatureAlgorithmMap[att.Key.HashAlgorithm])
+				if err != nil {
+					return nil, fmt.Errorf("failed to load public key from %s: %w", att.Key.KMS, err)
+				}
+				kmsVerifierCache.Store(att.Key.KMS, opts.SigVerifier)
 			}
 		}
 		return opts, nil
