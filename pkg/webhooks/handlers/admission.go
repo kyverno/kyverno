@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"time"
 
@@ -30,7 +31,8 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			return
 		}
 		contentType := request.Header.Get("Content-Type")
-		if contentType != "application/json" {
+		mediaType, _, err := mime.ParseMediaType(contentType)
+		if err != nil || mediaType != "application/json" {
 			HttpError(request.Context(), writer, request, logger, errors.New("invalid Content-Type"), http.StatusUnsupportedMediaType)
 			return
 		}
