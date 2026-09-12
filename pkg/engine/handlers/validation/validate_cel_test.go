@@ -239,7 +239,7 @@ var celNamespaceResource = `{
 // --- Tests ---
 
 func TestValidateCELHandler_PassExpression(t *testing.T) {
-	handler, err := NewValidateCELHandler(newFakeClient(), true)
+	handler, err := NewValidateCELHandler(newFakeClient(), true, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyPass, celPodResource, "")
@@ -252,7 +252,7 @@ func TestValidateCELHandler_PassExpression(t *testing.T) {
 }
 
 func TestValidateCELHandler_DenyExpression(t *testing.T) {
-	handler, err := NewValidateCELHandler(newFakeClient(), true)
+	handler, err := NewValidateCELHandler(newFakeClient(), true, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyDeny, celPodResource, "")
@@ -266,7 +266,7 @@ func TestValidateCELHandler_DenyExpression(t *testing.T) {
 }
 
 func TestValidateCELHandler_PolicyExceptionSkipsEnforcement(t *testing.T) {
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	// Use the deny policy: without the exception this would produce a deny.
@@ -305,7 +305,7 @@ func TestValidateCELHandler_PolicyExceptionSkipsEnforcement(t *testing.T) {
 }
 
 func TestValidateCELHandler_VAPGeneratedReturnsNilResponses(t *testing.T) {
-	handler, err := NewValidateCELHandler(newFakeClient(), true)
+	handler, err := NewValidateCELHandler(newFakeClient(), true, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyVAPGenerated, celPodResource, "")
@@ -319,7 +319,7 @@ func TestValidateCELHandler_VAPGeneratedReturnsNilResponses(t *testing.T) {
 }
 
 func TestValidateCELHandler_NoExceptionsProceeds(t *testing.T) {
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyPass, celPodResource, "")
@@ -333,7 +333,7 @@ func TestValidateCELHandler_NoExceptionsProceeds(t *testing.T) {
 }
 
 func TestValidateCELHandler_DeleteRequestUsesOldObject(t *testing.T) {
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	// For DELETE, pass the resource as oldResource and nil as the new resource.
@@ -372,7 +372,7 @@ func TestValidateCELHandler_DeleteRequestUsesOldObject(t *testing.T) {
 }
 
 func TestValidateCELHandler_NamespaceKindUnsetsNs(t *testing.T) {
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	// Build a policy that validates namespaces via CEL.
@@ -439,7 +439,7 @@ func TestValidateCELHandler_GetNamespaceError(t *testing.T) {
 			return nil, fmt.Errorf("simulated namespace lookup failure")
 		},
 	}
-	handler, err := NewValidateCELHandler(client, true)
+	handler, err := NewValidateCELHandler(client, true, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyPass, celPodResource, "")
@@ -455,7 +455,7 @@ func TestValidateCELHandler_GetNamespaceError(t *testing.T) {
 func TestValidateCELHandler_NonClusterFallbackNamespace(t *testing.T) {
 	// When isCluster=false, the handler creates a synthetic Namespace object
 	// instead of calling client.GetNamespace.
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyPass, celPodResource, "")
@@ -469,7 +469,7 @@ func TestValidateCELHandler_NonClusterFallbackNamespace(t *testing.T) {
 }
 
 func TestValidateCELHandler_UpdateRequestSetsOldObject(t *testing.T) {
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	updatedPod := `{
@@ -524,7 +524,7 @@ func TestValidateCELHandler_EmptyMessageFallback(t *testing.T) {
 		}
 	}`
 
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyEmptyMsg, celPodResource, "")
@@ -567,7 +567,7 @@ func TestValidateCELHandler_CELPreconditionsNotMet(t *testing.T) {
 		}
 	}`
 
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyWithPrecondition, celPodResource, "")
@@ -611,7 +611,7 @@ func TestValidateCELHandler_MultipleExpressions(t *testing.T) {
 		}
 	}`
 
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyMulti, celPodResource, "")
@@ -653,7 +653,7 @@ func TestValidateCELHandler_MultipleExpressionsFirstFails(t *testing.T) {
 		}
 	}`
 
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyMultiFail, celPodResource, "")
@@ -695,7 +695,7 @@ func TestValidateCELHandler_CELVariables(t *testing.T) {
 		}
 	}`
 
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyVars, celPodResource, "")
@@ -710,7 +710,7 @@ func TestValidateCELHandler_CELVariables(t *testing.T) {
 func TestValidateCELHandler_ClusterResourceNoNamespace(t *testing.T) {
 	// When the resource has no namespace (cluster-scoped), the handler should
 	// not attempt a GetNamespace call.
-	handler, err := NewValidateCELHandler(newFakeClient(), true)
+	handler, err := NewValidateCELHandler(newFakeClient(), true, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyPass, celPodResourceCluster, "")
@@ -750,7 +750,7 @@ func TestValidateCELHandler_AuditAnnotations(t *testing.T) {
 		}
 	}`
 
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyAuditAnnotation, celPodResource, "")
@@ -765,7 +765,7 @@ func TestValidateCELHandler_AuditAnnotations(t *testing.T) {
 
 func TestValidateCELHandler_ExceptionWithNamespaceKey(t *testing.T) {
 	// Verify that exception keys include namespace/name format.
-	handler, err := NewValidateCELHandler(nil, false)
+	handler, err := NewValidateCELHandler(nil, false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyDeny, celPodResource, "")
@@ -837,7 +837,7 @@ func TestValidateCELHandler_ParamKindWithoutClient(t *testing.T) {
 	}`
 
 	// fakeClient does not implement param collection, so CollectParams should fail.
-	handler, err := NewValidateCELHandler(newFakeClient(), false)
+	handler, err := NewValidateCELHandler(newFakeClient(), false, nil)
 	require.NoError(t, err)
 
 	pc := buildCELContext(t, kyvernov1.Create, celPolicyParam, celPodResource, "")

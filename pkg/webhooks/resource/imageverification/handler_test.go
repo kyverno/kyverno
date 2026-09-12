@@ -62,6 +62,7 @@ func newFakeImageVerificationHandler(t *testing.T, ctx context.Context) (ImageVe
 		factories.DefaultContextLoaderFactory(configMapResolver),
 		exceptions.New(peLister),
 		nil,
+		nil,
 	)
 
 	logger := testr.New(t)
