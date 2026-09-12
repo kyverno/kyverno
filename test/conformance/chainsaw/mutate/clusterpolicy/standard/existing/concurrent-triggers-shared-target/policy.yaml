@@ -1,0 +1,34 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: register-triggers-on-shared-target
+spec:
+  rules:
+  - name: register-trigger
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          namespaces:
+          - shared-target-ns
+          selector:
+            matchLabels:
+              register: "true"
+    context:
+    # Derived from the target's own content, so every trigger is a read-modify-write
+    # of the same field on the same object. Sorted so an unchanged membership yields
+    # an identical value.
+    - name: registered
+      variable:
+        jmesPath: "join(',', sort([ split(target.data.registered, ',')[?@ != '' && @ != '{{ request.object.metadata.name }}'], ['{{ request.object.metadata.name }}'] ] | []))"
+    mutate:
+      mutateExistingOnPolicyUpdate: true
+      targets:
+      - apiVersion: v1
+        kind: ConfigMap
+        namespace: shared-target-ns
+        name: shared-target
+      patchStrategicMerge:
+        data:
+          registered: "{{ registered }}"
