@@ -35,6 +35,9 @@ spec:
   {{ end }}
   validations:
     - expression: >-
+        {{- if .Values.podSecurityUserNamespaces }}
+        (object.spec.?hostUsers.orValue(true) == false) ||
+        {{- end }}
         (!has(object.spec.securityContext) || 
          !has(object.spec.securityContext.runAsUser) || 
          object.spec.securityContext.runAsUser != 0) &&
