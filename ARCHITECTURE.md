@@ -108,11 +108,12 @@ See also [api/AGENTS.md](api/AGENTS.md).
   those interface types as a parameter is fine — see the client-access section above).
 - **Logging:** `logr` API, `zerologr` backend for app logs, `klogr` for client-go/K8s library logs. Levels: L0
   errors, L2 startup/policy-application results, L3 variable evaluation/intermediate decisions, L4+ deep debugging.
-  Full detail: [docs/context/shared/logging.md](docs/context/shared/logging.md) → `docs/dev/logging/logging.md`.
+  Full detail: [docs/dev/logging/logging.md](docs/dev/logging/logging.md).
 - **Feature flags:** `pkg/toggle` — env var + CLI flag + a method on the `Toggles` interface, read via
   `toggle.FromContext(ctx).<Feature>()` — is the preferred mechanism for shared, env-backed toggles (a separate
   container-argument-only convention also exists for flags that don't need this). Full detail:
-  [docs/context/shared/feature-flags.md](docs/context/shared/feature-flags.md) → `docs/dev/feature-flags/README.md`.
+  [docs/dev/feature-flags/README.md](docs/dev/feature-flags/README.md), and [pkg/toggle/AGENTS.md](pkg/toggle/AGENTS.md)
+  for implementation gotchas.
 - **User-facing outcomes:** `pkg/event`, not ad hoc logging (see above).
 - **Outbound HTTP:** `pkg/tracing`'s OTel-instrumented `http.RoundTripper`, used by `pkg/engine/apicall` for
   external context calls. There is no separate generic HTTP client package beyond this.
