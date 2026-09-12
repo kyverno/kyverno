@@ -69,7 +69,7 @@ metadata:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-upgrade
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "100"
 automountServiceAccountToken: false
 ---
@@ -82,7 +82,7 @@ metadata:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-upgrade
-    # helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
     helm.sh/hook-weight: "200"
 spec:
   backoffLimit: 2
