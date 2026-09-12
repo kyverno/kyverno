@@ -70,7 +70,7 @@ func Setup(logFormat string, loggingTimestampFormat string, level int, disableCo
 	}
 
 	globalLog = zerologr.New(&logger)
-	klog.SetLogger(globalLog.WithName("klog"))
+	klog.SetLogger(logr.New(wrapSinkForKlog(globalLog.GetSink(), level)).WithName("klog"))
 	log.SetLogger(globalLog)
 	return nil
 }
