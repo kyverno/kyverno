@@ -21,11 +21,17 @@ func GetCleanupMetrics() CleanupMetrics {
 type CleanupMetrics interface {
 	RecordDeletedObject(ctx context.Context, kind, namespace string, policy kyvernov2.CleanupPolicyInterface, deletionPropagation *metav1.DeletionPropagation)
 	RecordCleanupFailure(ctx context.Context, kind, namespace string, policy kyvernov2.CleanupPolicyInterface, deletionPropagation *metav1.DeletionPropagation)
+	// RecordDeletedResource emits a per-resource deletion counter including resource_name and resource_namespace labels.
+	RecordDeletedResource(ctx context.Context, resourceKind, resourceNamespace, resourceName string, policy kyvernov2.CleanupPolicyInterface)
+	// RecordDeletedResourceFailure emits a per-resource failure counter including resource_name and resource_namespace labels.
+	RecordDeletedResourceFailure(ctx context.Context, resourceKind, resourceNamespace, resourceName string, policy kyvernov2.CleanupPolicyInterface)
 }
 
 type cleanupMetrics struct {
-	deletedObjectsTotal  metric.Int64Counter
-	cleanupFailuresTotal metric.Int64Counter
+	deletedObjectsTotal          metric.Int64Counter
+	cleanupFailuresTotal         metric.Int64Counter
+	deletedResourcesTotal        metric.Int64Counter
+	deletedResourceFailuresTotal metric.Int64Counter
 
 	logger logr.Logger
 }
@@ -46,6 +52,20 @@ func (m *cleanupMetrics) init(meter metric.Meter) {
 	)
 	if err != nil {
 		m.logger.Error(err, "Failed to create instrument, cleanup_controller_errors_total")
+	}
+	m.deletedResourcesTotal, err = meter.Int64Counter(
+		"kyverno_cleanup_controller_deleted_resources_total",
+		metric.WithDescription("Per-resource counter of objects successfully deleted by a CleanupPolicy. Labels include resource_kind, resource_namespace, resource_name, policy_name, and policy_namespace."),
+	)
+	if err != nil {
+		m.logger.Error(err, "Failed to create instrument, cleanup_controller_deleted_resources_total")
+	}
+	m.deletedResourceFailuresTotal, err = meter.Int64Counter(
+		"kyverno_cleanup_controller_deleted_resource_failures_total",
+		metric.WithDescription("Per-resource counter of deletion failures by a CleanupPolicy. Labels include resource_kind, resource_namespace, resource_name, policy_name, and policy_namespace."),
+	)
+	if err != nil {
+		m.logger.Error(err, "Failed to create instrument, cleanup_controller_deleted_resource_failures_total")
 	}
 }
 
@@ -93,4 +113,34 @@ func (m *cleanupMetrics) RecordCleanupFailure(ctx context.Context, kind, namespa
 	}
 
 	m.cleanupFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+}
+
+func (m *cleanupMetrics) RecordDeletedResource(ctx context.Context, resourceKind, resourceNamespace, resourceName string, policy kyvernov2.CleanupPolicyInterface) {
+	if m.deletedResourcesTotal == nil {
+		return
+	}
+	labels := []attribute.KeyValue{
+		attribute.String("policy_type", policy.GetKind()),
+		attribute.String("policy_namespace", policy.GetNamespace()),
+		attribute.String("policy_name", policy.GetName()),
+		attribute.String("resource_kind", resourceKind),
+		attribute.String("resource_namespace", resourceNamespace),
+		attribute.String("resource_name", resourceName),
+	}
+	m.deletedResourcesTotal.Add(ctx, 1, metric.WithAttributes(labels...))
+}
+
+func (m *cleanupMetrics) RecordDeletedResourceFailure(ctx context.Context, resourceKind, resourceNamespace, resourceName string, policy kyvernov2.CleanupPolicyInterface) {
+	if m.deletedResourceFailuresTotal == nil {
+		return
+	}
+	labels := []attribute.KeyValue{
+		attribute.String("policy_type", policy.GetKind()),
+		attribute.String("policy_namespace", policy.GetNamespace()),
+		attribute.String("policy_name", policy.GetName()),
+		attribute.String("resource_kind", resourceKind),
+		attribute.String("resource_namespace", resourceNamespace),
+		attribute.String("resource_name", resourceName),
+	}
+	m.deletedResourceFailuresTotal.Add(ctx, 1, metric.WithAttributes(labels...))
 }
