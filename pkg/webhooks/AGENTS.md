@@ -8,8 +8,10 @@ one. See [ARCHITECTURE.md](../../ARCHITECTURE.md) for how this fits between `pkg
 
 It's **rule type**, not enforce/audit mode:
 
-- `generate` and `mutateExisting` rules are **always** routed to `handleBackgroundApplies` →
-  `pkg/webhooks/updaterequest.go`, regardless of enforce/audit. See [pkg/background/AGENTS.md](../background/AGENTS.md)
+- For non-dry-run requests, `generate` and `mutateExisting` rules are routed to `handleBackgroundApplies` →
+  `pkg/webhooks/updaterequest.go`, regardless of enforce/audit (`pkg/webhooks/resource/handlers.go`'s
+  `if !admissionutils.IsDryRun(request.AdmissionRequest)` guard — a dry-run admission request skips this path
+  entirely, so no `UpdateRequest` is created for it). See [pkg/background/AGENTS.md](../background/AGENTS.md)
   for what happens after the `UpdateRequest` is created.
 - Plain `validate` rules are evaluated inline. Enforce-mode and audit-mode-with-`emitWarning` (`ValidateAuditWarn`)
   run synchronously inside the same `wait.Group` that produces the admission decision — a resource can be

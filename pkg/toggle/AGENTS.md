@@ -1,7 +1,9 @@
 # AGENTS.md — pkg/toggle
 
-The single sanctioned feature-flag mechanism. Two files: `toggle.go` (flag declarations + parsing) and `context.go`
-(the `Toggles` interface + context DI seam).
+The preferred, canonical mechanism for shared, env-backed feature flags — not the only one in the repo; a separate
+container-argument-only convention also exists for flags that don't need env-var/`Toggles`-interface plumbing (see
+[docs/dev/feature-flags/README.md](../../docs/dev/feature-flags/README.md)). Two files: `toggle.go` (flag
+declarations + parsing) and `context.go` (the `Toggles` interface + context DI seam).
 
 ## There are two different kinds of flag — don't mix them up
 
@@ -24,10 +26,14 @@ Using `ProtectManagedResources` as the worked example (a flag that's fully wired
    `ProtectManagedResources` is registered in `cmd/kyverno/main.go` and `cmd/cleanup-controller/main.go` because
    only `pkg/controllers/cleanup` and `pkg/controllers/deleting` consume it. `AllowHTTPInNamespacedPolicies` /
    `HTTPBlocklist` / `HTTPAllowlist` are registered in **four** binaries because CEL HTTP calls happen in all of
-   them. **Forgetting this step is the most common way to break a new toggle** — it compiles fine and the interface
-   method works, but the flag is simply unreachable from any binary's CLI/env. `AutogenV2` is exactly this: it has
-   consts, a var, an interface method, and a `defaultToggles` impl, but is registered in **no** binary and consumed
-   nowhere — don't use it as a "this is how it's done" reference; use `ProtectManagedResources`.
+   them. This registration step gates **CLI-flag exposure only** — `Enabled()` (`toggle.go`) reads the toggle's
+   env var via `os.Getenv(t.envVar)` directly, regardless of whether `flagset.Func` was ever called for it, so an
+   unregistered toggle is still settable by env var *if something calls `.Enabled()`/the interface method for it*.
+   **Forgetting this step is still the most common way to break a new toggle**, just not for the reason it looks
+   like: `AutogenV2` has consts, a var, an interface method, and a `defaultToggles` impl, and its env var genuinely
+   works if you set it — but nothing in the codebase calls `.AutogenV2()` on the `Toggles` interface, on any
+   binary's CLI *or* in any consuming code path, so the value (from either source) has no effect. Don't use it as a
+   "this is how it's done" reference; use `ProtectManagedResources`.
 6. Consume it at call sites via `toggle.FromContext(ctx).<Name>()`.
 
 **Exception — the one centralized flag**: `EnableDeferredLoading` is wired once through `cmd/internal`'s shared

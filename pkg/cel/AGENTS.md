@@ -66,7 +66,8 @@ expression text itself changes.
 
 ## Recent activity worth knowing about
 
-CEL engine dependency itself has had a CVE fix (`2e9ef352e`, bumping `cel-go` for CVE-2026-GHSA-gcjh-h69q-9w9g).
+CEL engine dependency itself has had a security fix (`2e9ef352e`, bumping `cel-go` for `GHSA-gcjh-h69q-9w9g` — the
+GitHub Security Advisory's canonical identifier; it has no assigned CVE, so don't prefix it with `CVE-`).
 `PolicyExceptions` are read from the manager cache, not a second informer (`47f45aebe`) — don't reintroduce a
 second informer for exceptions. `globalContext` is explicitly denied in namespaced policies (`795394e1c`, see
 above). Namespace scoping/routing for the newer namespaced CEL policy variants has had several recent bugs — see
