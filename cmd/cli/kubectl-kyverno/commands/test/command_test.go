@@ -13,6 +13,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
@@ -928,6 +929,139 @@ spec:
 			assert.Equal(t, tt.wantReason, reason)
 		})
 	}
+}
+
+func TestExcludedResourceExpectedFail_ReportsFailure(t *testing.T) {
+	// Reproduces issue #11519: when a test expects result: "fail" but the resource
+	// is excluded from the policy (no rule responses), the test must report failure.
+	color.Init(true)
+
+	policy := &kyvernov1.ClusterPolicy{}
+	policy.SetName("require-labels")
+
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "bad-pod",
+				"namespace": "default",
+			},
+		},
+	}
+
+	resourceKey := generateResourceKey(&resource)
+
+	// Engine response exists for this policy+resource but has NO rule responses
+	// (the resource was excluded from evaluation).
+	response := engineapi.NewEngineResponse(
+		resource,
+		engineapi.NewKyvernoPolicy(policy),
+		nil,
+	).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{}, // empty = excluded
+	})
+
+	responses := &TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{
+			resourceKey: {response},
+		},
+		Target:          map[string][]engineapi.EngineResponse{},
+		SkippedPolicies: map[string]string{},
+	}
+
+	tests := []v1alpha1.TestResult{
+		{
+			TestResultBase: v1alpha1.TestResultBase{
+				Policy: "require-labels",
+				Rule:   "check-labels",
+				Result: openreportsv1alpha1.Result(openreports.StatusFail),
+				Kind:   "Pod",
+			},
+			TestResultData: v1alpha1.TestResultData{
+				Resources: []string{"bad-pod"},
+			},
+		},
+	}
+
+	rc := &resultCounts{}
+	resultsTable := &table.Table{}
+
+	err := printTestResult(tests, responses, rc, resultsTable, nil, "", true)
+	require.NoError(t, err)
+
+	// The test expects "fail" but got excluded, so this must be counted as a failure.
+	assert.Equal(t, 1, rc.Fail, "expected 1 test failure when resource is excluded but test expects fail")
+	assert.Equal(t, 0, rc.Pass, "expected 0 passes")
+	assert.Equal(t, 0, rc.Skip, "expected 0 skips")
+
+	require.Len(t, resultsTable.RawRows, 1)
+	assert.True(t, resultsTable.RawRows[0].IsFailure, "row should be marked as failure")
+}
+
+func TestExcludedResourceExpectedPass_ReportsSkip(t *testing.T) {
+	// When a test expects "pass" and the resource is excluded, the existing behavior
+	// should be preserved: it counts as a skip (not a failure).
+	color.Init(true)
+
+	policy := &kyvernov1.ClusterPolicy{}
+	policy.SetName("require-labels")
+
+	resource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "good-pod",
+				"namespace": "default",
+			},
+		},
+	}
+
+	resourceKey := generateResourceKey(&resource)
+
+	response := engineapi.NewEngineResponse(
+		resource,
+		engineapi.NewKyvernoPolicy(policy),
+		nil,
+	).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{},
+	})
+
+	responses := &TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{
+			resourceKey: {response},
+		},
+		Target:          map[string][]engineapi.EngineResponse{},
+		SkippedPolicies: map[string]string{},
+	}
+
+	tests := []v1alpha1.TestResult{
+		{
+			TestResultBase: v1alpha1.TestResultBase{
+				Policy: "require-labels",
+				Rule:   "check-labels",
+				Result: openreportsv1alpha1.Result(openreports.StatusPass),
+				Kind:   "Pod",
+			},
+			TestResultData: v1alpha1.TestResultData{
+				Resources: []string{"good-pod"},
+			},
+		},
+	}
+
+	rc := &resultCounts{}
+	resultsTable := &table.Table{}
+
+	err := printTestResult(tests, responses, rc, resultsTable, nil, "", true)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, rc.Fail, "expected 0 failures for excluded resource with pass expectation")
+	assert.Equal(t, 0, rc.Pass, "expected 0 passes")
+	assert.Equal(t, 1, rc.Skip, "expected 1 skip for excluded resource")
+
+	require.Len(t, resultsTable.RawRows, 1)
+	assert.False(t, resultsTable.RawRows[0].IsFailure, "row should not be marked as failure")
 }
 
 func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
