@@ -95,13 +95,13 @@ func (m *manager) Run(ctx context.Context, worker int) {
 	}
 }
 
-func (m *manager) getDesiredState() (sets.Set[schema.GroupVersionResource], error) {
+func (m *manager) getDesiredState(ctx context.Context) (sets.Set[schema.GroupVersionResource], error) {
 	// Get the list of resources currently present in the cluster
 	newresources, err := discoverResources(m.logger, m.discoveryClient)
 	if err != nil {
 		return nil, err
 	}
-	validResources := m.filterPermissionsResource(newresources)
+	validResources := m.filterPermissionsResource(ctx, newresources)
 	return sets.New(validResources...), nil
 }
 
@@ -207,11 +207,11 @@ func (m *manager) start(ctx context.Context, gvr schema.GroupVersionResource, wo
 	return nil
 }
 
-func (m *manager) filterPermissionsResource(resources []schema.GroupVersionResource) []schema.GroupVersionResource {
+func (m *manager) filterPermissionsResource(ctx context.Context, resources []schema.GroupVersionResource) []schema.GroupVersionResource {
 	validResources := []schema.GroupVersionResource{}
 	for _, resource := range resources {
 		// Check if the service account has the necessary permissions
-		if HasResourcePermissions(m.logger, resource, m.checker) {
+		if HasResourcePermissions(ctx, m.logger, resource, m.checker) {
 			validResources = append(validResources, resource)
 		}
 	}
@@ -230,7 +230,7 @@ func (m *manager) report(ctx context.Context, observer metric.Observer) error {
 func (m *manager) reconcile(ctx context.Context, workers int) error {
 	defer m.logger.V(3).Info("manager reconciliation done")
 	m.logger.V(3).Info("beginning reconciliation", "interval", m.interval)
-	desiredState, err := m.getDesiredState()
+	desiredState, err := m.getDesiredState(ctx)
 	if err != nil {
 		return err
 	}
