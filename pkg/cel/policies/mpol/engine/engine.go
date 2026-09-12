@@ -185,13 +185,16 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	}
 
 	startTime := time.Now()
+	targetConstraints := mpol.Policy.GetTargetMatchConstraints()
+	// A policy only defines a genuine, separate target when targetMatchConstraints is set.
+	// Otherwise the resource being processed (e.g. during a background/mutateExisting scan)
+	// is itself the trigger, so its matchConditions must still be evaluated - not skipped in
+	// favor of the near-always-empty targetMatchConditions.
+	hasExplicitTarget := len(targetConstraints.ResourceRules) > 0 || targetConstraints.Expression != ""
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
-		if target {
-			targetConstraints := mpol.Policy.GetTargetMatchConstraints()
-			if len(targetConstraints.ResourceRules) > 0 {
-				constraints = targetConstraints.MatchResources
-			}
+		if target && len(targetConstraints.ResourceRules) > 0 {
+			constraints = targetConstraints.MatchResources
 		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
@@ -213,7 +216,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		return ruleResponse, nil
 	}
 	var result *compiler.EvaluationResult
-	if target {
+	if target && hasExplicitTarget {
 		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
 	} else {
 		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
