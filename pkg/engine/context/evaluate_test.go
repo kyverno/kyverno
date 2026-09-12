@@ -86,3 +86,93 @@ func TestQueryOperation(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, ctx.QueryOperation(), "")
 }
+
+// TestQueryLogicalFallbacks proves the new JMESPath || evaluation works correctly
+func TestQueryLogicalFallbacks(t *testing.T) {
+	// Mock JSON where 'name' is falsey ("") and 'items' contains an object
+	mockJSON := `{"name": "", "items": [{"name": "other"}]}`
+	ctx := createTestContext(mockJSON, `{}`)
+
+	testCases := []struct {
+		name        string
+		query       string
+		expected    interface{}
+		expectError bool
+	}{
+		{
+			name:     "fallback missing left, constant right",
+			query:    "request.object.doesnotexist || 'x'",
+			expected: "x",
+		},
+		{
+			name:     "fallback falsey left, missing right yields null",
+			query:    "request.object.name || request.object.doesnotexist",
+			expected: nil,
+		},
+		{
+			name:     "fallback truthy middle",
+			query:    "request.object.doesnotexist || 'truthy' || 'ignored'",
+			expected: "truthy",
+		},
+		{
+			name:     "fallback respects nesting and strings",
+			query:    "request.object.missing_items[?name == 'a||b'] || 'fallback'",
+			expected: "fallback",
+		},
+		{
+			name:     "nested OR in right operand reaches string fallback",
+			query:    "request.object.doesnotexist || (request.object.doesnotexist2 || 'x')",
+			expected: "x",
+		},
+		{
+			name:     "nested OR with array filter forces custom fallback path",
+			query:    "request.object.missing_items[?name == 'a'] || (request.object.missing_items2[?name == 'b'] || 'x')",
+			expected: "x",
+		},
+		{
+			name:     "triple nested OR exercises nested fallback evaluation",
+			query:    "request.object.missing_items[?name == 'a'] || (request.object.missing_items2[?name == 'b'] || (request.object.missing_items3[?name == 'c'] || 'x'))",
+			expected: "x",
+		},
+		{
+			name:     "falsey present value on left, nested OR on right",
+			query:    "request.object.name || (request.object.doesnotexist || request.object.also_missing)",
+			expected: nil,
+		},
+		{
+			name:     "nesting on the left operand, not the right",
+			query:    "(request.object.missing_items[?name == 'a'] || request.object.missing_items2[?name == 'b']) || 'x'",
+			expected: "x",
+		},
+		{
+			name:        "nested part has real syntax error, not missing key",
+			query:       "request.object.doesnotexist || (request.object.[invalid syntax || 'x')",
+			expectError: true,
+		},
+		{
+			name:        "error at inner nesting level propagates, not swallowed",
+			query:       "request.object.doesnotexist || (request.object.also_missing || (request.object.[bad || 'x'))",
+			expectError: true,
+		},
+		{
+			name:     "fallback works with outer parentheses",
+			query:    "(request.object.doesnotexist || 'x')",
+			expected: "x",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := ctx.Query(tc.query)
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected, result)
+			}
+		})
+	}
+	// Queries without logical OR should remain strict and return an error on missing keys.
+	_, err := ctx.Query("request.object.doesnotexist")
+	assert.Error(t, err)
+}
