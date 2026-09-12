@@ -12,6 +12,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/event"
 	vpol "github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	"github.com/kyverno/kyverno/test/integration/framework"
 	"github.com/stretchr/testify/assert"
@@ -298,6 +299,77 @@ func TestValidate_AuditAction_AllowsNonCompliantButFiresEvents(t *testing.T) {
 	// Wait for the async audit goroutine to record the violation.
 	time.Sleep(200 * time.Millisecond)
 	assert.NotEmpty(t, eventGen.GetEvents(), "audit policy should still generate events for observability")
+}
+
+func TestValidate_DenyPassAuditFail_DoesNotMarkAuditEventBlocked(t *testing.T) {
+	// When a Deny policy passes and an Audit policy fails on the same request,
+	// the Audit violation must not be marked as (blocked).
+	denyPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "deny-pass-has-name"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "has(object.metadata.name)",
+				Message:    "pods must have a name",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+		},
+	}
+
+	auditPolicy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "audit-fail-require-team-label"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "has(object.metadata.labels) && 'team' in object.metadata.labels",
+				Message:    "pods must have a team label",
+			}},
+			ValidationAction: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit},
+		},
+	}
+
+	ctx := context.Background()
+	require.NoError(t, testEnv.Client.Create(ctx, denyPolicy))
+	require.NoError(t, testEnv.Client.Create(ctx, auditPolicy))
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), auditPolicy)
+		testEnv.Client.Delete(context.Background(), denyPolicy)
+		waitForPolicyGone(t)
+	})
+	waitForPolicyReady(t, 2)
+
+	eventGen := &framework.MockEventGen{}
+	h := vpol.New(engine, testEnv.ContextProvider, nil, false, eventGen)
+
+	policyCtx := framework.ContextWithPolicies(context.Background(), "deny-pass-has-name", "audit-fail-require-team-label")
+	resp := h.ValidateClustered(policyCtx, logr.Discard(), framework.PodAdmissionRequest("staging-app", "default", []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "staging-app", "namespace": "default"},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)), "", time.Now())
+
+	assert.True(t, resp.Allowed, "deny policy passes so admission should be allowed")
+
+	time.Sleep(200 * time.Millisecond)
+
+	events := eventGen.GetEvents()
+	require.NotEmpty(t, events, "audit policy should generate events")
+
+	var auditPolicyEvents, resourceViolationEvents int
+	for _, ev := range events {
+		if ev.Regarding.Name == "audit-fail-require-team-label" {
+			auditPolicyEvents++
+			assert.Equal(t, event.PolicyViolation, ev.Reason)
+			assert.Equal(t, event.ResourcePassed, ev.Action)
+			assert.NotContains(t, ev.Message, "(blocked)")
+		}
+		if ev.Regarding.Kind == "Pod" && ev.Regarding.Name == "staging-app" && ev.Reason == event.PolicyViolation {
+			resourceViolationEvents++
+		}
+	}
+
+	assert.Equal(t, 1, auditPolicyEvents, "audit policy should produce exactly one policy violation event")
+	assert.Equal(t, 1, resourceViolationEvents, "audit failure should still produce a resource violation event")
 }
 
 func TestValidate_MultiplePolicies_DenyAndWarnCombined(t *testing.T) {
