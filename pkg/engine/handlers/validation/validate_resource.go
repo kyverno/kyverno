@@ -168,7 +168,7 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 			priorResp, err := v.validateOldObject(ctx)
 			if err != nil {
 				v.log.V(4).Info("warning: failed to validate old object", "rule", v.rule.Name, "error", err.Error())
-				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object", ruleResponse.Properties())
+				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "failed to validate old object", v.rule.ReportProperties)
 			}
 
 			// when an existing resource violates, and the updated resource also violates, then skip
