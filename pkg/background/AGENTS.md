@@ -1,7 +1,9 @@
 # AGENTS.md — pkg/background
 
-Processes `UpdateRequest` (UR) objects created by `pkg/webhooks` for `generate` and `mutateExisting` rules. No
-package doc comment exists — this file is the closest thing to one.
+Processes `UpdateRequest` (UR) objects created by `pkg/webhooks`, for legacy `generate`/`mutateExisting` rules and
+their CEL counterparts, `gpol` (GeneratingPolicy) and `mpol` (MutatingPolicy) background/mutate-existing requests —
+see the dispatch section below for how `update_request_controller.go` routes between all four. No package doc
+comment exists — this file is the closest thing to one.
 
 ## DeletingPolicy (`dpol`) has NO presence here — a common wrong assumption
 

@@ -13,7 +13,7 @@ Kyverno is a Kubernetes-native policy engine for security, compliance, automatio
 
 ## Repository Structure
 
-```
+```text
 api/                  # Kubernetes API type definitions (CRDs)
   kyverno/            #   kyverno.io API group (v1, v1beta1, v2, v2alpha1, v2beta1)
   policyreport/       #   wgpolicyk8s.io API group
@@ -26,7 +26,9 @@ cmd/                  # Entry points for all binaries
   reports-controller/ #   Reports controller
   background-controller/ # Background controller (generate/mutate existing)
   readiness-checker/  #   Readiness checker (check-endpoints, check-http, scale-deploy, delete-webhooks)
-  internal/           #   Shared bootstrap helpers composed by every cmd/*/main.go
+  internal/           #   Shared bootstrap helpers composed by kyverno, kyverno-init, cleanup-controller,
+                      #   reports-controller, and background-controller (not cli or readiness-checker, which
+                      #   don't import it)
 pkg/                  # Core library code
   engine/             #   Policy engine (rule evaluation, matching, context)
   webhooks/           #   Admission webhook handlers

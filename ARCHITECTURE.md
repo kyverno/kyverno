@@ -4,13 +4,16 @@ A navigable map of how kyverno/kyverno is put together: the binaries it ships, h
 mechanisms are sanctioned for new code, and which parts of the tree are generated and must never be hand-edited.
 
 This file describes **what exists today**, verified against code in this session. For narrower, per-package detail
-see the nested `AGENTS.md` files linked from each section, and `docs/context/` for cross-cutting write-ups. For *why*
-a non-obvious structural choice was made, see `docs/decisions/`.
+see the nested `AGENTS.md` files linked from each section, and `docs/context/` for cross-cutting write-ups. ADRs for
+*why* a non-obvious structural choice was made don't exist yet — see the "what's left" list in
+[docs/designs/agent-friendly-restructure.md](docs/designs/agent-friendly-restructure.md).
 
 ## Runtime boundaries (`cmd/`)
 
-Kyverno ships as several independently deployed binaries, all composed from shared helpers in `cmd/internal/`
-(`internal.WithKubeconfig()`, `internal.WithKyvernoClient()`, ... — every `main.go` wires itself up the same way).
+Kyverno ships as several independently deployed binaries. Most are composed from shared helpers in `cmd/internal/`
+(`internal.WithKubeconfig()`, `internal.WithKyvernoClient()`, ...): `kyverno`, `kyverno-init`, `cleanup-controller`,
+`reports-controller`, and `background-controller` all import it. `kubectl-kyverno` (the CLI) and `readiness-checker`
+do not — both do their own minimal, standalone setup instead.
 
 | Binary | Source | Purpose |
 |---|---|---|
@@ -32,13 +35,18 @@ registry — see [pkg/toggle/AGENTS.md](pkg/toggle/AGENTS.md)), `config` (runtim
 (maps legacy `kyverno.io` kinds to their `policies.kyverno.io` replacements), `breaker`, `informers`, `profiling`,
 `pss`, `auth`, `userinfo`.
 
-**Client access:** `pkg/client/` is 100% generated typed clientset/informers/listers for kyverno's own CRDs — never
-hand-edited, regenerate via `make codegen-client-all`. `pkg/clients/` is a second, distinct generation layer
-(instrumented metrics+tracing+logging wrapper clients, produced by `hack/client-wrapper`) that actually gets
-consumed by business logic. `pkg/clients/dclient` is hand-written and is the dominant pattern for new code needing
-dynamic/discovery-based access across arbitrary GVKs. **Prefer `pkg/clients/dclient.Interface` for generic resource
-access, or the typed `pkg/clients/{kube,kyverno}` wrappers when the type is known — never import `pkg/client` or raw
-`k8s.io/client-go` directly in new controller/webhook code.** See [pkg/clients/AGENTS.md](pkg/clients/AGENTS.md).
+**Client access:** `pkg/client/` is 100% generated typed clientset/informers/listers, covering both kyverno's own CRDs
+and the externally-defined `policies.kyverno.io` types from `github.com/kyverno/api` — never hand-edited, regenerate
+via `make codegen-client-all`. `pkg/clients/` is a second, distinct generation layer (instrumented metrics+tracing
++logging wrapper clients, produced by `hack/client-wrapper`) that actually gets consumed by business logic.
+`pkg/clients/dclient` is hand-written and is the dominant pattern for new code needing dynamic/discovery-based access
+across arbitrary GVKs; it embeds no instrumentation decorators of its own, but every production binary constructs it
+via `cmd/internal.Setup`, which hands it already metrics/tracing-wrapped dynamic and kube clients — see
+[pkg/clients/AGENTS.md](pkg/clients/AGENTS.md) for the exact boundary. **Prefer `pkg/clients/dclient.Interface` for
+generic resource access, or the typed `pkg/clients/{kube,kyverno}` wrappers when the type is known — never construct
+a raw `pkg/client`/`k8s.io/client-go` client directly in new controller/webhook code** (accepting one of those
+packages' *interface* types as a function parameter is fine and common — the generated wrappers embed those same
+interfaces — the rule is about what constructs the concrete client, not what type a function signature names).
 
 **Policy engine core:** `pkg/engine` is the legacy (`kyverno.io`) rule-evaluation engine — JMESPath variable
 substitution, pattern/anchor matching, mutate patch generation, external API/context calls. `pkg/cel` is the newer,
@@ -72,7 +80,7 @@ propagation.
 
 ## API layer (`api/`)
 
-```
+```text
 api/kyverno/{v1,v1beta1,v2,v2alpha1,v2beta1}
 api/policyreport/v1alpha2   (wgpolicyk8s.io)
 api/reports/v1              (reports.kyverno.io)
@@ -82,10 +90,10 @@ api/reports/v1              (reports.kyverno.io)
 ImageValidatingPolicy, PolicyException, and their Namespaced\* variants) is NOT in this repo.** It lives in the
 external `github.com/kyverno/api` module (pinned in `go.mod`), imported as e.g.
 `policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"`. It was split out deliberately so
-external Go projects can import Kyverno's API types without the whole controller dependency tree — see
-[docs/decisions/ADR-0003-policies-api-externalized.md](docs/decisions/ADR-0003-policies-api-externalized.md) and
-[docs/context/shared/repo-boundaries.md](docs/context/shared/repo-boundaries.md). Only the generated CRD manifests
-(`config/crds/policies.kyverno.io/*.yaml`) and consuming Go code remain here.
+external Go projects can import Kyverno's API types without the whole controller dependency tree (no backfilled ADR
+exists for this yet — see [docs/context/shared/repo-boundaries.md](docs/context/shared/repo-boundaries.md) for the
+current writeup). Only the generated CRD manifests (`config/crds/policies.kyverno.io/*.yaml`) and consuming Go code
+remain here.
 
 Versioning rules (convention, enforced by reviewers, not tooling): new types are never added to `v1`/`v2`, only to
 `v2alpha1` and promoted as they stabilize; attributes can be added but never deleted/modified within a version
@@ -96,13 +104,15 @@ See also [api/AGENTS.md](api/AGENTS.md).
 ## Sanctioned defaults
 
 - **Client access:** `pkg/clients/dclient` for dynamic/discovery-based access; typed `pkg/clients/{kube,kyverno}`
-  wrappers when the type is known. Never `pkg/client` or raw `client-go` in new code.
+  wrappers when the type is known. Never construct a raw `pkg/client`/`client-go` client in new code (accepting
+  those interface types as a parameter is fine — see the client-access section above).
 - **Logging:** `logr` API, `zerologr` backend for app logs, `klogr` for client-go/K8s library logs. Levels: L0
   errors, L2 startup/policy-application results, L3 variable evaluation/intermediate decisions, L4+ deep debugging.
   Full detail: [docs/context/shared/logging.md](docs/context/shared/logging.md) → `docs/dev/logging/logging.md`.
 - **Feature flags:** `pkg/toggle` — env var + CLI flag + a method on the `Toggles` interface, read via
-  `toggle.FromContext(ctx).<Feature>()`. Full detail: [docs/context/shared/feature-flags.md](docs/context/shared/feature-flags.md)
-  → `docs/dev/feature-flags/README.md`.
+  `toggle.FromContext(ctx).<Feature>()` — is the preferred mechanism for shared, env-backed toggles (a separate
+  container-argument-only convention also exists for flags that don't need this). Full detail:
+  [docs/context/shared/feature-flags.md](docs/context/shared/feature-flags.md) → `docs/dev/feature-flags/README.md`.
 - **User-facing outcomes:** `pkg/event`, not ad hoc logging (see above).
 - **Outbound HTTP:** `pkg/tracing`'s OTel-instrumented `http.RoundTripper`, used by `pkg/engine/apicall` for
   external context calls. There is no separate generic HTTP client package beyond this.
@@ -115,15 +125,21 @@ Confirmed via `DO NOT EDIT` headers and Makefile targets:
 |---|---|
 | `pkg/client/{clientset,informers,listers}/**` | `make codegen-client-all` |
 | `api/**/zz_generated.{deepcopy,register}.go` | `make codegen-api-all` |
-| `pkg/config/mocks/mock_config.go` | mockgen, via `make install-tools` |
+| `pkg/config/mocks/mock_config.go` | no `make` target — see note below |
 | `config/crds/**/*.yaml` | `make codegen-crds-all` |
 | `docs/user/crd/**` (HTML reference) | `make codegen-api-docs` |
 | `charts/*/README.md` | `make codegen-helm-all` (helm-docs) |
 
+`pkg/config/mocks/mock_config.go` carries a `Code generated by MockGen. DO NOT EDIT.` header, but there's no
+`go:generate` directive and no Makefile target that produces it (`mockgen` isn't in `make install-tools`'s tool
+list) — it's the repo's only gomock file and was evidently generated by hand once and committed. Regenerating it
+means installing `mockgen` yourself and rerunning it against `pkg/config/config.go`.
+
 `pkg/clients/**/*.generated.go` and `pkg/clients/**/interface.generated.go` (produced by `hack/client-wrapper` via
 `make codegen-client-wrappers`) belong on this list too, even though — unlike everything else above — they carry no
-`DO NOT EDIT` header today. Treat them as generated regardless. `.claude/settings.json`'s `permissions.deny` rules
-enforce all of the above by path, independent of whether a header is present.
+`DO NOT EDIT` header today. Treat them as generated regardless. A `.claude/settings.json` with `permissions.deny`
+rules enforcing this by path is planned but not yet added — see
+[docs/designs/agent-friendly-restructure.md](docs/designs/agent-friendly-restructure.md).
 
 ## Ownership
 
@@ -140,8 +156,10 @@ work belongs there, not in a new in-repo proposal process).
 
 ## Test architecture
 
-`test/cli/` (fixtures for `kubectl-kyverno test`), `test/conformance/chainsaw/` (the e2e conformance suite — 1300+
-cases, the largest single source of truth for runtime behavior), `test/fuzz/` (Go native fuzz + OSS-Fuzz),
-`test/policy/` (reusable hand-authored policy fixtures), `test/integration/` (Go integration tests for the CEL
-policy kinds). See [docs/dev/README.md](docs/dev/README.md) and
-`test/conformance/chainsaw/.claude/skills/write-chainsaw-test/` for how to add a conformance case.
+`test/cli/` (fixtures for `kubectl-kyverno test`), `test/conformance/chainsaw/` (the e2e conformance suite — 1000+
+`chainsaw-test.yaml` cases, the largest single source of truth for runtime behavior), `test/fuzz/` (Go native fuzz +
+OSS-Fuzz), `test/policy/` (reusable hand-authored policy fixtures), `test/integration/` (Go integration tests for
+the CEL policy kinds). See [docs/dev/README.md](docs/dev/README.md) and the
+[chainsaw quick-start](https://kyverno.github.io/chainsaw/latest/quick-start/) for how to add a conformance case —
+there's no co-located skill for this yet (tracked as future work in
+[docs/designs/agent-friendly-restructure.md](docs/designs/agent-friendly-restructure.md)).

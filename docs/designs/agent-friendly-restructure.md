@@ -45,17 +45,21 @@ several SEO-blog search results) — checked directly against Claude Code's own 
    rediscover the hard way — a sample:
    - `pkg/background` has **no** `DeletingPolicy` subpackage at all; DeletingPolicy runs as a self-scheduling
      reconcile loop in `pkg/controllers/deleting`, never via `UpdateRequest`.
-   - `pkg/clients/dclient` (the client most policy-engine code actually uses) has **zero** metrics/tracing/logging
-     instrumentation, unlike every generated client wrapper around it.
+   - `pkg/clients/dclient` (the client most policy-engine code actually uses) has no metrics/tracing/logging
+     decorators of its own, unlike every generated client wrapper around it — but every production binary
+     constructs it through `cmd/internal.Setup`, which hands it already-instrumented dynamic/kube clients first, so
+     ordinary delegated resource calls do carry that instrumentation. The real gap is narrower: `dclient` instances
+     built outside that path (`cmd/cli/kubectl-kyverno`'s `apply` command, `ext/cluster.New`) get none at all.
    - `pkg/sigstoretuf` is a hand-rolled mutex working around a real upstream data race in sigstore's TUF client
      (kyverno/kyverno#15983); everything in the image-verification path fails closed, with one narrow,
      policy-author-declared exception.
    - The five CEL policy kinds (`vpol`/`mpol`/`gpol`/`dpol`/`ivpol`) do **not** share a uniform
      compiler/engine/autogen structure — `ivpol` has no compiler package of its own and reuses the legacy
      image-verification evaluator instead.
-   - `api/kyverno/v2alpha1` currently holds one type (`GlobalContextEntry`) that's already been *promoted* to `v2`
-     and is now the deprecated copy — a live example of the promotion lifecycle, not a "landing zone for new types"
-     as the general rule might suggest in isolation.
+   - `api/kyverno/v2alpha1` currently holds one type (`GlobalContextEntry`), and its lifecycle is further along
+     than a simple two-version promotion: `v2alpha1` (2024) → `v2beta1` (Oct 2025, current CRD storage version) →
+     `v2` (Dec 2025, newest/stable-named but *not* yet the storage version) — a live example of the promotion
+     lifecycle being messier in practice than "the stable-named version is the storage version" would suggest.
    - Two rows in `docs/dev/controllers/README.md` (`admission-report-controller`, `update-request-controller`) no
      longer match any `ControllerName` in the codebase — flagged in `pkg/controllers/AGENTS.md`, not yet fixed in
      that file itself.
@@ -63,6 +67,9 @@ several SEO-blog search results) — checked directly against Claude Code's own 
    each a one-line `@AGENTS.md` import, plus a `CLAUDE.md` at every nested `AGENTS.md` location (Claude Code's
    subdirectory auto-load only triggers on the literal filename `CLAUDE.md`, not `AGENTS.md`). `CLAUDE.local.md`
    and `GEMINI.local.md` added to `.gitignore` pre-emptively for personal per-contributor overrides.
+6. **`docs/designs/README.md`** (new) — the boundary-setting doc for this directory (scope vs. `kyverno/KDP`, vs. a
+   future `docs/decisions/` ADR, vs. a future `docs/archive/`). `docs/archive/README.md` is still open — see
+   "what's left" below.
 
 ## Deliberately not done (verified against evidence, not just deferred)
 
@@ -84,9 +91,10 @@ several SEO-blog search results) — checked directly against Claude Code's own 
    step 4, not a quick pass.
 6. `docs/decisions/` — ADR template plus 3 backfilled ADRs: the CEL engine split, the `pkg/clients` instrumented
    wrapper layer, and `policies.kyverno.io`'s externalization to `kyverno/api`.
-7. `docs/designs/README.md` and `docs/archive/README.md` — boundary-setting docs. The archive doc carries a
-   maintainer-decision list (stale `CHANGELOG.md`, unmaintained `litmuschaos/`, likely-dead `docs/crd/v1/index.html`,
-   a duplicate template pair in `docs/user/{html,template}/`) rather than moving anything unilaterally.
+7. `docs/archive/README.md` — the boundary-setting doc for that not-yet-created directory (`docs/designs/README.md`
+   is already done — see "Done so far" above). The archive doc carries a maintainer-decision list (stale
+   `CHANGELOG.md`, unmaintained `litmuschaos/`, likely-dead `docs/crd/v1/index.html`, a duplicate template pair in
+   `docs/user/{html,template}/`) rather than moving anything unilaterally.
 8. `REVIEW.md`, `CONTRIBUTING-AGENTS.md` (how AI-assisted PRs work here — the org already has an `AI_USAGE_POLICY.md`
    in `kyverno/community` and recent commits already carry `Assisted-by: Claude` trailers; this repo just doesn't
    document the convention yet), and an optional advisory `Change: intent=/risk=/context=` line in the PR template

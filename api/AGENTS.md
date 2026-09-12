@@ -9,12 +9,20 @@ for versioning rules (canonical copy — don't restate them here) and
 ## Validation is hand-written Go methods, not a kubebuilder admission webhook
 
 There is no `+kubebuilder:webhook` marker anywhere in this tree — no controller-runtime-generated admission webhook
-config. Instead, each policy type has a hand-written `Validate(...) (warnings []string, errs field.ErrorList)`
-method (e.g. `ClusterPolicy.Validate` in `clusterpolicy_types.go`), invoked by Kyverno's own custom validating
-webhook server (`pkg/webhooks/policy`). Validation is genuinely two-layered: CRD OpenAPI schema validation from
-`+kubebuilder:validation:...` markers, enforced by the Kubernetes API server itself, *and* Kyverno's own semantic
-`Validate()` for cross-field checks the schema can't express. If you're adding a new validation rule, decide which
-layer it belongs in — a marker if it's expressible as schema, a `Validate()` addition if it needs cross-field logic.
+config. Instead, each policy type has a hand-written `Validate(...)` method, but the signature isn't uniform across
+types: `ClusterPolicy.Validate(clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList)`
+(`clusterpolicy_types.go`) returns warnings, while `CleanupPolicy`/`ClusterCleanupPolicy.Validate(clusterResources)`
+and `PolicyException.Validate()` return only `field.ErrorList`, with their own distinct parameter lists. These are
+also invoked from different places, not one shared webhook server: `ClusterPolicy.Validate` is reached via
+`pkg/validation/policy.Validate()`, called from `pkg/webhooks/policy`; `PolicyException.Validate()` is called from
+`pkg/webhooks/exception` and `pkg/webhooks/celexception`; cleanup policy validation runs through its own
+`pkg/validation/cleanuppolicy.Validate()`, called from `cmd/cleanup-controller/handlers/admission/policy` — a
+webhook server in a different binary entirely. Validation is genuinely two-layered regardless of which type: CRD
+OpenAPI schema validation from `+kubebuilder:validation:...` markers, enforced by the Kubernetes API server itself,
+*and* Kyverno's own semantic `Validate()` for cross-field checks the schema can't express. If you're adding a new
+validation rule, decide which layer it belongs in — a marker if it's expressible as schema, a `Validate()` addition
+if it needs cross-field logic — and check which handler actually calls your type's `Validate()` before assuming it's
+wired into `pkg/webhooks/policy`.
 
 ## `zz_generated.*` is the only reliably-marked no-edit zone here
 
