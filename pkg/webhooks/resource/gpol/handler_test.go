@@ -16,6 +16,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -150,4 +151,77 @@ func TestGenerate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 
 	time.Sleep(200 * time.Millisecond)
 	assert.Equal(t, int32(1), mock.called.Load(), "background request must be processed when explicitly disabled")
+}
+
+func TestIsNoOpUpdate(t *testing.T) {
+	object := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]interface{}{
+				"name":            "test",
+				"uid":             "d4ba2952-e07b-46e0-9f33-bf5304e4466e",
+				"resourceVersion": "31796",
+			},
+		},
+	}
+
+	changedObject := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Namespace",
+			"metadata": map[string]interface{}{
+				"name":            "test",
+				"uid":             "d4ba2952-e07b-46e0-9f33-bf5304e4466e",
+				"resourceVersion": "31797",
+			},
+		},
+	}
+
+	tests := []struct {
+		name       string
+		operation  admissionv1.Operation
+		trigger    unstructured.Unstructured
+		oldTrigger unstructured.Unstructured
+		expected   bool
+	}{
+		{
+			name:       "identical update",
+			operation:  admissionv1.Update,
+			trigger:    object,
+			oldTrigger: object,
+			expected:   true,
+		},
+		{
+			name:       "changed update",
+			operation:  admissionv1.Update,
+			trigger:    changedObject,
+			oldTrigger: object,
+			expected:   false,
+		},
+		{
+			name:       "create",
+			operation:  admissionv1.Create,
+			trigger:    object,
+			oldTrigger: object,
+			expected:   false,
+		},
+		{
+			name:       "update with empty old object",
+			operation:  admissionv1.Update,
+			trigger:    object,
+			oldTrigger: unstructured.Unstructured{},
+			expected:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isNoOpUpdate(
+				tt.operation,
+				tt.trigger,
+				tt.oldTrigger,
+			))
+		})
+	}
 }
