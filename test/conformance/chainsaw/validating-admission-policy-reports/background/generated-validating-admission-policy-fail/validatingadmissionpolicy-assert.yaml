@@ -4,5 +4,8 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
     reports.kyverno.io/enabled: "true"
-  name: cpol-check-label-app-3
-spec: {}
+  name: vpol-check-deployment-labels
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
+    name: check-deployment-labels

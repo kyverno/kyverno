@@ -3,6 +3,7 @@ kind: ValidatingAdmissionPolicy
 metadata:
   labels:
     app.kubernetes.io/managed-by: kyverno
+    reports.kyverno.io/enabled: "true"
   name: cpol-deny-exec-by-namespace-name
   ownerReferences:
   - apiVersion: kyverno.io/v1
