@@ -33,16 +33,32 @@ state is not persisted; on restart, watches rebuild from the policy's already-ge
 watcher-sync/stale-downstream-cleanup runs in a fire-and-forget goroutine **after** the UR is already marked
 complete, so a sync failure there is only logged, never reflected in UR status.
 
-## Trigger resolution deliberately never trusts the admission payload
+## Trigger resolution prefers live state, but the admission payload isn't fully off-limits
+
+This applies to the legacy generate/mutate paths and CEL `gpol` — all three call `common.GetTrigger`/
+`common.GetResource` (`pkg/background/common/resource.go`). `mpol` doesn't use this machinery at all (its processor
+never imports these functions) and isn't covered by anything below.
 
 `common.GetResource` looks up the trigger resource **live, by UID** — if the UID isn't found among live resources,
 it refuses to fall back to the UR's recorded admission-request payload and errors instead
 (see https://github.com/kyverno/kyverno/issues/16566): a rejected or superseded admission request must not drive
 policy evaluation. Delete-operation triggers are verified similarly — the controller re-queries the live cluster to
 confirm the deletion actually persisted (and wasn't itself rejected by another webhook) before treating the
-resource as gone. Update-operation triggers are always resolved from live state too, never the admission payload.
-If you're debugging "why did my UpdateRequest silently fail to find its trigger," this UID/liveness discipline is
-almost always why — it's intentional, not a bug to route around.
+resource as gone.
+
+That said, two real fallbacks to the admission payload exist, and neither is a bug:
+- `GetResource`'s final branch (after the UID and name lookups both fall through) decodes
+  `AdmissionRequest.Object.Raw`/`OldObject.Raw` directly when the resource spec has **neither** a UID **nor** a
+  name — this is reachable from `getTriggerForUpdateOperation`, so "update triggers never use the payload" isn't
+  quite right; it only holds once the trigger has an identity to look up live.
+- `getTriggerForCreateOperation` explicitly reverts to `admissionutils.ExtractResources` on the admission payload
+  when no live trigger is found *and* the request has a non-empty `SubResource` — a deliberate exception for
+  subresource requests, not the UID-fallback path above.
+
+If you're debugging "why did my UpdateRequest silently fail to find its trigger" (or, conversely, why it used
+payload data you didn't expect), this UID/liveness discipline plus these two named exceptions is almost always
+why — check which branch of `GetResource`/`getTriggerForCreateOperation` your case actually hit before assuming
+either a bug or a blanket "never trusts the payload" rule.
 
 ## `mpol` has its own backward-compatibility shim worth knowing before touching UR key format
 

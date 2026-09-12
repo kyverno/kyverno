@@ -27,12 +27,13 @@ Within `pkg/clients/`, one thing is hand-written and is the preferred entry poin
 - **`pkg/clients/dclient`** (`dclient.Interface`) — a unified, hand-written dynamic + discovery client for
   arbitrary GVKs. This is what almost all new controller/webhook/engine code should use for generic resource
   access, and is imported pervasively across `cmd/*/main.go` and `pkg/controllers/*`. It has no metrics/tracing
-  decorators of its own — but every production binary constructs it through `cmd/internal.Setup`
-  (`createKyvernoDynamicClient` in `cmd/internal/client.go`), which hands it dynamic and kube clients that are
-  *already* wrapped with `WithMetrics`/`WithTracing` first (`cmd/internal/setup.go`). So ordinary resource calls
-  made through `dclient` do carry that instrumentation by delegation; it just isn't decorated at the `dclient`
-  layer itself, which matters if you ever construct a `dclient` outside `cmd/internal.Setup` (e.g. in a test or a
-  standalone tool) — that path gets no instrumentation at all. See
+  decorators of its own — but every controller binary (`kyverno`, `cleanup-controller`, `reports-controller`,
+  `background-controller`) constructs it through `cmd/internal.Setup` (`createKyvernoDynamicClient` in
+  `cmd/internal/client.go`), which hands it dynamic and kube clients that are *already* wrapped with
+  `WithMetrics`/`WithTracing` first (`cmd/internal/setup.go`). So ordinary resource calls made through `dclient` in
+  those binaries do carry that instrumentation by delegation; it just isn't decorated at the `dclient` layer itself,
+  which matters for any `dclient` constructed outside `cmd/internal.Setup` — the `kubectl-kyverno` CLI's `apply`
+  command and `ext/cluster.New` both do this directly, with no instrumentation at all. See
   [pkg/clients/AGENTS.md](../../../pkg/clients/AGENTS.md) for more.
 - **`pkg/clients/{kube,kyverno,dynamic,metadata,apiserver,aggregator}`** — generated, instrumented typed wrappers.
   Use these when the exact Kubernetes type is known and a typed client reads more clearly than `dclient`.

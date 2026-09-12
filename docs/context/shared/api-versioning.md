@@ -39,9 +39,13 @@ file to edit.
 
 **Deprecation procedure:** mark the field/type deprecated in the Go struct comment and OpenAPI schema description →
 announce in release notes with the planned removal minor version → remove once the notice window has elapsed. The
-published deprecation schedule for legacy `kyverno.io` v1 types (`ClusterPolicy`, `Policy`) and their v2 migration
-path lives at [kyverno.io's deprecation schedule](https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types)
-— that page, not this one, is authoritative for which specific fields are currently deprecated.
+published deprecation schedule for legacy `kyverno.io` v1 types (`ClusterPolicy`, `Policy`) lives at
+[kyverno.io's deprecation schedule](https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types)
+— that page, not this one, is authoritative for which specific fields are currently deprecated. Their migration path
+is **not** to a `kyverno.io/v2` version of the same types — `api/kyverno/v2` has no `ClusterPolicy`/`Policy` type at
+all — it's to the CEL `policies.kyverno.io` types (`ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`,
+`ImageValidatingPolicy`), per the deprecation marker on `v1.ClusterPolicy` itself (quoted in
+[api/AGENTS.md](../../../api/AGENTS.md)).
 
 None of the above is enforced by a linter or CI check today — it's a reviewer-enforced convention. If you're adding
 tooling to check it, start here.

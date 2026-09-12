@@ -8,8 +8,12 @@ for versioning rules (canonical copy — don't restate them here) and
 
 ## Validation is hand-written Go methods, not a kubebuilder admission webhook
 
-There is no `+kubebuilder:webhook` marker anywhere in this tree — no controller-runtime-generated admission webhook
-config. Instead, each policy type has a hand-written `Validate(...)` method, but the signature isn't uniform across
+No API type in `api/` carries a `+kubebuilder:webhook` marker — Kyverno's admission webhooks aren't generated from
+kubebuilder markers on these types the way controller-runtime projects typically do it. That doesn't mean there's no
+admission webhook config in the repo: `pkg/controllers/webhook` builds and reconciles
+`ValidatingWebhookConfiguration`/`MutatingWebhookConfiguration` resources dynamically at runtime, and
+`test/conformance/` has static ones for test fixtures — just none of it originates from a marker in this tree.
+Instead, each policy type has a hand-written `Validate(...)` method, but the signature isn't uniform across
 types: `ClusterPolicy.Validate(clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList)`
 (`clusterpolicy_types.go`) returns warnings, while `CleanupPolicy`/`ClusterCleanupPolicy.Validate(clusterResources)`
 and `PolicyException.Validate()` return only `field.ErrorList`, with their own distinct parameter lists. These are

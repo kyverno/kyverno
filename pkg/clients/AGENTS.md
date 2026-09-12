@@ -8,7 +8,7 @@ for the `pkg/client` vs `pkg/clients` distinction and when to use which. This fi
 `pkg/clients/dclient.Interface` (in `client.go`) is a generic dynamic/discovery client, hand-maintained, with no
 metrics, tracing, or logging wrapping of its own — confirmed by grep, it has no `WithMetrics`/`WithTracing`/
 `WithLogging` methods at all, unlike every generated client here. That sounds like a real observability gap, and in
-isolation it would be — but in every production binary, `dclient` is constructed by `cmd/internal.Setup`
+isolation it would be — but in every controller binary, `dclient` is constructed by `cmd/internal.Setup`
 (`createKyvernoDynamicClient`, `cmd/internal/client.go`), which passes it a `dynamic.Interface` and
 `kubernetes.Interface` that were *already* wrapped with `WithMetrics(...)`/`WithTracing()` a few lines earlier in
 `cmd/internal/setup.go`. `dclient` just holds and delegates to those (`client.dyn`/`client.kube` in `client.go`), so
@@ -38,8 +38,11 @@ invalidates on change. GVR resolution is explicitly commented as stateful — **
 resolves to can change at runtime** as CRDs are added or removed; don't assume a resolved GVR is a compile-time
 constant.
 
-`ApplyResource`/`ApplyStatusResource` use a field manager prefixed `"kyverno-"` with `Force: true`, specifically so
-generated-object mutations aren't wiped by other server-side-apply field managers competing on the same object.
+`ApplyResource`/`ApplyStatusResource` use a field manager prefixed `"kyverno-"` with `Force: true`, so that *this*
+apply succeeds and claims ownership of the fields it sets even if another manager currently owns them, rather than
+failing on a server-side-apply conflict. This isn't a standing guarantee — a later forced apply or update from
+another manager can still overwrite those same fields; `Force: true` only resolves the conflict at the moment of
+Kyverno's own write.
 `RawAbsPath` only supports GET/POST for real clients; under the fake client (tests) it falls back to a separate,
 hand-rolled path parser that's GET-only — don't assume `RawAbsPath` test coverage extends to POST or to real-client
 path-parsing edge cases.
