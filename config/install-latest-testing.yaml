@@ -88746,6 +88746,7 @@ spec:
             - --enableDeferredLoading=true
             - --dumpPayload=false
             - --forceFailurePolicyIgnore=false
+            - --blockLegacyPolicyAPIs=true
             - --generateValidatingAdmissionPolicy=true
             - --generateMutatingAdmissionPolicy=false
             - --dumpPatches=false
@@ -89059,6 +89060,7 @@ spec:
             - --metricsPort=8000
             - --enableDeferredLoading=true
             - --dumpPayload=false
+            - --blockLegacyPolicyAPIs=true
             - --maxAPICallResponseLength=2000000
             - --apiCallTimeout=30s
             - --maxGlobalContextEntries=0
