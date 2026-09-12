@@ -3,9 +3,8 @@ package policy
 import (
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 func FuzzValidatePolicy(f *testing.F) {

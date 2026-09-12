@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: multi-template-ns-config
+  namespace: multi-template-ns
+data:
+  key: value

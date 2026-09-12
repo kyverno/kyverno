@@ -205,6 +205,35 @@ Controller code is primarily in `pkg/controllers/`. Webhook handlers are in `pkg
 - For e2e-testable changes, write conformance tests using [chainsaw](https://kyverno.github.io/chainsaw/latest/quick-start/) in `test/conformance/`
 - Run `make verify-codegen` to ensure generated code is up to date before submitting
 
+### PR Failure-Prevention Checklist (DCO + Codegen + CI)
+
+Use this checklist before every push to avoid repeated CI failures:
+
+1. **Always sign commits (DCO)**
+   - Create commits with signoff: `git commit -s ...`
+   - Verify signoff trailers exist:
+     `git log --format='%h %s%n%b' origin/main..HEAD | grep -n "Signed-off-by"`
+   - If you forgot signoff on local commits, add it before pushing:
+     `git rebase --signoff <base-commit-or-branch>`
+
+2. **Run full codegen verification**
+   - Run `make codegen-all` (not just `codegen-all-code`) when docs/manifests may be affected.
+   - Run `make verify-codegen` and ensure it exits cleanly with no git diff.
+
+3. **Run required pre-push checks**
+   - `make imports fmt`
+   - `make imports-check fmt-check`
+   - Relevant test targets for changed areas (unit/CLI/chainsaw as applicable).
+
+4. **Keep PR branch clean and reviewable**
+   - Avoid merging `main` into the PR branch unless required; prefer rebasing.
+   - Keep local-only artifacts untracked (for example, `.claude-*` folders).
+   - Re-check status before push: `git status --short`.
+
+5. **Confirm GitHub checks after push**
+   - Inspect checks quickly: `gh pr checks <pr-number> -R kyverno/kyverno`
+   - If a check fails, fetch failing logs immediately and fix in the next commit.
+
 ## Useful References
 
 - [Development Guide](./DEVELOPMENT.md) — Full build, test, debug, and deploy instructions

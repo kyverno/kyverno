@@ -66,6 +66,26 @@ func ExtractMatchingImages(
 }
 
 func IsImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
+	return isImageVerified(resource, "", "", "", image, log)
+}
+
+func IsImageVerifiedForPolicy(resource unstructured.Unstructured, namespace, policy, rule, image string, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
+	if resource.Object == nil {
+		return engineapi.ImageVerificationFail, fmt.Errorf("nil resource")
+	}
+	data, ok := resource.GetAnnotations()[kyverno.AnnotationImageVerifyScoped]
+	if !ok {
+		return engineapi.ImageVerificationFail, nil
+	}
+	ivm, err := engineapi.ParseImageMetadata(data)
+	if err != nil {
+		log.Error(err, "failed to parse scoped image verification metadata", "data", data)
+		return engineapi.ImageVerificationFail, fmt.Errorf("failed to parse scoped image metadata: %w", err)
+	}
+	return ivm.ScopedImageVerificationStatus(namespace, policy, rule, image), nil
+}
+
+func isImageVerified(resource unstructured.Unstructured, namespace, policy, rule, image string, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
 	if resource.Object == nil {
 		return engineapi.ImageVerificationFail, fmt.Errorf("nil resource")
 	}
@@ -78,6 +98,9 @@ func IsImageVerified(resource unstructured.Unstructured, image string, log logr.
 		log.Error(err, "failed to parse image verification metadata", "data", data)
 		return engineapi.ImageVerificationFail, fmt.Errorf("failed to parse image metadata: %w", err)
 	} else {
+		if policy != "" {
+			return ivm.ScopedImageVerificationStatus(namespace, policy, rule, image), nil
+		}
 		return ivm.ImageVerificationStatus(image), nil
 	}
 }

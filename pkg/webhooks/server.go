@@ -81,7 +81,7 @@ func NewServer(
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("MPOL"),
@@ -94,7 +94,7 @@ func NewServer(
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("NMPOL"),
@@ -159,7 +159,7 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		"/nivpol/validate/*policies",
-		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.ImageVerificationPolicies, "").
+		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.NamespacedImageVerificationPolicies, "").
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
@@ -172,7 +172,7 @@ func NewServer(
 	mux.HandlerFunc(
 		"POST",
 		"/nivpol/mutate/*policies",
-		handlerFunc("NIVPOL-MUTATE", resourceHandlers.ImageVerificationPoliciesMutation, "").
+		handlerFunc("NIVPOL-MUTATE", resourceHandlers.NamespacedImageVerificationPoliciesMutation, "").
 			WithFilter(configuration).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).

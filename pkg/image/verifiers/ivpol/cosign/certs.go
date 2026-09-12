@@ -86,6 +86,7 @@ func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, 
 	return signature.LoadVerifier(pubKey, signatureAlgorithm)
 }
 
+// this is the equivalent of checkAnnotations in the cpol
 func checkSignatureAnnotations(sig oci.Signature, annotations map[string]string) error {
 	sigAnnotations, err := sig.Annotations()
 	if err != nil {

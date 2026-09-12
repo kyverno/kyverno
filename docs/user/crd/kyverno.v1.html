@@ -1381,6 +1381,71 @@ It's mutually exclusive with the URLPath field.</p>
 
   
 
+  <H3 id="kyverno-io-v1-Any">Any
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-Validation">Validation</a>)
+    </p>
+  
+
+  <p><p>Any can be any type.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>Value</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">any</span>
+            
+          
+        </td>
+        <td>
+          
+            <p>(Members of <code>Value</code> are embedded into this type.)</p>
+          
+
+          <p>Value contains the value of the Any object.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
   <H3 id="kyverno-io-v1-AnyAllConditions">AnyAllConditions
     </H3>
 
@@ -1497,21 +1562,6 @@ Here, all of the conditions need to pass</p>
   
 
   <p><p>ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.</p>
-</p>
-
-  
-
-  <H3 id="kyverno-io-v1-AssertionTree">AssertionTree
-    </H3>
-
-  
-    <p>
-      (<em>Appears in:</em>
-        <a href="#kyverno-io-v1-Validation">Validation</a>)
-    </p>
-  
-
-  <p><p>AssertionTree defines a kyverno-json assertion tree.</p>
 </p>
 
   
@@ -10199,8 +10249,8 @@ by specifying exclusions for Pod Security Standards controls.</p>
           
           
             
-              <a href="#kyverno-io-v1-AssertionTree">
-                <span style="font-family: monospace">AssertionTree</span>
+              <a href="#kyverno-io-v1-Any">
+                <span style="font-family: monospace">Any</span>
               </a>
             
           
@@ -10208,7 +10258,8 @@ by specifying exclusions for Pod Security Standards controls.</p>
         <td>
           
 
-          <p>Assert defines a kyverno-json assertion tree.</p>
+          <p>Assert defines a kyverno-json assertion tree.
+Deprecated, kept only for backward compatibility but has no effect since 1.19.</p>
 
 
           

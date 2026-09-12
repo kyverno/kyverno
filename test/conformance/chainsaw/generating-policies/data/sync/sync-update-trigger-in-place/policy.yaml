@@ -1,0 +1,36 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: sync-update-trigger-in-place
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: quota
+      expression: object.metadata.?annotations["quota"].orValue("10")
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "sync-update-trigger-in-place",
+              "namespace": string(variables.nsName),
+            }),
+            "data": dyn({
+              "QUOTA": string(variables.quota)
+            })
+          }
+        ]
+  generate:
+    - expression: generator.apply(variables.nsName, variables.configmap)

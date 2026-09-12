@@ -18,7 +18,7 @@ import (
 	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -761,6 +761,84 @@ func Test_ValidateAuditWarnGood(t *testing.T) {
 	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0, "should emit warning for pass rule response")
+
+	policyCache.Unset(key)
+}
+
+// policyMixedAuditEnforce is a single emitWarning ClusterPolicy with a mix of a per-rule Audit rule
+// (require a team label on ConfigMaps) and a per-rule Enforce rule (require it on Secrets). It mirrors
+// kyverno/kyverno#16558: an operator combines a soft audit rule and a hard enforce rule in one policy.
+var policyMixedAuditEnforce = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {"name": "require-team-label"},
+	"spec": {
+		"emitWarning": true,
+		"rules": [
+			{
+				"name": "require-team-label-configmap-audit",
+				"match": {"any": [{"resources": {"kinds": ["ConfigMap"]}}]},
+				"validate": {
+					"failureAction": "Audit",
+					"message": "The label 'team' is required.",
+					"pattern": {"metadata": {"labels": {"team": "?*"}}}
+				}
+			},
+			{
+				"name": "require-team-label-secret-enforce",
+				"match": {"any": [{"resources": {"kinds": ["Secret"]}}]},
+				"validate": {
+					"failureAction": "Enforce",
+					"message": "The label 'team' is required.",
+					"pattern": {"metadata": {"labels": {"team": "?*"}}}
+				}
+			}
+		]
+	}
+}`
+
+var configmapMissingLabel = `{
+	"apiVersion": "v1",
+	"kind": "ConfigMap",
+	"metadata": {"name": "test-cm", "namespace": ""},
+	"data": {"key": "value"}
+}`
+
+// Test_ValidateAuditWarn_MixedAuditEnforcePolicy reproduces kyverno/kyverno#16558: a ConfigMap that
+// only matches the Audit rule of a mixed audit+enforce policy must still surface the audit warning.
+// Because the policy also carries an Enforce rule it is stored under ValidateEnforce and excluded from
+// the ValidateAuditWarn set the handler reads, so the warning was silently dropped.
+func Test_ValidateAuditWarn_MixedAuditEnforcePolicy(t *testing.T) {
+	policyCache := policycache.NewCache()
+	logger := log.WithName("Test_ValidateAuditWarn_MixedAuditEnforcePolicy")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal([]byte(policyMixedAuditEnforce), &policy)
+	assert.NilError(t, err)
+
+	key := makeKey(&policy)
+	policyCache.Set(key, &policy, policycache.TestResourceFinder{})
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(configmapMissingLabel),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+		},
+	}
+
+	response := resourceHandlers.Validate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true, "the ConfigMap only matches the Audit rule, so it must be admitted")
+	assert.Equal(t, len(response.Warnings), 1, "the audit rule must emit a warning even though the policy also has an enforce rule")
 
 	policyCache.Unset(key)
 }
