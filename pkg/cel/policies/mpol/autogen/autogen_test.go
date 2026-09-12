@@ -163,7 +163,7 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := convertPodToTemplateExpression(tt.input, tt.config)
+			result := ConvertPodToTemplateExpression(tt.input, tt.config)
 			assert.Equal(t, normalize(tt.expected), normalize(result))
 		})
 	}
@@ -676,7 +676,7 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := convertPodToTemplateExpression(tt.input, tt.config)
+			result := ConvertPodToTemplateExpression(tt.input, tt.config)
 			assert.Equal(t, normalize(tt.expected), normalize(result))
 		})
 	}

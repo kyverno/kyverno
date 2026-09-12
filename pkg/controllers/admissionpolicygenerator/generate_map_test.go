@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -13,6 +14,72 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/utils/ptr"
 )
+
+// TestDesiredMAPVariants mirrors TestDesiredVAPVariants (generate_vap_test.go) for
+// MutatingPolicy - see its doc comment for the scenario this covers.
+func TestDesiredMAPVariants(t *testing.T) {
+	baseSpec := &policiesv1beta1.MutatingPolicySpec{}
+
+	tests := []struct {
+		name        string
+		configs     map[string]policiesv1beta1.MutatingPolicyAutogen
+		wantNames   []string
+		wantSkipped []string
+	}{
+		{
+			name:      "no autogen: base variant only",
+			wantNames: []string{"mpol-test"},
+		},
+		{
+			name: "one translatable group",
+			configs: map[string]policiesv1beta1.MutatingPolicyAutogen{
+				"defaults": {Spec: baseSpec},
+			},
+			wantNames: []string{"mpol-test", "mpol-test-defaults"},
+		},
+		{
+			name: "extraction-mode group only: no group variant, reported as skipped",
+			configs: map[string]policiesv1beta1.MutatingPolicyAutogen{
+				mpolautogen.ExtractionReplacementsRef: {Spec: baseSpec},
+			},
+			wantNames:   []string{"mpol-test"},
+			wantSkipped: []string{mpolautogen.ExtractionReplacementsRef},
+		},
+		{
+			name: "mixed: translatable group still generates even though a custom CRD is also autogen'd",
+			configs: map[string]policiesv1beta1.MutatingPolicyAutogen{
+				"cronjobs":                            {Spec: baseSpec},
+				mpolautogen.ExtractionReplacementsRef: {Spec: baseSpec},
+			},
+			wantNames:   []string{"mpol-test", "mpol-test-cronjobs"},
+			wantSkipped: []string{mpolautogen.ExtractionReplacementsRef},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mpol := &policiesv1beta1.MutatingPolicy{
+				Status: policiesv1beta1.MutatingPolicyStatus{
+					Autogen: policiesv1beta1.MutatingPolicyAutogenStatus{Configs: tt.configs},
+				},
+			}
+
+			variants, skipped := desiredMAPVariants(mpol, "mpol-test")
+
+			var gotNames []string
+			for _, v := range variants {
+				gotNames = append(gotNames, v.name)
+				if v.name == "mpol-test" {
+					assert.Nil(t, v.specOverride)
+				} else {
+					assert.NotNil(t, v.specOverride)
+				}
+			}
+			assert.ElementsMatch(t, tt.wantNames, gotNames)
+			assert.ElementsMatch(t, tt.wantSkipped, skipped)
+		})
+	}
+}
 
 // TestPreferredMAPVersion tests that the controller selects the right API version
 // based on which listers are initialised, with v1beta1 taking precedence.
@@ -93,11 +160,14 @@ func mapGenEnabled() *policiesv1beta1.MutatingPolicyAutogenConfiguration {
 	}
 }
 
-// TestMapGenerationSkipReason covers the decision of whether a MutatingAdmissionPolicy may be
-// generated for a MutatingPolicy. A policy using useServerSideApply mutates atomic fields that a
-// native MutatingAdmissionPolicy rejects, so generation must be skipped, otherwise the generated MAP
-// becomes the sole admission path and the mutation breaks.
-func TestMapGenerationSkipReason(t *testing.T) {
+// TestMapFullSkipReason covers the decision of whether a MutatingAdmissionPolicy must not be
+// generated at all for a MutatingPolicy. A policy using useServerSideApply mutates atomic fields
+// that a native MutatingAdmissionPolicy rejects, so generation must be skipped, otherwise the
+// generated MAP becomes the sole admission path and the mutation breaks. Pod-controller autogen is
+// no longer a full-skip reason (see TestDesiredMAPVariants) - it's now handled per-group by the
+// fan-out generation in generate-map.go, which generates a MAP for every translatable group and
+// only leaves out ones that genuinely can't be translated (custom-CRD/extraction-mode targets).
+func TestMapFullSkipReason(t *testing.T) {
 	tests := []struct {
 		name       string
 		policy     *policiesv1beta1.MutatingPolicy
@@ -135,25 +205,26 @@ func TestMapGenerationSkipReason(t *testing.T) {
 			wantReason: "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects.",
 		},
 		{
-			name: "generation enabled with pod controllers autogen",
+			// Previously this forced a full skip; now the fan-out in generate-map.go handles
+			// autogen'd groups individually, so mapFullSkipReason no longer blocks on it.
+			name: "generation enabled with pod controllers autogen is no longer a full-skip reason",
 			policy: &policiesv1beta1.MutatingPolicy{
 				Spec: policiesv1beta1.MutatingPolicySpec{
 					AutogenConfiguration: mapGenEnabled(),
 				},
 				Status: policiesv1beta1.MutatingPolicyStatus{
 					Autogen: policiesv1beta1.MutatingPolicyAutogenStatus{
-						Configs: map[string]policiesv1beta1.MutatingPolicyAutogen{"deployments": {}},
+						Configs: map[string]policiesv1beta1.MutatingPolicyAutogen{"defaults": {}},
 					},
 				},
 			},
-			wantSkip:   true,
-			wantReason: "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled.",
+			wantSkip: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reason := mapGenerationSkipReason(tt.policy)
+			reason := mapFullSkipReason(tt.policy)
 			assert.Equal(t, tt.wantSkip, reason != "")
 			if tt.wantReason != "" {
 				assert.Equal(t, tt.wantReason, reason)

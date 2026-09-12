@@ -62,21 +62,21 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		// Extraction-mode targets (custom workload CRDs) have no fixed
 		// "spec.template"-style path to rewrite expressions to - their pod
 		// template is discovered at evaluation time instead - so
-		// convertPodToTemplateExpression must not run for them. Without this
+		// ConvertPodToTemplateExpression must not run for them. Without this
 		// guard it would fall into its "default" case and rewrite these
 		// expressions to the built-in flat shape, which is wrong for
 		// whatever custom CRD this config actually targets.
 		if config != autogen.ExtractionReplacementsRef {
 			for i := range spec.MatchConditions {
 				if spec.MatchConditions[i].Expression != "" {
-					convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
+					convertedExpr := ConvertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
 					spec.MatchConditions[i].Expression = convertedExpr
 				}
 			}
 
 			for i := range spec.Mutations {
 				if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
-					convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
+					convertedExpr := ConvertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
 					spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
 				}
 			}
@@ -106,8 +106,8 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 	return rules, nil
 }
 
-// convertPodToTemplateExpression converts pod mutation expressions to template expressions
-func convertPodToTemplateExpression(expression string, config string) string {
+// ConvertPodToTemplateExpression converts pod mutation expressions to template expressions
+func ConvertPodToTemplateExpression(expression string, config string) string {
 	var specReplacement string
 	var metadataReplacement string
 

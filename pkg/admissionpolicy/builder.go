@@ -8,6 +8,8 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/cel/autogen"
+	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -19,12 +21,25 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BuildValidatingAdmissionPolicy is used to build a Kubernetes ValidatingAdmissionPolicy from a Kyverno policy
+// BuildValidatingAdmissionPolicy is used to build a Kubernetes ValidatingAdmissionPolicy from a Kyverno policy.
+// specOverride, when non-nil, is used in place of the ValidatingPolicy's own spec - this is how an
+// autogen'd variant (e.g. the "defaults"/"cronjobs" rewritten spec from policy.GetStatus().Autogen.Configs)
+// is turned into its own ValidatingAdmissionPolicy while owner reference and labels still derive from
+// the real policy. group is the matching autogen.ReplacementsMap key ("" for the base/non-autogen'd
+// variant) - it's what lets a PolicyException's match condition, written against the Pod-shaped base
+// object, still work once embedded into an autogen-group VAP whose object is a Deployment/CronJob: the
+// same object.spec-&gt;object.spec.template.spec (etc.) rewrite validations already get is applied to the
+// exception's expression too, using group to look up the right autogen.ReplacementsMap entry. Without
+// this, an exception expression that assumes the Pod shape (e.g. object.spec.containers...) would
+// silently never match, or error, once applied to a Deployment. Only consulted on the ValidatingPolicy
+// path; ClusterPolicy ignores both parameters.
 func BuildValidatingAdmissionPolicy(
 	discoveryClient dclient.IDiscovery,
 	vap *admissionregistrationv1.ValidatingAdmissionPolicy,
 	policy engineapi.GenericPolicy,
 	exceptions []engineapi.GenericException,
+	group string,
+	specOverride *policiesv1beta1.ValidatingPolicySpec,
 ) error {
 	var matchResources admissionregistrationv1.MatchResources
 	var matchConditions []admissionregistrationv1.MatchCondition
@@ -102,11 +117,15 @@ func BuildValidatingAdmissionPolicy(
 		auditAnnotations = rule.Validation.CEL.AuditAnnotations
 		variables = rule.Validation.CEL.Variables
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		matchResources = *vpol.Spec.MatchConstraints
-		matchConditions = vpol.Spec.MatchConditions
-		validations = vpol.Spec.Validations
-		auditAnnotations = vpol.Spec.AuditAnnotations
-		variables = vpol.Spec.Variables
+		spec := vpol.Spec
+		if specOverride != nil {
+			spec = *specOverride
+		}
+		matchResources = *spec.MatchConstraints
+		matchConditions = spec.MatchConditions
+		validations = spec.Validations
+		auditAnnotations = spec.AuditAnnotations
+		variables = spec.Variables
 
 		// convert celexceptions if exist
 		for _, exception := range exceptions {
@@ -114,6 +133,13 @@ func BuildValidatingAdmissionPolicy(
 				for _, matchCondition := range celpolex.Spec.MatchConditions {
 					// negate the match condition
 					expression := "!(" + matchCondition.Expression + ")"
+					if group != "" {
+						// The exception was written against the Pod-shaped base object; rewrite it
+						// the same way validations were rewritten for this autogen group, or an
+						// expression like object.spec.containers... would silently never match (or
+						// error) once object is actually a Deployment/CronJob.
+						expression = string(autogen.Apply([]byte(expression), autogen.ReplacementsMap[group]...))
+					}
 					matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
 						Name:       matchCondition.Name,
 						Expression: expression,
@@ -184,14 +210,19 @@ func replaceExpressions(expr string, replacements map[string]string) string {
 	return expr
 }
 
-// BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy
+// BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding
+// from a Kyverno policy. vapName is the name of the ValidatingAdmissionPolicy this binding targets -
+// callers already know it (they just created/looked up that object), so it's taken explicitly rather
+// than re-derived here, which lets one policy bind to several generated VAPs (the base one plus one
+// per autogen group). specOverride mirrors BuildValidatingAdmissionPolicy's parameter of the same name.
 func BuildValidatingAdmissionPolicyBinding(
 	vapbinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	policy engineapi.GenericPolicy,
+	vapName string,
+	specOverride *policiesv1beta1.ValidatingPolicySpec,
 ) error {
 	var validationActions []admissionregistrationv1.ValidationAction
 	var paramRef *admissionregistrationv1.ParamRef
-	var policyName string
 
 	if cpol := policy.AsKyvernoPolicy(); cpol != nil {
 		rule := cpol.GetSpec().Rules[0]
@@ -213,10 +244,12 @@ func BuildValidatingAdmissionPolicyBinding(
 			}
 		}
 		paramRef = rule.Validation.CEL.ParamRef
-		policyName = "cpol-" + cpol.GetName()
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		validationActions = vpol.Spec.ValidationActions()
-		policyName = "vpol-" + vpol.GetName()
+		spec := vpol.Spec
+		if specOverride != nil {
+			spec = *specOverride
+		}
+		validationActions = spec.ValidationActions()
 	}
 
 	// set owner reference
@@ -230,7 +263,7 @@ func BuildValidatingAdmissionPolicyBinding(
 	}
 	// set binding spec
 	vapbinding.Spec = admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
-		PolicyName:        policyName,
+		PolicyName:        vapName,
 		ParamRef:          paramRef,
 		ValidationActions: validationActions,
 	}
@@ -251,37 +284,54 @@ func mutatingPolicyOwnerRef(mp *policiesv1beta1.MutatingPolicy) []metav1.OwnerRe
 	}
 }
 
-// negateExceptionMatchConditions returns negated match conditions for each exception,
-// using the v1 MatchCondition type which is structurally identical to the alpha/beta variants.
-func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException) []admissionregistrationv1.MatchCondition {
+// negateExceptionMatchConditions returns negated match conditions for each exception, using the v1
+// MatchCondition type which is structurally identical to the alpha/beta variants. group is the
+// matching mpol autogen config key ("" for the base/non-autogen'd variant) - see
+// BuildValidatingAdmissionPolicy's group parameter for why this rewrite is needed: without it, an
+// exception written against the Pod-shaped base object would silently misbehave once embedded into an
+// autogen-group MutatingAdmissionPolicy whose object is a Deployment/CronJob.
+func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException, group string) []admissionregistrationv1.MatchCondition {
 	var result []admissionregistrationv1.MatchCondition
 	for _, exception := range exceptions {
 		for _, mc := range exception.Spec.MatchConditions {
+			expression := "!(" + mc.Expression + ")"
+			if group != "" {
+				expression = mpolautogen.ConvertPodToTemplateExpression(expression, group)
+			}
 			result = append(result, admissionregistrationv1.MatchCondition{
 				Name:       mc.Name,
-				Expression: "!(" + mc.Expression + ")",
+				Expression: expression,
 			})
 		}
 	}
 	return result
 }
 
-// BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
+// BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy.
+// specOverride, when non-nil, is used in place of mp's own spec - see BuildValidatingAdmissionPolicy's
+// parameter of the same name for why (autogen fan-out). group is threaded through to
+// negateExceptionMatchConditions for the same reason.
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
+	group string,
+	specOverride *policiesv1beta1.MutatingPolicySpec,
 ) {
-	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1alpha1.MatchCondition {
+	spec := mp.Spec
+	if specOverride != nil {
+		spec = *specOverride
+	}
+	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions, group), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1alpha1.MatchCondition {
 		return admissionregistrationv1alpha1.MatchCondition(mc)
 	})
-	for _, mc := range mp.Spec.MatchConditions {
+	for _, mc := range spec.MatchConditions {
 		matchConditions = append(matchConditions, admissionregistrationv1alpha1.MatchCondition(mc))
 	}
 
 	var fpt *admissionregistrationv1alpha1.FailurePolicyType
-	if mp.Spec.FailurePolicy != nil {
-		conv := admissionregistrationv1alpha1.FailurePolicyType(*mp.Spec.FailurePolicy)
+	if spec.FailurePolicy != nil {
+		conv := admissionregistrationv1alpha1.FailurePolicyType(*spec.FailurePolicy)
 		fpt = &conv
 	}
 
@@ -290,7 +340,7 @@ func BuildMutatingAdmissionPolicy(
 	// set policy spec
 	mapol.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicySpec{
 		MatchConstraints: &admissionregistrationv1alpha1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
+			ResourceRules: slicesutils.Map(spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1alpha1.NamedRuleWithOperations {
 				return admissionregistrationv1alpha1.NamedRuleWithOperations{
 					ResourceNames:      rule.ResourceNames,
 					RuleWithOperations: rule.RuleWithOperations,
@@ -298,12 +348,12 @@ func BuildMutatingAdmissionPolicy(
 			}),
 		},
 		MatchConditions: matchConditions,
-		Mutations:       mp.Spec.Mutations,
-		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
+		Mutations:       spec.Mutations,
+		Variables: slicesutils.Map(spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1alpha1.Variable {
 			return admissionregistrationv1alpha1.Variable(v)
 		}),
 		FailurePolicy:      fpt,
-		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+		ReinvocationPolicy: spec.GetReinvocationPolicy(),
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapol)
@@ -313,39 +363,49 @@ func BuildMutatingAdmissionPolicy(
 	}
 }
 
-// BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from a MutatingPolicy
+// BuildMutatingAdmissionPolicyBinding is used to build a Kubernetes MutatingAdmissionPolicyBinding from
+// a MutatingPolicy. mapName is the name of the MutatingAdmissionPolicy this binding targets - see
+// BuildValidatingAdmissionPolicyBinding's vapName parameter for why it's taken explicitly.
 func BuildMutatingAdmissionPolicyBinding(
 	mapbinding *admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding,
 	mp *policiesv1beta1.MutatingPolicy,
+	mapName string,
 ) {
 	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapbinding.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicyBindingSpec{
-		PolicyName: "mpol-" + mp.GetName(),
+		PolicyName: mapName,
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
-// BuildMutatingAdmissionPolicyV1 is used to build a Kubernetes MutatingAdmissionPolicy (v1) from a MutatingPolicy.
+// BuildMutatingAdmissionPolicyV1 is used to build a Kubernetes MutatingAdmissionPolicy (v1) from a
+// MutatingPolicy. group and specOverride mirror BuildMutatingAdmissionPolicy's parameters of the same name.
 func BuildMutatingAdmissionPolicyV1(
 	mapol *admissionregistrationv1.MutatingAdmissionPolicy,
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
+	group string,
+	specOverride *policiesv1beta1.MutatingPolicySpec,
 ) {
-	matchConditions := negateExceptionMatchConditions(exceptions)
-	for _, mc := range mp.Spec.MatchConditions {
+	spec := mp.Spec
+	if specOverride != nil {
+		spec = *specOverride
+	}
+	matchConditions := negateExceptionMatchConditions(exceptions, group)
+	for _, mc := range spec.MatchConditions {
 		matchConditions = append(matchConditions, mc)
 	}
 
 	var fpt *admissionregistrationv1.FailurePolicyType
-	if mp.Spec.FailurePolicy != nil {
-		conv := *mp.Spec.FailurePolicy
+	if spec.FailurePolicy != nil {
+		conv := *spec.FailurePolicy
 		fpt = &conv
 	}
 
 	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapol.Spec = admissionregistrationv1.MutatingAdmissionPolicySpec{
 		MatchConstraints: &admissionregistrationv1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1.NamedRuleWithOperations {
+			ResourceRules: slicesutils.Map(spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1.NamedRuleWithOperations {
 				return admissionregistrationv1.NamedRuleWithOperations{
 					ResourceNames:      rule.ResourceNames,
 					RuleWithOperations: rule.RuleWithOperations,
@@ -353,7 +413,7 @@ func BuildMutatingAdmissionPolicyV1(
 			}),
 		},
 		MatchConditions: matchConditions,
-		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1.Mutation {
+		Mutations: slicesutils.Map(spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1.Mutation {
 			mut := admissionregistrationv1.Mutation{PatchType: admissionregistrationv1.PatchType(m.PatchType)}
 			if m.ApplyConfiguration != nil {
 				mut.ApplyConfiguration = &admissionregistrationv1.ApplyConfiguration{Expression: m.ApplyConfiguration.Expression}
@@ -363,11 +423,11 @@ func BuildMutatingAdmissionPolicyV1(
 			}
 			return mut
 		}),
-		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1.Variable {
+		Variables: slicesutils.Map(spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1.Variable {
 			return v
 		}),
 		FailurePolicy:      fpt,
-		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+		ReinvocationPolicy: spec.GetReinvocationPolicy(),
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapol)
 	policyLabels := mp.GetLabels()
@@ -376,34 +436,44 @@ func BuildMutatingAdmissionPolicyV1(
 	}
 }
 
-// BuildMutatingAdmissionPolicyBindingV1 is used to build a Kubernetes MutatingAdmissionPolicyBinding (v1) from a MutatingPolicy.
+// BuildMutatingAdmissionPolicyBindingV1 is used to build a Kubernetes MutatingAdmissionPolicyBinding
+// (v1) from a MutatingPolicy. mapName is the name of the MutatingAdmissionPolicy this binding targets -
+// see BuildValidatingAdmissionPolicyBinding's vapName parameter for why it's taken explicitly.
 func BuildMutatingAdmissionPolicyBindingV1(
 	mapbinding *admissionregistrationv1.MutatingAdmissionPolicyBinding,
 	mp *policiesv1beta1.MutatingPolicy,
+	mapName string,
 ) {
 	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapbinding.Spec = admissionregistrationv1.MutatingAdmissionPolicyBindingSpec{
-		PolicyName: "mpol-" + mp.GetName(),
+		PolicyName: mapName,
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
 
-// BuildMutatingAdmissionPolicyBeta is used to build a Kubernetes MutatingAdmissionPolicy (v1beta1) from a MutatingPolicy
+// BuildMutatingAdmissionPolicyBeta is used to build a Kubernetes MutatingAdmissionPolicy (v1beta1) from
+// a MutatingPolicy. group and specOverride mirror BuildMutatingAdmissionPolicy's parameters of the same name.
 func BuildMutatingAdmissionPolicyBeta(
 	mapol *admissionregistrationv1beta1.MutatingAdmissionPolicy,
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
+	group string,
+	specOverride *policiesv1beta1.MutatingPolicySpec,
 ) {
-	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1beta1.MatchCondition {
+	spec := mp.Spec
+	if specOverride != nil {
+		spec = *specOverride
+	}
+	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions, group), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1beta1.MatchCondition {
 		return admissionregistrationv1beta1.MatchCondition(mc)
 	})
-	for _, mc := range mp.Spec.MatchConditions {
+	for _, mc := range spec.MatchConditions {
 		matchConditions = append(matchConditions, admissionregistrationv1beta1.MatchCondition(mc))
 	}
 
 	var fpt *admissionregistrationv1beta1.FailurePolicyType
-	if mp.Spec.FailurePolicy != nil {
-		conv := admissionregistrationv1beta1.FailurePolicyType(*mp.Spec.FailurePolicy)
+	if spec.FailurePolicy != nil {
+		conv := admissionregistrationv1beta1.FailurePolicyType(*spec.FailurePolicy)
 		fpt = &conv
 	}
 
@@ -412,7 +482,7 @@ func BuildMutatingAdmissionPolicyBeta(
 	// set policy spec
 	mapol.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicySpec{
 		MatchConstraints: &admissionregistrationv1beta1.MatchResources{
-			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1beta1.NamedRuleWithOperations {
+			ResourceRules: slicesutils.Map(spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1beta1.NamedRuleWithOperations {
 				return admissionregistrationv1beta1.NamedRuleWithOperations{
 					ResourceNames:      rule.ResourceNames,
 					RuleWithOperations: rule.RuleWithOperations,
@@ -420,7 +490,7 @@ func BuildMutatingAdmissionPolicyBeta(
 			}),
 		},
 		MatchConditions: matchConditions,
-		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1beta1.Mutation {
+		Mutations: slicesutils.Map(spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1beta1.Mutation {
 			mut := admissionregistrationv1beta1.Mutation{
 				PatchType: admissionregistrationv1beta1.PatchType(m.PatchType),
 			}
@@ -436,11 +506,11 @@ func BuildMutatingAdmissionPolicyBeta(
 			}
 			return mut
 		}),
-		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1beta1.Variable {
+		Variables: slicesutils.Map(spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1beta1.Variable {
 			return admissionregistrationv1beta1.Variable(v)
 		}),
 		FailurePolicy:      fpt,
-		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+		ReinvocationPolicy: spec.GetReinvocationPolicy(),
 	}
 	// set labels
 	controllerutils.SetManagedByKyvernoLabel(mapol)
@@ -450,14 +520,17 @@ func BuildMutatingAdmissionPolicyBeta(
 	}
 }
 
-// BuildMutatingAdmissionPolicyBindingBeta is used to build a Kubernetes MutatingAdmissionPolicyBinding (v1beta1) from a MutatingPolicy
+// BuildMutatingAdmissionPolicyBindingBeta is used to build a Kubernetes MutatingAdmissionPolicyBinding
+// (v1beta1) from a MutatingPolicy. mapName is the name of the MutatingAdmissionPolicy this binding
+// targets - see BuildValidatingAdmissionPolicyBinding's vapName parameter for why it's taken explicitly.
 func BuildMutatingAdmissionPolicyBindingBeta(
 	mapbinding *admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	mp *policiesv1beta1.MutatingPolicy,
+	mapName string,
 ) {
 	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapbinding.Spec = admissionregistrationv1beta1.MutatingAdmissionPolicyBindingSpec{
-		PolicyName: "mpol-" + mp.GetName(),
+		PolicyName: mapName,
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
 }
