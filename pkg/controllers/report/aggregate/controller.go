@@ -53,7 +53,14 @@ const (
 	maxRetries     = 10
 	enqueueDelay   = 10 * time.Second
 	deletionGrace  = time.Minute * 2
+	// cacheCleanupInterval is how often stale entries are pruned from reportUUIDToPolicyCache
+	cacheCleanupInterval = 10 * time.Second
 )
+
+// managedByKyverno selects the reports owned by Kyverno.
+var managedByKyverno = labels.SelectorFromSet(labels.Set{
+	kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+})
 
 type controller struct {
 	// clients
@@ -78,6 +85,8 @@ type controller struct {
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister     cache.GenericLister
 	cephrLister    cache.GenericLister
+	polrLister     cache.GenericLister
+	cpolrLister    cache.GenericLister
 
 	// reportUUIDToPolicyCache maps report UUIDs to policies that affect them for targeted reconciliation.
 	// This avoids processing all reports when a single policy changes.
@@ -97,6 +106,7 @@ type PolicyMapEntry struct {
 	Rules  sets.Set[string]
 }
 
+// NewController returns the controller that aggregates ephemeral reports into policy reports.
 func NewController(
 	client versioned.Interface,
 	orClient openreportsclient.OpenreportsV1alpha1Interface,
@@ -136,45 +146,6 @@ func NewController(
 	cacheMu := &sync.Mutex{}
 	// Initialize cache for mapping report UUIDs to their affecting policies.
 	reportUUIDToPolicyCache := make(map[string]sets.Set[string])
-	selector := labels.SelectorFromSet(labels.Set{
-		kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
-	})
-
-	// Background cleanup goroutine removes cache entries for deleted reports every 10 seconds.
-	go func() {
-		for {
-			time.Sleep(time.Second * 10)
-			// List all existing reports to identify which ones still exist
-			reports, err := polrInformer.Lister().List(selector)
-			if err != nil {
-				logger.Error(err, "failed to list reports to clear the policy cache")
-				continue
-			}
-			clusterReports, err := cpolrInformer.Lister().List(selector)
-			if err != nil {
-				logger.Error(err, "failed to list cluster reports to clear the policy cache")
-				continue
-			}
-			// Build set of existing report UUIDs
-			reportsMap := make(map[string]struct{})
-			for _, r := range reports {
-				reportMeta := r.(*metav1.PartialObjectMetadata)
-				reportsMap[string(reportMeta.GetUID())] = struct{}{}
-			}
-			for _, cr := range clusterReports {
-				reportMeta := cr.(*metav1.PartialObjectMetadata)
-				reportsMap[string(reportMeta.GetUID())] = struct{}{}
-			}
-			// Remove cache entries for deleted reports
-			cacheMu.Lock()
-			for reportUID := range reportUUIDToPolicyCache {
-				if _, ok := reportsMap[reportUID]; !ok {
-					delete(reportUUIDToPolicyCache, reportUID)
-				}
-			}
-			cacheMu.Unlock()
-		}
-	}()
 
 	c := controller{
 		client:                  client,
@@ -184,6 +155,8 @@ func NewController(
 		cpolLister:              cpolInformer.Lister(),
 		ephrLister:              ephrInformer.Lister(),
 		cephrLister:             cephrInformer.Lister(),
+		polrLister:              polrInformer.Lister(),
+		cpolrLister:             cpolrInformer.Lister(),
 		cacheMu:                 cacheMu,
 		reportUUIDToPolicyCache: reportUUIDToPolicyCache,
 		frontQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -209,7 +182,7 @@ func NewController(
 	}
 	// enqueueReportsForPolicy queues only reports affected by a specific policy change using the cache.
 	enqueueReportsForPolicy := func(o metav1.Object) {
-		if list, err := polrInformer.Lister().List(selector); err == nil {
+		if list, err := polrInformer.Lister().List(managedByKyverno); err == nil {
 			// the cache has not been built yet, enqueue all reports for reconciliation
 			cacheMu.Lock()
 			cacheLen := len(reportUUIDToPolicyCache)
@@ -250,7 +223,7 @@ func NewController(
 				}
 			}
 		}
-		if list, err := cpolrInformer.Lister().List(selector); err == nil {
+		if list, err := cpolrInformer.Lister().List(managedByKyverno); err == nil {
 			// the cache has not been built yet, enqueue all reports for reconciliation
 			cacheMu.Lock()
 			cacheLen := len(reportUUIDToPolicyCache)
@@ -431,8 +404,12 @@ func NewController(
 	return &c
 }
 
+// Run starts the cache cleanup loop and the reconcile workers, and blocks until ctx is cancelled.
 func (c *controller) Run(ctx context.Context, workers int) {
 	var group wait.Group
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		wait.UntilWithContext(ctx, c.pruneCache, cacheCleanupInterval)
+	})
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		controllerutils.Run(ctx, logger, ControllerName, time.Second, c.frontQueue, workers, maxRetries, c.frontReconcile)
 	})
@@ -440,6 +417,40 @@ func (c *controller) Run(ctx context.Context, workers int) {
 		controllerutils.Run(ctx, logger, ControllerName, time.Second, c.backQueue, workers, maxRetries, c.backReconcile)
 	})
 	group.Wait()
+}
+
+// pruneCache removes cache entries for reports that no longer exist. It is
+// started by Run so it stops with the controller instead of outliving it.
+func (c *controller) pruneCache(ctx context.Context) {
+	// List all existing reports to identify which ones still exist
+	reports, err := c.polrLister.List(managedByKyverno)
+	if err != nil {
+		logger.Error(err, "failed to list reports to clear the policy cache")
+		return
+	}
+	clusterReports, err := c.cpolrLister.List(managedByKyverno)
+	if err != nil {
+		logger.Error(err, "failed to list cluster reports to clear the policy cache")
+		return
+	}
+	// Build set of existing report UUIDs
+	reportsMap := make(map[string]struct{})
+	for _, r := range reports {
+		reportMeta := r.(*metav1.PartialObjectMetadata)
+		reportsMap[string(reportMeta.GetUID())] = struct{}{}
+	}
+	for _, cr := range clusterReports {
+		reportMeta := cr.(*metav1.PartialObjectMetadata)
+		reportsMap[string(reportMeta.GetUID())] = struct{}{}
+	}
+	// Remove cache entries for deleted reports
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+	for reportUID := range c.reportUUIDToPolicyCache {
+		if _, ok := reportsMap[reportUID]; !ok {
+			delete(c.reportUUIDToPolicyCache, reportUID)
+		}
+	}
 }
 
 func (c *controller) createPolicyMap() (map[string]PolicyMapEntry, error) {

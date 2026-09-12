@@ -17,6 +17,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	orfake "github.com/openreports/reports-api/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/goleak"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -231,4 +232,38 @@ func TestControllerWithOpenreports(t *testing.T) {
 
 	list, _ := orClient.OpenreportsV1alpha1().Reports("default").List(context.TODO(), metav1.ListOptions{})
 	assert.Len(t, list.Items, 1)
+}
+
+// TestControllerRunReclaimsAllGoroutines asserts the report cache cleanup loop
+// is owned by Run and stops with the controller. NewController is invoked from
+// the leader election callback in cmd/reports-controller, so a goroutine started
+// in the constructor is never cancellable: every leadership acquisition leaks one
+// more immortal loop listing every report in the cluster every 10 seconds.
+func TestControllerRunReclaimsAllGoroutines(t *testing.T) {
+	defer goleak.VerifyNone(t, goleak.IgnoreCurrent())
+
+	metaFactory, _, _ := newFakeMetaClient()
+	client := versionedfake.NewSimpleClientset()
+	kyvernoFactory := kyvernoinformer.NewSharedInformerFactory(client, 1*time.Second)
+
+	controller := aggregate.NewController(
+		client, nil, nil, metaFactory,
+		kyvernoFactory.Kyverno().V1().Policies(),
+		kyvernoFactory.Kyverno().V1().ClusterPolicies(),
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		controller.Run(ctx, 1)
+	}()
+	cancel()
+
+	select {
+	case <-stopped:
+	case <-time.After(30 * time.Second):
+		t.Fatal("controller did not stop after the context was cancelled")
+	}
 }
