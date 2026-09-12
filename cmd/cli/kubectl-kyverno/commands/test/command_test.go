@@ -120,6 +120,7 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	tests := []struct {
 		name           string
 		ruleStatus     engineapi.RuleStatus
+		ruleProperties map[string]string
 		expectedResult string
 		wantOk         bool
 		wantReason     string
@@ -159,6 +160,25 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			wantOk:         false,
 			wantReason:     "Want fail, got error",
 		},
+		{
+			// Regression test for https://github.com/kyverno/kyverno/issues/15350
+			//
+			// Before the fix: when a CEL messageExpression threw a runtime error
+			// (e.g. "no such key: annotations"), Kyverno converted the error to a
+			// human-readable string and returned RuleFail. Because the test expected
+			// "fail", checkResult saw a match and reported PASS — silently hiding the
+			// broken messageExpression from the policy author.
+			//
+			// After the fix: the engine also writes MessageExpressionErrorKey into the
+			// RuleResponse properties. checkResult detects the key and returns false,
+			// surfacing the authoring error regardless of the expected result.
+			name:           "expect fail and got fail with messageExpression error - should surface the error",
+			ruleStatus:     engineapi.RuleStatusFail,
+			ruleProperties: map[string]string{engineapi.MessageExpressionErrorKey: "no such key: annotations"},
+			expectedResult: openreports.StatusFail,
+			wantOk:         false,
+			wantReason:     "messageExpression evaluation error",
+		},
 	}
 
 	for _, tt := range tests {
@@ -166,11 +186,11 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			var rule engineapi.RuleResponse
 			switch tt.ruleStatus {
 			case engineapi.RuleStatusPass:
-				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", tt.ruleProperties)
 			case engineapi.RuleStatusFail:
-				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", tt.ruleProperties)
 			case engineapi.RuleStatusError:
-				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, nil)
+				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, tt.ruleProperties)
 			}
 
 			response := engineapi.NewEngineResponse(

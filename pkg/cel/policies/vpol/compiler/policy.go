@@ -150,7 +150,18 @@ func (p *Policy) evaluateWithData(
 			message := validation.Message
 			if validation.MessageExpression != nil {
 				if out, _, err := validation.MessageExpression.ContextEval(ctx, dataNew); err != nil {
+					// Per the Kubernetes API spec, a messageExpression runtime error causes
+					// the fallback message to be used (as if the field were unset). We keep
+					// that behaviour for the webhook path. We also record the raw error in
+					// MessageExpressionError so that CLI tooling can surface it to the user.
 					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
+					return &EvaluationResult{
+						Result:                 outcome,
+						Message:                message,
+						MessageExpressionError: err,
+						Index:                  index,
+					}, nil
+
 				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
 					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
 				} else {

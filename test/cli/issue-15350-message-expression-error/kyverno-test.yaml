@@ -1,0 +1,15 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: issue-15350-repro
+policies:
+  - policy.yaml
+resources:
+  - invalid-pod.yaml
+results:
+  - isValidatingPolicy: true
+    kind: Pod
+    policy: require-department-annotation
+    resources:
+      - invalid-pod-no-annotations
+    result: fail
