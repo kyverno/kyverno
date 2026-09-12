@@ -93,11 +93,20 @@ func printTestResult(
 			var rows []table.Row
 			var resourceSkipped bool
 			if _, ok := trigger[resource]; ok {
+				var policyResponseFound bool
+				policyNamespace, policyName := "", test.Policy
+				if ns, name, ok := strings.Cut(test.Policy, "/"); ok {
+					policyNamespace = ns
+					policyName = name
+				}
+
 				for _, response := range trigger[resource] {
-					polNameNs := strings.Split(test.Policy, "/")
-					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
+					if response.Policy().GetName() != policyName {
 						continue
 					}
+
+					policyResponseFound = true
+
 					var (
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
@@ -107,6 +116,7 @@ func printTestResult(
 					} else {
 						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
 					}
+
 					for _, rule := range rulesToCheck {
 						r := response.Resource
 						ruleName = rule.Name()
@@ -140,23 +150,23 @@ func printTestResult(
 						}
 					}
 
-					// if there are no RuleResponse, the resource has been excluded. This is a pass.
+					// A matching policy response with no rule responses means
+					// the resource was excluded by the policy.
 					if len(rows) == 0 && !resourceSkipped {
-						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-						resourceParts := strings.Split(resourceGVKAndName, "/")
+						row := createExcludedRow(test, testCount, resource, false)
+						rc.Skip++
+						testCount++
+						rows = append(rows, row)
+					}
+				}
 
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
-						}
+				// A DeletingPolicy that was loaded but produced no EngineResponse
+				// means the resource was excluded by its match constraints.
+				if !policyResponseFound &&
+					test.IsDeletingPolicy &&
+					test.Result == openreports.StatusSkip {
+					if _, ok := responses.DeletingPolicies[deletingPolicyKey(policyNamespace, policyName)]; ok {
+						row := createExcludedRow(test, testCount, resource, true)
 						rc.Skip++
 						testCount++
 						rows = append(rows, row)
@@ -223,6 +233,33 @@ func printTestResult(
 		}
 	}
 	return nil
+}
+
+func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string, skipped bool) table.Row {
+	resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
+	resourceParts := strings.Split(resourceGVKAndName, "/")
+
+	result := color.ResultPass()
+	if skipped {
+		result = color.ResultSkip()
+	}
+
+	return table.Row{
+		RowCompact: table.RowCompact{
+			ID:     testCount,
+			Policy: color.Policy("", test.Policy),
+			Rule:   color.Rule(test.Rule),
+			Resource: color.Resource(
+				strings.Join(resourceParts[:len(resourceParts)-1], "/"),
+				"",
+				resourceParts[len(resourceParts)-1],
+			),
+			Result:    result,
+			Reason:    color.Excluded(),
+			IsFailure: false,
+		},
+		Message: color.Excluded(),
+	}
 }
 
 func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {

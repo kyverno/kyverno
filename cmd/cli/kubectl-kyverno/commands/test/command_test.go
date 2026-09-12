@@ -13,12 +13,14 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -1036,6 +1038,128 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	// produce any result row, matching vpol/mpol CLI behavior.
 	_, found := got["secret-skip"]
 	assert.False(t, found, "constraint-excluded resource must not produce a rule response")
+}
+
+func TestPrintTestResultExcludedResources(t *testing.T) {
+	color.Init(true)
+
+	tests := []struct {
+		name             string
+		policy           string
+		resource         string
+		deleting         map[string]struct{}
+		isDeletingPolicy bool
+		result           openreportsv1alpha1.Result
+		trigger          map[string][]engineapi.EngineResponse
+		wantSkip         int
+		wantFail         int
+	}{
+		{
+			name:             "known deleting policy is reported as skipped",
+			policy:           "cleanup-invalidated-legacy-sa-tokens",
+			resource:         "secret-skip",
+			deleting:         map[string]struct{}{"cleanup-invalidated-legacy-sa-tokens": {}},
+			isDeletingPolicy: true,
+			result:           openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Secret,default,secret-skip": {},
+			},
+			wantSkip: 1,
+			wantFail: 0,
+		},
+		{
+			name:             "unknown deleting policy remains not found",
+			policy:           "nonexistent-deleting-policy",
+			resource:         "secret-skip",
+			deleting:         map[string]struct{}{},
+			isDeletingPolicy: true,
+			result:           openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Secret,default,secret-skip": {},
+			},
+			wantSkip: 0,
+			wantFail: 1,
+		},
+		{
+			name:             "missing normal policy remains not found",
+			policy:           "missing",
+			resource:         "test",
+			deleting:         map[string]struct{}{},
+			isDeletingPolicy: false,
+			result:           openreportsv1alpha1.Result(openreports.StatusPass),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {},
+			},
+			wantSkip: 0,
+			wantFail: 1,
+		},
+		{
+			name:             "matching policy with no rule responses is reported as skipped",
+			policy:           "disallow-latest-tag",
+			resource:         "test",
+			deleting:         map[string]struct{}{},
+			isDeletingPolicy: false,
+			result:           openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "disallow-latest-tag",
+							},
+						}),
+						nil,
+					),
+				},
+			},
+			wantSkip: 1,
+			wantFail: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			responses := &TestResponse{
+				Trigger:            tt.trigger,
+				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+				Target:             map[string][]engineapi.EngineResponse{},
+				SkippedPolicies:    map[string]string{},
+				DeletingPolicies:   tt.deleting,
+			}
+
+			testResults := []v1alpha1.TestResult{
+				{
+					TestResultBase: v1alpha1.TestResultBase{
+						Policy:           tt.policy,
+						Rule:             "validate-image-tag",
+						Result:           tt.result,
+						IsDeletingPolicy: tt.isDeletingPolicy,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{tt.resource},
+					},
+				},
+			}
+
+			rc := &resultCounts{}
+			resultsTable := table.Table{}
+
+			err := printTestResult(
+				testResults,
+				responses,
+				rc,
+				&resultsTable,
+				nil,
+				"",
+				true,
+			)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantSkip, rc.Skip)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+		})
+	}
 }
 
 func Test_OperationDelete(t *testing.T) {
