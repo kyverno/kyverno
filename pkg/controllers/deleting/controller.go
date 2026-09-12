@@ -27,6 +27,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -55,10 +56,11 @@ type controller struct {
 }
 
 const (
-	maxRetries      = 10
-	Workers         = 3
-	ControllerName  = "deleting-controller"
-	minRequeueDelay = 1 * time.Second
+	maxRetries       = 10
+	Workers          = 3
+	ControllerName   = "deleting-controller"
+	minRequeueDelay  = 1 * time.Second
+	deletingPageSize = 500
 )
 
 func NewController(
@@ -165,6 +167,15 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 		return err
 	}
 
+	var namespaceSelector labels.Selector
+	if spec.MatchConstraints.NamespaceSelector != nil {
+		namespaceSelector, err = metav1.LabelSelectorAsSelector(spec.MatchConstraints.NamespaceSelector)
+		if err != nil {
+			debug.Error(err, "failed to parse namespace selector")
+			return err
+		}
+	}
+
 	restMapper, err := restmapper.GetRESTMapper(c.client)
 	if err != nil {
 		return err
@@ -173,88 +184,134 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 	gvrList := admissionpolicy.GetGVRs(spec.MatchConstraints, restMapper)
 
 	for _, gvr := range gvrList {
-		var client dynamic.ResourceInterface
 
 		debug := debug.WithValues("gvr", gvr)
 		debug.Info("processing...")
-		if policyNamespace != "" && !isNamespaced(gvr, restMapper) {
+		namespaced := isNamespaced(gvr, restMapper)
+		if policyNamespace != "" && !namespaced {
 			logger.WithValues("gvr", gvr).Error(errors.New("cluster-scoped kind cannot be used in namespaced policy"), "skipping cluster-scoped resource")
 			continue
 		}
 
-		client = c.client.GetDynamicInterface().Resource(gvr)
-		if policyNamespace != "" {
-			client = client.(dynamic.NamespaceableResourceInterface).Namespace(policyNamespace)
-		}
+		var namespaces []string
 
-		list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String()})
-		if err != nil {
-			debug.Error(err, "failed to list resources")
-			// record failure metric
-			if c.metrics != nil {
-				c.metrics.RecordDeletingFailure(ctx, gvr.Resource, "", policy, deleteOptions.PropagationPolicy)
-			}
-			// Check if this is a recoverable error (permission denied, resource not found, etc.)
-			if dclient.IsRecoverableError(err) {
-				logger.V(2).Info("skipping resource due to access restrictions", "resource", gvr.Resource, "error", err.Error())
-			} else {
-				// For non-recoverable errors (connectivity issues, etc.), add to errors slice
+		switch {
+		case !namespaced:
+			// Cluster-scoped target resource.
+			namespaces = []string{""}
+		case policyNamespace != "":
+			// NamespacedDeletingPolicy
+			namespaces = []string{policyNamespace}
+		case namespaceSelector != nil && !namespaceSelector.Empty():
+			// Cluster-scoped DeletingPolicy with a namespace selector.
+			namespaceObjects, err := c.nsLister.List(namespaceSelector)
+			if err != nil {
+				debug.Error(err, "failed to list namespaces")
 				errs = append(errs, err)
+				continue
 			}
 
+			namespaces = make([]string, 0, len(namespaceObjects))
+			for _, namespace := range namespaceObjects {
+				namespaces = append(namespaces, namespace.GetName())
+			}
+		default:
+			// Cluster-scoped DeletingPolicy without a namespace selector.
+			// Keep the base resource client cluster-wide and paginate the list.
+			namespaces = []string{""}
+		}
+		if len(namespaces) == 0 {
 			continue
 		}
 
-		for i := range list.Items {
-			resource := list.Items[i]
+		resourceClient := c.client.GetDynamicInterface().Resource(gvr)
 
-			namespace := resource.GetNamespace()
-			name := resource.GetName()
-			debug := debug.WithValues("name", name, "namespace", namespace)
-			gvk := resource.GroupVersionKind()
-			// Skip if resource matches resourceFilters from config
-			if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
-				debug.Info("skipping resource due to resourceFilters in ConfigMap")
-				continue
-			}
-			// check if the resource is owned by Kyverno
-			if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
-				continue
+		for _, namespace := range namespaces {
+			var client dynamic.ResourceInterface = resourceClient
+
+			if namespace != "" {
+				client = resourceClient.Namespace(namespace)
 			}
 
-			engineResult, err := c.engine.Handle(ctx, ePolicy, resource)
-			if err != nil {
-				debug.Error(err, "failed to process resource")
-				errs = append(errs, err)
-				continue
-			}
+			var continueToken string
 
-			if !engineResult.Match {
-				debug.Info("policy did not match match")
-				errs = append(errs, err)
-				continue
-			}
+			for {
 
-			logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
-			if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
-				if apierrors.IsNotFound(err) {
-					debug.Info("resource not found")
-					continue
+				list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String(), Limit: deletingPageSize, Continue: continueToken})
+
+				if err != nil {
+					debug.Error(err, "failed to list resources")
+					// record failure metric
+					if c.metrics != nil {
+						c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
+					}
+					// Check if this is a recoverable error (permission denied, resource not found, etc.)
+					if dclient.IsRecoverableError(err) {
+						logger.V(2).Info("skipping resource due to access restrictions", "resource", gvr.Resource, "error", err.Error())
+					} else {
+						// For non-recoverable errors (connectivity issues, etc.), add to errors slice
+						errs = append(errs, err)
+					}
+					break
 				}
-				if c.metrics != nil {
-					c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
+
+				for i := range list.Items {
+					resource := list.Items[i]
+
+					namespace := resource.GetNamespace()
+					name := resource.GetName()
+					debug := debug.WithValues("name", name, "namespace", namespace)
+					gvk := resource.GroupVersionKind()
+					// Skip if resource matches resourceFilters from config
+					if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
+						debug.Info("skipping resource due to resourceFilters in ConfigMap")
+						continue
+					}
+					// check if the resource is owned by Kyverno
+					if controllerutils.IsManagedByKyverno(&resource) && toggle.FromContext(ctx).ProtectManagedResources() {
+						continue
+					}
+
+					engineResult, err := c.engine.Handle(ctx, ePolicy, resource)
+					if err != nil {
+						debug.Error(err, "failed to process resource")
+						errs = append(errs, err)
+						continue
+					}
+
+					if !engineResult.Match {
+						debug.Info("policy did not match")
+						continue
+					}
+
+					logger.WithValues("name", name, "namespace", namespace).Info("resource matched, it will be deleted...")
+					if err := c.client.DeleteResource(ctx, resource.GetAPIVersion(), resource.GetKind(), namespace, name, false, deleteOptions); err != nil {
+						if apierrors.IsNotFound(err) {
+							debug.Info("resource not found")
+							continue
+						}
+						if c.metrics != nil {
+							c.metrics.RecordDeletingFailure(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
+						}
+						debug.Error(err, "failed to delete resource")
+						errs = append(errs, err)
+						e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, err)
+						c.eventGen.Add(e)
+					} else {
+						if c.metrics != nil {
+							c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
+						}
+						debug.Info("resource deleted")
+						e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
+						c.eventGen.Add(e)
+					}
 				}
-				debug.Error(err, "failed to delete resource")
-				errs = append(errs, err)
-				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, err)
-				c.eventGen.Add(e)
-			} else {
-				if c.metrics != nil {
-					c.metrics.RecordDeletedObject(ctx, gvr.Resource, namespace, policy, deleteOptions.PropagationPolicy)
+
+				continueToken = list.GetContinue()
+
+				if continueToken == "" {
+					break
 				}
-				debug.Info("resource deleted")
-				e := event.NewDeletingPolicyEvent(ePolicy.Policy, resource, nil)
-				c.eventGen.Add(e)
 			}
 		}
 	}
