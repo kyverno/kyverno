@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alitto/pond/v2"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
@@ -45,6 +46,7 @@ func NewMutationHandler(
 	nsLister corev1listers.NamespaceLister,
 	metrics metrics.MetricsConfigManager,
 	admissionReports bool,
+	reportsPool pond.Pool,
 ) MutationHandler {
 	return &mutationHandler{
 		log:              log,
@@ -54,6 +56,7 @@ func NewMutationHandler(
 		nsLister:         nsLister,
 		metrics:          metrics,
 		admissionReports: admissionReports,
+		reportsPool:      reportsPool,
 	}
 }
 
@@ -65,6 +68,7 @@ type mutationHandler struct {
 	nsLister         corev1listers.NamespaceLister
 	metrics          metrics.MetricsConfigManager
 	admissionReports bool
+	reportsPool      pond.Pool
 }
 
 func (h *mutationHandler) HandleMutation(
@@ -157,11 +161,11 @@ func (v *mutationHandler) applyMutations(
 	v.eventGen.Add(events...)
 
 	if v.needsReports(request, v.admissionReports) && reportutils.IsPolicyReportable(policyContext.Policy()) {
-		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
+		v.reportsPool.Submit(func() {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				v.log.Error(err, "failed to create report")
 			}
-		}()
+		})
 	}
 
 	logMutationResponse(patches, engineResponses, v.log)

@@ -57,6 +57,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 		eventGen:      event.NewFake(),
 		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),
 		auditPool:     pond.NewPool(8, pond.WithQueueSize(1000)),
+		reportsPool:   pond.NewPool(8, pond.WithQueueSize(1000)),
 		engine: engine.NewEngine(
 			configuration,
 			jp,
