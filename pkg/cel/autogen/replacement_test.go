@@ -98,6 +98,42 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			want:   "object.spec.template.metadata.namespaceFoo",
 		},
 		{
+			name:   "deployments object metadata.name is preserved",
+			expr:   "object.metadata.name",
+			config: "deployments",
+			want:   "object.metadata.name",
+		},
+		{
+			name:   "deployments oldObject metadata.name is preserved",
+			expr:   "oldObject.metadata.name",
+			config: "deployments",
+			want:   "oldObject.metadata.name",
+		},
+		{
+			name:   "cronjobs object metadata.name is preserved",
+			expr:   "object.metadata.name",
+			config: "cronjobs",
+			want:   "object.metadata.name",
+		},
+		{
+			name:   "cronjobs oldObject metadata.name is preserved",
+			expr:   "oldObject.metadata.name",
+			config: "cronjobs",
+			want:   "oldObject.metadata.name",
+		},
+		{
+			name:   "name preserved while sibling metadata fields are rewritten",
+			expr:   "object.metadata.name + ' in ' + object.metadata.labels['team']",
+			config: "deployments",
+			want:   "object.metadata.name + ' in ' + object.spec.template.metadata.labels['team']",
+		},
+		{
+			name:   "only the name segment is protected, not longer identifiers",
+			expr:   "object.metadata.nameFoo",
+			config: "deployments",
+			want:   "object.spec.template.metadata.nameFoo",
+		},
+		{
 			name:   "user content containing protected sentinel-like text is not corrupted",
 			expr:   "object.metadata.labels['__KYVERNO_PROTECTED_OBJECT_METADATA_NAMESPACE__'] == 'x'",
 			config: "deployments",
