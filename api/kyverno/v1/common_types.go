@@ -547,7 +547,7 @@ type PodSecurity struct {
 type PodSecurityStandard struct {
 	// ControlName specifies the name of the Pod Security Standard control.
 	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
-	// +kubebuilder:validation:Enum=HostProcess;Host Namespaces;Privileged Containers;Capabilities;HostPath Volumes;Host Ports;AppArmor;SELinux;/proc Mount Type;Seccomp;Sysctls;Volume Types;Privilege Escalation;Running as Non-root;Running as Non-root user
+	// +kubebuilder:validation:Enum=HostProcess;Host Namespaces;Privileged Containers;Capabilities;HostPath Volumes;Host Ports;AppArmor;SELinux;/proc Mount Type;Seccomp;Sysctls;Volume Types;Privilege Escalation;Running as Non-root;Running as Non-root user;Host Probes / Lifecycle Hooks
 	ControlName string `json:"controlName"`
 
 	// Images selects matching containers and applies the container level PSS.
