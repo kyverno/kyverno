@@ -2,9 +2,9 @@ package cluster
 
 import (
 	"context"
-	"slices"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +24,7 @@ func (c policyExceptionSelector) Find(policy, rule string) ([]*kyvernov2.PolicyE
 		if err == nil {
 			for i, exc := range list.Items {
 				for _, e := range exc.Spec.Exceptions {
-					if e.PolicyName == policy && slices.Contains(e.RuleNames, rule) {
+					if wildcard.Match(e.PolicyName, policy) && wildcard.CheckPatterns(e.RuleNames, rule) {
 						pe := list.Items[i]
 						exceptions = append(exceptions, &pe)
 					}
