@@ -1,0 +1,20 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-expiry
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [configmaps]
+  validations:
+    - expression: >-
+        !has(object.metadata.annotations) ||
+        !('expires-at' in object.metadata.annotations) ||
+        time_after(object.metadata.annotations['expires-at'], time_now())
+      message: >-
+        ConfigMap has expired
