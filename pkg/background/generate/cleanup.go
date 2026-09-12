@@ -8,8 +8,10 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -56,6 +58,13 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 			kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
 		}
 
+		// When a specific clone source is deleted, scope the downstream deletion to
+		// only the target(s) cloned from that source. Otherwise every target sharing
+		// the same trigger would be deleted.
+		if sourceUID := c.deletedCloneSourceUID(ur); sourceUID != "" {
+			labels[common.GenerateSourceUIDLabel] = sourceUID
+		}
+
 		downstreams, err := c.getDownstreams(rule, labels, &ruleContext)
 		if err != nil {
 			return fmt.Errorf("failed to fetch downstream resources: %v", err)
@@ -81,6 +90,27 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 	}
 
 	return nil
+}
+
+// deletedCloneSourceUID returns the UID of the clone source that triggered this
+// delete request, or an empty string when the request was not caused by a clone
+// source deletion (e.g. a trigger deletion). It is used to scope cloneList
+// downstream cleanup to the target(s) generated from the deleted source only.
+func (c *GenerateController) deletedCloneSourceUID(ur *kyvernov2.UpdateRequest) string {
+	request := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	if request == nil || request.Operation != admissionv1.Delete {
+		return ""
+	}
+	_, source, err := admissionutils.ExtractResources(nil, *request)
+	if err != nil {
+		c.log.Error(err, "failed to extract the deleted resource from the admission request")
+		return ""
+	}
+	// only clone sources carry the clone-source tag; triggers do not
+	if _, ok := source.GetLabels()[common.GenerateTypeCloneSourceLabel]; !ok {
+		return ""
+	}
+	return string(source.GetUID())
 }
 
 func (c *GenerateController) getDownstreams(rule kyvernov1.Rule, selector map[string]string, ruleContext *kyvernov2.RuleContext) ([]unstructured.Unstructured, error) {
