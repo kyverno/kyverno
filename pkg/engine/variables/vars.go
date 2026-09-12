@@ -367,8 +367,17 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					prefix = string(old[0])
 				}
 
+				// Marshal here so "{{" inside a map or slice is escaped too.
 				if shallowSubstitution && substitutedVar != nil {
-					substitutedVar = strings.ReplaceAll(substitutedVar.(string), "{{", "\\{{")
+					s, ok := substitutedVar.(string)
+					if !ok {
+						buffer, err := json.Marshal(substitutedVar)
+						if err != nil {
+							return nil, fmt.Errorf("failed to marshal %v at path %s: %v", variable, data.Path, err)
+						}
+						s = string(buffer)
+					}
+					substitutedVar = strings.ReplaceAll(s, "{{", "\\{{")
 				}
 
 				if value, err = substituteVarInPattern(prefix, value, v, substitutedVar); err != nil {
