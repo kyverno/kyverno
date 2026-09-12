@@ -27,7 +27,6 @@ cmd/                  # Entry points for all binaries
   background-controller/ # Background controller (generate/mutate existing)
   readiness-checker/  #   Readiness checker
   internal/           #   Shared internal cmd helpers
-  tools/              #   Internal tooling (webhook-cleanup, etc.)
 pkg/                  # Core library code
   engine/             #   Policy engine (rule evaluation, matching, context)
   webhooks/           #   Admission webhook handlers
@@ -41,8 +40,7 @@ pkg/                  # Core library code
   metrics/            #   Prometheus metrics
   validation/         #   Policy validation logic
   autogen/            #   Auto-generation of rules for Pod controllers
-  cosign/             #   Cosign image signature verification
-  notary/             #   Notary image signature verification
+  image/              #   Image signature verification (cosign, notary)
   utils/              #   Shared utilities
 ext/                  # Small standalone utility packages
 charts/               # Helm charts
@@ -60,6 +58,12 @@ docs/                 # Internal developer documentation
 scripts/              # Build and CI scripts
 hack/                 # Code generation helpers
 ```
+
+> **Note:** not every API type lives in `api/`. The `policies.kyverno.io` types
+> (`ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, `ImageValidatingPolicy`,
+> `DeletingPolicy`, and their `Namespaced*` variants) are defined in the external
+> `github.com/kyverno/api` module. Searching this repository for them finds usages only,
+> never the type definitions. Their engines do live here, under `pkg/cel/policies/`.
 
 ## Build System
 
@@ -175,8 +179,8 @@ Controller code is primarily in `pkg/controllers/`. Webhook handlers are in `pkg
 
 ## API Design Rules
 
-- API types live in `api/` with versioned packages
-- API groups: `kyverno.io`, `policies.kyverno.io`, `policyreport.io`, `reports.kyverno.io`
+- API types live in `api/` with versioned packages, except the `policies.kyverno.io` types, which come from the external `github.com/kyverno/api` module
+- API groups: `kyverno.io`, `policies.kyverno.io`, `wgpolicyk8s.io`, `reports.kyverno.io`
 - New resource types must NOT be added to `kyverno.io/v1`; use `v2alpha1` and promote as they stabilize
 - New attributes can be added without a new version
 - Attributes cannot be deleted or modified in a version; deprecate and remove after 3 minor releases
