@@ -4,6 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: (devel)
+    helm.sh/resource-policy: keep
   name: policies.kyverno.io
 spec:
   group: kyverno.io
