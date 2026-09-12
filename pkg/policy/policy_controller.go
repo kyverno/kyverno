@@ -157,7 +157,7 @@ func NewPolicyController(
 			Interface: eventInterface,
 		},
 	)
-	eventBroadcaster.StartStructuredLogging(0)
+	eventBroadcaster.StartStructuredLogging(3)
 	stopCh := make(chan struct{})
 	eventBroadcaster.StartRecordingToSink(stopCh)
 
