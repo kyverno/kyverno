@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: deny-five-replicas
+spec:
+  admission: true
+  background: false
+  rules:
+  - match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    name: deny-when-replicas-equals-five
+    # The deny condition compares a string literal key ("5") against a numeric
+    # value resolved from the resource (spec.replicas is an integer). This is the
+    # operand order that previously evaluated incorrectly (issue #16358): the
+    # string key vs numeric value path returned false, so the deny never fired
+    # and a Deployment with 5 replicas was wrongly allowed.
+    validate:
+      failureAction: Enforce
+      message: Deployments with exactly 5 replicas are not allowed.
+      deny:
+        conditions:
+          all:
+          - key: "5"
+            operator: Equals
+            value: "{{ request.object.spec.replicas }}"
