@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestValidatePass(t *testing.T) {

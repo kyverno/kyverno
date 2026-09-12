@@ -1,0 +1,24 @@
+admissionController:
+  container:
+    lifecycle:
+      preStop:
+        sleep:
+          seconds: 10
+
+backgroundController:
+  lifecycle:
+    preStop:
+      sleep:
+        seconds: 10
+
+cleanupController:
+  lifecycle:
+    preStop:
+      sleep:
+        seconds: 10
+
+reportsController:
+  lifecycle:
+    preStop:
+      sleep:
+        seconds: 10

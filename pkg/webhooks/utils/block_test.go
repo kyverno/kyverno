@@ -202,7 +202,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(resource, enforceRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
-						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
+						*engineapi.RuleFail("rule-enforce", engineapi.Validation, "message fail", nil),
 					},
 				}),
 			},
@@ -216,7 +216,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []engineapi.EngineResponse{
 				engineapi.NewEngineResponse(resource, auditRule, nil).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
-						*engineapi.RuleFail("rule-fail", engineapi.Validation, "message fail", nil),
+						*engineapi.RuleFail("rule-audit", engineapi.Validation, "message fail", nil),
 					},
 				}),
 			},

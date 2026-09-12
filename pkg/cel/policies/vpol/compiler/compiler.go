@@ -241,7 +241,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			globalcontext.Latest(),
 		),
 		resource.Lib(
@@ -255,6 +255,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
 			imagedata.Latest(),
+			nil, // this policy doesn't have a way to specify extra registry credentials, only the ivpol does.
 		),
 		user.Lib(
 			user.Latest(),

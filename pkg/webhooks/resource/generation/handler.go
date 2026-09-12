@@ -269,7 +269,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			common.GenerateSourceNSLabel:      old.GetNamespace(),
 			common.GenerateSourceNameLabel:    old.GetName(),
 		}
-		targets, err := common.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		targets, err := common.FindDownstream(ctx, h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}
@@ -287,7 +287,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			common.GenerateSourceNSLabel:      old.GetNamespace(),
 			common.GenerateSourceUIDLabel:     string(old.GetUID()),
 		}
-		targets, err = common.FindDownstream(h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
+		targets, err = common.FindDownstream(ctx, h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}

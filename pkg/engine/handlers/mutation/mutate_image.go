@@ -113,6 +113,7 @@ func (h mutateImageHandler) Process(
 
 	var engineResponses []*engineapi.RuleResponse
 	var patches []jsonpatch.JsonPatchOperation
+	// for each rule in the image verify rules we extracted
 	for _, imageVerify := range ruleCopy.VerifyImages {
 		rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials, resourceNamespace, imagePullSecrets)
 		if err != nil {

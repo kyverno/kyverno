@@ -7,14 +7,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
-
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
-	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
 func admissionRequestWithObject(t *testing.T, obj any) handlers.AdmissionRequest {

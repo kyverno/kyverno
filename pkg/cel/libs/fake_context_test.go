@@ -89,10 +89,10 @@ func TestFakeContextProvider_AddImageData(t *testing.T) {
 		},
 	}
 	cp.AddImageData(imageName, imageData)
-	got, err := cp.GetImageData(imageName)
+	got, err := cp.GetImageData(imageName, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, imageData, got)
-	got, err = cp.GetImageData("missing:latest")
+	got, err = cp.GetImageData("missing:latest", nil)
 	assert.Error(t, err)
 	assert.Nil(t, got)
 }
