@@ -23,7 +23,7 @@
 {{- end -}}
 
 {{- define "kyverno.test.image" -}}
-{{- template "kyverno.image" (dict "image" .Values.test.image "defaultTag" "latest") -}}
+{{- template "kyverno.image" (dict "image" .Values.test.image "defaultTag" .Chart.AppVersion) -}}
 {{- end -}}
 
 {{- define "kyverno.test.imagePullPolicy" -}}

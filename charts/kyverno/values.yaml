@@ -584,7 +584,7 @@ test:
     # -- Image repository
     repository: kyverno/readiness-checker
     # -- Image tag
-    # Defaults to `latest` if omitted
+    # Defaults to appVersion in Chart.yaml if omitted
     tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
@@ -655,7 +655,7 @@ webhooksCleanup:
     # -- Image repository
     repository: kyverno/readiness-checker
     # -- Image tag
-    # Defaults to `latest` if omitted
+    # Defaults to appVersion in Chart.yaml if omitted
     tag: ~
     # -- (string) Image pull policy
     # Defaults to image.pullPolicy if omitted
