@@ -107,3 +107,25 @@ func Test_getSubresourceKind(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, subresourceKind, "Eviction")
 }
+
+func Test_getSubresourceKind_wildcardGroupVersion(t *testing.T) {
+	// ParseKindSelector("Pod/eviction") yields group "*" and version "*", which getKind
+	// renders as the group version "*/*" before resolving the subresource offline.
+	podAPIResource := metav1.APIResource{Name: "pods", SingularName: "", Namespaced: true, Version: "v1", Kind: "Pod"}
+	podEvictionAPIResource := metav1.APIResource{Name: "pods/eviction", SingularName: "", Namespaced: true, Group: "policy", Version: "v1", Kind: "Eviction"}
+
+	subresources := []v1alpha1.Subresource{
+		{
+			Subresource:    podEvictionAPIResource,
+			ParentResource: podAPIResource,
+		},
+	}
+
+	for _, groupVersion := range []string{"*/*", "*/v1"} {
+		t.Run(groupVersion, func(t *testing.T) {
+			subresourceKind, err := getSubresourceKind(groupVersion, "Pod", "eviction", subresources)
+			assert.NilError(t, err)
+			assert.Equal(t, subresourceKind, "Eviction")
+		})
+	}
+}
