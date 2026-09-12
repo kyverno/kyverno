@@ -1,0 +1,26 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: test-context-apicall-gpol
+policies:
+- policy.yaml
+resources:
+- resources/deployment-with-spot-computeclass.yaml
+- resources/deployment-with-non-spot-computeclass.yaml
+results:
+- generatedResource: generated/non-spot-configmap.yaml
+  isGeneratingPolicy: true
+  kind: Deployment
+  policy: generate-computeclass-config
+  resources:
+  - deployment-with-non-spot-computeclass
+  result: pass
+- generatedResource: generated/spot-configmap.yaml
+  isGeneratingPolicy: true
+  kind: Deployment
+  policy: generate-computeclass-config
+  resources:
+  - deployment-with-spot-computeclass
+  result: pass

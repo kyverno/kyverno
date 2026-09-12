@@ -11,6 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
+// callers of this package (e.g. the engine provider) don't need to import
+// pkg/cel/autogen directly just to check it.
+const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
+
 func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
@@ -31,7 +36,7 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
-		if config := autogen.ConfigsMap[config]; config != nil {
+		if config := autogen.ResolveConfig(config); config != nil {
 			targets := mapping[config.ReplacementsRef]
 			targets = append(targets, config.Target)
 			mapping[config.ReplacementsRef] = targets
@@ -42,7 +47,7 @@ func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, confi
 		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
+		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err

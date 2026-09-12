@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -19,7 +19,7 @@ type cache struct {
 	isCacheEnabled bool
 	maxSize        int64
 	ttl            time.Duration
-	cache          *ristretto.Cache
+	cache          *ristretto.Cache[string, any]
 }
 
 type Option = func(*cache) error
@@ -31,7 +31,7 @@ func New(options ...Option) (Client, error) {
 			return nil, err
 		}
 	}
-	config := ristretto.Config{
+	config := ristretto.Config[string, any]{
 		MaxCost:     cache.maxSize,
 		NumCounters: 10 * cache.maxSize,
 		BufferItems: 64,
@@ -92,6 +92,15 @@ func generateKey(policy metav1.Object, ruleName string, imageRef string) string 
 }
 
 func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	return c.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, nil)
+}
+
+func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	found, _, err := c.GetWithPayload(ctx, policy, ruleName, imageRef, useCache)
+	return found, err
+}
+
+func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil
@@ -101,7 +110,7 @@ func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, 
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
-	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
+	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
 	c.cache.Wait()
 	if stored {
 		return true, nil
@@ -109,18 +118,48 @@ func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, 
 	return false, nil
 }
 
-func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, map[string][]byte, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
-		return false, nil
+		return false, nil, nil
 	} else if !useCache {
 		// Else If enabled globally then return if locally disabled
-		return false, nil
+		return false, nil, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
-	_, found := c.cache.Get(key)
-	if found {
-		return true, nil
+	val, found := c.cache.Get(key)
+	if !found {
+		return false, nil, nil
 	}
-	return false, nil
+	payloads, _ := val.(map[string][]byte)
+	return true, clonePayloads(payloads), nil
+}
+
+// payloadCost estimates the memory footprint of a cache entry so ristretto's
+// MaxCost (--imageVerifyCacheMaxSize) bounds actual memory rather than just
+// entry count: a presence-only entry (nil payloads) still costs 1, while an
+// entry carrying attestation payload bytes costs roughly its real size.
+func payloadCost(payloads map[string][]byte) int64 {
+	cost := int64(1)
+	for _, v := range payloads {
+		cost += int64(len(v))
+	}
+	return cost
+}
+
+func clonePayloads(in map[string][]byte) map[string][]byte {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string][]byte, len(in))
+	for k, v := range in {
+		if v == nil {
+			out[k] = nil
+			continue
+		}
+		cp := make([]byte, len(v))
+		copy(cp, v)
+		out[k] = cp
+	}
+	return out
 }

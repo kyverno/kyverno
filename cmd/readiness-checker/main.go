@@ -270,7 +270,7 @@ func runCheckHTTP() {
 	}
 }
 
-func attemptCheckEndpoints(ctx context.Context, clientset *kubernetes.Clientset, svcName, namespace string, existingEndpointSliceNames []string) error {
+func attemptCheckEndpoints(ctx context.Context, clientset kubernetes.Interface, svcName, namespace string, existingEndpointSliceNames []string) error {
 	if existingEndpointSliceNames == nil {
 		endpointSlices, err := clientset.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
@@ -281,7 +281,7 @@ func attemptCheckEndpoints(ctx context.Context, clientset *kubernetes.Clientset,
 				if owner.Kind == "Service" && owner.Name == svcName {
 					// we are ready, no need to do further processing
 					for _, endpoint := range e.Endpoints {
-						if *endpoint.Conditions.Ready {
+						if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
 							return nil
 						}
 					}
@@ -309,7 +309,7 @@ func attemptCheckEndpoints(ctx context.Context, clientset *kubernetes.Clientset,
 			continue
 		}
 		for _, endpoint := range eps.Endpoints {
-			if *endpoint.Conditions.Ready {
+			if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
 				return nil
 			}
 		}

@@ -1,0 +1,9 @@
+# Generated code
+**/zz_generated*.go
+
+# Tests
+*_test.go
+*_test_*.go
+
+# Non-shipping
+docs/perf-testing/

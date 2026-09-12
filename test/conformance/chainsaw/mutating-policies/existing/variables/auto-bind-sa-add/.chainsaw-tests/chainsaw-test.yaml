@@ -1,0 +1,66 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: auto-bind-sa-add
+spec:
+  template: false
+  steps:
+  - name: step-01-install-policy
+    try:
+    - apply:
+        file: ../auto-bind-sa-add.yaml
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: auto-bind-sa-add
+        timeout: 10s
+    - sleep:
+        duration: 3s
+
+  - name: step-02-setup-crb
+    try:
+    - apply:
+        file: test-crb.yaml
+    - assert:
+        resource:
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: test-crb
+        timeout: 15s
+
+  - name: step-03-sa-with-annotation-gets-added
+    try:
+    - apply:
+        file: sa-with-annotation.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: sa-auto-bind
+            namespace: default
+        timeout: 15s
+    - sleep:
+        duration: 3s
+    - script:
+        content: "kubectl get clusterrolebinding test-crb -o jsonpath='{.subjects}' | grep -q 'sa-auto-bind' && echo 'SA found in subjects' || (echo 'SA NOT found in subjects'; exit 1)"
+
+  - name: step-04-sa-without-annotation-not-added
+    try:
+    - apply:
+        file: sa-without-annotation.yaml
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: sa-no-bind
+            namespace: default
+        timeout: 15s
+    - sleep:
+        duration: 13s
+    - script:
+        content: "kubectl get clusterrolebinding test-crb -o jsonpath='{.subjects}' | grep -q 'sa-no-bind' && (echo 'SA unexpectedly found in subjects'; exit 1) || echo 'SA correctly NOT in subjects'"

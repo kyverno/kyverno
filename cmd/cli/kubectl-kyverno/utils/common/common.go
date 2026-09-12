@@ -12,6 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	crdscheme "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/scheme"
@@ -244,23 +245,35 @@ func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) 
 	return vals, nil
 }
 
-func LoadCrdFromPath(path string) error {
-	absPath, err := getCrdPath(path)
+func LoadCrdsFromPath(path string) error {
+	absPath, err := getCrdFilePath(path)
 	if err != nil {
 		return err
 	}
-	crd, err := readCRDFromFile(absPath)
+	crds, err := readCRDsFromFile(absPath)
 	if err != nil {
 		return err
 	}
-	apiGroupResource := apiGroupResourcesFromCRD(crd)
-	if err = addResourceGroup(apiGroupResource); err != nil {
-		return err
+
+	if len(crds) > 0 {
+		apiGroupResources := []*restmapper.APIGroupResources{}
+		for _, crd := range crds {
+			apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
+		}
+
+		if err = addResourceGroups(apiGroupResources); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
-func getCrdPath(path string) (string, error) {
+func getCrdFilePath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("path is empty")
+	}
+
 	if path[len(path)-1] == '/' {
 		path = path[:len(path)-1]
 	}
@@ -279,26 +292,48 @@ func getCrdPath(path string) (string, error) {
 	return absPath, nil
 }
 
-func readCRDFromFile(path string) (*apiv1.CustomResourceDefinition, error) {
-	data, err := os.ReadFile(path)
+func readCRDsFromFile(path string) ([]*apiv1.CustomResourceDefinition, error) {
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	jsonData, err := yaml.ToJSON(data)
-	if err != nil {
-		return nil, err
-	}
-	crdscheme.Setup()
-	obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	crd, ok := obj.(*apiv1.CustomResourceDefinition)
-	if !ok {
-		return nil, fmt.Errorf("decoded object is not a CRD")
-	}
+	defer file.Close()
 
-	return crd, nil
+	decoder := yaml.NewYAMLReader(bufio.NewReader(file))
+	crdscheme.Setup()
+	var crds []*apiv1.CustomResourceDefinition
+
+	for {
+		data, err := decoder.Read()
+		if err != nil {
+			if err == io.EOF {
+				// io.EOF means nothing else to read, return immediately
+				return crds, nil
+			} else {
+				return nil, err
+			}
+		}
+
+		jsonData, err := yaml.ToJSON(data)
+		if err != nil {
+			log.Log.V(3).Info(fmt.Sprintf("could not convert object from --crd-path file to json: %q, skipping", err.Error()))
+			continue
+		}
+
+		obj, _, err := crdscheme.Decoder.Decode(jsonData, nil, nil)
+		if err != nil {
+			log.Log.V(3).Info(fmt.Sprintf("could not decode object from --crd-path file: %q, skipping", err.Error()))
+			continue
+		}
+
+		crd, ok := obj.(*apiv1.CustomResourceDefinition)
+		if !ok {
+			log.Log.V(3).Info(fmt.Sprintf("decoded object is not a CRD: %s, skipping", data))
+			continue
+		}
+
+		crds = append(crds, crd)
+	}
 }
 
 func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.APIGroupResources {
@@ -382,11 +417,11 @@ func apiGroupResourcesFromCRD(crd *apiv1.CustomResourceDefinition) *restmapper.A
 	}
 }
 
-func addResourceGroup(resource *restmapper.APIGroupResources) error {
+func addResourceGroups(resources []*restmapper.APIGroupResources) error {
 	processor := data.GetProcessor()
 	if processor == nil {
-		panic("adding a resource group to a nil crd processor. exiting")
+		panic("adding resource groups to a nil crd processor. exiting")
 	}
-	processor.UpdateResourceGroup(resource)
+	processor.UpdateResourceGroups(resources)
 	return nil
 }

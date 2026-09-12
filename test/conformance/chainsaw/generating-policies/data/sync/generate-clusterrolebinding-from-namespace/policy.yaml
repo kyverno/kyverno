@@ -1,0 +1,40 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: test-user
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["namespaces"]
+  variables:
+  - name: ns
+    expression: object.metadata.name
+  generate:
+  - expression: |
+      generator.apply(string(variables.ns), [
+        {
+          "kind": dyn("ClusterRoleBinding"),
+          "apiVersion": dyn("rbac.authorization.k8s.io/v1"),
+          "metadata": dyn({
+            "name": dyn("test-" + string(variables.ns) + "-view")
+          }),
+          "roleRef": dyn({
+            "apiGroup": dyn("rbac.authorization.k8s.io"),
+            "kind": dyn("ClusterRole"),
+            "name": dyn("view")
+          }),
+          "subjects": dyn([
+            {
+              "kind": dyn("ServiceAccount"),
+              "name": dyn("default"),
+              "namespace": dyn(string(variables.ns))
+            }
+          ])
+        }
+      ])

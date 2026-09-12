@@ -1,0 +1,28 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-secret
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  # Pins the policy to this test's namespace. The chainsaw original has no
+  # matchConditions because it runs in its own kind cluster; envtest is shared
+  # across tests, so without this pin the cluster-scoped policy fires on every
+  # namespace event and contaminates parallel tests.
+  matchConditions:
+    - name: only-test-namespace
+      expression: "object.metadata.name == 'sync-modify-source-target'"
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: source
+      expression: resource.get("v1", "secrets", "default", "sync-modify-source")
+  generate:
+    - expression: generator.apply(variables.nsName, [variables.source])

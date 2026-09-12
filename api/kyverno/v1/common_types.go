@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/pss/utils"
@@ -18,9 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/pod-security-admission/api"
 )
-
-// AssertionTree defines a kyverno-json assertion tree.
-type AssertionTree = kjson.Any
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
 // +kubebuilder:validation:Enum=Ignore;Fail
@@ -522,8 +518,11 @@ type Validation struct {
 	CEL *CEL `json:"cel,omitempty"`
 
 	// Assert defines a kyverno-json assertion tree.
+	// Deprecated, kept only for backward compatibility but has no effect since 1.19.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
 	// +optional
-	Assert *AssertionTree `json:"assert,omitempty"`
+	DeprecatedAssert *Any `json:"assert,omitempty"`
 }
 
 // PodSecurity applies exemptions for Kubernetes Pod Security admission
@@ -790,8 +789,8 @@ type Generation struct {
 	Synchronize bool `json:"synchronize,omitempty"`
 
 	// OrphanDownstreamOnPolicyDelete controls whether generated resources should be deleted when the rule that generated
-	// them is deleted with synchronization enabled. This option is only applicable to generate rules of the data type.
-	// See https://kyverno.io/docs/writing-policies/generate/#data-examples.
+	// them is deleted with synchronization enabled.
+	// See https://kyverno.io/docs/writing-policies/generate/.
 	// Defaults to "false" if not specified.
 	// +optional
 	OrphanDownstreamOnPolicyDelete bool `json:"orphanDownstreamOnPolicyDelete,omitempty"`

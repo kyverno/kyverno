@@ -10,6 +10,10 @@ import (
 )
 
 func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
+	if client != nil && client.Discovery() != nil && client.Discovery().RESTMapper() != nil {
+		return client.Discovery().RESTMapper(), nil
+	}
+
 	var restMapper meta.RESTMapper
 
 	var apiGroupResources []*restmapper.APIGroupResources
@@ -30,9 +34,9 @@ func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
 	} else {
 		processor := data.GetProcessor()
 		if processor != nil {
-			apiGroupResources1 := processor.GetResourceGroup()
-			if apiGroupResources1 != nil {
-				apiGroupResources = append(apiGroupResources, apiGroupResources1)
+			apiGroupResources1 := processor.GetResourceGroups()
+			if len(apiGroupResources1) > 0 {
+				apiGroupResources = append(apiGroupResources, apiGroupResources1...)
 			}
 		}
 		apiGroupResources2, err := data.APIGroupResources()

@@ -15,11 +15,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: assert
 
@@ -30,11 +30,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: autogen
 
@@ -45,11 +45,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: background-only
 
@@ -60,11 +60,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cleanup
 
@@ -75,11 +75,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: cel/http
 
@@ -93,7 +93,7 @@ jobs:
           - v1.34.x
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # install tools
       - name: Install tools
         uses: ./.github/actions/tools/helm
@@ -109,7 +109,7 @@ jobs:
       - name: Create kind cluster and setup Sigstore Scaffolding
         uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
         with:
-          version: main
+          version: v0.7.33
           k8s-version: ${{ matrix.k8s-version }}
           knative-version: "1.10.0"
       - name: Create TUF values config map
@@ -132,7 +132,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          export USE_CONFIG=standard,custom-sigstore
+          export USE_CONFIG=standard,custom-sigstore,legacy-policies
           make kind-install-kyverno
       - name: Wait for kyverno ready
         uses: ./.github/actions/kyverno/wait-ready
@@ -167,11 +167,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deferred
 
@@ -183,15 +183,30 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard,legacy-policies
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: deleting-policies
+          shard-index: ${{ matrix.shard-index }}
+          shard-count: 6
+
+  deprecations:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.3, v1.35.1]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard
           token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deleting-policies
-          shard-index: ${{ matrix.shard-index }}
-          shard-count: 6
+          tests-path: deprecations
 
   events:
     runs-on: ubuntu-latest
@@ -200,11 +215,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: events
 
@@ -216,11 +231,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: exceptions
           shard-index: ${{ matrix.shard-index }}
@@ -233,11 +248,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: filter
 
@@ -248,11 +263,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,force-failure-policy-ignore
+          kyverno-configs: standard,force-failure-policy-ignore,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: force-failure-policy-ignore
 
@@ -264,11 +279,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate
           shard-index: ${{ matrix.shard-index }}
@@ -282,12 +297,12 @@ jobs:
       matrix:
         k8s-version: [v1.33.7]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
-          kyverno-configs: standard,generate-mutating-admission-policy
+          kyverno-configs: standard,generate-mutating-admission-policy,legacy-policies
           quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-alpha
@@ -299,15 +314,31 @@ jobs:
       matrix:
         k8s-version: [v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,generate-mutating-admission-policy
+          kyverno-configs: standard,generate-mutating-admission-policy,legacy-policies
           quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
+
+  generate-mutating-admission-policy-v1:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.36.1]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard,generate-mutating-admission-policy,legacy-policies
+          quarantined-tests: applyconfiguration
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: generate-mutating-admission-policy-v1
 
   generate-validating-admission-policy:
     runs-on: ubuntu-latest
@@ -316,11 +347,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-validating-admission-policy
 
@@ -332,11 +363,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generating-policies
           quarantined-tests: sync-modify-downstream
@@ -351,11 +382,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: globalcontext
 
@@ -367,11 +398,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: image-validating-policies
           shard-index: ${{ matrix.shard-index }}
@@ -384,11 +415,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: lease
 
@@ -400,11 +431,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutate
           shard-index: ${{ matrix.shard-index }}
@@ -417,12 +448,12 @@ jobs:
       matrix:
         k8s-version: [v1.33.7]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
-          kyverno-configs: standard,mutating-admission-policy-reports
+          kyverno-configs: standard,mutating-admission-policy-reports,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports-alpha
 
@@ -433,14 +464,29 @@ jobs:
       matrix:
         k8s-version: [v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,mutating-admission-policy-reports
+          kyverno-configs: standard,mutating-admission-policy-reports,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-admission-policy-reports
+
+  mutating-admission-policy-reports-v1:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.36.1]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard,mutating-admission-policy-reports,legacy-policies
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: mutating-admission-policy-reports-v1
 
   reports-exclude-result:
     runs-on: ubuntu-latest
@@ -449,11 +495,11 @@ jobs:
       matrix:
         k8s-version: [v1.34.0]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: exclude-result
+          kyverno-configs: exclude-result,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: reports-exclude-result
 
@@ -465,11 +511,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: mutating-policies
           shard-index: ${{ matrix.shard-index }}
@@ -482,11 +528,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-deleting-policies
 
@@ -498,11 +544,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-generating-policies
           quarantined-tests: sync-modify-downstream
@@ -516,11 +562,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-image-validating-policies
 
@@ -531,11 +577,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-mutating-policies
 
@@ -547,11 +593,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: namespaced-validating-policies
           shard-index: ${{ matrix.shard-index }}
@@ -564,11 +610,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: openreports
+          kyverno-configs: openreports,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: openreports
           install-openreports: true
@@ -580,11 +626,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: default
+          kyverno-configs: default,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: policy-exceptions-disabled
 
@@ -595,11 +641,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: policy-validation
 
@@ -610,11 +656,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: rangeoperators
 
@@ -626,11 +672,11 @@ jobs:
         kyverno-configs: [standard, default, force-failure-policy-ignore]
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: ${{ matrix.kyverno-configs }}
+          kyverno-configs: ${{ matrix.kyverno-configs }},legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: rbac
 
@@ -642,11 +688,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: reports
           shard-index: ${{ matrix.shard-index }}
@@ -659,12 +705,12 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
-          kyverno-configs: standard,sigstore-custom-tuf
+          kyverno-configs: standard,sigstore-custom-tuf,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: sigstore-custom-tuf
 
@@ -675,11 +721,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard,ttl
+          kyverno-configs: standard,ttl,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: ttl
 
@@ -691,11 +737,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validate
           shard-index: ${{ matrix.shard-index }}
@@ -708,11 +754,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-admission-policy-reports
 
@@ -724,11 +770,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1, 2, 3, 4]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: validating-policies
           shard-index: ${{ matrix.shard-index }}
@@ -744,11 +790,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         shard-index: [0, 1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: verify-images
           shard-index: ${{ matrix.shard-index }}
@@ -761,11 +807,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: verify-manifests
 
@@ -776,11 +822,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhook-configurations
 
@@ -791,11 +837,11 @@ jobs:
       matrix:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: webhooks
 
@@ -807,11 +853,11 @@ jobs:
         k8s-version: [v1.35.1]
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -850,7 +896,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # install tools
       - name: Download kyverno CLI archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -862,7 +908,7 @@ jobs:
         uses: ./.github/actions/tools/chainsaw
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
           node_image: kindest/node:v1.33.1
           cluster_name: kind
@@ -890,11 +936,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -935,11 +981,11 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
     steps:
       - name: Checkout kyverno/kyverno
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install helm
         uses: ./.github/actions/tools/helm
       - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -978,12 +1024,12 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1]
         kyverno-version: ["3.6"]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install helm
         uses: ./.github/actions/tools/helm
       # create cluster
       - name: Create kind cluster
-        uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: kind
@@ -1036,11 +1082,11 @@ jobs:
             helm-settings: --set admissionController.certManager.enabled=true --set admissionController.certManager.algorithm=ECDSA --set admissionController.certManager.size=256 --set cleanupController.certManager.enabled=true --set cleanupController.certManager.algorithm=ECDSA --set cleanupController.certManager.size=256
     name: ${{ matrix.k8s-version.name }} - cert-manager ${{ matrix.key-algorithm.name }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version.version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
           install-cert-manager: 'true'
@@ -1063,11 +1109,11 @@ jobs:
             helm-settings: --set admissionController.tlsKeyAlgorithm=Ed25519 --set cleanupController.tlsKeyAlgorithm=Ed25519
     name: ${{ matrix.k8s-version.name }} - self-signed ${{ matrix.key-algorithm.name }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version.version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: tls-certificates/${{ matrix.key-algorithm.test-dir }}
           explicit-install-settings: ${{ matrix.key-algorithm.helm-settings }}

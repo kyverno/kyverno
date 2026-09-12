@@ -1,0 +1,37 @@
+# Cluster-scoped MutatingPolicy.  Uses a unique label key (bycluster)
+# so that cross-contamination from the NamespacedMutatingPolicy of the same name
+# can be detected unambiguously.
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: same-name-pol
+spec:
+  failurePolicy: Fail
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+      resourceNames: ["same-name-pol-mpol-cm"]
+  matchConditions:
+  - name: target-namespace
+    expression: "object.metadata.namespace == 'test-same-name-ns'"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              bycluster: "true"
+            }
+          }
+        }

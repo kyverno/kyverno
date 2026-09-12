@@ -25,15 +25,20 @@ func (w *metricWrapper) Handle(ctx context.Context, request EngineRequest, predi
 		}
 
 		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+		w.metrics.RecordResult(ctx, string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
 	}
 
 	return response, nil
 }
 
 func NewMetricWrapper(inner Engine, ruleExecutionCause metrics.RuleExecutionCause) Engine {
+	m := metrics.GetValidatingMetrics()
+	if m == nil {
+		return inner
+	}
 	return &metricWrapper{
 		inner:              inner,
-		metrics:            metrics.GetValidatingMetrics(),
+		metrics:            m,
 		ruleExecutionCause: string(ruleExecutionCause),
 	}
 }

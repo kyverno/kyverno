@@ -1,0 +1,55 @@
+{
+    "root_group": {
+        "checks": {
+            "pod created successfully": {
+                "name": "pod created successfully",
+                "path": "::pod created successfully",
+                "id": "1077cf257995a0f330407b5fce95970a",
+                "passes": 10000,
+                "fails": 0
+            }
+        },
+        "name": "",
+        "path": "",
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {}
+    },
+    "metrics": {
+        "iteration_duration": {
+            "max": 340.136177,
+            "p(90)": 201.3760874,
+            "p(95)": 220.05548594999996,
+            "p(99)": 258.88322834,
+            "avg": 141.2242295444005,
+            "min": 32.506164,
+            "med": 136.140602
+        },
+        "iterations": {
+            "rate": 1405.7888940380874,
+            "count": 10000
+        },
+        "vus": {
+            "value": 200,
+            "min": 200,
+            "max": 200
+        },
+        "vus_max": {
+            "value": 200,
+            "min": 200,
+            "max": 200
+        },
+        "checks": {
+            "fails": 0,
+            "passes": 10000,
+            "value": 1
+        },
+        "data_sent": {
+            "rate": 0,
+            "count": 0
+        },
+        "data_received": {
+            "count": 0,
+            "rate": 0
+        }
+    }
+}

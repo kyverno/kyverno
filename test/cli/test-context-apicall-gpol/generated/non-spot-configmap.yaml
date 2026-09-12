@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: deployment-with-non-spot-computeclass-cc-info
+  namespace: test-namespace
+data:
+  type: on-demand

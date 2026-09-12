@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/ext/resource/convert"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	yamlutils "github.com/kyverno/kyverno/ext/yaml"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/kubectl-validate/pkg/openapiclient"
@@ -30,6 +31,7 @@ var (
 type LoaderResults struct {
 	Exceptions    []*kyvernov2.PolicyException
 	CELExceptions []*policiesv1beta1.PolicyException
+	Warnings      []string
 }
 
 func Load(paths ...string) (*LoaderResults, error) {
@@ -45,6 +47,9 @@ func Load(paths ...string) (*LoaderResults, error) {
 		}
 		loaderResults.Exceptions = append(loaderResults.Exceptions, results.Exceptions...)
 		loaderResults.CELExceptions = append(loaderResults.CELExceptions, results.CELExceptions...)
+		for _, warning := range results.Warnings {
+			loaderResults.Warnings = append(loaderResults.Warnings, fmt.Sprintf("%s: %s", path, warning))
+		}
 	}
 	return loaderResults, nil
 }
@@ -72,6 +77,9 @@ func load(content []byte) (*LoaderResults, error) {
 		}
 		switch gvk {
 		case exceptionV2beta1, exceptionV2:
+			if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
+				results.Warnings = append(results.Warnings, warning.Message)
+			}
 			exception, err := convert.To[kyvernov2.PolicyException](untyped)
 			if err != nil {
 				return nil, err
@@ -90,17 +98,22 @@ func load(content []byte) (*LoaderResults, error) {
 	return results, nil
 }
 
-func SelectFrom(resources []*unstructured.Unstructured) []*kyvernov2.PolicyException {
-	var exceptions []*kyvernov2.PolicyException
+func SelectFrom(resources []*unstructured.Unstructured) *LoaderResults {
+	results := &LoaderResults{}
 	for _, resource := range resources {
 		switch resource.GroupVersionKind() {
 		case exceptionV2beta1, exceptionV2:
 			exception, err := convert.To[kyvernov2.PolicyException](*resource)
 			if err == nil {
-				exceptions = append(exceptions, exception)
+				results.Exceptions = append(results.Exceptions, exception)
+			}
+		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
+			celException, err := convert.To[policiesv1beta1.PolicyException](*resource)
+			if err == nil {
+				results.CELExceptions = append(results.CELExceptions, celException)
 			}
 		}
 	}
 
-	return exceptions
+	return results
 }

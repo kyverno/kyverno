@@ -8,15 +8,25 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 )
 
 type EngineResponse struct {
+	// Resource is the resource the policy was evaluated against.
 	Resource *unstructured.Unstructured
-	Match    bool
+	// Match reports whether the policy's delete conditions evaluated to true.
+	// Only meaningful when the returned error is nil.
+	Match bool
+	// PolicyMatched reports whether the resource was selected by the policy's
+	// matchConstraints (resourceRules, objectSelector, namespaceSelector).
+	// When false, Match is always false and the delete conditions were not
+	// evaluated. Only meaningful when the returned error is nil.
+	PolicyMatched bool
 }
 
 type Engine struct {
@@ -59,7 +69,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 			resource.GetName(),
 			mapping.Resource,
 			"",
-			"",
+			admission.Create,
 			nil,
 			false,
 			nil,
@@ -67,12 +77,26 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 
 		if namespace != "" {
 			ns = e.nsResolver(namespace)
+		} else if resource.GroupVersionKind().Group == "" && resource.GetKind() == "Namespace" {
+			// For Namespace resources (cluster-scoped), build ns from the resource itself so
+			// that namespaceSelector and namespaceObject work correctly even when the resolver
+			// cannot return the namespace (CLI, cache-miss, or test paths).
+			ns = &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:   resource.GetName(),
+					Labels: resource.GetLabels(),
+				},
+			}
+			// Prefer the resolver's copy if available (may carry additional metadata).
+			if resolved := e.nsResolver(resource.GetName()); resolved != nil {
+				ns = resolved
+			}
 		}
 
 		if matches, err := e.matchPolicy(spec.MatchConstraints, attr, ns); err != nil {
 			return EngineResponse{}, err
 		} else if !matches {
-			return EngineResponse{Match: false}, err
+			return EngineResponse{Match: false, PolicyMatched: false}, nil
 		}
 	}
 
@@ -81,7 +105,7 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 		return EngineResponse{}, err
 	}
 
-	return EngineResponse{Match: result.Result}, nil
+	return EngineResponse{Match: result.Result, PolicyMatched: true}, nil
 }
 
 func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {

@@ -15,6 +15,10 @@ spec:
         apiVersions: [v1]
         operations: [CREATE]
         resources: [deployments]
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: false
   attestors:
     - name: notary
       notary:

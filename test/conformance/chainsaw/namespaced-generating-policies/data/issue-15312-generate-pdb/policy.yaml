@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedGeneratingPolicy
+metadata:
+  name: add-pdb-to-deployments
+  namespace: test-15312
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  variables:
+  - name: pdbName
+    expression: object.metadata.name + '-pdb'
+  - name: selector
+    expression: object.spec.selector
+  generate:
+  - expression: |
+      generator.apply([
+        {
+          "apiVersion": dyn("policy/v1"),
+          "kind": dyn("PodDisruptionBudget"),
+          "metadata": dyn({
+            "name": variables.pdbName
+          }),
+          "spec": dyn({
+            "minAvailable": dyn(1),
+            "selector": dyn(variables.selector)
+          })
+        }
+      ])

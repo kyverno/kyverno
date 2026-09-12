@@ -9,7 +9,7 @@ import (
 	statefulsets "github.com/kyverno/kyverno/pkg/clients/kube/appsv1beta2/statefulsets"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_apps_v1beta2 "k8s.io/client-go/kubernetes/typed/apps/v1beta2"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 )
 
 func WithMetrics(inner k8s_io_client_go_kubernetes_typed_apps_v1beta2.AppsV1beta2Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes_typed_apps_v1beta2.AppsV1beta2Interface {
@@ -30,7 +30,7 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) ControllerRevisions(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1beta2.ControllerRevisionInterface {
@@ -59,7 +59,7 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) ControllerRevisions(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1beta2.ControllerRevisionInterface {
@@ -83,7 +83,7 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) ControllerRevisions(namespace string) k8s_io_client_go_kubernetes_typed_apps_v1beta2.ControllerRevisionInterface {

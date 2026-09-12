@@ -34,6 +34,9 @@ func extractGenericPolicy(policy engineapi.GenericPolicy) policiesv1v1beta1.Gene
 	if gpol := policy.AsGeneratingPolicy(); gpol != nil {
 		return gpol
 	}
+	if ngpol := policy.AsNamespacedGeneratingPolicy(); ngpol != nil {
+		return ngpol
+	}
 	if mpol := policy.AsMutatingPolicy(); mpol != nil {
 		return mpol
 	}
@@ -287,4 +290,5 @@ const (
 	MutatingPolicyType                  = "MutatingPolicy"
 	NamespacedMutatingPolicyType        = "NamespacedMutatingPolicy"
 	GeneratingPolicyType                = "GeneratingPolicy"
+	NamespacedGeneratingPolicyType      = "NamespacedGeneratingPolicy"
 )

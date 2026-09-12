@@ -9,6 +9,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -19,6 +20,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -127,16 +129,19 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	}
 	var result *compiler.EvaluationResult
 	var err error
-	if jsonPayload != nil {
+	switch {
+	case jsonPayload != nil:
 		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context)
-	} else {
+	case policy.ExtractionMode:
+		result, err = e.evaluateExtracted(ctx, policy, attr, request, namespace, context)
+	default:
 		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context)
 	}
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
 	} else if result == nil {
-		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil))
+		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions))
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
 		keys := make([]string, 0, len(result.Exceptions))
@@ -195,14 +200,117 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		// TODO: do we want to set a rule name?
 		ruleName := ""
 		if result.Error != nil {
-			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, nil))
+			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
 		} else {
-			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, result.AuditAnnotations))
+			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
 		}
 	}
 	return response
+}
+
+// evaluateExtracted implements ExtractionMode: instead of evaluating
+// CompiledPolicy against the real admitted object (a custom workload CRD,
+// whose shape CompiledPolicy's Pod-targeted rule knows nothing about), it
+// extracts every pod-template-shaped subtree, synthesizes a Pod from each,
+// and evaluates the same unmodified CompiledPolicy against each synthesized
+// Pod in turn. Any failing/erroring template denies the whole request; a
+// resource with no discoverable pod template is an explicit error rather
+// than a silent pass, since a coverage gap should be visible during this
+// phase rather than mistaken for correct enforcement.
+func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) (*compiler.EvaluationResult, error) {
+	newObj, _ := attr.GetObject().(*unstructured.Unstructured)
+	oldObj, _ := attr.GetOldObject().(*unstructured.Unstructured)
+	// On a real DELETE, object is empty and the resource content lives only
+	// in oldObject (see admissionutils.ExtractResources) - fall back to it so
+	// extraction still finds the pod template(s) being deleted.
+	source, usingOld := newObj, false
+	if source == nil || len(source.Object) == 0 {
+		source, usingOld = oldObj, true
+	}
+	if source == nil || len(source.Object) == 0 {
+		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: expected an unstructured object, got %T", attr.GetObject())}, nil
+	}
+	templates := extract.ExtractPodTemplates(source.Object)
+	if len(templates) == 0 {
+		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", source.GetAPIVersion(), source.GetKind())}, nil
+	}
+	other := oldObj
+	if usingOld {
+		other = newObj
+	}
+	var otherByPath map[string]extract.Extracted
+	if other != nil && len(other.Object) > 0 {
+		otherTemplates := extract.ExtractPodTemplates(other.Object)
+		otherByPath = make(map[string]extract.Extracted, len(otherTemplates))
+		for _, t := range otherTemplates {
+			otherByPath[t.Path] = t
+		}
+	}
+	var (
+		last          *compiler.EvaluationResult
+		allExceptions []*policiesv1beta1.PolicyException
+	)
+	for _, tpl := range templates {
+		var otherTpl *extract.Extracted
+		if o, ok := otherByPath[tpl.Path]; ok {
+			otherTpl = &o
+		}
+		var synthAttr admission.Attributes
+		if usingOld {
+			// The template found belongs to oldObject; keep it there so the
+			// synthesized Pod mirrors a real DELETE (object nil, oldObject set).
+			synthAttr = extract.SynthesizePodAttributes(otherTpl, &tpl, attr)
+		} else {
+			synthAttr = extract.SynthesizePodAttributes(&tpl, otherTpl, attr)
+		}
+		synthRequest := extract.SynthesizePodAdmissionRequest(request, synthAttr)
+		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, synthRequest, namespace, context)
+		if err != nil {
+			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+		}
+		if result == nil {
+			continue
+		}
+		// A policy-exception match is a per-template skip, not a failure - it
+		// must not short-circuit the remaining templates, or a genuinely bad
+		// template later in the list would go unevaluated.
+		if len(result.Exceptions) > 0 {
+			allExceptions = append(allExceptions, result.Exceptions...)
+			continue
+		}
+		if result.Error != nil || !result.Result {
+			if result.Message != "" {
+				result.Message = fmt.Sprintf("%s (pod template at %s)", result.Message, tpl.Path)
+			}
+			if result.Error != nil {
+				result.Error = fmt.Errorf("%w (pod template at %s)", result.Error, tpl.Path)
+			}
+			return result, nil
+		}
+		last = result
+	}
+	if last == nil && len(allExceptions) > 0 {
+		return &compiler.EvaluationResult{Exceptions: allExceptions}, nil
+	}
+	return last, nil
+}
+
+const validationIndexKey = "cel.validationIndex"
+
+// withValidationIndex returns a copy of props with validationIndexKey set to
+// the zero-based position of the failing validation expression when that key
+// is not already present.
+func withValidationIndex(props map[string]string, idx int) map[string]string {
+	out := make(map[string]string, len(props)+1)
+	for k, v := range props {
+		out[k] = v
+	}
+	if _, exists := out[validationIndexKey]; !exists {
+		out[validationIndexKey] = strconv.Itoa(idx)
+	}
+	return out
 }
 
 func (e *engineImpl) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mutate-then-validate
+spec:
+  description: >-
+    Verifies that the object mutated by the ImageValidatingPolicy mutating
+    webhook (tag pinned to a digest via mutateDigest) is the object seen by
+    the validating webhook, not the original request object. The policy's
+    validation expression only passes if the image already contains a
+    digest, so admission succeeding proves the mutated object was passed
+    down to validation, consistent with Kubernetes admission control
+    semantics (all mutating webhooks run and their patches are applied
+    before any validating webhooks are invoked).
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: ../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-mutate-then-validate
+  - name: create pod referencing image by tag
+    try:
+    - create:
+        file: pod.yaml
+    - assert:
+        file: assert-pod.yaml

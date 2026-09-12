@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+jsonPayloads:
+- payload-pass.json
+kind: Test
+metadata:
+  name: acm-private-ca-root-disabled-pass-test
+policies:
+- deny-root-ca-enabled.yaml
+results:
+- kind: ""
+  policy: deny-root-ca-enabled
+  result: pass
+---
+apiVersion: cli.kyverno.io/v1alpha1
+jsonPayloads:
+- payload-fail.json
+kind: Test
+metadata:
+  name: acm-private-ca-root-disabled-fail-test
+policies:
+- deny-root-ca-enabled.yaml
+results:
+- kind: ""
+  policy: deny-root-ca-enabled
+  result: fail
