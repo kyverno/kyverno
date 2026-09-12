@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -100,7 +102,8 @@ func TestProcess_NoPolicyFound(t *testing.T) {
 		meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "kyverno.io", Version: "v1"}}),
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
-		event.NewFake())
+		event.NewFake(),
+		nil)
 
 	ur := &kyvernov2.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
@@ -151,6 +154,7 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -166,6 +170,79 @@ func TestProcess_EngineEvaluateError(t *testing.T) {
 	err := p.Process(ur)
 
 	assert.NoError(t, err)
+}
+
+func TestProcess_FilteredTargetSkipsEngine(t *testing.T) {
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMapList"}, &unstructured.UnstructuredList{})
+	cm := &unstructured.Unstructured{}
+	cm.SetAPIVersion("v1")
+	cm.SetKind("ConfigMap")
+	cm.SetNamespace("tenant-a")
+	cm.SetName("target-cm")
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+	}
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, cm)
+	assert.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	kyvernoClient := fake.NewSimpleClientset(
+		&policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "bgpol"},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							Rule: admissionregistrationv1alpha1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	)
+
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	restMapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+
+	cfg := config.NewDefaultConfiguration(false)
+	cfg.Load(&corev1.ConfigMap{
+		Data: map[string]string{
+			"resourceFilters": "[ConfigMap,tenant-a,*]",
+		},
+	})
+	eng := &fakeEngine{}
+	sc := &fakeStatusControl{}
+	p := NewProcessor(
+		fakeClient,
+		kyvernoClient,
+		eng,
+		restMapper,
+		&libs.FakeContextProvider{},
+		sc,
+		event.NewFake(),
+		cfg,
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-filtered-target", Namespace: "default"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "bgpol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{},
+			},
+		},
+	}
+
+	assert.NoError(t, p.Process(ur))
+	eng.AssertNotCalled(t, "Evaluate")
+	assert.True(t, sc.successCalled)
+	assert.False(t, sc.failedCalled)
 }
 
 func TestProcess_NilAdmissionRequest_DoesNotPanic(t *testing.T) {
@@ -219,6 +296,7 @@ func TestProcess_NilAdmissionRequest_DoesNotPanic(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		nil,
 	)
 
 	// UR has no AdmissionRequest — this is the background-scan case.
@@ -334,6 +412,7 @@ func TestGetPolicy_NamespacedMutatingPolicy(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -362,6 +441,7 @@ func TestProcess_EmptyPolicyKey(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{
@@ -398,6 +478,7 @@ func TestGetPolicy_BareNameFallback_NamespacedMutatingPolicy(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	// UR uses bare name (as created by webhook handler), with AdmissionRequest carrying the namespace.
@@ -450,6 +531,7 @@ func TestGetTargetsFromExpression_DeleteUsesOldObject(t *testing.T) {
 		&libs.FakeContextProvider{},
 		&fakeStatusControl{},
 		event.NewFake(),
+		nil,
 	)
 
 	trigger := map[string]any{
@@ -515,6 +597,7 @@ func TestProcess_TargetExpressionInvalidURMarksFailed(t *testing.T) {
 		&libs.FakeContextProvider{},
 		sc,
 		event.NewFake(),
+		nil,
 	)
 
 	ur := &kyvernov2.UpdateRequest{

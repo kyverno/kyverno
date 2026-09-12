@@ -124,8 +124,11 @@ func InitMetrics(
 	if otelProvider == "prometheus" && metricsConfiguration.GetMetricsRefreshInterval() > 0 {
 		ticker := time.NewTicker(metricsConfiguration.GetMetricsRefreshInterval())
 		go func() {
+			defer ticker.Stop()
 			for {
 				select {
+				case <-ctx.Done():
+					return
 				case <-ticker.C:
 					if p, ok := otel.GetMeterProvider().(*sdkmetric.MeterProvider); ok {
 						if err := p.Shutdown(ctx); err != nil {

@@ -8,11 +8,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
-var (
-	cert = `-----BEGIN CERTIFICATE-----
+var cert = `-----BEGIN CERTIFICATE-----
 MIIDTTCCAjWgAwIBAgIJAPI+zAzn4s0xMA0GCSqGSIb3DQEBCwUAMEwxCzAJBgNV
 BAYTAlVTMQswCQYDVQQIDAJXQTEQMA4GA1UEBwwHU2VhdHRsZTEPMA0GA1UECgwG
 Tm90YXJ5MQ0wCwYDVQQDDAR0ZXN0MB4XDTIzMDUyMjIxMTUxOFoXDTMzMDUxOTIx
@@ -32,7 +31,6 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 5/jn6XKt6UYCQJbVNzBg/YPGc1RF4xdsGVDBben/JXpeGEmkdmXPILTKd9tZ5TC0
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`
-)
 
 func TestExtractStatements(t *testing.T) {
 	imageRef := "ghcr.io/kyverno/test-verify-image:signed"
@@ -62,7 +60,7 @@ func TestNotaryImageVerification(t *testing.T) {
 		Cert:     cert,
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &notaryVerifier{}

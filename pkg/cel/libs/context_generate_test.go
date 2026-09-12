@@ -215,6 +215,55 @@ func TestGenerateResources_UnmanagedExistingResourceNotAdopted(t *testing.T) {
 // already exists it still needs to be reported so the watch manager's cache
 // gets restored (the original purpose of cacheRestore, see
 // kyverno/kyverno#13571).
+// Regression test for kyverno/kyverno#16742: when the downstream resource
+// already exists and is managed by this policy/trigger, a re-evaluation (e.g.
+// on a trigger UPDATE with synchronize enabled) must update it in place with
+// the newly rendered content instead of deleting and recreating it (or leaving
+// it untouched).
+func TestGenerateResources_ExistingResourceUpdatedInPlace(t *testing.T) {
+	existing := &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      "data",
+				"namespace": "tenant-ns",
+				"labels": map[string]any{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-gpol",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				},
+			},
+			"data": map[string]any{"quota": "10"},
+		},
+	}
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+		"data":       map[string]any{"quota": "50"},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	updated, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "tenant-ns", "data")
+	require.NoError(t, err)
+	quota, _, err := unstructured.NestedString(updated.Object, "data", "quota")
+	require.NoError(t, err)
+	assert.Equal(t, "50", quota, "existing downstream must be updated in place with the newly rendered content")
+}
+
 func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testing.T) {
 	existing := &unstructured.Unstructured{
 		Object: map[string]any{

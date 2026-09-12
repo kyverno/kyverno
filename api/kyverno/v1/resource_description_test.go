@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -66,7 +66,6 @@ func Test_ResourceDescription(t *testing.T) {
 		assert.Equal(t, len(errs), len(testCase.errors))
 		for i, err := range errs {
 			assert.Assert(t, strings.Contains(err.Error(), testCase.errors[i]))
-
 		}
 	}
 }

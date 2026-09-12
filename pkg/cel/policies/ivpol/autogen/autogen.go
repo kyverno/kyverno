@@ -11,6 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
+// callers of this package (e.g. the engine provider) don't need to import
+// pkg/cel/autogen directly just to check it.
+const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
+
 func Autogen(policy policiesv1beta1.ImageValidatingPolicyLike) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
@@ -31,7 +36,7 @@ func Autogen(policy policiesv1beta1.ImageValidatingPolicyLike) (map[string]polic
 func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
-		if config := autogen.ConfigsMap[config]; config != nil {
+		if config := autogen.ResolveConfig(config); config != nil {
 			targets := mapping[config.ReplacementsRef]
 			targets = append(targets, config.Target)
 			mapping[config.ReplacementsRef] = targets

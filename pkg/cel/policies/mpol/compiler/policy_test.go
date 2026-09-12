@@ -251,3 +251,4 @@ func (f *fakeProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel2.Eval
 func (f *fakeProgram) Eval(_ any) (ref.Val, *cel2.EvalDetails, error) {
 	return f.refVal, nil, nil
 }
+func (f *fakeProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel2.EvalResult { return nil }

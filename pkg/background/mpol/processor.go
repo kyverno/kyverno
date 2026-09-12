@@ -21,6 +21,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -52,6 +53,7 @@ type processor struct {
 	mapper        meta.RESTMapper
 	context       libs.Context
 	statusControl common.StatusControlInterface
+	configuration config.Configuration
 
 	eventGen event.Interface
 }
@@ -76,6 +78,7 @@ func NewProcessor(client dclient.Interface,
 	context libs.Context,
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
+	configuration config.Configuration,
 ) *processor {
 	return &processor{
 		client:        client,
@@ -85,6 +88,7 @@ func NewProcessor(client dclient.Interface,
 		context:       context,
 		statusControl: statusControl,
 		eventGen:      eventGen,
+		configuration: configuration,
 	}
 }
 
@@ -173,7 +177,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 	for _, target := range targets {
 		object := &target.object
-
+		if p.configuration != nil && p.configuration.ToFilter(object.GroupVersionKind(), target.subresource, object.GetNamespace(), object.GetName()) {
+			logger.V(4).Info("target resource is filtered out by resource filters", "kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName(), "mpol", ur.Spec.GetPolicyKey())
+			continue
+		}
 		// Build the AdmissionRequest for this target. For background-only scans there is no
 		// real admission request, so we construct a synthetic one from the target resource.
 		// Operation is Update (background scans mutate already-existing resources).

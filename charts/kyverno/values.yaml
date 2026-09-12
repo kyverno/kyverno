@@ -67,7 +67,7 @@ upgrade:
   fromV2: false
 
 apiVersionOverride:
-  # -- (string) Override api version used to create `PodDisruptionBudget`` resources.
+  # -- (string) Override api version used to create `PodDisruptionBudget` resources.
   # When not specified the chart will check if `policy/v1/PodDisruptionBudget` is available to
   # determine the api version automatically.
   podDisruptionBudget: ~
@@ -109,7 +109,10 @@ crds:
 
   groups:
 
-    # -- Install CRDs in group `kyverno.io`
+    # -- Install CRDs in group `kyverno.io`.
+    # Note: the legacy policy types in this group (`ClusterPolicy`, `Policy`, `ClusterCleanupPolicy`, `CleanupPolicy`, `PolicyException`)
+    # are deprecated and will be removed in a future release, migrate to the `policies.kyverno.io` policy types
+    # (see https://kyverno.io/docs/guides/migration-to-cel/).
     kyverno:
       cleanuppolicies: true
       clustercleanuppolicies: true
@@ -881,6 +884,9 @@ features:
   forceFailurePolicyIgnore:
     # -- Enables the feature
     enabled: false
+  blockLegacyPolicyAPIs:
+    # -- Blocks creates and spec-changing updates of legacy kyverno.io policy APIs (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, legacy PolicyException) in favor of the CEL-based policies.kyverno.io types. Existing legacy policies remain readable and enforced; no-op, metadata-only, and status-subresource updates remain allowed. Temporary migration escape hatch for 1.20, removed in 1.21.
+    enabled: true
   generateValidatingAdmissionPolicy:
     # -- Enables the feature
     enabled: true
@@ -1346,6 +1352,14 @@ admissionController:
       seccompProfile:
         type: RuntimeDefault
 
+    # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+    lifecycle: {}
+    # Example:
+    # lifecycle:
+    #   preStop:
+    #     sleep:
+    #       seconds: 10
+
     # -- Additional container args.
     extraArgs: {}
 
@@ -1603,6 +1617,9 @@ backgroundController:
   # -- Resync period for informers
   resyncPeriod: 15m
 
+  # -- Enable/Disable custom resource watcher to invalidate cache
+  crdWatcher: false
+
   # -- Additional labels to add to each pod
   podLabels: {}
   # example.com/label: foo
@@ -1715,6 +1732,14 @@ backgroundController:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
 
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.
@@ -2129,6 +2154,14 @@ cleanupController:
     seccompProfile:
       type: RuntimeDefault
 
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
+
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.
     # Will always be enabled if replicas > 1. This non-declarative behavior should ideally be avoided, but changing it now would be breaking.
@@ -2301,12 +2334,19 @@ reportsController:
       extraResources: []
 
     clusterRole:
-      # -- Extra resource permissions to add in the cluster role
+      # -- Extra resource permissions to add in the cluster role (granted get/list/watch).
+      # Required for background-scan/PolicyReport coverage of custom workload CRDs (e.g. Argo Rollout,
+      # JobSet) referenced by a CEL policy's `spec.autogen.podControllers.controllers` - Kyverno cannot
+      # self-grant RBAC for arbitrary CRDs, so list/watch access for each such CRD must be added here.
       extraResources: []
       # - apiGroups:
       #     - ''
       #   resources:
       #     - pods
+      # - apiGroups:
+      #     - argoproj.io
+      #   resources:
+      #     - rollouts
 
   image:
     # -- Image registry
@@ -2463,6 +2503,14 @@ reportsController:
         - ALL
     seccompProfile:
       type: RuntimeDefault
+
+  # -- Container lifecycle hooks (e.g. a preStop sleep for graceful shutdown). The sleep action requires Kubernetes 1.30+.
+  lifecycle: {}
+  # Example:
+  # lifecycle:
+  #   preStop:
+  #     sleep:
+  #       seconds: 10
 
   podDisruptionBudget:
     # -- Enable PodDisruptionBudget.

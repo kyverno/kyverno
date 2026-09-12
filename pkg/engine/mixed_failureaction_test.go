@@ -9,7 +9,7 @@ import (
 	webhookutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 // A single ClusterPolicy with two validate rules that have different per-rule failureAction
@@ -49,7 +49,7 @@ func runMixed(t *testing.T, rulesJSON string, podJSON []byte) bool {
 	resource, err := kubeutils.BytesToUnstructured(podJSON)
 	assert.NilError(t, err)
 	pc := newPolicyContext(t, *resource, kyvernov1.Create, nil).WithPolicy(&policy)
-	er := testValidate(context.TODO(), registryclient.New(nil, "", "", "", false), pc, cfg, nil)
+	er := testValidate(context.TODO(), registryclient.New(), pc, cfg, nil)
 	return webhookutils.BlockRequest(er, kyvernov1.Fail)
 }
 

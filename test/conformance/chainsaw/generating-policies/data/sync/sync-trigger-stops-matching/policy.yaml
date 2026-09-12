@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: sync-trigger-stops-matching
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  matchConditions:
+    - name: opt-in
+      expression: object.metadata.?labels["opt-in"].orValue("") == "true"
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "sync-trigger-stops-matching",
+              "namespace": string(variables.nsName),
+            }),
+            "data": dyn({
+              "source": "GeneratingPolicy"
+            })
+          }
+        ]
+  generate:
+    - expression: generator.apply(variables.nsName, variables.configmap)

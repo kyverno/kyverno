@@ -12,10 +12,13 @@ import (
 	mpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/mpol"
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -83,14 +86,49 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if pol := policy.AsKyvernoPolicy(); pol != nil {
+		// Subresource requests (e.g. /status) never touch spec, so there is nothing here to
+		// validate or warn about; short-circuit before policy validation and deprecation
+		// warnings, not just the legacy-policy block, so Kyverno's own controllers can manage
+		// status on legacy policies without tripping full re-validation on every reconcile.
+		// Kubernetes guarantees a status-subresource write cannot change spec, see:
+		// https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
+		if request.SubResource != "" {
+			return admissionutils.ResponseSuccess(request.UID)
+		}
+
 		var old kyvernov1.PolicyInterface
 		if oldPolicy != nil {
 			old = oldPolicy.AsKyvernoPolicy()
 		}
 
+		deprecatedMetric := metrics.GetDeprecatedAPIRequestMetrics()
+		if err, blocked := deprecations.ShouldBlock(ctx, request.AdmissionRequest, func() bool {
+			return old != nil && apiequality.Semantic.DeepEqual(old.GetSpec(), pol.GetSpec())
+		}); blocked {
+			logger.Error(err, "legacy policy write blocked", "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
+			if deprecatedMetric != nil {
+				deprecatedMetric.Record(ctx, request.Namespace, request.Kind.Group, request.Kind.Version, request.Kind.Kind, "")
+			}
+			return admissionutils.Response(request.UID, err)
+		}
+
 		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 		if err != nil {
 			logger.Error(err, "policy validation errors")
+		}
+		if warning, ok := deprecations.BuildKindWarning(request.Kind.Group, request.Kind.Version, request.Kind.Kind); ok {
+			logger.V(2).Info(warning.Message, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
+			warnings = append(warnings, warning.Message)
+			if deprecatedMetric != nil {
+				deprecatedMetric.Record(ctx, request.Namespace, warning.Group, warning.Version, warning.Kind, "")
+			}
+		}
+		for _, warning := range deprecations.PolicyFieldWarnings(pol) {
+			logger.V(2).Info(warning.Message, "field", warning.Field, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
+			warnings = append(warnings, warning.Message)
+			if deprecatedMetric != nil {
+				deprecatedMetric.Record(ctx, request.Namespace, warning.Group, warning.Version, warning.Kind, deprecations.NormalizeFieldPath(warning.Field))
+			}
 		}
 		return admissionutils.Response(request.UID, err, warnings...)
 	}

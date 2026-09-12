@@ -60,6 +60,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v1 ClusterPolicy is deprecated and will be removed
+      in a future release; migrate to ValidatingPolicy, MutatingPolicy, GeneratingPolicy
+      or ImageValidatingPolicy (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v1
     schema:
       openAPIV3Schema:
@@ -3024,8 +3028,9 @@ spec:
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
-                          description: Assert defines a kyverno-json assertion tree.
-                          type: object
+                          description: |-
+                            Assert defines a kyverno-json assertion tree.
+                            Deprecated, kept only for backward compatibility but has no effect since 1.19.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -8149,9 +8154,9 @@ spec:
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
-                              description: Assert defines a kyverno-json assertion
-                                tree.
-                              type: object
+                              description: |-
+                                Assert defines a kyverno-json assertion tree.
+                                Deprecated, kept only for backward compatibility but has no effect since 1.19.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the
@@ -10362,6 +10367,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 ClusterPolicy is deprecated and will be
+      removed in a future release; migrate to ValidatingPolicy, MutatingPolicy, GeneratingPolicy
+      or ImageValidatingPolicy (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -12996,8 +13005,9 @@ spec:
                             must be satisfied for the validation rule to succeed.
                           x-kubernetes-preserve-unknown-fields: true
                         assert:
-                          description: Assert defines a kyverno-json assertion tree.
-                          type: object
+                          description: |-
+                            Assert defines a kyverno-json assertion tree.
+                            Deprecated, kept only for backward compatibility but has no effect since 1.19.
                           x-kubernetes-preserve-unknown-fields: true
                         cel:
                           description: CEL allows validation checks using the Common
@@ -18179,9 +18189,9 @@ spec:
                                 must be satisfied for the validation rule to succeed.
                               x-kubernetes-preserve-unknown-fields: true
                             assert:
-                              description: Assert defines a kyverno-json assertion
-                                tree.
-                              type: object
+                              description: |-
+                                Assert defines a kyverno-json assertion tree.
+                                Deprecated, kept only for backward compatibility but has no effect since 1.19.
                               x-kubernetes-preserve-unknown-fields: true
                             cel:
                               description: CEL allows validation checks using the

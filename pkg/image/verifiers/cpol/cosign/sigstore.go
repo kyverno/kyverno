@@ -127,14 +127,16 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		if layerSize > maxLayerSize {
 			return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
 		}
-		layerBytes, err := layer.Uncompressed()
+		bundleBytes, err := func() ([]byte, error) {
+			layerBytes, err := layer.Uncompressed()
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+			}
+			defer layerBytes.Close()
+			return io.ReadAll(layerBytes)
+		}()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-		}
-		defer layerBytes.Close()
-		bundleBytes, err := io.ReadAll(layerBytes)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+			return nil, nil, err
 		}
 		b := &bundle.Bundle{}
 		err = b.UnmarshalJSON(bundleBytes)
