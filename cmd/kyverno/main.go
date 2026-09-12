@@ -481,7 +481,7 @@ func main() {
 			os.Exit(1)
 		}
 		// check if mutating admission policies are registered in the API server
-		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		generateMutatingAdmissionPolicy := toggle.FromContext(signalCtx).GenerateMutatingAdmissionPolicy()
 		if generateMutatingAdmissionPolicy {
 			registered, err := admissionpolicy.IsMutatingAdmissionPolicyRegistered(setup.KubeClient)
 			if !registered {

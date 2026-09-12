@@ -2,10 +2,14 @@ package mpol
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -184,3 +188,44 @@ func TestMutate_BackgroundRequestAllowedWhenDisabled(t *testing.T) {
 // Admission-disabled policies are excluded from admission-driven UR creation
 // inside the engine's MatchesMutateExisting (see the reconciler/provider tests);
 // the handler creates URs for whatever the engine returns.
+
+// forceIgnoreToggles overrides ForceFailurePolicyIgnore on top of the default toggles.
+type forceIgnoreToggles struct{ toggle.Toggles }
+
+func (forceIgnoreToggles) ForceFailurePolicyIgnore() bool { return true }
+
+func TestAdmissionResponse_HonoursForceFailurePolicyIgnoreFromContext(t *testing.T) {
+	h := New(nil, &mockEngine{}, nil, &mockReportsConfig{}, &mockURGenerator{}, "", nil)
+	request := celengine.EngineRequest{
+		Request: admissionv1.AdmissionRequest{
+			UID:       types.UID("test-uid"),
+			Name:      "test",
+			Namespace: "default",
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+		},
+	}
+	response := mpolengine.EngineResponse{
+		Policies: []mpolengine.MutatingPolicyResponse{{
+			Policy: &policiesv1beta1.MutatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+				Spec: policiesv1beta1.MutatingPolicySpec{
+					FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+				},
+			},
+			Rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("rule", engineapi.Mutation, "mutation failed", errors.New("boom"), nil),
+			},
+		}},
+	}
+
+	// without a request-scoped override the policy's own failurePolicy (Fail) applies
+	resp, err := h.admissionResponse(context.Background(), request, response)
+	assert.Error(t, err)
+	assert.False(t, resp.Allowed, "rule errors must block the request when failurePolicy is Fail")
+
+	// a ForceFailurePolicyIgnore toggle carried by the request context must be honoured
+	ctx := toggle.NewContext(context.Background(), forceIgnoreToggles{toggle.FromContext(context.Background())})
+	resp, err = h.admissionResponse(ctx, request, response)
+	assert.NoError(t, err)
+	assert.True(t, resp.Allowed, "rule errors must not block the request when the context forces failurePolicy Ignore")
+}

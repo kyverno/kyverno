@@ -1,9 +1,12 @@
 package webhook
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/kyverno/kyverno/pkg/toggle"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -312,6 +315,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				expressionCache.AddPolicyExpressions(vpol.GetMatchConditions())
 			}
 			webhooks := buildWebhookRules(
+				context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.ValidatingPolicyWebhookName,
@@ -440,6 +444,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 				expressionCache.AddPolicyExpressions(nvpol.GetMatchConditions())
 			}
 			webhooks := buildWebhookRules(
+				context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.NamespacedValidatingPolicyWebhookName,
@@ -505,6 +510,7 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 			cache.AddPolicyExpressions(extractGenericPolicy(p).GetMatchConditions())
 		}
 		return buildWebhookRules(
+			context.Background(),
 			config.NewDefaultConfiguration(false),
 			"", webhookName, queryPath,
 			0, nil, generic, cache,
@@ -761,6 +767,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				expressionCache.AddPolicyExpressions(ivpol.GetMatchConditions())
 			}
 			webhooks := buildWebhookRules(
+				context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.ImageValidatingPolicyValidateWebhookName,
@@ -845,6 +852,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 		ivpols := []engineapi.GenericPolicy{engineapi.NewImageValidatingPolicy(ivpol)}
 		expressionCache.AddPolicyExpressions(ivpol.GetMatchConditions())
 		webhooks := buildWebhookRules(
+			context.Background(),
 			config.NewDefaultConfiguration(false),
 			"",
 			config.ImageValidatingPolicyValidateWebhookName,
@@ -1024,6 +1032,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 
 	expressionCache := NewExpressionCache()
 	gpolWebhooks := buildWebhookRules(
+		context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.GeneratingPolicyWebhookName,
@@ -1034,6 +1043,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		expressionCache,
 	)
 	ngpolWebhooks := buildWebhookRules(
+		context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.NamespacedGeneratingPolicyWebhookName,
@@ -1110,6 +1120,7 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 			expressionCache := NewExpressionCache()
 			expressionCache.AddPolicyExpressions(gpol.GetMatchConditions())
 			webhooks := buildWebhookRules(
+				context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.GeneratingPolicyWebhookName,
@@ -1178,9 +1189,9 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	expressionCache := NewExpressionCache()
 	cfg := config.NewDefaultConfiguration(false)
 
-	mpolWebhooks := buildWebhookRules(cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
+	mpolWebhooks := buildWebhookRules(context.Background(), cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
 		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache)
-	nmpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
+	nmpolWebhooks := buildWebhookRules(context.Background(), cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache)
 
 	assert.Len(t, mpolWebhooks, 1)
@@ -1260,6 +1271,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T)
 	})
 
 	webhooks := buildWebhookRules(
+		context.Background(),
 		config.NewDefaultConfiguration(false),
 		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
 		[]engineapi.GenericPolicy{teamA, teamB},
@@ -1316,6 +1328,7 @@ func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *
 	}
 
 	webhooks := buildWebhookRules(
+		context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.ValidatingPolicyWebhookName,
@@ -1375,6 +1388,7 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 	}
 
 	webhooks := buildWebhookRules(
+		context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.ValidatingPolicyWebhookName,
@@ -1426,6 +1440,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 	}
 
 	webhooks := buildWebhookRules(
+		context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.NamespacedValidatingPolicyWebhookName,
@@ -1446,4 +1461,56 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 			assert.Contains(t, *webhook.ClientConfig.Service.Path, "policy-b")
 		}
 	}
+}
+
+// forceIgnoreToggles overrides ForceFailurePolicyIgnore on top of the default toggles.
+type forceIgnoreToggles struct{ toggle.Toggles }
+
+func (forceIgnoreToggles) ForceFailurePolicyIgnore() bool { return true }
+
+func TestBuildWebhookRules_HonoursForceFailurePolicyIgnoreFromContext(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "fail-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			FailurePolicy: ptr.To(admissionregistrationv1.Fail),
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+					},
+				}},
+			},
+		},
+	}
+	build := func(ctx context.Context) []admissionregistrationv1.ValidatingWebhook {
+		return buildWebhookRules(
+			ctx,
+			config.NewDefaultConfiguration(false),
+			"",
+			config.ValidatingPolicyWebhookName,
+			"/vpol",
+			0,
+			nil,
+			[]engineapi.GenericPolicy{engineapi.NewValidatingPolicy(vpol)},
+			NewExpressionCache(),
+		)
+	}
+
+	// without a request-scoped override the policy's own failurePolicy (Fail) applies
+	webhooks := build(context.Background())
+	assert.Len(t, webhooks, 1)
+	assert.Equal(t, config.ValidatingPolicyWebhookName+"-fail", webhooks[0].Name)
+	assert.Equal(t, ptr.To(admissionregistrationv1.Fail), webhooks[0].FailurePolicy)
+
+	// a ForceFailurePolicyIgnore toggle carried by the context must be honoured
+	ctx := toggle.NewContext(context.Background(), forceIgnoreToggles{toggle.FromContext(context.Background())})
+	webhooks = build(ctx)
+	assert.Len(t, webhooks, 1)
+	assert.Equal(t, config.ValidatingPolicyWebhookName+"-ignore", webhooks[0].Name)
+	assert.Equal(t, ptr.To(admissionregistrationv1.Ignore), webhooks[0].FailurePolicy)
 }
