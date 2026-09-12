@@ -329,7 +329,7 @@ func (c *serverResources) findResources(group, version, kind, subresource string
 		}
 	}
 	resources := map[TopLevelApiDescription]metav1.APIResource{}
-	// first match resouces
+	// first match resources
 	for _, list := range serverGroupsAndResources {
 		gv, err := schema.ParseGroupVersion(list.GroupVersion)
 		if err != nil {
