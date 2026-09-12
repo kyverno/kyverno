@@ -159,6 +159,55 @@ func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t 
 	assert.Equal(t, gotAuth, "")
 }
 
+func Test_ExecuteServiceCall_DefaultContentTypeForPost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+	var gotContentType string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	call := &kyvernov1.APICall{
+		Method: "POST",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.NilError(t, err)
+	assert.Equal(t, gotContentType, "application/json")
+}
+
+func Test_ExecuteServiceCall_PreservesUserContentTypeForPost(t *testing.T) {
+	withEmptyEgressBlocklist(t)
+	var gotContentType string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotContentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer s.Close()
+
+	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
+	call := &kyvernov1.APICall{
+		Method: "POST",
+		Service: &kyvernov1.ServiceCall{
+			URL: s.URL,
+			Headers: []kyvernov1.HTTPHeader{
+				{Key: "Content-Type", Value: "text/plain"},
+			},
+		},
+	}
+
+	_, err := executor.Execute(context.TODO(), call)
+	assert.NilError(t, err)
+	assert.Equal(t, gotContentType, "text/plain")
+}
+
 // Helper function to check if string contains substring
 func contains(s, substr string) bool {
 	for i := 0; i <= len(s)-len(substr); i++ {
