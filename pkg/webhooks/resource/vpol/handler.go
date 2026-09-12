@@ -88,7 +88,7 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
 	blocked := false
 	for _, p := range response.Policies {
-		if p.Actions.Has(admissionregistrationv1.Deny) {
+		if webhookutils.BlockRequestByValidationActions(p.Actions, p.Rules...) {
 			blocked = true
 			break
 		}
