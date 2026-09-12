@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -11,6 +12,61 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"gotest.tools/v3/assert"
 )
+
+func TestPatternErrorUnwrap(t *testing.T) {
+	target := errors.New("test")
+	err := &PatternError{Err: target}
+	assert.Assert(t, errors.Is(err, target))
+}
+
+func TestMatchPatternPreservesAnchorErrorClassification(t *testing.T) {
+	tests := []struct {
+		name          string
+		pattern       string
+		resource      string
+		wantSkip      bool
+		isAnchorError func(error) bool
+	}{
+		{
+			name:          "conditional anchor skip",
+			pattern:       `{"spec":{"containers":[{"(name)":"nginx","image":"nginx:latest"}]}}`,
+			resource:      `{"spec":{"containers":[{"name":"redis","image":"redis:7"}]}}`,
+			wantSkip:      true,
+			isAnchorError: anchor.IsConditionalAnchorError,
+		},
+		{
+			name:          "global anchor skip",
+			pattern:       `{"spec":{"containers":[{"<(image)":"nginx:latest","name":"nginx"}]}}`,
+			resource:      `{"spec":{"containers":[{"name":"redis","image":"redis:7"}]}}`,
+			wantSkip:      true,
+			isAnchorError: anchor.IsGlobalAnchorError,
+		},
+		{
+			name:          "negation anchor failure",
+			pattern:       `{"spec":{"X(hostNetwork)":"*"}}`,
+			resource:      `{"spec":{"hostNetwork":true}}`,
+			wantSkip:      false,
+			isAnchorError: anchor.IsNegationAnchorError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var pattern, resource interface{}
+			err := json.Unmarshal([]byte(tt.pattern), &pattern)
+			assert.NilError(t, err)
+			err = json.Unmarshal([]byte(tt.resource), &resource)
+			assert.NilError(t, err)
+
+			err = MatchPattern(logr.Discard(), resource, pattern)
+			patternErr, ok := err.(*PatternError)
+			if !ok {
+				t.Fatalf("expected a *PatternError, got %T", err)
+			}
+			assert.Equal(t, patternErr.Skip, tt.wantSkip)
+			assert.Assert(t, tt.isAnchorError(patternErr))
+		})
+	}
+}
 
 func TestValidateMap(t *testing.T) {
 	rawPattern := []byte(`{
