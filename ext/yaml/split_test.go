@@ -97,3 +97,26 @@ func TestSplitDocuments(t *testing.T) {
 		})
 	}
 }
+
+func TestIsEmptyDocument(t *testing.T) {
+	tests := []struct {
+		name     string
+		document []byte
+		want     bool
+	}{
+		{name: "nil", document: nil, want: true},
+		{name: "empty", document: []byte(""), want: true},
+		{name: "only whitespace", document: []byte("   \n  \t  "), want: true},
+		{name: "only comment", document: []byte("# this is a comment"), want: true},
+		{name: "multiple comment lines", document: []byte("# line 1\n# line 2\n"), want: true},
+		{name: "yaml content", document: []byte("apiVersion: v1\nkind: Pod"), want: false},
+		{name: "comment then content", document: []byte("# header\napiVersion: v1"), want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsEmptyDocument(tt.document); got != tt.want {
+				t.Errorf("IsEmptyDocument() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
