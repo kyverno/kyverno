@@ -832,7 +832,6 @@ codegen-api-bump: ## Regenerate everything affected by a github.com/kyverno/api 
 codegen-api-bump: codegen-all-code
 codegen-api-bump: codegen-all-docs
 
-# TODO: are we using this ?
 .PHONY: codegen-helm-update-versions
 codegen-helm-update-versions: ## Update helm charts versions
 	@echo Updating Chart.yaml files... >&2
