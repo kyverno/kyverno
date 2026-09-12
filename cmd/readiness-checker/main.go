@@ -172,7 +172,7 @@ func runCheckEndpoints() {
 			fmt.Printf("Timeout reached after %s. service %s is not ready.\n", serviceName, timeout)
 			os.Exit(1)
 		default:
-			err := attemptCheckEndpoints(ctx, clientset, serviceName, namespace, existingEndpointSliceNames)
+			err := attemptCheckEndpoints(ctx, clientset, serviceName, namespace, &existingEndpointSliceNames)
 			if err != nil {
 				if err == errNoReadyEndpoints {
 					fmt.Println("failed to find a ready endpoint, sleeping for 5 seconds")
@@ -270,8 +270,9 @@ func runCheckHTTP() {
 	}
 }
 
-func attemptCheckEndpoints(ctx context.Context, clientset kubernetes.Interface, svcName, namespace string, existingEndpointSliceNames []string) error {
+func attemptCheckEndpoints(ctx context.Context, clientset kubernetes.Interface, svcName, namespace string, existingEndpointSliceNames *[]string) error {
 	if existingEndpointSliceNames == nil {
+		existingEndpointSliceNames = &[]string{}
 		endpointSlices, err := clientset.DiscoveryV1().EndpointSlices(namespace).List(ctx, metav1.ListOptions{})
 		if err != nil {
 			return err
@@ -287,25 +288,22 @@ func attemptCheckEndpoints(ctx context.Context, clientset kubernetes.Interface, 
 					}
 
 					// we aren't ready, need to store the endpoints to later fetch them with Get
-					if existingEndpointSliceNames == nil {
-						existingEndpointSliceNames = []string{}
-					}
-					for _, existing := range existingEndpointSliceNames {
+					for _, existing := range *existingEndpointSliceNames {
 						if e.Name == existing {
 							continue
 						}
 					}
-					existingEndpointSliceNames = append(existingEndpointSliceNames, e.Name)
+					*existingEndpointSliceNames = append(*existingEndpointSliceNames, e.Name)
 				}
 			}
 		}
 		return errNoReadyEndpoints
 	}
 	// we had existing endpoints from the previous list call. get those again and check if they became ready
-	for _, existingEps := range existingEndpointSliceNames {
+	for _, existingEps := range *existingEndpointSliceNames {
 		eps, err := clientset.DiscoveryV1().EndpointSlices(namespace).Get(ctx, existingEps, metav1.GetOptions{})
 		if err != nil {
-			fmt.Printf("Error fetching endpoint %s: %s", eps, err.Error())
+			fmt.Printf("Error fetching endpoint %s: %s", existingEps, err.Error())
 			continue
 		}
 		for _, endpoint := range eps.Endpoints {
