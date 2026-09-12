@@ -94,7 +94,22 @@ func (iv *imageVerifier) Verify(
 		var digest string
 		if isInCache {
 			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
-			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache", iv.rule.ReportProperties)
+			// The cache key only captures policy/rule identity and the image reference,
+			// not live context (ConfigMaps, API calls) or request.object data that
+			// validate.deny conditions may reference. Cryptographic re-verification can
+			// safely be skipped for a cached image (its signature/attestation content is
+			// immutable per digest), but deny evaluation must still run on every
+			// admission, otherwise a rule that combines an image with a live condition
+			// silently degrades to "always pass" for the cache TTL.
+			if iv.rule.HasValidateImageVerification() {
+				if err := iv.validate(imageVerify, ctx); err != nil {
+					ruleResp = engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("verifyImages validation failed: %v", err), iv.rule.ReportProperties)
+				} else {
+					ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache", iv.rule.ReportProperties)
+				}
+			} else {
+				ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache", iv.rule.ReportProperties)
+			}
 			digest = imageInfo.Digest
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
