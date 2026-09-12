@@ -48,11 +48,19 @@ type ivfuncs struct {
 	nameOpts        []name.Option
 	verifications   *ImageVerificationResults
 
-	// pendingIntotoRestores holds intoto payloads read back from the cache on
+	// pendingAttestationRestores holds verified attestation payloads (InToto
+	// predicates or Notary/OCI-referrer artifacts) read back from the cache on
 	// a verifyAttestationSignatures() hit, keyed by "<image>\x00<attestation>".
-	// Applying them to ImageData (which needs an imgCtx.Get()) is deferred
-	// until extractPayload() actually asks for that image+attestation, so a
-	// policy that only calls verifyAttestationSignatures() never pays for it.
+	// Applying them to ImageData is deferred until extractPayload() actually
+	// asks for that image+attestation, so a policy that only calls
+	// verifyAttestationSignatures() never pays for it.
+	//
+	// Every attestation type is required to have a cached payload before a
+	// cache hit is trusted (see verify_image_attestations_string_string_stringarray):
+	// for InToto, ImageData.GetPayload errors out without one; for
+	// Referrer/Notary it has no such guard and will silently fetch an
+	// unverified artifact from the registry instead (see #17130), so the
+	// verify-side degrade check must never special-case InToto only.
 	//
 	// The cache *write* on a miss stays eager (see
 	// verify_image_attestations_string_string_stringarray): img is already
@@ -60,7 +68,7 @@ type ivfuncs struct {
 	// and deferring it to extractPayload() would mean a verify-only policy
 	// never completes the write -- so it would never get a real cache hit
 	// again, defeating caching entirely for that common case.
-	pendingIntotoRestores map[string]map[string][]byte
+	pendingAttestationRestores map[string]map[string][]byte
 }
 
 func ImageVerifyCELFuncs(
@@ -93,20 +101,20 @@ func ImageVerifyCELFuncs(
 	}
 
 	return &ivfuncs{
-		Adapter:               adapter,
-		logger:                logger,
-		imgCtx:                imgCtx,
-		policy:                ivpol,
-		creds:                 spec.Credentials,
-		imgRules:              imgRules,
-		attestationList:       attestationMap(ivpol),
-		cosignVerifier:        cosign.NewVerifier(lister, logger),
-		notaryVerifier:        notary.NewVerifier(logger),
-		ivCache:               ivCache,
-		nameOpts:              nameOpts,
-		authOpts:              authOpts[:],
-		verifications:         verifications,
-		pendingIntotoRestores: map[string]map[string][]byte{},
+		Adapter:                    adapter,
+		logger:                     logger,
+		imgCtx:                     imgCtx,
+		policy:                     ivpol,
+		creds:                      spec.Credentials,
+		imgRules:                   imgRules,
+		attestationList:            attestationMap(ivpol),
+		cosignVerifier:             cosign.NewVerifier(lister, logger),
+		notaryVerifier:             notary.NewVerifier(logger),
+		ivCache:                    ivCache,
+		nameOpts:                   nameOpts,
+		authOpts:                   authOpts[:],
+		verifications:              verifications,
+		pendingAttestationRestores: map[string]map[string][]byte{},
 	}, nil
 }
 
@@ -132,7 +140,7 @@ func writeCacheKeyPart(b *strings.Builder, part string) {
 }
 
 // pendingKey builds the request-scoped lookup key used by the
-// pendingIntotoRestores map.
+// pendingAttestationRestores map.
 func pendingKey(image, attestation string) string {
 	return image + "\x00" + attestation
 }
@@ -240,23 +248,28 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if found, payloads, err := f.ivCache.GetWithPayload(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
-				if attest.IsInToto() && len(payloads) == 0 {
-					// A degraded entry (cached "found" but no payload to
-					// restore) can't be trusted as a hit -- we can't safely
-					// defer this decision since we don't know yet whether
-					// extractPayload() will be called later in this same
-					// evaluation. Fall back to full re-verification below
-					// rather than denying an admission that was already
-					// verified once.
+				payloadKey := attestationPayloadKey(attest)
+				if payloadKey == "" || len(payloads[payloadKey]) == 0 {
+					// A degraded entry (cached "found" but no payload for
+					// this attestation's specific predicate/artifact type to
+					// restore) can't be trusted as a hit for ANY attestation
+					// type -- we can't safely defer this decision since we
+					// don't know yet whether extractPayload() will be called
+					// later in this same evaluation. This matters even more
+					// for Referrer/Notary attestations than InToto: InToto's
+					// GetPayload errors out with nothing to restore, but
+					// Referrer/Notary's has no such guard and silently falls
+					// back to fetching an unverified artifact straight from
+					// the registry instead (see #17130). Fall back to full
+					// re-verification below rather than denying an admission
+					// that was already verified once, or -- worse --
+					// returning unverified data as if it were verified.
 					f.logger.V(4).Info("cache hit has no payload to restore, falling back to re-verification", "image", image, "attestation", attestation)
 				} else {
-					if len(payloads) > 0 {
-						// Defer applying the payload to ImageData (which
-						// needs an imgCtx.Get()) until extractPayload()
-						// actually asks for it -- a verify-only policy
-						// never pays for it.
-						f.pendingIntotoRestores[pendingKey(image, attestation)] = payloads
-					}
+					// Defer applying the payload to ImageData (which needs an
+					// imgCtx.Get()) until extractPayload() actually asks for
+					// it -- a verify-only policy never pays for it.
+					f.pendingAttestationRestores[pendingKey(image, attestation)] = payloads
 					f.logger.V(4).Info("image attestation verification cache hit", "image", image, "policy", f.policy.GetName())
 					f.verifications.Record(image, true)
 					return f.NativeToValue(len(attestors))
@@ -305,16 +318,19 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			// Deferring this write to extractPayload() would mean a
 			// verify-only policy (which never calls it) never completes
 			// the write, so it would never get a real cache hit again.
-			payloads := intotoPayloadsFromImage(img, attest)
-			if attest.IsInToto() && len(payloads) == 0 {
+			payloads := attestationPayloadFromImage(img, attest)
+			if len(payloads) == 0 {
 				// Verification succeeded but we couldn't capture the payload to
 				// cache alongside it. Skip the cache write entirely rather than
 				// recording a presence-only hit: a future admission would see
-				// "found" but have nothing to restore, silently reproducing the
-				// "cannot be fetch before verifying" error. Leaving this
-				// uncached means the next request re-verifies from scratch
-				// instead of degrading.
-				f.logger.Error(nil, "skipping cache write: failed to capture intoto payload after successful verification", "image", image, "attestation", attestation)
+				// "found" but have nothing to restore, which -- depending on
+				// attestation type -- either reproduces the original
+				// "cannot be fetch before verifying" error (InToto) or, worse,
+				// silently falls back to an unverified registry fetch
+				// (Referrer/Notary, see #17130). Leaving this uncached means
+				// the next request re-verifies from scratch instead of
+				// degrading either way.
+				f.logger.Error(nil, "skipping cache write: failed to capture attestation payload after successful verification", "image", image, "attestation", attestation)
 			} else if _, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, true, payloads); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
@@ -326,15 +342,37 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 	}
 }
 
-// intotoPayloadsFromImage reads verified intoto payloads from ImageData after a
-// successful Cosign attestation verify. ImageData does not expose a getter for
-// the raw map, so we round-trip through GetPayload + json.Marshal.
+// attestationPayloadKey returns the map key a verified attestation's payload
+// is cached and restored under: the InToto predicate type or the
+// Referrer/Notary artifact type, whichever the attestation carries.
+func attestationPayloadKey(attest v1beta1.Attestation) string {
+	if attest.IsInToto() {
+		return attest.InToto.Type
+	}
+	if attest.IsReferrer() {
+		return attest.Referrer.Type
+	}
+	return ""
+}
+
+// attestationPayloadFromImage reads the verified attestation payload (an
+// InToto predicate or a Notary/OCI-referrer artifact) from ImageData after a
+// successful Cosign or Notary attestation verify. ImageData does not expose a
+// getter for the raw verifiedIntotoPayloads/verifiedReferrers maps, so we
+// round-trip through GetPayload + json.Marshal instead.
+//
+// This must only be called immediately after a verification that populated
+// img with THIS request's verified data. Calling it on a fresh/restored
+// ImageData -- e.g. one that never went through verification this request --
+// would hit GetPayload's Referrer/Notary fallback path, which fetches an
+// unverified artifact straight from the registry (see #17130).
 //
 // Safe degrade: if GetPayload (or Marshal) fails, we return nil and the
 // caller skips caching this result entirely rather than recording a
 // presence-only entry.
-func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Attestation) map[string][]byte {
-	if img == nil || !attest.IsInToto() || attest.InToto == nil {
+func attestationPayloadFromImage(img *imagedataloader.ImageData, attest v1beta1.Attestation) map[string][]byte {
+	key := attestationPayloadKey(attest)
+	if img == nil || key == "" {
 		return nil
 	}
 	payload, err := img.GetPayload(attest)
@@ -345,7 +383,7 @@ func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Atte
 	if err != nil {
 		return nil
 	}
-	return map[string][]byte{attest.InToto.Type: b}
+	return map[string][]byte{key: b}
 }
 
 func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
@@ -359,20 +397,55 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
+		key := pendingKey(image, attestation)
+
+		// Referrer/Notary payloads are served directly from the cache-hit
+		// restore, on every call, and never through ImageData.GetPayload():
+		// the SDK has no setter to record a verified referrer from raw
+		// bytes, and calling GetPayload() on an ImageData with nothing
+		// recorded silently falls back to fetching an unverified artifact
+		// from the registry (see #17130). Unlike InToto's restore, this
+		// entry is intentionally NOT deleted after one use -- a policy
+		// commonly calls extractPayload() more than once for the same
+		// image+attestation (e.g. checking several payload fields across
+		// separate CEL expressions), and every one of those calls must stay
+		// on the verified path, not just the first. A cache entry missing
+		// the specific artifact type this attestation expects is treated as
+		// a hard failure here too, matching InToto's fail-closed behavior,
+		// rather than falling through to the unverified live fetch.
+		if attest.IsReferrer() {
+			if payloads, ok := f.pendingAttestationRestores[key]; ok {
+				data, ok := payloads[attest.Referrer.Type]
+				if !ok {
+					return types.NewErr("cached attestation payload for %q is missing verified artifact type %q", attestation, attest.Referrer.Type)
+				}
+				var payload any
+				if err := json.Unmarshal(data, &payload); err != nil {
+					return types.NewErr("failed to unmarshal cached attestation payload: %v", err)
+				}
+				return f.NativeToValue(payload)
+			}
+		}
+
 		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
-		key := pendingKey(image, attestation)
 
-		// Complete a deferred restore from a same-request cache hit: only
-		// now, since extractPayload() was actually called, apply the cached
-		// payload to this fresh ImageData.
-		if payloads, ok := f.pendingIntotoRestores[key]; ok {
-			for predicateType, data := range payloads {
-				img.AddVerifiedIntotoPayloads(predicateType, data)
+		// Complete a deferred InToto restore from a same-request cache hit:
+		// only now, since extractPayload() was actually called, apply the
+		// cached payload to this fresh ImageData. AddVerifiedIntotoPayloads
+		// makes this permanent on img, so repeat extractPayload() calls for
+		// the same image+attestation stay safe via GetPayload() below
+		// without needing this map entry again -- unlike Referrer, which has
+		// no such permanent-on-img equivalent.
+		if attest.IsInToto() {
+			if payloads, ok := f.pendingAttestationRestores[key]; ok {
+				delete(f.pendingAttestationRestores, key)
+				if data, ok := payloads[attest.InToto.Type]; ok {
+					img.AddVerifiedIntotoPayloads(attest.InToto.Type, data)
+				}
 			}
-			delete(f.pendingIntotoRestores, key)
 		}
 
 		payload, err := img.GetPayload(attest)
