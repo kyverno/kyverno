@@ -1,71 +1,136 @@
 package test
 
 import (
-	"strings"
 	"testing"
 
+	fatihcolor "github.com/fatih/color"
+	outputcolor "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/stretchr/testify/assert"
 )
 
-// TestExcludedResourceDisplay verifies that excluded resources display their full path
-func TestExcludedResourceDisplay(t *testing.T) {
+// initNoColor initializes the Kyverno CLI color globals in no-color mode
+// and registers a t.Cleanup to restore the previous color state.
+func initNoColor(t *testing.T) {
+	t.Helper()
+	prev := fatihcolor.NoColor
+	t.Cleanup(func() {
+		fatihcolor.NoColor = prev
+		outputcolor.Init(prev)
+	})
+	fatihcolor.NoColor = true
+	outputcolor.Init(true)
+}
+
+// TestFormatResource verifies that formatResource correctly converts comma-separated
+// resource keys into slash-separated display paths for all key shapes.
+func TestFormatResource(t *testing.T) {
+	initNoColor(t)
+
 	testCases := []struct {
-		name            string
-		resourceKey     string
-		expectedDisplay string
-		expectedParts   int
+		name        string
+		resourceKey string
+		expected    string
 	}{
 		{
-			name:            "deployment in default namespace",
-			resourceKey:     "apps/v1,Deployment,default,skipped-deployment-1",
-			expectedDisplay: "apps/v1/Deployment/default/skipped-deployment-1",
-			expectedParts:   5, // apps, v1, Deployment, default, skipped-deployment-1
+			name:        "namespaced deployment (apps group)",
+			resourceKey: "apps/v1,Deployment,default,my-dep",
+			expected:    "apps/v1/Deployment/default/my-dep",
 		},
 		{
-			name:            "deployment in staging namespace",
-			resourceKey:     "apps/v1,Deployment,staging,skipped-deployment-2",
-			expectedDisplay: "apps/v1/Deployment/staging/skipped-deployment-2",
-			expectedParts:   5, // apps, v1, Deployment, staging, skipped-deployment-2
+			name:        "namespaced pod (core group)",
+			resourceKey: "v1,Pod,kube-system,my-pod",
+			expected:    "v1/Pod/kube-system/my-pod",
 		},
 		{
-			name:            "pod in kube-system",
-			resourceKey:     "v1,Pod,kube-system,test-pod",
-			expectedDisplay: "v1/Pod/kube-system/test-pod",
-			expectedParts:   4, // v1, Pod, kube-system, test-pod
+			name:        "cluster-scoped namespace",
+			resourceKey: "v1,Namespace,,prod",
+			expected:    "v1/Namespace/prod",
 		},
 		{
-			name:            "service in custom namespace",
-			resourceKey:     "v1,Service,my-app,frontend-svc",
-			expectedDisplay: "v1/Service/my-app/frontend-svc",
-			expectedParts:   4, // v1, Service, my-app, frontend-svc
+			name:        "cluster-scoped clusterrole",
+			resourceKey: "rbac.authorization.k8s.io/v1,ClusterRole,,admin",
+			expected:    "rbac.authorization.k8s.io/v1/ClusterRole/admin",
+		},
+		{
+			name:        "cluster-scoped CRD",
+			resourceKey: "apiextensions.k8s.io/v1,CustomResourceDefinition,,policies.kyverno.io",
+			expected:    "apiextensions.k8s.io/v1/CustomResourceDefinition/policies.kyverno.io",
+		},
+		{
+			name:        "fallback: fewer than 4 parts (slash-delimited input)",
+			resourceKey: "v1/Pod/default/test-pod",
+			expected:    "v1/Pod/default/test-pod",
+		},
+		{
+			name:        "fallback: single component (resource name only)",
+			resourceKey: "test-pod",
+			expected:    "/test-pod",
+		},
+		{
+			name:        "fallback: surplus components (more than 4 comma parts)",
+			resourceKey: "v1,Pod,default,test-pod,extra",
+			expected:    "/v1,Pod,default,test-pod,extra",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// This mimics the fix in output.go
-			resourceGVKAndName := strings.Replace(tc.resourceKey, ",", "/", -1)
-			assert.Equal(t, tc.expectedDisplay, resourceGVKAndName)
-
-			// Verify we can split it correctly for display
-			resourceParts := strings.Split(resourceGVKAndName, "/")
-			assert.Equal(t, tc.expectedParts, len(resourceParts), "Resource should have expected number of parts")
-
-			// Verify the format used in color.Resource()
-			// The last part is always the name
-			typeAndNamespace := strings.Join(resourceParts[:len(resourceParts)-1], "/")
-			name := resourceParts[len(resourceParts)-1]
-
-			// Reconstruct to verify
-			reconstructed := typeAndNamespace + "/" + name
-			assert.Equal(t, tc.expectedDisplay, reconstructed)
+			result := formatResource(tc.resourceKey)
+			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
 
-// TestExcludedResourceFormatConsistency verifies the resource format matches the actual output
+// TestExcludedResourceDisplay verifies that excluded resources display correctly
+// for both namespace-scoped and cluster-scoped resources.
+func TestExcludedResourceDisplay(t *testing.T) {
+	initNoColor(t)
+
+	testCases := []struct {
+		name            string
+		resourceKey     string
+		expectedDisplay string
+	}{
+		{
+			name:            "deployment in default namespace",
+			resourceKey:     "apps/v1,Deployment,default,skipped-deployment-1",
+			expectedDisplay: "apps/v1/Deployment/default/skipped-deployment-1",
+		},
+		{
+			name:            "deployment in staging namespace",
+			resourceKey:     "apps/v1,Deployment,staging,skipped-deployment-2",
+			expectedDisplay: "apps/v1/Deployment/staging/skipped-deployment-2",
+		},
+		{
+			name:            "pod in kube-system",
+			resourceKey:     "v1,Pod,kube-system,test-pod",
+			expectedDisplay: "v1/Pod/kube-system/test-pod",
+		},
+		{
+			name:            "service in custom namespace",
+			resourceKey:     "v1,Service,my-app,frontend-svc",
+			expectedDisplay: "v1/Service/my-app/frontend-svc",
+		},
+		{
+			name:            "clusterrole with empty namespace (cluster-scoped)",
+			resourceKey:     "v1,ClusterRole,,admin",
+			expectedDisplay: "v1/ClusterRole/admin",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := formatResource(tc.resourceKey)
+			assert.Equal(t, tc.expectedDisplay, result)
+		})
+	}
+}
+
+// TestExcludedResourceFormatConsistency verifies the resource format matches
+// the actual output for common resource types including cluster-scoped resources.
 func TestExcludedResourceFormatConsistency(t *testing.T) {
-	// This test verifies that our fix produces the same format as other resources
+	initNoColor(t)
+
 	testCases := []struct {
 		name           string
 		resourceKey    string
@@ -81,48 +146,17 @@ func TestExcludedResourceFormatConsistency(t *testing.T) {
 			resourceKey:    "v1,Pod,default,test-pod",
 			expectedFormat: "v1/Pod/default/test-pod",
 		},
+		{
+			name:           "clusterrole cluster-scoped",
+			resourceKey:    "v1,ClusterRole,,admin",
+			expectedFormat: "v1/ClusterRole/admin",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Apply the transformation from the fix
-			result := strings.Replace(tc.resourceKey, ",", "/", -1)
+			result := formatResource(tc.resourceKey)
 			assert.Equal(t, tc.expectedFormat, result)
-		})
-	}
-}
-
-// TestGenerateResourceKey verifies the resource key generation matches our expectations
-func TestGenerateResourceKey(t *testing.T) {
-	// This test verifies that generateResourceKey creates the format we expect
-	testCases := []struct {
-		apiVersion string
-		kind       string
-		namespace  string
-		name       string
-		expected   string
-	}{
-		{
-			apiVersion: "apps/v1",
-			kind:       "Deployment",
-			namespace:  "default",
-			name:       "test-deployment",
-			expected:   "apps/v1,Deployment,default,test-deployment",
-		},
-		{
-			apiVersion: "v1",
-			kind:       "Pod",
-			namespace:  "kube-system",
-			name:       "test-pod",
-			expected:   "v1,Pod,kube-system,test-pod",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.expected, func(t *testing.T) {
-			// This mimics generateResourceKey function
-			result := tc.apiVersion + "," + tc.kind + "," + tc.namespace + "," + tc.name
-			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
