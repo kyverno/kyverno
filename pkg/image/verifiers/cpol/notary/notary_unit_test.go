@@ -1,15 +1,26 @@
 package notary
 
 import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/notaryproject/notation-core-go/signature"
 	notation "github.com/notaryproject/notation-go"
 	"github.com/notaryproject/notation-go/verifier/trustpolicy"
+	"gotest.tools/v3/assert"
 )
 
 func TestCombineCerts(t *testing.T) {
@@ -315,4 +326,60 @@ func TestVerifyOutcomesErrorMessages(t *testing.T) {
 	if len(errMsg) == 0 {
 		t.Error("verifyOutcomes() error message should not be empty")
 	}
+}
+
+// contextOnlyClient is a verifiers.Client that contributes nothing but the
+// caller's context, so a test registry needs no credentials or TLS plumbing.
+type contextOnlyClient struct{}
+
+// Options returns the caller's context and nothing else.
+func (contextOnlyClient) Options(ctx context.Context) ([]remote.Option, []name.Option, error) {
+	return []remote.Option{remote.WithContext(ctx)}, nil, nil
+}
+
+// NameOptions returns no name options, so references are parsed as written.
+func (contextOnlyClient) NameOptions() []name.Option { return nil }
+
+// TestVerifyAttestatorsHonoursCallContext asserts verifyAttestators hands its
+// own context to notation rather than a fresh one, so cancelling the admission
+// request stops the registry round trips notation makes on our behalf. The test
+// registry answers the manifest lookups, then cancels the context and never
+// answers the signature listing, so the call can only return by honouring it.
+func TestVerifyAttestatorsHonoursCallContext(t *testing.T) {
+	manifest := []byte(`{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","config":{"mediaType":"application/vnd.oci.image.config.v1+json","digest":"sha256:44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","size":2},"layers":[]}`)
+	sum := sha256.Sum256(manifest)
+	dgst := "sha256:" + hex.EncodeToString(sum[:])
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/referrers/"):
+			cancel()
+			select {
+			case <-r.Context().Done():
+			case <-time.After(10 * time.Second):
+			}
+		case strings.HasSuffix(r.URL.Path, "/manifests/"+dgst):
+			w.Header().Set("Content-Type", string(types.OCIManifestSchema1))
+			w.Header().Set("Docker-Content-Digest", dgst)
+			w.Header().Set("Content-Length", strconv.Itoa(len(manifest)))
+			_, _ = w.Write(manifest)
+		default:
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer srv.Close()
+
+	// httptest listens on 127.0.0.1, which go-containerregistry resolves over
+	// plain http, so no TLS plumbing is needed here.
+	ref, err := name.ParseReference(strings.TrimPrefix(srv.URL, "http://") + "/test/image:signed")
+	assert.NilError(t, err)
+	hash, err := v1.NewHash(dgst)
+	assert.NilError(t, err)
+
+	opts := verifiers.Options{ImageRef: ref.Name(), Cert: cert, Client: contextOnlyClient{}}
+	_, err = verifyAttestators(ctx, &notaryVerifier{}, ref, opts, v1.Descriptor{Digest: hash})
+	assert.ErrorContains(t, err, context.Canceled.Error())
 }
