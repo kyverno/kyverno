@@ -26,6 +26,11 @@ func (e *PatternError) Error() string {
 	return e.Err.Error()
 }
 
+// Unwrap returns the underlying error for use with errors.Is and errors.As.
+func (e *PatternError) Unwrap() error {
+	return e.Err
+}
+
 // MatchPattern is a start of element-by-element pattern validation process.
 // It assumes that validation is started from root, so "/" is passed
 func MatchPattern(logger logr.Logger, resource, pattern interface{}) error {
