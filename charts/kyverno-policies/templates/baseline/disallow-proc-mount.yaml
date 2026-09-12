@@ -67,8 +67,12 @@ spec:
           spec.containers[*].securityContext.procMount, spec.initContainers[*].securityContext.procMount,
           and spec.ephemeralContainers[*].securityContext.procMount must be unset or
           set to `Default`.
-        pattern:
-          spec:
+        anyPattern:
+        {{- if .Values.podSecurityUserNamespaces }}
+        - spec:
+            hostUsers: false
+        {{- end }}
+        - spec:
             =(ephemeralContainers):
               - =(securityContext):
                   =(procMount): "Default"

@@ -18,6 +18,15 @@ podSecurityStandard: baseline
 # -- Pod Security Standard severity (`low`, `medium`, `high`).
 podSecuritySeverity: medium
 
+# -- Enable support for Kubernetes User Namespaces (hostUsers: false).
+# When enabled, the disallow-proc-mount policy will allow pods with spec.hostUsers
+# set to false, as user namespaces map container UID 0 to a non-root host UID,
+# relaxing the Baseline procMount requirement (see kubernetes.io PSS admission
+# integration docs). Requires Kubernetes v1.33+ with the
+# UserNamespacesPodSecurityStandards feature gate.
+# For more info: https://kubernetes.io/docs/concepts/workloads/pods/user-namespaces/
+podSecurityUserNamespaces: false
+
 # -- Define podSecuritySeverity overrides for specific policies.
 # Override the global `podSecuritySeverity` with an individual severity for individual policies.
 # An empty string per-policy entry suppresses the annotation entirely.
