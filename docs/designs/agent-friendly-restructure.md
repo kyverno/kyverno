@@ -36,8 +36,12 @@ several SEO-blog search results) — checked directly against Claude Code's own 
    both `AGENTS.md` and `docs/dev/api/README.md`) into one canonical file, `api-versioning.md`. Added
    `client-access.md` (the `pkg/client` vs `pkg/clients` vs `dclient` distinction — genuinely undocumented before
    this) and `repo-boundaries.md` (every related `kyverno/*` repo — `api`, `KDP`, `website`, `community`,
-   `chainsaw`, and the wider ecosystem — and why each is separate rather than a folder here). Thin pointers for
-   `logging.md`/`feature-flags.md` rather than duplicating `docs/dev/`.
+   `chainsaw`, and the wider ecosystem — and why each is separate rather than a folder here). **Deliberately did
+   not** add `logging.md`/`feature-flags.md` pointer files here: root `AGENTS.md` already links straight to
+   `docs/dev/logging/logging.md` and `docs/dev/feature-flags/README.md` from its own Coding Conventions section, so
+   a `docs/context/shared/` file for either would only redirect to a redirect — a real distinction (the
+   `api-versioning`/`client-access` cases) justifies a shared file; matching the other two for structural symmetry
+   alone doesn't.
 4. **9 nested `AGENTS.md` files** — `api/`, `pkg/{engine,cel,webhooks,background,image,clients,toggle,controllers}/`.
    Each was rewritten after three parallel deep-read research passes that actually read source, tests, and recent
    git history (not directory listings), and every load-bearing claim was independently spot-checked against the
@@ -46,7 +50,7 @@ several SEO-blog search results) — checked directly against Claude Code's own 
    - `pkg/background` has **no** `DeletingPolicy` subpackage at all; DeletingPolicy runs as a self-scheduling
      reconcile loop in `pkg/controllers/deleting`, never via `UpdateRequest`.
    - `pkg/clients/dclient` (the client most policy-engine code actually uses) has no metrics/tracing/logging
-     decorators of its own, unlike every generated client wrapper around it — but every production binary
+     decorators of its own, unlike every generated client wrapper around it — but every controller binary
      constructs it through `cmd/internal.Setup`, which hands it already-instrumented dynamic/kube clients first, so
      ordinary delegated resource calls do carry that instrumentation. The real gap is narrower: `dclient` instances
      built outside that path (`cmd/cli/kubectl-kyverno`'s `apply` command, `ext/cluster.New`) get none at all.

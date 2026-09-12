@@ -34,7 +34,8 @@ pkg/                  # Core library code
   webhooks/           #   Admission webhook handlers
   controllers/        #   Controller implementations
   cel/                #   CEL-based policy evaluation
-  client/             #   Generated Kubernetes clientset, listers, informers for kyverno's own CRDs (never hand-edit)
+  client/             #   Generated Kubernetes clientset, listers, informers for Kyverno's own CRDs and the
+                      #   external policies.kyverno.io types (never hand-edit)
   clients/            #   Instrumented client wrappers (metrics/tracing/logging); dclient is the preferred
                       #   entry point for new code needing dynamic/discovery-based access to arbitrary GVKs
   config/             #   Runtime configuration

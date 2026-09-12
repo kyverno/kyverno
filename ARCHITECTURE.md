@@ -40,9 +40,10 @@ and the externally-defined `policies.kyverno.io` types from `github.com/kyverno/
 via `make codegen-client-all`. `pkg/clients/` is a second, distinct generation layer (instrumented metrics+tracing
 +logging wrapper clients, produced by `hack/client-wrapper`) that actually gets consumed by business logic.
 `pkg/clients/dclient` is hand-written and is the dominant pattern for new code needing dynamic/discovery-based access
-across arbitrary GVKs; it embeds no instrumentation decorators of its own, but every production binary constructs it
-via `cmd/internal.Setup`, which hands it already metrics/tracing-wrapped dynamic and kube clients — see
-[pkg/clients/AGENTS.md](pkg/clients/AGENTS.md) for the exact boundary. **Prefer `pkg/clients/dclient.Interface` for
+across arbitrary GVKs; it embeds no instrumentation decorators of its own, but every controller binary constructs it
+via `cmd/internal.Setup`, which hands it already metrics/tracing-wrapped dynamic and kube clients (the CLI binary,
+`kubectl-kyverno`, does not use this path) — see [pkg/clients/AGENTS.md](pkg/clients/AGENTS.md) for the exact
+boundary. **Prefer `pkg/clients/dclient.Interface` for
 generic resource access, or the typed `pkg/clients/{kube,kyverno}` wrappers when the type is known — never construct
 a raw `pkg/client`/`k8s.io/client-go` client directly in new controller/webhook code** (accepting one of those
 packages' *interface* types as a function parameter is fine and common — the generated wrappers embed those same

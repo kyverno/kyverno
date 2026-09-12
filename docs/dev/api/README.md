@@ -23,11 +23,17 @@ This should be run whenever API types in `api/` change. The output is committed 
 
 ## Deprecation Schedule
 
-The deprecation schedule for legacy `kyverno.io` v1 types (ClusterPolicy, Policy) and their migration path to v2 is published at:
+The deprecation schedule for legacy `kyverno.io` v1 types (ClusterPolicy, Policy) is published at:
 
 👉 **[kyverno.io — Deprecation Schedule for Legacy Types](https://kyverno.io/docs/policy-types/overview/#deprecation-schedule-for-legacy-types)**
 
-The v1 API group is currently the storage version but is being deprecated. The goal is to make v2 the preferred storage version and remove all v1\* versions from `kyverno.io`.
+Their migration path is **not** to a `kyverno.io/v2` version of the same types — `v2` has no `ClusterPolicy`/`Policy`
+type at all — it's to the CEL `policies.kyverno.io` types (ValidatingPolicy, MutatingPolicy, GeneratingPolicy,
+ImageValidatingPolicy), per the deprecation marker on `v1.ClusterPolicy` itself. `v1` is currently the storage
+version for `ClusterPolicy`/`Policy` specifically (`config/crds/kyverno/kyverno.io_clusterpolicies.yaml`) — this is
+not a group-wide fact about every `kyverno.io` kind: other kinds in this group (e.g. `GlobalContextEntry`) have
+their own, independent storage version. See
+[docs/context/shared/api-versioning.md](../../context/shared/api-versioning.md) for the full picture.
 
 ## Concepts
 * https://kubernetes.io/docs/reference/using-api/api-concepts/ 
