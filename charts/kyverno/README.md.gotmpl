@@ -238,6 +238,48 @@ In `v3` chart values changed significantly, please read the instructions below t
 
 Hardcoded defaults for `config.excludeGroups` and `config.excludeUsernames` have been removed, please review those fields if you provide your own exclusions.
 
+## Legacy policy resources gate
+
+Starting with 1.20, installing or upgrading this chart is blocked by default while legacy `kyverno.io` policy resources (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, and `kyverno.io/v2` `PolicyException`) still exist on the cluster. These types are deprecated in favor of the `policies.kyverno.io` policy types; see the [migration guide](https://kyverno.io/docs/guides/migration-to-cel/).
+
+The gate has two independent layers:
+
+1. **A render-time check.** On `helm install` and `helm upgrade` against a live cluster, the chart evaluates a `lookup` against the five legacy kinds and fails the render with the counts, a sample of offending resource names, the migration guide link, and the opt-out value when any are found. Helm only populates `lookup` against a live cluster, so offline renders (`helm template`, `helm install --dry-run`) do not trigger this check; see the known bypasses below.
+2. **A `pre-install,pre-upgrade` hook Job** (`upgrade.legacyPolicyCheck.*`) that runs `kyverno check-legacy-policies` (an internal, hidden `kyverno-cli` command) against the live cluster with its own bundled, read-only RBAC, for GitOps tools that apply hooks server-side.
+
+Once you have migrated your legacy policies, or if you need to bypass the check temporarily, set:
+
+```console
+helm upgrade --install kyverno --namespace kyverno kyverno/kyverno --set upgrade.allowLegacyPolicies=true
+```
+
+`upgrade.allowLegacyPolicies=true` disables both layers. `upgrade.legacyPolicyCheck.enabled=false` disables only the hook Job.
+
+**Known bypasses.** Both layers rely on Helm evaluating against a live cluster, so the following paths are not covered:
+
+- `helm template`, client-side `helm install --dry-run` (`--dry-run=client`), and `ct lint` never populate `lookup`, so the render-time check always passes for them. Server-side `helm install --dry-run=server` does connect to the cluster and evaluate `lookup`, so it is still covered by the render-time check.
+- `helm upgrade/install --no-hooks` skips the hook Job.
+- ArgoCD `Skip Hooks` sync option, or simply not syncing hook resources, skips the hook Job.
+- Flux `HelmRelease.spec.install.disableHooks` / `spec.upgrade.disableHooks` skips the hook Job.
+- Installing from Kyverno's statically generated manifests (rendered with `global.templating.enabled`) has neither layer, since all hooks are guarded by that flag.
+
+If any of these apply to your install method, run the check manually before installing or upgrading:
+
+```console
+kyverno check-legacy-policies
+```
+
+(`check-legacy-policies` is a hidden `kyverno-cli` command: it does not appear in `--help`, but it is still directly invokable.)
+
+or, without the `kyverno-cli` binary:
+
+```console
+kubectl get clusterpolicies,policies,cleanuppolicies,clustercleanuppolicies -A
+kubectl get policyexceptions.kyverno.io -A
+```
+
+**Note on the hook Job's failure mode.** When the hook Job blocks a first install, Helm records a `failed` release that you must remove with `helm uninstall` before retrying, even after you have migrated your policies or set the opt-out.
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:

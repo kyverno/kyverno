@@ -1,0 +1,172 @@
+{{- if .Values.upgrade.legacyPolicyCheck.enabled -}}
+{{- if not .Values.upgrade.allowLegacyPolicies -}}
+{{- if not .Values.global.templating.enabled -}}
+{{- $automountSAToken := .Values.upgrade.legacyPolicyCheck.serviceAccount.automountServiceAccountToken }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "kyverno.fullname" . }}:check-legacy-policies
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "100"
+rules:
+  - apiGroups:
+    - kyverno.io
+    resources:
+    - clusterpolicies
+    - policies
+    - cleanuppolicies
+    - clustercleanuppolicies
+    - policyexceptions
+    verbs:
+    - get
+    - list
+  - apiGroups:
+    - apiextensions.k8s.io
+    resources:
+    - customresourcedefinitions
+    verbs:
+    - get
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "kyverno.fullname" . }}:check-legacy-policies
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "100"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ template "kyverno.fullname" . }}:check-legacy-policies
+subjects:
+  - kind: ServiceAccount
+    name: {{ template "kyverno.fullname" . }}-check-legacy-policies
+    namespace: {{ template "kyverno.namespace" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ template "kyverno.fullname" . }}-check-legacy-policies
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "100"
+automountServiceAccountToken: false
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ template "kyverno.fullname" . }}-check-legacy-policies
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "200"
+spec:
+  backoffLimit: 0
+  template:
+    {{- if or .Values.upgrade.legacyPolicyCheck.podAnnotations .Values.upgrade.legacyPolicyCheck.podLabels }}
+    metadata:
+      {{- with .Values.upgrade.legacyPolicyCheck.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.upgrade.legacyPolicyCheck.podLabels }}
+      labels:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- end }}
+    spec:
+      serviceAccountName: {{ template "kyverno.fullname" . }}-check-legacy-policies
+      automountServiceAccountToken: {{ $automountSAToken }}
+      {{- with .Values.upgrade.legacyPolicyCheck.podSecurityContext }}
+      securityContext:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      restartPolicy: Never
+      containers:
+        - name: kyverno-cli
+          image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.upgrade.legacyPolicyCheck.image "defaultTag" (default .Chart.AppVersion .Values.upgrade.legacyPolicyCheck.image.tag))) | quote }}
+          imagePullPolicy: {{ .Values.upgrade.legacyPolicyCheck.image.pullPolicy }}
+          args:
+            - check-legacy-policies
+          {{- with .Values.upgrade.legacyPolicyCheck.podResources }}
+          resources:
+            {{- tpl (toYaml .) $ | nindent 12 }}
+          {{- end }}
+          {{- with .Values.upgrade.legacyPolicyCheck.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if not $automountSAToken }}
+          volumeMounts:
+            - name: serviceaccount-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          {{- end }}
+      {{- with .Values.upgrade.legacyPolicyCheck.imagePullSecrets | default .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- tpl (include "kyverno.sortedImagePullSecrets" .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.upgrade.legacyPolicyCheck.tolerations | default .Values.global.tolerations}}
+      tolerations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- with .Values.upgrade.legacyPolicyCheck.nodeSelector | default .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- tpl (toYaml .) $ | nindent 8 }}
+      {{- end }}
+      {{- if or .Values.upgrade.legacyPolicyCheck.podAntiAffinity .Values.upgrade.legacyPolicyCheck.podAffinity .Values.upgrade.legacyPolicyCheck.nodeAffinity }}
+      affinity:
+        {{- with .Values.upgrade.legacyPolicyCheck.podAntiAffinity }}
+        podAntiAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.upgrade.legacyPolicyCheck.podAffinity }}
+        podAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+        {{- with .Values.upgrade.legacyPolicyCheck.nodeAffinity }}
+        nodeAffinity:
+          {{- tpl (toYaml .) $ | nindent 10 }}
+        {{- end }}
+      {{- end }}
+      {{- if not $automountSAToken }}
+      volumes:
+        - name: serviceaccount-token
+          projected:
+            defaultMode: 0444
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: {{ .Values.upgrade.legacyPolicyCheck.serviceAccount.projectedServiceAccountToken.expirationSeconds | default 3600 }}
+                  path: token
+                  {{- with .Values.upgrade.legacyPolicyCheck.serviceAccount.projectedServiceAccountToken.audience }}
+                  audience: {{ . }}
+                  {{- end }}
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
+      {{- end }}
+{{- end -}}
+{{- end -}}
+{{- end -}}
