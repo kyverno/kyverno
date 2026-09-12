@@ -78,7 +78,10 @@ func (cl *ClusterLoader) LoadResources(ctx context.Context) (*ResourceResult, er
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
 
-	tasks := cl.createLoadingTasks()
+	tasks, err := cl.createLoadingTasks()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create loading tasks: %w", err)
+	}
 
 	results, err := cl.executeTasks(ctx, tasks)
 	if err != nil {
@@ -114,18 +117,24 @@ func (cl *ClusterLoader) validateOptions(options ResourceOptions) error {
 	return nil
 }
 
-func (cl *ClusterLoader) createLoadingTasks() []LoadTask {
+func (cl *ClusterLoader) createLoadingTasks() ([]LoadTask, error) {
 	var tasks []LoadTask
 	taskID := 0
 	gvks := cl.resourceOptions.ResourceTypes
 	restMapper, err := utils.GetRESTMapper(cl.client)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to get REST mapper: %w", err)
 	}
 	for _, gvk := range gvks {
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return nil
+			if cl.resourceOptions.ContinueOnError {
+				if cl.logger != nil {
+					cl.logger.Warnf("failed to map GVK %v: %v", gvk, err)
+				}
+				continue
+			}
+			return nil, fmt.Errorf("failed to map GVK %v: %w", gvk, err)
 		}
 		gvr := mapping.Resource
 		client := cl.client.GetDynamicInterface().Resource(gvr)
@@ -156,7 +165,7 @@ func (cl *ClusterLoader) createLoadingTasks() []LoadTask {
 		taskID++
 	}
 
-	return tasks
+	return tasks, nil
 }
 
 func (cl *ClusterLoader) executeTasks(ctx context.Context, tasks []LoadTask) ([]LoadTaskResult, error) {
