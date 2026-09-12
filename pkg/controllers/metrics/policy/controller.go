@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -13,7 +14,27 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/workqueue"
 )
+
+const (
+	ControllerName = "policy-metrics"
+	Workers        = 1
+)
+
+type PolicyChangeType int
+
+const (
+	PolicyAdded PolicyChangeType = iota
+	PolicyUpdated
+	PolicyDeleted
+)
+
+type policyMetricsTask struct {
+	action    PolicyChangeType
+	policy    kyvernov1.PolicyInterface
+	oldPolicy kyvernov1.PolicyInterface
+}
 
 type controller struct {
 	ruleInfo metrics.PolicyRuleMetrics
@@ -22,20 +43,21 @@ type controller struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
-	waitGroup *wait.Group
+	queue workqueue.TypedRateLimitingInterface[policyMetricsTask]
 }
 
-// TODO: this is a strange controller, it only processes events, this should be changed to a real controller.
 func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
-	waitGroup *wait.Group,
-) {
+) controllers.Controller {
 	c := controller{
 		ruleInfo:   metrics.GetPolicyInfoMetrics(),
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
-		waitGroup:  waitGroup,
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[policyMetricsTask](),
+			workqueue.TypedRateLimitingQueueConfig[policyMetricsTask]{Name: ControllerName},
+		),
 	}
 	if _, err := controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy); err != nil {
 		logger.Error(err, "failed to register event handlers")
@@ -49,6 +71,7 @@ func NewController(
 			logger.Error(err, "Failed to register callback")
 		}
 	}
+	return &c
 }
 
 func (c *controller) report(ctx context.Context, observer metric.Observer) error {
@@ -79,20 +102,50 @@ func (c *controller) report(ctx context.Context, observer metric.Observer) error
 	return nil
 }
 
-func (c *controller) startRountine(routine func()) {
-	c.waitGroup.Start(routine)
+func (c *controller) Run(ctx context.Context, workers int) {
+	logger.V(2).Info("starting ...")
+	defer logger.V(2).Info("stopped")
+	defer c.queue.ShutDown()
+
+	for i := 0; i < workers; i++ {
+		go wait.UntilWithContext(ctx, c.worker, 0)
+	}
+	<-ctx.Done()
+}
+
+func (c *controller) worker(ctx context.Context) {
+	for c.processNextWorkItem(ctx) {
+	}
+}
+
+func (c *controller) processNextWorkItem(ctx context.Context) bool {
+	task, quit := c.queue.Get()
+	if quit {
+		return false
+	}
+	defer c.queue.Done(task)
+
+	switch task.action {
+	case PolicyAdded:
+		c.registerPolicyChangesMetricAddPolicy(ctx, logger, task.policy)
+	case PolicyUpdated:
+		c.registerPolicyChangesMetricUpdatePolicy(ctx, logger, task.oldPolicy, task.policy)
+	case PolicyDeleted:
+		c.registerPolicyChangesMetricDeletePolicy(ctx, logger, task.policy)
+	}
+
+	c.queue.Forget(task)
+	return true
 }
 
 func (c *controller) addPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.ClusterPolicy)
-	// register kyverno_policy_changes_total metric concurrently
-	c.startRountine(func() { c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p) })
+	c.queue.Add(policyMetricsTask{action: PolicyAdded, policy: p})
 }
 
 func (c *controller) updatePolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.ClusterPolicy), cur.(*kyvernov1.ClusterPolicy)
-	// register kyverno_policy_changes_total metric concurrently
-	c.startRountine(func() { c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP) })
+	c.queue.Add(policyMetricsTask{action: PolicyUpdated, oldPolicy: oldP, policy: curP})
 }
 
 func (c *controller) deletePolicy(obj interface{}) {
@@ -101,20 +154,17 @@ func (c *controller) deletePolicy(obj interface{}) {
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
 	}
-	// register kyverno_policy_changes_total metric concurrently
-	c.startRountine(func() { c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p) })
+	c.queue.Add(policyMetricsTask{action: PolicyDeleted, policy: p})
 }
 
 func (c *controller) addNsPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.Policy)
-	// register kyverno_policy_changes_total metric concurrently
-	c.startRountine(func() { c.registerPolicyChangesMetricAddPolicy(context.TODO(), logger, p) })
+	c.queue.Add(policyMetricsTask{action: PolicyAdded, policy: p})
 }
 
 func (c *controller) updateNsPolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.Policy), cur.(*kyvernov1.Policy)
-	// register kyverno_policy_changes_total metric concurrently
-	c.startRountine(func() { c.registerPolicyChangesMetricUpdatePolicy(context.TODO(), logger, oldP, curP) })
+	c.queue.Add(policyMetricsTask{action: PolicyUpdated, oldPolicy: oldP, policy: curP})
 }
 
 func (c *controller) deleteNsPolicy(obj interface{}) {
@@ -123,6 +173,5 @@ func (c *controller) deleteNsPolicy(obj interface{}) {
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
 	}
-	// register kyverno_policy_changes_total metric concurrently
-	c.startRountine(func() { c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p) })
+	c.queue.Add(policyMetricsTask{action: PolicyDeleted, policy: p})
 }
