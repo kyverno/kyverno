@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -376,7 +376,8 @@ func Test_ValidatePSaControlNames(t *testing.T) {
 				}
 			}`),
 			errors: func(r *Rule) (errs field.ErrorList) {
-				return append(errs,
+				return append(
+					errs,
 					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Running as Non-root", "Invalid control name defined at the given level"),
 				)
 			},
@@ -523,7 +524,8 @@ func Test_ValidatePSaControlNames(t *testing.T) {
 				}
 			}`),
 			errors: func(r *Rule) (errs field.ErrorList) {
-				return append(errs,
+				return append(
+					errs,
 					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Privilege Escalation", "exclude.images must be specified for the container level control"),
 				)
 			},
@@ -594,7 +596,8 @@ func Test_ValidatePSaControlNames(t *testing.T) {
 				}
 			}`),
 			errors: func(r *Rule) (errs field.ErrorList) {
-				return append(errs,
+				return append(
+					errs,
 					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Host Namespaces", "exclude.images must not be specified for the pod level control"),
 				)
 			},
@@ -719,7 +722,8 @@ func Test_ValidatePSaControlNames(t *testing.T) {
 				}
 			}`),
 			errors: func(r *Rule) (errs field.ErrorList) {
-				return append(errs,
+				return append(
+					errs,
 					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Volume Types", "Invalid control name defined at the given level"),
 				)
 			},

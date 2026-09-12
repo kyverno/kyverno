@@ -45,13 +45,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	"github.com/kyverno/kyverno/pkg/exceptions"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
-	"github.com/kyverno/kyverno/pkg/registryclient"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	celutils "github.com/kyverno/sdk/extensions/cel/utils"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	"go.yaml.in/yaml/v3"
 	"gomodules.xyz/jsonpatch/v2"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -81,12 +80,16 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	PolicyExceptions                  []*kyvernov2.PolicyException
-	CELExceptions                     []*policiesv1beta1.PolicyException
-	MutateLogPath                     string
-	MutateLogPathIsDir                bool
-	Variables                         *variables.Variables
-	ParameterResources                []runtime.Object
+	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
+	// When empty, the `request.operation` global value from the values file is
+	// honored, defaulting to CREATE.
+	Operation          string
+	PolicyExceptions   []*kyvernov2.PolicyException
+	CELExceptions      []*policiesv1beta1.PolicyException
+	MutateLogPath      string
+	MutateLogPathIsDir bool
+	Variables          *variables.Variables
+	ParameterResources []runtime.Object
 	// TODO
 	ContextFs                 billy.Filesystem
 	ContextPath               string
@@ -126,7 +129,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	rclient := p.Store.GetRegistryClient()
 	if rclient == nil {
-		rclient = registryclient.NewOrDie()
+		rclient = registryclient.New()
 	}
 	isCluster := false
 	if len(p.CrdPaths) > 0 {
@@ -345,17 +348,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
 				gvr,
-				"",
+				subresource,
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				object,
+				oldObject,
 				false,
 				nil,
 			)
@@ -550,19 +554,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					user = p.UserInfo.AdmissionUserInfo
 				}
 				// create engine request
+				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 				request := celengine.Request(
 					contextProvider,
 					gvk,
 					gvr,
-					// TODO: how to manage subresource ?
-					"",
+					subresource,
 					resource.GetName(),
 					resource.GetNamespace(),
-					// TODO: how to manage other operations ?
-					admissionv1.Create,
+					operation,
 					user,
-					&resource,
-					nil,
+					object,
+					oldObject,
 					false,
 					nil,
 				)
@@ -691,17 +694,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
 				gvr,
-				"",
+				subresource,
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				object,
+				oldObject,
 				false,
 				nil,
 			)
@@ -788,6 +792,22 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	}
+	// an explicitly configured operation (e.g. from the test result entry) takes
+	// precedence over the values file
+	if p.Operation != "" {
+		switch p.Operation {
+		case "CREATE":
+			operation = kyvernov1.Create
+		case "DELETE":
+			operation = kyvernov1.Delete
+		case "UPDATE":
+			operation = kyvernov1.Update
+		}
+		if resourceValues == nil {
+			resourceValues = map[string]interface{}{}
+		}
+		resourceValues["request.operation"] = p.Operation
 	}
 
 	var newResource unstructured.Unstructured

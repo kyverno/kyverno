@@ -29,7 +29,10 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 		resource = policyContext.OldResource()
 	}
 	nsLabels := policyContext.NamespaceLabels()
-	if isCluster {
+	// Namespace labels are only consumed by namespaceSelector evaluation, so only
+	// fetch them when at least one exception actually defines a namespaceSelector.
+	// This avoids an API call per rule evaluation on every admission request.
+	if isCluster && anyUsesNamespaceSelector(polexs) {
 		if resource.GetNamespace() != "" {
 			namespace, err := client.GetNamespace(context.TODO(), resource.GetNamespace(), metav1.GetOptions{})
 			if err != nil {
@@ -63,6 +66,25 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 		}
 	}
 	return matchedExceptions
+}
+
+// anyUsesNamespaceSelector reports whether any of the given exceptions defines a
+// namespaceSelector in its match statement. Namespace labels only need to be
+// resolved when at least one exception will evaluate them.
+func anyUsesNamespaceSelector(polexs []*kyvernov2.PolicyException) bool {
+	for _, polex := range polexs {
+		for _, filter := range polex.Spec.Match.Any {
+			if filter.NamespaceSelector != nil {
+				return true
+			}
+		}
+		for _, filter := range polex.Spec.Match.All {
+			if filter.NamespaceSelector != nil {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func checkMatchesResources(

@@ -69,6 +69,27 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
+	var out bytes.Buffer
+	printSkippedAndInvalidPolicies(&out, SkippedInvalidPolicies{
+		skipped: []PolicyDiagnostic{{
+			name:   "skipped-policy",
+			reason: "missing variable `request.operation`",
+		}},
+		invalid: []PolicyDiagnostic{{
+			name:   "invalid-policy",
+			reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
+		}},
+	})
+
+	printed := out.String()
+	assert.Contains(t, printed, "Policies Skipped:")
+	assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
+	assert.Contains(t, printed, "Invalid Policies:")
+	assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
+	assert.Contains(t, printed, "variables cannot be referenced")
+}
+
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
 		expectedReports []openreportsv1alpha1.Report
@@ -1395,6 +1416,18 @@ func TestCommandWarnExitCode(t *testing.T) {
 			assert.Fail(t, "Expecting WarnExitCodeError")
 		}
 	}
+}
+
+func TestApplyWarningsAsErrors(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:      []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
+		ResourcePaths:    []string{"../../../../../test/cli/apply/exception-within-policy/res"},
+		warningsAsErrors: true,
+		PolicyReport:     true,
+	}
+	_, _, _, _, err := config.applyCommandHelper(io.Discard)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "--warnings-as-errors is set")
 }
 
 func TestCommandHelp(t *testing.T) {

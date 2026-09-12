@@ -15,6 +15,7 @@ type Toggles interface {
 	DumpMutatePatches() bool
 	AutogenV2() bool
 	AllowHTTPInNamespacedPolicies() bool
+	BlockLegacyPolicyAPIs() bool
 }
 
 type defaultToggles struct{}
@@ -49,6 +50,10 @@ func (defaultToggles) AutogenV2() bool {
 
 func (defaultToggles) AllowHTTPInNamespacedPolicies() bool {
 	return AllowHTTPInNamespacedPolicies.Enabled()
+}
+
+func (defaultToggles) BlockLegacyPolicyAPIs() bool {
+	return BlockLegacyPolicyAPIs.Enabled()
 }
 
 type contextKey struct{}

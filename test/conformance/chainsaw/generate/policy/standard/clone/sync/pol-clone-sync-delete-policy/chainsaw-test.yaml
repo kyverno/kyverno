@@ -40,7 +40,7 @@ spec:
     try:
     - delete:
         ref:
-          apiVersion: kyverno.io/v2beta1
+          apiVersion: kyverno.io/v1
           kind: Policy
           name: pol-clone-sync-delete-policy
           namespace: default

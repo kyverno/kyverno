@@ -46,7 +46,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 	libEnvOpts := []cel.EnvOption{
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			compiler.KyvernoVersion,
 		),
 		image.Lib(
@@ -55,6 +55,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
 			compiler.KyvernoVersion,
+			nil,
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},

@@ -22,9 +22,11 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	restmapper "github.com/kyverno/kyverno/pkg/utils/restmapper"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -100,6 +102,7 @@ type controller struct {
 	ivpolLister    policiesv1beta1listers.ImageValidatingPolicyLister
 	nivpolLister   policiesv1beta1listers.NamespacedImageValidatingPolicyLister
 	vapLister      admissionregistrationv1listers.ValidatingAdmissionPolicyLister
+	mapV1Lister    admissionregistrationv1listers.MutatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	metaClient     metaclient.UpstreamInterface
@@ -124,6 +127,7 @@ func NewController(
 	ivpolInformer policiesv1beta1informers.ImageValidatingPolicyInformer,
 	nivpolInformer policiesv1beta1informers.NamespacedImageValidatingPolicyInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
+	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 	metaClient metaclient.UpstreamInterface,
@@ -178,6 +182,12 @@ func NewController(
 	if vapInformer != nil {
 		c.vapLister = vapInformer.Lister()
 		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, vapInformer.Informer(), c.queue); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+	if mapV1Informer != nil {
+		c.mapV1Lister = mapV1Informer.Lister()
+		if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mapV1Informer.Informer(), c.queue); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
@@ -299,7 +309,13 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 	if !ok {
 		objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
 		if err != nil {
-			logger.Error(err, "failed to list resources")
+			if apierrors.IsForbidden(err) {
+				logger.Error(err, "reports-controller is missing RBAC to list/watch this resource - "+
+					"grant it via reportsController.rbac.clusterRole.extraResources in the Helm values",
+					"gvr", gvr)
+			} else {
+				logger.Error(err, "failed to list resources")
+			}
 			return nil, err
 		}
 		resourceVersion = objs.GetResourceVersion()
@@ -378,6 +394,17 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 	return w, nil
 }
 
+// kindsFromPolicyAndAutogen resolves the kind list for a policy's own match constraints plus every
+// autogen'd config's match constraints (built-in controllers and extraction-mode custom-CRD targets
+// alike) - so background-scan discovers and watches the same kinds autogen targets at admission time.
+func kindsFromPolicyAndAutogen(matchConstraints *admissionregistrationv1.MatchResources, autogenMatchConstraints []*admissionregistrationv1.MatchResources, restMapper meta.RESTMapper) []string {
+	kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
+	for _, autogenMatchConstraint := range autogenMatchConstraints {
+		kinds = append(kinds, admissionpolicy.GetKinds(autogenMatchConstraint, restMapper)...)
+	}
+	return kinds
+}
+
 func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -427,6 +454,20 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			}
 		}
 	}
+	if c.mapV1Lister != nil {
+		mapPolicies, err := utils.FetchMutatingAdmissionPoliciesV1(c.mapV1Lister)
+		if err != nil {
+			return err
+		}
+		for _, policy := range mapPolicies {
+			converted := admissionpolicy.ConvertMatchResources(policy.Spec.MatchConstraints)
+			kinds := admissionpolicy.GetKinds(converted, restMapper)
+			for _, kind := range kinds {
+				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
+				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
+			}
+		}
+	}
 	if c.mapAlphaLister != nil {
 		mapAlphaPolicies, err := utils.FetchMutatingAdmissionPoliciesAlpha(c.mapAlphaLister)
 		if err != nil {
@@ -454,14 +495,13 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from validating admission policies
+		// fetch kinds from validating admission policies, including autogen'd targets
 		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			var autogenMatchConstraints []*admissionregistrationv1.MatchResources
 			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				kinds = append(kinds, genKinds...)
+				autogenMatchConstraints = append(autogenMatchConstraints, autogen.Spec.MatchConstraints)
 			}
-
+			kinds := kindsFromPolicyAndAutogen(policy.Spec.MatchConstraints, autogenMatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -473,14 +513,13 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from validating admission policies
+		// fetch kinds from validating admission policies, including autogen'd targets
 		for _, policy := range vpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			var autogenMatchConstraints []*admissionregistrationv1.MatchResources
 			for _, autogen := range policy.Status.Autogen.Configs {
-				genKinds := admissionpolicy.GetKinds(autogen.Spec.MatchConstraints, restMapper)
-				kinds = append(kinds, genKinds...)
+				autogenMatchConstraints = append(autogenMatchConstraints, autogen.Spec.MatchConstraints)
 			}
-
+			kinds := kindsFromPolicyAndAutogen(policy.Spec.MatchConstraints, autogenMatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -492,16 +531,13 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		// fetch kinds from mutating admission policies, including autogen'd targets
 		for _, policy := range mpols {
-			matchConstraints := policy.Spec.MatchConstraints
-			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-			for _, policy := range policy.Status.Autogen.Configs {
-				matchConstraints := policy.Spec.MatchConstraints
-				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-
-				kinds = append(kinds, genKinds...)
+			var autogenMatchConstraints []*admissionregistrationv1.MatchResources
+			for _, autogen := range policy.Status.Autogen.Configs {
+				autogenMatchConstraints = append(autogenMatchConstraints, autogen.Spec.MatchConstraints)
 			}
-
+			kinds := kindsFromPolicyAndAutogen(policy.Spec.MatchConstraints, autogenMatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -513,16 +549,13 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		// fetch kinds from mutating admission policies, including autogen'd targets
 		for _, policy := range mpols {
-			matchConstraints := policy.Spec.MatchConstraints
-			kinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-			for _, policy := range policy.Status.Autogen.Configs {
-				matchConstraints := policy.Spec.MatchConstraints
-				genKinds := admissionpolicy.GetKinds(matchConstraints, restMapper)
-
-				kinds = append(kinds, genKinds...)
+			var autogenMatchConstraints []*admissionregistrationv1.MatchResources
+			for _, autogen := range policy.Status.Autogen.Configs {
+				autogenMatchConstraints = append(autogenMatchConstraints, autogen.Spec.MatchConstraints)
 			}
-
+			kinds := kindsFromPolicyAndAutogen(policy.Spec.MatchConstraints, autogenMatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -534,9 +567,13 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from image verification admission policies
+		// fetch kinds from image verification admission policies, including autogen'd targets
 		for _, policy := range ivpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			var autogenMatchConstraints []*admissionregistrationv1.MatchResources
+			for _, autogen := range policy.Status.Autogen.Configs {
+				autogenMatchConstraints = append(autogenMatchConstraints, autogen.Spec.MatchConstraints)
+			}
+			kinds := kindsFromPolicyAndAutogen(policy.Spec.MatchConstraints, autogenMatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
@@ -548,9 +585,13 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		// fetch kinds from image verification admission policies
+		// fetch kinds from image verification admission policies, including autogen'd targets
 		for _, policy := range ivpols {
-			kinds := admissionpolicy.GetKinds(policy.Spec.MatchConstraints, restMapper)
+			var autogenMatchConstraints []*admissionregistrationv1.MatchResources
+			for _, autogen := range policy.Status.Autogen.Configs {
+				autogenMatchConstraints = append(autogenMatchConstraints, autogen.Spec.MatchConstraints)
+			}
+			kinds := kindsFromPolicyAndAutogen(policy.Spec.MatchConstraints, autogenMatchConstraints, restMapper)
 			for _, kind := range kinds {
 				group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
 				c.addGVKToGVRMapping(group, version, kind, subresource, gvkToGvr)
