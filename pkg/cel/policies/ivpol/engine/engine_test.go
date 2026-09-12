@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -34,6 +35,29 @@ func (fakeImageContext) AddImages(context.Context, []string, []remote.Option, []
 
 func (fakeImageContext) Get(context.Context, string, []remote.Option, []name.Option) (*imagedataloader.ImageData, error) {
 	return &imagedataloader.ImageData{}, nil
+}
+
+type blockingImageContext struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (c *blockingImageContext) AddImages(context.Context, []string, []remote.Option, []name.Option) error {
+	return nil
+}
+
+func (c *blockingImageContext) Get(ctx context.Context, _ string, _ []remote.Option, _ []name.Option) (*imagedataloader.ImageData, error) {
+	select {
+	case c.started <- struct{}{}:
+	default:
+	}
+
+	select {
+	case <-c.release:
+		return &imagedataloader.ImageData{}, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 var (
@@ -512,5 +536,137 @@ func TestHandleValidatingEphemeralContainersWithImagesVariable(t *testing.T) {
 	if assert.Len(t, resp.Policies, 1) {
 		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
 		assert.Equal(t, "All container images must be signed.", resp.Policies[0].Result.Message())
+	}
+}
+
+func Test_ImageVerifyEngine_ValidatingPoliciesAreEvaluatedConcurrently(t *testing.T) {
+	policy := func(name string) *policiesv1beta1.ImageValidatingPolicy {
+		return &policiesv1beta1.ImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: policiesv1beta1.ImageValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+					Mode: policieskyvernoio.EvaluationModeKubernetes,
+				},
+				ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+					VerifyDigest: ptr.To(false),
+				},
+				MatchImageReferences: []policiesv1beta1.MatchImageReference{
+					{
+						Glob: "ghcr.io/*",
+					},
+				},
+				ImageExtractors: []policiesv1beta1.ImageExtractor{
+					{
+						Name:       "containers",
+						Expression: "object.spec.containers.map(e, e.image)",
+					},
+				},
+				Validations: []admissionregistrationv1.Validation{
+					{
+						Expression: "true",
+						Message:    "unexpected image registry",
+					},
+				},
+			},
+		}
+	}
+	policies := []Policy{
+		{
+			Policy: policy("ivpol-a"),
+			Actions: sets.Set[admissionregistrationv1.ValidationAction]{
+				admissionregistrationv1.Deny: sets.Empty{},
+			},
+		},
+		{
+			Policy: policy("ivpol-b"),
+			Actions: sets.Set[admissionregistrationv1.ValidationAction]{
+				admissionregistrationv1.Deny: sets.Empty{},
+			},
+		},
+	}
+	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
+		return policies, nil
+	})
+	request := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind: metav1.GroupVersionKind{
+				Group: "", Version: "v1", Kind: "Pod",
+			},
+			Resource: metav1.GroupVersionResource{
+				Group: "", Version: "v1", Resource: "pods",
+			},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{
+				Group: "", Version: "v1", Resource: "pods",
+			},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+	eng := NewEngine(
+		provider,
+		nsResolver,
+		matching.NewMatcher(),
+		nil,
+		nil,
+		config.NewDefaultConfiguration(false),
+	).(*engineImpl)
+	imageContext := &blockingImageContext{
+		started: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+		return imageContext, nil
+	}
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = libs.NewFakeContextProvider()
+	defer func() {
+		libs.LibraryContext = oldLibraryContext
+	}()
+	request.Request.DryRun = ptr.To(false)
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := eng.HandleValidating(ctx, request, nil)
+		errCh <- err
+	}()
+	select {
+	case <-imageContext.started:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("first policy did not start image evaluation")
+	}
+	select {
+	case <-imageContext.started:
+		// Both policies reached image evaluation before either one was released.
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("second policy did not start while the first policy was blocked")
+	}
+	close(imageContext.release)
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("engine did not complete")
 	}
 }
