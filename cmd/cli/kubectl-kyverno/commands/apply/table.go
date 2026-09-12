@@ -35,7 +35,7 @@ func printTable(out io.Writer, compact, auditWarn bool, engineResponses ...engin
 			} else if ruleResponse.Status() == engineapi.RuleStatusFail {
 				if !scored {
 					row.Result = color.ResultWarn()
-				} else if auditWarn && engineResponse.GetValidationFailureAction().Audit() {
+				} else if auditWarn && engineResponse.GetValidationFailureActionForRule(ruleResponse.Name()).Audit() {
 					row.Result = color.ResultWarn()
 				} else {
 					row.Result = color.ResultFail()

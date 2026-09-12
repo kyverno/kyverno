@@ -191,7 +191,11 @@ func Command() *cobra.Command {
 					}
 					if len(failedRules) > 0 {
 						auditWarn := false
-						if applyCommandConfig.AuditWarn && response.GetValidationFailureAction().Audit() {
+						// Warn (rather than fail) only when no failing rule resolves to an
+						// Enforce action; the policy-wide action is ordering-sensitive when
+						// actions are mixed. Kyverno policies only: for other policy types
+						// the previous behavior is preserved.
+						if applyCommandConfig.AuditWarn && response.Policy().AsKyvernoPolicy() != nil && !response.HasEnforcedFailure() {
 							auditWarn = true
 						}
 						if auditWarn {
