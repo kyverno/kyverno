@@ -1094,8 +1094,8 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 		*out = new(v1.CEL)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Assert != nil {
-		in, out := &in.Assert, &out.Assert
+	if in.DeprecatedAssert != nil {
+		in, out := &in.DeprecatedAssert, &out.DeprecatedAssert
 		*out = (*in).DeepCopy()
 	}
 	return

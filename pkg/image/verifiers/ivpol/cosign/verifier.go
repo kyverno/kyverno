@@ -12,37 +12,60 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/oci"
 	"github.com/sigstore/cosign/v3/pkg/policy"
+	"github.com/sigstore/sigstore-go/pkg/root"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type Verifier struct {
-	secretInterface imagedataloader.SecretInterface
-	log             logr.Logger
+	secretLister corev1listers.SecretLister
+	log          logr.Logger
 }
 
-func NewVerifier(secretInterface imagedataloader.SecretInterface, logger logr.Logger) *Verifier {
+func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *Verifier {
 	return &Verifier{
-		log:             logging.WithName("Cosign"),
-		secretInterface: secretInterface,
+		log:          logging.WithName("Cosign"),
+		secretLister: secretLister,
 	}
 }
 
 // buildCheckOptsWithBundleDetection builds CheckOpts and auto-detects cosign v3 bundle format
 func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, error) {
-	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretInterface)
+	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
 	if err != nil {
 		return nil, err
 	}
 
-	// Enable new bundle format detection (cosign v3)
-	cOpts.NewBundleFormat = true
-
-	// Auto-detect if new bundle format is actually present
+	// Auto-detect if new bundle format (cosign v3) is actually present
 	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
-	if len(newBundles) == 0 || err != nil {
-		cOpts.NewBundleFormat = false
+	bundleDetected := len(newBundles) > 0 && err == nil
+	cOpts.NewBundleFormat = bundleDetected
+	if bundleDetected && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
+		cOpts.UseSignedTimestamps = true
 	}
 
 	return cOpts, nil
+}
+
+// shouldUseSignedTimestamps reports whether a detected Sigstore bundle (format
+// v0.3, used e.g. by GitHub Actions) should be verified using its embedded
+// RFC 3161 signed timestamp instead of the current time.
+//
+// Sigstore bundles carry an RFC 3161 timestamp proving the signing time. When
+// the transparency log is ignored, cosign falls back to verifying the
+// short-lived Fulcio leaf certificate against the current time
+// (verificationOptions() -> WithCurrentTime()), which rejects any certificate
+// outside its ~10 minute validity window and makes historical attestations
+// unverifiable. Using the bundle's signed timestamp instead (verified against
+// the TSAs in the trusted root) allows verifying the certificate was valid at
+// signing time.
+//
+// trustedMaterial must be populated (it is nil when checkOptions took the
+// skipSigstoreInfra fast path for key/cert attestors), since signed-timestamp
+// verification needs the trusted root's timestamp authorities; without it
+// cosign/sigstore-go panics on a nil TrustedMaterial rather than returning an
+// error.
+func shouldUseSignedTimestamps(ignoreTlog, useSignedTimestamps bool, trustedMaterial root.TrustedMaterial) bool {
+	return ignoreTlog && !useSignedTimestamps && trustedMaterial != nil
 }
 
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1beta1.Attestor) error {

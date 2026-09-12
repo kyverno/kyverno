@@ -4,6 +4,8 @@ metadata:
   name: ivpol-sample
 spec:
   failurePolicy: Ignore
+  validationConfigurations:
+    verifyDigest: false
   validationActions:
     - Deny
   matchConstraints:

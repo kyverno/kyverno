@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/sdk/extensions/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -16,26 +16,39 @@ import (
 func setupRegistryClient(ctx context.Context, logger logr.Logger, client kubernetes.Interface) (registryclient.Client, corev1listers.SecretLister) {
 	logger = logger.WithName("registry-client").WithValues("secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
 	logger.V(2).Info("setup registry client...")
-	factory := kubeinformers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	secretLister := factory.Core().V1().Secrets().Lister()
-	// start informers and wait for cache sync
-	if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
-		checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+	ms := &multiLister{
+		listersMap: make(map[string]corev1listers.SecretLister),
 	}
-	registryOptions := []registryclient.Option{
-		registryclient.WithTracing(),
+	addListerForNamespace := func(ns string) {
+		factory := kubeinformers.NewSharedInformerFactoryWithOptions(client, resyncPeriod, kubeinformers.WithNamespace(ns))
+		secretLister := factory.Core().V1().Secrets().Lister()
+		if !StartInformersAndWaitForCacheSync(ctx, logger, factory) {
+			checkError(logger, errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		}
+		ms.listersMap[ns] = secretLister
 	}
-	secrets := strings.Split(imagePullSecrets, ",")
-	if imagePullSecrets != "" && len(secrets) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(secretLister, config.KyvernoNamespace(), secrets...))
+	addListerForNamespace(config.KyvernoNamespace())
+
+	for s := range strings.SplitSeq(imagePullSecrets, ",") {
+		namespace, _ := parseSecretReference(s, config.KyvernoNamespace())
+		if _, exists := ms.listersMap[namespace]; !exists {
+			addListerForNamespace(namespace)
+		}
 	}
-	if allowInsecureRegistry {
-		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
+
+	registryClient := registryclient.SetupGlobalRegistryClient(ms, config.KyvernoNamespace(),
+		imagePullSecrets,
+		registryCredentialHelpers, allowInsecureRegistry)
+
+	return registryClient, ms
+}
+
+func parseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
+	secretRef = strings.TrimPrefix(secretRef, "/")
+
+	parts := strings.SplitN(secretRef, "/", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
 	}
-	if len(registryCredentialHelpers) > 0 {
-		registryOptions = append(registryOptions, registryclient.WithCredentialProviders(strings.Split(registryCredentialHelpers, ",")...))
-	}
-	registryClient, err := registryclient.New(registryOptions...)
-	checkError(logger, err, "failed to create registry client")
-	return registryClient, secretLister
+	return defaultNamespace, secretRef
 }
