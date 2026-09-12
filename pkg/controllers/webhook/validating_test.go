@@ -1447,3 +1447,54 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 		}
 	}
 }
+
+func TestBuildWebhookRules_ImageValidatingPolicyWebhookNamesDoNotCollide(t *testing.T) {
+	matchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+					},
+				},
+			},
+		},
+	}
+
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-images",
+		},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	nivpol := &policiesv1beta1.NamespacedImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "check-images",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	expressionCache := NewExpressionCache()
+	cfg := config.NewDefaultConfiguration(false)
+
+	ivpolWebhooks := buildWebhookRules(cfg, "", config.ImageValidatingPolicyValidateWebhookName, "/ivpol/validate", 0, nil,
+		[]engineapi.GenericPolicy{engineapi.NewImageValidatingPolicy(ivpol)}, expressionCache)
+	nivpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedImageValidatingPolicyValidateWebhookName, "/nivpol/validate", 0, nil,
+		[]engineapi.GenericPolicy{engineapi.NewNamespacedImageValidatingPolicy(nivpol)}, expressionCache)
+
+	assert.Len(t, ivpolWebhooks, 1)
+	assert.Len(t, nivpolWebhooks, 1)
+	assert.Equal(t, config.ImageValidatingPolicyValidateWebhookName+"-fail", ivpolWebhooks[0].Name)
+	assert.Equal(t, config.NamespacedImageValidatingPolicyValidateWebhookName+"-fail", nivpolWebhooks[0].Name)
+	assert.NotEqual(t, ivpolWebhooks[0].Name, nivpolWebhooks[0].Name)
+}
