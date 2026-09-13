@@ -4,6 +4,7 @@ import (
 	cont "context"
 	"encoding/csv"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 
@@ -18,7 +19,6 @@ import (
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 var (
@@ -30,7 +30,9 @@ var (
 // EvalInterface is used to query and inspect context data
 // TODO: move to contextapi to prevent circular dependencies
 type EvalInterface interface {
-	// Query accepts a JMESPath expression and returns matching data
+	// Query accepts a JMESPath expression and returns matching data.
+	// Composite query results may reference live context data and must be treated as read-only.
+	// Context writes must go through the context mutation APIs.
 	Query(query string) (interface{}, error)
 
 	// Operation returns the admission operation i.e. "request.operation"
@@ -168,7 +170,11 @@ func NewContextWithMaxSize(jp jmespath.Interface, maxSize int64) Interface {
 
 // addJSON merges json data
 func (ctx *context) addJSON(dataMap map[string]interface{}, overwriteMaps bool) error {
-	mergeMaps(dataMap, ctx.jsonRaw, overwriteMaps)
+	if len(ctx.jsonRawCheckpoints) > 0 {
+		mergeMapsMaybeClone(dataMap, ctx.jsonRaw, overwriteMaps, true)
+	} else {
+		mergeMaps(dataMap, ctx.jsonRaw, overwriteMaps)
+	}
 	return nil
 }
 
@@ -246,19 +252,31 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 
 // AddResource data at path: request.object
 func (ctx *context) AddResource(data map[string]interface{}) error {
-	clearLeafValue(ctx.jsonRaw, "request", "object")
+	if len(ctx.jsonRawCheckpoints) > 0 {
+		clearLeafValueMaybeClone(ctx.jsonRaw, true, "request", "object")
+	} else {
+		clearLeafValue(ctx.jsonRaw, "request", "object")
+	}
 	return addToContext(ctx, data, false, "request", "object")
 }
 
 // AddOldResource data at path: request.oldObject
 func (ctx *context) AddOldResource(data map[string]interface{}) error {
-	clearLeafValue(ctx.jsonRaw, "request", "oldObject")
+	if len(ctx.jsonRawCheckpoints) > 0 {
+		clearLeafValueMaybeClone(ctx.jsonRaw, true, "request", "oldObject")
+	} else {
+		clearLeafValue(ctx.jsonRaw, "request", "oldObject")
+	}
 	return addToContext(ctx, data, false, "request", "oldObject")
 }
 
 // AddTargetResource adds data at path: target
 func (ctx *context) SetTargetResource(data map[string]interface{}) error {
-	clearLeafValue(ctx.jsonRaw, "target")
+	if len(ctx.jsonRawCheckpoints) > 0 {
+		clearLeafValueMaybeClone(ctx.jsonRaw, true, "target")
+	} else {
+		clearLeafValue(ctx.jsonRaw, "target")
+	}
 	return addToContext(ctx, data, false, "target")
 }
 
@@ -449,16 +467,7 @@ func (ctx *context) Checkpoint() {
 }
 
 func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{} {
-	out := make(map[string]interface{}, len(in))
-	for k, v := range in {
-		if ReservedKeys.MatchString(k) {
-			out[k] = runtime.DeepCopyJSONValue(v)
-		} else {
-			out[k] = runtime.DeepCopyJSONValue(v)
-		}
-	}
-
-	return out
+	return maps.Clone(in)
 }
 
 // Restore sets the internal state to the last checkpoint, and removes the checkpoint.

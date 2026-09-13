@@ -1,6 +1,7 @@
 package context
 
 import (
+	"maps"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -91,10 +92,18 @@ func push(data interface{}, tags ...string) map[string]interface{} {
 
 // mergeMaps merges srcMap entries into destMap
 func mergeMaps(srcMap, destMap map[string]interface{}, overwriteMaps bool) {
+	mergeMapsMaybeClone(srcMap, destMap, overwriteMaps, false)
+}
+
+func mergeMapsMaybeClone(srcMap, destMap map[string]interface{}, overwriteMaps, cloneDestMaps bool) {
 	for k, v := range srcMap {
 		if nextSrcMap, ok := v.(map[string]interface{}); ok && !overwriteMaps {
 			if nextDestMap, ok := destMap[k].(map[string]interface{}); ok {
-				mergeMaps(nextSrcMap, nextDestMap, overwriteMaps)
+				if cloneDestMaps {
+					nextDestMap = maps.Clone(nextDestMap)
+					destMap[k] = nextDestMap
+				}
+				mergeMapsMaybeClone(nextSrcMap, nextDestMap, overwriteMaps, cloneDestMaps)
 			} else {
 				destMap[k] = nextSrcMap
 			}
@@ -102,6 +111,32 @@ func mergeMaps(srcMap, destMap map[string]interface{}, overwriteMaps bool) {
 			destMap[k] = v
 		}
 	}
+}
+
+func clearLeafValueMaybeClone(data map[string]interface{}, cloneDestMaps bool, tags ...string) bool {
+	if len(tags) == 0 {
+		return false
+	}
+
+	for i := 0; i < len(tags); i++ {
+		k := tags[i]
+		if i == len(tags)-1 {
+			delete(data, k)
+			return true
+		}
+
+		if nextMap, ok := data[k].(map[string]interface{}); ok {
+			if cloneDestMaps {
+				nextMap = maps.Clone(nextMap)
+				data[k] = nextMap
+			}
+			data = nextMap
+		} else {
+			return false
+		}
+	}
+
+	return false
 }
 
 // toUnstructured converts a struct with JSON tags to a map[string]interface{}
