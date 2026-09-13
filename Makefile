@@ -878,6 +878,19 @@ test-unit:
 	@echo Running unit tests... >&2
 	@go test -v -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
+.PHONY: test-perf
+test-perf: ## Run admission hot-path allocation benchmarks
+	@echo Running admission hot-path benchmarks... >&2
+	@bash -o pipefail -c '\
+		go test -run=^$$ -bench=. -benchmem -benchtime=100x -count=1 \
+			./pkg/engine/... ./pkg/policycache/... ./pkg/webhooks/resource/... \
+			| tee bench-results.txt \
+	'
+
+.PHONY: check-perf
+check-perf: test-perf ## Run benchmarks and gate against thresholds
+	@./scripts/check-perf-regression.sh bench-results.txt scripts/bench/thresholds.txt
+
 #############
 # CLI TESTS #
 #############
