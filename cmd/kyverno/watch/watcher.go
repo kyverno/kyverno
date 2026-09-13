@@ -200,7 +200,7 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 				errObject := apierrors.FromObject(event.Object)
 				statusErr, ok := errObject.(*apierrors.StatusError)
 				if !ok {
-					klog.Error(fmt.Sprintf("Received an error which is not *metav1.Status but %s", dump.Pretty(event.Object)))
+					klog.Errorf("Received an error which is not *metav1.Status but %s", dump.Pretty(event.Object))
 					// Retry unknown errors
 					return false, 0
 				}
