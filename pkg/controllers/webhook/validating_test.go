@@ -4,14 +4,20 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -1446,4 +1452,111 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 			assert.Contains(t, *webhook.ClientConfig.Service.Path, "policy-b")
 		}
 	}
+}
+
+// newImageValidatingPolicyWebhookController wires the minimal controller fields the
+// JSON policy webhook builders touch: the policy listers they list from, a fresh
+// lease so watchdogCheck passes, and a recorder with no notify channel so
+// recordPolicyState never blocks. Only the ivpol/nivpol listers hold policies;
+// the rest are empty so the resulting webhook set is just the image policies.
+func newImageValidatingPolicyWebhookController(
+	ivpol *policiesv1beta1.ImageValidatingPolicy,
+	nivpol *policiesv1beta1.NamespacedImageValidatingPolicy,
+) *controller {
+	emptyIndexer := func() cache.Indexer {
+		return cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	}
+
+	ivpolIndexer := emptyIndexer()
+	_ = ivpolIndexer.Add(ivpol)
+	nivpolIndexer := emptyIndexer()
+	_ = nivpolIndexer.Add(nivpol)
+
+	leaseIndexer := emptyIndexer()
+	_ = leaseIndexer.Add(&coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "kyverno-health",
+			Namespace:   config.KyvernoNamespace(),
+			Annotations: map[string]string{AnnotationLastRequestTime: time.Now().Format(time.RFC3339)},
+		},
+	})
+
+	return &controller{
+		vpolLister:         policiesv1beta1listers.NewValidatingPolicyLister(emptyIndexer()),
+		nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(emptyIndexer()),
+		gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(emptyIndexer()),
+		ngpolLister:        policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(emptyIndexer()),
+		ivpolLister:        policiesv1beta1listers.NewImageValidatingPolicyLister(ivpolIndexer),
+		nivpolLister:       policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(nivpolIndexer),
+		mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(emptyIndexer()),
+		nmpolLister:        policiesv1beta1listers.NewNamespacedMutatingPolicyLister(emptyIndexer()),
+		leaseLister:        coordinationv1listers.NewLeaseLister(leaseIndexer),
+		stateRecorder:      NewStateRecorder(nil),
+		celExpressionCache: NewExpressionCache(),
+	}
+}
+
+// TestBuildJSONPolicyWebhooks_ImageValidatingPolicyNamesDoNotCollide is the regression
+// for https://github.com/kyverno/kyverno/issues/17557: the /nivpol webhooks were built
+// with the ivpol webhook names, so a cluster holding one policy of each kind with the
+// same failure policy produced two webhooks named ivpol.{validate,mutate}.kyverno.svc-fail
+// and the API server rejected the configuration for duplicate names.
+//
+// This drives the builders rather than buildWebhookRules directly, so it fails if the
+// /nivpol call sites are ever pointed back at the cluster-scoped names (asserting on
+// buildWebhookRules alone would only prove the two constants differ).
+func TestBuildJSONPolicyWebhooks_ImageValidatingPolicyNamesDoNotCollide(t *testing.T) {
+	spec := policiesv1beta1.ImageValidatingPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+				{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+							Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	c := newImageValidatingPolicyWebhookController(
+		&policiesv1beta1.ImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "verify-registry"},
+			Spec:       spec,
+		},
+		&policiesv1beta1.NamespacedImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "verify-registry", Namespace: "team-a"},
+			Spec:       spec,
+		},
+	)
+	cfg := config.NewDefaultConfiguration(false)
+
+	validating := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesValidation(cfg, nil, validating))
+
+	mutating := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesMutation(cfg, nil, mutating))
+
+	validateNames := make([]string, 0, len(validating.Webhooks))
+	for _, w := range validating.Webhooks {
+		validateNames = append(validateNames, w.Name)
+	}
+	mutateNames := make([]string, 0, len(mutating.Webhooks))
+	for _, w := range mutating.Webhooks {
+		mutateNames = append(mutateNames, w.Name)
+	}
+
+	// the API server rejects a configuration holding two webhooks with the same name
+	assert.Len(t, validateNames, len(sets.New(validateNames...)), "duplicate validating webhook names: %v", validateNames)
+	assert.Len(t, mutateNames, len(sets.New(mutateNames...)), "duplicate mutating webhook names: %v", mutateNames)
+
+	assert.Contains(t, validateNames, config.ImageValidatingPolicyValidateWebhookName+"-fail")
+	assert.Contains(t, validateNames, config.NamespacedImageValidatingPolicyValidateWebhookName+"-fail")
+	assert.Contains(t, mutateNames, config.ImageValidatingPolicyMutateWebhookName+"-fail")
+	assert.Contains(t, mutateNames, config.NamespacedImageValidatingPolicyMutateWebhookName+"-fail")
 }
