@@ -5,7 +5,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
-	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,10 +19,15 @@ type EvaluationResult struct {
 	Error            error
 }
 
+// prepareData assembles the CEL activation data for a single evaluation.
+// requestMap is the `request` value hoisted once per Handle()/Evaluate()
+// call by the caller (see compiler.BuildNormalizedRequestMap); when it is
+// nil, it is built locally from request, self-extracting object/oldObject.
 func prepareData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace *corev1.Namespace,
+	requestMap map[string]any,
 ) (map[string]any, error) {
 	if attr == nil {
 		return nil, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: use a non-Kubernetes evaluation mode for raw payloads)")
@@ -41,26 +45,16 @@ func prepareData(
 		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
 
-	var requestVal map[string]any
-	if request != nil {
-		object, oldObject, err := admissionutils.ExtractResources(nil, *request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract resources from admission request: %w", err)
-		}
-
-		result, err := utils.ConvertObjectToUnstructured(request)
+	if requestMap == nil && request != nil {
+		requestMap, err = compiler.BuildNormalizedRequestMap(request)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		} else if result != nil {
-			requestVal = result.Object
-			requestVal["object"] = object.Object
-			requestVal["oldObject"] = oldObject.Object
 		}
 	}
 	return map[string]any{
 		compiler.NamespaceObjectKey: namespaceVal,
 		compiler.ObjectKey:          objectVal,
 		compiler.OldObjectKey:       oldObjectVal,
-		compiler.RequestKey:         requestVal,
+		compiler.RequestKey:         requestMap,
 	}, nil
 }

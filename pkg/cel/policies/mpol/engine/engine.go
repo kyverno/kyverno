@@ -9,6 +9,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -92,9 +93,22 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		Resource: object,
 	}
 
+	// The request here is loop-invariant (attr is rebuilt per policy below,
+	// but the underlying admission request is not), so the `request` CEL
+	// activation value is built once for the whole loop instead of once per
+	// policy. BuildNormalizedRequestMap self-extracts request.object/
+	// oldObject from request - it must not take attr's (per-policy patched)
+	// object, or the hoisted map would alias mutable per-policy state. If a
+	// future change makes per-target synthetic requests, this hoist must be
+	// re-examined.
+	requestMap, err := celcompiler.BuildNormalizedRequestMap(&request)
+	if err != nil {
+		return response, err
+	}
+
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, true)
+			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMap, true)
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
@@ -151,11 +165,22 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		namespace = e.nsResolver(ns)
 	}
 
+	// request.Request is loop-invariant across the mpol loop below (only attr
+	// is rebuilt per policy with the patched object), so the `request` CEL
+	// activation value - including its object/oldObject, which derive from
+	// this same original request via BuildNormalizedRequestMap's own
+	// ExtractResources call (not attr's per-policy patched object) - is
+	// built once for the whole loop.
+	requestMap, err := celcompiler.BuildNormalizedRequestMap(&request.Request)
+	if err != nil {
+		return response, err
+	}
+
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, false)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, requestMap, false)
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
@@ -178,7 +203,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
+func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMap map[string]any, target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
@@ -214,9 +239,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	}
 	var result *compiler.EvaluationResult
 	if target {
-		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
+		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMap, e.contextProvider)
 	} else {
-		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
+		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMap, e.contextProvider)
 	}
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "skip", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))

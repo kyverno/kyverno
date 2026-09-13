@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -32,10 +33,16 @@ type evaluationData struct {
 	Variables *lazy.MapValue
 }
 
+// prepareK8sData assembles the CEL activation data for a single evaluation.
+// requestMap is the `request` value hoisted once per admission request by
+// the caller (see compiler.BuildRawRequestMap); when it is nil (raw payload
+// callers, or the synthetic-request carve-out for ExtractionMode), it is
+// built locally from request.
 func prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	requestMap map[string]any,
 	context libs.Context,
 ) (evaluationData, error) {
 	if attr == nil {
@@ -53,15 +60,17 @@ func prepareK8sData(
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
-	requestVal, err := utils.ConvertObjectToUnstructured(request)
-	if err != nil {
-		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+	if requestMap == nil {
+		requestMap, err = compiler.BuildRawRequestMap(request)
+		if err != nil {
+			return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		}
 	}
 	return evaluationData{
 		Namespace: namespaceVal,
 		Object:    objectVal,
 		OldObject: oldObjectVal,
-		Request:   requestVal.Object,
+		Request:   requestMap,
 		Context:   context,
 	}, nil
 }

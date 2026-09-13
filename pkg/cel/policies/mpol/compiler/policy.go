@@ -90,7 +90,8 @@ func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy
 }
 
 func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, contextProvider libs.Context) bool {
-	data, err := prepareData(attr, request, namespace)
+	// single-shot caller, no per-loop hoist benefit - build locally.
+	data, err := prepareData(attr, request, namespace, nil)
 	if err != nil {
 		return false
 	}
@@ -109,7 +110,8 @@ func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.At
 	if p.targetExpression == nil {
 		return nil, nil
 	}
-	data, err := prepareData(attr, request, namespace)
+	// single-shot caller, no per-loop hoist benefit - build locally.
+	data, err := prepareData(attr, request, namespace, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -127,9 +129,10 @@ func (p *Policy) Evaluate(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
+	requestMap map[string]any,
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, false)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMap, false)
 }
 
 func (p *Policy) EvaluateTarget(
@@ -138,9 +141,10 @@ func (p *Policy) EvaluateTarget(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
+	requestMap map[string]any,
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, true)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMap, true)
 }
 
 func (p *Policy) evaluate(
@@ -149,6 +153,7 @@ func (p *Policy) evaluate(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
+	requestMap map[string]any,
 	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
@@ -156,7 +161,7 @@ func (p *Policy) evaluate(
 		VersionedObject: attr.GetObject(),
 		VersionedKind:   attr.GetKind(),
 	}
-	data, err := prepareData(attr, &request, namespace)
+	data, err := prepareData(attr, &request, namespace, requestMap)
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}
