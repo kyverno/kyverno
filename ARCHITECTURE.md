@@ -5,8 +5,7 @@ mechanisms are sanctioned for new code, and which parts of the tree are generate
 
 This file describes **what exists today**, verified against code in this session. For narrower, per-package detail
 see the nested `AGENTS.md` files linked from each section, and `docs/context/` for cross-cutting write-ups. ADRs for
-*why* a non-obvious structural choice was made don't exist yet — see the "what's left" list in
-[docs/designs/agent-friendly-restructure.md](docs/designs/agent-friendly-restructure.md).
+*why* a non-obvious structural choice was made don't exist yet.
 
 ## Runtime boundaries (`cmd/`)
 
@@ -139,9 +138,8 @@ means installing `mockgen` yourself and rerunning it against `pkg/config/config.
 
 `pkg/clients/**/*.generated.go` and `pkg/clients/**/interface.generated.go` (produced by `hack/client-wrapper` via
 `make codegen-client-wrappers`) belong on this list too, even though — unlike everything else above — they carry no
-`DO NOT EDIT` header today. Treat them as generated regardless. A `.claude/settings.json` with `permissions.deny`
-rules enforcing this by path is planned but not yet added — see
-[docs/designs/agent-friendly-restructure.md](docs/designs/agent-friendly-restructure.md).
+`DO NOT EDIT` header today. Treat them as generated regardless. `.claude/settings.json`'s `permissions.deny` rules
+enforce every path in this table for Claude Code sessions, independent of whether a header is present.
 
 ## Ownership
 
@@ -163,5 +161,4 @@ work belongs there, not in a new in-repo proposal process).
 OSS-Fuzz), `test/policy/` (reusable hand-authored policy fixtures), `test/integration/` (Go integration tests for
 the CEL policy kinds). See [docs/dev/README.md](docs/dev/README.md) and the
 [chainsaw quick-start](https://kyverno.github.io/chainsaw/latest/quick-start/) for how to add a conformance case —
-there's no co-located skill for this yet (tracked as future work in
-[docs/designs/agent-friendly-restructure.md](docs/designs/agent-friendly-restructure.md)).
+there's no co-located skill for this yet.

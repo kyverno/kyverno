@@ -18,9 +18,8 @@ logic.** It exists only as the base that `pkg/clients/` wraps.
 A second generation layer, produced by `hack/client-wrapper` via `make codegen-client-wrappers`: metrics + tracing
 + logging middleware wrapped around both `k8s.io/client-go` and `pkg/client/clientset`. These files are generated
 too (`*.generated.go`, `interface.generated.go`) even though — unlike everything else generated in this repo — they
-currently carry no `DO NOT EDIT` header. Treat them as no-edit anyway; a `.claude/settings.json` with
-`permissions.deny` enforcing this by path is planned (not added yet — see
-[docs/designs/agent-friendly-restructure.md](../../designs/agent-friendly-restructure.md)).
+currently carry no `DO NOT EDIT` header. Treat them as no-edit anyway; `.claude/settings.json`'s `permissions.deny`
+enforces this by path for Claude Code sessions regardless of the missing header.
 
 Within `pkg/clients/`, one thing is hand-written and is the preferred entry point for new code:
 
