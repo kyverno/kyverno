@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -95,20 +96,22 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 	// The request here is loop-invariant (attr is rebuilt per policy below,
 	// but the underlying admission request is not), so the `request` CEL
-	// activation value is built once for the whole loop instead of once per
-	// policy. BuildNormalizedRequestMap self-extracts request.object/
-	// oldObject from request - it must not take attr's (per-policy patched)
-	// object, or the hoisted map would alias mutable per-policy state. If a
-	// future change makes per-target synthetic requests, this hoist must be
-	// re-examined.
-	requestMap, err := celcompiler.BuildNormalizedRequestMap(&request)
-	if err != nil {
-		return response, err
-	}
+	// activation value is built at most once for the whole loop instead of
+	// once per policy - but lazily: matching happens per policy inside
+	// handlePolicy, before this is ever called, so a request matching zero
+	// policies must not pay this cost at all. sync.OnceValues memoizes on
+	// first actual invocation. BuildNormalizedRequestMap self-extracts
+	// request.object/oldObject from request - it must not take attr's
+	// (per-policy patched) object, or the hoisted map would alias mutable
+	// per-policy state. If a future change makes per-target synthetic
+	// requests, this hoist must be re-examined.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildNormalizedRequestMap(&request)
+	})
 
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMap, true)
+			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true)
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
@@ -170,17 +173,18 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	// activation value - including its object/oldObject, which derive from
 	// this same original request via BuildNormalizedRequestMap's own
 	// ExtractResources call (not attr's per-policy patched object) - is
-	// built once for the whole loop.
-	requestMap, err := celcompiler.BuildNormalizedRequestMap(&request.Request)
-	if err != nil {
-		return response, err
-	}
+	// built at most once for the whole loop, lazily: a request matching zero
+	// policies below never invokes the func, so it never pays the build
+	// cost. sync.OnceValues memoizes on first actual invocation.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildNormalizedRequestMap(&request.Request)
+	})
 
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, requestMap, false)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, requestMapFn, false)
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
@@ -203,7 +207,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMap map[string]any, target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
+func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
@@ -239,9 +243,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	}
 	var result *compiler.EvaluationResult
 	if target {
-		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMap, e.contextProvider)
+		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
 	} else {
-		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMap, e.contextProvider)
+		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
 	}
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "skip", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))

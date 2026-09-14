@@ -66,7 +66,7 @@ func TestPrepareK8sData_HoistedVsNilRequestMap(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, hoisted)
 
-	withHoist, err := prepareK8sData(attr, request, nil, hoisted, nil)
+	withHoist, err := prepareK8sData(attr, request, nil, func() (map[string]any, error) { return hoisted, nil }, nil)
 	require.NoError(t, err)
 
 	withNil, err := prepareK8sData(attr, request, nil, nil, nil)
@@ -152,13 +152,32 @@ func TestPrepareK8sData_AllocsCeiling(t *testing.T) {
 	request, attr, _, _ := buildLargeTestRequestAndAttr(t)
 	hoisted, err := celcompiler.BuildRawRequestMap(request)
 	require.NoError(t, err)
+	requestMapFn := func() (map[string]any, error) { return hoisted, nil }
 
 	const allocCeiling = 50
 	allocs := testing.AllocsPerRun(100, func() {
-		if _, err := prepareK8sData(attr, request, nil, hoisted, nil); err != nil {
+		if _, err := prepareK8sData(attr, request, nil, requestMapFn, nil); err != nil {
 			t.Fatalf("prepareK8sData failed: %v", err)
 		}
 	})
 	assert.LessOrEqual(t, allocs, float64(allocCeiling),
 		"prepareK8sData with a pre-built requestMap should stay under a small constant allocation ceiling, independent of admitted object size")
+}
+
+// TestPrepareK8sData_RequestMapFnInvokedOnlyWhenReached proves prepareK8sData
+// calls requestMapFn - it doesn't skip it and doesn't call it more than once
+// per invocation - so the memoization contract sync.OnceValues callers rely
+// on (see vpol/engine/engine.go) is actually exercised through this call
+// site.
+func TestPrepareK8sData_RequestMapFnInvokedOnlyWhenReached(t *testing.T) {
+	request, attr, _, _ := buildTestRequestAndAttr(t)
+	calls := 0
+	requestMapFn := func() (map[string]any, error) {
+		calls++
+		return celcompiler.BuildRawRequestMap(request)
+	}
+
+	_, err := prepareK8sData(attr, request, nil, requestMapFn, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 1, calls, "prepareK8sData must call requestMapFn exactly once per invocation")
 }

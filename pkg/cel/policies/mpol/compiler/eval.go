@@ -20,14 +20,20 @@ type EvaluationResult struct {
 }
 
 // prepareData assembles the CEL activation data for a single evaluation.
-// requestMap is the `request` value hoisted once per Handle()/Evaluate()
-// call by the caller (see compiler.BuildNormalizedRequestMap); when it is
-// nil, it is built locally from request, self-extracting object/oldObject.
+// requestMapFn lazily builds the `request` value: the caller (see
+// compiler.BuildNormalizedRequestMap) wraps it once per Handle()/Evaluate()
+// call in a memoizing func (for example sync.OnceValues) so it is built at
+// most once even though it is threaded into every policy's evaluation - but
+// only if some policy actually reaches this function, since matching
+// happens before prepareData is ever called. A request matching zero
+// policies therefore never pays the request-map build cost. When
+// requestMapFn is nil, the map is built locally from request instead,
+// self-extracting object/oldObject.
 func prepareData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace *corev1.Namespace,
-	requestMap map[string]any,
+	requestMapFn func() (map[string]any, error),
 ) (map[string]any, error) {
 	if attr == nil {
 		return nil, fmt.Errorf("cannot evaluate Kubernetes-mode policy without admission attributes (hint: use a non-Kubernetes evaluation mode for raw payloads)")
@@ -45,7 +51,13 @@ func prepareData(
 		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
 
-	if requestMap == nil && request != nil {
+	var requestMap map[string]any
+	if requestMapFn != nil {
+		requestMap, err = requestMapFn()
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+		}
+	} else if request != nil {
 		requestMap, err = compiler.BuildNormalizedRequestMap(request)
 		if err != nil {
 			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)

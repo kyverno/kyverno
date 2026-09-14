@@ -4,9 +4,8 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
-	apijson "k8s.io/apimachinery/pkg/util/json"
-
 	"k8s.io/apimachinery/pkg/runtime"
+	apijson "k8s.io/apimachinery/pkg/util/json"
 )
 
 // blankCopyRequestMap runs the shared, cheap part of both request-map

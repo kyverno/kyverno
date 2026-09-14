@@ -41,7 +41,7 @@ func TestPrepareData_HoistedVsNilRequestMap(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, hoisted)
 
-	withHoist, err := prepareData(attr, request, &corev1.Namespace{}, hoisted)
+	withHoist, err := prepareData(attr, request, &corev1.Namespace{}, func() (map[string]any, error) { return hoisted, nil })
 	require.NoError(t, err)
 
 	withNil, err := prepareData(attr, request, &corev1.Namespace{}, nil)
@@ -57,4 +57,36 @@ func TestPrepareData_HoistedVsNilRequestMap(t *testing.T) {
 func TestPrepareData_NoAttributes(t *testing.T) {
 	_, err := prepareData(nil, nil, nil, nil)
 	assert.Error(t, err)
+}
+
+// TestPrepareData_RequestMapFnInvokedOnlyWhenReached proves prepareData
+// calls requestMapFn - it doesn't skip it and doesn't call it more than once
+// per invocation - so the memoization contract sync.OnceValues callers rely
+// on (see mpol/engine/engine.go) is actually exercised through this call
+// site.
+func TestPrepareData_RequestMapFnInvokedOnlyWhenReached(t *testing.T) {
+	objRaw := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"nginx","namespace":"default"},"spec":{"containers":[{"name":"app","image":"nginx:1.21"}]}}`)
+	request := &admissionv1.AdmissionRequest{
+		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		Name:      "nginx",
+		Namespace: "default",
+		Operation: admissionv1.Create,
+		UserInfo:  authenticationv1.UserInfo{Username: "alice"},
+		Object:    runtime.RawExtension{Raw: objRaw},
+	}
+	attr := &mockAttributes{
+		obj:    &unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "nginx"}}},
+		oldObj: nil,
+	}
+
+	calls := 0
+	requestMapFn := func() (map[string]any, error) {
+		calls++
+		return celcompiler.BuildNormalizedRequestMap(request)
+	}
+
+	_, err := prepareData(attr, request, &corev1.Namespace{}, requestMapFn)
+	require.NoError(t, err)
+	assert.Equal(t, 1, calls, "prepareData must call requestMapFn exactly once per invocation")
 }

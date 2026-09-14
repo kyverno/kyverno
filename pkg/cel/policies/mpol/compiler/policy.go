@@ -129,10 +129,10 @@ func (p *Policy) Evaluate(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
-	requestMap map[string]any,
+	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMap, false)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, false)
 }
 
 func (p *Policy) EvaluateTarget(
@@ -141,10 +141,10 @@ func (p *Policy) EvaluateTarget(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
-	requestMap map[string]any,
+	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMap, true)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, true)
 }
 
 func (p *Policy) evaluate(
@@ -153,7 +153,7 @@ func (p *Policy) evaluate(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
-	requestMap map[string]any,
+	requestMapFn func() (map[string]any, error),
 	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
@@ -161,7 +161,7 @@ func (p *Policy) evaluate(
 		VersionedObject: attr.GetObject(),
 		VersionedKind:   attr.GetKind(),
 	}
-	data, err := prepareData(attr, &request, namespace, requestMap)
+	data, err := prepareData(attr, &request, namespace, requestMapFn)
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}

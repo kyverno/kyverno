@@ -7,7 +7,9 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -125,4 +127,108 @@ func BenchmarkHandle(b *testing.B) {
 			}
 		})
 	}
+}
+
+// buildNonMatchingPolicies returns n compiled ValidatingPolicies whose
+// matchConstraints target "configmaps", never the "pods" resource the
+// no-match test below submits - so a real matching.Matcher rejects every
+// policy before evaluation, and the hoisted `request` CEL activation value
+// (built lazily, see vpol/engine/engine.go and prepareK8sData) is never
+// actually needed.
+func buildNonMatchingPolicies(t testing.TB, n int) Provider {
+	t.Helper()
+	policies := make([]policiesv1beta1.ValidatingPolicyLike, 0, n)
+	for i := 0; i < n; i++ {
+		policies = append(policies, &policiesv1beta1.ValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("no-match-policy-%d", i)},
+			Spec: policiesv1beta1.ValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"configmaps"},
+								},
+							},
+						},
+					},
+				},
+				Validations: []admissionregistrationv1.Validation{
+					{Expression: "request.object.metadata.name == request.object.metadata.name"},
+				},
+			},
+		})
+	}
+	provider, err := NewProvider(compiler.NewCompiler(), policies, nil)
+	require.NoError(t, err)
+	return provider
+}
+
+// buildNoMatchEngineAndRequest builds the Provider/Engine once (compiling
+// CEL policies has its own, unrelated allocation cost that must not be
+// included in the measurement below) plus a Pod CREATE request of roughly
+// containerCount containers, for a request that a real matching.Matcher
+// rejects for every registered policy.
+func buildNoMatchEngineAndRequest(t testing.TB, containerCount int) (Engine, EngineRequest) {
+	t.Helper()
+	provider := buildNonMatchingPolicies(t, 16)
+	noopNsResolver := func(string) *corev1.Namespace { return nil }
+	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
+	pod := benchPod(containerCount)
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		"",
+		"bench-pod",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		pod,
+		nil,
+		false,
+		nil,
+	)
+	return eng, req
+}
+
+// TestHandle_NoMatch_SkipsRequestMapBuild is the CI-assertable regression
+// guard for the lazy request-map build: a request that matches zero
+// policies must not pay the cost of building the `request` CEL activation
+// value at all, regardless of the admitted object's size. If the build were
+// still eager (as it was when this hoist first landed), allocations would
+// scale with the object size - the raw-variant builder marshals/unmarshals
+// the whole admitted object once per Handle() call. Comparing a tiny object
+// against a realistically large (~50KB) one and asserting the allocation
+// counts are close proves the build is skipped, not just cheap.
+//
+// Engine/Provider construction (which compiles CEL policies - its own,
+// unrelated and much larger allocation cost) happens once outside the
+// AllocsPerRun-measured closure, so only the per-call Handle() cost is
+// measured.
+func TestHandle_NoMatch_SkipsRequestMapBuild(t *testing.T) {
+	smallEng, smallReq := buildNoMatchEngineAndRequest(t, 1)
+	largeEng, largeReq := buildNoMatchEngineAndRequest(t, 20)
+
+	smallAllocs := testing.AllocsPerRun(50, func() {
+		if _, err := smallEng.Handle(context.Background(), smallReq, nil); err != nil {
+			t.Fatalf("Handle failed: %v", err)
+		}
+	})
+	largeAllocs := testing.AllocsPerRun(50, func() {
+		if _, err := largeEng.Handle(context.Background(), largeReq, nil); err != nil {
+			t.Fatalf("Handle failed: %v", err)
+		}
+	})
+
+	t.Logf("no-match allocs/op: small object=%.1f, large object=%.1f", smallAllocs, largeAllocs)
+	// A generous absolute margin (not a ratio, since both counts are small
+	// to begin with) - if the request map were built eagerly, the ~50KB
+	// object's JSON marshal/unmarshal would add allocations proportional to
+	// its size, blowing well past this margin.
+	assert.InDelta(t, smallAllocs, largeAllocs, 30,
+		"a request matching zero policies must not build the request map: allocs must stay ~flat regardless of admitted object size")
 }
