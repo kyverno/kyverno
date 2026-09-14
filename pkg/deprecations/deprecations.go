@@ -31,7 +31,13 @@ type DeprecationWarning struct {
 	Version string
 	Kind    string
 	Field   string
-	Message string
+	// Replacement is the policies.kyverno.io equivalent(s) for the kind, on its
+	// own (for example "DeletingPolicy"), without the surrounding removal notice
+	// or migration URL. Callers that want a compact "kind -> target" rendering
+	// use this instead of parsing it back out of Message. Empty for field-level
+	// warnings.
+	Replacement string
+	Message     string
 }
 
 // Warning returns a deprecation warning for the given legacy kyverno.io kind,
@@ -57,9 +63,10 @@ func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
 		apiVersion = fmt.Sprintf("%s/%s", group, version)
 	}
 	return DeprecationWarning{
-		Group:   group,
-		Version: version,
-		Kind:    kind,
+		Group:       group,
+		Version:     version,
+		Kind:        kind,
+		Replacement: replacement,
 		Message: fmt.Sprintf(
 			"%s %s is deprecated and will be removed in a future release; migrate to %s (policies.kyverno.io), see %s",
 			apiVersion, kind, replacement, MigrationGuideURL,
