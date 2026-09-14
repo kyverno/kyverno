@@ -357,7 +357,7 @@ func validateResource(
 	// compile CEL expressions
 	compiler, err := NewCompiler(policy.Spec.MatchConditions, policy.Spec.Variables)
 	if err != nil {
-		vapLogger.Error(err, "failed to create compiler for validatingadmissionpolicy", "policy", policy.GetName(), "resource", resource.GetNamespace()+"/"+resource.GetKind()+"/"+resource.GetName())
+		vapLogger.Error(err, "failed to create compiler for validatingadmissionpolicy", "policy", policy.GetName(), "namespace", resource.GetNamespace(), "kind", resource.GetKind(), "name", resource.GetName())
 		return engineResponse, err
 	}
 	compiler.WithValidations(policy.Spec.Validations)
@@ -394,12 +394,12 @@ func validateResource(
 		for _, policyDecision := range validateResult.Decisions {
 			if policyDecision.Evaluation == validating.EvalError {
 				isPass = false
-				vapLogger.Error(nil, "validation evaluation error for validatingadmissionpolicy", "policy", policy.GetName(), "resource", resource.GetNamespace()+"/"+resource.GetKind()+"/"+resource.GetName(), "message", policyDecision.Message)
+				vapLogger.Error(nil, "validation evaluation error for validatingadmissionpolicy", "policy", policy.GetName(), "namespace", resource.GetNamespace(), "kind", resource.GetKind(), "name", resource.GetName(), "message", policyDecision.Message)
 				ruleResp = engineapi.RuleError(policy.GetName(), engineapi.Validation, policyDecision.Message, nil, nil)
 				break
 			} else if policyDecision.Action == validating.ActionDeny {
 				isPass = false
-				vapLogger.V(2).Info("validation denied for validatingadmissionpolicy", "policy", policy.GetName(), "resource", resource.GetNamespace()+"/"+resource.GetKind()+"/"+resource.GetName(), "message", policyDecision.Message)
+				vapLogger.V(2).Info("validation denied for validatingadmissionpolicy", "policy", policy.GetName(), "namespace", resource.GetNamespace(), "kind", resource.GetKind(), "name", resource.GetName(), "message", policyDecision.Message)
 				ruleResp = engineapi.RuleFail(policy.GetName(), engineapi.Validation, policyDecision.Message, nil)
 				break
 			}
