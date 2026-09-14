@@ -331,8 +331,15 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				// the next request re-verifies from scratch instead of
 				// degrading either way.
 				f.logger.Error(nil, "skipping cache write: failed to capture attestation payload after successful verification", "image", image, "attestation", attestation)
-			} else if _, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, true, payloads); err != nil {
+			} else if stored, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, true, payloads); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
+			} else if !stored {
+				// The underlying cache can reject a write without an error, e.g. when the
+				// payload's byte cost exceeds --imageVerifyCacheMaxSize. That's safe --
+				// GetWithPayload will simply miss and this image re-verifies from scratch --
+				// but silent by default, so surface it rather than let caching effectiveness
+				// degrade unnoticed. See kyverno/kyverno#17575 for the sizing follow-up.
+				f.logger.Error(nil, "cache write rejected: attestation payload was not cached, possibly exceeding --imageVerifyCacheMaxSize; this image will re-verify from scratch on the next admission", "image", image, "attestation", attestation)
 			}
 		}
 		if len(attestors) > 0 {
