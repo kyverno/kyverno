@@ -30,7 +30,8 @@ extra care and check both the CEL and legacy image-verification paths.
 
 ## Compilation and evaluation
 
-Each kind has its own `compiler` package building a dedicated CEL `cel.Env`, wired to Kyverno's CEL extension
+Four of the five kinds have their own `compiler` package building a dedicated CEL `cel.Env` (`ivpol` is the outlier
+— see above); each is wired to Kyverno's CEL extension
 libraries (`github.com/kyverno/sdk/extensions/cel/libs/*` — globalcontext, gzip, hash, http, image, imagedata, json,
 math, random, resource, time, transform, user, x509, yaml — plus this repo's own `pkg/cel/libs`). The engine
 abstraction is one generic interface, `Engine[T any] { Handle(ctx, EngineRequest, predicate func(T) bool) }`,

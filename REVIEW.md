@@ -17,15 +17,28 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
 
 ## Always
 
-- **DCO**: every commit needs a `Signed-off-by` trailer matching its author — check with
-  `git log --format='%h %s%n%b' origin/main..HEAD | grep -n "Signed-off-by"` (per `AGENTS.md`'s own checklist) and
-  confirm every commit in the range shows up. This is a required, separate CI check (`DCO`) — a missing trailer
-  fails it regardless of how good the change is.
+- **DCO**: every commit needs a `Signed-off-by` trailer matching its own author, not just *a* trailer somewhere in
+  the range. `git log --format='%h %s%n%b' origin/main..HEAD | grep -n "Signed-off-by"` (from `AGENTS.md`'s own
+  checklist) only shows which lines matched — it can't tell you which specific commit is missing one, or whether a
+  trailer belongs to that commit's actual author. Check per commit instead:
+  ```bash
+  for c in $(git log --format=%H origin/main..HEAD); do
+    author=$(git log -1 --format='%an <%ae>' "$c")
+    git log -1 --format=%B "$c" | grep -qF "Signed-off-by: $author" \
+      && echo "OK      $c  $author" \
+      || echo "MISSING $c  $author"
+  done
+  ```
+  This is a required, separate CI check (`DCO`) — a missing or mismatched trailer fails it regardless of how good
+  the change is.
 - **Generated/no-edit zones**: is the diff hand-editing anything in `ARCHITECTURE.md`'s "Generated / no-edit zones"
-  table — `pkg/client/**`, `api/**/zz_generated.*.go`, `config/crds/**/*.yaml`, `docs/user/crd/**`,
-  `charts/*/README.md`, `pkg/clients/**/*.generated.go`, `pkg/clients/**/interface.generated.go`? These should come
-  from the corresponding `make codegen-*` target, not a hand edit — several of them (`pkg/clients/**`) carry no
-  `// DO NOT EDIT` header, so this isn't always obvious from the file itself.
+  table — `pkg/client/**`, `api/**/zz_generated.*.go`, `config/crds/**/*.yaml`, the CLI's own CRD copies under
+  `cmd/cli/kubectl-kyverno/{config,data}/crds/**`, the Helm chart's CRD templates under
+  `charts/kyverno/charts/crds/templates/{kyverno.io,reports.kyverno.io,wgpolicyk8s.io}/**`,
+  `config/install-latest-testing.yaml`, `docs/user/crd/**`, any of the 4 `helm-docs`-generated `charts/**/README.md`
+  (2 top-level, 2 nested subchart), `pkg/clients/**/*.generated.go`, `pkg/clients/**/interface.generated.go`? These
+  should come from the corresponding `make codegen-*` target, not a hand edit — several of them (`pkg/clients/**`)
+  carry no `// DO NOT EDIT` header, so this isn't always obvious from the file itself.
 - **Codegen freshness, code *and* docs**: CI runs this as two separate required checks —
   `.github/workflows/check-codegen.yaml`'s `verify-codegen-code` job (`make codegen-all-code` then
   `make verify-codegen`) and `verify-codegen-docs` (`make codegen-all-docs` then the same check, which is just
@@ -35,15 +48,16 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
 
 ## If the PR touches `api/`
 
-- New types go to `v2alpha1`, never directly to `v1`/`v2`. Attributes are additive-only within a version (never
-  deleted or modified in place — deprecate and remove after the notice period instead). See
+- New types go to `v2alpha1`, never directly to `v1`/`v2`. At beta/stable tiers, attributes are additive-only
+  within a version (never deleted or modified in place — deprecate and remove after the tier's notice period
+  instead); alpha tiers have no such guarantee. See
   [docs/context/shared/api-versioning.md](docs/context/shared/api-versioning.md) for the full rules and a worked
   example of a version's actual lifecycle being messier than the general rule suggests in isolation.
 - **A CRD schema change touches more files than `config/crds/`.** The generated CRD YAML for a given kind is
   duplicated into `config/crds/`, `cmd/cli/kubectl-kyverno/data/crds/` (the CLI's offline copy), the Helm chart
   under `charts/kyverno/charts/crds/templates/`, and the install manifest `config/install-latest-testing.yaml` —
-  all four move together under `make codegen-all-code`/`codegen-crds-all` (confirmed in `Makefile`'s
-  `codegen-cli-all`/`codegen-helm-all`/`codegen-manifest-all` targets). If a reviewer only checks `config/crds/`
+  all four move together under `make codegen-all-code` (its `codegen-crds-all`, `codegen-cli-all`,
+  `codegen-helm-all`, and `codegen-manifest-all` sub-targets each cover one). If a reviewer only checks `config/crds/`
   for a schema change, the other three can silently drift — `make verify-codegen` is the actual guarantee, not a
   manual diff of one directory.
 - **A new/changed `+kubebuilder:deprecatedversion:warning="..."` marker has a hard 256-character limit** —
@@ -69,11 +83,14 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
 ## Tests and CI checks to expect
 
 - **Unit tests, CLI tests, `golangci-lint`, `go vet`/fmt/imports/unused-package checks, `Verify codegen (code)`,
-  `Verify codegen (docs)`, `Framework tests` (Go integration tests per CEL policy kind: vpol/mpol/gpol/dpol/ivpol,
-  `test/integration/<kind>/...`), `Chart-testing (lint)`, `Artifact Hub (lint)`, and `Ensure SHA pinned actions`
-  all run automatically on **every** PR against `main`/`release-*` — none of them are path-filtered, so they show
-  up in the checks list regardless of whether the PR actually touches `charts/` or a workflow file (verified
-  against each workflow's `on:` block in `.github/workflows/`; there's no `paths:` filter on any of them).
+  `Verify codegen (docs)`, `Chart-testing (lint)`, `Artifact Hub (lint)`, and `Ensure SHA pinned actions`** all run
+  automatically on **every** PR against `main`/`release-*` — none of them are path-filtered, so they show up in the
+  checks list regardless of whether the PR actually touches `charts/` or a workflow file (verified against each
+  workflow's `on:` block in `.github/workflows/`; there's no `paths:` filter on any of them).
+- **`Framework tests`** (Go integration tests per CEL policy kind: vpol/mpol/gpol/dpol/ivpol,
+  `test/integration/<kind>/...`) is the one exception — `check-framework.yaml` has
+  `paths-ignore: [docs/**, charts/**, **/*.md]`, so a PR that only touches those (like a docs-only PR) never
+  triggers it. Its absence from the checks list on such a PR is expected, not a CI gap.
 - **The ~1000+ chainsaw conformance suite in `test/conformance/chainsaw/` does *not* run automatically on a PR.**
   `.github/workflows/tests-conformance.yaml` is `workflow_call`-only; it's actually triggered either by
   `comment-conformance.yaml` (posting `/conformance` on the PR, `issue_comment` triggered) or by

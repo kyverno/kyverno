@@ -51,9 +51,10 @@ This is the concrete evidence behind `pkg/deprecations`' legacy-kind mapping —
 policy kinds are actually on a deprecation path or just conceptually superseded, this marker (and the matching
 runtime warning in `pkg/deprecations/deprecations.go`) confirms it's real and in effect today.
 
-## `v2alpha1` is not a landing zone for new types right now — see the worked example
+## A genuinely new kind still goes to `v2alpha1` — its current occupant is just further along its own lifecycle
 
-The versioning rule says new types go to `v2alpha1` and get promoted. But `v2alpha1`'s current sole occupant,
-`GlobalContextEntry`, has already been promoted to `v2` and the `v2alpha1` copy is now the one marked deprecated —
-see [docs/context/shared/api-versioning.md](../docs/context/shared/api-versioning.md#a-real-worked-example-of-the-full-lifecycle-globalcontextentry).
+`v2alpha1`'s sole occupant, `GlobalContextEntry`, has moved on to two further versions (`v2beta1`, the current CRD
+storage version, then `v2`, newer but not yet the storage version), and the `v2alpha1` copy is now the one marked
+deprecated — see
+[docs/context/shared/api-versioning.md](../docs/context/shared/api-versioning.md#a-real-worked-example-of-the-full-lifecycle-globalcontextentry).
 Check what a version actually contains before assuming its current role from the general rule alone.

@@ -30,10 +30,13 @@ file to edit.
 - **Adding an attribute:** only *optional*, backward-compatible attributes can be added to an existing version
   without a new version. A new *required* field, or stricter validation that could reject writes that were
   previously valid, breaks existing clients and older controller versions — that needs a new version instead.
-- **Deleting an attribute:** never delete in place within a version. Mark it deprecated and remove after 3 minor
-  releases (stable tiers) per the notice periods above.
-- **Modifying an attribute:** never modify in place. Deprecate the existing attribute and add a new one following
-  the same compatibility rules.
+- **Deleting an attribute:** for `v1beta1`/`v2beta1` and `v1`/`v2` (stable), never delete in place — mark it
+  deprecated and remove after the tier's notice period (2 or 3 minor releases respectively, per the table above).
+  `v1alpha1`/`v2alpha1` fields have no such guarantee and can be removed with only 1 minor release of notice, per
+  the table — the deprecate-first ceremony below isn't required at alpha.
+- **Modifying an attribute:** same tier split as deleting. At beta/stable, never modify in place — deprecate the
+  existing attribute and add a new one following the same compatibility rules. At alpha, a field may be
+  restructured directly with just the 1-release notice.
 - **Stable references:** newer API versions may reference older stable types; never the reverse (a `v1` resource
   must not reference a `v2alpha1` type; a `v2alpha1` type referencing `v1` is fine).
 
