@@ -75,6 +75,14 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
+			// The loader returns the parsed GVK alongside a schema-validation error, so a
+			// malformed legacy exception must still be blocked with the migration hint rather
+			// than surfacing only a generic validation error.
+			if !allowLegacyPolicies {
+				if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+					return nil, blockErr
+				}
+			}
 			return nil, err
 		}
 		switch gvk {
@@ -105,11 +113,21 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 	return results, nil
 }
 
-func SelectFrom(resources []*unstructured.Unstructured) *LoaderResults {
+// SelectFrom picks policy exceptions out of a slice of already-loaded resources (used for
+// --exceptions-within-resources/--inline-exceptions). When allowLegacyPolicies is false, a legacy
+// kyverno.io PolicyException among those resources is rejected with a migration hint, the same as
+// Load does for exceptions loaded from --exception files.
+func SelectFrom(resources []*unstructured.Unstructured, allowLegacyPolicies bool) (*LoaderResults, error) {
 	results := &LoaderResults{}
 	for _, resource := range resources {
-		switch resource.GroupVersionKind() {
+		gvk := resource.GroupVersionKind()
+		switch gvk {
 		case exceptionV2beta1, exceptionV2:
+			if !allowLegacyPolicies {
+				if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+					return nil, err
+				}
+			}
 			exception, err := convert.To[kyvernov2.PolicyException](*resource)
 			if err == nil {
 				results.Exceptions = append(results.Exceptions, exception)
@@ -122,5 +140,5 @@ func SelectFrom(resources []*unstructured.Unstructured) *LoaderResults {
 		}
 	}
 
-	return results
+	return results, nil
 }

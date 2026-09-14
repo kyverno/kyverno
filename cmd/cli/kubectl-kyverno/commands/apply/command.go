@@ -390,7 +390,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	var exceptions []*kyvernov2.PolicyException
 	var celExceptions []*policiesv1beta1.PolicyException
 	if c.exceptionsWithinResources || c.inlineExceptions {
-		results := exception.SelectFrom(resources)
+		results, err := exception.SelectFrom(resources, c.AllowLegacyPolicies)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+		}
 		exceptions = results.Exceptions
 		celExceptions = results.CELExceptions
 	} else {

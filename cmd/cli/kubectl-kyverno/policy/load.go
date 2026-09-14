@@ -229,6 +229,14 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 					}
 					continue
 				}
+				// The loader returns the parsed GVK alongside a schema-validation error, so a
+				// malformed legacy manifest must still be blocked with the migration hint rather
+				// than surfacing only a generic validation error.
+				if !allowLegacyPolicies {
+					if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+						return nil, blockErr
+					}
+				}
 				msg := err.Error()
 				if strings.Contains(msg, "Invalid value: value provided for unknown field") {
 					return nil, err
@@ -238,9 +246,16 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 				continue
 			}
 
-			// Process regular documents (non-List)
+			// Process regular documents (non-List). A legacy-policy-block error always aborts
+			// the whole file immediately; any other error (unsupported kind, conversion failure)
+			// is recorded as non-fatal so a later document in the same multi-document file still
+			// gets a chance to be scanned and, if it's a legacy kind, blocked.
 			if err := processDocumentItem(path, gvk, &untyped, results, allowLegacyPolicies); err != nil {
-				return nil, fmt.Errorf("failed to process %s: %w", gvk, err)
+				wrapped := fmt.Errorf("failed to process %s: %w", gvk, err)
+				if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+					return nil, wrapped
+				}
+				results.addError(path, wrapped)
 			}
 		}
 		return results, nil
