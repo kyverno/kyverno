@@ -222,7 +222,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	hasExplicitTarget := len(targetConstraints.ResourceRules) > 0 || targetConstraints.Expression != ""
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
-		if target && len(targetConstraints.ResourceRules) > 0 {
+		if target && hasExplicitTarget {
 			constraints = targetConstraints.MatchResources
 		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
