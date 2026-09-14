@@ -12,6 +12,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -225,30 +226,27 @@ func TestBuildNormalizedRequestMap_GoldenEquality(t *testing.T) {
 	}
 }
 
-// TestBuildNormalizedRequestMapFromResources_MatchesSelfExtracting pins the
-// read-only-path variant against the self-extracting entry point: when a
-// caller passes the resources ExtractResources itself would produce,
-// BuildNormalizedRequestMapFromResources must return a map byte-identical to
-// BuildNormalizedRequestMap. This guards the mutate-existing matching path
-// (engineImpl.MatchedMutateExistingPolicies), which reuses the object/
-// oldObject it already extracted for attr instead of extracting a second
-// time - the reuse must not change request.* content.
-func TestBuildNormalizedRequestMapFromResources_MatchesSelfExtracting(t *testing.T) {
-	for _, tc := range requestMapTestCases() {
-		t.Run(tc.name, func(t *testing.T) {
-			object, oldObject, err := admissionutils.ExtractResources(nil, *tc.request)
-			require.NoError(t, err)
+// TestBuildNormalizedRequestMapFromResources_SplicesSuppliedResources proves
+// the read-only-path variant splices the resources the caller hands it
+// rather than re-extracting from the request. This is the exact property the
+// mutate-existing matching path relies on (engineImpl.MatchedMutateExisting-
+// Policies reuses the object/oldObject it already extracted for attr instead
+// of paying a second ExtractResources), and the regression this commit is
+// vulnerable to: if the primitive ever self-extracts again, the sentinel
+// below - which ExtractResources could never produce from the pod request -
+// stops surfacing.
+func TestBuildNormalizedRequestMapFromResources_SplicesSuppliedResources(t *testing.T) {
+	req := minimalRequest(admissionv1.Create, podRaw("nginx", "nginx:1.21"), nil)
 
-			fromResources, err := BuildNormalizedRequestMapFromResources(tc.request, object, oldObject)
-			require.NoError(t, err)
+	objectSentinel := unstructured.Unstructured{Object: map[string]any{"sentinel": "object"}}
+	oldObjectSentinel := unstructured.Unstructured{Object: map[string]any{"sentinel": "oldObject"}}
 
-			selfExtracting, err := BuildNormalizedRequestMap(tc.request)
-			require.NoError(t, err)
-
-			assert.True(t, reflect.DeepEqual(selfExtracting, fromResources),
-				"reusing already-extracted resources must match self-extraction\nself-extracting: %#v\nfrom-resources: %#v", selfExtracting, fromResources)
-		})
-	}
+	got, err := BuildNormalizedRequestMapFromResources(req, objectSentinel, oldObjectSentinel)
+	require.NoError(t, err)
+	assert.Equal(t, objectSentinel.Object, got["object"],
+		"FromResources must splice the supplied object, not re-extract from request")
+	assert.Equal(t, oldObjectSentinel.Object, got["oldObject"],
+		"FromResources must splice the supplied oldObject, not re-extract from request")
 }
 
 // TestBuildRawRequestMap_NumericFidelity specifically targets int64-vs-
