@@ -46,8 +46,12 @@ func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1list
 		errs = append(errs, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
-	if ivpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
-		if engine.ExpressionsUseHTTP(ivpolExpressions(ivpol)...) {
+	if ivpol.GetNamespace() != "" {
+		exprs := ivpolExpressions(ivpol)
+		if engine.ExpressionsUseGlobalContext(exprs...) {
+			errs = append(errs, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && engine.ExpressionsUseHTTP(exprs...) {
 			errs = append(errs, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}
@@ -88,6 +92,41 @@ func ivpolExpressions(ivpol policiesv1beta1.ImageValidatingPolicyLike) []string 
 	for _, mir := range spec.MatchImageReferences {
 		if mir.Expression != "" {
 			exprs = append(exprs, mir.Expression)
+		}
+	}
+	// attestor CEL inputs are compiled and evaluated at verification time
+	// (see pkg/image/verification/variables/attestors.go), so they must be
+	// scanned for forbidden libraries too
+	for _, att := range spec.Attestors {
+		exprs = append(exprs, attestorExpressions(att)...)
+	}
+	return exprs
+}
+
+func attestorExpressions(att policiesv1beta1.Attestor) []string {
+	exprs := make([]string, 0, 6)
+	if att.Cosign != nil {
+		if att.Cosign.Key != nil && att.Cosign.Key.Expression != "" {
+			exprs = append(exprs, att.Cosign.Key.Expression)
+		}
+		if att.Cosign.Certificate != nil {
+			if att.Cosign.Certificate.Certificate != nil && att.Cosign.Certificate.Certificate.Expression != "" {
+				exprs = append(exprs, att.Cosign.Certificate.Certificate.Expression)
+			}
+			if att.Cosign.Certificate.CertificateChain != nil && att.Cosign.Certificate.CertificateChain.Expression != "" {
+				exprs = append(exprs, att.Cosign.Certificate.CertificateChain.Expression)
+			}
+		}
+		if att.Cosign.TrustedRoot != nil && att.Cosign.TrustedRoot.Expression != "" {
+			exprs = append(exprs, att.Cosign.TrustedRoot.Expression)
+		}
+	}
+	if att.Notary != nil {
+		if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {
+			exprs = append(exprs, att.Notary.Certs.Expression)
+		}
+		if att.Notary.TSACerts != nil && att.Notary.TSACerts.Expression != "" {
+			exprs = append(exprs, att.Notary.TSACerts.Expression)
 		}
 	}
 	return exprs
