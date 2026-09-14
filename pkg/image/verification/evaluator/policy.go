@@ -3,7 +3,6 @@ package evaluator
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -26,6 +25,7 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -49,9 +49,19 @@ type CompiledPolicy interface {
 	// Evaluate does not enforce validationConfigurations.required: the evidence may
 	// still come from another policy later in the same request. Call
 	// EnforceRequired on every passing policy only after all have evaluated.
-	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
+	//
+	// requestMapFn is a memoized thunk over compiler.BuildRawRequestMap (see
+	// sync.OnceValues in engine.go), built once per admission request and shared
+	// across every policy evaluated for that request. Evaluate resolves it at most
+	// once per call, through prepareK8sData -- never once per matchCondition or
+	// exception. Pass nil for the JSON evaluation mode and for the ExtractionMode
+	// synthetic-request carve-out, where each synthesized pod template must build
+	// its own map from its own (different) embedded object/oldObject rather than
+	// reuse the outer request's.
+	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
 	EnforceRequired(images []string) error
-	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
+	// requestMapFn: same memoization contract as Evaluate's.
+	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
 }
 
 type compiledPolicy struct {
@@ -73,8 +83,16 @@ type compiledPolicy struct {
 	verifications        *imageverify.ImageVerificationResults
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
-	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
+func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
+	// Assemble activation data once, ahead of matching, so match (matchConditions
+	// and every exception's matchConditions) and the rest of Evaluate all consume
+	// the same map instead of each rebuilding it. This is what keeps a nil
+	// requestMapFn to one build per Evaluate call, never one per match/exception.
+	data, err := prepareK8sData(attr, request, namespace, isK8s, requestMapFn)
+	if err != nil {
+		return nil, err
+	}
+	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +104,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range c.exceptions {
-			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+			match, err := c.match(ctx, data, polex.MatchConditions)
 			if err != nil {
 				if fullExemptionFound {
 					// exception already granted; a broken later exception must not negate it
@@ -110,7 +128,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-	data := map[string]any{}
 	vars := lazy.NewMapValue(engine.VariablesType)
 	for name, variable := range c.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
@@ -125,34 +142,12 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		})
 	}
 	if isK8s {
-		namespaceVal, err := objectToResolveVal(namespace)
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-		}
-		requestVal, err := convertObjectToUnstructured(request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		}
-		objectVal, err := objectToResolveVal(attr.GetObject())
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-		}
-		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-		}
-		data[engine.NamespaceObjectKey] = namespaceVal
-		data[engine.RequestKey] = requestVal.Object
-		data[engine.ObjectKey] = objectVal
-		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
 		// The activation overrides the Lib's cel.Globals binding, so confine here too
 		// or a namespaced policy would reach the raw context at evaluation time.
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(context, c.namespace)}
 		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
-	} else {
-		data[engine.ObjectKey] = request
 	}
 
 	images, err := engine.ExtractImages(data, c.imageExtractors)
@@ -314,9 +309,17 @@ func (c *compiledPolicy) MutateDigest(
 	request interface{},
 	namespace runtime.Object,
 	resource unstructured.Unstructured,
+	requestMapFn func() (map[string]any, error),
 	cfg config.Configuration,
 ) ([]jsonpatch.JsonPatchOperation, error) {
-	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
+	// Same single-assembly rule as Evaluate: build the activation data once and
+	// let both match calls (matchConditions, exception matchConditions) consume
+	// it, rather than each rebuilding it.
+	data, err := prepareK8sData(attr, request, namespace, isK8s(request), requestMapFn)
+	if err != nil {
+		return nil, err
+	}
+	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +330,7 @@ func (c *compiledPolicy) MutateDigest(
 	// exceptions must not skip digest pinning for the whole resource — same rule as
 	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
-		match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+		match, err := c.match(ctx, data, polex.MatchConditions)
 		if err != nil {
 			return nil, err
 		}
@@ -397,38 +400,16 @@ func (c *compiledPolicy) evaluateAuditAnnotations(ctx context.Context, data map[
 	return auditAnnotations, nil
 }
 
+// match evaluates matchConditions against activation data assembled once by the
+// caller (Evaluate or MutateDigest, via prepareK8sData) -- it does not build or
+// convert anything itself, so it can be called once for the policy's own
+// matchConditions and once per exception without repeating the request-map
+// build or the object/oldObject conversion.
 func (p *compiledPolicy) match(
 	ctx context.Context,
-	attr admission.Attributes,
-	request interface{},
-	namespace runtime.Object,
+	data map[string]any,
 	matchConditions []cel.Program,
 ) (bool, error) {
-	data := make(map[string]any)
-	if isK8s(request) {
-		namespaceVal, err := objectToResolveVal(namespace)
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-		}
-		requestVal, err := convertObjectToUnstructured(request)
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		}
-		objectVal, err := objectToResolveVal(attr.GetObject())
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-		}
-		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-		}
-		data[engine.NamespaceObjectKey] = namespaceVal
-		data[engine.RequestKey] = requestVal.Object
-		data[engine.ObjectKey] = objectVal
-		data[engine.OldObjectKey] = oldObjectVal
-	} else {
-		data[engine.ObjectKey] = request
-	}
 	var errs []error
 	for _, matchCondition := range matchConditions {
 		// evaluate the condition
@@ -459,24 +440,68 @@ func (p *compiledPolicy) match(
 	}
 }
 
-func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	if obj == nil || reflect.ValueOf(obj).IsNil() {
-		return &unstructured.Unstructured{Object: nil}, nil
+// prepareK8sData is the single place ivpol assembles CEL activation data and
+// resolves the `request` map -- both Evaluate and MutateDigest call it exactly
+// once per invocation and feed the result into match instead of match
+// re-assembling it on every call (matchConditions, then once per exception).
+// Mirrors vpol's prepareK8sData (pkg/cel/policies/vpol/compiler/eval.go).
+//
+// requestMapFn is a memoized thunk (typically sync.OnceValues over
+// compiler.BuildRawRequestMap) built once per admission request and shared
+// across every policy in that request; it is consumed here, not inline at
+// each call site, so a nil thunk costs at most one build per Evaluate/
+// MutateDigest call -- never one per match/exception. Pass nil for the JSON
+// evaluation mode (isK8s false; the request map is never built) and for the
+// ExtractionMode synthetic-request carve-out, where each synthesized pod
+// template embeds a different object/oldObject than the outer request and
+// must build its own map via compiler.BuildRawRequestMap(request) instead of
+// reusing the outer one.
+//
+// The returned map is shared for the remainder of the call (and, through the
+// thunk, across every policy evaluated for the admission request) and MUST be
+// treated as immutable: no ivpol code may write into it or its nested values.
+//
+// TODO(issue #NNNN): this helper is a twin of vpol's prepareK8sData
+// (pkg/cel/policies/vpol/compiler/eval.go). Both should move behind a shared
+// choke point in pkg/cel/compiler so a fourth engine cannot reintroduce the
+// per-policy rebuild this design eliminates here and in #17572.
+func prepareK8sData(
+	attr admission.Attributes,
+	request interface{},
+	namespace runtime.Object,
+	isK8s bool,
+	requestMapFn func() (map[string]any, error),
+) (map[string]any, error) {
+	data := map[string]any{}
+	if !isK8s {
+		data[engine.ObjectKey] = request
+		return data, nil
 	}
-	ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	namespaceVal, err := utils.ObjectToResolveVal(namespace)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
-	return &unstructured.Unstructured{Object: ret}, nil
-}
-
-func objectToResolveVal(r runtime.Object) (interface{}, error) {
-	if r == nil || reflect.ValueOf(r).IsNil() {
-		return nil, nil
-	}
-	v, err := convertObjectToUnstructured(r)
+	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
 	}
-	return v.Object, nil
+	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+	}
+	var requestMap map[string]any
+	if requestMapFn != nil {
+		requestMap, err = requestMapFn()
+	} else {
+		admissionReq, _ := request.(*admissionv1.AdmissionRequest)
+		requestMap, err = engine.BuildRawRequestMap(admissionReq)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+	}
+	data[engine.NamespaceObjectKey] = namespaceVal
+	data[engine.RequestKey] = requestMap
+	data[engine.ObjectKey] = objectVal
+	data[engine.OldObjectKey] = oldObjectVal
+	return data, nil
 }
