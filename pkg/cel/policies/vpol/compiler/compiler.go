@@ -241,7 +241,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			globalcontext.Latest(),
 		),
 		resource.Lib(
