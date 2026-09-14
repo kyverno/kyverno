@@ -394,14 +394,18 @@ func TestLoad_BlocksMalformedLegacyClusterPolicy(t *testing.T) {
 
 func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T) {
 	// A plain ConfigMap ahead of a legacy ClusterPolicy in the same multi-document file must not
-	// cause the loader to give up on the rest of the file before it reaches the legacy document.
+	// cause the loader to give up on the rest of the file before it reaches the legacy document:
+	// the block still has to fire for the ClusterPolicy, taking priority over the ConfigMap's
+	// (unrelated, non-fatal-by-comparison) "unsupported kind" error.
 	_, err := Load(nil, "", false, "testdata/configmap-then-legacy-clusterpolicy.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
 
-	results, err := Load(nil, "", true, "testdata/configmap-then-legacy-clusterpolicy.yaml")
-	require.NoError(t, err)
-	assert.Len(t, results.Policies, 1)
+	// With the block bypassed, the ConfigMap's own "unsupported kind" problem is still a real,
+	// pre-existing error the loader must surface (not silently swallow), same as before this PR.
+	_, err = Load(nil, "", true, "testdata/configmap-then-legacy-clusterpolicy.yaml")
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "no longer accepted")
 }
 
 func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {

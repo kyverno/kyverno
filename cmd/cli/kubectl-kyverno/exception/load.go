@@ -72,6 +72,13 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 		return nil, err
 	}
 
+	// pendingErr holds the first "ordinary" (non-legacy-block) fatal error seen so far. Scanning
+	// always continues past it so a legacy exception appearing later in the same multi-document
+	// file still gets a chance to be blocked; a legacy-block error always takes priority and
+	// returns immediately. If nothing later supersedes it, pendingErr is what the load ultimately
+	// fails with, preserving the guarantee that a genuinely broken document fails the load rather
+	// than being silently dropped.
+	var pendingErr error
 	for _, document := range documents {
 		gvk, untyped, err := factory.Load(document)
 		if err != nil {
@@ -83,7 +90,10 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 					return nil, blockErr
 				}
 			}
-			return nil, err
+			if pendingErr == nil {
+				pendingErr = err
+			}
+			continue
 		}
 		switch gvk {
 		case exceptionV2beta1, exceptionV2:
@@ -97,20 +107,28 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 			}
 			exception, err := convert.To[kyvernov2.PolicyException](untyped)
 			if err != nil {
-				return nil, err
+				if pendingErr == nil {
+					pendingErr = err
+				}
+				continue
 			}
 			results.Exceptions = append(results.Exceptions, exception)
 		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
 			exception, err := convert.To[policiesv1beta1.PolicyException](untyped)
 			if err != nil {
-				return nil, err
+				if pendingErr == nil {
+					pendingErr = err
+				}
+				continue
 			}
 			results.CELExceptions = append(results.CELExceptions, exception)
 		default:
-			return nil, fmt.Errorf("policy exception type not supported %s", gvk)
+			if pendingErr == nil {
+				pendingErr = fmt.Errorf("policy exception type not supported %s", gvk)
+			}
 		}
 	}
-	return results, nil
+	return results, pendingErr
 }
 
 // SelectFrom picks policy exceptions out of a slice of already-loaded resources (used for

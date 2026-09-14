@@ -216,6 +216,13 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 		if err != nil {
 			return nil, err
 		}
+		// pendingErr holds the first "ordinary" (non-legacy-block) fatal error seen so far.
+		// Scanning always continues past it so a legacy kind appearing later in the same
+		// multi-document file still gets a chance to be blocked; a legacy-block error always
+		// takes priority and returns immediately. If nothing later supersedes it, pendingErr is
+		// what the whole file ultimately fails with, preserving the pre-existing guarantee that
+		// a genuinely broken document fails the load rather than being silently dropped.
+		var pendingErr error
 		for _, document := range documents {
 			gvk, untyped, err := factory.Load(document)
 			if err != nil {
@@ -239,7 +246,10 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 				}
 				msg := err.Error()
 				if strings.Contains(msg, "Invalid value: value provided for unknown field") {
-					return nil, err
+					if pendingErr == nil {
+						pendingErr = err
+					}
+					continue
 				}
 				// skip non-Kubernetes YAMLs and invalid types
 				results.addError(path, err)
@@ -248,17 +258,20 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 
 			// Process regular documents (non-List). A legacy-policy-block error always aborts
 			// the whole file immediately; any other error (unsupported kind, conversion failure)
-			// is recorded as non-fatal so a later document in the same multi-document file still
-			// gets a chance to be scanned and, if it's a legacy kind, blocked.
+			// is kept as the pending fatal error while scanning continues, so a later document in
+			// the same multi-document file still gets a chance to be scanned and, if it's a
+			// legacy kind, blocked ahead of it.
 			if err := processDocumentItem(path, gvk, &untyped, results, allowLegacyPolicies); err != nil {
 				wrapped := fmt.Errorf("failed to process %s: %w", gvk, err)
 				if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 					return nil, wrapped
 				}
-				results.addError(path, wrapped)
+				if pendingErr == nil {
+					pendingErr = wrapped
+				}
 			}
 		}
-		return results, nil
+		return results, pendingErr
 	}
 }
 
@@ -298,9 +311,9 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 
 		if err := processDocumentItem(path, itemGVK, itemUnstructured, results, allowLegacyPolicies); err != nil {
 			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
-				return fmt.Errorf("List item %d: %w", i, err)
+				return fmt.Errorf("List item %d (%s): %w", i, itemGVK, err)
 			}
-			results.addError(path, fmt.Errorf("failed to process List item %d: %w", i, err))
+			results.addError(path, fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err))
 		}
 	}
 

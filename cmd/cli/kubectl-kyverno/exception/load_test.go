@@ -34,9 +34,14 @@ func Test_load(t *testing.T) {
 		exceptionsLoaded:    1,
 		celExceptionsLoaded: 0,
 	}, {
-		name:     "policy exception and policy",
-		policies: "../_testdata/exceptions/exception-and-policy.yaml",
-		wantErr:  true,
+		// The PolicyException document loads fine; the unsupported Policy document that follows
+		// it becomes the pending fatal error, but doesn't discard what was already loaded before
+		// it -- scanning still continues so a legacy kind later in the same file can still be
+		// blocked ahead of an earlier, unrelated error.
+		name:             "policy exception and policy",
+		policies:         "../_testdata/exceptions/exception-and-policy.yaml",
+		exceptionsLoaded: 1,
+		wantErr:          true,
 	}, {
 		name:                "cel policy exception",
 		policies:            "../_testdata/exceptions/celexception.yaml",
@@ -127,6 +132,59 @@ spec:
 			require.NoError(t, err, "expected allowLegacyPolicies to bypass the block")
 		})
 	}
+}
+
+func Test_load_BlocksLegacyExceptionAfterUnsupportedDocument(t *testing.T) {
+	// An unsupported document (a legacy Policy, which this loader doesn't handle at all) ahead of
+	// a legacy PolicyException in the same multi-document file must not cause the loader to give
+	// up before it reaches the legacy exception: the block still has to fire for it, taking
+	// priority over the earlier, unrelated "policy exception type not supported" error.
+	content := []byte(`
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: unsupported-here
+  namespace: test
+spec:
+  rules:
+  - name: test-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "test"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+---
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: test-exception
+  namespace: default
+spec:
+  exceptions:
+  - policyName: test-policy
+    ruleNames:
+    - test-rule
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+`)
+
+	_, err := load(content, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+
+	_, err = load(content, true)
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "no longer accepted")
+	assert.Contains(t, err.Error(), "policy exception type not supported")
 }
 
 func Test_load_BlocksMalformedLegacyException(t *testing.T) {
