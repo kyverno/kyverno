@@ -391,5 +391,17 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		namespace = e.nsResolver(ns)
 	}
 
-	return e.provider.MatchesMutateExisting(ctx, attr, &request.Request, namespace)
+	// Build the `request` CEL activation value at most once for the whole
+	// mutate-existing matching pass below, lazily: both provider
+	// implementations (staticProvider, reconciler) call MatchesConditions
+	// once per candidate policy inside their own loops, and previously each
+	// call independently rebuilt the request map from scratch - the exact
+	// O(policy count) cost this hoist eliminates elsewhere in mpol. A
+	// request matching zero policies (or whose policies have no
+	// matchConditions) never invokes this func at all.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildNormalizedRequestMap(&request.Request)
+	})
+
+	return e.provider.MatchesMutateExisting(ctx, attr, &request.Request, namespace, requestMapFn)
 }
