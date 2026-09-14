@@ -70,11 +70,14 @@ area got patched four times in quick succession — treat any change here as sec
 tweak. Also: `egressLogger()` builds its logger lazily per call rather than as a package var, because a package-level
 logger would be created before `logging.Setup()` runs and would silently discard everything written to it.
 
-## `pkg/engine/api` core types are immutable value types
+## `pkg/engine/api` core types follow a copy-on-write API, with one direct-mutation call site
 
-`EngineResponse` and `RuleResponse` are only ever modified via `With*` copy methods, never mutated in place —
-matching the copy-on-write style of `PolicyContext`. `RuleResponse.emitWarn` is auto-set `true` for
-`Error|Fail|Warn` statuses by `NewRuleResponse`.
+`EngineResponse` and `RuleResponse` carry a `With*` copy-method API (`pkg/engine/api/engineresponse.go`:
+`WithPolicy`, `WithPolicyResponse`, `WithStats`, `WithPatchedResource`, `WithNamespaceLabels`, `WithWarning`),
+matching the copy-on-write style of `PolicyContext` — that's the idiomatic way to change one.
+`pkg/webhooks/resource/updaterequest.go` mutates `engineResponse.PolicyResponse.Rules` directly instead, so an
+`EngineResponse` already in flight can change without going through `With*`. `RuleResponse.emitWarn` is auto-set `true`
+for `Error|Fail|Warn` statuses by `NewRuleResponse`.
 
 ## Known open TODOs worth knowing before you hit them
 

@@ -21,7 +21,9 @@ too (`*.generated.go`, `interface.generated.go`) even though — unlike everythi
 currently carry no `DO NOT EDIT` header. Treat them as no-edit anyway; `.claude/settings.json`'s `permissions.deny`
 enforces this by path for Claude Code sessions regardless of the missing header.
 
-Within `pkg/clients/`, one thing is hand-written and is the preferred entry point for new code:
+Three things under `pkg/clients/` are hand-written: `dclient`, the preferred entry point for new code, plus
+`pkg/clients/dynamic/client.go` and `pkg/clients/metadata/client.go`, hand-written adapters described in the next
+bullet.
 
 - **`pkg/clients/dclient`** (`dclient.Interface`) — a unified, hand-written dynamic + discovery client for
   arbitrary GVKs. This is what almost all new controller/webhook/engine code should use for generic resource
@@ -34,8 +36,13 @@ Within `pkg/clients/`, one thing is hand-written and is the preferred entry poin
   which matters for any `dclient` constructed outside `cmd/internal.Setup` — the `kubectl-kyverno` CLI's `apply`
   command and `ext/cluster.New` both do this directly, with no instrumentation at all. See
   [pkg/clients/AGENTS.md](../../../pkg/clients/AGENTS.md) for more.
-- **`pkg/clients/{kube,kyverno,dynamic,metadata,apiserver,aggregator}`** — generated, instrumented typed wrappers.
-  Use these when the exact Kubernetes type is known and a typed client reads more clearly than `dclient`.
+- **`pkg/clients/{kube,kyverno,dynamic,metadata,apiserver,aggregator}`** — instrumented typed wrappers, use these
+  when the exact Kubernetes type is known and a typed client reads more clearly than `dclient`. `kube`, `kyverno`,
+  `apiserver`, and `aggregator` are fully generated (`hack/client-wrapper` calls `generateClientset` for them). For
+  `dynamic` and `metadata`, only the per-verb `resource.generated.go` and the composable `interface.generated.go`
+  are generated — `client.go` in each is hand-written, because `dynamic.Interface`/`metadata.Interface`'s
+  navigational `Resource()`/`Namespace()` shape isn't templatable the same way a flat clientset is
+  (`hack/client-wrapper/main.go`'s `main()` never calls `generateClientset` for these two, unlike the other four).
 
 ## Rule of thumb for new code
 
