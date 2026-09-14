@@ -396,9 +396,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			// mutateExisting MutatingPolicies - process target resources
 			if len(p.TargetResources) > 0 {
-				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
-				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
-				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
+				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
 				targetMatcher := matching.NewMatcher()
 				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
 				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
@@ -1157,6 +1155,12 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 			rules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
 		}
 		constraints.ResourceRules = rules
+		// Clear namespace/object selectors — this predicate only checks resource
+		// rules. Selector evaluation is handled by engine.handlePolicy() which
+		// has the properly resolved namespace object. Passing nil here would
+		// cause policies with a namespaceSelector to be incorrectly rejected.
+		constraints.NamespaceSelector = nil
+		constraints.ObjectSelector = nil
 		matches, err := m.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, nil)
 		if err != nil {
 			return false
