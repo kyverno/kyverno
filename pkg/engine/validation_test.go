@@ -49,7 +49,7 @@ func testValidate(
 }
 
 func newPolicyContext(
-	t testing.TB,
+	t *testing.T,
 	resource unstructured.Unstructured,
 	operation kyvernov1.AdmissionOperation,
 	admissionInfo *kyvernov2.RequestInfo,

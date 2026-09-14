@@ -1,28 +1,39 @@
-# Allocation ceilings for the admission hot-path benchmark gate (#17509).
+# Allocation ceilings for the CEL admission-path benchmark gate (#17509).
 #
 # Format: <benchmark-name> <max_allocs_per_op> <max_bytes_per_op>
 #
-# Values are measured at commit 2360fc7 with:
-#   go test -run=^$ -bench=. -benchmem -benchtime=100x -count=1 \
-#     ./pkg/engine/... ./pkg/policycache/... ./pkg/webhooks/resource/...
-# (also validated for stability with -count=5/-count=10).
+# This gate runs post-merge (see the `perf` job in
+# .github/workflows/check-tests.yaml), not per pull request: a failure files
+# or updates a workflow-failure issue on main rather than blocking anyone's
+# PR, which is what makes it safe to keep this headroom tight (see
+# docs/dev/README.md, "Performance benchmarks").
 #
-# Headroom: +10% on allocs/op, +25% on bytes/op, rounded up to a whole
-# number, except BenchmarkHandlerValidate which uses +20% allocs/op headroom
-# (see that benchmark's doc comment for why: pond-pool/informer goroutine
-# noise makes its allocs/op vary by a few per run across otherwise-identical
-# runs, unlike the other three benchmarks which are allocs/op-identical
-# across -count=10).
+# Values below are measured on linux/amd64 (the CI platform - allocation
+# counts differ across GOOS/GOARCH, so darwin/arm64 numbers must never be
+# committed here) with:
+#   go test -run=^$ -bench=. -benchmem -benchtime=100x -count=10 \
+#     ./pkg/cel/policies/vpol/engine ./pkg/cel/policies/mpol/engine \
+#     ./pkg/webhooks/resource/vpol ./pkg/webhooks/resource/mpol
+# inside a `golang` Docker container, taking the max observed allocs/op and
+# bytes/op across the 10 runs per benchmark.
 #
-# If your PR legitimately changes allocation counts at one of these
-# boundaries, re-measure with `make test-perf` and update this file in the
-# same PR, with a one-line justification in the PR description.
+# Headroom: +5% on allocs/op (minimum +2), +15% on bytes/op, rounded up,
+# except BenchmarkMpolHandlerMutate which uses +15%/+20% (see that
+# benchmark's doc comment for why: it fires its audit and update-request
+# work in unwaited goroutines, unlike the wait.Group-backed vpol handler, so
+# its allocation counts are noisier).
+#
+# Ratchet rule: if your PR legitimately changes allocation counts at one of
+# these boundaries (an intentional improvement or a justified increase), run
+# `make bench-baseline` and commit the regenerated ceilings in the same PR,
+# with a one-line justification in the PR description. At each release
+# branch cut, the release owner re-runs `make bench-baseline` on linux/amd64
+# as a periodic backstop against ceiling staleness.
 
 # name                                    max_allocs_per_op  max_bytes_per_op
-BenchmarkEngineValidate                   302                36059
-BenchmarkContextCheckpointRestore         18                 3475
-BenchmarkGetPolicies/policies-1           16                 2302
-BenchmarkGetPolicies/policies-10          16                 2302
-BenchmarkGetPolicies/policies-100         16                 2302
-BenchmarkGetPolicies/policies-1000        16                 2302
-BenchmarkHandlerValidate                  1194               93204
+BenchmarkEngineHandleVpol/N=1            2884               491586
+BenchmarkEngineHandleVpol/N=16           45926              7512202
+BenchmarkEngineHandleVpol/N=64           183578             29576749
+BenchmarkEngineHandleMpol                11583              1176394
+BenchmarkVpolHandlerValidate             3539               431487
+BenchmarkMpolHandlerMutate               16846              1711576

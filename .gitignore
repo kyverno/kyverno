@@ -15,4 +15,5 @@ cmd/background-controller/background-controller
 cmd/readiness-checker/readiness-checker
 coverage.out
 bench-results.txt
+bench-baseline-results.txt
 kyverno.tar
