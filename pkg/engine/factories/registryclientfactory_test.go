@@ -22,7 +22,7 @@ import (
 
 func TestGetClient_NilSecretsLister(t *testing.T) {
 	// Create a factory with nil secretsLister (simulating CLI usage)
-	rclient := registryclient.New(nil, "", "", "", false)
+	rclient := registryclient.New()
 	factory := DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
 
 	tests := []struct {

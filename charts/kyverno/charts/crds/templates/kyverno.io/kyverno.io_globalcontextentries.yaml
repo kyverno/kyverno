@@ -285,6 +285,8 @@ spec:
       name: LAST REFRESH
       type: date
     deprecated: true
+    deprecationWarning: kyverno.io/v2alpha1 GlobalContextEntry is deprecated; use
+      kyverno.io/v2 GlobalContextEntry
     name: v2alpha1
     schema:
       openAPIV3Schema:

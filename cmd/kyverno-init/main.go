@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	coordinationv1 "k8s.io/api/coordination/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -97,14 +96,15 @@ func main() {
 
 	if setup.OpenreportsClient != nil {
 		logger := logging.WithName("kyvernopre/wgpolicyreport-cleanup")
-		err := kubeutils.CRDsInstalled(setup.ApiServerClient, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
+		// The legacy wgpolicyk8s CRDs are intentionally absent when reports-server
+		// serves that API through its aggregated APIService, so treat "not found"
+		// as nothing to clean up rather than a fatal error.
+		exists, err := kubeutils.CRDsExist(setup.ApiServerClient, "clusterpolicyreports.wgpolicyk8s.io", "policyreports.wgpolicyk8s.io")
 		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				logger.Error(err, "error checking if reports CRDs are installed to clean them up")
-				os.Exit(0)
-			}
-			// error was nil, meaning the cluster has the wg policy api and it should be cleaned
-		} else {
+			logger.Error(err, "error checking if reports CRDs are installed to clean them up")
+			os.Exit(0)
+		}
+		if exists {
 			if err := cleanUpWgPolicyReports(logger, setup.KyvernoClient.Wgpolicyk8sV1alpha2()); err != nil {
 				logger.Error(err, "error cleaning up reports belonging to wgpolicyk8s")
 				os.Exit(0)

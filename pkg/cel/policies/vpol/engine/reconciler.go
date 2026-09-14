@@ -100,9 +100,9 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	for _, autogen := range generated {
+	for config, generatedPolicy := range generated {
 		autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
-		*autogenPolicy.GetValidatingPolicySpec() = *autogen.Spec
+		*autogenPolicy.GetValidatingPolicySpec() = *generatedPolicy.Spec
 
 		compiled, errs := r.compiler.Compile(autogenPolicy, exceptions)
 		if len(errs) > 0 {
@@ -113,6 +113,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			Actions:        actions,
 			Policy:         autogenPolicy,
 			CompiledPolicy: compiled,
+			ExtractionMode: config == autogen.ExtractionReplacementsRef,
 		})
 	}
 	r.lock.Lock()
