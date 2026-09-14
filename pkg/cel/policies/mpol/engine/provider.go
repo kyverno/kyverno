@@ -26,7 +26,14 @@ import (
 
 type Provider interface {
 	Fetch(context.Context, bool) []Policy
-	MatchesMutateExisting(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, *corev1.Namespace) []string
+	// MatchesMutateExisting checks every mutate-existing policy's match
+	// constraints/conditions against a single admission request.
+	// requestMapFn lazily builds the `request` CEL activation value once
+	// per call (see compiler.BuildNormalizedRequestMap and sync.OnceValues
+	// at the caller, engineImpl.MatchedMutateExistingPolicies) and is
+	// threaded into each policy's MatchesConditions check, instead of each
+	// candidate policy rebuilding it independently.
+	MatchesMutateExisting(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, *corev1.Namespace, func() (map[string]any, error)) []string
 }
 
 func NewKubeProvider(
@@ -131,7 +138,7 @@ func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Polic
 	return filtered
 }
 
-func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) []string {
+func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error)) []string {
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
@@ -146,7 +153,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 		}
 
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, r.libCxt) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, requestMapFn, r.libCxt) {
 				continue
 			}
 		}
