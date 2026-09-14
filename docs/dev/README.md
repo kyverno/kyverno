@@ -13,10 +13,10 @@ For release instructions, see: [create-a-release.md](releases/create-a-release.m
 A `perf` job in the post-merge `check-tests` workflow
 (`.github/workflows/check-tests.yaml`, triggered on push to `main` and
 `release-*`) runs a fast, cluster-free allocation-regression check against
-the CEL admission path. It doesn't run per pull request: a regression on
-`main` files or updates a workflow-failure issue for a maintainer to triage,
-rather than blocking a PR, which is what lets the check use tight headroom
-(see the ratchet process below).
+the CEL admission path. It doesn't run per pull request: if a regression
+lands on `main`, the `perf` job files or updates a workflow-failure issue
+for a maintainer to triage, rather than blocking a PR, which is what lets
+the check use tight headroom (see the ratchet process below).
 
 The check covers four boundaries, all under `pkg/cel/policies/*` and
 `pkg/webhooks/resource/{vpol,mpol}`:
