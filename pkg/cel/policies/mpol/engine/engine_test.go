@@ -406,6 +406,67 @@ func TestEvaluate(t *testing.T) {
 		}
 	})
 
+	t.Run("matches expression-only target constraints with a target kind different from the trigger", func(t *testing.T) {
+		mutateExisting := true
+		mpol := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "expression-only-target"},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{Enabled: &mutateExisting},
+				},
+				// The trigger's matchConstraints only cover deployments; the target
+				// resolved via the expression below is a ConfigMap. Because
+				// targetMatchConstraints has no resourceRules of its own, the
+				// matcher gate must not fall back to the trigger's matchConstraints
+				// (a different kind) or the target would be rejected before its
+				// targetMatchConditions ever run.
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"},
+							},
+						},
+					}},
+				},
+				TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+					Expression: `resource.get("v1", "configmaps", "default", "target")`,
+				},
+				TargetMatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name: "target-name", Expression: `object.metadata.name == "target"`,
+				}},
+				Mutations: []admissionregistrationv1alpha1.Mutation{{
+					PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+						Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
+					},
+				}},
+			},
+		}
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
+		if !assert.NoError(t, err) {
+			return
+		}
+		target := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]interface{}{"name": "target", "namespace": "default"},
+		}}
+		attr := admission.NewAttributesRecord(
+			target, nil, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+			"default", "target", schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+			"", admission.Update, nil, false, &user.DefaultInfo{},
+		)
+		request := admissionv1.AdmissionRequest{Operation: admissionv1.Update, Name: "target", Namespace: "default"}
+		eng := NewEngine(provider, nsResolver, matcher, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+
+		response, err := eng.Evaluate(ctx, attr, request, predicate)
+
+		assert.NoError(t, err)
+		if assert.NotNil(t, response.PatchedResource) {
+			assert.Equal(t, "true", response.PatchedResource.GetLabels()["mutated"])
+		}
+	})
+
 	t.Run("respects matchConditions during background mutateExisting evaluation when no explicit target is defined", func(t *testing.T) {
 		mutateExisting := true
 		newPolicy := func() *policiesv1beta1.MutatingPolicy {
