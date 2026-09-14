@@ -27,4 +27,10 @@ type Client interface {
 	// found is true when the verification cache entry exists; payloads may be nil/empty
 	// when the entry was written with Set (presence-only).
 	GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (found bool, payloads map[string][]byte, err error)
+
+	// Enabled reports whether this cache is turned on (see WithCacheEnableFlag /
+	// DisabledImageVerifyCache). Callers that need to tell "caching is off" apart
+	// from "the write was rejected" -- Set/SetWithPayload return false for both --
+	// should check this first.
+	Enabled() bool
 }
