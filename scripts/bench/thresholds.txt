@@ -17,11 +17,11 @@
 # inside a `golang` Docker container, taking the max observed allocs/op and
 # bytes/op across the 10 runs per benchmark.
 #
-# Headroom: +5% on allocs/op (minimum +2), +15% on bytes/op, rounded up,
-# except BenchmarkMpolHandlerMutate which uses +15%/+20% (see that
-# benchmark's doc comment for why: it fires its audit and update-request
-# work in unwaited goroutines, unlike the wait.Group-backed vpol handler, so
-# its allocation counts are noisier).
+# Headroom: +5% on allocs/op (minimum +2), +15% on bytes/op, rounded up. Each
+# gated benchmark synchronizes its own async (unwaited-goroutine) work before
+# the timed loop advances - see each benchmark's doc comment for how - so a
+# single headroom applies uniformly; a future benchmark that genuinely can't
+# be made deterministic should get a documented override instead.
 #
 # Ratchet rule: if your PR legitimately changes allocation counts at one of
 # these boundaries (an intentional improvement or a justified increase), run
@@ -31,9 +31,9 @@
 # as a periodic backstop against ceiling staleness.
 
 # name                                    max_allocs_per_op  max_bytes_per_op
-BenchmarkEngineHandleVpol/N=1            2884               491586
-BenchmarkEngineHandleVpol/N=16           45926              7512202
-BenchmarkEngineHandleVpol/N=64           183578             29576749
-BenchmarkEngineHandleMpol                11583              1176394
-BenchmarkVpolHandlerValidate             3539               431487
-BenchmarkMpolHandlerMutate               16846              1711576
+BenchmarkEngineHandleVpol/N=1            2883               486683
+BenchmarkEngineHandleVpol/N=16           45926              7519305
+BenchmarkEngineHandleVpol/N=64           183580             29592040
+BenchmarkEngineHandleMpol                11575              1175984
+BenchmarkVpolHandlerValidate             3539               431491
+BenchmarkMpolHandlerMutate               13653              1489507

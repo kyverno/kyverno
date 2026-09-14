@@ -13,8 +13,10 @@
 # For each gated benchmark, the ceiling is:
 #   max_allocs_per_op = ceil(max(observed allocs/op) * (1 + ALLOCS_HEADROOM))
 #   max_bytes_per_op  = ceil(max(observed bytes/op)  * (1 + BYTES_HEADROOM))
-# with a per-benchmark headroom override for benchmarks whose async
-# (unwaited-goroutine) work makes them noisier than the rest.
+# Every currently gated benchmark is written synchronously with respect to
+# its own async work (see each benchmark's doc comment for how), so a single
+# headroom applies uniformly; if a future benchmark can't be made
+# deterministic, give it a per-benchmark override here and document why.
 #
 # This script is a pure function of its input file: running it twice over
 # the same bench-output-file produces a byte-identical thresholds-file. A
@@ -56,33 +58,15 @@ awk '{ line = $0; sub(/#.*/, "", line); gsub(/^[ \t]+|[ \t]+$/, "", line); if (l
 
 [[ -s "$GATED_NAMES" ]] || { echo "Error: no gated benchmark rows found in $THRESHOLDS_FILE" >&2; exit 1; }
 
-# Default headroom.
+# Default headroom. Add a per-benchmark override here (mirroring this
+# shape) only for a benchmark that genuinely cannot be made deterministic;
+# document the reason in both this script and that benchmark's doc comment.
 ALLOCS_HEADROOM_PCT=5
 ALLOCS_HEADROOM_MIN=2
 BYTES_HEADROOM_PCT=15
 
-# Per-benchmark headroom override: "<name> <allocs_pct> <bytes_pct> <reason>".
-# BenchmarkMpolHandlerMutate fires its audit and update-request work in
-# unwaited goroutines (`go func() { ... }()`, unlike vpol's wait.Group), so
-# allocation counts vary run to run depending on how much of that async work
-# lands inside the benchmark's timed loop (observed spread: ~504-513
-# allocs/op, ~32.4-33.3 KB/op over -count=10 on linux/amd64).
-WIDE_HEADROOM=$(cat <<'EOF'
-BenchmarkMpolHandlerMutate 15 20 unwaited audit/update-request goroutines make allocation counts noisier than the wait.Group-backed vpol handler
-EOF
-)
-
 headroom_for() {
-  local name="$1"
-  while IFS= read -r line; do
-    [[ -z "$line" ]] && continue
-    local wname wallocs wbytes
-    read -r wname wallocs wbytes _ <<< "$line"
-    if [[ "$wname" == "$name" ]]; then
-      echo "$wallocs $wbytes"
-      return 0
-    fi
-  done <<< "$WIDE_HEADROOM"
+  local _name="$1" # unused while every gated benchmark uses default headroom
   echo "$ALLOCS_HEADROOM_PCT $BYTES_HEADROOM_PCT"
 }
 
@@ -162,11 +146,11 @@ trap 'rm -f "$MAXES" "$GATED_NAMES" "$TMP_OUT"' EXIT
 # inside a `golang` Docker container, taking the max observed allocs/op and
 # bytes/op across the 10 runs per benchmark.
 #
-# Headroom: +5% on allocs/op (minimum +2), +15% on bytes/op, rounded up,
-# except BenchmarkMpolHandlerMutate which uses +15%/+20% (see that
-# benchmark's doc comment for why: it fires its audit and update-request
-# work in unwaited goroutines, unlike the wait.Group-backed vpol handler, so
-# its allocation counts are noisier).
+# Headroom: +5% on allocs/op (minimum +2), +15% on bytes/op, rounded up. Each
+# gated benchmark synchronizes its own async (unwaited-goroutine) work before
+# the timed loop advances - see each benchmark's doc comment for how - so a
+# single headroom applies uniformly; a future benchmark that genuinely can't
+# be made deterministic should get a documented override instead.
 #
 # Ratchet rule: if your PR legitimately changes allocation counts at one of
 # these boundaries (an intentional improvement or a justified increase), run

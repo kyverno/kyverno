@@ -25,9 +25,31 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/managedfields"
+	"k8s.io/utils/ptr"
 
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 )
+
+// syncEventGen implements event.Interface and, unlike event.NewFake(),
+// signals completion via a buffered channel each time Add is called. It
+// exists to make BenchmarkMpolHandlerMutate deterministic despite the
+// handler's audit work running in an unwaited goroutine (see that
+// benchmark's doc comment): Add is the last observable side effect of
+// h.audit for a dry-run request (needsReports short-circuits on
+// IsDryRun immediately afterward), so waiting on this channel once per
+// iteration is equivalent, from the benchmark's side, to vpol's
+// wait.Group-based synchronization.
+type syncEventGen struct {
+	done chan struct{}
+}
+
+func newSyncEventGen() *syncEventGen {
+	return &syncEventGen{done: make(chan struct{}, 1)}
+}
+
+func (s *syncEventGen) Add(_ ...event.Info) {
+	s.done <- struct{}{}
+}
 
 // gateBenchTypeConverter satisfies mpolcompiler.TypeConverterManager without
 // hitting an API server, matching the fakeTypeConverter used by the mpol
@@ -124,13 +146,28 @@ func buildGateMutateHandlerPolicy(b *testing.B) mpolengine.Provider {
 // admissionResponse -- using a real in-process engine (not a mock, so the
 // patch-generation cost the benchmark exists to cover is actually
 // exercised), reportsConfig/urGenerator mocks from handler_test.go (same
-// package), and an event.NewFake sink (no cluster).
+// package), and a syncEventGen sink (no cluster).
 //
-// The handler fires its audit and update-request work in unwaited
-// goroutines (`go func() { ... }()`, unlike vpol's wait.Group), so some of
-// that async allocation can land after the timer stops or spill across
-// iterations; see the wider allocs/op headroom for this benchmark in
-// scripts/bench/thresholds.txt.
+// The handler fires its audit and mutate-existing update-request work in
+// unwaited goroutines (`go func() { ... }()`, unlike vpol's wait.Group), so
+// naively benchmarking it the way BenchmarkVpolHandlerValidate benchmarks
+// vpol would let async allocation land after the timer stops or spill
+// across iterations. Two things make this benchmark deterministic instead:
+//
+//  1. The request sets DryRun: true. The handler documents (see mutate())
+//     that dry-run requests skip mutate-existing UpdateRequest creation
+//     entirely to honor the SideEffects: NoneOnDryRun contract, so the
+//     second, unobservable goroutine (which re-parses the whole admitted
+//     object via MatchedMutateExistingPolicies with no completion hook
+//     reachable from a benchmark) never starts.
+//  2. syncEventGen replaces event.NewFake() and signals a channel each time
+//     Add is called. Add is the last observable side effect of the
+//     remaining goroutine (h.audit): needsReports short-circuits on
+//     IsDryRun immediately afterward, so waiting on that channel once per
+//     iteration captures effectively all of audit's allocation before the
+//     next iteration starts - the same guarantee vpol gets from
+//     wait.Group, reached here from the benchmark side since production
+//     doesn't expose a synchronous mpol audit path.
 func BenchmarkMpolHandlerMutate(b *testing.B) {
 	provider := buildGateMutateHandlerPolicy(b)
 	eng := mpolengine.NewEngine(
@@ -143,6 +180,7 @@ func BenchmarkMpolHandlerMutate(b *testing.B) {
 		&libs.FakeContextProvider{},
 	)
 
+	eventGen := newSyncEventGen()
 	h := New(
 		nil,
 		eng,
@@ -150,7 +188,7 @@ func BenchmarkMpolHandlerMutate(b *testing.B) {
 		&mockReportsConfig{},
 		&mockURGenerator{},
 		"",
-		event.NewFake(),
+		eventGen,
 	)
 
 	logger := logging.WithName("BenchmarkMpolHandlerMutate")
@@ -166,6 +204,7 @@ func BenchmarkMpolHandlerMutate(b *testing.B) {
 			Object: runtime.RawExtension{
 				Raw: requestObject,
 			},
+			DryRun: ptr.To(true),
 		},
 	}
 
@@ -182,5 +221,6 @@ func BenchmarkMpolHandlerMutate(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		h.MutateClustered(ctx, logger, request, "", time.Now())
+		<-eventGen.done // wait for the audit goroutine to finish, see doc comment above
 	}
 }

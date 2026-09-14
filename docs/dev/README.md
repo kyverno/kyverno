@@ -78,14 +78,16 @@ points:
 `make bench-baseline` reruns the benchmarks and regenerates
 `scripts/bench/thresholds.txt` by applying the headroom formula (+5% on
 allocs/op with a minimum of +2, +15% on bytes/op, rounded up) to the
-measured values, except `BenchmarkMpolHandlerMutate`, which uses +15%
-allocs/+20% bytes: it fires its audit and update-request work in unwaited
-goroutines, unlike the wait.Group-backed vpol handler, so its allocation
-counts are noisier and need wider headroom (see
-`scripts/bench/thresholds.txt` and `scripts/bench-baseline.sh` for details).
-`make bench-baseline` only re-measures benchmarks already gated in
-`scripts/bench/thresholds.txt` - it never promotes a new, exploratory
-benchmark into the gate as a side effect of ratcheting the existing rows.
+measured values. The mpol and vpol webhook handler benchmarks each fire
+some of the work they measure in an unwaited goroutine (the handler's own
+`audit`, and for mpol also a mutate-existing update-request check), but each
+benchmark synchronizes with that goroutine before its timed loop advances
+(see `BenchmarkVpolHandlerValidate`'s and `BenchmarkMpolHandlerMutate`'s doc
+comments for how), so a single headroom applies uniformly across all six
+gated benchmarks. `make bench-baseline` only re-measures benchmarks already
+gated in `scripts/bench/thresholds.txt` - it never promotes a new,
+exploratory benchmark into the gate as a side effect of ratcheting the
+existing rows.
 Because allocation counts differ across GOOS/GOARCH, the committed ceilings
 must come from linux/amd64: run `make bench-baseline` inside a `golang`
 Docker container if you're on another platform, so your numbers match what
