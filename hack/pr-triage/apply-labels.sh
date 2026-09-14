@@ -2,8 +2,9 @@
 # apply-labels.sh — apply the type_legacy / type_cel / type_mixed / type_shared
 # labels to open PRs, based on a pr-branch-triage.py JSON report.
 #
-# SAFE BY DEFAULT: this script only PRINTS the `gh pr edit` commands it would
-# run. It makes NO changes to any PR unless invoked with --execute.
+# SAFE BY DEFAULT: this script only PRINTS the `gh label create`/`gh pr edit`
+# commands it would run. It makes NO changes to any label or PR unless
+# invoked with --execute.
 #
 # Usage:
 #   ./apply-labels.sh --json pr-triage-report.json [--repo kyverno/kyverno] \
@@ -54,7 +55,7 @@ else
 fi
 
 rows=$(jq -c --argjson cats "$cat_filter" '
-  [.[] | select([.category] - $cats == [])]
+  [.[] | select([.category] - $cats == []) | select(.proposed_label != null)]
 ' "$JSON_FILE")
 
 count=$(jq 'length' <<<"$rows")
@@ -64,27 +65,74 @@ if [[ -n "$LIMIT" ]]; then
 fi
 
 if [[ "$EXECUTE" -eq 0 ]]; then
-  echo "### DRY RUN — no PRs will be modified. Re-run with --execute to apply labels. ###" >&2
+  echo "### DRY RUN — no labels or PRs will be modified. Re-run with --execute to apply. ###" >&2
 fi
 echo "Repo: $REPO   PRs matched: $count   Categories: $(jq -r 'join(",")' <<<"$cat_filter")" >&2
 echo >&2
 
+# ---------------------------------------------------------------------------
+# 1. Ensure the four type_* labels exist. `gh pr edit --add-label` fails if a
+#    label hasn't been created yet, and the labeling step must not silently
+#    depend on someone having pre-created them via .github/labels.yml. This
+#    is itself dry-run gated: only creates labels when --execute is passed.
+# ---------------------------------------------------------------------------
+# NOTE: intentionally avoids `declare -A` (associative arrays) so this script
+# still runs under bash 3.2 (macOS's default /bin/bash).
+label_color() {
+  case "$1" in
+    type_legacy) echo "b60205" ;;
+    type_cel)    echo "00BCD4" ;;
+    type_mixed)  echo "FBCA04" ;;
+    type_shared) echo "c5def5" ;;
+  esac
+}
+label_desc() {
+  case "$1" in
+    type_legacy) echo "Legacy kyverno.io ClusterPolicy/Policy/CleanupPolicy PR — candidate to retarget to release-1.19" ;;
+    type_cel)    echo "CEL policies.kyverno.io PR — stays on main" ;;
+    type_mixed)  echo "Touches both legacy and CEL policy code — needs manual split/keep decision" ;;
+    type_shared) echo "Touches neither legacy nor CEL policy code (shared infra/docs/deps/CI)" ;;
+  esac
+}
+
+existing_labels=$(gh label list -R "$REPO" --json name -q '.[].name' 2>/dev/null || true)
+for label in type_legacy type_cel type_mixed type_shared; do
+  if grep -qx "$label" <<<"$existing_labels"; then
+    continue
+  fi
+  cmd=(gh label create "$label" -R "$REPO" --color "$(label_color "$label")" --description "$(label_desc "$label")")
+  echo "[labels] ${cmd[*]}"
+  if [[ "$EXECUTE" -eq 1 ]]; then
+    "${cmd[@]}"
+  fi
+done
+echo >&2
+
+# ---------------------------------------------------------------------------
+# 2. Apply labels per PR. Idempotence is based on each PR's LIVE GitHub
+#    labels (fetched here), not the labels captured in the (possibly stale)
+#    triage JSON snapshot — a maintainer may have relabeled a PR, or run the
+#    triage script again with different results, since the report was
+#    generated.
+# ---------------------------------------------------------------------------
 n=0
 while IFS= read -r row; do
   n=$((n + 1))
   num=$(jq -r '.number' <<<"$row")
   cat=$(jq -r '.category' <<<"$row")
   label=$(jq -r '.proposed_label' <<<"$row")
-  existing=$(jq -r '.labels | join(",")' <<<"$row")
 
-  # Skip if the PR already carries the correct type_* label.
-  if grep -qx "$label" <<<"${existing//,/$'\n'}"; then
-    echo "[$n/$count] #$num already labeled '$label' — skip"
+  existing=$(gh pr view "$num" -R "$REPO" --json labels -q '.labels[].name' 2>/dev/null || true)
+
+  # Skip if the PR already carries the correct type_* label (live state).
+  if grep -qx "$label" <<<"$existing"; then
+    echo "[$n/$count] #$num already labeled '$label' (live) — skip"
     continue
   fi
 
-  # Remove any other type_* label so a PR only ever carries one classification.
-  other_type_labels=$(grep -o '^type_[a-z]*' <<<"${existing//,/$'\n'}" | grep -v "^${label}\$" || true)
+  # Remove any other type_* label so a PR only ever carries one
+  # classification, based on the PR's current labels, not the snapshot.
+  other_type_labels=$(grep -o '^type_[a-z]*' <<<"$existing" | grep -v "^${label}\$" || true)
 
   cmd=(gh pr edit "$num" -R "$REPO" --add-label "$label")
   for l in $other_type_labels; do

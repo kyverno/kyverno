@@ -3,33 +3,71 @@
 Dry-run classifier for open kyverno/kyverno PRs targeting `main`.
 
 Classifies each PR by the files it touches into:
-  LEGACY_ONLY  -> retarget to release-1.19   -> proposed label: type_legacy
-  CEL_ONLY     -> keep on main                -> proposed label: type_cel
-  MIXED        -> manual: split or keep on main -> proposed label: type_mixed
-  SHARED_ONLY  -> keep on main (shared infra, docs, deps, CI, ...) -> proposed label: type_shared
+  LEGACY_ONLY     -> retarget to release-1.19      -> proposed label: type_legacy
+  CEL_ONLY        -> keep on main                   -> proposed label: type_cel
+  MIXED           -> manual: split or keep on main  -> proposed label: type_mixed
+  SHARED_ONLY     -> keep on main (shared infra)     -> proposed label: type_shared
+  REVIEW-MIGRATION-> keep on main, human must confirm -> no label applied automatically
 
-Read-only: only uses `gh api` / `gh pr list` GET calls. No PR is modified.
-Proposed labels are recorded in the JSON/Markdown reports only; applying them
-to PRs is a separate, explicit step handled by apply-labels.sh (dry-run by
-default, requires --execute to mutate anything).
+Two tiers of classification:
+  Tier 1 (always run): path-glob classification of changed files (RULES below).
+  Tier 2 (--diff-scan, only refines Tier-1 SHARED_ONLY rows): scans the added/
+    removed diff lines for legacy vs CEL identifiers (see classify_content()).
+    A shared file with CEL-only content is promoted to CEL_ONLY (safe — no
+    retargeting risk). A shared file with legacy-only or mixed content is
+    downgraded to MIXED for mandatory human review — it is NEVER auto-promoted
+    to LEGACY_ONLY from content alone, so it can never reach the automated
+    retarget gate without a human setting override=RETARGET.
+
+A migration-grace heuristic (§1.5 of PR_REBASE_PLAN.md) flags PRs whose
+title/body reference legacy/migration/deprecation/1.20 AND that touch
+pkg/deprecations/**, charts/kyverno/**, or a legacypolicies-fix CLI path.
+These are reported as REVIEW-MIGRATION and are never auto-labeled or
+auto-retargeted, even if Tier 1 would otherwise call them LEGACY_ONLY.
+
+Every row also carries a `probe` field ("SKIPPED" by default). Pass
+--probe-rebase to actually attempt `git rebase --onto <target-base>` for each
+LEGACY_ONLY PR in a throwaway git worktree (nothing is pushed; the rebase is
+always aborted and the worktree removed). This must be run from inside a
+clone of kyverno/kyverno with a remote that has both `main` and the target
+base (default `release-1.19`) fetchable. The approval gate in the plan
+(category=LEGACY_ONLY && override!=KEEP_MAIN && probe=OK) is only
+machine-checkable once this field is populated.
+
+Read-only: only uses `gh api`/`gh pr list`/`gh pr diff` GET calls, plus local,
+non-mutating `git fetch`/`git worktree`/`git rebase --abort` when
+--probe-rebase is used. No PR is ever modified by this script.
 
 Usage:
   pr-branch-triage.py [--repo kyverno/kyverno] [--base main] [--limit N]
-                      [--out report.md] [--json report.json] [--rules rules.yaml]
+                      [--out report.md] [--json report.json]
+                      [--skip-bots] [--diff-scan] [--probe-rebase]
+                      [--probe-target-base release-1.19]
+  pr-branch-triage.py --reclassify report.json [--diff-scan] [--probe-rebase]
 """
 import argparse
 import fnmatch
 import json
+import re
 import subprocess
 import sys
+import threading
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # ---------------------------------------------------------------------------
 # Path rules. Order matters: first match wins. Evaluated per changed file.
-# Prefix "!" is not used; instead the more specific CEL globs come first so
-# that e.g. pkg/background/gpol/** is CEL even though pkg/background/** is legacy.
+# More specific globs must come before broader ones that would otherwise
+# shadow them (e.g. a single-file LEGACY override inside an otherwise-SHARED
+# directory must be listed in OVERRIDE, checked before SHARED).
 # ---------------------------------------------------------------------------
 RULES = [
+    # ---- Explicit overrides: specific legacy files inside otherwise-shared
+    # directories. Must be checked before the broader SHARED entry below, or
+    # the SHARED glob shadows them and they are never reached.
+    ("LEGACY", [
+        "pkg/admissionpolicy/kyvernopolicy_checker*",
+    ]),
     # ---- SHARED overrides: legacy-looking paths that CEL/reports depend on --
     ("SHARED", [
         "pkg/engine/api/**",
@@ -71,7 +109,15 @@ RULES = [
         "test/conformance/chainsaw/deleting-policies/**",
         "test/conformance/chainsaw/image-validating-policies/**",
         "test/conformance/chainsaw/namespaced-*/**",
-        "test/cli/test-*-policy/**",
+        # Explicit CEL CLI test suites (kept as an explicit list, NOT a
+        # "test/cli/test-*-policy/**" wildcard: that wildcard also matched
+        # the legacy test/cli/test-cleanup-policy/** suite and misclassified
+        # it as CEL).
+        "test/cli/test-deleting-policy/**",
+        "test/cli/test-generating-policy/**",
+        "test/cli/test-image-validating-policy/**",
+        "test/cli/test-mutating-policy/**",
+        "test/cli/test-validating-policy/**",
         "test/cli/test-context-*-vpol/**", "test/cli/test-context-*-mpol/**",
         "test/cli/test-context-*-gpol/**", "test/cli/test-context-*-dpol/**",
         "test/cli/test-context-*-ivpol/**", "test/cli/test-gpol-custom-crd/**",
@@ -96,7 +142,6 @@ RULES = [
         "pkg/controllers/admissionpolicygenerator/cpol.go",
         "pkg/controllers/admissionpolicygenerator/generate-vap.go",
         "pkg/controllers/admissionpolicygenerator/vap.go",
-        "pkg/admissionpolicy/kyvernopolicy_checker*",
         "pkg/validation/policy/**",
         "pkg/validation/cleanuppolicy/**",
         "pkg/webhooks/resource/generation/**",
@@ -147,11 +192,53 @@ RULES = [
 
 # Everything else is SHARED (infra, docs, deps, CI, common webhooks, reports, ...)
 
+# ---------------------------------------------------------------------------
+# Tier-2 diff-content regexes (used only to refine Tier-1 SHARED_ONLY rows).
+# ---------------------------------------------------------------------------
+LEGACY_CONTENT_RE = re.compile(
+    r"\b(kyvernov1|kyvernov2beta1|kyvernov1beta1)\.|\bClusterPolicy\b|\bCleanupPolicy\b|"
+    r"\bClusterCleanupPolicy\b|\bUpdateRequest\b|engineapi\.|enginecontext\.|\bjmespath\b|"
+    r"\bautogen\.|policycache\.|\bkyverno\.io/v1\b|kyverno\.io/v2beta1|\bpkg/engine\b|\bcpol\b|"
+    r"\bpolicy\.Interface\b|kyvernov1\.Rule|PolicyInterface"
+)
+CEL_CONTENT_RE = re.compile(
+    r"policiesv1(alpha1|beta1)\.|\b(Namespaced)?(Validating|Mutating|Generating|Deleting|ImageValidating)Policy\b|"
+    r"policies\.kyverno\.io|\b(vpol|mpol|gpol|dpol|ivpol|nvpol|nmpol|ngpol|nivpol)\b|celengine\.|pkg/cel\b"
+)
+
+# ---------------------------------------------------------------------------
+# Migration-grace heuristic (§1.5): PRs that touch legacy paths in order to
+# gate/warn/block/migrate them belong on `main`, not release-1.19.
+# ---------------------------------------------------------------------------
+MIGRATION_TEXT_RE = re.compile(r"(?i)\blegacy\b|\bmigrat|\bdeprecat|\b1\.20\b")
+MIGRATION_PATH_GLOBS = [
+    "pkg/deprecations/**",
+    "charts/kyverno/**",
+    "cmd/cli/kubectl-kyverno/**/legacypolicies/**",
+    "cmd/cli/kubectl-kyverno/**/legacypolicies*",
+]
+
+# ---------------------------------------------------------------------------
+# Bot-author detection for --skip-bots. GitHub represents Dependabot/Renovate
+# PR authors in more than one login form depending on how they were created
+# (classic "dependabot[bot]" vs. GitHub-App-flavoured "app/dependabot"), so
+# match on both.
+# ---------------------------------------------------------------------------
+BOT_LOGIN_RE = re.compile(r"(?i)^(app/)?(dependabot|renovate)(\[bot\])?$")
+
+
+def is_bot_login(login):
+    return bool(BOT_LOGIN_RE.match(login))
+
+
+def _glob_match(path, g):
+    return fnmatch.fnmatch(path, g) or fnmatch.fnmatch(path, g.replace("/**", ""))
+
 
 def classify_file(path):
     for cat, globs in RULES:
         for g in globs:
-            if fnmatch.fnmatch(path, g) or fnmatch.fnmatch(path, g.replace("/**", "")):
+            if _glob_match(path, g):
                 return cat
             # fnmatch "*" matches "/" so "dir/**" behaves as a recursive prefix
     return "SHARED"
@@ -169,27 +256,166 @@ def classify_pr(files):
     return "SHARED_ONLY", cats
 
 
+def classify_content(diff_text):
+    """Tier-2: scan added/removed diff lines for legacy vs CEL identifiers."""
+    hunks = [
+        l[1:] for l in diff_text.splitlines()
+        if (l.startswith("+") or l.startswith("-")) and not l.startswith(("+++", "---"))
+    ]
+    lg = sum(1 for l in hunks if LEGACY_CONTENT_RE.search(l))
+    ce = sum(1 for l in hunks if CEL_CONTENT_RE.search(l))
+    if lg and ce:
+        signal = "MIXED_CONTENT"
+    elif lg:
+        signal = "LEGACY_CONTENT"
+    elif ce:
+        signal = "CEL_CONTENT"
+    else:
+        signal = "NEUTRAL"
+    return signal, lg, ce
+
+
+def refine_with_content(row, repo):
+    """Apply Tier-2 content refinement to a Tier-1 SHARED_ONLY row in place.
+
+    Policy (keeps §2.2/§5 consistent — see PR_REBASE_PLAN.md):
+      - CEL-only content    -> promote to CEL_ONLY (safe: same "keep on main"
+        action as SHARED_ONLY, so promoting it changes only the label/report,
+        never triggers a retarget).
+      - legacy-only content -> demote to MIXED, NOT to LEGACY_ONLY. Content
+        signals alone are never sufficient to reach the automated retarget
+        gate; a human must set override=RETARGET after reviewing the diff.
+      - mixed content       -> MIXED (manual).
+      - neutral             -> unchanged.
+    """
+    if row["category"] != "SHARED_ONLY":
+        row.setdefault("content_signal", None)
+        return
+    try:
+        diff = subprocess.run(
+            ["gh", "pr", "diff", str(row["number"]), "-R", repo],
+            capture_output=True, text=True, timeout=60,
+        ).stdout
+    except Exception as e:  # noqa: BLE001 - best-effort, record and move on
+        row["content_signal"] = f"ERROR:{e}"
+        return
+    signal, lg, ce = classify_content(diff)
+    row["content_signal"] = signal
+    row["content_legacy_lines"] = lg
+    row["content_cel_lines"] = ce
+    if signal == "CEL_CONTENT":
+        row["category"] = "CEL_ONLY"
+    elif signal in ("LEGACY_CONTENT", "MIXED_CONTENT"):
+        row["category"] = "MIXED"
+
+
+def is_migration_pr(title, body, files):
+    text = f"{title}\n{body or ''}"
+    if not MIGRATION_TEXT_RE.search(text):
+        return False
+    return any(_glob_match(f, g) for f in files for g in MIGRATION_PATH_GLOBS)
+
+
+def probe_rebase(repo, number, target_base):
+    """Best-effort local rebase probe. Never pushes anything; always aborts
+    the rebase and removes the worktree/ref it creates. Returns one of
+    "OK", "CONFLICT", or "ERROR:<detail>".
+
+    Uses explicit local refs (refs/triage/pr-<N>, refs/triage/base-main-<N>,
+    refs/triage/base-<target>-<N>) rather than FETCH_HEAD, because FETCH_HEAD
+    is ambiguous/scoped to the invoking working tree, not the `git worktree
+    add` checkout used here — reusing it produced false CONFLICTs during
+    testing. Refs are suffixed per-PR (not shared) so concurrent probes
+    (--workers > 1) never clobber each other's base ref mid-rebase.
+    """
+    pr_ref = f"refs/triage/pr-{number}"
+    main_ref = f"refs/triage/base-main-{number}"
+    target_ref = f"refs/triage/base-{target_base}-{number}"
+    wt = f".wt-{number}"
+    try:
+        subprocess.run(
+            ["git", "fetch", "-q", f"https://github.com/{repo}.git",
+             f"pull/{number}/head:{pr_ref}", f"main:{main_ref}", f"{target_base}:{target_ref}"],
+            check=True, capture_output=True, text=True, timeout=120,
+        )
+        subprocess.run(["git", "worktree", "add", "-q", "-d", wt, pr_ref],
+                        check=True, capture_output=True, text=True, timeout=60)
+        merge_base = subprocess.run(
+            ["git", "-C", wt, "merge-base", "HEAD", main_ref],
+            capture_output=True, text=True, timeout=30,
+        ).stdout.strip()
+        if not merge_base:
+            return "ERROR:no-merge-base"
+        r = subprocess.run(
+            ["git", "-C", wt, "rebase", "--onto", target_ref, merge_base],
+            capture_output=True, text=True, timeout=180,
+        )
+        ok = r.returncode == 0
+        subprocess.run(["git", "-C", wt, "rebase", "--abort"], capture_output=True, text=True, timeout=60)
+        return "OK" if ok else "CONFLICT"
+    except Exception as e:  # noqa: BLE001
+        return f"ERROR:{e}"
+    finally:
+        subprocess.run(["git", "worktree", "remove", "-f", wt], capture_output=True, text=True, timeout=30)
+        for ref in (pr_ref, main_ref, target_ref):
+            subprocess.run(["git", "update-ref", "-d", ref], capture_output=True, text=True, timeout=30)
+
+
 ACTION = {
     "LEGACY_ONLY": "Retarget -> release-1.19 (rebase onto release-1.19)",
     "CEL_ONLY": "Keep on main",
     "MIXED": "Manual review: split into 2 PRs or keep on main",
     "SHARED_ONLY": "Keep on main (verify after legacy removal lands)",
+    "REVIEW-MIGRATION": "Keep on main — requires human confirmation (migration-grace, see §1.5)",
 }
 
 # Proposed label per category. These are NOT applied by this script — see
 # apply-labels.sh, which defaults to a dry run (prints `gh pr edit` commands)
-# and only mutates PRs when invoked with --execute.
+# and only mutates PRs when invoked with --execute. REVIEW-MIGRATION PRs get
+# no automatic label: a maintainer must classify them by hand.
 LABEL = {
     "LEGACY_ONLY": "type_legacy",
     "CEL_ONLY": "type_cel",
     "MIXED": "type_mixed",
     "SHARED_ONLY": "type_shared",
+    "REVIEW-MIGRATION": None,
 }
 
 
 def gh(args):
     out = subprocess.run(["gh"] + args, check=True, capture_output=True, text=True).stdout
     return json.loads(out) if out.strip() else []
+
+
+def finalize_row(row, a):
+    """Apply migration-flag override, then compute action/label/probe fields.
+    Shared by both the fresh-fetch and --reclassify code paths."""
+    cat, counts = classify_pr(row["files"])
+    row["category"] = cat
+    row["counts"] = dict(counts)
+    row["legacy_files"] = [f for f in row["files"] if classify_file(f) == "LEGACY"]
+    row["cel_files"] = [f for f in row["files"] if classify_file(f) == "CEL"]
+
+    if a.diff_scan:
+        refine_with_content(row, a.repo)
+    else:
+        row.setdefault("content_signal", None)
+
+    row["migration_flag"] = is_migration_pr(row.get("title", ""), row.get("body", ""), row["files"])
+    if row["migration_flag"]:
+        row["category"] = "REVIEW-MIGRATION"
+        row["override"] = "KEEP_MAIN"
+    else:
+        row.setdefault("override", None)
+
+    cat = row["category"]
+    row["action"] = ACTION[cat]
+    row["proposed_label"] = LABEL[cat]
+
+    row.setdefault("probe", "SKIPPED")
+    if a.probe_rebase and cat == "LEGACY_ONLY":
+        row["probe"] = probe_rebase(a.repo, row["number"], a.probe_target_base)
+    return row
 
 
 def main():
@@ -199,42 +425,76 @@ def main():
     ap.add_argument("--limit", type=int, default=500)
     ap.add_argument("--out", default="pr-triage-report.md")
     ap.add_argument("--json", dest="json_out", default="pr-triage-report.json")
-    ap.add_argument("--skip-bots", action="store_true", help="skip dependabot/renovate PRs")
+    ap.add_argument("--skip-bots", action="store_true", help="skip dependabot/renovate PR authors")
+    ap.add_argument("--diff-scan", action="store_true",
+                     help="Tier-2: fetch `gh pr diff` for SHARED_ONLY rows and refine by content")
+    ap.add_argument("--probe-rebase", action="store_true",
+                     help="attempt a local, non-pushing `git rebase --onto` for each LEGACY_ONLY PR")
+    ap.add_argument("--probe-target-base", default="release-1.19")
     ap.add_argument("--reclassify", metavar="JSON", help="re-run classification offline from a previous JSON report")
+    ap.add_argument("--workers", type=int, default=8,
+                     help="parallel `gh` subprocess workers for file/diff/body fetches (I/O bound, not CPU bound)")
     a = ap.parse_args()
 
     if a.reclassify:
         rows = json.load(open(a.reclassify))
-        for r in rows:
-            cat, counts = classify_pr(r["files"])
-            r.update(category=cat, action=ACTION[cat], proposed_label=LABEL[cat], counts=dict(counts),
-                     legacy_files=[f for f in r["files"] if classify_file(f) == "LEGACY"],
-                     cel_files=[f for f in r["files"] if classify_file(f) == "CEL"])
-        write_reports(a, rows); return
+        lock = threading.Lock()
+        done = [0]
+
+        def process(r):
+            if "body" not in r:
+                # Older report snapshots didn't capture the PR body (needed
+                # for the migration-grace heuristic) — backfill it lazily.
+                try:
+                    r["body"] = subprocess.run(
+                        ["gh", "pr", "view", str(r["number"]), "-R", a.repo, "--json", "body", "-q", ".body"],
+                        capture_output=True, text=True, timeout=30,
+                    ).stdout.strip()
+                except Exception:  # noqa: BLE001
+                    r["body"] = ""
+            finalize_row(r, a)
+            with lock:
+                done[0] += 1
+                print(f"[{done[0]}/{len(rows)}] #{r['number']} ...", file=sys.stderr, end="\r")
+
+        with ThreadPoolExecutor(max_workers=a.workers) as pool:
+            futures = [pool.submit(process, r) for r in rows]
+            for f in as_completed(futures):
+                f.result()  # surface any exception
+        print(file=sys.stderr)
+        write_reports(a, rows)
+        return
+
     prs = gh(["pr", "list", "-R", a.repo, "--state", "open", "--base", a.base, "--limit", str(a.limit),
-              "--json", "number,title,author,isDraft,createdAt,updatedAt,headRefName,headRepositoryOwner,"
+              "--json", "number,title,body,author,isDraft,createdAt,updatedAt,headRefName,headRepositoryOwner,"
                         "isCrossRepository,maintainerCanModify,mergeable,labels,changedFiles"])
-    rows = []
-    for i, pr in enumerate(prs, 1):
-        login = pr["author"]["login"]
-        if a.skip_bots and (login.startswith("dependabot") or login.startswith("renovate")):
-            continue
-        print(f"[{i}/{len(prs)}] #{pr['number']} ...", file=sys.stderr, end="\r")
+    prs = [pr for pr in prs if not (a.skip_bots and is_bot_login(pr["author"]["login"]))]
+    rows = [None] * len(prs)
+    lock = threading.Lock()
+    done = [0]
+
+    def fetch_and_finalize(i, pr):
         raw = subprocess.run(["gh", "api", f"repos/{a.repo}/pulls/{pr['number']}/files", "--paginate",
                               "--jq", ".[].filename"], check=True, capture_output=True, text=True).stdout
         files = [l for l in raw.splitlines() if l.strip()]
-        cat, counts = classify_pr(files)
-        rows.append({
-            "number": pr["number"], "title": pr["title"], "author": login,
+        row = {
+            "number": pr["number"], "title": pr["title"], "body": pr.get("body") or "", "author": pr["author"]["login"],
             "draft": pr["isDraft"], "fork": pr["isCrossRepository"],
             "maintainerCanModify": pr["maintainerCanModify"], "mergeable": pr["mergeable"],
             "head": f"{pr['headRepositoryOwner']['login']}:{pr['headRefName']}",
             "labels": [l["name"] for l in pr["labels"]],
-            "files": files, "counts": dict(counts), "category": cat, "action": ACTION[cat],
-            "proposed_label": LABEL[cat],
-            "legacy_files": [f for f in files if classify_file(f) == "LEGACY"],
-            "cel_files": [f for f in files if classify_file(f) == "CEL"],
-        })
+            "files": files,
+        }
+        finalize_row(row, a)
+        rows[i] = row
+        with lock:
+            done[0] += 1
+            print(f"[{done[0]}/{len(prs)}] #{pr['number']} ...", file=sys.stderr, end="\r")
+
+    with ThreadPoolExecutor(max_workers=a.workers) as pool:
+        futures = [pool.submit(fetch_and_finalize, i, pr) for i, pr in enumerate(prs)]
+        for f in as_completed(futures):
+            f.result()  # surface any exception
     print(file=sys.stderr)
     write_reports(a, rows)
 
@@ -244,27 +504,33 @@ def write_reports(a, rows):
         json.dump(rows, fh, indent=2)
 
     summary = Counter(r["category"] for r in rows)
-    order = ["LEGACY_ONLY", "MIXED", "CEL_ONLY", "SHARED_ONLY"]
+    order = ["LEGACY_ONLY", "MIXED", "CEL_ONLY", "SHARED_ONLY", "REVIEW-MIGRATION"]
     with open(a.out, "w") as fh:
         fh.write(f"# PR branch triage (DRY RUN) — {a.repo} base={a.base}\n\n")
         fh.write("| Category | Count | Proposed label | Action |\n|---|---|---|---|\n")
         for c in order:
-            fh.write(f"| {c} | {summary[c]} | `{LABEL[c]}` | {ACTION[c]} |\n")
+            fh.write(f"| {c} | {summary[c]} | `{LABEL[c]}` | {ACTION[c]} |\n" if LABEL[c]
+                     else f"| {c} | {summary[c]} | _(none — human review)_ | {ACTION[c]} |\n")
         fh.write("\n**No PRs were modified. This report is read-only. Labels are proposed, not applied "
-                 "(see `apply-labels.sh --execute`).**\n")
+                 "(see `apply-labels.sh --execute`). `probe` is `SKIPPED` unless `--probe-rebase` was passed; "
+                 "the automated-retarget gate requires `category=LEGACY_ONLY && override!=KEEP_MAIN && probe=OK`.**\n")
         for c in order:
             sub = [r for r in rows if r["category"] == c]
             if not sub:
                 continue
-            fh.write(f"\n## {c} ({len(sub)}) — label `{LABEL[c]}`\n\n")
-            fh.write("| PR | Author | Title | Draft | Fork | CanModify | Mergeable | Files (L/C/S) | Proposed label | Proposed Action |\n")
-            fh.write("|---|---|---|---|---|---|---|---|---|---|\n")
+            label_hdr = f"`{LABEL[c]}`" if LABEL[c] else "none (human review)"
+            fh.write(f"\n## {c} ({len(sub)}) — label {label_hdr}\n\n")
+            fh.write("| PR | Author | Title | Draft | Fork | CanModify | Mergeable | Files (L/C/S) | "
+                     "Content signal | Probe | Proposed label | Proposed Action |\n")
+            fh.write("|---|---|---|---|---|---|---|---|---|---|---|---|\n")
             for r in sub:
                 k = r["counts"]
+                lbl = f"`{r['proposed_label']}`" if r.get("proposed_label") else "—"
                 fh.write(f"| [#{r['number']}](https://github.com/{a.repo}/pull/{r['number']}) | @{r['author']} | "
                          f"{r['title'].replace('|', '\\|')[:70]} | {'Y' if r['draft'] else ''} | "
                          f"{'Y' if r['fork'] else ''} | {'Y' if r['maintainerCanModify'] else 'N'} | {r['mergeable']} | "
-                         f"{k.get('LEGACY',0)}/{k.get('CEL',0)}/{k.get('SHARED',0)} | `{r.get('proposed_label', LABEL[c])}` | {r['action']} |\n")
+                         f"{k.get('LEGACY',0)}/{k.get('CEL',0)}/{k.get('SHARED',0)} | "
+                         f"{r.get('content_signal') or ''} | {r.get('probe','SKIPPED')} | {lbl} | {r['action']} |\n")
             if c == "MIXED":
                 fh.write("\n<details><summary>Mixed PR file breakdown</summary>\n\n")
                 for r in sub:
@@ -273,7 +539,7 @@ def write_reports(a, rows):
                 fh.write("</details>\n")
     print(f"wrote {a.out} and {a.json_out}")
     for c in order:
-        print(f"{c:12s} {summary[c]}")
+        print(f"{c:16s} {summary[c]}")
 
 
 if __name__ == "__main__":
