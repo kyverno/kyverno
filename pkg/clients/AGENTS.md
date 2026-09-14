@@ -25,9 +25,9 @@ Everything else (`kube`, `kyverno`, `dynamic`, `metadata`, `apiserver`, `aggrega
 `WithLogging`/`WithMetrics`/`WithTracing` decorators around each verb, client-level wrapping per API group, and a
 top `Interface` (embeds the upstream interface plus composable `WithMetrics(...)`/`WithTracing()`/
 `WithLogging(logger)` methods you call at construction time). None of these generated files currently carry a
-`// DO NOT EDIT` header (unlike every other generated zone in the repo) — treat them as no-edit anyway; a
-`.claude/settings.json` with `permissions.deny` enforcing this by path is planned but not added yet (see
-[docs/designs/agent-friendly-restructure.md](../../docs/designs/agent-friendly-restructure.md)).
+`// DO NOT EDIT` header (unlike every other generated zone in the repo) — treat them as no-edit anyway;
+`.claude/settings.json`'s `permissions.deny` enforces this by path for Claude Code sessions regardless of the
+missing header.
 
 ## `dclient`'s discovery cache is genuinely stateful and self-invalidating
 
