@@ -249,22 +249,32 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				payloadKey := attestationPayloadKey(attest)
-				if payloadKey == "" || len(payloads[payloadKey]) == 0 {
-					// A degraded entry (cached "found" but no payload for
-					// this attestation's specific predicate/artifact type to
-					// restore) can't be trusted as a hit for ANY attestation
-					// type -- we can't safely defer this decision since we
-					// don't know yet whether extractPayload() will be called
-					// later in this same evaluation. This matters even more
-					// for Referrer/Notary attestations than InToto: InToto's
-					// GetPayload errors out with nothing to restore, but
-					// Referrer/Notary's has no such guard and silently falls
-					// back to fetching an unverified artifact straight from
-					// the registry instead (see #17130). Fall back to full
-					// re-verification below rather than denying an admission
-					// that was already verified once, or -- worse --
-					// returning unverified data as if it were verified.
-					f.logger.V(4).Info("cache hit has no payload to restore, falling back to re-verification", "image", image, "attestation", attestation)
+				payload, usable := payloads[payloadKey], false
+				if payloadKey != "" && len(payload) > 0 {
+					// Presence of bytes is not proof they are the payload we cached.
+					// attestationPayloadFromImage always stores json.Marshal output, so
+					// anything that will not decode is a corrupt entry, not a usable hit.
+					var scratch any
+					usable = json.Unmarshal(payload, &scratch) == nil
+				}
+				if !usable {
+					// A degraded entry -- cached "found" but with no payload for
+					// this attestation's specific predicate/artifact type, or one
+					// that does not decode -- cannot be trusted as a hit for ANY
+					// attestation type. We cannot safely defer this decision since
+					// we do not know yet whether extractPayload() will be called
+					// later in this same evaluation: a verify-only policy never
+					// calls it, so a corrupt payload would otherwise be admitted
+					// as verified without anything ever decoding it. This matters
+					// even more for Referrer/Notary attestations than InToto:
+					// InToto's GetPayload errors out with nothing to restore, but
+					// Referrer/Notary's has no such guard and silently falls back
+					// to fetching an unverified artifact straight from the registry
+					// instead (see #17130). Fall back to full re-verification below
+					// rather than denying an admission that was already verified
+					// once, or -- worse -- returning unverified data as if it were
+					// verified.
+					f.logger.V(4).Info("cache hit has no usable payload to restore, falling back to re-verification", "image", image, "attestation", attestation)
 				} else {
 					// Defer applying the payload to ImageData (which needs an
 					// imgCtx.Get()) until extractPayload() actually asks for

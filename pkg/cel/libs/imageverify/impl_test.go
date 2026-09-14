@@ -1025,3 +1025,47 @@ func Test_impl_verify_referrer_attestation_cache_hit_wrong_key_falls_back_to_rev
 	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
 	assert.True(t, types.IsError(payload), "extractPayload must not return unverified data for a wrong-key Referrer cache entry: %v", payload)
 }
+
+// A cache entry can carry the right artifact-type key and still be unusable if
+// the bytes under it do not decode. attestationPayloadFromImage only ever
+// stores json.Marshal output, so anything else is a corrupt entry -- and a
+// verify-only policy (one that never calls extractPayload) would otherwise
+// admit it as verified without anything ever decoding it.
+func Test_impl_verify_referrer_attestation_cache_hit_undecodable_payload_falls_back_to_reverify(t *testing.T) {
+	attestors, attestationName, pol := referrerTestFixture("referrer-attestation-corrupt-policy", "test-uid-referrer-attestation-corrupt")
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	registryErr := errors.New("registry fetch disabled")
+
+	ivCache := newTestIVCache(t, payloadCacheMaxSize)
+
+	f := &ivfuncs{
+		Adapter:                    types.DefaultTypeAdapter,
+		imgCtx:                     stubImageContext{err: registryErr},
+		policy:                     pol,
+		attestationList:            attestationMap(pol),
+		cosignVerifier:             cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:             notary.NewVerifier(logr.Discard()),
+		ivCache:                    ivCache,
+		verifications:              NewImageVerificationResults(),
+		pendingAttestationRestores: map[string]map[string][]byte{},
+	}
+
+	// Seed the CORRECT artifact type key, but with bytes that are not valid
+	// JSON -- presence alone must not be taken as a verified hit.
+	cacheRule := attestorCacheRule(attestationCacheRule, attestationName, attestors)
+	stored, err := ivCache.SetWithPayload(context.TODO(), pol, cacheRule, image, true, map[string][]byte{
+		"sbom/cyclone-dx": []byte("not json at all"),
+	})
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	out := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.True(t, types.IsError(out), "undecodable cached payload must not be trusted as success; got: %v", out)
+
+	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
+	assert.True(t, types.IsError(payload), "extractPayload must not return unverified data for a corrupt Referrer cache entry: %v", payload)
+}
