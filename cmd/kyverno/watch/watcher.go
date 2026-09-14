@@ -229,7 +229,9 @@ func (rw *RetryWatcher) doReceive() (bool, time.Duration) {
 
 					// Log here so we have a record of hitting the unexpected error
 					// and we can whitelist some error codes if we missed any that are expected.
-					klog.V(5).InfoS("Retrying after unexpected error", "object", dump.Pretty(event.Object))
+					if klog.V(5).Enabled() {
+						klog.V(5).InfoS("Retrying after unexpected error", "object", dump.Pretty(event.Object))
+					}
 
 					// Retry
 					return false, statusDelay
