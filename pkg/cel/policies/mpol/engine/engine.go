@@ -399,8 +399,16 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 	// O(policy count) cost this hoist eliminates elsewhere in mpol. A
 	// request matching zero policies (or whose policies have no
 	// matchConditions) never invokes this func at all.
+	//
+	// Reuse the object/oldObject already extracted above (for attr) via the
+	// FromResources variant, so building the request map does not re-run
+	// ExtractResources - a second full unmarshal of the admitted object.
+	// This matching pass is read-only (attr is built once here and never
+	// rebuilt with a patch, and MatchesConditions only reads), so aliasing
+	// those resources into request.object/request.oldObject is safe; see
+	// BuildNormalizedRequestMapFromResources' aliasing contract.
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
-		return celcompiler.BuildNormalizedRequestMap(&request.Request)
+		return celcompiler.BuildNormalizedRequestMapFromResources(&request.Request, object, oldObject)
 	})
 
 	return e.provider.MatchesMutateExisting(ctx, attr, &request.Request, namespace, requestMapFn)

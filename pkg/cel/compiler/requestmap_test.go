@@ -225,6 +225,32 @@ func TestBuildNormalizedRequestMap_GoldenEquality(t *testing.T) {
 	}
 }
 
+// TestBuildNormalizedRequestMapFromResources_MatchesSelfExtracting pins the
+// read-only-path variant against the self-extracting entry point: when a
+// caller passes the resources ExtractResources itself would produce,
+// BuildNormalizedRequestMapFromResources must return a map byte-identical to
+// BuildNormalizedRequestMap. This guards the mutate-existing matching path
+// (engineImpl.MatchedMutateExistingPolicies), which reuses the object/
+// oldObject it already extracted for attr instead of extracting a second
+// time - the reuse must not change request.* content.
+func TestBuildNormalizedRequestMapFromResources_MatchesSelfExtracting(t *testing.T) {
+	for _, tc := range requestMapTestCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			object, oldObject, err := admissionutils.ExtractResources(nil, *tc.request)
+			require.NoError(t, err)
+
+			fromResources, err := BuildNormalizedRequestMapFromResources(tc.request, object, oldObject)
+			require.NoError(t, err)
+
+			selfExtracting, err := BuildNormalizedRequestMap(tc.request)
+			require.NoError(t, err)
+
+			assert.True(t, reflect.DeepEqual(selfExtracting, fromResources),
+				"reusing already-extracted resources must match self-extraction\nself-extracting: %#v\nfrom-resources: %#v", selfExtracting, fromResources)
+		})
+	}
+}
+
 // TestBuildRawRequestMap_NumericFidelity specifically targets int64-vs-
 // float64 drift: BuildRawRequestMap must decode integers the same way
 // ConvertObjectToUnstructured already does at base.

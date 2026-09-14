@@ -4,6 +4,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	apijson "k8s.io/apimachinery/pkg/util/json"
 )
@@ -154,7 +155,10 @@ func unmarshalRawExtension(re runtime.RawExtension) (any, error) {
 // never aliases the `attr`-derived object the mpol loop rebuilds with the
 // patched resource after each policy - callers must not pass attr's objects
 // into this builder, or the hoisted map would start reflecting per-policy
-// mutable state instead of the loop-invariant original request.
+// mutable state instead of the loop-invariant original request. Read-only
+// callers that have already extracted the resources should use
+// BuildNormalizedRequestMapFromResources to avoid a second extraction; see
+// its aliasing contract before doing so.
 //
 // The returned map is shared across every policy evaluated for a single
 // mpol Handle()/Evaluate() call and MUST be treated as immutable by every
@@ -166,11 +170,45 @@ func BuildNormalizedRequestMap(request *admissionv1.AdmissionRequest) (map[strin
 	if request == nil {
 		return nil, nil
 	}
-	requestMap, err := blankCopyRequestMap(request)
+	object, oldObject, err := admissionutils.ExtractResources(nil, *request)
 	if err != nil {
 		return nil, err
 	}
-	object, oldObject, err := admissionutils.ExtractResources(nil, *request)
+	// Freshly extracted, owned copies - safe even on the mutating Handle
+	// loop, which is why this self-extracting entry point exists.
+	return BuildNormalizedRequestMapFromResources(request, object, oldObject)
+}
+
+// BuildNormalizedRequestMapFromResources is the read-only-path variant of
+// BuildNormalizedRequestMap: it splices caller-supplied, already-extracted
+// object/oldObject instead of re-running admissionutils.ExtractResources,
+// so a caller that has already extracted the admission resources (for
+// example to build an admission.Attributes) does not pay a second full
+// unmarshal of the admitted-object bytes. The splice is unconditional,
+// preserving mpol's typed-nil-map empty-side semantics exactly: an empty
+// side (for example DELETE's object) carries a nil object.Object, which CEL
+// sees as a present, non-null empty map, not null.
+//
+// Aliasing contract: the returned map ALIASES the provided resources -
+// request.object/request.oldObject reference the same underlying maps as
+// object.Object/oldObject.Object. This is only safe when those resources
+// are never mutated after this map is built. It fits read-only
+// match-condition evaluation (engineImpl.MatchedMutateExistingPolicies,
+// whose attr is built once from these same resources and never rebuilt with
+// a patched resource, and whose MatchesConditions path only reads). It MUST
+// NOT be used on the mutating Handle loop, which rebuilds attr with each
+// policy's patch after every iteration; there the alias would make the
+// hoisted request map drift to per-policy mutable state. That path uses
+// BuildNormalizedRequestMap, which self-extracts owned copies.
+//
+// Like BuildNormalizedRequestMap, the returned map is shared across every
+// policy evaluated for a single request and MUST be treated as immutable by
+// every consumer.
+func BuildNormalizedRequestMapFromResources(request *admissionv1.AdmissionRequest, object, oldObject unstructured.Unstructured) (map[string]any, error) {
+	if request == nil {
+		return nil, nil
+	}
+	requestMap, err := blankCopyRequestMap(request)
 	if err != nil {
 		return nil, err
 	}
