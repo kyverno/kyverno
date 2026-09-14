@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -495,7 +496,6 @@ func (e *engineImpl) evaluatePolicies(
 	if err != nil {
 		return nil, err
 	}
-	c := eval.NewCompiler(ictx, e.lister, requestResource, e.ivCache)
 	// Extraction-mode policies are evaluated against a synthesized v1/Pod,
 	// not the real admitted resource (a custom workload CRD) - and their
 	// Spec is never rewritten, so they rely on the default Pod image
@@ -503,41 +503,101 @@ func (e *engineImpl) evaluatePolicies(
 	// request's own (non-Pod) GVR would make CompileImageExtractors find no
 	// match and inject none at all, breaking images.containers/initContainers.
 	podRequestResource := &metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
-	podCompiler := eval.NewCompiler(ictx, e.lister, podRequestResource, e.ivCache)
 	// shared by every policy compiled below, so required sees cross-policy evidence
 	verifications := imageverify.NewImageVerificationResults()
-	// resolved after the loop: evidence may come from a policy evaluated later
-	var pendingRequired []pendingRequiredCheck
-	for _, ivpol := range policies {
+	type evaluation struct {
+		response   eval.ImageVerifyPolicyResponse
+		compiled   eval.CompiledPolicy
+		result     *eval.EvaluationResult
+		err        error
+		startTime  time.Time
+		compileErr error
+	}
+	results := make([]evaluation, len(policies))
+	// Compile policies sequentially. CEL compilation touches shared compiler/parser
+	// state, so compilation must not happen concurrently.
+	for i, ivpol := range policies {
 		response := eval.ImageVerifyPolicyResponse{
 			Policy:     ivpol.Policy,
 			Actions:    ivpol.Actions,
 			Exceptions: ivpol.Exceptions,
 		}
 		startTime := time.Now()
-		compilerFor := c
+		compilerResource := requestResource
 		if ivpol.ExtractionMode {
-			compilerFor = podCompiler
+			compilerResource = podRequestResource
 		}
+		compilerFor := eval.NewCompiler(ictx, e.lister, compilerResource, e.ivCache)
 		compiled, errList := compilerFor.Compile(ivpol.Policy, ivpol.Exceptions, verifications)
 		if errList != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
+			results[i] = evaluation{
+				response:   response,
+				startTime:  startTime,
+				compileErr: errList.ToAggregate(),
+			}
+			continue
+		}
+		results[i] = evaluation{
+			response:  response,
+			compiled:  compiled,
+			startTime: startTime,
+		}
+	}
+
+	// Evaluate already-compiled policies concurrently. The shared verification
+	// results are concurrency-safe and allow policies to contribute evidence to
+	// each other for required verification.
+	var wg sync.WaitGroup
+
+	for i := range policies {
+		if results[i].compileErr != nil {
+			continue
+		}
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			ivpol := policies[i]
+			evaluation := &results[i]
+			var (
+				result *eval.EvaluationResult
+				err    error
+			)
+			if ivpol.ExtractionMode {
+				result, err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, attr, request, namespace, libctx)
+			} else {
+				result, err = evaluation.compiled.Evaluate(ctx, ictx, attr, request, namespace, true, libctx)
+			}
+			evaluation.result = result
+			evaluation.err = err
+		}(i)
+	}
+
+	wg.Wait()
+
+	// resolved after all policies have been evaluated: evidence may come
+	// from a policy evaluated later.
+	var pendingRequired []pendingRequiredCheck
+
+	// Process results sequentially so response ordering and map writes remain
+	// deterministic, and so required enforcement happens only after every
+	// policy has contributed its verification evidence.
+	for i, ivpol := range policies {
+		evaluation := results[i]
+		response := evaluation.response
+		startTime := evaluation.startTime
+		if evaluation.compileErr != nil {
+			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", evaluation.compileErr, nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 			responses[ivpol.Policy.GetName()] = response
 			continue
 		}
-		var result *eval.EvaluationResult
-		if ivpol.ExtractionMode {
-			result, err = e.evaluateExtractedIv(ctx, compiled, ictx, attr, request, namespace, libctx)
-		} else {
-			result, err = compiled.Evaluate(ctx, ictx, attr, request, namespace, true, libctx)
-		}
-		if err != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
+		if evaluation.err != nil {
+			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", evaluation.err, nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 			responses[ivpol.Policy.GetName()] = response
 			continue
 		}
+		result := evaluation.result
 		if result == nil {
 			continue
 		}
@@ -564,7 +624,7 @@ func (e *engineImpl) evaluatePolicies(
 				response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
 				pendingRequired = append(pendingRequired, pendingRequiredCheck{
 					name:             ivpol.Policy.GetName(),
-					compiled:         compiled,
+					compiled:         evaluation.compiled,
 					images:           result.MatchedImages,
 					auditAnnotations: result.AuditAnnotations,
 					startTime:        startTime,
