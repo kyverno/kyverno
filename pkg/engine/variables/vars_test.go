@@ -1184,6 +1184,19 @@ func TestFindAndShiftReferences_AnyPatternPositiveCase(t *testing.T) {
 	assert.Equal(t, expectedMessage, actualMessage)
 }
 
+// TestFindAndShiftReferences_AnyPatternMultipleReferences is a regression test for
+// https://github.com/kyverno/kyverno/issues/17396.
+// When a message string contains multiple anyPattern references with different indices,
+// the pivot variable was being permanently mutated after the first iteration, causing
+// the second (and any subsequent) reference to be shifted using the wrong pivot string.
+func TestFindAndShiftReferences_AnyPatternMultipleReferences(t *testing.T) {
+	message := "Limit $(./../../anyPattern/0/spec/containers/0/resources/limits/memory) must be >= request $(./../../anyPattern/1/spec/containers/0/resources/requests/memory)."
+	expectedMessage := "Limit $(./../../anyPattern/0/spec/jobTemplate/spec/containers/0/resources/limits/memory) must be >= request $(./../../anyPattern/1/spec/jobTemplate/spec/containers/0/resources/requests/memory)."
+	actualMessage := FindAndShiftReferences(logr.Discard(), message, "spec/jobTemplate", "anyPattern")
+
+	assert.Equal(t, expectedMessage, actualMessage)
+}
+
 func Test_EscpReferenceSubstitution(t *testing.T) {
 	jsonRaw := []byte(`
 	{
