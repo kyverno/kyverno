@@ -49,7 +49,6 @@ func TestSplitDocuments(t *testing.T) {
 		},
 		wantErr: false,
 	},
-		// TODO those tests should fail IMHO
 		{
 			name: "empty doc",
 			args: args{
@@ -66,19 +65,15 @@ func TestSplitDocuments(t *testing.T) {
 			args: args{
 				[]byte("---\n---\n"),
 			},
-			wantDocuments: []string{
-				"---\n",
-			},
+			wantDocuments: nil,
 			wantErr: false,
 		},
 		{
-			name: "only separators",
+			name: "only separators with newlines",
 			args: args{
 				[]byte("---\n\n\n---\n"),
 			},
-			wantDocuments: []string{
-				"---\n\n\n",
-			},
+			wantDocuments: nil,
 			wantErr: false,
 		},
 	}
