@@ -65,5 +65,6 @@ GlobalContextEntry"` — but the CRD's actual `storage: true` version right now 
 newest, stable-named version but hasn't been cut over as the storage version yet, and carries no deprecation marker
 of its own. All three are still `served: true`
 (`config/crds/kyverno/kyverno.io_globalcontextentries.yaml`). Don't assume "the stable-named version is the storage
-version" — check the CRD's `storage:` flags directly. And don't read "`v2alpha1` currently has content" as evidence
-it's a landing zone for a brand-new type today — check what's actually in a version before assuming its role.
+version" — check the CRD's `storage:` flags directly. `v2alpha1` stays open for the *next* new kind regardless of
+what `GlobalContextEntry` is doing there — one kind's lifecycle stage doesn't change the package's role for a
+different kind. Check what a version actually contains before assuming any one kind's current role from it.
