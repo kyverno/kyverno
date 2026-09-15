@@ -33,7 +33,8 @@ spec:
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- with .Values.backgroundController.podAnnotations }}
-      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      annotations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
       {{- with .Values.backgroundController.imagePullSecrets | default .Values.global.imagePullSecrets }}
