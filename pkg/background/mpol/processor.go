@@ -232,6 +232,24 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
+		// Surface evaluation Error/Fail the same way GeneratingPolicy background does
+		// (https://github.com/kyverno/kyverno/issues/16983 / #17061). Without this, a
+		// mutateExisting UR can report Completed when no patch was applied.
+		for _, pol := range response.Policies {
+			for _, rule := range pol.Rules {
+				if rule.Status() == engineapi.RuleStatusError || rule.Status() == engineapi.RuleStatusFail {
+					err := fmt.Errorf(
+						"mpol %s rule %s %s: %s",
+						ur.Spec.GetPolicyKey(),
+						rule.Name(),
+						rule.Status(),
+						rule.Message(),
+					)
+					logger.Error(err, "failed to evaluate mpol rule", "mpol", ur.Spec.GetPolicyKey(), "rule", rule.Name(), "status", rule.Status())
+					failures = append(failures, err)
+				}
+			}
+		}
 		if response.PatchedResource != nil {
 			// Skip no-op updates: policy events and periodic background scans re-evaluate
 			// targets that may already be in the desired state. Reports/events are still
