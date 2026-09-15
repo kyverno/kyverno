@@ -34,6 +34,7 @@ kyverno test [local folder or git repository]... [flags]
 ### Options
 
 ```
+      --allow-legacy-policies       Allow legacy kyverno.io policy manifests (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException) instead of hard-erroring; use during the 1.20 migration grace window
       --detailed-results            If set to true, display detailed results
       --fail-only                   If set to true, display all the failing test only as output for the test command
   -f, --file-name string            Test filename (default "kyverno-test.yaml")

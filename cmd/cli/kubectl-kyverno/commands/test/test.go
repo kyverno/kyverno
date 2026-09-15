@@ -70,7 +70,7 @@ type TestResponse struct {
 	SkippedPolicies    map[string]string
 }
 
-func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, allowLegacyPolicies bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
@@ -109,7 +109,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 
 	fmt.Fprintln(out, "  Loading policies", "...")
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
-	results, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
+	results, err := policy.Load(testCase.Fs, testDir, allowLegacyPolicies, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
 	}
@@ -302,7 +302,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
 	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
-	polexLoader, err := exception.Load(exceptionFullPath...)
+	polexLoader, err := exception.Load(allowLegacyPolicies, exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
 	}
