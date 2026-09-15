@@ -452,9 +452,10 @@ func TestProcessUR_ApplyGenerateError_MarksURFailed(t *testing.T) {
 	assert.False(t, statusControl.successCalled,
 		"statusControl.Success() should NOT be called when applyGenerate returns an error")
 
-	// Additional sanity check - we expect no error from ProcessUR itself
-	// since updateStatus with our fake doesn't return an error
-	assert.NoError(t, err, "ProcessUR should not return error when status update succeeds")
+	// ProcessUR now returns error after status update for workqueue rate limiting
+	// This enables AddRateLimited backoff instead of tight looping
+	assert.Error(t, err,
+		"ProcessUR should return error when applyGenerate fails (enables workqueue rate limiting for Failed Generate URs)")
 }
 
 // TestProcessUR_ApplyGenerateError_MultipleRules tests that when applyGenerate()
@@ -683,7 +684,10 @@ func TestProcessUR_PhantomUID_DoesNotGenerateDownstream(t *testing.T) {
 	// and returns nil, so ProcessUR marks the rule as Failed
 	err := controller.ProcessUR(ur)
 
-	assert.NoError(t, err, "ProcessUR should not return an error")
+	// ProcessUR returns error after status update for workqueue rate limiting,
+	// enabling AddRateLimited backoff instead of tight looping on Failed Generate URs
+	assert.Error(t, err,
+		"ProcessUR should return error when applyGenerate fails (enables workqueue rate limiting for Failed Generate URs)")
 
 	// CRITICAL: Failed() must be called because the phantom UID doesn't match
 	// any live resource. Success() must NOT be called.
