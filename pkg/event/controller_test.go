@@ -94,6 +94,52 @@ func expectNoEvent(t *testing.T, ch chan struct{}, msg string) {
 	}
 }
 
+func TestEventGenerator_LegacyPolicyPresent_DefaultsToWarning(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	clientset := fake.NewSimpleClientset()
+	createdCh := make(chan *eventsv1.Event, 1)
+	clientset.PrependReactor("create", "events", func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		createdCh <- action.(clienttesting.CreateAction).GetObject().(*eventsv1.Event)
+		return true, nil, nil
+	})
+
+	gen := NewEventGenerator(clientset.EventsV1(), logr.Discard(), 1000, config.NewDefaultConfiguration(false))
+	go gen.Run(ctx, Workers)
+
+	gen.Add(Info{
+		Regarding: corev1.ObjectReference{
+			APIVersion: "apps/v1",
+			Kind:       "Deployment",
+			Name:       "kyverno-admission-controller",
+			Namespace:  "kyverno",
+			UID:        "test-uid",
+		},
+		Reason:  LegacyPolicyPresent,
+		Action:  None,
+		Message: "legacy kyverno.io policy resources are still present",
+		Source:  AdmissionController,
+	})
+
+	var created *eventsv1.Event
+	select {
+	case created = <-createdCh:
+	case <-time.After(wait.ForeverTestTimeout):
+		t.Fatal("LegacyPolicyPresent event was not created")
+	}
+
+	if created.Type != corev1.EventTypeWarning {
+		t.Errorf("expected LegacyPolicyPresent event type to default to Warning, got %q", created.Type)
+	}
+	if created.Reason != string(LegacyPolicyPresent) {
+		t.Errorf("expected reason %q, got %q", LegacyPolicyPresent, created.Reason)
+	}
+	if created.Regarding.Name != "kyverno-admission-controller" {
+		t.Errorf("expected Regarding.Name to be populated, got %q", created.Regarding.Name)
+	}
+}
+
 func TestEventGenerator_PolicyApplied_SuccessEventsDisabled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -1051,7 +1051,7 @@ func (c *controller) buildForJSONPoliciesMutation(ctx context.Context, cfg confi
 
 	validate = append(validate, buildWebhookRules(ctx, cfg,
 		c.server,
-		config.ImageValidatingPolicyMutateWebhookName,
+		config.NamespacedImageValidatingPolicyMutateWebhookName,
 		"/nivpol/mutate",
 		c.servicePort,
 		caBundle,
@@ -1348,7 +1348,7 @@ func (c *controller) buildForJSONPoliciesValidation(ctx context.Context, cfg con
 	}
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(ctx, cfg,
 		c.server,
-		config.ImageValidatingPolicyValidateWebhookName,
+		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",
 		c.servicePort,
 		caBundle,

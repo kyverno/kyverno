@@ -5,16 +5,21 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kyverno/kyverno/pkg/toggle"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -1513,4 +1518,101 @@ func TestBuildWebhookRules_HonoursForceFailurePolicyIgnoreFromContext(t *testing
 	assert.Len(t, webhooks, 1)
 	assert.Equal(t, config.ValidatingPolicyWebhookName+"-ignore", webhooks[0].Name)
 	assert.Equal(t, ptr.To(admissionregistrationv1.Ignore), webhooks[0].FailurePolicy)
+}
+
+// newImageValidatingPolicyTestController returns a controller that can run the
+// JSON policy webhook builders: every policy lister they read is set, only the
+// image validating listers hold policies, and the health lease is fresh so
+// watchdogCheck passes.
+func newImageValidatingPolicyTestController(t *testing.T, ivpol *policiesv1beta1.ImageValidatingPolicy, nivpol *policiesv1beta1.NamespacedImageValidatingPolicy) *controller {
+	t.Helper()
+	newIndexer := func(objs ...any) cache.Indexer {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		for _, obj := range objs {
+			assert.NoError(t, indexer.Add(obj))
+		}
+		return indexer
+	}
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "kyverno-health",
+			Namespace:   config.KyvernoNamespace(),
+			Annotations: map[string]string{AnnotationLastRequestTime: time.Now().Format(time.RFC3339)},
+		},
+	}
+	return &controller{
+		vpolLister:         policiesv1beta1listers.NewValidatingPolicyLister(newIndexer()),
+		nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(newIndexer()),
+		gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(newIndexer()),
+		ngpolLister:        policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(newIndexer()),
+		mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(newIndexer()),
+		nmpolLister:        policiesv1beta1listers.NewNamespacedMutatingPolicyLister(newIndexer()),
+		ivpolLister:        policiesv1beta1listers.NewImageValidatingPolicyLister(newIndexer(ivpol)),
+		nivpolLister:       policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(newIndexer(nivpol)),
+		leaseLister:        coordinationv1listers.NewLeaseLister(newIndexer(lease)),
+		stateRecorder:      NewStateRecorder(nil),
+		celExpressionCache: NewExpressionCache(),
+	}
+}
+
+func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *testing.T) {
+	matchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+					},
+				},
+			},
+		},
+	}
+
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-images",
+		},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	nivpol := &policiesv1beta1.NamespacedImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "check-images",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	c := newImageValidatingPolicyTestController(t, ivpol, nivpol)
+	cfg := config.NewDefaultConfiguration(false)
+
+	validating := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesValidation(context.Background(), cfg, nil, validating))
+	var validatingNames []string
+	for _, w := range validating.Webhooks {
+		validatingNames = append(validatingNames, w.Name)
+	}
+	assert.ElementsMatch(t, []string{
+		config.ImageValidatingPolicyValidateWebhookName + "-fail",
+		config.NamespacedImageValidatingPolicyValidateWebhookName + "-fail",
+	}, validatingNames)
+
+	mutating := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesMutation(context.Background(), cfg, nil, mutating))
+	var mutatingNames []string
+	for _, w := range mutating.Webhooks {
+		mutatingNames = append(mutatingNames, w.Name)
+	}
+	assert.ElementsMatch(t, []string{
+		config.ImageValidatingPolicyMutateWebhookName + "-fail",
+		config.NamespacedImageValidatingPolicyMutateWebhookName + "-fail",
+	}, mutatingNames)
 }
