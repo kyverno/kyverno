@@ -161,3 +161,138 @@ func TestCreateFakeClientFromResources_ResourceDataPreserved(t *testing.T) {
 	assert.Equal(t, "production", gotData["environment"])
 	assert.Equal(t, "3", gotData["replicas"])
 }
+
+func TestCreateFakeClientFromResources_ListObject(t *testing.T) {
+	listObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items": []interface{}{
+				map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "cm-in-list",
+						"namespace": "default",
+					},
+					"data": map[string]interface{}{
+						"key": "value",
+					},
+				},
+				map[string]interface{}{
+					"apiVersion": "apps/v1",
+					"kind":       "Deployment",
+					"metadata": map[string]interface{}{
+						"name":      "deploy-in-list",
+						"namespace": "default",
+					},
+				},
+			},
+		},
+	}
+
+	client, err := createFakeClientFromResources([]*unstructured.Unstructured{listObj}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	cm, err := client.GetResource(context.Background(), "v1", "ConfigMap", "default", "cm-in-list")
+	require.NoError(t, err)
+	assert.Equal(t, "cm-in-list", cm.GetName())
+
+	deploy, err := client.GetResource(context.Background(), "apps/v1", "Deployment", "default", "deploy-in-list")
+	require.NoError(t, err)
+	assert.Equal(t, "deploy-in-list", deploy.GetName())
+}
+
+func TestCreateFakeClientFromResources_EmptyList(t *testing.T) {
+	listObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items":      []interface{}{},
+		},
+	}
+
+	client, err := createFakeClientFromResources([]*unstructured.Unstructured{listObj}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	// Typed list with empty items slice
+	typedListObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "PodList",
+			"items":      []interface{}{},
+		},
+	}
+	client, err = createFakeClientFromResources([]*unstructured.Unstructured{typedListObj}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	// Typed list without items field
+	typedListNoItems := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "PodList",
+		},
+	}
+	client, err = createFakeClientFromResources([]*unstructured.Unstructured{typedListNoItems}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+}
+
+func TestFlattenResources_NilAndNested(t *testing.T) {
+	res, err := flattenResources(nil)
+	require.NoError(t, err)
+	assert.Nil(t, res)
+
+	cm := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name": "cm-nested",
+			},
+		},
+	}
+	nestedList := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items": []interface{}{
+				map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "List",
+					"items": []interface{}{
+						cm.Object,
+					},
+				},
+			},
+		},
+	}
+
+	flat, err := flattenResources([]*unstructured.Unstructured{nil, nestedList})
+	require.NoError(t, err)
+	require.Len(t, flat, 1)
+	assert.Equal(t, "cm-nested", flat[0].GetName())
+}
+
+func TestFlattenResources_NonListWithItems(t *testing.T) {
+	widget := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "example.com/v1",
+			"kind":       "Widget",
+			"metadata": map[string]interface{}{
+				"name": "widget-1",
+			},
+			"items": []interface{}{
+				map[string]interface{}{"foo": "bar"},
+			},
+		},
+	}
+	flat, err := flattenResources([]*unstructured.Unstructured{widget})
+	require.NoError(t, err)
+	require.Len(t, flat, 1)
+	assert.Equal(t, "Widget", flat[0].GetKind())
+	assert.Equal(t, "widget-1", flat[0].GetName())
+}
