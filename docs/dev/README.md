@@ -78,17 +78,26 @@ points:
 `make bench-baseline` reruns the benchmarks and regenerates
 `scripts/bench/thresholds.txt` by applying the headroom formula (+5% on
 allocs/op with a minimum of +2, +15% on bytes/op, rounded up) to the
-measured values. The mpol and vpol webhook handler benchmarks each fire
-some of the work they measure in an unwaited goroutine (the handler's own
-`audit`, and for mpol also a mutate-existing update-request check), but each
-benchmark synchronizes with that goroutine before its timed loop advances
-(see `BenchmarkVpolHandlerValidate`'s and `BenchmarkMpolHandlerMutate`'s doc
-comments for how), so a single headroom applies uniformly across all six
-gated benchmarks. `make bench-baseline` only re-measures benchmarks already
-gated in `scripts/bench/thresholds.txt` - it never promotes a new,
+measured values. Both webhook handler benchmarks are deterministic, but for
+different reasons:
+
+- The vpol handler already awaits its own audit work in production - it
+  runs under a `wait.Group` with a deferred `Wait()` (see
+  `pkg/webhooks/resource/vpol/handler.go`) - so `ValidateClustered` doesn't
+  return until that work is done, and `BenchmarkVpolHandlerValidate` needs
+  no benchmark-side synchronization at all.
+- The mpol handler fires its audit (and, for non-dry-run requests, a
+  mutate-existing update-request check) in unwaited goroutines instead, so
+  `BenchmarkMpolHandlerMutate` adds its own synchronization: a dry-run
+  request to skip the update-request goroutine entirely, plus a fake event
+  sink that signals when the audit goroutine's last observable side effect
+  completes (see that benchmark's doc comment for the full mechanism).
+
+Because both are deterministic, a single headroom applies uniformly across
+all six gated benchmarks. `make bench-baseline` only re-measures benchmarks
+already gated in `scripts/bench/thresholds.txt` - it never promotes a new,
 exploratory benchmark into the gate as a side effect of ratcheting the
-existing rows.
-Because allocation counts differ across GOOS/GOARCH, the committed ceilings
-must come from linux/amd64: run `make bench-baseline` inside a `golang`
-Docker container if you're on another platform, so your numbers match what
-CI will measure.
+existing rows. Because allocation counts differ across GOOS/GOARCH, the
+committed ceilings must come from linux/amd64: run `make bench-baseline`
+inside a `golang` Docker container if you're on another platform, so your
+numbers match what CI will measure.

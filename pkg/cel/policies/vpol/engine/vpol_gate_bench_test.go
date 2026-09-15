@@ -99,7 +99,11 @@ func buildGateAlwaysTruePolicies(b *testing.B, n int) Provider {
 // the same per-policy MatchConstraints evaluation production uses
 // (cmd/kyverno/main.go wires matching.NewMatcher()); Handle skips
 // MatchConstraints evaluation entirely when the matcher is nil, which would
-// let a per-policy matcher regression escape this gate.
+// let a per-policy matcher regression escape this gate. Unlike
+// BenchmarkVpolHandlerValidate, the engine here is intentionally left
+// unwrapped by vpolengine.NewMetricWrapper: this benchmark isolates the
+// engine core (matching + CEL evaluation), while the webhook handler
+// benchmark already covers the full production wiring, metrics included.
 func BenchmarkEngineHandleVpol(b *testing.B) {
 	for _, n := range []int{1, 16, 64} {
 		b.Run(fmt.Sprintf("N=%d", n), func(b *testing.B) {

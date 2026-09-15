@@ -3,17 +3,20 @@ package mpol
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/julienschmidt/httprouter"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/matching"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	fakekyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -26,9 +29,23 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/managedfields"
 	"k8s.io/utils/ptr"
-
-	"github.com/kyverno/kyverno/pkg/cel/matching"
 )
+
+// gateBenchMetricsOnce forces the process-global metrics manager on for the
+// mpol handler benchmark, guarded so it only runs once per test binary and
+// never from a regular test. This makes mpolengine.NewMetricWrapper's inner
+// metrics non-nil (it silently returns the bare engine otherwise), matching
+// production (cmd/kyverno/main.go wires mpolengine.NewMetricWrapper around
+// every mpol engine). Because this only runs inside a Benchmark's setup,
+// `go test` without `-bench` never executes it and unit-test behavior in
+// this package is unchanged.
+var gateBenchMetricsOnce sync.Once
+
+func setupGateBenchMetrics() {
+	gateBenchMetricsOnce.Do(func() {
+		metrics.SetManager(metrics.NewFakeMetricsConfig())
+	})
+}
 
 // syncEventGen implements event.Interface and, unlike event.NewFake(),
 // signals completion via a buffered channel each time Add is called. It
@@ -168,9 +185,15 @@ func buildGateMutateHandlerPolicy(b *testing.B) mpolengine.Provider {
 //     next iteration starts - the same guarantee vpol gets from
 //     wait.Group, reached here from the benchmark side since production
 //     doesn't expose a synchronous mpol audit path.
+//
+// The engine is also wrapped with mpolengine.NewMetricWrapper (fake metrics
+// manager forced on via setupGateBenchMetrics), matching production wiring
+// exactly, so this benchmark's claim to cover the full production handler
+// path includes the per-request RecordDuration/RecordResult allocations.
 func BenchmarkMpolHandlerMutate(b *testing.B) {
+	setupGateBenchMetrics()
 	provider := buildGateMutateHandlerPolicy(b)
-	eng := mpolengine.NewEngine(
+	eng := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 		provider,
 		func(ns string) *corev1.Namespace {
 			return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
@@ -178,7 +201,7 @@ func BenchmarkMpolHandlerMutate(b *testing.B) {
 		matching.NewMatcher(),
 		&gateBenchTypeConverter{},
 		&libs.FakeContextProvider{},
-	)
+	), metrics.AdmissionRequest)
 
 	eventGen := newSyncEventGen()
 	h := New(

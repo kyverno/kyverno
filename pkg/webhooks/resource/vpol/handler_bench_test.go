@@ -2,6 +2,7 @@ package vpol
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	fakekyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -22,6 +24,22 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+// gateBenchMetricsOnce forces the process-global metrics manager on for the
+// vpol handler benchmark, guarded so it only runs once per test binary and
+// never from a regular test. This makes vpolengine.NewMetricWrapper's inner
+// metrics non-nil (it silently returns the bare engine otherwise), matching
+// production (cmd/kyverno/main.go wires vpolengine.NewMetricWrapper around
+// every vpol engine). Because this only runs inside a Benchmark's setup,
+// `go test` without `-bench` never executes it and unit-test behavior in
+// this package is unchanged.
+var gateBenchMetricsOnce sync.Once
+
+func setupGateBenchMetrics() {
+	gateBenchMetricsOnce.Do(func() {
+		metrics.SetManager(metrics.NewFakeMetricsConfig())
+	})
+}
 
 // gateBenchHandlerPod is a ~50KB (measured: ~50072 bytes) Pod payload
 // (padding via env values) so the benchmark's object-unmarshal and
@@ -95,11 +113,16 @@ func buildGateValidatePolicy(b *testing.B) vpolengine.Provider {
 // A real matching.Matcher is wired in (not nil), matching production
 // (cmd/kyverno/main.go wires matching.NewMatcher()); the vpol engine skips
 // MatchConstraints evaluation entirely when its matcher is nil, which would
-// let a per-policy matcher regression escape this gate.
+// let a per-policy matcher regression escape this gate. The engine is also
+// wrapped with vpolengine.NewMetricWrapper (fake metrics manager forced on
+// via setupGateBenchMetrics), matching production wiring exactly, so the
+// per-request RecordDuration/RecordResult allocations this benchmark claims
+// to cover the "full production handler path" for are actually gated.
 func BenchmarkVpolHandlerValidate(b *testing.B) {
+	setupGateBenchMetrics()
 	provider := buildGateValidatePolicy(b)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
-	eng := vpolengine.NewEngine(provider, noopNsResolver, matching.NewMatcher())
+	eng := vpolengine.NewMetricWrapper(vpolengine.NewEngine(provider, noopNsResolver, matching.NewMatcher()), metrics.AdmissionRequest)
 
 	h := New(
 		eng,

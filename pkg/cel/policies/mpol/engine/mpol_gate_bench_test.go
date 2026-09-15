@@ -101,7 +101,11 @@ func buildGateMutatePolicy(b *testing.B) Provider {
 // BenchmarkEngineHandleMpol measures the mpol engine's admission-hot-path
 // Handle call for a single mutation policy, built in-process using the
 // existing mpol engine unit-test harness (fakeTypeConverter,
-// libs.FakeContextProvider).
+// libs.FakeContextProvider). Unlike BenchmarkMpolHandlerMutate, the engine
+// here is intentionally left unwrapped by mpolengine.NewMetricWrapper: this
+// benchmark isolates the engine core (matching + CEL evaluation + patch
+// building), while the webhook handler benchmark already covers the full
+// production wiring, metrics included.
 func BenchmarkEngineHandleMpol(b *testing.B) {
 	provider := buildGateMutatePolicy(b)
 	eng := NewEngine(
@@ -123,10 +127,11 @@ func BenchmarkEngineHandleMpol(b *testing.B) {
 			Namespace: "default",
 			Name:      "nginx",
 			Operation: admissionv1.Create,
+			// OldObject is intentionally left empty: a real CREATE has no old
+			// object, and ExtractResources unconditionally parses non-empty
+			// OldObject.Raw, so setting it here would measure parse cost
+			// production never incurs on this operation.
 			Object: runtime.RawExtension{
-				Raw: requestObject,
-			},
-			OldObject: runtime.RawExtension{
 				Raw: requestObject,
 			},
 			DryRun: &dryRun,
