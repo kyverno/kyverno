@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	fake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
@@ -619,4 +620,51 @@ func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
 	assert.Error(t, e.err)
 	assert.Contains(t, e.err.Error(), "projection evaluation error")
 	assert.Equal(t, expectedSnapshot, e.dataMap)
+}
+
+func TestUpdateStatus_StatusReadyAndRefreshTime(t *testing.T) {
+	status := &kyvernov2beta1.GlobalContextEntryStatus{}
+
+	status.SetReady(true, "Ready")
+	assert.True(t, status.IsReady())
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryConditionReady, status.Conditions[0].Type)
+	assert.Equal(t, metav1.ConditionTrue, status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonSucceeded, status.Conditions[0].Reason)
+
+	status.SetReady(false, "Connection refused")
+	assert.False(t, status.IsReady())
+	assert.Equal(t, metav1.ConditionFalse, status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonFailed, status.Conditions[0].Reason)
+	assert.Equal(t, "Connection refused", status.Conditions[0].Message)
+}
+
+func TestUpdateStatus_WithFakeClient(t *testing.T) {
+	ctx := context.Background()
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce",
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+
+	// Test success path
+	err := updateStatus(ctx, gce, client, true, "Ready")
+	assert.NoError(t, err)
+
+	updated, err := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.True(t, updated.Status.IsReady())
+	assert.False(t, updated.Status.LastRefreshTime.IsZero())
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonSucceeded, updated.Status.Conditions[0].Reason)
+
+	// Test failure path
+	err = updateStatus(ctx, gce, client, false, "Connection refused")
+	assert.NoError(t, err)
+
+	updated, err = client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.False(t, updated.Status.IsReady())
+	assert.Equal(t, metav1.ConditionFalse, updated.Status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonFailed, updated.Status.Conditions[0].Reason)
+	assert.Equal(t, "Connection refused", updated.Status.Conditions[0].Message)
 }
