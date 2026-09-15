@@ -87967,6 +87967,8 @@ rules:
       - namespacedgeneratingpolicies
       - mutatingpolicies
       - namespacedmutatingpolicies
+      - deletingpolicies
+      - namespaceddeletingpolicies
     verbs:
       - create
       - delete
