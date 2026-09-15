@@ -831,3 +831,81 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 		assert.Nil(t, resp)
 	})
 }
+
+func TestHandlePolicy_ExtractionMode(t *testing.T) {
+	jobset := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "jobset.x-k8s.io/v1alpha2",
+		"kind":       "JobSet",
+		"metadata":   map[string]interface{}{"name": "test-jobset", "namespace": "default"},
+		"spec": map[string]interface{}{
+			"replicatedJobs": []interface{}{
+				map[string]interface{}{
+					"template": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"template": map[string]interface{}{
+								"spec": map[string]interface{}{
+									"containers": []interface{}{
+										map[string]interface{}{"name": "worker", "image": "bash:1.0"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "add-team-label"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"jobset.x-k8s.io"},
+							APIVersions: []string{"v1alpha2"},
+							Resources:   []string{"jobsets"},
+						},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`,
+				},
+			}},
+		},
+	}
+	compiled, errs := compiler.NewCompiler().Compile(mpol, nil)
+	assert.Empty(t, errs.ToAggregate())
+
+	eng := &engineImpl{
+		matcher:         matching.NewMatcher(),
+		typeConverter:   &fakeTypeConverter{},
+		contextProvider: &libs.FakeContextProvider{},
+	}
+	policy := Policy{Policy: mpol, CompiledPolicy: compiled, ExtractionMode: true}
+
+	attr := admission.NewAttributesRecord(
+		jobset, nil,
+		schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+		"default", "test-jobset",
+		schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+		"", admission.Create, nil, false, &user.DefaultInfo{},
+	)
+
+	ruleResponse, patched := eng.handlePolicy(context.Background(), policy, attr, admissionv1.AdmissionRequest{}, nil, nil, false)
+
+	assert.Len(t, ruleResponse.Rules, 1)
+	assert.Equal(t, engineapi.RuleStatusPass, ruleResponse.Rules[0].Status())
+	assert.NotNil(t, patched)
+
+	replicatedJobs, _, _ := unstructured.NestedSlice(patched.Object, "spec", "replicatedJobs")
+	rj, _ := replicatedJobs[0].(map[string]interface{})
+	labels, found, _ := unstructured.NestedStringMap(rj, "template", "spec", "template", "metadata", "labels")
+	assert.True(t, found)
+	assert.Equal(t, "platform", labels["team"])
+}
