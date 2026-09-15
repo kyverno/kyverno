@@ -257,7 +257,7 @@ helm upgrade --install kyverno --namespace kyverno kyverno/kyverno --set upgrade
 
 **Known bypasses.** Both layers rely on Helm evaluating against a live cluster, so the following paths are not covered:
 
-- `helm template`, `helm install --dry-run`, and `ct lint` never populate `lookup`, so the render-time check always passes offline.
+- `helm template`, client-side `helm install --dry-run` (`--dry-run=client`), and `ct lint` never populate `lookup`, so the render-time check always passes for them. Server-side `helm install --dry-run=server` does connect to the cluster and evaluate `lookup`, so it is still covered by the render-time check.
 - `helm upgrade/install --no-hooks` skips the hook Job.
 - ArgoCD `Skip Hooks` sync option, or simply not syncing hook resources, skips the hook Job.
 - Flux `HelmRelease.spec.install.disableHooks` / `spec.upgrade.disableHooks` skips the hook Job.
@@ -278,7 +278,7 @@ kubectl get clusterpolicies,policies,cleanuppolicies,clustercleanuppolicies -A
 kubectl get policyexceptions.kyverno.io -A
 ```
 
-**Note on the hook Job's failure mode.** When the hook Job blocks a first install, Helm records a `failed` release that you must remove with `helm uninstall` before retrying, even after you have migrated your policies or set the opt-out.
+**Note on the hook Job's failure mode.** When the hook Job blocks an install, Helm records the release as `failed`. Once you have migrated your policies or set the opt-out, retry with `helm upgrade --install` — it upgrades the existing failed release. You only need `helm uninstall` first if you retry with a plain `helm install` under the same release name, which refuses to reuse a name that is still in use.
 
 ## Uninstalling the Chart
 
@@ -956,6 +956,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
 | upgrade.allowLegacyPolicies | bool | `false` | Installing or upgrading is blocked by default when legacy kyverno.io policy resources (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, `PolicyException`) are found on the cluster. Migrate them to the `policies.kyverno.io` policy types (see https://kyverno.io/docs/guides/migration-to-cel/), or set this to true to bypass the check. This disables both the render-time check and the `legacyPolicyCheck` hook Job. |
 | upgrade.legacyPolicyCheck.enabled | bool | `true` | Enable the pre-install/pre-upgrade hook Job that checks for legacy kyverno.io policy resources on the cluster. This is a second, server-side check for GitOps tools that honor Helm hooks; it is independent from the render-time `lookup` check, which some GitOps tools and `helm template`/`--dry-run` do not evaluate against a live cluster. |
+| upgrade.legacyPolicyCheck.ttlSecondsAfterFinished | int | `300` | Seconds after the hook Job finishes before it (and its Pod) are auto-deleted. A failed Job's logs stay available until then. Set to 0 or null to keep it indefinitely. |
+| upgrade.legacyPolicyCheck.activeDeadlineSeconds | int | `120` | Maximum seconds the hook Job may run before it is failed, so a stalled or unreachable API server can't hang the install/upgrade. Set to 0 or null to disable. |
 | upgrade.legacyPolicyCheck.image.registry | string | `nil` | Image registry |
 | upgrade.legacyPolicyCheck.image.defaultRegistry | string | `"reg.kyverno.io"` |  |
 | upgrade.legacyPolicyCheck.image.repository | string | `"kyverno/kyverno-cli"` | Image repository |

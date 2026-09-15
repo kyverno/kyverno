@@ -81,6 +81,14 @@ upgrade:
     # and `helm template`/`--dry-run` do not evaluate against a live cluster.
     enabled: true
 
+    # -- Seconds after the hook Job finishes before it (and its Pod) are auto-deleted.
+    # A failed Job's logs stay available until then. Set to 0 or null to keep it indefinitely.
+    ttlSecondsAfterFinished: 300
+
+    # -- Maximum seconds the hook Job may run before it is failed, so a stalled or
+    # unreachable API server can't hang the install/upgrade. Set to 0 or null to disable.
+    activeDeadlineSeconds: 120
+
     image:
       # -- (string) Image registry
       registry: ~

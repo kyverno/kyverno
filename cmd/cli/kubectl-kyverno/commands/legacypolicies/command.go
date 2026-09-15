@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"time"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/deprecations"
@@ -54,6 +55,7 @@ type kindResult struct {
 type options struct {
 	KubeConfig string
 	Context    string
+	Timeout    time.Duration
 }
 
 func Command() *cobra.Command {
@@ -77,11 +79,20 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return run(context.Background(), cmd.OutOrStdout(), apiServerClient, dynamicClient)
+			// Bound the run: as a pre-install/pre-upgrade hook this must fail fast
+			// on a stalled or unreachable API server rather than block the release.
+			ctx := context.Background()
+			if options.Timeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, options.Timeout)
+				defer cancel()
+			}
+			return run(ctx, cmd.OutOrStdout(), apiServerClient, dynamicClient)
 		},
 	}
 	cmd.Flags().StringVar(&options.KubeConfig, "kubeconfig", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVar(&options.Context, "context", "", "The name of the kubeconfig context to use")
+	cmd.Flags().DurationVar(&options.Timeout, "timeout", 30*time.Second, "maximum time to wait for the cluster to answer; 0 disables the timeout")
 	return cmd
 }
 

@@ -2,10 +2,14 @@
 {{- if not .Values.upgrade.allowLegacyPolicies -}}
 {{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.upgrade.legacyPolicyCheck.serviceAccount.automountServiceAccountToken }}
+{{/* kyverno.fullname is already capped at 63 chars, so cap the suffixed names too: a long release
+     name would otherwise push the Job name over 63 chars and its job-name Pod label would be invalid. */}}
+{{- $saName := printf "%s-check-legacy-policies" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" | trimSuffix ":" -}}
+{{- $roleName := printf "%s:check-legacy-policies" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" | trimSuffix ":" -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.fullname" . }}:check-legacy-policies
+  name: {{ $roleName }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
@@ -28,13 +32,21 @@ rules:
     - apiextensions.k8s.io
     resources:
     - customresourcedefinitions
+    # Scope to just the five legacy CRDs the check reads by name (it does a
+    # per-name Get, not a list), so the pre-install SA can't read other CRDs.
+    resourceNames:
+    - clusterpolicies.kyverno.io
+    - policies.kyverno.io
+    - cleanuppolicies.kyverno.io
+    - clustercleanuppolicies.kyverno.io
+    - policyexceptions.kyverno.io
     verbs:
     - get
 ---
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: {{ template "kyverno.fullname" . }}:check-legacy-policies
+  name: {{ $roleName }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
@@ -44,16 +56,16 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ template "kyverno.fullname" . }}:check-legacy-policies
+  name: {{ $roleName }}
 subjects:
   - kind: ServiceAccount
-    name: {{ template "kyverno.fullname" . }}-check-legacy-policies
+    name: {{ $saName }}
     namespace: {{ template "kyverno.namespace" . }}
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ template "kyverno.fullname" . }}-check-legacy-policies
+  name: {{ $saName }}
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
@@ -66,7 +78,7 @@ automountServiceAccountToken: false
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-check-legacy-policies
+  name: {{ $saName }}
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
@@ -76,6 +88,19 @@ metadata:
     helm.sh/hook-weight: "200"
 spec:
   backoffLimit: 0
+  {{- if .Values.upgrade.legacyPolicyCheck.activeDeadlineSeconds }}
+  # Fail the Job (and unblock the release) if the check can't finish in time,
+  # e.g. against a stalled or unreachable API server, so the hook never hangs.
+  activeDeadlineSeconds: {{ .Values.upgrade.legacyPolicyCheck.activeDeadlineSeconds }}
+  {{- end }}
+  {{- if .Values.upgrade.legacyPolicyCheck.ttlSecondsAfterFinished }}
+  # Auto-delete the finished Job (and its Pod) after this many seconds. The Job
+  # omits the hook-failed delete policy so a failed run's logs stay available,
+  # but on the opt-out recovery path the hook is not rendered again, so nothing
+  # would ever clean up a failed Job. This TTL bounds that. Set to 0 or null to
+  # keep failed Jobs indefinitely.
+  ttlSecondsAfterFinished: {{ .Values.upgrade.legacyPolicyCheck.ttlSecondsAfterFinished }}
+  {{- end }}
   template:
     {{- if or .Values.upgrade.legacyPolicyCheck.podAnnotations .Values.upgrade.legacyPolicyCheck.podLabels }}
     metadata:
@@ -89,7 +114,7 @@ spec:
       {{- end }}
     {{- end }}
     spec:
-      serviceAccountName: {{ template "kyverno.fullname" . }}-check-legacy-policies
+      serviceAccountName: {{ $saName }}
       automountServiceAccountToken: {{ $automountSAToken }}
       {{- with .Values.upgrade.legacyPolicyCheck.podSecurityContext }}
       securityContext:

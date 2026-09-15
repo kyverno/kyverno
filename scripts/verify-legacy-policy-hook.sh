@@ -19,10 +19,11 @@
 # `make kind-install-kyverno`).
 #
 # It covers:
-#   A. a legacy CR exists    -> the Job must FAIL, with a pod that terminated
-#                                non-zero, and logs containing the per-kind
-#                                count, the offending resource name, and the
-#                                migration guidance
+#   A. an instance of EACH of the five legacy kinds exists (ClusterPolicy,
+#      Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException) -> the
+#      Job must FAIL, with a pod that terminated non-zero, and logs
+#      containing, for EACH kind, its per-kind count and the offending
+#      resource name, plus the migration guidance
 #   B. no legacy CR exists   -> the Job must SUCCEED, with logs reporting no
 #                                legacy resources found
 #   C. a legacy CR exists, upgrade.allowLegacyPolicies=true (opt-out)
@@ -42,6 +43,13 @@
 # named "kind-production" - or the operator has explicitly opted in. See
 # the guard below.
 #
+# Kyverno must be installed in 1.20 migration-grace mode
+# (features.blockLegacyPolicyAPIs.enabled=false). By default that block is on,
+# and its admission webhook rejects the legacy fixtures this script creates, so
+# scenario A would fail before the hook Job runs. The CI helm-tests job installs
+# with that flag; a manual run must do the same, e.g.:
+#   EXPLICIT_INSTALL_SETTINGS='--set features.blockLegacyPolicyAPIs.enabled=false' make kind-install-kyverno
+#
 # Usage: scripts/verify-legacy-policy-hook.sh
 #
 # Expects (set by the `verify-legacy-policy-hook` Makefile target, with
@@ -57,16 +65,42 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHART_DIR="${ROOT_DIR}/charts/kyverno"
-# The rendered resource names (kyverno:check-legacy-policies ClusterRole/
-# ClusterRoleBinding, kyverno-check-legacy-policies ServiceAccount/Job) come
-# from `kyverno.fullname`, which is just the release name when it equals
-# the chart name. Render as release "kyverno" so those names match the
-# fixed names this script's cleanup deletes, regardless of what the actual
-# installed release happens to be called.
-RELEASE_NAME="kyverno"
+# The rendered resource names (ClusterRole/ClusterRoleBinding/ServiceAccount/
+# Job) come from `kyverno.fullname`, which is derived from the Helm RELEASE
+# NAME. A real `helm install/upgrade kyverno` release renders these same
+# templates with release name "kyverno", producing the FIXED names
+# "kyverno-check-legacy-policies" (Job/ServiceAccount) and
+# "kyverno:check-legacy-policies" (ClusterRole/ClusterRoleBinding). If this
+# script rendered under that same "kyverno" release name, its own
+# cleanup could delete a real, concurrently-running hook's resources instead
+# of only its own - so it renders under a RUN-SPECIFIC release name instead,
+# making every rendered resource name unique to this run, and never deletes
+# by the chart's fixed hook-resource names. All cleanup/wait/log calls below
+# derive the Job's name from what was actually rendered this run, not from
+# any hardcoded name.
+RUN_ID="$$-${RANDOM}"
+RELEASE_NAME="legacy-hook-verify-${RUN_ID}"
 NAMESPACE="kyverno"
-CR_NAME="legacy-policy-hook-verify"
-JOB_NAME="kyverno-check-legacy-policies"
+# Run-unique names for the test fixtures, so this script can never delete a
+# real resource that happens to share a fixed name. Scenario A creates one
+# instance of EACH of the five legacy kinds (so a regression that only
+# detects ClusterPolicy would still fail CI); CR_NAME (ClusterPolicy) is
+# also reused by scenarios B/C/D, which only need one legacy CR present or
+# absent. The namespaced kinds (Policy, CleanupPolicy, PolicyException)
+# live in a dedicated, also run-unique, namespace - not the real "kyverno"
+# namespace above, which is the hook's own install namespace.
+CR_NAME="legacy-policy-hook-verify-${RUN_ID}"
+FIXTURE_NAMESPACE="legacy-policy-hook-verify-fixtures-${RUN_ID}"
+POLICY_NAME="legacy-policy-hook-verify-policy-${RUN_ID}"
+CLEANUPPOLICY_NAME="legacy-policy-hook-verify-cleanuppolicy-${RUN_ID}"
+CLUSTERCLEANUPPOLICY_NAME="legacy-policy-hook-verify-clustercleanuppolicy-${RUN_ID}"
+POLICYEXCEPTION_NAME="legacy-policy-hook-verify-policyexception-${RUN_ID}"
+# Populated once the hook is first rendered (see apply_hook_and_wait): the
+# actual rendered Job name for this run, and the manifest file that was
+# applied to the cluster (used by cleanup() to delete exactly what this run
+# created, via `kubectl delete -f`, instead of any fixed resource name).
+JOB_NAME=""
+HOOK_MANIFEST=""
 
 HELM="${HELM:-helm}"
 KUBE_VERSION="${KUBE_VERSION:-v1.25.0}"
@@ -148,19 +182,15 @@ else
   log "current kubectl context '${CURRENT_CONTEXT}' verified as a genuine kind cluster (name starts with kind-, and every node's providerID is kind://...), proceeding"
 fi
 
-# Delete the cluster-scoped resources this script owns, without touching
-# WORK_DIR (created below). Idempotent: safe to call both up front, in case
-# a previous interrupted run left these behind, and on exit.
-cleanup_resources() {
-  kubectl delete job "${JOB_NAME}" --namespace "${NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete clusterrolebinding "kyverno:check-legacy-policies" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete clusterrole "kyverno:check-legacy-policies" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete serviceaccount "kyverno-check-legacy-policies" --namespace "${NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
-  kubectl delete clusterpolicy "${CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
-}
+# Pin every kubectl call from here on to the context the guard validated, so a
+# context switch mid-run (another process running `kubectl config use-context`)
+# can't redirect these destructive commands to a different, unvalidated cluster.
+kubectl() { command kubectl --context "${CURRENT_CONTEXT}" "$@"; }
 
-# Make sure we're starting clean (in case a previous run was interrupted).
-cleanup_resources
+# With a run-unique RELEASE_NAME/CR_NAME (see above), no fixed-name
+# resources from a *previous* run of this script could exist to pre-clean:
+# every run's resources are named uniquely to that run, so there is nothing
+# to collide with. The exit trap below handles this run's own cleanup.
 
 # This script must run after Kyverno (and its CRDs) is installed: with the
 # legacy CRDs absent, `check-legacy-policies` treats every kind as zero
@@ -172,8 +202,29 @@ fi
 
 WORK_DIR="$(mktemp -d)"
 
+# Deletes exactly the resources this run applied to the cluster - the hook
+# Job/ServiceAccount/ClusterRole/ClusterRoleBinding via the last-applied
+# rendered manifest (`kubectl delete -f`, so it can never touch a
+# differently-named resource, fixed or otherwise), plus this run's own
+# ClusterPolicy fixture. Guarded so it's safe to fire before the manifest
+# has been rendered (e.g. the script fails before scenario A even applies
+# anything) and safe to call more than once.
 cleanup() {
-  cleanup_resources
+  if [ -n "${HOOK_MANIFEST}" ] && [ -f "${HOOK_MANIFEST}" ]; then
+    kubectl delete -f "${HOOK_MANIFEST}" --ignore-not-found >/dev/null 2>&1 || true
+  fi
+  # Delete this run's own fixture of each of the five legacy kinds by its
+  # run-unique name, fully group-qualified (e.g. "policyexceptions.kyverno.io"
+  # rather than bare "policyexception") since the newer policies.kyverno.io
+  # API group also has a PolicyException kind - an unqualified `kubectl
+  # delete policyexception` would be ambiguous on this fully installed
+  # Kyverno, where both CRDs are registered.
+  kubectl delete clusterpolicies.kyverno.io "${CR_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUPPOLICY_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete policies.kyverno.io "${POLICY_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete cleanuppolicies.kyverno.io "${CLEANUPPOLICY_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete policyexceptions.kyverno.io "${POLICYEXCEPTION_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
   rm -rf "${WORK_DIR}"
 }
 trap cleanup EXIT
@@ -193,6 +244,19 @@ render_hook() {
     --set upgrade.legacyPolicyCheck.image.tag="${GIT_SHA}"
 }
 
+# job_name_from_manifest extracts the Job's metadata.name from a rendered
+# multi-document hook manifest, without assuming any fixed name: it tracks
+# the `kind:` of the current `---`-separated document and prints the first
+# top-level (2-space-indented) `name:` it sees once that document's kind is
+# "Job".
+job_name_from_manifest() {
+  awk '
+    /^---/ { kind="" }
+    /^kind: / { kind=$2 }
+    kind == "Job" && /^  name: / { print $2; exit }
+  ' "$1"
+}
+
 apply_hook_and_wait() {
   # We `kubectl apply` this render directly rather than going through a real
   # Helm install/upgrade, so Helm's hook-delete-policy annotations
@@ -204,7 +268,23 @@ apply_hook_and_wait() {
   # applied matches what a real Helm hook execution would apply.)
   local out_file="$1"
   render_hook > "${out_file}"
-  kubectl delete job "${JOB_NAME}" --namespace "${NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
+  HOOK_MANIFEST="${out_file}"
+  if [ -z "${JOB_NAME}" ]; then
+    JOB_NAME="$(job_name_from_manifest "${out_file}")"
+    if [ -z "${JOB_NAME}" ]; then
+      fail "could not determine the rendered hook Job's name from ${out_file}; the template's output shape may have changed"
+    fi
+    log "this run's rendered hook Job name: ${JOB_NAME} (release ${RELEASE_NAME})"
+  fi
+  # Delete any prior Job of this name with foreground propagation and wait, so its
+  # Pods are gone before we recreate the Job. Both scenarios reuse the same Job
+  # name, and pod_exit_code reads items[0]; a leftover Pod from the previous
+  # scenario (same job-name label) would otherwise be read as this scenario's
+  # result and cause a false failure.
+  kubectl delete job "${JOB_NAME}" --namespace "${NAMESPACE}" --ignore-not-found \
+    --cascade=foreground --wait=true >/dev/null 2>&1 || true
+  kubectl wait --for=delete "pod" --namespace "${NAMESPACE}" \
+    -l "job-name=${JOB_NAME}" --timeout=60s >/dev/null 2>&1 || true
   kubectl apply -f "${out_file}" >/dev/null
 
   # Wait for the Job to reach a terminal state, whichever comes first.
@@ -273,7 +353,9 @@ assert_hook_absent() {
   fi
 }
 
-log "scenario A: legacy CR exists, expect the hook Job to FAIL"
+log "scenario A: an instance of each of the five legacy kinds exists, expect the hook Job to FAIL"
+kubectl create namespace "${FIXTURE_NAMESPACE}" >/dev/null
+
 kubectl apply -f - <<EOF >/dev/null
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -281,6 +363,85 @@ metadata:
   name: ${CR_NAME}
 spec:
   rules: []
+EOF
+
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: ${POLICY_NAME}
+  namespace: ${FIXTURE_NAMESPACE}
+spec:
+  rules: []
+EOF
+
+# CleanupPolicy/ClusterCleanupPolicy (kyverno.io/v2) require a schedule and
+# a match block. Shape sourced from the deprecation conformance fixtures
+# alongside this chart's gate
+# (test/conformance/chainsaw/deprecations/create-blocked/cleanup-policy-v2.yaml
+# and cluster-cleanup-policy-v2.yaml), EXCEPT ClusterCleanupPolicy below
+# targets Pod rather than that fixture's Namespace: this script runs against
+# a live cleanup-controller (unlike verify-legacy-policy-gate.sh, which
+# never installs Kyverno), and that fixture is only ever exercised with the
+# write-time block ON - it's asserting the create itself gets rejected, so
+# it never reaches the cleanup-controller's own RBAC-validating webhook.
+# Here, with the block OFF (migration-grace mode), that webhook DOES run,
+# and the cleanup-controller's default ClusterRole only grants it delete on
+# pods, not namespaces - so a Namespace-targeting policy would be rejected
+# for an unrelated reason (insufficient RBAC), not proving anything about
+# legacy-policy detection.
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v2
+kind: CleanupPolicy
+metadata:
+  name: ${CLEANUPPOLICY_NAME}
+  namespace: ${FIXTURE_NAMESPACE}
+spec:
+  schedule: "0 0 * * *"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        names:
+        - legacy-policy-hook-verify-does-not-exist
+EOF
+
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v2
+kind: ClusterCleanupPolicy
+metadata:
+  name: ${CLUSTERCLEANUPPOLICY_NAME}
+spec:
+  schedule: "0 0 * * *"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+        names:
+        - legacy-policy-hook-verify-does-not-exist
+EOF
+
+# PolicyException (kyverno.io/v2) shape sourced from the same conformance
+# fixtures (policy-exception-v2.yaml): it requires at least one exception
+# entry and a match block.
+kubectl apply -f - <<EOF >/dev/null
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: ${POLICYEXCEPTION_NAME}
+  namespace: ${FIXTURE_NAMESPACE}
+spec:
+  exceptions:
+  - policyName: does-not-exist
+    ruleNames:
+    - "*"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
 EOF
 
 apply_hook_and_wait "${WORK_DIR}/hook-blocked.yaml"
@@ -303,18 +464,46 @@ if [ -z "${EXIT_CODE}" ] || [ "${EXIT_CODE}" = "0" ]; then
 fi
 
 LOGS="$(job_logs)"
-echo "${LOGS}" | grep -q "ClusterPolicy: 1" \
-  || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the per-kind count"; }
-echo "${LOGS}" | grep -q "${CR_NAME}" \
-  || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the offending resource name"; }
+
+# assert_kind_logged checks the per-kind count line and the offending
+# resource name for one kind in the Job's pod logs. The count check is
+# anchored on "- <Kind>: 1" (matching the CLI's "  - <Kind>: <count>" line
+# format) rather than a bare "<Kind>: 1", because several of these kind
+# names are suffixes of each other (e.g. "ClusterPolicy: 1" and
+# "CleanupPolicy: 1" both literally end in "Policy: 1") - an unanchored
+# check for "Policy: 1" would spuriously pass off of ClusterPolicy's or
+# CleanupPolicy's line even if Policy's own line were missing, silently
+# defeating the point of checking each kind individually. The "- " prefix
+# immediately before the kind name in the real line format is what makes
+# each of these five patterns mutually exclusive substrings of one another.
+assert_kind_logged() {
+  local kind="$1" name="$2"
+  echo "${LOGS}" | grep -q -- "- ${kind}: 1" \
+    || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the per-kind count for ${kind}"; }
+  echo "${LOGS}" | grep -q -- "${name}" \
+    || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the offending resource name for ${kind} (${name})"; }
+}
+assert_kind_logged "ClusterPolicy" "${CR_NAME}"
+assert_kind_logged "Policy" "${FIXTURE_NAMESPACE}/${POLICY_NAME}"
+assert_kind_logged "CleanupPolicy" "${FIXTURE_NAMESPACE}/${CLEANUPPOLICY_NAME}"
+assert_kind_logged "ClusterCleanupPolicy" "${CLUSTERCLEANUPPOLICY_NAME}"
+assert_kind_logged "PolicyException" "${FIXTURE_NAMESPACE}/${POLICYEXCEPTION_NAME}"
 echo "${LOGS}" | grep -qi "migrate" \
   || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing migration guidance"; }
 echo "${LOGS}" | grep -q "upgrade.allowLegacyPolicies=true" \
   || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the opt-out hint"; }
-log "PASS: scenario A (Job failed, exit code ${EXIT_CODE}, logs contain count/name/migration guidance)"
+log "PASS: scenario A (Job failed, exit code ${EXIT_CODE}, logs contain count/name/migration guidance for all five kinds)"
 
 log "scenario B: no legacy CR present, expect the hook Job to SUCCEED"
-kubectl delete clusterpolicy "${CR_NAME}" --ignore-not-found >/dev/null
+# Delete every one of scenario A's five fixtures, not just the
+# ClusterPolicy - if any of the other four were left behind, the Job would
+# still (correctly) fail, and scenario B would never truly exercise the
+# clean/pass path.
+kubectl delete clusterpolicies.kyverno.io "${CR_NAME}" --ignore-not-found >/dev/null
+kubectl delete clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUPPOLICY_NAME}" --ignore-not-found >/dev/null
+kubectl delete policies.kyverno.io "${POLICY_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null
+kubectl delete cleanuppolicies.kyverno.io "${CLEANUPPOLICY_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null
+kubectl delete policyexceptions.kyverno.io "${POLICYEXCEPTION_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null
 
 apply_hook_and_wait "${WORK_DIR}/hook-pass.yaml"
 
