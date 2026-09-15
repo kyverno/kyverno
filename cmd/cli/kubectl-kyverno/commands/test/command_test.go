@@ -196,6 +196,58 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	}
 }
 
+func TestIsExpectedFailure(t *testing.T) {
+	tests := []struct {
+		name     string
+		ok       bool
+		reason   string
+		expected string
+		want     bool
+	}{
+		{
+			name:     "resource diff with expected fail is rescued",
+			ok:       false,
+			reason:   reasonResourceDiff,
+			expected: openreports.StatusFail,
+			want:     true,
+		},
+		{
+			name:     "resource diff with expected pass is not rescued",
+			ok:       false,
+			reason:   reasonResourceDiff,
+			expected: openreports.StatusPass,
+			want:     false,
+		},
+		{
+			name:     "status mismatch with expected fail is not rescued",
+			ok:       false,
+			reason:   "Want fail, got pass",
+			expected: openreports.StatusFail,
+			want:     false,
+		},
+		{
+			name:     "matching result is not rescued (already ok)",
+			ok:       true,
+			reason:   "Ok",
+			expected: openreports.StatusFail,
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testResult := v1alpha1.TestResult{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy: "test-policy",
+					Rule:   "test-rule",
+					Result: openreportsv1alpha1.Result(tt.expected),
+				},
+			}
+			assert.Equal(t, tt.want, isExpectedFailure(tt.ok, tt.reason, testResult))
+		})
+	}
+}
+
 func TestCheckRuleResultOnly_GenerationNoGeneratedResources(t *testing.T) {
 	policy := &kyvernov1.ClusterPolicy{}
 	policy.SetName("test-policy")
@@ -926,6 +978,91 @@ spec:
 			ok, _, reason := checkResult(testResult, fs, "", response, rule, actual, true)
 			assert.Equal(t, tt.wantOk, ok)
 			assert.Equal(t, tt.wantReason, reason)
+		})
+	}
+}
+
+func TestCheckResultResourceDiffReason(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{}
+	policy.SetName("test-policy")
+
+	actual := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ResourceQuota",
+			"metadata": map[string]interface{}{
+				"name":      "default-resourcequota",
+				"namespace": "hello-world-namespace",
+			},
+			"spec": map[string]interface{}{
+				"hard": map[string]interface{}{
+					"requests.cpu": "4",
+				},
+			},
+		},
+	}
+
+	// Same identity (apiVersion/kind/namespace/name) as actual, but a different
+	// spec value, so getAndCompareResource finds the resource but reports a diff.
+	differingYAML := `apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: default-resourcequota
+  namespace: hello-world-namespace
+spec:
+  hard:
+    requests.cpu: "8"
+`
+
+	rule := *engineapi.RulePass("test-rule", engineapi.Mutation, "mutated", nil)
+	response := engineapi.NewEngineResponse(
+		actual,
+		engineapi.NewKyvernoPolicy(policy),
+		nil,
+	).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	tests := []struct {
+		name string
+		base v1alpha1.TestResultBase
+		data v1alpha1.TestResultData
+	}{
+		{
+			name: "patched resource diff",
+			base: v1alpha1.TestResultBase{PatchedResources: "diff.yaml"},
+		},
+		{
+			name: "generated resource diff",
+			base: v1alpha1.TestResultBase{GeneratedResource: "diff.yaml"},
+		},
+		{
+			name: "generated resources list diff",
+			data: v1alpha1.TestResultData{GeneratedResources: []string{"diff.yaml"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fs := memfs.New()
+			f, err := fs.Create("diff.yaml")
+			require.NoError(t, err)
+			_, err = f.Write([]byte(differingYAML))
+			require.NoError(t, err)
+			require.NoError(t, f.Close())
+
+			tt.base.Policy = "test-policy"
+			tt.base.Rule = "test-rule"
+			tt.base.Result = openreportsv1alpha1.Result(openreports.StatusFail)
+			testResult := v1alpha1.TestResult{
+				TestResultBase: tt.base,
+				TestResultData: tt.data,
+			}
+
+			ok, _, reason := checkResult(testResult, fs, "", response, rule, actual, true)
+			assert.False(t, ok)
+			assert.Equal(t, reasonResourceDiff, reason)
+			assert.True(t, isExpectedFailure(ok, reason, testResult))
 		})
 	}
 }
