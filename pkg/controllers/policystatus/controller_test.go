@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/workqueue"
 )
 
 // emptyMatchResources is a convenience for constructing policy specs with no resource rules.
@@ -489,4 +491,46 @@ func TestReconcileBeta1Conditions_RBACChecksAutogenTargets(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newWatchdogTestController(notify chan string) controller {
+	return controller{
+		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[any](),
+			workqueue.TypedRateLimitingQueueConfig[any]{Name: "policystatus-watchdog-test"}),
+		polStateRecorder: webhook.NewStateRecorder(notify),
+	}
+}
+
+// Nothing ever closes the notify channel, so a watchdog that ranges over it
+// never returns, and controllerutils.Run waits for its routines in its
+// outermost defer. Run must still return once its context is cancelled.
+func TestRunReturnsOnContextCancel(t *testing.T) {
+	c := newWatchdogTestController(make(chan string))
+	ctx, cancel := context.WithCancel(context.Background())
+
+	returned := make(chan struct{})
+	go func() {
+		defer close(returned)
+		c.Run(ctx, 1)
+	}()
+	cancel()
+
+	select {
+	case <-returned:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not return after its context was cancelled")
+	}
+}
+
+func TestWatchdogForwardsNotificationsToQueue(t *testing.T) {
+	notify := make(chan string)
+	c := newWatchdogTestController(notify)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go c.watchdog(ctx, logr.Discard())
+	notify <- "ValidatingPolicy/test"
+
+	assert.Eventually(t, func() bool { return c.queue.Len() == 1 }, 5*time.Second, 10*time.Millisecond)
 }
