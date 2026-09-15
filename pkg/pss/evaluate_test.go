@@ -31,6 +31,7 @@ func Test_EvaluatePod(t *testing.T) {
 		restricted_seccompProfile,
 		restricted_capabilities,
 		wildcard_images,
+		user_namespaces,
 	}
 
 	for _, test := range tests {
@@ -12248,6 +12249,136 @@ var wildcard_images = []testCase{
 						}
 					}
 				]
+			}
+		}`),
+		allowed: false,
+	},
+}
+
+var user_namespaces = []testCase{
+	{
+		name: "user_namespaces_restricted_runAsNonRoot_allowed_with_hostUsers_false",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": []
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {"name": "test"},
+			"spec": {
+				"hostUsers": false,
+				"securityContext": {
+					"seccompProfile": {"type": "RuntimeDefault"}
+				},
+				"containers": [{
+					"name": "nginx",
+					"image": "nginx",
+					"securityContext": {
+						"allowPrivilegeEscalation": false,
+						"capabilities": {"drop": ["ALL"]}
+					}
+				}]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "user_namespaces_restricted_runAsUser_zero_allowed_with_hostUsers_false",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": []
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {"name": "test"},
+			"spec": {
+				"hostUsers": false,
+				"securityContext": {
+					"runAsUser": 0,
+					"seccompProfile": {"type": "RuntimeDefault"}
+				},
+				"containers": [{
+					"name": "nginx",
+					"image": "nginx",
+					"securityContext": {
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false,
+						"capabilities": {"drop": ["ALL"]}
+					}
+				}]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "user_namespaces_baseline_procMount_unmasked_allowed_with_hostUsers_false",
+		rawRule: []byte(`{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": []
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {"name": "test"},
+			"spec": {
+				"hostUsers": false,
+				"containers": [{
+					"name": "nginx",
+					"image": "nginx",
+					"securityContext": {
+						"procMount": "Unmasked"
+					}
+				}]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "user_namespaces_baseline_procMount_unmasked_denied_without_hostUsers",
+		rawRule: []byte(`{
+			"level": "baseline",
+			"version": "v1.24",
+			"exclude": []
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {"name": "test"},
+			"spec": {
+				"containers": [{
+					"name": "nginx",
+					"image": "nginx",
+					"securityContext": {
+						"procMount": "Unmasked"
+					}
+				}]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "user_namespaces_restricted_runAsNonRoot_denied_without_hostUsers",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": []
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {"name": "test"},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {"type": "RuntimeDefault"}
+				},
+				"containers": [{
+					"name": "nginx",
+					"image": "nginx",
+					"securityContext": {
+						"allowPrivilegeEscalation": false,
+						"capabilities": {"drop": ["ALL"]}
+					}
+				}]
 			}
 		}`),
 		allowed: false,
