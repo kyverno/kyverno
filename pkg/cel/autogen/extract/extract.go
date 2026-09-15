@@ -2,12 +2,23 @@ package extract
 
 import "fmt"
 
+// PathSegment is one step of a structured path into a parent object -
+// either a map key or an array index. It is used to rebuild a real JSON Pointer
+// for patch rebasing (see RebasePatch in patch.go), which the display-only
+// Path string can't safely support.
+type PathSegment struct {
+	Key   string
+	Index int
+	IsIdx bool
+}
+
 // Extracted is a single pod-template-shaped subtree found inside a custom
 // workload resource, together with the path it was found at (for
 // diagnostics only).
 type Extracted struct {
 	Template map[string]any
 	Path     string
+	Segments []PathSegment // for patch rebasing
 }
 
 // ExtractPodTemplates walks obj's spec looking for every subtree that is
@@ -32,25 +43,32 @@ func ExtractPodTemplates(obj map[string]any) []Extracted {
 		return nil
 	}
 	var out []Extracted
-	walk(spec, "spec", &out)
+	walk(spec, "spec", []PathSegment{{Key: "spec"}}, &out)
 	return out
 }
 
-func walk(node any, path string, out *[]Extracted) {
+func walk(node any, path string, segs []PathSegment, out *[]Extracted) {
 	switch v := node.(type) {
 	case map[string]any:
 		if isPodTemplateSpec(v) {
-			*out = append(*out, Extracted{Template: v, Path: path})
+			*out = append(*out, Extracted{Template: v, Path: path, Segments: append([]PathSegment{}, segs...)})
 			return
 		}
 		for key, val := range v {
-			walk(val, joinPath(path, key), out)
+			walk(val, joinPath(path, key), appendSeg(segs, PathSegment{Key: key}), out)
 		}
 	case []any:
 		for i, val := range v {
-			walk(val, fmt.Sprintf("%s[%d]", path, i), out)
+			walk(val, fmt.Sprintf("%s[%d]", path, i), appendSeg(segs, PathSegment{Index: i, IsIdx: true}), out)
 		}
 	}
+}
+
+func appendSeg(segs []PathSegment, s PathSegment) []PathSegment {
+	out := make([]PathSegment, len(segs)+1)
+	copy(out, segs)
+	out[len(segs)] = s
+	return out
 }
 
 func joinPath(path, key string) string {
