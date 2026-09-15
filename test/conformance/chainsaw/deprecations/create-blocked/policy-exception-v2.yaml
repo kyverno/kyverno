@@ -1,0 +1,15 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: deprecations-polex-v2
+  namespace: ($namespace)
+spec:
+  exceptions:
+  - policyName: does-not-exist
+    ruleNames:
+    - "*"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod

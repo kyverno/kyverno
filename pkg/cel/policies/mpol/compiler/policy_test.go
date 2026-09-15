@@ -122,7 +122,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.EqualError(t, res.Error, "patch failed")
 	})
@@ -138,7 +138,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
 	})
@@ -165,7 +165,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 
 		assert.NotNil(t, res)
 		assert.Nil(t, res.Error)
@@ -191,7 +191,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 
 		assert.NotNil(t, res)
 		assert.Nil(t, res.Error)
@@ -214,7 +214,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.Equal(t, patchedObj, res.PatchedResource)
 		assert.Equal(t, map[string]string{"resource-name": "nginx"}, res.AuditAnnotations)
@@ -233,7 +233,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 
-		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, &libs.FakeContextProvider{})
+		res := p.Evaluate(ctx, &mockAttributes{}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 		assert.NotNil(t, res)
 		assert.ErrorContains(t, res.Error, "failed to evaluate auditAnnotation \"bad\"")
 	})
@@ -251,3 +251,4 @@ func (f *fakeProgram) ContextEval(_ context.Context, _ any) (ref.Val, *cel2.Eval
 func (f *fakeProgram) Eval(_ any) (ref.Val, *cel2.EvalDetails, error) {
 	return f.refVal, nil, nil
 }
+func (f *fakeProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel2.EvalResult { return nil }

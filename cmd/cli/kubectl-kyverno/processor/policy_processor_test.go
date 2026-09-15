@@ -8,7 +8,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 

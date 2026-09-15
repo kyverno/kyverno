@@ -3,9 +3,12 @@ package evaluator
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -26,9 +29,16 @@ type CompiledImageValidatingPolicy struct {
 func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister corev1listers.SecretLister) (map[string]*EvaluationResult, error) {
 	isAdmissionRequest := false
 	var gvr *metav1.GroupVersionResource
+	// nil until proven otherwise: JSON-mode payloads never build a request map.
+	var requestMapFn func() (map[string]any, error)
 	if r, ok := request.(*admissionv1.AdmissionRequest); ok {
 		isAdmissionRequest = true
 		gvr = requestGVR(r)
+		// Built at most once for the whole loop below, and lazily: the thunk is
+		// only invoked if some policy's Evaluate actually reaches prepareK8sData.
+		requestMapFn = sync.OnceValues(func() (map[string]any, error) {
+			return compiler.BuildRawRequestMap(r)
+		})
 	}
 
 	policies := filterPolicies(ivpols, isAdmissionRequest)
@@ -40,18 +50,33 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 	}
 
 	results := make(map[string]*EvaluationResult, len(policies))
+	// shared by every policy compiled below, so required sees cross-policy evidence
+	verifications := imageverify.NewImageVerificationResults()
+	c := NewCompiler(ictx, lister, gvr, imageverifycache.DisabledImageVerifyCache())
+	compiled := make(map[string]CompiledPolicy, len(policies))
 	for _, ivpol := range policies {
-		c := NewCompiler(ictx, lister, gvr, imageverifycache.DisabledImageVerifyCache())
-		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
+		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions, verifications)
 		if errList != nil {
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
-		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest, nil)
+		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
 		if err != nil {
 			return nil, err
 		}
 		results[ivpol.Policy.GetName()] = result
+		compiled[ivpol.Policy.GetName()] = p
+	}
+	// required is settled only now: a policy's images may have been verified by a
+	// policy evaluated after it
+	for name, result := range results {
+		if result == nil || !result.Result {
+			continue
+		}
+		if err := compiled[name].EnforceRequired(result.MatchedImages); err != nil {
+			result.Result = false
+			result.Message = err.Error()
+		}
 	}
 	return results, nil
 }

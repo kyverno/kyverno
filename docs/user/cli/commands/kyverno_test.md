@@ -44,6 +44,7 @@ kyverno test [local folder or git repository]... [flags]
       --remove-color                Remove any color from output
       --require-tests               If set to true, return an error if no tests are found
   -t, --test-case-selector string   Filter test cases to run (default "policy=*,rule=*,resource=*")
+      --warnings-as-errors          Treat deprecation warnings as errors
 ```
 
 ### Options inherited from parent commands

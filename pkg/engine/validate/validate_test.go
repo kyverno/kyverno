@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestValidateMap(t *testing.T) {

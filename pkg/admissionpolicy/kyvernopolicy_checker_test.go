@@ -9,7 +9,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

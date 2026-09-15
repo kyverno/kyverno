@@ -8,7 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/require"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubecache "k8s.io/client-go/tools/cache"
@@ -29,7 +29,7 @@ func Test_All(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newPolicy(t)
 	finder := TestResourceFinder{}
-	//add
+	// add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
@@ -962,7 +962,7 @@ func Test_Ns_All(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
 	finder := TestResourceFinder{}
-	//add
+	// add
 	setPolicy(t, pCache, policy, finder)
 	nspace := policy.GetNamespace()
 	rules := autogen.Default.ComputeRules(policy, "")
@@ -1076,7 +1076,7 @@ func Test_GVk_Cache(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newGVKPolicy(t)
 	finder := TestResourceFinder{}
-	//add
+	// add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
@@ -1114,7 +1114,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
 	finder := TestResourceFinder{}
-	//add
+	// add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
@@ -1153,7 +1153,7 @@ func Test_Mutate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newMutatePolicy(t)
 	finder := TestResourceFinder{}
-	//add
+	// add
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, policy, finder)
@@ -1177,7 +1177,7 @@ func Test_Generate_Policy(t *testing.T) {
 	pCache := newPolicyCache()
 	policy := newGeneratePolicy(t)
 	finder := TestResourceFinder{}
-	//add
+	// add
 	setPolicy(t, pCache, policy, finder)
 	for _, rule := range autogen.Default.ComputeRules(policy, "") {
 		for _, kind := range rule.MatchResources.Kinds {
@@ -1200,7 +1200,7 @@ func Test_NsMutate_Policy(t *testing.T) {
 	policy := newMutatePolicy(t)
 	nspolicy := newNsMutatePolicy(t)
 	finder := TestResourceFinder{}
-	//add
+	// add
 	setPolicy(t, pCache, policy, finder)
 	setPolicy(t, pCache, nspolicy, finder)
 	setPolicy(t, pCache, policy, finder)

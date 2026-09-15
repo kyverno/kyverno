@@ -53,7 +53,7 @@ func (s *Store) GetForeachElement() int {
 
 func (s *Store) SetRegistryAccess(access bool) {
 	if access {
-		s.registryClient = registryclient.New(nil, "", "", "", false)
+		s.registryClient = registryclient.New()
 	}
 }
 

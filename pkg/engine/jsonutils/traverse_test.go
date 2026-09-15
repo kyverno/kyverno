@@ -3,7 +3,7 @@ package jsonutils
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 var document = []byte(`
