@@ -620,3 +620,19 @@ func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
 	assert.Contains(t, e.err.Error(), "projection evaluation error")
 	assert.Equal(t, expectedSnapshot, e.dataMap)
 }
+
+func TestUpdateStatus_StatusReadyAndRefreshTime(t *testing.T) {
+	status := &kyvernov2beta1.GlobalContextEntryStatus{}
+
+	status.SetReady(true, "Ready")
+	assert.True(t, status.IsReady())
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryConditionReady, status.Conditions[0].Type)
+	assert.Equal(t, metav1.ConditionTrue, status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonSucceeded, status.Conditions[0].Reason)
+
+	status.SetReady(false, "Connection refused")
+	assert.False(t, status.IsReady())
+	assert.Equal(t, metav1.ConditionFalse, status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonFailed, status.Conditions[0].Reason)
+	assert.Equal(t, "Connection refused", status.Conditions[0].Message)
+}

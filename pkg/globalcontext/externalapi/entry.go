@@ -96,13 +96,19 @@ func New(
 					Namespace:  gce.Namespace,
 					UID:        gce.UID,
 				}, err))
+
+				if shouldUpdateStatus {
+					if updateErr := updateStatus(ctx, gce, kyvernoClient, false, err.Error()); updateErr != nil {
+						logger.Error(updateErr, "failed to update status")
+					}
+				}
 			} else {
 				e.setData(data, nil)
 
 				logger.V(4).Info("api call success", "data", data)
 
 				if shouldUpdateStatus {
-					if updateErr := updateStatus(ctx, gce, kyvernoClient); updateErr != nil {
+					if updateErr := updateStatus(ctx, gce, kyvernoClient, true, "Ready"); updateErr != nil {
 						logger.Error(updateErr, "failed to update status")
 					}
 				}
@@ -186,7 +192,7 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall
 	return result, retryError
 }
 
-func updateStatus(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry, kyvernoClient versioned.Interface) error {
+func updateStatus(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry, kyvernoClient versioned.Interface, ready bool, message string) error {
 	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		// Fetch the latest version of the GlobalContextEntry
 		latest, err := kyvernoClient.KyvernoV2beta1().GlobalContextEntries().Get(ctx, gce.GetName(), metav1.GetOptions{})
@@ -198,7 +204,10 @@ func updateStatus(ctx context.Context, gce *kyvernov2beta1.GlobalContextEntry, k
 			if latest == nil {
 				return fmt.Errorf("failed to update status: %s", gce.GetName())
 			}
-			latest.Status.UpdateRefreshTime()
+			latest.Status.SetReady(ready, message)
+			if ready {
+				latest.Status.UpdateRefreshTime()
+			}
 			return nil
 		}, nil)
 	})
