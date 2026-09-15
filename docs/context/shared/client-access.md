@@ -49,6 +49,8 @@ bullet.
 1. Need to CRUD/watch/list an arbitrary or dynamically-discovered GVK? → `pkg/clients/dclient.Interface`.
 2. Need a specific, statically-known Kubernetes or Kyverno type? → the matching typed wrapper under `pkg/clients/`.
 3. Never *construct* a client from `pkg/client/clientset` or raw `k8s.io/client-go` directly — that bypasses the
-   metrics/tracing/logging instrumentation every other client call site gets. Accepting one of those packages'
-   *interface* types as a function parameter is fine (the generated wrappers embed those same interfaces); the rule
-   is about what constructs the concrete client, not what type a signature names.
+   metrics/tracing instrumentation every other client call site gets (`cmd/internal.Setup` wires `WithMetrics`/
+   `WithTracing` on every client; `WithLogging` is a real, generated option on these wrappers, but no production
+   wiring calls it today). Accepting one of those packages' *interface* types as a function parameter is fine
+   (the generated wrappers embed those same interfaces); the rule is about what constructs the concrete client,
+   not what type a signature names.
