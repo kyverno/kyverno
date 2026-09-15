@@ -30,6 +30,13 @@ const (
 	// matchConditions evaluated to false. This mirrors admission-time behavior
 	// where the webhook is never called when matchConditions don't match.
 	SkipReasonMatchConditions SkipReason = "matchConditions"
+
+	// MessageExpressionErrorKey is the RuleResponse.Properties key written when
+	// a CEL messageExpression fails at runtime. Its value is the error string.
+	// The admission path is unaffected (the fallback message is still used per
+	// the Kubernetes API spec); this key lets CLI tooling detect the error and
+	// surface it to the policy author.
+	MessageExpressionErrorKey = "cel.messageExpressionError"
 )
 
 // RuleResponse details for each rule application
