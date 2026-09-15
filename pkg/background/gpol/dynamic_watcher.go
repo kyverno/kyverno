@@ -537,35 +537,36 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			downstreams, err := wm.client.ListResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), "", selector)
 			if err != nil {
 				wm.log.Error(err, "failed to list downstream resources")
-			}
-			for _, downstream := range downstreams.Items {
-				// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
-				if _, exists := watcher.metadataCache[downstream.GetUID()]; !exists {
-					continue
-				}
-				// update the downstream resources with the source information.
-				newResource := &unstructured.Unstructured{}
-				newResource.SetUnstructuredContent(source.UnstructuredContent())
-				newResource.SetName(downstream.GetName())
-				newResource.SetNamespace(downstream.GetNamespace())
-				newResource.SetKind(downstream.GetKind())
-				newResource.SetAPIVersion(downstream.GetAPIVersion())
-				newResource.SetLabels(downstream.GetLabels())
-				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), newResource, false)
-				if err != nil {
-					wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
-				} else {
-					wm.log.V(4).Info("downstream resource updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
-					hash := reportutils.CalculateResourceHash(*newResource)
-					// update the metadata cache for the downstream resource
-					watcher.metadataCache[downstream.GetUID()] = Resource{
-						Name:      downstream.GetName(),
-						Namespace: downstream.GetNamespace(),
-						Labels:    downstream.GetLabels(),
-						Hash:      hash,
-						Data:      newResource,
+			} else {
+				for _, downstream := range downstreams.Items {
+					// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
+					if _, exists := watcher.metadataCache[downstream.GetUID()]; !exists {
+						continue
 					}
-					wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
+					// update the downstream resources with the source information.
+					newResource := &unstructured.Unstructured{}
+					newResource.SetUnstructuredContent(source.UnstructuredContent())
+					newResource.SetName(downstream.GetName())
+					newResource.SetNamespace(downstream.GetNamespace())
+					newResource.SetKind(downstream.GetKind())
+					newResource.SetAPIVersion(downstream.GetAPIVersion())
+					newResource.SetLabels(downstream.GetLabels())
+					_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), newResource, false)
+					if err != nil {
+						wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
+					} else {
+						wm.log.V(4).Info("downstream resource updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
+						hash := reportutils.CalculateResourceHash(*newResource)
+						// update the metadata cache for the downstream resource
+						watcher.metadataCache[downstream.GetUID()] = Resource{
+							Name:      downstream.GetName(),
+							Namespace: downstream.GetNamespace(),
+							Labels:    downstream.GetLabels(),
+							Hash:      hash,
+							Data:      newResource,
+						}
+						wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
+					}
 				}
 			}
 		} else {
