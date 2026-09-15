@@ -878,6 +878,29 @@ test-unit:
 	@echo Running unit tests... >&2
 	@go test -v -race -covermode atomic -coverprofile $(CODE_COVERAGE_FILE_OUT) ./...
 
+.PHONY: test-perf
+test-perf: ## Run CEL admission hot-path allocation benchmarks
+	@echo Running CEL admission hot-path benchmarks... >&2
+	@bash -o pipefail -c '\
+		go test -run=^$$ -bench=. -benchmem -benchtime=100x -count=1 \
+			./pkg/cel/policies/vpol/engine ./pkg/cel/policies/mpol/engine ./pkg/webhooks/resource/vpol ./pkg/webhooks/resource/mpol \
+			| tee bench-results.txt \
+	'
+
+.PHONY: check-perf
+check-perf: test-perf ## Run benchmarks and gate against thresholds
+	@./scripts/check-perf-regression.sh bench-results.txt scripts/bench/thresholds.txt
+
+.PHONY: bench-baseline
+bench-baseline: ## Regenerate scripts/bench/thresholds.txt ceilings from a fresh -count=10 benchmark run
+	@echo Running CEL admission hot-path benchmarks at -count=10 for ceiling stability... >&2
+	@bash -o pipefail -c '\
+		go test -run=^$$ -bench=. -benchmem -benchtime=100x -count=10 \
+			./pkg/cel/policies/vpol/engine ./pkg/cel/policies/mpol/engine ./pkg/webhooks/resource/vpol ./pkg/webhooks/resource/mpol \
+			| tee bench-baseline-results.txt \
+	'
+	@./scripts/bench-baseline.sh bench-baseline-results.txt scripts/bench/thresholds.txt
+
 #############
 # CLI TESTS #
 #############
