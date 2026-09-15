@@ -2,9 +2,14 @@ package cosign
 
 import (
 	"context"
+	"crypto/x509"
+	stderrors "errors"
 	"fmt"
+	"net"
+	"net/url"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -35,9 +40,13 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		return nil, err
 	}
 
-	// Auto-detect if new bundle format (cosign v3) is actually present
+	// Detect the cosign v3 bundle format. A benign "no bundle" result falls back
+	// to the legacy format; any other error is an infra failure and must surface.
 	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
-	bundleDetected := len(newBundles) > 0 && err == nil
+	if err != nil && !isNoBundle(err) {
+		return nil, errors.Wrapf(err, "failed to detect cosign bundle format")
+	}
+	bundleDetected := len(newBundles) > 0
 	cOpts.NewBundleFormat = bundleDetected
 	if bundleDetected && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
@@ -68,6 +77,48 @@ func shouldUseSignedTimestamps(ignoreTlog, useSignedTimestamps bool, trustedMate
 	return ignoreTlog && !useSignedTimestamps && trustedMaterial != nil
 }
 
+// isNoBundle reports whether a GetBundles error is a benign "no v3 bundle"
+// result (empty referrers index or missing tag) rather than an infra failure.
+func isNoBundle(err error) bool {
+	var noBundles *cosign.ErrNoMatchingAttestations
+	var tagNotFound *cosign.ErrImageTagNotFound
+	return stderrors.As(err, &noBundles) || stderrors.As(err, &tagNotFound)
+}
+
+// classifyVerifyError tags a verify-call failure as a SetupError only when it is
+// a recognizable infrastructure failure; anything else (including unrecognized
+// errors) is treated as a genuine verification failure and fails closed.
+func classifyVerifyError(err error) error {
+	wrapped := errors.Wrapf(err, "failed to verify cosign signatures")
+	if isInfraError(err) {
+		return Setup(wrapped)
+	}
+	return wrapped
+}
+
+// isInfraError reports whether err is a registry/network/TLS/timeout failure.
+// It matches only on the transport type and the standard library (not cosign's
+// verification-error types) so it stays stable across cosign upgrades.
+func isInfraError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var te *transport.Error // registry HTTP errors (401/403/5xx/429...)
+	var netErr net.Error
+	var urlErr *url.Error
+	var unknownAuthority x509.UnknownAuthorityError
+	var certInvalid x509.CertificateInvalidError
+	var hostErr x509.HostnameError
+	return stderrors.As(err, &te) ||
+		stderrors.As(err, &netErr) ||
+		stderrors.As(err, &urlErr) ||
+		stderrors.As(err, &unknownAuthority) ||
+		stderrors.As(err, &certInvalid) ||
+		stderrors.As(err, &hostErr) ||
+		stderrors.Is(err, context.DeadlineExceeded) ||
+		stderrors.Is(err, context.Canceled)
+}
+
 func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloader.ImageData, attestor *policiesv1beta1.Attestor) error {
 	if attestor.Cosign == nil {
 		return fmt.Errorf("cosign verifier only supports cosign attestor")
@@ -78,7 +129,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 
 	cOpts, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
 	if err != nil {
-		err := errors.Wrapf(err, "failed to build cosign verification opts")
+		err := Setup(errors.Wrapf(err, "failed to build cosign verification opts"))
 		logger.Error(err, "image verification failed")
 		return err
 	}
@@ -99,7 +150,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
 	}
 	if err != nil {
-		err := errors.Wrapf(err, "failed to verify cosign signatures")
+		err := classifyVerifyError(err)
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
@@ -145,7 +196,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	cOpts, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
 	if err != nil {
-		err := errors.Wrapf(err, "failed to build cosign verification opts")
+		err := Setup(errors.Wrapf(err, "failed to build cosign verification opts"))
 		logger.Error(err, "image verification failed")
 		return err
 	}
@@ -155,7 +206,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
 	if err != nil {
-		err := errors.Wrapf(err, "failed to verify cosign signatures")
+		err := classifyVerifyError(err)
 		logger.Error(err, "image verification failed")
 		return err
 	} else if !verified {
