@@ -2,10 +2,12 @@ package background
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
@@ -13,11 +15,20 @@ import (
 	reportresource "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
+
+type failingClusterPolicyLister struct {
+	kyvernov1listers.ClusterPolicyLister
+}
+
+func (f *failingClusterPolicyLister) List(labels.Selector) ([]*kyvernov1.ClusterPolicy, error) {
+	return nil, errors.New("transient cluster policy lister error")
+}
 
 type fakeMetadataCache struct {
 	resource reportresource.Resource
@@ -125,6 +136,49 @@ func TestReconcile_NoReconcileNeeded_StillRearmed(t *testing.T) {
 
 	if err := ctrl.reconcile(context.Background(), logr.Discard(), key, namespace, uid); err != nil {
 		t.Fatalf("reconcile failed: %v", err)
+	}
+
+	if cq.lastKey != key {
+		t.Fatalf("expected key %q, got %q", key, cq.lastKey)
+	}
+	if cq.lastDelay != forceDelay {
+		t.Fatalf("expected delay %v, got %v", forceDelay, cq.lastDelay)
+	}
+}
+
+func TestReconcile_ListerError_StillRearmed(t *testing.T) {
+	const (
+		namespace  = "default"
+		uid        = "pod-uid-err"
+		forceDelay = time.Hour
+	)
+
+	key := namespace + "/" + uid
+
+	baseQ := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[string](),
+		workqueue.TypedRateLimitingQueueConfig[string]{Name: "test-background-scan-err"},
+	)
+	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
+
+	ctrl := &controller{
+		cpolLister: &failingClusterPolicyLister{},
+		metadataCache: &fakeMetadataCache{
+			resource: reportresource.Resource{
+				Name:      "test-pod",
+				Namespace: namespace,
+				Hash:      "hash",
+			},
+			gvk:    schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			gvr:    schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			exists: true,
+		},
+		queue:      cq,
+		forceDelay: forceDelay,
+	}
+
+	if err := ctrl.reconcile(context.Background(), logr.Discard(), key, namespace, uid); err == nil {
+		t.Fatal("expected reconcile to return error")
 	}
 
 	if cq.lastKey != key {

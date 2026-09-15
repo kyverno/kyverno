@@ -15,9 +15,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/metadata"
 	metafake "k8s.io/client-go/metadata/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
@@ -173,6 +173,38 @@ func TestReconcile_DeleteError_NoRearmBeforeRetryExhausted(t *testing.T) {
 
 func TestReconcile_DeleteError_StillRearmed(t *testing.T) {
 	ctrl, cq, itemKey := newDeleteErrorTestController(t)
+	assertRearmedAfterRetryExhaustion(t, ctrl, cq, itemKey)
+}
+
+type nonMetaObject struct{}
+
+func (n *nonMetaObject) GetObjectKind() schema.ObjectKind { return schema.EmptyObjectKind }
+func (n *nonMetaObject) DeepCopyObject() runtime.Object   { return &nonMetaObject{} }
+
+func newListerErrorTestController(t *testing.T, lister cache.GenericLister) (*controller, *captureQueue, string) {
+	t.Helper()
+
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	baseQ := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Name: "test-ttl-lister"},
+	)
+	cq := &captureQueue{TypedRateLimitingInterface: baseQ}
+
+	ctrl := &controller{
+		client: metafake.NewSimpleMetadataClient(runtime.NewScheme()).Resource(gvr),
+		queue:  cq,
+		lister: lister,
+		logger: logr.Discard(),
+		gvr:    gvr,
+	}
+
+	return ctrl, cq, "default/test-cm"
+}
+
+func assertRearmedAfterRetryExhaustion(t *testing.T, ctrl *controller, cq *captureQueue, itemKey string) {
+	t.Helper()
+
 	exhaustRetryBudget(t, cq.TypedRateLimitingInterface, itemKey)
 
 	cq.lastDelay = 0
@@ -187,6 +219,23 @@ func TestReconcile_DeleteError_StillRearmed(t *testing.T) {
 	}
 	if cq.lastDelay != minRequeueDelay {
 		t.Fatalf("expected delay %v, got %v", minRequeueDelay, cq.lastDelay)
+	}
+}
+
+func TestReconcile_ListerError_StillRearmed(t *testing.T) {
+	ctrl, cq, itemKey := newListerErrorTestController(t, &mockLister{
+		err: errors.New("transient lister error"),
+	})
+	assertRearmedAfterRetryExhaustion(t, ctrl, cq, itemKey)
+}
+
+func TestReconcile_AccessorError_StillRearmed(t *testing.T) {
+	ctrl, cq, itemKey := newListerErrorTestController(t, &mockLister{
+		obj: &nonMetaObject{},
+	})
+	assertRearmedAfterRetryExhaustion(t, ctrl, cq, itemKey)
+}
+
 type mockResourceInterface struct {
 	metadata.ResourceInterface
 	deleteCalled bool
@@ -262,6 +311,7 @@ type mockQueue struct {
 func (m *mockQueue) AddAfter(item any, duration time.Duration) {
 	m.addAfterCalled = true
 	m.addAfterItem = item
+	m.TypedRateLimitingInterface.AddAfter(item, duration)
 }
 
 func TestReconcileMetrics(t *testing.T) {
@@ -336,7 +386,11 @@ func TestReconcileMetrics(t *testing.T) {
 				obj: obj,
 			}
 			mockM := &mockMetrics{}
-			queue := &mockQueue{}
+			baseQ := workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[any](),
+				workqueue.TypedRateLimitingQueueConfig[any]{Name: "test-ttl-metrics"},
+			)
+			queue := &mockQueue{TypedRateLimitingInterface: baseQ}
 
 			c := &controller{
 				client:  mockClient,
