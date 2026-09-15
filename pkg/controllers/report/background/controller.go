@@ -675,25 +675,7 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
-			// The result is kept as it is if:
-			// 1. The Kyverno policy and its matched exceptions are unchanged
-			// 2. The ValidatingAdmissionPolicy and its matched binding are unchanged
-			keepResult := true
-			exception := result.Properties["exceptions"]
-			exceptions := strings.Split(exception, ",")
-			for _, exception := range exceptions {
-				exceptionLabel := policyNameToLabel[exception]
-				if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
-					keepResult = false
-					break
-				}
-			}
-			label := policyNameToLabel[result.Policy]
-			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
-			mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
-			if (label != "" && expected[label] == actual[label]) ||
-				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) ||
-				(mapBindingLabel != "" && expected[mapBindingLabel] == actual[mapBindingLabel]) || keepResult {
+			if shouldKeepStaleResult(result, policyNameToLabel, expected, actual) {
 				ruleResults = append(ruleResults, result)
 			}
 		}
@@ -769,6 +751,37 @@ func (c *controller) reconcileReport(
 		return c.storeReport(ctx, observed, desired)
 	}
 	return nil
+}
+
+// shouldKeepStaleResult reports whether a previously observed rule result can be carried
+// over as-is into the new report without a rescan. This is only safe when everything that
+// could have influenced the result - the owning policy or binding, and any exceptions that
+// matched it - still has the resource version it had when the result was produced. If any of
+// those changed (e.g. a policy was edited to exclude the resource's namespace), the stale
+// result must be dropped so the resource is re-evaluated against the current policy.
+func shouldKeepStaleResult(result openreportsv1alpha1.ReportResult, policyNameToLabel, expected, actual map[string]string) bool {
+	label := policyNameToLabel[result.Policy]
+	vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
+	mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
+	if label == "" && vapBindingLabel == "" && mapBindingLabel == "" {
+		return false
+	}
+	if label != "" && expected[label] != actual[label] {
+		return false
+	}
+	if vapBindingLabel != "" && expected[vapBindingLabel] != actual[vapBindingLabel] {
+		return false
+	}
+	if mapBindingLabel != "" && expected[mapBindingLabel] != actual[mapBindingLabel] {
+		return false
+	}
+	for _, exception := range strings.Split(result.Properties["exceptions"], ",") {
+		exceptionLabel := policyNameToLabel[exception]
+		if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *controller) storeReport(ctx context.Context, observed, desired reportsv1.ReportInterface) error {
