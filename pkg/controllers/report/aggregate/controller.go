@@ -825,6 +825,21 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 	return nil
 }
 
+// warnLegacyReportSourcesOnce logs, at most once per controller lifetime and
+// only when legacy kyverno.io policies are present, that their report results
+// are still aggregated. Legacy sources are DEPRECATED in 1.20 and removed in
+// 1.21 (#17491). backReconcile runs per report across workers on every resync,
+// so the sync.Once keeps this to a single line. It adds no metric; the
+// legacy-policy-count gauge is owned by #17488.
+func (c *controller) warnLegacyReportSourcesOnce(logger logr.Logger, legacyPolicies int) {
+	if legacyPolicies == 0 {
+		return
+	}
+	c.legacyReportSourceWarnOnce.Do(func() {
+		logger.Info("deprecated legacy kyverno.io policies present; their report results are still aggregated", "source", reportutils.SourceKyverno, "legacyPolicies", legacyPolicies, "guidance", deprecations.MigrationGuideURL)
+	})
+}
+
 func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) (err error) {
 	var reports []reportsv1.ReportInterface
 	// get the report
@@ -858,19 +873,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
-	// Note, throttled to once per controller lifetime and only when legacy
-	// policies are present, that legacy kyverno.io report sources
-	// (ClusterPolicy/Policy) are still being aggregated. DEPRECATED in 1.20,
-	// removed in 1.21 (see #17491). backReconcile runs per report across
-	// multiple workers on every resync, so this is gated by a sync.Once
-	// rather than logged unconditionally on every call. This is report-scoped
-	// and intentionally does not duplicate the legacy-policy-count gauge
-	// landing separately in #17488.
-	if len(policyMap) > 0 {
-		c.legacyReportSourceWarnOnce.Do(func() {
-			logger.Info("deprecated legacy kyverno.io policies present; their report results are still aggregated", "source", reportutils.SourceKyverno, "legacyPolicies", len(policyMap), "guidance", deprecations.MigrationGuideURL)
-		})
-	}
+	c.warnLegacyReportSourcesOnce(logger, len(policyMap))
 	vapMap, err := c.createVapMap()
 	if err != nil {
 		return err
