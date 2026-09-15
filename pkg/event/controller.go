@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -221,8 +222,8 @@ func (gen *controller) emitEvent(key Info) {
 		namespace = metav1.NamespaceDefault
 	}
 	message := key.Message
-	if len(message) > 1024 {
-		message = message[0:1021] + "..."
+	if utf8.RuneCountInString(message) > 1024 {
+		message = string([]rune(message)[:1021]) + "..."
 	}
 
 	// Sanitize refRegarding.Name to comply with RFC 1123 subdomain naming requirements
