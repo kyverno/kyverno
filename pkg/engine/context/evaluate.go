@@ -7,7 +7,9 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 )
 
-// Query the JSON context with JMESPATH search path
+// Query the JSON context with JMESPATH search path.
+// Composite query results may reference live context data and must be treated as read-only.
+// Context writes must go through the context mutation APIs.
 func (ctx *context) Query(query string) (interface{}, error) {
 	if err := ctx.loadDeferred(query); err != nil {
 		return nil, err

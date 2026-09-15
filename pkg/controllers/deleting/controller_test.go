@@ -124,9 +124,13 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	if err := ctrl.reconcile(context.Background(), logr.Discard(), "dpol", "", "dpol"); err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	// add a tolerance to the lower bound to account for test flakiness
-	if cq.lastDelay < minRequeueDelay-100*time.Millisecond || cq.lastDelay > minRequeueDelay+60*time.Second {
-		t.Fatalf("expected delay to next cron minute, got %v", cq.lastDelay)
+	// Controller clamps to minRequeueDelay only when the computed delay is <= 0.
+	// Otherwise it schedules until the next cron tick, which may be well under 1s.
+	if cq.lastDelay <= 0 {
+		t.Fatalf("expected positive requeue delay, got %v", cq.lastDelay)
+	}
+	if cq.lastDelay > minRequeueDelay+60*time.Second {
+		t.Fatalf("expected delay within one cron interval, got %v", cq.lastDelay)
 	}
 }
 
