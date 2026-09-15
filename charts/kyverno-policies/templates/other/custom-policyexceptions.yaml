@@ -1,0 +1,19 @@
+{{- range $name, $values := .Values.additionalPolicyExceptions }}
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: {{ $name }}
+  namespace: {{ $values.namespace | default (index (default dict $values.metadata) "namespace") | default "kyverno" }}
+  {{- if and $values.metadata $values.metadata.annotations }}
+  annotations: {{- toYaml $values.metadata.annotations | nindent 4 }}
+  {{- end }}
+  {{- $defaultLabels := (include "kyverno-policies.labels" $ | fromYaml) }}
+  {{- if and $values.metadata $values.metadata.labels }}
+  labels: 
+    {{- toYaml (mustMergeOverwrite $defaultLabels $values.metadata.labels) | nindent 4 }}
+  {{- else }}
+  labels: 
+    {{- toYaml $defaultLabels | nindent 4 }}
+  {{- end }}
+spec: {{- toYaml $values.spec | nindent 2 }}
+{{- end }}
