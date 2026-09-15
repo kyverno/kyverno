@@ -1,4 +1,15 @@
-{{- range .Values.customPolicies }}
+{{- /* Normalize customPolicies to a list, easier to loop over */ -}}
+{{- $customPolicies := .Values.customPolicies | default (list) -}}
+
+{{- if kindIs "map" $customPolicies -}}
+  {{- $customPolicies = values $customPolicies -}}
+{{- end -}}
+
+{{- range $customPolicies }}
 ---
-{{ include "kyverno-policies.customPolicies" (dict "value" . "context" $) }}
+  {{- if kindIs "map" . }}
+  {{- tpl (toYaml .) $ | nindent 0 }}
+  {{- else if kindIs "string" . }}
+  {{- tpl . $ | nindent 0 }}
+  {{- end }}
 {{- end }}
