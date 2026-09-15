@@ -84,10 +84,15 @@ func New(
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
+			data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit)
+			if err == nil {
+				err = e.setData(data, nil)
+			} else {
 				e.setData(nil, err)
+			}
 
-				logger.Error(err, "failed to get data from api caller")
+			if err != nil {
+				logger.Error(err, "failed to get or process data from api caller")
 
 				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
 					APIVersion: gce.APIVersion,
@@ -103,8 +108,6 @@ func New(
 					}
 				}
 			} else {
-				e.setData(data, nil)
-
 				logger.V(4).Info("api call success", "data", data)
 
 				if shouldUpdateStatus {
@@ -139,37 +142,39 @@ func (e *entry) Stop() {
 	e.stopOnce.Do(e.stop)
 }
 
-func (e *entry) setData(data any, err error) {
+func (e *entry) setData(data any, err error) error {
 	e.Lock()
 	defer e.Unlock()
 
 	if err != nil {
 		e.err = err
-	} else {
-		var jsonData any
-		if bytes, ok := data.([]byte); ok {
-			err = json.Unmarshal(bytes, &jsonData)
-			if err != nil {
-				e.err = err
-				return
-			}
-		} else {
-			e.err = fmt.Errorf("data is not a byte array")
-			return
-		}
-		newDataMap := make(map[string]any)
-		newDataMap[""] = jsonData
-		for _, projection := range e.projections {
-			result, err := projection.JP.Search(jsonData)
-			if err != nil {
-				e.err = err
-				return
-			}
-			newDataMap[projection.Name] = result
-		}
-		e.dataMap = newDataMap
-		e.err = nil
+		return err
 	}
+	var jsonData any
+	if bytes, ok := data.([]byte); ok {
+		err = json.Unmarshal(bytes, &jsonData)
+		if err != nil {
+			e.err = err
+			return err
+		}
+	} else {
+		err = fmt.Errorf("data is not a byte array")
+		e.err = err
+		return err
+	}
+	newDataMap := make(map[string]any)
+	newDataMap[""] = jsonData
+	for _, projection := range e.projections {
+		result, err := projection.JP.Search(jsonData)
+		if err != nil {
+			e.err = err
+			return err
+		}
+		newDataMap[projection.Name] = result
+	}
+	e.dataMap = newDataMap
+	e.err = nil
+	return nil
 }
 
 func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall, retryLimit int) (any, error) {
