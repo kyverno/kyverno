@@ -21,7 +21,7 @@ func ComputePolicyReportResult(auditWarn bool, engineResponse engineapi.EngineRe
 	}
 	result := reportutils.ToPolicyReportResult(engineResponse.Policy(), ruleResponse, resorceRef)
 	if result.Result == openreports.StatusFail {
-		audit := engineResponse.GetValidationFailureAction().Audit()
+		audit := engineResponse.GetValidationFailureActionForRule(ruleResponse.Name()).Audit()
 		if audit && auditWarn {
 			result.Result = openreports.StatusWarn
 		}
