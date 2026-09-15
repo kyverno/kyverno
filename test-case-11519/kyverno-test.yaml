@@ -1,0 +1,20 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-privilege-escalation
+policies:
+  - ./resources/policy.yaml
+resources:
+  - ./resources/deployment-pass.yaml
+  - ./resources/deployment-fail.yaml
+results:
+  - policy: disallow-privilege-escalation
+    rule: privilege-escalation
+    resource: test-deploy-pass
+    kind: Deployment
+    result: pass
+  - policy: disallow-privilege-escalation
+    rule: privilege-escalation
+    resource: test-deploy-fail
+    kind: Deployment
+    result: fail
