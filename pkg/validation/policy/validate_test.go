@@ -2179,6 +2179,34 @@ func Test_Any_wildcard_policy(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func Test_Validate_WildcardDenyConditionsNonStringKey(t *testing.T) {
+	ruleJSON := []byte(`
+	{
+		"name": "test-rule",
+		"validate": {
+			"message": "test",
+			"deny": {
+				"conditions": [
+					{
+						"key": 123,
+						"operator": "Equals",
+						"value": "x"
+					}
+				]
+			}
+		}
+	}
+	`)
+
+	var rule kyverno.Rule
+	err := json.Unmarshal(ruleJSON, &rule)
+	assert.Nil(t, err)
+
+	err = validateWildcard([]string{"*"}, false, rule)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "condition key must be a string")
+}
+
 func Test_Validate_RuleImageExtractorsJMESPath(t *testing.T) {
 	rawPolicy := []byte(`{
 		"apiVersion": "kyverno.io/v1",
