@@ -8,7 +8,7 @@
 #
 # Usage:
 #   ./apply-labels.sh --json pr-triage-report.json [--repo kyverno/kyverno] \
-#       [--category LEGACY_ONLY,MIXED,...] [--limit N] [--execute]
+#       [--category LEGACY_ONLY,MIXED,...] [--limit N] [--force] [--execute]
 #
 # Examples:
 #   # Dry run (default) — show what would happen for every classified PR
@@ -20,6 +20,9 @@
 #   # Actually apply labels (only after maintainer review/approval of the dry run)
 #   ./apply-labels.sh --json pr-triage-report.json --execute
 #
+#   # Overwrite existing conflicting type_* labels (e.g. forced re-triage)
+#   ./apply-labels.sh --json pr-triage-report.json --force --execute
+#
 # Requires: gh (authenticated), jq
 
 set -euo pipefail
@@ -28,6 +31,7 @@ REPO="kyverno/kyverno"
 JSON_FILE=""
 CATEGORIES=""   # empty = all categories
 LIMIT=""
+FORCE=0
 EXECUTE=0
 
 usage() { grep -E '^#( |$)' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
@@ -38,6 +42,7 @@ while [[ $# -gt 0 ]]; do
     --json) JSON_FILE="$2"; shift 2 ;;
     --category) CATEGORIES="$2"; shift 2 ;;
     --limit) LIMIT="$2"; shift 2 ;;
+    --force|--overwrite) FORCE=1; shift ;;
     --execute) EXECUTE=1; shift ;;
     -h|--help) usage ;;
     *) echo "unknown arg: $1" >&2; usage ;;
@@ -95,7 +100,7 @@ label_desc() {
   esac
 }
 
-existing_labels=$(gh label list -R "$REPO" --json name -q '.[].name' 2>/dev/null || true)
+existing_labels=$(gh label list -R "$REPO" --limit 1000 --json name -q '.[].name')
 for label in type_legacy type_cel type_mixed type_shared; do
   if grep -qx "$label" <<<"$existing_labels"; then
     continue
@@ -122,21 +127,35 @@ while IFS= read -r row; do
   cat=$(jq -r '.category' <<<"$row")
   label=$(jq -r '.proposed_label' <<<"$row")
 
-  existing=$(gh pr view "$num" -R "$REPO" --json labels -q '.labels[].name' 2>/dev/null || true)
+  if ! existing=$(gh pr view "$num" -R "$REPO" --json labels -q '.labels[].name' 2>/dev/null); then
+    echo "[$n/$count] #$num: failed to fetch live labels from GitHub — skipping" >&2
+    continue
+  fi
 
-  # Skip if the PR already carries the correct type_* label (live state).
-  if grep -qx "$label" <<<"$existing"; then
+  # Identify any existing type_* labels currently attached to the PR.
+  existing_type_labels=$(grep -o '^type_[a-z_]*' <<<"$existing" | sort -u || true)
+
+  # Case 1: PR already has exactly the proposed label and no other type_* labels.
+  if [[ "$existing_type_labels" == "$label" ]]; then
     echo "[$n/$count] #$num already labeled '$label' (live) — skip"
     continue
   fi
 
-  # Remove any other type_* label so a PR only ever carries one
-  # classification, based on the PR's current labels, not the snapshot.
-  other_type_labels=$(grep -o '^type_[a-z]*' <<<"$existing" | grep -v "^${label}\$" || true)
+  # Case 2: PR has a different type_* label (e.g. manually set by maintainer).
+  # By default, preserve the manual label unless --force is specified.
+  if [[ -n "$existing_type_labels" ]] && ! grep -qx "$label" <<<"$existing_type_labels" && [[ "$FORCE" -eq 0 ]]; then
+    echo "[$n/$count] #$num has existing type label '$(tr '\n' ' ' <<<"$existing_type_labels" | xargs)' (differs from '$label') — skipping to preserve manual triage (pass --force to overwrite)"
+    continue
+  fi
+
+  # Remove any conflicting type_* labels so a PR only ever carries one classification.
+  other_type_labels=$(grep -v "^${label}\$" <<<"$existing_type_labels" || true)
 
   cmd=(gh pr edit "$num" -R "$REPO" --add-label "$label")
   for l in $other_type_labels; do
-    cmd+=(--remove-label "$l")
+    if [[ -n "$l" ]]; then
+      cmd+=(--remove-label "$l")
+    fi
   done
 
   echo "[$n/$count] #$num ($cat): ${cmd[*]}"

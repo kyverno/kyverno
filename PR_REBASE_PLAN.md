@@ -6,11 +6,11 @@ Review of `PR_REBASE_INTENT.md` — grounded against the live state of `kyverno/
 
 | Fact | Value | Implication |
 |---|---|---|
-| Open non-bot PRs on `main` | **340** | Manual triage is infeasible; needs tooling |
-| Path-rule + content-tier classification (final, post-review-fixes) | 106 LEGACY_ONLY · 59 MIXED · 73 CEL_ONLY · 92 SHARED_ONLY · 9 REVIEW-MIGRATION | ~1/3 of PRs must move; MIXED grew substantially once rule-ordering/glob bugs and the Tier-2 content scan were fixed |
+| Open non-bot PRs on `main` | **339** (340 fetched − 1 Dependabot bot PR) | Manual triage is infeasible; needs tooling |
+| Path-rule + content-tier classification (final, post-review-fixes) | 95 LEGACY_ONLY · 69 MIXED · 74 CEL_ONLY · 96 SHARED_ONLY · 5 REVIEW-MIGRATION | ~1/3 of PRs must move; MIXED and content-tier checks route ambiguous PRs to manual review |
 | SHARED_ONLY PRs whose *diff text* still references legacy types | Folded into the counts above via the Tier-2 content scan (`--diff-scan`) | Path rules alone are insufficient; a 2nd content tier is required |
 | `main` vs `release-1.19` divergence | 135 commits / 157 files | Base-branch flip alone is **not** enough — a rebase is mandatory |
-| Rebase probe (40 LEGACY_ONLY PRs `git rebase --onto release-1.19`) | **38/40 clean** | Automated rebase is realistic; the 2 failures are real, unrelated merge conflicts (not migration false-positives) and are routed to `retarget/needs-author` |
+| Rebase probe (40 LEGACY_ONLY PRs `git rebase --onto release-1.19`) | **38/40 clean** | Automated rebase is realistic; the 2 failures (#16988 and #16886) are real merge conflicts and are routed to `retarget/needs-author` |
 | Fork PRs with `maintainerCanModify` | 100 % | Maintainers can push rebased branches directly — but this must be opt-in |
 | PRs already `CONFLICTING` with `main` | 84 | Pre-existing debt; retargeting resolves many of these for free |
 | Already-landed 1.20 work on `main` | #17535 (block legacy writes), #17544, #16868 | A false-positive class exists: "legacy-*gating*" PRs belong on `main` |
@@ -97,7 +97,7 @@ Rule: **path tier decides first; content tier only refines PRs the path tier cal
 
 ### 1.5 Known false-positive class: 1.20 migration-grace work
 
-PRs that *touch legacy CRDs/paths in order to gate, warn, block or migrate them* (#17553, #17519, #17494, #17534, #17554) belong on `main`. Detect via: title/body matches `/legacy|migrat|deprecat|1\.20/i` **and** PR touches `pkg/deprecations/**`, `charts/kyverno/**`, or `cmd/cli/**/legacypolicies`. Flag as `REVIEW-MIGRATION`, never auto-retarget. (#17553 was also the single rebase failure in the probe — consistent.)
+PRs that *touch legacy CRDs/paths in order to gate, warn, block or migrate them* (#17554, #17553, #17534, #17519, #17494) belong on `main`. Detect via: title/body matches `/legacy|migrat|deprecat|1\.20/i` **and** PR touches `pkg/deprecations/**`, `charts/kyverno/**`, or `cmd/cli/**/legacypolicies`. Flag as `REVIEW-MIGRATION`, never auto-retarget. (The 40-PR sample of `LEGACY_ONLY` PRs yielded 38 clean rebases and 2 merge conflicts, #16988 and #16886, with migration PRs correctly held on `main`).
 
 ---
 
@@ -111,13 +111,14 @@ Only `gh pr list` and `gh api GET /repos/…/pulls/N/files` and `gh pr diff` are
 python3 pr-branch-triage.py --repo kyverno/kyverno --base main --skip-bots \
     --out pr-triage-report.md --json pr-triage-report.json
 python3 pr-branch-triage.py --reclassify pr-triage-report.json    # offline re-run after rule edits
+python3 pr-branch-triage.py --pr 17565 --repo kyverno/kyverno     # single-PR classification
 ```
 
 Pipeline per PR:
 1. Metadata: `number,title,author,isDraft,isCrossRepository,maintainerCanModify,mergeable,labels,headRepositoryOwner,headRefName`.
 2. File list (paginated).
 3. Tier 1 path classification (first-match-wins over SHARED-override → CEL → LEGACY → default SHARED).
-4. Tier 2 diff-content scan **only if** Tier 1 = SHARED_ONLY.
+4. Tier 2 diff-content scan **only if** Tier 1 = SHARED_ONLY or LEGACY_ONLY.
 5. Migration-work heuristic (§1.5) → `REVIEW-MIGRATION` flag.
 6. Optional `--probe-rebase`: in a throwaway `git worktree`, `git fetch upstream +pull/N/head:refs/triage/N`; `git rebase --onto release-1.19 $(git merge-base main HEAD)`; record OK/CONFLICT + conflicting files; `git rebase --abort`; remove worktree. Purely local — nothing pushed.
 
@@ -153,8 +154,8 @@ Header summary, then one table per category (already produced in `pr-triage-repo
 ### 2.4 Dry-run approval gate
 
 1. Commit `pr-triage-report.md` to a tracking issue ("Legacy PR retargeting — batch 1").
-2. Maintainers annotate overrides directly in the JSON (`"override": "KEEP_MAIN" | "RETARGET" | "SPLIT"`), e.g. the 5 REVIEW-MIGRATION PRs → KEEP_MAIN.
-3. Only PRs with `category=LEGACY_ONLY && override!=KEEP_MAIN && probe=OK` proceed to automated execution; everything else is manual.
+2. Maintainers annotate overrides directly in the JSON (`"override": "KEEP_MAIN" | "RETARGET" | "SPLIT"`), e.g. confirming the 5 REVIEW-MIGRATION PRs → `KEEP_MAIN`. If a maintainer sets `"override": "RETARGET"` on a `MIXED` or `REVIEW-MIGRATION` PR, re-running `--probe-rebase` will evaluate that PR and allow it to proceed through the gate.
+3. Only PRs with `(category=LEGACY_ONLY || override=RETARGET) && override!=KEEP_MAIN && probe=OK` proceed to automated execution; everything else is manual.
 
 ### 2.5 Category labels — `type_legacy` / `type_cel` / `type_mixed` / `type_shared`
 
@@ -162,12 +163,14 @@ As part of the dry run, every classified PR is now tagged in the report/JSON wit
 
 | Category | Label | Color (suggested) | Description | Applied to |
 |---|---|---|---|---|
-| LEGACY_ONLY | `type_legacy` | `#b60205` (red) | PR only touches legacy `kyverno.io` ClusterPolicy/Policy/CleanupPolicy code — candidate to retarget to `release-1.19` | 109 PRs |
-| CEL_ONLY | `type_cel` | `#00BCD4` (cyan) | PR only touches `policies.kyverno.io` CEL policy code — stays on `main` | 66 PRs |
-| MIXED | `type_mixed` | `#FBCA04` (yellow) | PR touches both legacy and CEL code — needs manual split/keep decision | 16 PRs |
-| SHARED_ONLY | `type_shared` | `#c5def5` (light blue) | PR touches neither (shared infra/docs/deps/CI) — stays on `main` | 149 PRs |
+| LEGACY_ONLY | `type_legacy` | `#b60205` (red) | PR only touches legacy `kyverno.io` ClusterPolicy/Policy/CleanupPolicy code — candidate to retarget to `release-1.19` | 95 PRs |
+| CEL_ONLY | `type_cel` | `#00BCD4` (cyan) | PR only touches `policies.kyverno.io` CEL policy code — stays on `main` | 74 PRs |
+| MIXED | `type_mixed` | `#FBCA04` (yellow) | PR touches both legacy and CEL code — needs manual split/keep decision | 69 PRs |
+| SHARED_ONLY | `type_shared` | `#c5def5` (light blue) | PR touches neither (shared infra/docs/deps/CI) — stays on `main` | 96 PRs |
 
-**Definition of done for this step:** labels exist in `.github/labels.yml` (added alongside the §4.1 `legacy-policy`/`cel-policy` glob-based labels — the `type_*` labels are the *triage-result* labels applied by the script below, `legacy-policy`/`cel-policy` are the *ongoing* glob-based labeler labels applied automatically to every future PR) and are backfilled onto the 340 currently open PRs.
+*(Note: The 5 `REVIEW-MIGRATION` PRs are left unlabeled in the automated labeling step to require explicit human triage.)*
+
+**Definition of done for this step:** labels exist in `.github/labels.yml` (added alongside the §4.1 `legacy-policy`/`cel-policy` glob-based labels — the `type_*` labels are the *triage-result* labels applied by the script below, `legacy-policy`/`cel-policy` are the *ongoing* glob-based labeler labels applied automatically to every future PR) and are backfilled onto the 334 classified PRs in the four labeled categories (out of 339 analyzed non-bot PRs).
 
 **Tooling — `hack/pr-triage/apply-labels.sh` (delivered, dry-run by default):**
 
@@ -209,9 +212,9 @@ Changing `base` from `main` to `release-1.19` on a branch forked from `main` mak
    gh pr comment N --body-file templates/retarget-notice.md      # see §3.4
    gh pr edit N --add-label "retarget/release-1.19"
 3. Rebase locally (throwaway worktree)
-   git fetch upstream +pull/N/head:refs/triage/N
-   base=$(git merge-base upstream/main refs/triage/N)
-   git worktree add -d .wt-N refs/triage/N
+   git fetch --no-write-fetch-head upstream +pull/N/head:refs/triage/pr-N
+   base=$(git merge-base upstream/main refs/triage/pr-N)
+   git worktree add -d .wt-N refs/triage/pr-N
    git -C .wt-N rebase --onto upstream/release-1.19 $base   || { record CONFLICT; label "retarget/needs-author"; comment; abort }
 4. Verify
    (cd .wt-N && make fmt-check imports-check && go build ./... && go test ./<changed pkgs>)   # cheap gate; CI does the rest
@@ -221,26 +224,29 @@ Changing `base` from `main` to `release-1.19` on a branch forked from `main` mak
    # `cd .wt-N` first) so `HEAD` resolves to the rebased tip, not whatever the
    # main working tree happens to have checked out.
    newHeadSha=$(git -C .wt-N rev-parse HEAD)
-   A. maintainerCanModify==true  → git -C .wt-N push --force-with-lease https://github.com/<owner>/kyverno.git HEAD:<headRefName>
+   A. maintainerCanModify==true AND explicit `/retarget release-1.19` author consent:
+      git -C .wt-N push --force-with-lease="${headRefName}:${oldHeadSha}" https://github.com/<owner>/kyverno.git HEAD:<headRefName>
       then: gh pr edit N --base release-1.19
-   B. else                       → git -C .wt-N push upstream HEAD:retarget/N-<headRefName>
+   B. else (no consent / 72 h silence / maintainerCanModify==false):
+      git -C .wt-N push upstream HEAD:retarget/N-<headRefName>
       gh pr create --base release-1.19 --head retarget/N-<headRefName> \
          --title "$(gh pr view N --json title -q .title)" \
          --body "Retargeted from #N on behalf of @author. Co-authored-by preserved. Closes #N when merged."
-      gh pr comment N "Superseded by #M (retargeted to release-1.19)"; gh pr edit N --add-label "superseded"
+      gh pr comment N --body "Superseded by #M (retargeted to release-1.19)"; gh pr edit N --add-label "superseded"
       (close #N only after #M merges — keeps the review thread alive)
-7. Cleanup
-   git worktree remove -f .wt-N; git update-ref -d refs/triage/N
-6. Post
+6. Record & Update
    gh pr edit N --remove-label "retarget/release-1.19" --add-label "target/release-1.19"
-   record {pr, oldHeadSha, newHeadSha, oldBase, newBase, strategy} → hack/pr-triage/executed.json   (rollback ledger; newHeadSha is the $newHeadSha captured in step 5, before the worktree is removed)
+   record {pr, oldHeadSha, newHeadSha, oldBase, newBase, strategy} → hack/pr-triage/executed.json   (rollback ledger; recorded immediately after mutation)
+7. Cleanup (best-effort)
+   git worktree remove -f .wt-N || true
+   git update-ref -d refs/triage/pr-N || true
 ```
 
 Rate-limit: batch ≤ 25 PRs/hour; the repo already has `pr-rate-limiter.yaml` — run the retarget bot with the `PR_UPDATER_APP` GitHub App (same identity as `cherry-pick-on-merge.yaml`) so pushes carry a bot identity and DCO stays intact (`rebase` preserves author + `Signed-off-by`).
 
 **Strongly prefer A but make force-push opt-in per author**: the notice comment (§3.4) gives authors 72 h to (a) rebase themselves, (b) reply `/retarget release-1.19` to consent to the bot push, or (c) `/keep-main` to contest. Silence after 72 h → strategy B (sibling PR), never an un-consented force-push to someone's fork.
 
-### 3.3 MIXED PRs — splitting guide (16 PRs)
+### 3.3 MIXED PRs — splitting guide (69 PRs)
 
 | Situation | Guidance |
 |---|---|
@@ -308,9 +314,9 @@ jobs:
   guard:
     steps:
       - checkout (base ref only — never execute PR code)
-      - run: python3 hack/pr-triage/pr-branch-triage.py --pr ${{ github.event.number }} --json out.json
+      - run: python3 hack/pr-triage/pr-branch-triage.py --pr ${{ github.event.pull_request.number }} --json out.json
       - github-script:
-          const r = JSON.parse(fs.readFileSync('out.json'));
+          const r = JSON.parse(fs.readFileSync('out.json'))[0];
           const base = context.payload.pull_request.base.ref;
           const exempt = labels.includes('migration/1.20') || body.includes('/keep-main');
           if (r.category === 'LEGACY_ONLY' && base === 'main' && !exempt)  → fail check + sticky comment (template §3.4)
@@ -327,7 +333,7 @@ jobs:
 ### 4.3 `release-1.19` branch hygiene
 
 - Rulesets: require the same CI as `main` (unit, CLI tests, conformance for legacy suites), DCO, and linear history.
-- Reverse-guard: PRs to `release-1.19` that add **new features** (conventional-commit `feat:`) get a warning comment — patch branches take fixes; features only when maintainers explicitly decide 1.19.x is a feature-receiving LTS line (this should be an explicit decision recorded in the docs, since 109 open PRs include `feat:` items such as #17494, #17519).
+- Reverse-guard: PRs to `release-1.19` that add **new features** (conventional-commit `feat:`) get a warning comment — patch branches take fixes; features only when maintainers explicitly decide 1.19.x is a feature-receiving LTS line (this should be an explicit decision recorded in the docs, since 95 open PRs in LEGACY_ONLY include `feat:` items such as #17494, #17519).
 
 ---
 
@@ -336,13 +342,13 @@ jobs:
 | Risk / edge case | Mitigation |
 |---|---|
 | Rebase conflict (probe: ~5 %, 2/40; will rise for stale PRs) | Bot never resolves conflicts. Label `retarget/needs-author`, comment with conflicting files and the exact `git rebase --onto` command. |
-| Force-push overwrites author's un-pushed work | Only push with `--force-with-lease=<headRefName>:<oldHeadSha>` recorded at pre-flight; only after `/retarget` consent or 72 h silence **and** `maintainerCanModify`; ledger keeps `oldHeadSha` for restore. |
+| Force-push overwrites author's un-pushed work | Only push with `--force-with-lease=<headRefName>:<oldHeadSha>` recorded at pre-flight; only after `/retarget` explicit consent **and** `maintainerCanModify`; silence/no-consent routes to Strategy B (sibling PR); ledger keeps `oldHeadSha` for restore. |
 | Author lacks/revokes `maintainerCanModify` (today 0 %, but can change) | Strategy B (sibling PR from an upstream `retarget/*` branch). Keep original open until sibling merges. |
 | Draft PRs (8 LEGACY_ONLY) | Comment + label only; never rebase drafts automatically — the author is still iterating. |
 | Dependabot/renovate PRs | Skipped entirely (`--skip-bots`); dependency bumps follow `main`. |
-| Misclassification: 1.20 migration PRs (#17553, #17519, #17494, #17534, #17554) | `REVIEW-MIGRATION` flag; require human override; `/keep-main` escape hatch; guard exempts `migration/1.20` label. |
+| Misclassification: 1.20 migration PRs (#17554, #17553, #17534, #17519, #17494) | `REVIEW-MIGRATION` flag; require human override; `/keep-main` escape hatch; guard exempts `migration/1.20` label. |
 | Misclassification: shared file with legacy-only hunks (19 found) | Tier-2 content scan; borderline → MIXED (manual), never auto-move on content alone without path support unless `override: RETARGET`. |
-| `release-1.19` CI differs from `main` (workflows evolved) | Before batch 1, cherry-pick CI-only fixes (`.github/workflows/**`) to `release-1.19` so retargeted PRs get green signals; verify with one canary PR (#17565: 1 commit, 9 legacy files, probe OK). |
+| `release-1.19` CI differs from `main` (workflows evolved) | Before batch 1, cherry-pick CI-only fixes (`.github/workflows/**`) to `release-1.19` so retargeted PRs get green signals; verify with one canary PR (#17525: 1 commit, 4 legacy files, probe OK). |
 | Review history/approvals lost on sibling PR (strategy B) | Sibling body links original; reviewers re-approve; `superseded` label; original closed only after sibling merges. |
 | Author never responds → PR rots | STALE policy: 30 d after notice → `needs-rebase` + reminder; 60 d → close with "reopen anytime" comment. Bot-opened sibling PRs are owned by the triaging maintainer. |
 | Removal PR lands before all LEGACY_ONLY PRs move | Retargeting is independent of removal (it depends only on `release-1.19`). Post-removal, re-run triage; newly `CONFLICTING` PRs get the same treatment. No ordering hazard other than more noise. |
@@ -360,11 +366,11 @@ jobs:
 
 ## 6. Deliverables checklist
 
-- [x] `pr-branch-triage.py` — read-only classifier + Markdown/JSON report, emitting a `proposed_label` (`type_legacy`/`type_cel`/`type_mixed`/`type_shared`) per PR (`hack/pr-triage/pr-branch-triage.py`). Tier-2 diff-content scan (`--diff-scan`) and the migration heuristic (`REVIEW-MIGRATION`) are implemented directly inside this script, not as a separate `diff-signal.py` file.
-- [x] `--probe-rebase` (git-worktree based, per-PR-scoped local refs, always cleans up and never pushes) implemented inside `pr-branch-triage.py`; sample runs: 8/8 clean, then 38/40 clean on a larger sample.
-- [x] Live dry-run report for 340 PRs (`hack/pr-triage/pr-triage-report.md/json`): 106 LEGACY_ONLY, 59 MIXED, 73 CEL_ONLY, 92 SHARED_ONLY, 9 REVIEW-MIGRATION (1 bot PR excluded).
-- [x] `hack/pr-triage/apply-labels.sh` — applies the 4 `type_*` labels; **dry-run by default (prints `gh label create`/`gh pr edit` commands only), requires `--execute` to mutate anything**; also bootstraps the 4 labels if missing, and checks each PR's *live* labels (not the JSON snapshot) before deciding to add/remove; verified with a live dry-run sample (3 PRs) with zero label/PR changes made.
-- [ ] Maintainer review/approval of the `type_*` dry-run output, then `apply-labels.sh --execute` to backfill labels on the 340 open PRs (not yet run — awaiting approval)
+- [x] `pr-branch-triage.py` — read-only classifier + Markdown/JSON report, emitting a `proposed_label` (`type_legacy`/`type_cel`/`type_mixed`/`type_shared`) per PR (`hack/pr-triage/pr-branch-triage.py`). Single-PR mode (`--pr`), Tier-2 diff-content scan (`--diff-scan`), and the migration heuristic (`REVIEW-MIGRATION`) are implemented directly inside this script.
+- [x] `--probe-rebase` (git-worktree based, per-PR-scoped local refs, `--no-write-fetch-head`, always cleans up and never pushes) implemented inside `pr-branch-triage.py`; sample runs: 8/8 clean, then 38/40 clean on a 40-PR sample (with conflict files captured).
+- [x] Live dry-run report for 339 analyzed PRs (`hack/pr-triage/pr-triage-report.md/json`): 95 LEGACY_ONLY, 69 MIXED, 74 CEL_ONLY, 96 SHARED_ONLY, 5 REVIEW-MIGRATION (1 bot PR excluded).
+- [x] `hack/pr-triage/apply-labels.sh` — applies the 4 `type_*` labels; **dry-run by default (prints `gh label create`/`gh pr edit` commands only), requires `--execute` to mutate anything**; bootstraps missing labels, queries live labels from GitHub (with failure handling), and preserves manual maintainer labels unless `--force` is given. Verified with live dry-run tests.
+- [ ] Maintainer review/approval of the `type_*` dry-run output, then `apply-labels.sh --execute` to backfill labels on the 334 open PRs in the four labeled categories (not yet run — awaiting approval)
 - [ ] `hack/pr-triage/retarget.sh` + `split-helper.sh` (execution; only after approval)
 - [ ] `.github/labels.yml` additions (both the glob-based `legacy-policy`/`cel-policy` labels and the four `type_*` triage labels); `.github/workflows/pr-branch-guard.yaml`
 - [ ] `docs/dev/legacy-policy-retirement.md`; `CONTRIBUTING.md` + PR template updates

@@ -210,12 +210,15 @@ CEL_CONTENT_RE = re.compile(
 # Migration-grace heuristic (§1.5): PRs that touch legacy paths in order to
 # gate/warn/block/migrate them belong on `main`, not release-1.19.
 # ---------------------------------------------------------------------------
-MIGRATION_TEXT_RE = re.compile(r"(?i)\blegacy\b|\bmigrat|\bdeprecat|\b1\.20\b")
+MIGRATION_TITLE_RE = re.compile(
+    r"(?i)\b(migrat|deprecat|1\.20|legacy[ -_]*(policy|policies|gate|optout|warn|signal|block|cr|crd|manifest))\b"
+)
 MIGRATION_PATH_GLOBS = [
     "pkg/deprecations/**",
-    "charts/kyverno/**",
     "cmd/cli/kubectl-kyverno/**/legacypolicies/**",
     "cmd/cli/kubectl-kyverno/**/legacypolicies*",
+    "charts/kyverno/**/legacy-policy*",
+    "charts/kyverno/templates/hooks/post-upgrade-migrate*",
 ]
 
 # ---------------------------------------------------------------------------
@@ -276,88 +279,104 @@ def classify_content(diff_text):
 
 
 def refine_with_content(row, repo):
-    """Apply Tier-2 content refinement to a Tier-1 SHARED_ONLY row in place.
+    """Apply Tier-2 content refinement.
 
     Policy (keeps §2.2/§5 consistent — see PR_REBASE_PLAN.md):
-      - CEL-only content    -> promote to CEL_ONLY (safe: same "keep on main"
-        action as SHARED_ONLY, so promoting it changes only the label/report,
-        never triggers a retarget).
-      - legacy-only content -> demote to MIXED, NOT to LEGACY_ONLY. Content
-        signals alone are never sufficient to reach the automated retarget
-        gate; a human must set override=RETARGET after reviewing the diff.
-      - mixed content       -> MIXED (manual).
-      - neutral             -> unchanged.
+      - SHARED_ONLY + CEL-only content    -> promote to CEL_ONLY (safe: keeps on main)
+      - SHARED_ONLY + legacy/mixed content -> demote to MIXED (manual review)
+      - LEGACY_ONLY + CEL/mixed content   -> demote to MIXED (manual review, prevents
+        unsafe retargeting of mixed PRs where CEL code is in shared files)
+      - Diff fetch error                  -> demote to MIXED (fail closed for safety)
+      - Content signals alone NEVER auto-promote to LEGACY_ONLY.
     """
-    if row["category"] != "SHARED_ONLY":
+    cat = row["category"]
+    if cat not in ("SHARED_ONLY", "LEGACY_ONLY"):
         row.setdefault("content_signal", None)
         return
     try:
-        diff = subprocess.run(
+        res = subprocess.run(
             ["gh", "pr", "diff", str(row["number"]), "-R", repo],
             capture_output=True, text=True, timeout=60,
-        ).stdout
+        )
+        if res.returncode != 0:
+            row["content_signal"] = f"ERROR:diff_exit_{res.returncode}"
+            row["category"] = "MIXED"
+            return
+        diff = res.stdout
     except Exception as e:  # noqa: BLE001 - best-effort, record and move on
         row["content_signal"] = f"ERROR:{e}"
+        row["category"] = "MIXED"
         return
+
     signal, lg, ce = classify_content(diff)
     row["content_signal"] = signal
     row["content_legacy_lines"] = lg
     row["content_cel_lines"] = ce
-    if signal == "CEL_CONTENT":
-        row["category"] = "CEL_ONLY"
-    elif signal in ("LEGACY_CONTENT", "MIXED_CONTENT"):
-        row["category"] = "MIXED"
+
+    if cat == "SHARED_ONLY":
+        if signal == "CEL_CONTENT":
+            row["category"] = "CEL_ONLY"
+        elif signal in ("LEGACY_CONTENT", "MIXED_CONTENT"):
+            row["category"] = "MIXED"
+    elif cat == "LEGACY_ONLY":
+        if signal in ("CEL_CONTENT", "MIXED_CONTENT"):
+            row["category"] = "MIXED"
 
 
 def is_migration_pr(title, body, files):
+    if MIGRATION_TITLE_RE.search(title or ""):
+        return True
     text = f"{title}\n{body or ''}"
-    if not MIGRATION_TEXT_RE.search(text):
+    if not re.search(r"(?i)\b(migrat|deprecat|1\.20|legacy)\b", text):
         return False
     return any(_glob_match(f, g) for f in files for g in MIGRATION_PATH_GLOBS)
 
 
-def probe_rebase(repo, number, target_base):
+def probe_rebase(repo, number, base, target_base):
     """Best-effort local rebase probe. Never pushes anything; always aborts
-    the rebase and removes the worktree/ref it creates. Returns one of
-    "OK", "CONFLICT", or "ERROR:<detail>".
+    the rebase and removes the worktree/ref it creates. Returns (status, conflict_files).
 
-    Uses explicit local refs (refs/triage/pr-<N>, refs/triage/base-main-<N>,
-    refs/triage/base-<target>-<N>) rather than FETCH_HEAD, because FETCH_HEAD
-    is ambiguous/scoped to the invoking working tree, not the `git worktree
-    add` checkout used here — reusing it produced false CONFLICTs during
-    testing. Refs are suffixed per-PR (not shared) so concurrent probes
-    (--workers > 1) never clobber each other's base ref mid-rebase.
+    Uses explicit local refs (refs/triage/pr-<N>, refs/triage/base-<base>-<N>,
+    refs/triage/base-<target>-<N>) rather than FETCH_HEAD, and uses
+    --no-write-fetch-head to prevent .git/FETCH_HEAD lock contention during
+    concurrent probes.
     """
     pr_ref = f"refs/triage/pr-{number}"
-    main_ref = f"refs/triage/base-main-{number}"
+    base_ref = f"refs/triage/base-{base}-{number}"
     target_ref = f"refs/triage/base-{target_base}-{number}"
     wt = f".wt-{number}"
     try:
         subprocess.run(
-            ["git", "fetch", "-q", f"https://github.com/{repo}.git",
-             f"pull/{number}/head:{pr_ref}", f"main:{main_ref}", f"{target_base}:{target_ref}"],
+            ["git", "fetch", "--no-write-fetch-head", "-q", f"https://github.com/{repo}.git",
+             f"pull/{number}/head:{pr_ref}", f"{base}:{base_ref}", f"{target_base}:{target_ref}"],
             check=True, capture_output=True, text=True, timeout=120,
         )
         subprocess.run(["git", "worktree", "add", "-q", "-d", wt, pr_ref],
                         check=True, capture_output=True, text=True, timeout=60)
         merge_base = subprocess.run(
-            ["git", "-C", wt, "merge-base", "HEAD", main_ref],
+            ["git", "-C", wt, "merge-base", "HEAD", base_ref],
             capture_output=True, text=True, timeout=30,
         ).stdout.strip()
         if not merge_base:
-            return "ERROR:no-merge-base"
+            return "ERROR:no-merge-base", []
         r = subprocess.run(
             ["git", "-C", wt, "rebase", "--onto", target_ref, merge_base],
             capture_output=True, text=True, timeout=180,
         )
-        ok = r.returncode == 0
+        if r.returncode == 0:
+            subprocess.run(["git", "-C", wt, "rebase", "--abort"], capture_output=True, text=True, timeout=60)
+            return "OK", []
+        conflicts = subprocess.run(
+            ["git", "-C", wt, "diff", "--name-only", "--diff-filter=U"],
+            capture_output=True, text=True, timeout=30,
+        ).stdout.strip().splitlines()
         subprocess.run(["git", "-C", wt, "rebase", "--abort"], capture_output=True, text=True, timeout=60)
-        return "OK" if ok else "CONFLICT"
+        return "CONFLICT", conflicts
     except Exception as e:  # noqa: BLE001
-        return f"ERROR:{e}"
+        return f"ERROR:{e}", []
     finally:
         subprocess.run(["git", "worktree", "remove", "-f", wt], capture_output=True, text=True, timeout=30)
-        for ref in (pr_ref, main_ref, target_ref):
+        for ref in (pr_ref, base_ref, target_ref):
             subprocess.run(["git", "update-ref", "-d", ref], capture_output=True, text=True, timeout=30)
 
 
@@ -389,7 +408,7 @@ def gh(args):
 
 def finalize_row(row, a):
     """Apply migration-flag override, then compute action/label/probe fields.
-    Shared by both the fresh-fetch and --reclassify code paths."""
+    Shared by fresh-fetch, single-PR, and --reclassify code paths."""
     cat, counts = classify_pr(row["files"])
     row["category"] = cat
     row["counts"] = dict(counts)
@@ -399,7 +418,9 @@ def finalize_row(row, a):
     if a.diff_scan:
         refine_with_content(row, a.repo)
     else:
-        row.setdefault("content_signal", None)
+        row["content_signal"] = None
+        row.pop("content_legacy_lines", None)
+        row.pop("content_cel_lines", None)
 
     row["migration_flag"] = is_migration_pr(row.get("title", ""), row.get("body", ""), row["files"])
     if row["migration_flag"]:
@@ -412,9 +433,13 @@ def finalize_row(row, a):
     row["action"] = ACTION[cat]
     row["proposed_label"] = LABEL[cat]
 
-    row.setdefault("probe", "SKIPPED")
-    if a.probe_rebase and cat == "LEGACY_ONLY":
-        row["probe"] = probe_rebase(a.repo, row["number"], a.probe_target_base)
+    # Reset probe status so reclassification without probe doesn't keep stale status
+    row["probe"] = "SKIPPED"
+    row["conflict_files"] = []
+    if a.probe_rebase and (cat == "LEGACY_ONLY" or row.get("override") == "RETARGET"):
+        status, conflicts = probe_rebase(a.repo, row["number"], a.base, a.probe_target_base)
+        row["probe"] = status
+        row["conflict_files"] = conflicts
     return row
 
 
@@ -422,12 +447,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", default="kyverno/kyverno")
     ap.add_argument("--base", default="main")
+    ap.add_argument("--pr", type=int, help="triage a single PR number (used by pr-branch-guard CI)")
     ap.add_argument("--limit", type=int, default=500)
     ap.add_argument("--out", default="pr-triage-report.md")
     ap.add_argument("--json", dest="json_out", default="pr-triage-report.json")
     ap.add_argument("--skip-bots", action="store_true", help="skip dependabot/renovate PR authors")
     ap.add_argument("--diff-scan", action="store_true",
-                     help="Tier-2: fetch `gh pr diff` for SHARED_ONLY rows and refine by content")
+                     help="Tier-2: fetch `gh pr diff` and refine by diff content")
     ap.add_argument("--probe-rebase", action="store_true",
                      help="attempt a local, non-pushing `git rebase --onto` for each LEGACY_ONLY PR")
     ap.add_argument("--probe-target-base", default="release-1.19")
@@ -436,22 +462,43 @@ def main():
                      help="parallel `gh` subprocess workers for file/diff/body fetches (I/O bound, not CPU bound)")
     a = ap.parse_args()
 
+    if a.pr:
+        pr = gh(["pr", "view", str(a.pr), "-R", a.repo,
+                 "--json", "number,title,body,author,isDraft,createdAt,updatedAt,headRefName,headRepositoryOwner,"
+                           "isCrossRepository,maintainerCanModify,mergeable,labels"])
+        raw = subprocess.run(["gh", "api", f"repos/{a.repo}/pulls/{a.pr}/files", "--paginate",
+                              "--jq", ".[].filename"], check=True, capture_output=True, text=True).stdout
+        files = [l for l in raw.splitlines() if l.strip()]
+        row = {
+            "number": pr["number"], "title": pr["title"], "body": pr.get("body") or "",
+            "author": pr["author"]["login"], "draft": pr["isDraft"], "fork": pr["isCrossRepository"],
+            "maintainerCanModify": pr["maintainerCanModify"], "mergeable": pr["mergeable"],
+            "head": f"{pr['headRepositoryOwner']['login']}:{pr['headRefName']}",
+            "labels": [l["name"] for l in pr["labels"]],
+            "files": files,
+        }
+        finalize_row(row, a)
+        write_reports(a, [row])
+        return
+
     if a.reclassify:
         rows = json.load(open(a.reclassify))
         lock = threading.Lock()
         done = [0]
 
         def process(r):
-            if "body" not in r:
+            if "body" not in r or r.get("body") is None:
                 # Older report snapshots didn't capture the PR body (needed
                 # for the migration-grace heuristic) — backfill it lazily.
-                try:
-                    r["body"] = subprocess.run(
-                        ["gh", "pr", "view", str(r["number"]), "-R", a.repo, "--json", "body", "-q", ".body"],
-                        capture_output=True, text=True, timeout=30,
-                    ).stdout.strip()
-                except Exception:  # noqa: BLE001
+                res = subprocess.run(
+                    ["gh", "pr", "view", str(r["number"]), "-R", a.repo, "--json", "body", "-q", ".body"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if res.returncode == 0:
+                    r["body"] = res.stdout.strip()
+                else:
                     r["body"] = ""
+                    r["body_fetch_error"] = True
             finalize_row(r, a)
             with lock:
                 done[0] += 1
@@ -534,8 +581,14 @@ def write_reports(a, rows):
             if c == "MIXED":
                 fh.write("\n<details><summary>Mixed PR file breakdown</summary>\n\n")
                 for r in sub:
-                    fh.write(f"### #{r['number']} {r['title']}\n- LEGACY: {', '.join(r['legacy_files'][:15])}\n"
-                             f"- CEL: {', '.join(r['cel_files'][:15])}\n\n")
+                    fh.write(f"### #{r['number']} {r['title']}\n")
+                    if r.get("legacy_files"):
+                        fh.write(f"- LEGACY files: {', '.join(r['legacy_files'][:15])}\n")
+                    if r.get("cel_files"):
+                        fh.write(f"- CEL files: {', '.join(r['cel_files'][:15])}\n")
+                    if r.get("content_signal"):
+                        fh.write(f"- Content signal: `{r['content_signal']}` (legacy diff lines: {r.get('content_legacy_lines', 0)}, cel diff lines: {r.get('content_cel_lines', 0)})\n")
+                    fh.write("\n")
                 fh.write("</details>\n")
     print(f"wrote {a.out} and {a.json_out}")
     for c in order:
