@@ -461,7 +461,7 @@ func (p *compiledPolicy) match(
 // thunk, across every policy evaluated for the admission request) and MUST be
 // treated as immutable: no ivpol code may write into it or its nested values.
 //
-// TODO(issue #NNNN): this helper is a twin of vpol's prepareK8sData
+// TODO(#17586): this helper is a twin of vpol's prepareK8sData
 // (pkg/cel/policies/vpol/compiler/eval.go). Both should move behind a shared
 // choke point in pkg/cel/compiler so a fourth engine cannot reintroduce the
 // per-policy rebuild this design eliminates here and in #17572.
