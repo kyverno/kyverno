@@ -499,6 +499,11 @@ func (c *controller) enqueueResources() {
 	}
 }
 
+func keepKyvernoPolicyResult(result openreportsv1alpha1.ReportResult, policyNameToLabel map[string]string, expected map[string]string, actual map[string]string) bool {
+	label := policyNameToLabel[result.Policy]
+	return label != "" && expected[label] == actual[label]
+}
+
 func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
 	if namespace == "" {
 		return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
@@ -678,7 +683,15 @@ func (c *controller) reconcileReport(
 			// The result is kept as it is if:
 			// 1. The Kyverno policy and its matched exceptions are unchanged
 			// 2. The ValidatingAdmissionPolicy and its matched binding are unchanged
-			keepResult := true
+			keepResult := keepKyvernoPolicyResult(result, policyNameToLabel, expected, actual)
+			logger.Info(
+				"checking partial reconcile result",
+				"resultPolicy", result.Policy,
+				"policyNameToLabel", policyNameToLabel,
+				"expected", expected,
+				"actual", actual,
+				"keepResult", keepResult,
+			)
 			exception := result.Properties["exceptions"]
 			exceptions := strings.Split(exception, ",")
 			for _, exception := range exceptions {
@@ -688,12 +701,11 @@ func (c *controller) reconcileReport(
 					break
 				}
 			}
-			label := policyNameToLabel[result.Policy]
 			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
 			mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
-			if (label != "" && expected[label] == actual[label]) ||
-				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) ||
-				(mapBindingLabel != "" && expected[mapBindingLabel] == actual[mapBindingLabel]) || keepResult {
+			if (vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) ||
+				(mapBindingLabel != "" && expected[mapBindingLabel] == actual[mapBindingLabel]) ||
+				keepResult {
 				ruleResults = append(ruleResults, result)
 			}
 		}
