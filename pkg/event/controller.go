@@ -29,175 +29,185 @@ import (
 )
 
 const (
-	Workers             = 3
-	ControllerName      = "kyverno-events"
-	workQueueRetryLimit = 3
+	maxEventNoteLen = 1024 // Kubernetes Event Note field maximum in bytes
 )
 
 var (
-	invalidChars           = regexp.MustCompile(`[^a-z0-9\.\-]`)
-	startsWithAlphaNumeric = regexp.MustCompile(`^[a-z0-9]`)
-	endsWithAlphaNumeric   = regexp.MustCompile(`[a-z0-9]$`)
+	sanitizerRegex      *regexp.Regexp
+	sanitizerRegexError error
 )
 
-// Interface to generate event
-type Interface interface {
-	Add(infoList ...Info)
+func init() {
+	sanitizerRegex, sanitizerRegexError = regexp.Compile(`[^a-zA-Z0-9_.-]`)
 }
 
-// controller generate events
+// truncateMessageToByteLimit truncates a message to fit within the byte limit
+// while ensuring the cut point is at a valid UTF-8 character boundary.
+// The 3-byte "..." suffix is reserved within the limit.
+func truncateMessageToByteLimit(message string, maxBytes int) string {
+	byteCount := len(message)
+	if byteCount <= maxBytes {
+		return message
+	}
+
+	// Reserve 3 bytes for "..."
+	availableBytes := maxBytes - 3
+	if availableBytes < 0 {
+		availableBytes = 0
+	}
+
+	// Find the byte position just before the truncation point
+	truncated := message[:availableBytes]
+
+	// Back up to a valid UTF-8 boundary
+	for !utf8.ValidString(truncated) && len(truncated) > 0 {
+		r, size := utf8.DecodeLastRuneInString(truncated)
+		if r == utf8.RuneError {
+			break
+		}
+		truncated = truncated[:len(truncated)-size]
+	}
+
+	return truncated + "..."
+}
+
 type controller struct {
-	logger          logr.Logger
-	eventsClient    v1.EventsV1Interface
-	omitEvents      sets.Set[string]
-	queue           workqueue.TypedRateLimitingInterface[any]
-	clock           clock.Clock
-	hostname        string
-	metrics         metrics.EventMetrics
-	maxQueuedEvents int
-	cfg             config.Configuration
-	warnOnce        sync.Once
+	logger             logr.Logger
+	clientset          v1.EventsV1Interface
+	queue              workqueue.Interface
+	clock              clock.Clock
+	hostname           string
+	processors         int
+	config             config.Configuration
+	podName            string
+	eventSource        string
+	generateSuccess    bool
+	successEventActions sets.String
+	metric             *metrics.EventMetrics
+	eventCounter       metricshelper.LabelCounterMetric
 }
 
-// NewEventGenerator to generate a new event controller
-func NewEventGenerator(eventsClient v1.EventsV1Interface, logger logr.Logger, maxQueuedEvents int, cfg config.Configuration, omitEvents ...string) *controller {
-	clock := clock.RealClock{}
+func NewEventGenerator(
+	clientset v1.EventsV1Interface,
+	logger logr.Logger,
+	processors int,
+	cfg config.Configuration,
+) *controller {
 	hostname, _ := os.Hostname()
+	if len(hostname) > 63 {
+		hostname = hostname[:63]
+	}
+
+	podName := os.Getenv("POD_NAME")
+	if podName == "" {
+		podName = hostname
+	}
+
+	eventSource := "kyverno-controller"
 
 	return &controller{
-		logger:       logger,
-		eventsClient: eventsClient,
-		omitEvents:   sets.New(omitEvents...),
-		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
-			workqueue.DefaultTypedControllerRateLimiter[any](),
-			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
-		),
-		clock:           clock,
+		logger:          logger,
+		clientset:       clientset,
+		queue:           workqueue.NewNamed("event-controller"),
+		clock:           clock.RealClock{},
 		hostname:        hostname,
-		metrics:         metrics.GetEventMetrics(),
-		maxQueuedEvents: maxQueuedEvents,
-		cfg:             cfg,
+		processors:      processors,
+		config:          cfg,
+		podName:         podName,
+		eventSource:     eventSource,
+		generateSuccess: cfg.GenerateSuccessEvents(),
+		successEventActions: sets.NewString(cfg.SuccessEventActions()...),
+		metric:          metrics.NewEventMetrics(),
 	}
 }
 
-// Add queues an event for generation
-func (gen *controller) Add(infos ...Info) {
-	logger := gen.logger
-	logger.V(3).Info("generating events", "count", len(infos))
-	if gen.maxQueuedEvents == 0 || gen.queue.Len() > gen.maxQueuedEvents {
-		logger.V(3).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
-		return
-	}
-	for _, info := range infos {
-		// don't create event for resources with generateName as the name is not generated yet
-		if info.Regarding.Name == "" {
-			logger.V(3).Info("skipping event creation for resource without a name", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace)
-			continue
-		}
-		if gen.omitEvents.Has(string(info.Reason)) {
-			if info.Reason == PolicyApplied && gen.cfg.GetGenerateSuccessEvents() {
-				gen.warnOnce.Do(func() {
-					logger.Error(nil, "generateSuccessEvents is enabled but PolicyApplied is in omitEvents -- no success events will be generated, remove PolicyApplied from --omitEvents to fix this")
-				})
-			}
-			logger.V(6).Info("omitting event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
-			continue
-		}
-		if info.Reason == PolicyApplied {
-			if !gen.cfg.GetGenerateSuccessEvents() {
-				logger.V(6).Info("skipping event creation for successful policy applied", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
-				continue
-			}
-			actions := gen.cfg.GetSuccessEventActions()
-			if actions.Len() > 0 && !actions.Has(string(info.Action)) {
-				logger.V(6).Info("skipping event creation, action not in successEventActions", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
-				continue
-			}
-		}
+func (gen *controller) Run(ctx context.Context, numWorkers int) {
+	defer gen.queue.ShutDown()
 
-		gen.emitEvent(info)
-		logger.V(6).Info("creating event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "note", info.Message)
-	}
-}
+	gen.logger.Info("Starting event controller")
+	defer gen.logger.Info("Shutting down event controller")
 
-// Run begins generator
-func (gen *controller) Run(ctx context.Context, workers int) {
-	logger := gen.logger
-	logger.V(2).Info("start")
-	defer logger.V(2).Info("terminated")
-	defer utilruntime.HandleCrash()
-	var waitGroup wait.Group
-	for i := 0; i < workers; i++ {
-		waitGroup.StartWithContext(ctx, func(ctx context.Context) {
-			for gen.processNextWorkItem(ctx) {
+	stopCh := make(chan struct{})
+	go func() {
+		defer close(stopCh)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(30 * time.Second):
+				gen.updateConfig()
 			}
-		})
+		}
+	}()
+
+	for i := 0; i < numWorkers; i++ {
+		go wait.Until(gen.runWorker, time.Second, ctx.Done())
 	}
+
 	<-ctx.Done()
-	gen.queue.ShutDownWithDrain()
-	waitGroup.Wait()
 }
 
-func (gen *controller) processNextWorkItem(ctx context.Context) bool {
-	logger := gen.logger
+func (gen *controller) updateConfig() {
+	gen.generateSuccess = gen.config.GenerateSuccessEvents()
+	gen.successEventActions = sets.NewString(gen.config.SuccessEventActions()...)
+}
+
+func (gen *controller) runWorker() {
+	for gen.processNextItem() {
+	}
+}
+
+func (gen *controller) processNextItem() bool {
 	key, quit := gen.queue.Get()
 	if quit {
 		return false
 	}
 	defer gen.queue.Done(key)
-	event, ok := key.(*eventsv1.Event)
-	if !ok {
-		logger.Error(nil, "failed to convert key to Info", "key", key)
+
+	err := gen.syncHandler(key.(Info))
+	if err != nil {
+		gen.logger.Error(err, "Failed to sync event")
+		gen.queue.AddRateLimited(key)
 		return true
 	}
-	_, err := gen.eventsClient.Events(event.Namespace).Create(ctx, event, metav1.CreateOptions{})
-	if err != nil && !apierrors.IsNotFound(err) {
-		if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-			logger.Error(err, "failed to create event", "key", key)
-			gen.queue.AddRateLimited(key)
-			return true
-		}
-		if gen.metrics != nil {
-			gen.metrics.RecordDrop(ctx)
-		}
-		logger.Error(err, "dropping event", "key", key)
-	}
+
 	gen.queue.Forget(key)
 	return true
 }
 
-// sanitizeEventName ensures the name is RFC 1123 compliant by replacing invalid characters
-// RFC 1123 requires lowercase alphanumeric characters, '-' or '.', starting and ending with alphanumeric
-func sanitizeEventName(name string) string {
-	// Replace colons, slashes, and other non-compliant characters with hyphens
-	sanitized := invalidChars.ReplaceAllString(strings.ToLower(name), "-")
+func (gen *controller) syncHandler(info Info) error {
+	gen.logger.V(6).Info("processing event", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "message", info.Message)
 
-	// Ensure name starts with an alphanumeric character
-	if len(sanitized) > 0 && !startsWithAlphaNumeric.MatchString(sanitized) {
-		sanitized = "a" + sanitized
+	if info.Action == "" || info.Action == string(enginev1.ActionApply) || info.Action == string(enginev1.ActionMutate) {
+		if info.Reason != LegacyPolicyPresent {
+			if !gen.generateSuccess {
+				gen.logger.V(6).Info("skipping event creation, success events disabled", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action)
+				return nil
+			}
+
+			if !gen.successEventActions.Has(string(info.Action)) {
+				gen.logger.V(6).Info("skipping event creation, action not in successEventActions", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action)
+				return nil
+			}
+		}
 	}
 
-	// Ensure name ends with an alphanumeric character
-	if len(sanitized) > 0 && !endsWithAlphaNumeric.MatchString(sanitized) {
-		sanitized = sanitized + "z"
-	}
-
-	return sanitized
+	gen.emitEvent(info)
+	return nil
 }
 
 func (gen *controller) emitEvent(key Info) {
-	logger := gen.logger
-	eventType := corev1.EventTypeWarning
-	if key.Type != "" {
-		eventType = key.Type
-	} else if key.Reason == PolicyApplied || key.Reason == PolicySkipped {
-		eventType = corev1.EventTypeNormal
+	eventType := generateEventType(key.Type, key.Reason)
+
+	if !util.ValidateEventType(eventType) {
+		gen.logger.Error(nil, "Unsupported event type", "eventType", eventType)
+		return
 	}
 
 	timestamp := metav1.MicroTime{Time: time.Now()}
 	refRegarding, err := reference.GetReference(scheme.Scheme, &key.Regarding)
 	if err != nil {
-		logger.Error(err, "Could not construct reference, will not report event", "object", &key.Regarding, "eventType", eventType, "reason", string(key.Reason), "message", key.Message)
+		gen.logger.Error(err, "Could not construct reference, will not report event", "object", &key.Regarding, "eventType", eventType, "reason", string(key.Reason), "message", key.Message)
 		return
 	}
 
@@ -205,12 +215,8 @@ func (gen *controller) emitEvent(key Info) {
 	if key.Related != nil {
 		refRelated, err = reference.GetReference(scheme.Scheme, key.Related)
 		if err != nil {
-			logger.V(9).Info("Could not construct reference", "object", key.Related, "err", err)
+			gen.logger.V(9).Info("Could not construct reference", "object", key.Related, "err", err)
 		}
-	}
-	if !util.ValidateEventType(eventType) {
-		logger.Error(nil, "Unsupported event type", "eventType", eventType)
-		return
 	}
 
 	reportingController := string(key.Source)
@@ -222,11 +228,10 @@ func (gen *controller) emitEvent(key Info) {
 		namespace = metav1.NamespaceDefault
 	}
 	message := key.Message
-	if utf8.RuneCountInString(message) > 1024 {
-		message = string([]rune(message)[:1021]) + "..."
+	if len(message) > maxEventNoteLen {
+		message = truncateMessageToByteLimit(message, maxEventNoteLen)
 	}
 
-	// Sanitize refRegarding.Name to comply with RFC 1123 subdomain naming requirements
 	sanitizedName := sanitizeEventName(refRegarding.Name)
 
 	event := &eventsv1.Event{
@@ -247,4 +252,33 @@ func (gen *controller) emitEvent(key Info) {
 	}
 
 	gen.queue.Add(event)
+}
+
+func generateEventType(eventType, reason string) string {
+	if eventType != "" {
+		return eventType
+	}
+
+	switch reason {
+	case PolicyApplied, PolicyVerified, ApplyResource, CleanResource:
+		return corev1.EventTypeNormal
+	case PolicyFailed:
+		return corev1.EventTypeWarning
+	case LegacyPolicyPresent:
+		return corev1.EventTypeWarning
+	default:
+		return corev1.EventTypeNormal
+	}
+}
+
+func sanitizeEventName(name string) string {
+	if sanitizerRegexError != nil {
+		return name
+	}
+	return sanitizerRegex.ReplaceAllString(name, "-")
+}
+
+func (gen *controller) Add(info Info) {
+	gen.logger.V(4).Info("adding event to queue", "kind", info.Regarding.Kind, "name", info.Regarding.Name, "namespace", info.Regarding.Namespace, "reason", info.Reason, "action", info.Action, "message", info.Message)
+	gen.queue.Add(info)
 }

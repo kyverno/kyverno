@@ -3,43 +3,90 @@ package event
 import (
 	"testing"
 	"unicode/utf8"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestTruncateMessageUTF8(t *testing.T) {
-	// Test that truncation is rune-safe
-	longASCII := make([]rune, 1100)
-	for i := range longASCII {
-		longASCII[i] = 'A'
-	}
-	msg := string(longASCII)
-	if utf8.RuneCountInString(msg) != 1100 {
-		t.Fatalf("expected 1100 runes, got %d", utf8.RuneCountInString(msg))
-	}
-	truncated := msg
-	if utf8.RuneCountInString(truncated) > 1024 {
-		truncated = string([]rune(truncated)[:1021]) + "..."
-	}
-	if utf8.RuneCountInString(truncated) != 1024 {
-		t.Errorf("expected 1024 runes after truncation, got %d", utf8.RuneCountInString(truncated))
+func TestTruncateMessageToByteLimit(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		maxBytes int
+		want     string
+	}{
+		{
+			name:     "short ASCII message",
+			input:    "hello",
+			maxBytes: 1024,
+			want:     "hello",
+		},
+		{
+			name:     "ASCII exactly at limit",
+			input:    string(make([]byte, 1024)),
+			maxBytes: 1024,
+			want:     string(make([]byte, 1024)),
+		},
+		{
+			name:     "ASCII exceeds limit",
+			input:    string(make([]byte, 1100)),
+			maxBytes: 1024,
+			want:     string(make([]byte, 1021)) + "...",
+		},
+		{
+			name:     "multi-byte characters exact boundary",
+			input:    "Hello World",
+			maxBytes: 11,
+			want:     "Hello World",
+		},
+		{
+			name:     "multi-byte characters truncated at rune boundary",
+			input:    "Hello 世界",
+			maxBytes: 8,
+			want:     "Hello ...",
+		},
+		{
+			name:     "emoji truncated at valid boundary",
+			input:    "😀😀😀",
+			maxBytes: 8,
+			want:     "😀....",
+		},
+		{
+			name:     "CJK characters truncated correctly",
+			input:    "你好世界",
+			maxBytes: 7,
+			want:     "你...",
+		},
 	}
 
-	// Test multi-byte characters don't get split
-	multiByte := "Hello \u4e16\u754c World" // Chinese chars
-	if utf8.RuneCountInString(multiByte) <= 1024 {
-		// Should not be truncated
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := truncateMessageToByteLimit(tt.input, tt.maxBytes)
+			assert.Equal(t, tt.want, got)
+			// Verify result is valid UTF-8
+			assert.True(t, utf8.ValidString(got), "result should be valid UTF-8")
+			// Verify length constraint
+			assert.LessOrEqual(t, len(got), tt.maxBytes, "result should not exceed maxBytes")
+		})
 	}
-	// Simulate a very long message with emoji
+}
+
+func TestTruncateMessageWithLongEmoji(t *testing.T) {
+	// Create a long message with emoji (4 bytes each)
 	longEmoji := ""
-	for i := 0; i < 1100; i++ {
-		longEmoji += "\U0001f600" // 😀
+	for i := 0; i < 300; i++ {
+		longEmoji += "😀" // 4 bytes per emoji
 	}
-	truncated = longEmoji
-	if utf8.RuneCountInString(truncated) > 1024 {
-		truncated = string([]rune(truncated)[:1021]) + "..."
-	}
-	// Should end with complete emoji, not half a character
-	lastRune, _ := utf8.DecodeLastRuneInString(truncated)
-	if lastRune == utf8.RuneError {
-		t.Error("truncated message ends with invalid rune")
-	}
+
+	result := truncateMessageToByteLimit(longEmoji, 1024)
+	assert.LessOrEqual(t, len(result), 1024)
+	assert.True(t, utf8.ValidString(result))
+	assert.NotEmpty(t, result)
+}
+
+func TestTruncateMessageWithMixedContent(t *testing.T) {
+	// Mixed ASCII and multi-byte characters
+	mixed := "Hello 世界 Hello 世界"
+	result := truncateMessageToByteLimit(mixed, 15)
+	assert.True(t, utf8.ValidString(result))
+	assert.LessOrEqual(t, len(result), 15)
 }
