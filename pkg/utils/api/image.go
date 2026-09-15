@@ -152,7 +152,7 @@ func extract(
 }
 
 func BuildStandardExtractors(tags ...string) []imageExtractor {
-	extractors := make([]imageExtractor, 0, 3)
+	extractors := make([]imageExtractor, 0, 4)
 	for _, tag := range []string{"initContainers", "containers", "ephemeralContainers"} {
 		t := make([]string, 0, len(tags)+1+1)
 		t = append(t, tags...)
@@ -160,6 +160,15 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 		t = append(t, "*")
 		extractors = append(extractors, imageExtractor{Fields: t, Key: "name", Value: "image", Name: tag})
 	}
+	// OCI image volumes (`spec.volumes[*].image.reference`) mount the contents of an
+	// OCI object as a read-only volume. Extract the referenced image so it is subject
+	// to the same image verification as container images. The image reference lives at
+	// `.image.reference`, so we descend into the `image` object and read `reference`;
+	// volumes without an `image` field are skipped during extraction.
+	v := make([]string, 0, len(tags)+3)
+	v = append(v, tags...)
+	v = append(v, "volumes", "*", "image")
+	extractors = append(extractors, imageExtractor{Fields: v, Key: "", Value: "reference", Name: "imageVolumes"})
 	return extractors
 }
 
