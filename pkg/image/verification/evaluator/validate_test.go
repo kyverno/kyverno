@@ -155,7 +155,7 @@ func Test_Evaluate_NamespacedPolicyGlobalContextDeniedAtRuntime(t *testing.T) {
 			compiled, errs := NewCompiler(ictx, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(gctxPolicy(tt.namespace), nil, nil)
 			require.Empty(t, errs)
 
-			result, err := compiled.Evaluate(context.Background(), ictx, attr, &admissionv1.AdmissionRequest{}, nil, true, libctx)
+			result, err := compiled.Evaluate(context.Background(), ictx, attr, &admissionv1.AdmissionRequest{}, nil, true, nil, libctx)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 				return
