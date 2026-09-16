@@ -12,10 +12,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -117,7 +119,7 @@ func buildExtractionModeRequestPolicy() *policiesv1beta1.ImageValidatingPolicy {
 // pkg/image/verification/evaluator.
 func TestHandleValidating_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
 	policy := buildExtractionModeRequestPolicy()
-	provider, err := NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
 	// The validation only reads request.object, but the default built-in image
@@ -206,7 +208,7 @@ type countingNilThunkCompiledPolicy struct {
 
 func (c *countingNilThunkCompiledPolicy) Evaluate(
 	_ context.Context,
-	_ imagedataloader.ImageContext,
+	_ *imageverify.Runtime,
 	_ admission.Attributes,
 	_ interface{},
 	_ apiruntime.Object,
@@ -221,17 +223,20 @@ func (c *countingNilThunkCompiledPolicy) Evaluate(
 	return &eval.EvaluationResult{Result: true}, nil
 }
 
-func (c *countingNilThunkCompiledPolicy) EnforceRequired(images []string) error { return nil }
+func (c *countingNilThunkCompiledPolicy) EnforceRequired(images []string, _ *imageverify.ImageVerificationResults) error {
+	return nil
+}
 
 func (c *countingNilThunkCompiledPolicy) MutateDigest(
 	context.Context,
-	imagedataloader.ImageContext,
+	*imageverify.Runtime,
 	admission.Attributes,
 	interface{},
 	apiruntime.Object,
 	unstructured.Unstructured,
 	func() (map[string]any, error),
 	config.Configuration,
+	libs.Context,
 ) ([]jsonpatch.JsonPatchOperation, error) {
 	c.t.Fatal("MutateDigest must not be called by evaluateExtractedIv")
 	return nil, nil
@@ -276,7 +281,7 @@ func TestEvaluateExtractedIv_BuildsExactlyOncePerTemplate_NeverSharesOuterThunk(
 
 	compiled := &countingNilThunkCompiledPolicy{t: t}
 	e := &engineImpl{}
-	result, err := e.evaluateExtractedIv(context.Background(), compiled, fakeImageContext{}, attr, request, nil, nil)
+	result, err := e.evaluateExtractedIv(context.Background(), compiled, &imageverify.Runtime{ImageContext: fakeImageContext{}}, attr, request, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Nil(t, result.Error)
