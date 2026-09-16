@@ -31,7 +31,13 @@ type DeprecationWarning struct {
 	Version string
 	Kind    string
 	Field   string
-	Message string
+	// Replacement is the policies.kyverno.io equivalent(s) for the kind, on its
+	// own (for example "DeletingPolicy"), without the surrounding removal notice
+	// or migration URL. Callers that want a compact "kind -> target" rendering
+	// use this instead of parsing it back out of Message. Empty for field-level
+	// warnings.
+	Replacement string
+	Message     string
 }
 
 // Warning returns a deprecation warning for the given legacy kyverno.io kind,
@@ -57,14 +63,46 @@ func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
 		apiVersion = fmt.Sprintf("%s/%s", group, version)
 	}
 	return DeprecationWarning{
-		Group:   group,
-		Version: version,
-		Kind:    kind,
+		Group:       group,
+		Version:     version,
+		Kind:        kind,
+		Replacement: replacement,
 		Message: fmt.Sprintf(
 			"%s %s is deprecated and will be removed in a future release; migrate to %s (policies.kyverno.io), see %s",
 			apiVersion, kind, replacement, MigrationGuideURL,
 		),
 	}, true
+}
+
+// IsLegacyPolicyKind reports whether kind (in the given group) is one of the legacy
+// kyverno.io policy kinds subject to the 1.20 write-time block on creates/spec-updates.
+func IsLegacyPolicyKind(group, kind string) bool {
+	if group != "kyverno.io" {
+		return false
+	}
+	_, ok := replacements[kind]
+	return ok
+}
+
+// BuildKindError returns a hard error rejecting a create or spec-changing update of a legacy
+// kyverno.io policy kind, or false if the kind is not a legacy policy type. It reuses the same
+// replacements table and migration URL as BuildKindWarning so the two messages stay consistent.
+func BuildKindError(group, version, kind string) (error, bool) {
+	if group != "kyverno.io" {
+		return nil, false
+	}
+	replacement, ok := replacements[kind]
+	if !ok {
+		return nil, false
+	}
+	apiVersion := group
+	if version != "" {
+		apiVersion = fmt.Sprintf("%s/%s", group, version)
+	}
+	return fmt.Errorf(
+		"%s %s is no longer accepted for create, or for an update that changes spec; migrate to %s (policies.kyverno.io), see %s",
+		apiVersion, kind, replacement, MigrationGuideURL,
+	), true
 }
 
 // PolicyFieldWarnings returns field-level deprecation warnings for legacy policy fields.

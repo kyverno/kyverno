@@ -114,6 +114,12 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
+	// policyRule matches create and update requests for the legacy kyverno.io
+	// ClusterPolicy and Policy kinds. Keep APIVersions as "v1" and "v2beta1"
+	// unchanged in 1.20 so admission coverage of legacy writes is not altered;
+	// the engine returns the 1.20 hard error on those writes (see
+	// deprecations.BuildKindError and #17491). The legacy versions are removed
+	// in 1.21.
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
@@ -1051,7 +1057,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 
 	validate = append(validate, buildWebhookRules(cfg,
 		c.server,
-		config.ImageValidatingPolicyMutateWebhookName,
+		config.NamespacedImageValidatingPolicyMutateWebhookName,
 		"/nivpol/mutate",
 		c.servicePort,
 		caBundle,
@@ -1348,7 +1354,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	}
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
-		config.ImageValidatingPolicyValidateWebhookName,
+		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",
 		c.servicePort,
 		caBundle,
