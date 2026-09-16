@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
@@ -237,6 +239,13 @@ func (e *engineImpl) handleMutation(
 	}
 	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, imageverifycache.DisabledImageVerifyCache())
 
+	// Built at most once for the whole loop, lazily: matching happens per policy
+	// inside the loop below (matchPolicy), before MutateDigest is ever called, so
+	// a request whose policies all fail to match never pays this cost.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildRawRequestMap(request)
+	})
+
 	var patches []jsonpatch.JsonPatchOperation
 	var responses []eval.ImageVerifyPolicyResponse
 	seen := map[string]bool{}
@@ -275,7 +284,7 @@ func (e *engineImpl) handleMutation(
 			// compile errors are surfaced by the validating webhook, skip mutation
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, e.configuration)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, requestMapFn, e.configuration)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -371,7 +380,13 @@ func (e *engineImpl) evaluateExtractedIv(
 		}
 		originalRequest, _ := request.(*admissionv1.AdmissionRequest)
 		synthRequest := extract.SynthesizePodAdmissionRequest(originalRequest, synthAttr)
-		result, err := compiled.Evaluate(ctx, ictx, synthAttr, synthRequest, namespace, true, libctx)
+		// nil requestMapFn: the synthesized request embeds a different
+		// object/oldObject than the outer hoisted map, so it must be rebuilt from
+		// scratch for each synthetic Pod (see prepareK8sData's nil-fallback). This
+		// is still exactly one build per template -- Evaluate calls prepareK8sData
+		// once per call -- not one per (matchConditions + exceptions) as it would
+		// be if match still assembled its own data.
+		result, err := compiled.Evaluate(ctx, ictx, synthAttr, synthRequest, namespace, true, nil, libctx)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
@@ -504,6 +519,15 @@ func (e *engineImpl) evaluatePolicies(
 	// match and inject none at all, breaking images.containers/initContainers.
 	podRequestResource := &metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
 	podCompiler := eval.NewCompiler(ictx, e.lister, podRequestResource, e.ivCache)
+	// Built at most once for the whole loop, lazily: the thunk is only
+	// invoked when a policy's Evaluate reaches prepareK8sData, and memoized
+	// so every policy after the first reuses the same map. Never passed to
+	// extraction-mode policies (evaluateExtractedIv builds per template) --
+	// their synthesized requests embed a different object/oldObject than the
+	// outer request.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildRawRequestMap(request)
+	})
 	// shared by every policy compiled below, so required sees cross-policy evidence
 	verifications := imageverify.NewImageVerificationResults()
 	// resolved after the loop: evidence may come from a policy evaluated later
@@ -530,7 +554,7 @@ func (e *engineImpl) evaluatePolicies(
 		if ivpol.ExtractionMode {
 			result, err = e.evaluateExtractedIv(ctx, compiled, ictx, attr, request, namespace, libctx)
 		} else {
-			result, err = compiled.Evaluate(ctx, ictx, attr, request, namespace, true, libctx)
+			result, err = compiled.Evaluate(ctx, ictx, attr, request, namespace, true, requestMapFn, libctx)
 		}
 		if err != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
