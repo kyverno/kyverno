@@ -731,11 +731,6 @@ func applyImageValidatingPolicies(
 	gceMap map[string]interface{},
 	operation string,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
 	var lister corev1listers.SecretLister
 	if dclient != nil {
 		// this informer technically lives for the duration of the cli command..
@@ -750,14 +745,6 @@ func applyImageValidatingPolicies(
 
 		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
-	engine := ivpolengine.NewEngine(
-		provider,
-		namespaceProvider,
-		matching.NewMatcher(),
-		lister,
-		imageverifycache.DisabledImageVerifyCache(),
-		config.NewDefaultConfiguration(false),
-	)
 
 	if restMapper == nil {
 		var mapErr error
@@ -770,6 +757,21 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
+
+	// Compilation captures the CLI library defaults, so initialize them first.
+	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := ivpolengine.NewEngine(
+		provider,
+		namespaceProvider,
+		matching.NewMatcher(),
+		lister,
+		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
+	)
 
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {

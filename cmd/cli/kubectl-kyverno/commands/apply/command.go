@@ -688,10 +688,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if len(ivps) == 0 {
 		return nil, nil
 	}
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
 
 	var lister corev1listers.SecretLister
 	if dclient != nil {
@@ -707,14 +703,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
-	engine := ivpolengine.NewEngine(
-		provider,
-		namespaceProvider,
-		matching.NewMatcher(),
-		lister,
-		imageverifycache.DisabledImageVerifyCache(),
-		config.NewDefaultConfiguration(false),
-	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
@@ -724,6 +712,21 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
+
+	// Compilation captures the CLI library defaults, so initialize them first.
+	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := ivpolengine.NewEngine(
+		provider,
+		namespaceProvider,
+		matching.NewMatcher(),
+		lister,
+		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
+	)
 
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
