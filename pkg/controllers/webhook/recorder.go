@@ -38,10 +38,11 @@ func (s *Recorder) Ready(key string) (bool, bool) {
 
 func (s *Recorder) Record(key string) {
 	s.lock.Lock()
+	ready, ok := s.data[key]
 	s.data[key] = true
 	s.lock.Unlock()
 
-	if s.notifyChan != nil {
+	if s.notifyChan != nil && (!ok || !ready) {
 		s.notifyChan <- key
 	}
 }

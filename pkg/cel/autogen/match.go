@@ -71,6 +71,20 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 	if len(conditions) == 0 {
 		return conditions
 	}
+	// Extraction targets' Spec (and therefore its MatchConditions) is never
+	// rewritten - it's still written against a Pod (see
+	// ExtractionReplacementsRef). Wrapping it here would make it an
+	// API-server-level matchCondition evaluated against the raw parent
+	// object (e.g. a JobSet), before Kyverno's webhook - and before
+	// extraction ever runs - so it would almost always spuriously fail and
+	// silently prevent the webhook from being invoked at all. The
+	// corresponding ResourceRules (added independently by the caller) already
+	// scope the webhook to the right GVR/operations; the policy's own
+	// MatchConditions are correctly re-evaluated inside the engine, once per
+	// synthesized Pod, after extraction.
+	if config == ExtractionReplacementsRef {
+		return nil
+	}
 	preconditions := sets.New[string]()
 	for _, target := range targets {
 		apiVersion := target.Group

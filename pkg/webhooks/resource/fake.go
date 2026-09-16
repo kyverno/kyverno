@@ -43,7 +43,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 	urLister := kyvernoInformers.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 	peLister := kyvernoInformers.Kyverno().V2().PolicyExceptions().Lister()
 	jp := jmespath.New(configuration)
-	rclient := registryclient.New(nil, "", "", "", false)
+	rclient := registryclient.New()
 	_ = reportutils.NewReportingConfig([]string{"pass", "fail", "warn", "error", "skip"}, "validate", "mutate", "mutateExisiting", "generate", "imageVerify")
 
 	return &resourceHandlers{

@@ -57,3 +57,52 @@ func TestRecordDoesNotBlockOtherMethods(t *testing.T) {
 	assert.True(t, ok, "key should exist in data map")
 	assert.True(t, ready, "key should be marked as ready")
 }
+func TestRecordNotifiesOnlyOnStateChange(t *testing.T) {
+	t.Parallel()
+
+	notifyChan := make(chan string, 2)
+	recorder := NewStateRecorder(notifyChan)
+
+	recorder.Record("test-key")
+
+	select {
+	case key := <-notifyChan:
+		assert.Equal(t, "test-key", key)
+	case <-time.After(time.Second):
+		t.Fatal("expected notification for first Record")
+	}
+
+	recorder.Record("test-key")
+
+	select {
+	case key := <-notifyChan:
+		t.Fatalf("unexpected notification for unchanged state: %s", key)
+	case <-time.After(100 * time.Millisecond):
+		// Expected: no notification.
+	}
+}
+
+func TestRecordNotifiesAfterReset(t *testing.T) {
+	t.Parallel()
+
+	notifyChan := make(chan string, 2)
+	recorder := NewStateRecorder(notifyChan)
+
+	recorder.Record("test-key")
+
+	select {
+	case <-notifyChan:
+	case <-time.After(time.Second):
+		t.Fatal("expected notification for first Record")
+	}
+
+	recorder.Reset()
+	recorder.Record("test-key")
+
+	select {
+	case key := <-notifyChan:
+		assert.Equal(t, "test-key", key)
+	case <-time.After(time.Second):
+		t.Fatal("expected notification after Reset")
+	}
+}
