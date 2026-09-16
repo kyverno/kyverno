@@ -13,11 +13,10 @@ type PathSegment struct {
 }
 
 // Extracted is a single pod-template-shaped subtree found inside a custom
-// workload resource, together with the path it was found at (for
-// diagnostics only).
+// workload resource.
 type Extracted struct {
 	Template map[string]any
-	Path     string
+	Path     string        // display string,
 	Segments []PathSegment // for patch rebasing
 }
 

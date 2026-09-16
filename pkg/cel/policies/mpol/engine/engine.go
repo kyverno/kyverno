@@ -233,12 +233,12 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	}
 	var result *compiler.EvaluationResult
 	switch {
-		case mpol.ExtractionMode:
-			result = e.evaluateExtractedMutation(ctx, mpol, attr, request, namespace, target)
-		case target:
-			result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
-		default:
-			result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
+	case mpol.ExtractionMode:
+		result = e.evaluateExtractedMutation(ctx, mpol, attr, request, namespace, target)
+	case target:
+		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
+	default:
+		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
 	}
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "skip", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
@@ -336,10 +336,15 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 	if usingOld {
 		other = newObj
 	}
+
+	// Old and new templates are matched by array position.
+	// Reordering entries can therefore pair the wrong templates.
+	// Since extraction is schema-agnostic, we can't use list-map keys
+	// (such as "name") to match them. This is a known limitation.
 	otherByPath := map[string]extract.Extracted{}
 	if other != nil && len(other.Object) > 0 {
 		for _, t := range extract.ExtractPodTemplates(other.Object) {
-			otherByPath[t.Path] = t
+			otherByPath[t.JSONPointerPrefix()] = t
 		}
 	}
 
@@ -354,7 +359,7 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 
 	for _, tpl := range templates {
 		var otherTpl *extract.Extracted
-		if o, ok := otherByPath[tpl.Path]; ok {
+		if o, ok := otherByPath[tpl.JSONPointerPrefix()]; ok {
 			otherTpl = &o
 		}
 
@@ -407,6 +412,14 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		if err != nil {
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: computing patch: %w", tpl.Path, err)}
 		}
+
+		for k, v := range result.AuditAnnotations {
+			if mergedAudit == nil {
+				mergedAudit = map[string]string{}
+			}
+			mergedAudit[k] = v
+		}
+
 		if len(podPatch) == 0 {
 			continue // this template's mutation was a no-op
 		}
@@ -419,12 +432,6 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		working = patched
 		mutated = true
 
-		for k, v := range result.AuditAnnotations {
-			if mergedAudit == nil {
-				mergedAudit = map[string]string{}
-			}
-			mergedAudit[k] = v
-		}
 	}
 
 	// No template matched at all (every one returned nil from
@@ -493,10 +500,12 @@ func applyPatchOp(node any, tokens []string, op string, value any) (any, error) 
 	case map[string]any:
 		if len(rest) == 0 {
 			switch op {
+			case "add", "replace":
+				v[token] = value
 			case "remove":
 				delete(v, token)
-			default: // add, replace
-				v[token] = value
+			default:
+				return nil, fmt.Errorf("unsupported patch operation %q", op)
 			}
 			return v, nil
 		}
@@ -534,12 +543,14 @@ func applyPatchOp(node any, tokens []string, op string, value any) (any, error) 
 				out = append(out, v[:idx]...)
 				out = append(out, value)
 				return append(out, v[idx:]...), nil
-			default: // replace
+			case "replace":
 				if idx < 0 || idx >= len(v) {
 					return nil, fmt.Errorf("array index %d out of range (len %d)", idx, len(v))
 				}
 				v[idx] = value
 				return v, nil
+			default:
+				return nil, fmt.Errorf("unsupported patch operation %q", op)
 			}
 		}
 		if idx < 0 || idx >= len(v) {
