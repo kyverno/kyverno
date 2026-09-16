@@ -104,6 +104,7 @@ type ApplyCommandConfig struct {
 	GitPassword               string
 	warnExitCode              int
 	warnNoPassed              bool
+	warningsAsErrors          bool
 	Exception                 []string
 	ContinueOnFail            bool
 	inlineExceptions          bool
@@ -120,6 +121,7 @@ type ApplyCommandConfig struct {
 	ContinueOnError           bool
 	ShowPerformance           bool
 	CrdPaths                  []string
+	deprecationWarnings       []string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -239,6 +241,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
+	cmd.Flags().BoolVar(&applyCommandConfig.warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
@@ -265,6 +268,7 @@ func Command() *cobra.Command {
 
 func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
+	c.deprecationWarnings = nil
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -297,8 +301,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(out)
 	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps)+len(cps))
@@ -389,9 +396,17 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 		}
 		if results != nil {
+			for _, warning := range results.Warnings {
+				msg := fmt.Sprintf("Warning: %s", warning)
+				fmt.Fprintln(out, msg)
+				c.deprecationWarnings = append(c.deprecationWarnings, msg)
+			}
 			exceptions = results.Exceptions
 			celExceptions = results.CELExceptions
 		}
+	}
+	if err := c.failOnDeprecationWarnings(); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 
 	if c.exceptionsWithinPolicies {
@@ -1072,7 +1087,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies() (
+func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
@@ -1145,6 +1160,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				if err != nil {
 					continue
 				}
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1171,6 +1187,7 @@ func (c *ApplyCommandConfig) loadPolicies() (
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1195,6 +1212,21 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		}
 	}
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
+}
+
+func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {
+	for _, warning := range warnings {
+		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
+		fmt.Fprintln(out, msg)
+		c.deprecationWarnings = append(c.deprecationWarnings, msg)
+	}
+}
+
+func (c *ApplyCommandConfig) failOnDeprecationWarnings() error {
+	if c.warningsAsErrors && len(c.deprecationWarnings) > 0 {
+		return fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(c.deprecationWarnings))
+	}
+	return nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {

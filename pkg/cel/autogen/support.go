@@ -8,7 +8,8 @@ import (
 // It returns false if:
 //   - the matching logic has an object selector
 //   - the matching logic has exclusion rules
-//   - the matching logic matches more than one resource and it's not pods
+//   - the matching logic does not match pods
+//   - the matching logic matches resources other than pods and pods/ephemeralcontainers
 //   - the matching logic filters on resource names
 func CanAutoGen(match *admissionregistrationv1.MatchResources) bool {
 	if match == nil {
@@ -35,8 +36,18 @@ func CanAutoGen(match *admissionregistrationv1.MatchResources) bool {
 	if len(rule.APIVersions) != 1 || rule.APIVersions[0] != "v1" {
 		return false
 	}
-	if len(rule.Resources) != 1 || rule.Resources[0] != "pods" {
+	if len(rule.Resources) == 0 {
 		return false
 	}
-	return true
+	hasPods := false
+	for _, resource := range rule.Resources {
+		switch resource {
+		case "pods":
+			hasPods = true
+		case "pods/ephemeralcontainers":
+		default:
+			return false
+		}
+	}
+	return hasPods
 }

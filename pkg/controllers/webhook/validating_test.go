@@ -4,14 +4,19 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -326,6 +331,134 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
 				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
 				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules))
+
+				if expect.MatchConditions != nil {
+					assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
+				}
+				if expect.MatchPolicy != nil {
+					assert.Equal(t, expect.MatchPolicy, webhooks[i].MatchPolicy)
+				}
+				if expect.TimeoutSeconds != nil {
+					assert.Equal(t, expect.TimeoutSeconds, webhooks[i].TimeoutSeconds)
+				}
+				if expect.ClientConfig.Service != nil {
+					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
+				}
+				if expect.NamespaceSelector != nil {
+					assert.Equal(t, expect.NamespaceSelector, webhooks[i].NamespaceSelector)
+				}
+				if expect.ObjectSelector != nil {
+					assert.Equal(t, expect.ObjectSelector, webhooks[i].ObjectSelector)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
+	tests := []struct {
+		name             string
+		nvpols           []*policiesv1beta1.NamespacedValidatingPolicy
+		expectedWebhooks []admissionregistrationv1.ValidatingWebhook
+	}{
+		{
+			name: "Autogen Single Ignore Policy",
+			nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-nvpol",
+						Namespace: "test-ns",
+					},
+					Spec: policiesv1beta1.ValidatingPolicySpec{
+						FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{""},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"pods"},
+											Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedWebhooks: []admissionregistrationv1.ValidatingWebhook{
+				{
+					Name: config.NamespacedValidatingPolicyWebhookName + "-ignore",
+					Rules: []admissionregistrationv1.RuleWithOperations{
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"daemonsets", "deployments", "replicasets", "statefulsets"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"batch"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"jobs"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+						{
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"batch"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"cronjobs"},
+								Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+							},
+						},
+					},
+					FailurePolicy: ptr.To(admissionregistrationv1.Ignore),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expressionCache := NewExpressionCache()
+			var nvpols []engineapi.GenericPolicy
+			for _, nvpol := range tt.nvpols {
+				nvpols = append(nvpols, engineapi.NewNamespacedValidatingPolicy(nvpol))
+				expressionCache.AddPolicyExpressions(nvpol.GetMatchConditions())
+			}
+			webhooks := buildWebhookRules(
+				config.NewDefaultConfiguration(false),
+				"",
+				config.NamespacedValidatingPolicyWebhookName,
+				"/nvpol",
+				0,
+				nil,
+				nvpols,
+				expressionCache,
+			)
+			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
+			for i, expect := range tt.expectedWebhooks {
+				assert.Equal(t, expect.Name, webhooks[i].Name)
+				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
+				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules), fmt.Sprintf("expected: %v,\n got: %v", expect.Rules, webhooks[i].Rules))
 
 				if expect.MatchConditions != nil {
 					assert.Equal(t, expect.MatchConditions, webhooks[i].MatchConditions)
@@ -745,19 +878,14 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 		rules := buildRules(t, ivpol)
 		assert.Contains(t, resourcesOf(rules), "pods/ephemeralcontainers")
 
-		// Related gap (tracked separately, not part of #16275/#16336): CanAutoGen
-		// (pkg/cel/autogen/support.go) requires the rule's Resources to be exactly
-		// ["pods"], so opting into ephemeral container coverage currently disables
-		// autogen entirely -- the resulting webhook has no extra rules for
-		// Deployments/DaemonSets/Jobs/CronJobs/etc. Assert that here so a future
-		// change to either behavior is caught.
-		assert.Len(t, rules, 1, "expected autogen to be disabled once pods/ephemeralcontainers is added")
+		assert.Len(t, rules, 4, "expected autogen to remain enabled with pods/ephemeralcontainers")
 	})
 
 	t.Run("matching pods alone does not implicitly cover ephemeral containers", func(t *testing.T) {
 		ivpol := newIVPol([]string{"pods"})
 		rules := buildRules(t, ivpol)
 		assert.NotContains(t, resourcesOf(rules), "pods/ephemeralcontainers")
+		assert.Len(t, rules, 4)
 	})
 }
 
@@ -1323,4 +1451,101 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 			assert.Contains(t, *webhook.ClientConfig.Service.Path, "policy-b")
 		}
 	}
+}
+
+// newImageValidatingPolicyTestController returns a controller that can run the
+// JSON policy webhook builders: every policy lister they read is set, only the
+// image validating listers hold policies, and the health lease is fresh so
+// watchdogCheck passes.
+func newImageValidatingPolicyTestController(t *testing.T, ivpol *policiesv1beta1.ImageValidatingPolicy, nivpol *policiesv1beta1.NamespacedImageValidatingPolicy) *controller {
+	t.Helper()
+	newIndexer := func(objs ...any) cache.Indexer {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		for _, obj := range objs {
+			assert.NoError(t, indexer.Add(obj))
+		}
+		return indexer
+	}
+	lease := &coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "kyverno-health",
+			Namespace:   config.KyvernoNamespace(),
+			Annotations: map[string]string{AnnotationLastRequestTime: time.Now().Format(time.RFC3339)},
+		},
+	}
+	return &controller{
+		vpolLister:         policiesv1beta1listers.NewValidatingPolicyLister(newIndexer()),
+		nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(newIndexer()),
+		gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(newIndexer()),
+		ngpolLister:        policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(newIndexer()),
+		mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(newIndexer()),
+		nmpolLister:        policiesv1beta1listers.NewNamespacedMutatingPolicyLister(newIndexer()),
+		ivpolLister:        policiesv1beta1listers.NewImageValidatingPolicyLister(newIndexer(ivpol)),
+		nivpolLister:       policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(newIndexer(nivpol)),
+		leaseLister:        coordinationv1listers.NewLeaseLister(newIndexer(lease)),
+		stateRecorder:      NewStateRecorder(nil),
+		celExpressionCache: NewExpressionCache(),
+	}
+}
+
+func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *testing.T) {
+	matchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       ptr.To(admissionregistrationv1.ScopeType("*")),
+					},
+				},
+			},
+		},
+	}
+
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-images",
+		},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	nivpol := &policiesv1beta1.NamespacedImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "check-images",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: matchConstraints,
+		},
+	}
+
+	c := newImageValidatingPolicyTestController(t, ivpol, nivpol)
+	cfg := config.NewDefaultConfiguration(false)
+
+	validating := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesValidation(cfg, nil, validating))
+	var validatingNames []string
+	for _, w := range validating.Webhooks {
+		validatingNames = append(validatingNames, w.Name)
+	}
+	assert.ElementsMatch(t, []string{
+		config.ImageValidatingPolicyValidateWebhookName + "-fail",
+		config.NamespacedImageValidatingPolicyValidateWebhookName + "-fail",
+	}, validatingNames)
+
+	mutating := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	assert.NoError(t, c.buildForJSONPoliciesMutation(cfg, nil, mutating))
+	var mutatingNames []string
+	for _, w := range mutating.Webhooks {
+		mutatingNames = append(mutatingNames, w.Name)
+	}
+	assert.ElementsMatch(t, []string{
+		config.ImageValidatingPolicyMutateWebhookName + "-fail",
+		config.NamespacedImageValidatingPolicyMutateWebhookName + "-fail",
+	}, mutatingNames)
 }

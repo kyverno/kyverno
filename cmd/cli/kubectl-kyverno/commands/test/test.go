@@ -70,7 +70,8 @@ type TestResponse struct {
 	SkippedPolicies    map[string]string
 }
 
-func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
+	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
 
@@ -115,6 +116,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {
 			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+		}
+	}
+	if results != nil && results.Warnings != nil {
+		for _, warning := range results.Warnings {
+			fmt.Fprintf(out, "  Warning: %s: %s\n", warning.Path, warning.Warning)
+		}
+		if failOnWarnings && len(results.Warnings) > 0 {
+			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(results.Warnings))
 		}
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
@@ -296,6 +305,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	polexLoader, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
+	}
+	if polexLoader != nil && polexLoader.Warnings != nil {
+		for _, warning := range polexLoader.Warnings {
+			fmt.Fprintf(out, "  Warning: %s\n", warning)
+		}
+		if failOnWarnings && len(polexLoader.Warnings) > 0 {
+			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(polexLoader.Warnings))
+		}
 	}
 	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")

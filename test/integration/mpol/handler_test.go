@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 
 	// Use exception-enabled engine for all tests. When no PolicyExceptions exist,
 	// behavior is identical to the non-exception engine (ListExceptions returns nil).
-	engine, provider, err = framework.NewMpolEngineWithExceptions(context.Background(), testEnv.Mgr, testEnv.KubeClient, testEnv.KyvernoClient, testEnv.ContextProvider)
+	engine, provider, err = framework.NewMpolEngineWithExceptions(context.Background(), testEnv.Mgr, testEnv.KubeClient, testEnv.ContextProvider)
 	if err != nil {
 		testEnv.Stop()
 		panic(err)

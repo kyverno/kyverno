@@ -46,6 +46,20 @@ type entry struct {
 	projected   map[string]interface{}
 }
 
+// newOnceStop returns the entry's stop function: it cancels the informer
+// context and waits for the background group to terminate, exactly once, so
+// repeated or concurrent Stop calls are safe and never re-run the teardown.
+func newOnceStop(cancel context.CancelFunc, group *wait.Group) func() {
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			cancel()
+			// Wait for the group to terminate
+			group.Wait()
+		})
+	}
+}
+
 func New(
 	ctx context.Context,
 	gce *kyvernov2beta1.GlobalContextEntry,
@@ -67,11 +81,7 @@ func New(
 
 	var group wait.Group
 	ctx, cancel := context.WithCancel(ctx)
-	stop := func() {
-		cancel()
-		// Wait for the group to terminate
-		group.Wait()
-	}
+	stop := newOnceStop(cancel, &group)
 
 	err := informer.Informer().SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		eventErr := fmt.Errorf("failed to run informer for %s", gvr)
