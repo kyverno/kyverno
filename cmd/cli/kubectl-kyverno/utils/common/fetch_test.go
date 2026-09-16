@@ -2,6 +2,7 @@ package common
 
 import (
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/go-git/go-billy/v5"
@@ -12,6 +13,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -236,6 +238,71 @@ func TestExtractResourcesFromPolicies_NewBranches(t *testing.T) {
 			// Should not panic; the branch assigns matchResources
 			// and getKindsFromPolicy handles the fake client gracefully.
 			rf.extractResourcesFromPolicies(info)
+		})
+	}
+}
+
+func TestGetFromCluster_HyphenatedResource(t *testing.T) {
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name":      "my-test-pod",
+				"namespace": "kube-system",
+			},
+		},
+	}
+
+	dClient, err := dclient.NewFakeClient(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{
+			{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+		},
+		pod,
+	)
+	if err != nil {
+		t.Fatalf("failed to create fake client: %v", err)
+	}
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+		{Group: "", Version: "v1", Resource: "pods"},
+	}))
+
+	testPaths := []string{
+		"my-test-pod",
+		"my-test-pod.yaml",
+		"manifests/my-test-pod.yaml",
+		"/path/to/my-test-pod.yml",
+	}
+
+	for _, resourcePath := range testPaths {
+		t.Run(resourcePath, func(t *testing.T) {
+			rf := &ResourceFetcher{
+				Client:        dClient,
+				Cluster:       true,
+				Out:           io.Discard,
+				ResourcePaths: []string{resourcePath},
+				Policies: []engineapi.GenericPolicy{
+					engineapi.NewMutatingPolicy(&policiesv1beta1.MutatingPolicy{
+						Spec: policiesv1beta1.MutatingPolicySpec{
+							MatchConstraints: makeMatchResources("", "pods"),
+						},
+					}),
+				},
+			}
+
+			resources, err := rf.getFromCluster()
+			if err != nil {
+				t.Fatalf("getFromCluster() error = %v", err)
+			}
+
+			if len(resources) != 1 {
+				t.Fatalf("expected 1 resource, got %d", len(resources))
+			}
+
+			if resources[0].GetName() != "my-test-pod" {
+				t.Errorf("expected resource name 'my-test-pod', got %v", resources[0].GetName())
+			}
 		})
 	}
 }

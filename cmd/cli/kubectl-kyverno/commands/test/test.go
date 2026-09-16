@@ -13,7 +13,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	"github.com/kyverno/kyverno-json/pkg/payload"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -22,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/path"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
@@ -70,7 +70,8 @@ type TestResponse struct {
 	SkippedPolicies    map[string]string
 }
 
-func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestResponse, error) {
+func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
+	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
 
@@ -115,6 +116,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {
 			fmt.Fprintf(out, "  ERROR: %s: %s\n", e.Path, e.Error)
+		}
+	}
+	if results != nil && results.Warnings != nil {
+		for _, warning := range results.Warnings {
+			fmt.Fprintf(out, "  Warning: %s: %s\n", warning.Path, warning.Warning)
+		}
+		if failOnWarnings && len(results.Warnings) > 0 {
+			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(results.Warnings))
 		}
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
@@ -296,6 +305,14 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool) (*TestR
 	polexLoader, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
+	}
+	if polexLoader != nil && polexLoader.Warnings != nil {
+		for _, warning := range polexLoader.Warnings {
+			fmt.Fprintf(out, "  Warning: %s\n", warning)
+		}
+		if failOnWarnings && len(polexLoader.Warnings) > 0 {
+			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(polexLoader.Warnings))
+		}
 	}
 	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
@@ -702,11 +719,6 @@ func applyImageValidatingPolicies(
 	gceMap map[string]interface{},
 	operation string,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
 	var lister corev1listers.SecretLister
 	if dclient != nil {
 		// this informer technically lives for the duration of the cli command..
@@ -721,14 +733,6 @@ func applyImageValidatingPolicies(
 
 		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
-	engine := ivpolengine.NewEngine(
-		provider,
-		namespaceProvider,
-		matching.NewMatcher(),
-		lister,
-		imageverifycache.DisabledImageVerifyCache(),
-		config.NewDefaultConfiguration(false),
-	)
 
 	if restMapper == nil {
 		var mapErr error
@@ -741,6 +745,21 @@ func applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
+
+	// Compilation captures the CLI library defaults, so initialize them first.
+	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := ivpolengine.NewEngine(
+		provider,
+		namespaceProvider,
+		matching.NewMatcher(),
+		lister,
+		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
+	)
 
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {

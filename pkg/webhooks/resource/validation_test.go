@@ -2078,7 +2078,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 	}
 	cfg := config.NewDefaultConfiguration(false)
 	jp := jmespath.New(cfg)
-	rclient := registryclient.New(nil, "", "", "", false)
+	rclient := registryclient.New()
 	eng := engine.NewEngine(
 		cfg,
 		jp,
@@ -2180,7 +2180,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx = ctx.WithPolicy(&policy)
-	rclient := registryclient.New(nil, "", "", "", false)
+	rclient := registryclient.New()
 	eng := engine.NewEngine(
 		cfg,
 		jp,
