@@ -56,11 +56,12 @@ type controller struct {
 }
 
 const (
-	maxRetries       = 10
-	Workers          = 3
-	ControllerName   = "deleting-controller"
-	minRequeueDelay  = 1 * time.Second
-	deletingPageSize = 500
+	maxRetries            = 10
+	Workers               = 3
+	ControllerName        = "deleting-controller"
+	minRequeueDelay       = 1 * time.Second
+	deletingPageSize      = 500
+	maxPaginationRestarts = 3
 )
 
 func NewController(
@@ -232,9 +233,15 @@ func (c *controller) deleting(ctx context.Context, logger logr.Logger, ePolicy e
 			}
 
 			var continueToken string
+			paginationRestarts := 0
 			for {
 				list, err := client.List(ctx, metav1.ListOptions{LabelSelector: selector.String(), Limit: deletingPageSize, Continue: continueToken})
 				if err != nil {
+					if apierrors.IsResourceExpired(err) && continueToken != "" && paginationRestarts < maxPaginationRestarts {
+						paginationRestarts++
+						continueToken = ""
+						continue
+					}
 					debug.Error(err, "failed to list resources")
 					// record failure metric
 					if c.metrics != nil {

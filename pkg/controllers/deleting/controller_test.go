@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -590,6 +591,221 @@ func TestDeleting_NamespaceSelector(t *testing.T) {
 	// Verify that only the selected namespace was listed.
 	assert.Equal(t, 1, len(listActions), "Expected exactly 1 list action because ns-dev should be filtered out")
 	assert.Equal(t, "ns-prod", listActions[0].GetNamespace(), "Expected the controller to only list resources in ns-prod")
+}
+
+func TestDeleting_ResourceExpiredPaginationToken(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockConfig := mocks.NewMockConfiguration(ctrl)
+
+	mockConfig.EXPECT().
+		ToFilter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(false).
+		AnyTimes()
+
+	scheme := runtime.NewScheme()
+
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{
+			Group:   "",
+			Version: "v1",
+		},
+	})
+
+	mapper.Add(
+		schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "Pod",
+		},
+		meta.RESTScopeNamespace,
+	)
+
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+	}
+
+	dynClient := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(
+		scheme,
+		gvrToListKind,
+	)
+
+	pod := func(name, namespace string) unstructured.Unstructured {
+		return unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata": map[string]interface{}{
+					"name":      name,
+					"namespace": namespace,
+				},
+			},
+		}
+	}
+
+	kubeClient := kubeclientfake.NewSimpleClientset()
+
+	fakeDiscovery, ok := kubeClient.Discovery().(*fakediscovery.FakeDiscovery)
+	if ok {
+		fakeDiscovery.Resources = []*metav1.APIResourceList{
+			{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{
+						Name:       "pods",
+						Kind:       "Pod",
+						Namespaced: true,
+					},
+				},
+			},
+		}
+	}
+
+	var listActions []clienttesting.ListAction
+
+	dynClient.PrependReactor(
+		"list",
+		"*",
+		func(action clienttesting.Action) (bool, runtime.Object, error) {
+			listAction := action.(clienttesting.ListAction)
+			listActions = append(listActions, listAction)
+
+			switch len(listActions) {
+			case 1:
+				list := &unstructured.UnstructuredList{}
+				list.SetGroupVersionKind(
+					schema.GroupVersionKind{
+						Version: "v1",
+						Kind:    "PodList",
+					},
+				)
+				list.Items = []unstructured.Unstructured{
+					pod("pod-1", "ns1"),
+				}
+				list.SetContinue("expired-token")
+
+				return true, list, nil
+
+			case 2:
+				return true, nil, apierrors.NewResourceExpired(
+					"expired-token",
+				)
+
+			case 3:
+				list := &unstructured.UnstructuredList{}
+				list.SetGroupVersionKind(
+					schema.GroupVersionKind{
+						Version: "v1",
+						Kind:    "PodList",
+					},
+				)
+				list.Items = []unstructured.Unstructured{
+					pod("pod-1", "ns1"),
+				}
+				list.SetContinue("token-2")
+
+				return true, list, nil
+
+			case 4:
+				list := &unstructured.UnstructuredList{}
+				list.SetGroupVersionKind(
+					schema.GroupVersionKind{
+						Version: "v1",
+						Kind:    "PodList",
+					},
+				)
+				list.Items = []unstructured.Unstructured{
+					pod("pod-2", "ns1"),
+				}
+
+				return true, list, nil
+			}
+
+			return true, &unstructured.UnstructuredList{}, nil
+		},
+	)
+
+	nsLister := &mockNamespaceLister{
+		namespaces: []*corev1.Namespace{
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns1"}},
+		},
+	}
+
+	mockClient := &mockDClient{
+		dyn:  dynClient,
+		kube: kubeClient,
+	}
+
+	mockEventGen := &mockEventGenerator{}
+
+	pol := policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-resource-expired",
+		},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			Conditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "always-true",
+					Expression: "true",
+				},
+			},
+		},
+	}
+
+	compiler := enginecompiler.NewCompiler()
+
+	compiledPolicy, errs := compiler.Compile(&pol, nil)
+	assert.Empty(t, errs)
+
+	ePolicy := dpolengine.Policy{
+		Policy:         &pol,
+		CompiledPolicy: compiledPolicy,
+	}
+
+	matcher := matching.NewMatcher()
+
+	dpolEngine := dpolengine.NewEngine(
+		func(namespace string) *corev1.Namespace {
+			return nil
+		},
+		mapper,
+		&libs.FakeContextProvider{},
+		matcher,
+	)
+
+	c := &controller{
+		client:        mockClient,
+		nsLister:      nsLister,
+		engine:        dpolEngine,
+		configuration: mockConfig,
+		eventGen:      mockEventGen,
+	}
+
+	err := c.deleting(
+		context.Background(),
+		logr.Discard(),
+		ePolicy,
+	)
+
+	assert.NoError(t, err)
+
+	assert.Contains(t, mockClient.deletedResources, "ns1/pod-2")
+
+	assert.Equal(t, 4, len(listActions))
 }
 
 type providerAdapter struct {
