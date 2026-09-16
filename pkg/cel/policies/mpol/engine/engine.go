@@ -431,7 +431,6 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		}
 		working = patched
 		mutated = true
-
 	}
 
 	// No template matched at all (every one returned nil from
