@@ -12,7 +12,7 @@ import (
 
 // sharedHTTPContext is built once on the first http.* call and reused across
 // admission requests so the underlying http.Transport is not recreated per call.
-// It applies the operator-configured SSRF blocklist and allowlist.
+// It applies the operator-configured SSRF blocklist and allowlist for all policies.
 var sharedHTTPContext = &cachedHTTPContext{}
 
 type cachedHTTPContext struct {
