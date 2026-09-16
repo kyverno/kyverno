@@ -337,15 +337,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		logger.Error(err, "failed to get the policy execution time")
 		return err
 	}
+
+	var execErr error
 	// In case it is the time to do the cleanup process
 	if time.Now().After(*executionTime) {
-		err := c.cleanup(ctx, logger, policy)
-		if err != nil {
-			return err
-		}
-		if err := c.updateCleanupPolicyStatus(ctx, policy, namespace, time.Now()); err != nil {
-			logger.Error(err, "failed to update the cleanup policy status")
-			return err
+		execErr = c.cleanup(ctx, logger, policy)
+		if execErr == nil {
+			if err := c.updateCleanupPolicyStatus(ctx, policy, namespace, time.Now()); err != nil {
+				logger.Error(err, "failed to update the cleanup policy status")
+				execErr = err
+			}
 		}
 		nextExecutionTime, err = policy.GetNextExecutionTime(time.Now())
 		if err != nil {
@@ -364,7 +365,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	// add the item back to the queue after the delay
 	c.queue.AddAfter(key, delay)
-	return nil
+	return execErr
 }
 
 func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2.CleanupPolicyInterface, namespace string, time time.Time) error {
