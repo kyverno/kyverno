@@ -133,6 +133,7 @@ func (pc *policyController) handleNamespacedGenerateExisting(ngpol *policiesv1be
 
 func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources) []*unstructured.Unstructured {
 	var triggers []*unstructured.Unstructured
+	seen := make(map[string]bool)
 	objectSelector := match.ObjectSelector
 	nsSelector := match.NamespaceSelector
 
@@ -181,6 +182,19 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						if !pc.triggerMatches(res, gvr, rule.ResourceNames, match.ExcludeResourceRules, nsSelector) {
 							continue
 						}
+						kind := res.GetKind()
+						if kind == "" {
+							kind = gvk.Kind
+						}
+						apiVersion := res.GetAPIVersion()
+						if apiVersion == "" {
+							apiVersion = groupVersion.String()
+						}
+						key := apiVersion + "/" + kind + "/" + res.GetNamespace() + "/" + res.GetName() + "/" + string(res.GetUID())
+						if seen[key] {
+							continue
+						}
+						seen[key] = true
 						triggers = append(triggers, &resources.Items[i])
 					}
 				}
