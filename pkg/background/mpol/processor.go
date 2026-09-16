@@ -503,7 +503,10 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 		false,
 		admissionpolicy.NewUser(ar.UserInfo),
 	)
-	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, p.context) {
+	// Single-shot: each UpdateRequest resolves to exactly one mpol (GetPolicy
+	// above), so there is no per-loop hoist benefit here - nil lets
+	// MatchesConditions build the request map locally.
+	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, nil, p.context) {
 		return nil, nil
 	}
 	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil)
