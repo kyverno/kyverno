@@ -204,6 +204,75 @@ func TestGetGpolTriggers_SubresourceTrigger(t *testing.T) {
 
 	triggers := pc.getGpolTriggers(match)
 	assert.Len(t, triggers, 1)
+	assert.Equal(t, "status", triggers[0].SubResource)
+}
+
+func TestGetGpolTriggers_WildcardAPIVersions_Subresource(t *testing.T) {
+	groupResources := []*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name:             "",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {
+					{Name: "pods", Namespaced: true, Kind: "Pod"},
+				},
+			},
+		},
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
+	scheme := runtime.NewScheme()
+	gvrPods := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		gvrPods: "PodList",
+	}
+
+	pod := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name":      "my-pod",
+			"namespace": "default",
+		},
+	}}
+
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, pod)
+	assert.NoError(t, err)
+
+	disco := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{gvrPods})
+	disco.AddGVRToGVKMapping(
+		gvrPods,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+	)
+	fakeClient.SetDiscovery(disco)
+
+	pc := &policyController{
+		client:     fakeClient,
+		restMapper: restMapper,
+		log:        logr.Discard(),
+	}
+
+	match := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"*"},
+						Resources:   []string{"pods/status"},
+					},
+				},
+			},
+		},
+	}
+
+	triggers := pc.getGpolTriggers(match)
+	assert.Len(t, triggers, 1)
+	assert.Equal(t, "status", triggers[0].SubResource)
+	assert.Equal(t, "my-pod", triggers[0].GetName())
 }
 
 func TestGetGpolTriggers_DeduplicateTriggers(t *testing.T) {
