@@ -296,3 +296,42 @@ func TestFlattenResources_NonListWithItems(t *testing.T) {
 	assert.Equal(t, "Widget", flat[0].GetKind())
 	assert.Equal(t, "widget-1", flat[0].GetName())
 }
+
+func TestFlattenResources_CustomResourceEndingInList(t *testing.T) {
+	allowList := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "security.example.com/v1",
+			"kind":       "AllowList",
+			"metadata": map[string]interface{}{
+				"name": "allowlist-1",
+			},
+		},
+	}
+	flat, err := flattenResources([]*unstructured.Unstructured{allowList})
+	require.NoError(t, err)
+	require.Len(t, flat, 1)
+	assert.Equal(t, "AllowList", flat[0].GetKind())
+	assert.Equal(t, "allowlist-1", flat[0].GetName())
+}
+
+func TestFlattenResources_TypedListInheritance(t *testing.T) {
+	podList := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "PodList",
+			"items": []interface{}{
+				map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"name": "pod-in-list",
+					},
+				},
+			},
+		},
+	}
+	flat, err := flattenResources([]*unstructured.Unstructured{podList})
+	require.NoError(t, err)
+	require.Len(t, flat, 1)
+	assert.Equal(t, "Pod", flat[0].GetKind())
+	assert.Equal(t, "v1", flat[0].GetAPIVersion())
+	assert.Equal(t, "pod-in-list", flat[0].GetName())
+}

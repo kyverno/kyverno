@@ -213,3 +213,36 @@ items:
 	assert.Equal(t, "Widget", resources[0].GetKind())
 	assert.Equal(t, "test-widget", resources[0].GetName())
 }
+
+func TestGetUnstructuredResources_CustomResourceEndingInList(t *testing.T) {
+	yamlData := []byte(`
+apiVersion: security.example.com/v1
+kind: AllowList
+metadata:
+  name: test-allowlist
+  namespace: default
+spec:
+  ips:
+  - 10.0.0.1
+`)
+	resources, err := GetUnstructuredResources(yamlData)
+	require.NoError(t, err)
+	require.Len(t, resources, 1)
+	assert.Equal(t, "AllowList", resources[0].GetKind())
+	assert.Equal(t, "test-allowlist", resources[0].GetName())
+
+	// Custom resource ending in List that also contains an items field
+	yamlDataWithItems := []byte(`
+apiVersion: security.example.com/v1
+kind: BlockList
+metadata:
+  name: test-blocklist
+items:
+- blocked: 192.168.1.1
+`)
+	resources, err = GetUnstructuredResources(yamlDataWithItems)
+	require.NoError(t, err)
+	require.Len(t, resources, 1)
+	assert.Equal(t, "BlockList", resources[0].GetKind())
+	assert.Equal(t, "test-blocklist", resources[0].GetName())
+}
