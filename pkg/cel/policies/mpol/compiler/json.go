@@ -149,11 +149,14 @@ func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudg
 // Object initializers are converted through their native map rather than through
 // structpb. ObjectVal.ConvertToNative answers a request for a *structpb.Value with a
 // *structpb.Struct, which goes unnoticed for a bare object because the result is
-// marshalled immediately and both encode to the same JSON. It does not go unnoticed
-// inside a list: cel-go converts a list to []*structpb.Value and assigns each element
-// by reflection, and assigning a *structpb.Struct there panics. Lists are therefore
-// encoded element by element, which also makes the type-name check reachable for the
-// objects inside them.
+// marshalled immediately and both encode to the same JSON.
+//
+// It does not go unnoticed once the object sits inside a container. cel-go converts a
+// list to []*structpb.Value and a map to map[string]*structpb.Value, then fills each in
+// by reflection, where the element type is enforced and the mismatch panics: Set for a
+// list, SetMapIndex for a map. Both containers are therefore encoded entry by entry so
+// that neither collection is ever built, which also makes the type-name check reachable
+// for the objects inside them.
 func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 	switch typed := val.(type) {
 	case *dynamic.ObjectVal:
@@ -182,6 +185,21 @@ func patchValueToJSON(val ref.Val) (gojson.RawMessage, error) {
 			elements = append(elements, element)
 		}
 		return marshalPatchValue(elements)
+	case traits.Mapper:
+		entries := map[string]gojson.RawMessage{}
+		for it := typed.Iterator(); it.HasNext() == types.True; {
+			key := it.Next()
+			name, ok := key.Value().(string)
+			if !ok {
+				return nil, fmt.Errorf("JSONPath valueExpression evaluated to a map with a %T key, only string keys can marshal to JSON", key.Value())
+			}
+			entry, err := patchValueToJSON(typed.Get(key))
+			if err != nil {
+				return nil, err
+			}
+			entries[name] = entry
+		}
+		return marshalPatchValue(entries)
 	default:
 		// CEL data literals representing arbitrary JSON values can be serialized to JSON for use in
 		// JSON Patch if first converted to pb.Value.
