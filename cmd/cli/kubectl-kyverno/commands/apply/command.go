@@ -704,10 +704,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		// This informer will automatically die at the end of this function and thats ok,
 		// we don't care about it past applying image validating policies anyways
 		defer close(stopCh)
+		secretsInformer := informerFactory.Core().V1().Secrets()
 		informerFactory.Start(stopCh)
 		informerFactory.WaitForCacheSync(stopCh)
 
-		lister = informerFactory.Core().V1().Secrets().Lister()
+		lister = secretsInformer.Lister()
 	}
 
 	restMapper, err := utils.GetRESTMapper(dclient)
