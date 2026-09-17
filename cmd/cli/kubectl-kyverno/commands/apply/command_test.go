@@ -916,6 +916,33 @@ func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
 	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
 }
 
+// Test_Apply_NamespacedGeneratingPolicy_NoPanic is a companion to
+// TestRunTest_NamespacedGeneratingPolicy in commands/test. Both commands share
+// processor.ApplyPoliciesOnResource, so the typed-nil fixed in
+// kyverno/kyverno#17583 previously panicked through `kyverno apply` as well as
+// `kyverno test`. This asserts the apply path completes cleanly against a
+// NamespacedGeneratingPolicy fixture.
+func Test_Apply_NamespacedGeneratingPolicy_NoPanic(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-context-configmap-ngpol/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-context-configmap-ngpol/resource.yaml"},
+		PolicyReport:  true,
+	}
+	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
+	assert.NoError(t, err, "kyverno apply must not panic against a NamespacedGeneratingPolicy")
+	var found bool
+	for _, r := range responses {
+		if r.Policy().GetName() == "generate-env-config" {
+			found = true
+			for _, rule := range r.PolicyResponse.Rules {
+				assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), "expected generate rule to pass")
+			}
+			break
+		}
+	}
+	assert.True(t, found, "expected engine response for policy generate-env-config from apply path")
+}
+
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{

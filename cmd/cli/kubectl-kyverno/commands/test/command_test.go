@@ -725,14 +725,15 @@ func TestGeneratingPolicyContextResourceLookup(t *testing.T) {
 	})
 }
 
-// Regression test for kyverno/kyverno#17583: running `kyverno test` against a
-// NamespacedGeneratingPolicy used to panic in ApplyPoliciesOnResource because
-// the CLI forced every generating policy through
-// engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(), which returns
-// a typed-nil *GeneratingPolicy for a NamespacedGeneratingPolicy. That typed-nil
-// bypassed the `policy.Policy == nil` guard in the gpol engine and blew up when
-// the engine called GetSpec() on it. This test loads a real NamespacedGeneratingPolicy
-// fixture end-to-end and asserts we get a normal engine response instead.
+// TestRunTest_NamespacedGeneratingPolicy is a regression test for
+// kyverno/kyverno#17583. Running `kyverno test` against a NamespacedGeneratingPolicy
+// used to panic in ApplyPoliciesOnResource because the CLI forced every generating
+// policy through engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+// which returns a typed-nil *GeneratingPolicy for a NamespacedGeneratingPolicy.
+// That typed-nil bypassed the `policy.Policy == nil` guard in the gpol engine and
+// blew up when the engine called GetSpec() on it. This test loads a real
+// NamespacedGeneratingPolicy fixture end-to-end and asserts we get a normal engine
+// response instead of a panic.
 func TestRunTest_NamespacedGeneratingPolicy(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
