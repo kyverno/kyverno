@@ -143,7 +143,7 @@ while IFS= read -r row; do
 
   # Case 2: PR has a different type_* label (e.g. manually set by maintainer).
   # By default, preserve the manual label unless --force is specified.
-  if [[ -n "$existing_type_labels" ]] && ! grep -qx "$label" <<<"$existing_type_labels" && [[ "$FORCE" -eq 0 ]]; then
+  if [[ -n "$existing_type_labels" ]] && grep -qvx "$label" <<<"$existing_type_labels" && [[ "$FORCE" -eq 0 ]]; then
     echo "[$n/$count] #$num has existing type label '$(tr '\n' ' ' <<<"$existing_type_labels" | xargs)' (differs from '$label') — skipping to preserve manual triage (pass --force to overwrite)"
     continue
   fi

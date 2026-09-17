@@ -314,7 +314,7 @@ jobs:
   guard:
     steps:
       - checkout (base ref only — never execute PR code)
-      - run: python3 hack/pr-triage/pr-branch-triage.py --pr ${{ github.event.pull_request.number }} --json out.json
+      - run: python3 hack/pr-triage/pr-branch-triage.py --pr ${{ github.event.pull_request.number }} --diff-scan --json out.json
       - github-script:
           const r = JSON.parse(fs.readFileSync('out.json'))[0];
           const base = context.payload.pull_request.base.ref;

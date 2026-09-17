@@ -297,9 +297,12 @@ def refine_with_content(row, repo):
         res = subprocess.run(
             ["gh", "pr", "diff", str(row["number"]), "-R", repo],
             capture_output=True, text=True, timeout=60,
+            check=False,
         )
         if res.returncode != 0:
             row["content_signal"] = f"ERROR:diff_exit_{res.returncode}"
+            row.pop("content_legacy_lines", None)
+            row.pop("content_cel_lines", None)
             row["category"] = "MIXED"
             return
         diff = res.stdout
@@ -324,12 +327,12 @@ def refine_with_content(row, repo):
 
 
 def is_migration_pr(title, body, files):
-    if MIGRATION_TITLE_RE.search(title or ""):
-        return True
-    text = f"{title}\n{body or ''}"
+    text = f"{title or ''}\n{body or ''}"
     if not re.search(r"(?i)\b(migrat|deprecat|1\.20|legacy)\b", text):
         return False
-    return any(_glob_match(f, g) for f in files for g in MIGRATION_PATH_GLOBS)
+    if not any(_glob_match(f, g) for f in files for g in MIGRATION_PATH_GLOBS):
+        return False
+    return True
 
 
 def probe_rebase(repo, number, base, target_base):
@@ -371,7 +374,9 @@ def probe_rebase(repo, number, base, target_base):
             capture_output=True, text=True, timeout=30,
         ).stdout.strip().splitlines()
         subprocess.run(["git", "-C", wt, "rebase", "--abort"], capture_output=True, text=True, timeout=60)
-        return "CONFLICT", conflicts
+        if conflicts:
+            return "CONFLICT", conflicts
+        return f"ERROR:rebase_exit_{r.returncode}", []
     except Exception as e:  # noqa: BLE001
         return f"ERROR:{e}", []
     finally:
