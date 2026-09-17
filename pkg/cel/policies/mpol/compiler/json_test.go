@@ -79,6 +79,20 @@ func TestEvaluatePatchExpressionValues(t *testing.T) {
 		value: `Object.spec{ tolerations: [Object.spec.tolerations{ key: "k" }] }`,
 		want:  `{"tolerations":[{"key":"k"}]}`,
 	}, {
+		// A map reaches the same defect by the other reflective assignment in cel-go,
+		// SetMapIndex rather than Set, so it needs its own coverage.
+		name:  "map with an object initializer value",
+		value: `{"toleration": Object.spec.tolerations{ key: "k" }}`,
+		want:  `{"toleration":{"key":"k"}}`,
+	}, {
+		name:  "map holding a list of object initializers",
+		value: `{"tolerations": [Object.spec.tolerations{ key: "k" }]}`,
+		want:  `{"tolerations":[{"key":"k"}]}`,
+	}, {
+		name:  "object holding a map",
+		value: `Object.spec{ selector: {"app": "x"} }`,
+		want:  `{"selector":{"app":"x"}}`,
+	}, {
 		name:  "string",
 		value: `"Always"`,
 		want:  `"Always"`,
