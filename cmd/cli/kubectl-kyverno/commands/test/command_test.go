@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -1117,17 +1118,34 @@ func Test_InvalidResultOperation(t *testing.T) {
 	assert.Contains(t, err.Error(), "invalid operation")
 }
 
-func Test_RunTestWarningsAsErrors(t *testing.T) {
+func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
 	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
-	testDir := filepath.Join(rootDir, "test", "cli", "test-exceptions", "exceptions-deprecated")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-legacy-policies", "legacy-clusterpolicy")
 
 	testFile := filepath.Join(testDir, "kyverno-test.yaml")
 	testCases := test.LoadTest(nil, testFile)
 	require.Len(t, testCases, 1)
 
-	_, err = runTest(io.Discard, testCases[0], false, true)
+	_, err = runTest(io.Discard, testCases[0], false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "--warnings-as-errors is set")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
+}
+
+func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-legacy-policies", "legacy-exception")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	_, err = runTest(io.Discard, testCases[0], false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }

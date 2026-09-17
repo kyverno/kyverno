@@ -26,7 +26,6 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -237,7 +236,7 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, imageverifycache.DisabledImageVerifyCache())
+	rt := &imageverify.Runtime{ImageContext: ictx, Cache: imageverifycache.DisabledImageVerifyCache()}
 
 	// Built at most once for the whole loop, lazily: matching happens per policy
 	// inside the loop below (matchPolicy), before MutateDigest is ever called, so
@@ -279,12 +278,17 @@ func (e *engineImpl) handleMutation(
 		}
 		// digest mutation performs no verification, so it takes no part in the
 		// request-scoped verification results
-		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions, nil)
-		if errList != nil {
-			// compile errors are surfaced by the validating webhook, skip mutation
+		compiled := ivpol.CompiledPolicy
+		if compiled == nil {
+			responses = append(responses, eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", fmt.Errorf("compiled policy is missing"), nil),
+			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, requestMapFn, e.configuration)
+		polPatches, err := compiled.MutateDigest(ctx, rt, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -326,7 +330,7 @@ func (e *engineImpl) handleMutation(
 func (e *engineImpl) evaluateExtractedIv(
 	ctx context.Context,
 	compiled eval.CompiledPolicy,
-	ictx imagedataloader.ImageContext,
+	rt *imageverify.Runtime,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
@@ -386,7 +390,7 @@ func (e *engineImpl) evaluateExtractedIv(
 		// is still exactly one build per template -- Evaluate calls prepareK8sData
 		// once per call -- not one per (matchConditions + exceptions) as it would
 		// be if match still assembled its own data.
-		result, err := compiled.Evaluate(ctx, ictx, synthAttr, synthRequest, namespace, true, nil, libctx)
+		result, err := compiled.Evaluate(ctx, rt, synthAttr, synthRequest, namespace, true, nil, libctx)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
@@ -453,7 +457,7 @@ func (e *engineImpl) handleValidation(
 ) ([]eval.ImageVerifyPolicyResponse, error) {
 	responses, filteredPolicies := e.filterPolicies(policies, attr, namespace, false)
 	var err error
-	responses, err = e.evaluatePolicies(ctx, filteredPolicies, attr, request, namespace, libctx, request.RequestResource, responses)
+	responses, err = e.evaluatePolicies(ctx, filteredPolicies, attr, request, namespace, libctx, responses)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +505,6 @@ func (e *engineImpl) evaluatePolicies(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	libctx libs.Context,
-	requestResource *metav1.GroupVersionResource,
 	responses map[string]eval.ImageVerifyPolicyResponse,
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
 	// leave remote and name options blank, each compiled policy will provide
@@ -510,15 +513,6 @@ func (e *engineImpl) evaluatePolicies(
 	if err != nil {
 		return nil, err
 	}
-	c := eval.NewCompiler(ictx, e.lister, requestResource, e.ivCache)
-	// Extraction-mode policies are evaluated against a synthesized v1/Pod,
-	// not the real admitted resource (a custom workload CRD) - and their
-	// Spec is never rewritten, so they rely on the default Pod image
-	// extractors rather than declaring their own. Compiling them with the
-	// request's own (non-Pod) GVR would make CompileImageExtractors find no
-	// match and inject none at all, breaking images.containers/initContainers.
-	podRequestResource := &metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
-	podCompiler := eval.NewCompiler(ictx, e.lister, podRequestResource, e.ivCache)
 	// Built at most once for the whole loop, lazily: the thunk is only
 	// invoked when a policy's Evaluate reaches prepareK8sData, and memoized
 	// so every policy after the first reuses the same map. Never passed to
@@ -528,8 +522,9 @@ func (e *engineImpl) evaluatePolicies(
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(request)
 	})
-	// shared by every policy compiled below, so required sees cross-policy evidence
+	// Shared by every policy evaluated below, so required sees cross-policy evidence.
 	verifications := imageverify.NewImageVerificationResults()
+	rt := &imageverify.Runtime{ImageContext: ictx, Cache: e.ivCache, Results: verifications}
 	// resolved after the loop: evidence may come from a policy evaluated later
 	var pendingRequired []pendingRequiredCheck
 	for _, ivpol := range policies {
@@ -539,22 +534,14 @@ func (e *engineImpl) evaluatePolicies(
 			Exceptions: ivpol.Exceptions,
 		}
 		startTime := time.Now()
-		compilerFor := c
-		if ivpol.ExtractionMode {
-			compilerFor = podCompiler
-		}
-		compiled, errList := compilerFor.Compile(ivpol.Policy, ivpol.Exceptions, verifications)
-		if errList != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
-			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-			responses[ivpol.Policy.GetName()] = response
-			continue
-		}
+		compiled := ivpol.CompiledPolicy
 		var result *eval.EvaluationResult
-		if ivpol.ExtractionMode {
-			result, err = e.evaluateExtractedIv(ctx, compiled, ictx, attr, request, namespace, libctx)
+		if compiled == nil {
+			err = fmt.Errorf("compiled policy is missing")
+		} else if ivpol.ExtractionMode {
+			result, err = e.evaluateExtractedIv(ctx, compiled, rt, attr, request, namespace, libctx)
 		} else {
-			result, err = compiled.Evaluate(ctx, ictx, attr, request, namespace, true, requestMapFn, libctx)
+			result, err = compiled.Evaluate(ctx, rt, attr, request, namespace, true, requestMapFn, libctx)
 		}
 		if err != nil {
 			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
@@ -600,7 +587,7 @@ func (e *engineImpl) evaluatePolicies(
 		response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 		responses[ivpol.Policy.GetName()] = response
 	}
-	enforceRequired(pendingRequired, responses)
+	enforceRequired(pendingRequired, responses, verifications)
 	return responses, nil
 }
 
@@ -616,9 +603,9 @@ type pendingRequiredCheck struct {
 
 // enforceRequired turns a policy that passed its validations into a failure when
 // one of the images it matched was never verified, by any policy in the request.
-func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.ImageVerifyPolicyResponse) {
+func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.ImageVerifyPolicyResponse, verifications *imageverify.ImageVerificationResults) {
 	for _, check := range checks {
-		err := check.compiled.EnforceRequired(check.images)
+		err := check.compiled.EnforceRequired(check.images, verifications)
 		if err == nil {
 			continue
 		}
