@@ -105,7 +105,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil, NewImageVerificationResults()),
+		Lib(),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -130,6 +130,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	}
 
 	data := map[string]any{
+		RuntimeKey:  NewFactory(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil).Bind(&Runtime{ImageContext: imgCtx, Results: NewImageVerificationResults()}),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -143,7 +144,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil, NewImageVerificationResults()),
+		Lib(),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -169,6 +170,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	}
 
 	data := map[string]any{
+		RuntimeKey:  NewFactory(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil).Bind(&Runtime{ImageContext: imgCtx, Results: NewImageVerificationResults()}),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)

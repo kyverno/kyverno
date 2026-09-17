@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -71,28 +70,40 @@ type ivfuncs struct {
 	pendingAttestationRestores map[string]map[string][]byte
 }
 
-func ImageVerifyCELFuncs(
+// Runtime holds state owned by a single request. Bind creates a policy-local
+// function implementation, so deferred payload restoration is never shared.
+type Runtime struct {
+	ImageContext imagedataloader.ImageContext
+	Cache        imageverifycache.Client
+	Results      *ImageVerificationResults
+	functions    *ivfuncs
+}
+
+// Factory contains only policy configuration and immutable compiled programs.
+type Factory struct {
+	functions ivfuncs
+	lister    corev1listers.SecretLister
+}
+
+func (f *Factory) Bind(r *Runtime) Runtime {
+	functions := f.functions
+	functions.imgCtx = r.ImageContext
+	functions.ivCache = r.Cache
+	functions.verifications = r.Results
+	functions.cosignVerifier = cosign.NewVerifier(f.lister, functions.logger)
+	functions.notaryVerifier = notary.NewVerifier(functions.logger)
+	functions.pendingAttestationRestores = map[string]map[string][]byte{}
+	return Runtime{functions: &functions}
+}
+
+func NewFactory(
 	logger logr.Logger,
-	imgCtx imagedataloader.ImageContext,
 	ivpol v1beta1.ImageValidatingPolicyLike,
 	lister corev1listers.SecretLister,
-	ivCache imageverifycache.Client,
 	adapter types.Adapter,
-	verifications *ImageVerificationResults,
-) (*ivfuncs, error) {
-	if ivpol == nil {
-		return nil, fmt.Errorf("nil image verification policy")
-	}
-	env, err := compiler.NewMatchImageEnv()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
-	}
-
+	imgRules []compiler.MatchImageReference,
+) *Factory {
 	spec := ivpol.GetSpec()
-	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, spec.MatchImageReferences...)
-	if errs != nil {
-		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
-	}
 
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
@@ -100,22 +111,16 @@ func ImageVerifyCELFuncs(
 		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
 	}
 
-	return &ivfuncs{
-		Adapter:                    adapter,
-		logger:                     logger,
-		imgCtx:                     imgCtx,
-		policy:                     ivpol,
-		creds:                      spec.Credentials,
-		imgRules:                   imgRules,
-		attestationList:            attestationMap(ivpol),
-		cosignVerifier:             cosign.NewVerifier(lister, logger),
-		notaryVerifier:             notary.NewVerifier(logger),
-		ivCache:                    ivCache,
-		nameOpts:                   nameOpts,
-		authOpts:                   authOpts[:],
-		verifications:              verifications,
-		pendingAttestationRestores: map[string]map[string][]byte{},
-	}, nil
+	return &Factory{lister: lister, functions: ivfuncs{
+		Adapter:         adapter,
+		logger:          logger,
+		policy:          ivpol,
+		creds:           spec.Credentials,
+		imgRules:        imgRules,
+		attestationList: attestationMap(ivpol),
+		nameOpts:        nameOpts,
+		authOpts:        authOpts,
+	}}
 }
 
 // build a cache key from a CEL function name, a qualifier (attestation name in practice)
