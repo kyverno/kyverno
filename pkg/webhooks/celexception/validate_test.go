@@ -103,6 +103,7 @@ func TestValidateMatchConditions(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			handler := NewHandlers(validation.ValidationOptions{Enabled: true})
@@ -163,6 +164,7 @@ func TestValidateUpdateAllowsValidExpression(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			handler := NewHandlers(validation.ValidationOptions{Enabled: true})
@@ -213,7 +215,7 @@ func TestValidateNamespace(t *testing.T) {
 			request:     newAdmissionRequest(t, admissionv1.Create, validException, nil),
 			allowed:     true,
 			hasWarnings: true,
-			warningMsg:  "PolicyException resources would not be processed until it is enabled.",
+			warningMsg:  validation.DisabledPolex,
 		},
 		{
 			name: "namespace mismatch produces warning",
@@ -257,6 +259,7 @@ func TestValidateNamespace(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			handler := NewHandlers(tt.options)
