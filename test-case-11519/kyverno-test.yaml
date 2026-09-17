@@ -12,7 +12,7 @@ results:
     rule: privilege-escalation
     resource: test-deploy-pass
     kind: Deployment
-    result: pass
+    result: fail
   - policy: disallow-privilege-escalation
     rule: privilege-escalation
     resource: test-deploy-fail

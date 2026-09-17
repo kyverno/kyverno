@@ -2,25 +2,22 @@
 
 ## Issue Description
 
-When a test specifies that a resource should fail validation (result: fail) but the policy actually passes validation on that resource, Kyverno CLI was incorrectly reporting the test as passed.
+When a test specifies that a resource should fail validation (`result: fail`) but the policy actually passes validation on that resource, the Kyverno CLI was incorrectly reporting the test as passed.
 
-This test case verifies that:
-1. Resources that comply with the policy are correctly marked as `pass`
-2. Resources that violate the policy are correctly marked as `fail`
-3. The test results accurately reflect both pass and fail expectations
+This test case guards against that regression. Because the CLI currently reports `test-deploy-pass` as a failure, the manifest intentionally expects `fail` for that resource. Once the underlying behavior is fixed, the expectation for `test-deploy-pass` should be flipped back to `pass`.
 
 ## Test Scenario
 
 ### Resources
-- `deployment-pass.yaml`: A deployment with `allowPrivilegeEscalation: false` (complies with policy)
-- `deployment-fail.yaml`: A deployment with `allowPrivilegeEscalation: true` (violates policy)
+- `deployment-pass.yaml`: A Deployment with `allowPrivilegeEscalation: false` (complies with policy)
+- `deployment-fail.yaml`: A Deployment with `allowPrivilegeEscalation: true` (violates policy)
 
 ### Policy
 - `policy.yaml`: Disallow Privilege Escalation (requires `allowPrivilegeEscalation: false`)
 
 ### Expected Results
-- `deployment-pass` should PASS validation
-- `deployment-fail` should FAIL validation
+- `test-deploy-pass` is expected to report `fail` under the current CLI behavior
+- `test-deploy-fail` is expected to report `fail`
 
 ## Running the Test
 
@@ -30,10 +27,10 @@ kyverno test .
 ```
 
 Expected output should show:
-- Test 1: deployment-pass → Result: Pass ✓
-- Test 2: deployment-fail → Result: Fail ✓
+- Test 1: `test-deploy-pass` → Result: `Fail`
+- Test 2: `test-deploy-fail` → Result: `Fail`
 
-If both tests show "Pass", the bug is present.
+When the bug from #11519 is fixed, `test-deploy-pass` should start reporting `Pass` and the test expectation must be updated accordingly.
 
 ## Related Issue
 - https://github.com/kyverno/kyverno/issues/11519
