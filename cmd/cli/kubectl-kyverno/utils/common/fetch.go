@@ -185,8 +185,12 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = vap.GetDefinition().Spec.MatchConstraints
 			} else if vp := policy.AsValidatingPolicy(); vp != nil {
 				matchResources = vp.Spec.MatchConstraints
+			} else if nvp := policy.AsNamespacedValidatingPolicy(); nvp != nil {
+				matchResources = nvp.Spec.MatchConstraints
 			} else if ivp := policy.AsImageValidatingPolicy(); ivp != nil {
 				matchResources = ivp.Spec.MatchConstraints
+			} else if nivp := policy.AsNamespacedImageValidatingPolicy(); nivp != nil {
+				matchResources = nivp.Spec.MatchConstraints
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.GetDeletingPolicySpec().MatchConstraints
 			} else if cp := policy.AsCleanupPolicy(); cp != nil {
