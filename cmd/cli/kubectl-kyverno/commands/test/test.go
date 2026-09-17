@@ -375,14 +375,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
 	}
 
-	// TODO document the code below
+	// Map generate rules (clone/cloneList) to clone source paths from test results.
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range results.Policies {
+		// Include autogen controller rules.
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
+				// Parse [namespace/]name format.
 				resPolicyNamespace, resPolicyName := "", res.Policy
 				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
 					resPolicyNamespace, resPolicyName = ns, name
@@ -410,6 +412,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
 								break
 							}
+							// Check if clone is specified.
 							genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
 							if err != nil {
 								fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
