@@ -16,7 +16,10 @@ import (
 	yamlutils "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	kubescheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/restmapper"
 	"sigs.k8s.io/yaml"
 )
 
@@ -31,7 +34,7 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 		if err != nil {
 			return nil, err
 		}
-		expanded, err := expandIfList(resource)
+		expanded, err := ExpandIfList(resource)
 		if err != nil {
 			return nil, err
 		}
@@ -40,47 +43,94 @@ func GetUnstructuredResources(resourceBytes []byte) ([]*unstructured.Unstructure
 	return resources, nil
 }
 
-func expandIfList(res *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
-	if res == nil {
-		return nil, nil
-	}
-	isListKind := res.GetKind() == "List" || strings.HasSuffix(res.GetKind(), "List")
-	if isListKind && res.IsList() {
-		list, err := res.ToList()
+func FlattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	var results []*unstructured.Unstructured
+	for _, r := range resources {
+		expanded, err := ExpandIfList(r)
 		if err != nil {
 			return nil, err
 		}
-		var results []*unstructured.Unstructured
-		for i := range list.Items {
-			item := &list.Items[i]
-			if strings.HasSuffix(res.GetKind(), "List") && res.GetKind() != "List" {
-				if item.GetKind() == "" {
-					item.SetKind(strings.TrimSuffix(res.GetKind(), "List"))
-				}
-				if item.GetAPIVersion() == "" {
-					item.SetAPIVersion(res.GetAPIVersion())
-				}
-			}
-			if item.GetNamespace() == "" && !isClusterScopedKind(item.GetAPIVersion(), item.GetKind()) {
-				if res.GetNamespace() != "" {
-					item.SetNamespace(res.GetNamespace())
-				} else {
-					item.SetNamespace("default")
-				}
-			}
-			normalizeNilMaps(item.Object)
-			expanded, err := expandIfList(item)
+		results = append(results, expanded...)
+	}
+	return results, nil
+}
+
+func isListResource(res *unstructured.Unstructured) bool {
+	if res == nil {
+		return false
+	}
+	kind := res.GetKind()
+	if kind == "List" {
+		return true
+	}
+	if !strings.HasSuffix(kind, "List") {
+		return false
+	}
+
+	gvk := res.GroupVersionKind()
+	if kubescheme.Scheme.Recognizes(gvk) {
+		obj, err := kubescheme.Scheme.New(gvk)
+		if err == nil && meta.IsListType(obj) {
+			return true
+		}
+	}
+
+	if isKnownResourceKind(res.GetAPIVersion(), kind) {
+		return false
+	}
+
+	baseKind := strings.TrimSuffix(kind, "List")
+	if isKnownResourceKind(res.GetAPIVersion(), baseKind) {
+		return true
+	}
+
+	return false
+}
+
+func ExpandIfList(res *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	if res == nil {
+		return nil, nil
+	}
+	if isListResource(res) {
+		if res.IsList() {
+			list, err := res.ToList()
 			if err != nil {
 				return nil, err
 			}
-			results = append(results, expanded...)
+			var results []*unstructured.Unstructured
+			for i := range list.Items {
+				item := &list.Items[i]
+				if strings.HasSuffix(res.GetKind(), "List") && res.GetKind() != "List" {
+					if item.GetKind() == "" {
+						item.SetKind(strings.TrimSuffix(res.GetKind(), "List"))
+					}
+					if item.GetAPIVersion() == "" {
+						item.SetAPIVersion(res.GetAPIVersion())
+					}
+				}
+				if item.GetNamespace() == "" && !isClusterScopedKind(item.GetAPIVersion(), item.GetKind()) {
+					if res.GetNamespace() != "" {
+						item.SetNamespace(res.GetNamespace())
+					} else {
+						item.SetNamespace("default")
+					}
+				}
+				normalizeNilMaps(item.Object)
+				expanded, err := ExpandIfList(item)
+				if err != nil {
+					return nil, err
+				}
+				results = append(results, expanded...)
+			}
+			return results, nil
 		}
-		return results, nil
-	}
-	if isListKind {
 		return nil, nil
 	}
 	return []*unstructured.Unstructured{res}, nil
+}
+
+func expandIfList(res *unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	return ExpandIfList(res)
 }
 
 func YamlToUnstructured(resourceYaml []byte) (*unstructured.Unstructured, error) {
@@ -225,10 +275,10 @@ func normalizeNilMaps(obj map[string]interface{}) {
 	}
 }
 
-func isClusterScopedKind(apiVersion, kind string) bool {
+func getAPIGroupResources() []*restmapper.APIGroupResources {
 	apiGroupResources, err := data.APIGroupResources()
 	if err != nil {
-		return false
+		return nil
 	}
 
 	// Clone to avoid mutating the cached slice returned by data.APIGroupResources().
@@ -239,14 +289,17 @@ func isClusterScopedKind(apiVersion, kind string) bool {
 			apiGroupResources = append(apiGroupResources, extra...)
 		}
 	}
+	return apiGroupResources
+}
 
+func isClusterScopedKind(apiVersion, kind string) bool {
 	groupName := ""
 	if parts := strings.Split(apiVersion, "/"); len(parts) == 2 {
 		groupName = parts[0]
 	}
 
-	for _, group := range apiGroupResources {
-		if group.Group.Name != groupName {
+	for _, group := range getAPIGroupResources() {
+		if groupName != "" && group.Group.Name != groupName {
 			continue
 		}
 
@@ -254,6 +307,29 @@ func isClusterScopedKind(apiVersion, kind string) bool {
 			for _, resource := range resources {
 				if resource.Kind == kind {
 					return !resource.Namespaced
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func isKnownResourceKind(apiVersion, kind string) bool {
+	groupName := ""
+	if parts := strings.Split(apiVersion, "/"); len(parts) == 2 {
+		groupName = parts[0]
+	}
+
+	for _, group := range getAPIGroupResources() {
+		if groupName != "" && group.Group.Name != groupName {
+			continue
+		}
+
+		for _, resources := range group.VersionedResources {
+			for _, resource := range resources {
+				if resource.Kind == kind {
+					return true
 				}
 			}
 		}

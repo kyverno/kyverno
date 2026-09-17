@@ -29,6 +29,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -1350,31 +1351,7 @@ func (w WarnExitCodeError) Error() string {
 }
 
 func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
-	var results []*unstructured.Unstructured
-	for _, r := range resources {
-		if r == nil {
-			continue
-		}
-		isListKind := r.GetKind() == "List" || strings.HasSuffix(r.GetKind(), "List")
-		if isListKind && r.IsList() {
-			list, err := r.ToList()
-			if err != nil {
-				return nil, err
-			}
-			items := make([]*unstructured.Unstructured, 0, len(list.Items))
-			for i := range list.Items {
-				items = append(items, &list.Items[i])
-			}
-			flat, err := flattenResources(items)
-			if err != nil {
-				return nil, err
-			}
-			results = append(results, flat...)
-		} else if !isListKind {
-			results = append(results, r)
-		}
-	}
-	return results, nil
+	return resource.FlattenResources(resources)
 }
 
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
