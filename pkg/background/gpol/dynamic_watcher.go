@@ -585,6 +585,20 @@ func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.Gro
 	wm.log.Info("Resource added", "name", obj.GetName())
 }
 
+// syncCloneLabels replaces source-owned labels while retaining downstream tracking identity.
+func syncCloneLabels(source, downstream map[string]string) map[string]string {
+	labels := make(map[string]string, len(source)+len(downstream))
+	for key, value := range source {
+		labels[key] = value
+	}
+	for key, value := range downstream {
+		if key == kyverno.LabelAppManagedBy || strings.HasPrefix(key, "generate.kyverno.io/") {
+			labels[key] = value
+		}
+	}
+	return labels
+}
+
 func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
@@ -628,7 +642,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetNamespace(downstream.GetNamespace())
 				newResource.SetKind(downstream.GetKind())
 				newResource.SetAPIVersion(downstream.GetAPIVersion())
-				newResource.SetLabels(downstream.GetLabels())
+				newResource.SetLabels(syncCloneLabels(source.GetLabels(), downstream.GetLabels()))
 				// The content comes from the source, whose resourceVersion means nothing for the
 				// downstream, so carry the downstream's own. Custom resources reject an update that
 				// has no resourceVersion, which used to leave every CRD downstream unsynced.
@@ -648,7 +662,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 					watcher.metadataCache[downstream.GetUID()] = Resource{
 						Name:            downstream.GetName(),
 						Namespace:       downstream.GetNamespace(),
-						Labels:          downstream.GetLabels(),
+						Labels:          newResource.GetLabels(),
 						Hash:            hash,
 						Data:            newResource,
 						ServerSideApply: cached.ServerSideApply,
