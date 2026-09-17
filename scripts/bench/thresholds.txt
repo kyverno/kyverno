@@ -31,9 +31,9 @@
 # as a periodic backstop against ceiling staleness.
 
 # name                                    max_allocs_per_op  max_bytes_per_op
-BenchmarkEngineHandleVpol/N=1            2883               490926
-BenchmarkEngineHandleVpol/N=16           45926              7510044
-BenchmarkEngineHandleVpol/N=64           183579             29588838
-BenchmarkEngineHandleMpol                6419               615397
-BenchmarkVpolHandlerValidate             3552               434611
-BenchmarkMpolHandlerMutate               13659              1496521
+BenchmarkEngineHandleVpol/N=1            2869               332430
+BenchmarkEngineHandleVpol/N=16           3565               374753
+BenchmarkEngineHandleVpol/N=64           5784               525032
+BenchmarkEngineHandleMpol                4688               329186
+BenchmarkVpolHandlerValidate             3539               286141
+BenchmarkMpolHandlerMutate               11928              1189925

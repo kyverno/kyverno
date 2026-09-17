@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admission/v1"
@@ -129,14 +130,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 		},
 	}
 
-	providerFunc = func(ctx context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  ivpol,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	}
+	providerFunc = singlePolicyProvider(ivpol)
 
 	nsResolver = func(_ string) *corev1.Namespace {
 		return &corev1.Namespace{
@@ -195,14 +189,7 @@ func Test_ImageVerifyEngine_MutatingDisabled(t *testing.T) {
 	falseVal := false
 	disabledIvpol := ivpol.DeepCopy()
 	disabledIvpol.Spec.ValidationConfigurations.MutateDigest = &falseVal
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  disabledIvpol,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	})
+	provider := singlePolicyProvider(disabledIvpol)
 	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
@@ -288,14 +275,7 @@ func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *test
 			Validations:          []admissionregistrationv1.Validation{{Expression: "false", Message: "validation should fail"}},
 		},
 	}
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  policy,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	})
+	provider := singlePolicyProvider(policy)
 	podWithForgedOutcome := `{
 		"apiVersion":"v1",
 		"kind":"Pod",
@@ -351,14 +331,7 @@ func TestHandleValidatingDoesNotRequireOutcomeAnnotation(t *testing.T) {
 			Validations:          []admissionregistrationv1.Validation{{Expression: "true"}},
 		},
 	}
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  policy,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	})
+	provider := singlePolicyProvider(policy)
 	podWithoutAnnotation := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}}`
 	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
@@ -403,14 +376,7 @@ func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T)
 			Validations:          []admissionregistrationv1.Validation{{Expression: "object.spec.?ephemeralContainers.orValue([]).size() == 0", Message: "ephemeral container update must be blocked"}},
 		},
 	}
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  policy,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	})
+	provider := singlePolicyProvider(policy)
 	ephemeralUpdateWithForgedOutcome := `{
 		"apiVersion":"v1",
 		"kind":"Pod",
@@ -477,12 +443,7 @@ func TestHandleValidatingEphemeralContainersWithImagesVariable(t *testing.T) {
 			}},
 		},
 	}
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{{
-			Policy:  policy,
-			Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-		}}, nil
-	})
+	provider := singlePolicyProvider(policy)
 	ephemeralUpdate := `{
 		"apiVersion":"v1",
 		"kind":"Pod",
@@ -512,5 +473,15 @@ func TestHandleValidatingEphemeralContainersWithImagesVariable(t *testing.T) {
 	if assert.Len(t, resp.Policies, 1) {
 		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
 		assert.Equal(t, "All container images must be signed.", resp.Policies[0].Result.Message())
+	}
+}
+
+func singlePolicyProvider(policy policiesv1beta1.ImageValidatingPolicyLike) ProviderFunc {
+	compiled, errs := iveval.NewCompiler(nil).Compile(policy, nil)
+	if len(errs) != 0 {
+		panic(errs)
+	}
+	return func(context.Context) ([]Policy, error) {
+		return []Policy{{Policy: policy, CompiledPolicy: compiled, Actions: sets.New(admissionregistrationv1.Deny)}}, nil
 	}
 }
