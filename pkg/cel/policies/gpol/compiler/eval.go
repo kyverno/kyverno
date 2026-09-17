@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -38,7 +39,10 @@ func prepareData(
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
-	requestVal, err := utils.ConvertObjectToUnstructured(request)
+	// gpol's base semantics are the raw variant, same as vpol: request.object
+	// is an un-normalized unmarshal of request.Object.Raw, not the
+	// ExtractResources-normalized top-level `object` var.
+	requestVal, err := compiler.BuildRawRequestMap(request)
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
@@ -46,7 +50,7 @@ func prepareData(
 		Namespace: namespaceVal,
 		Object:    objectVal,
 		OldObject: oldObjectVal,
-		Request:   requestVal.Object,
+		Request:   requestVal,
 		Context:   context,
 	}, nil
 }
