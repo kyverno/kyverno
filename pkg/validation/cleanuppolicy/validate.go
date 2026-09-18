@@ -111,6 +111,11 @@ func canI(ctx context.Context, client dclient.Interface, kind, namespace, name, 
 
 func validateVariables(logger logr.Logger, policy kyvernov2.CleanupPolicyInterface) error {
 	ctx := enginecontext.NewMockContext(allowedVariables)
+	for _, entry := range policy.GetSpec().Context {
+		if entry.APICall != nil || entry.GlobalReference != nil || entry.Variable != nil {
+			ctx.AddVariable(entry.Name + "*")
+		}
+	}
 
 	c := policy.GetSpec().Conditions
 	conditionCopy := c.DeepCopy()
@@ -120,4 +125,4 @@ func validateVariables(logger logr.Logger, policy kyvernov2.CleanupPolicyInterfa
 	return nil
 }
 
-var allowedVariables = regexp.MustCompile(`([a-z_0-9]+)|(target\.|images\.|([a-z_0-9]+\()[^{}])`)
+var allowedVariables = regexp.MustCompile(`^(target\.|images\.)|^([a-z_0-9]+\()[^{}]`)

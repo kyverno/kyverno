@@ -461,3 +461,57 @@ func Test_ContextSizeLimitBlocksExponentialAmplification(t *testing.T) {
 	assert.ErrorAs(t, lastErr, &sizeErr)
 	assert.LessOrEqual(t, sizeErr.Limit, int64(testLimit))
 }
+
+func TestReservedKeys_Anchored(t *testing.T) {
+	allowed := []string{
+		"request",
+		"request.object.metadata.name",
+		"serviceAccountName",
+		"serviceAccountNamespace",
+		"element",
+		"element.foo",
+		"element0",
+		"element0.env",
+		"element1.foo",
+		"elementIndex",
+		"elementIndex0",
+		"elementIndex1",
+		"elementIndex0.env",
+		"@",
+		"@.bar",
+		"images",
+		"images.containers.nginx",
+		"image",
+		"image.registry",
+		"length(request.object)",
+		"compare(string, string)",
+	}
+	rejected := []string{
+		"invalid_request.object_test",
+		"foorequest.object",
+		"elementss",
+		"elementevil",
+		"elementIndexevil",
+		"elementIndexess",
+		"myelement",
+		"myelement0",
+		"prefix_images_suffix",
+		"target.metadata.name",
+	}
+	for _, q := range allowed {
+		t.Run("allow_"+q, func(t *testing.T) {
+			ctx := NewMockContext(ReservedKeys)
+			_, err := ctx.Query(q)
+			assert.NoError(t, err, "expected allowed: %s", q)
+		})
+	}
+	for _, q := range rejected {
+		t.Run("reject_"+q, func(t *testing.T) {
+			ctx := NewMockContext(ReservedKeys)
+			_, err := ctx.Query(q)
+			assert.Error(t, err, "expected rejected: %s", q)
+			_, ok := err.(InvalidVariableError)
+			assert.True(t, ok, "expected InvalidVariableError for %s, got %T", q, err)
+		})
+	}
+}
