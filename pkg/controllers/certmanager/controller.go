@@ -116,7 +116,7 @@ func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 						}
 					}
 				} else {
-					logger.Error(err, "falied to list secrets")
+					logger.Error(err, "failed to list secrets")
 				}
 			}
 			{
@@ -128,7 +128,7 @@ func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 						}
 					}
 				} else {
-					logger.Error(err, "falied to list secrets")
+					logger.Error(err, "failed to list secrets")
 				}
 			}
 		case <-ctx.Done():
