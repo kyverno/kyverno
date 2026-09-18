@@ -367,8 +367,10 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					prefix = string(old[0])
 				}
 
-				if shallowSubstitution && substitutedVar != nil {
-					substitutedVar = strings.ReplaceAll(substitutedVar.(string), "{{", "\\{{")
+				// only strings can carry nested `{{ }}` that need escaping;
+				// numbers, bools, maps and slices are passed through as-is
+				if s, ok := substitutedVar.(string); ok && shallowSubstitution {
+					substitutedVar = strings.ReplaceAll(s, "{{", "\\{{")
 				}
 
 				if value, err = substituteVarInPattern(prefix, value, v, substitutedVar); err != nil {
