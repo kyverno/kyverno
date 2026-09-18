@@ -19,14 +19,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -58,10 +59,10 @@ type CompiledPolicy interface {
 	// synthetic-request carve-out, where each synthesized pod template must build
 	// its own map from its own (different) embedded object/oldObject rather than
 	// reuse the outer request's.
-	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
-	EnforceRequired(images []string) error
+	Evaluate(context.Context, *imageverify.Runtime, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
+	EnforceRequired(images []string, verifications *imageverify.ImageVerificationResults) error
 	// requestMapFn: same memoization contract as Evaluate's.
-	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
+	MutateDigest(context.Context, *imageverify.Runtime, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
 }
 
 type compiledPolicy struct {
@@ -71,7 +72,7 @@ type compiledPolicy struct {
 	matchConditions      []cel.Program
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
-	imageExtractors      map[string]engine.ImageExtractor
+	imageExtractors      engine.ImageExtractorProfiles
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
@@ -80,10 +81,13 @@ type compiledPolicy struct {
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 	validationConfig     policiesv1alpha1.ValidationConfiguration
-	verifications        *imageverify.ImageVerificationResults
+	imageVerifyFactory   *imageverify.Factory
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
+func (c *compiledPolicy) Evaluate(ctx context.Context, rt *imageverify.Runtime, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
+	if rt == nil {
+		return nil, fmt.Errorf("image verification runtime is required")
+	}
 	// Assemble activation data once, ahead of matching, so match (matchConditions
 	// and every exception's matchConditions) and the rest of Evaluate all consume
 	// the same map instead of each rebuilding it. This is what keeps a nil
@@ -92,6 +96,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if err != nil {
 		return nil, err
 	}
+	c.bindRuntime(data, rt, context)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -150,7 +155,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	}
 
-	images, err := engine.ExtractImages(data, c.imageExtractors)
+	var gvr *metav1.GroupVersionResource
+	if req, ok := request.(*admissionv1.AdmissionRequest); ok {
+		gvr = req.RequestResource
+	}
+	images, err := engine.ExtractImages(data, c.imageExtractors.ForResource(gvr))
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +190,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	// Prefetch image data through Get() one image at a time to avoid triggering
 	// racy concurrent map writes in the SDK AddImages() implementation.
 	for _, image := range imgList {
-		if _, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+		if _, err := rt.ImageContext.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
 			return nil, err
 		}
 	}
@@ -273,12 +282,12 @@ func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, erro
 // in the request -- the catch-all model. Must be called only after every policy
 // in the request has evaluated, or a catch-all run first would deny images a
 // later policy verifies.
-func (c *compiledPolicy) EnforceRequired(images []string) error {
+func (c *compiledPolicy) EnforceRequired(images []string, verifications *imageverify.ImageVerificationResults) error {
 	if c.validationConfig.Required != nil && !*c.validationConfig.Required {
 		return nil
 	}
 	for _, image := range images {
-		verified, attempted := c.verifications.Status(image)
+		verified, attempted := verifications.Status(image)
 		if verified {
 			continue
 		}
@@ -304,14 +313,18 @@ func (c *compiledPolicy) EnforceRequired(images []string) error {
 // digest, matching how ClusterPolicy pins each image independently.
 func (c *compiledPolicy) MutateDigest(
 	ctx context.Context,
-	ictx imagedataloader.ImageContext,
+	rt *imageverify.Runtime,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
 	resource unstructured.Unstructured,
 	requestMapFn func() (map[string]any, error),
 	cfg config.Configuration,
+	libctx libs.Context,
 ) ([]jsonpatch.JsonPatchOperation, error) {
+	if rt == nil {
+		return nil, fmt.Errorf("image verification runtime is required")
+	}
 	// Same single-assembly rule as Evaluate: build the activation data once and
 	// let both match calls (matchConditions, exception matchConditions) consume
 	// it, rather than each rebuilding it.
@@ -319,6 +332,7 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
+	c.bindRuntime(data, rt, libctx)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -364,7 +378,7 @@ func (c *compiledPolicy) MutateDigest(
 			} else if !apply {
 				continue
 			}
-			data, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts)
+			data, err := rt.ImageContext.Get(ctx, image, c.authOpts, c.nameOpts)
 			if err != nil {
 				// Record the failure and carry on: an image that cannot be resolved must not
 				// cost the images that can their digest. ClusterPolicy pins each image
@@ -504,4 +518,15 @@ func prepareK8sData(
 	data[engine.ObjectKey] = objectVal
 	data[engine.OldObjectKey] = oldObjectVal
 	return data, nil
+}
+
+// bindRuntime keeps request-owned state out of reusable programs, including CLI
+// HTTP mocks. Binding precedes match conditions and exceptions in both paths.
+func (c *compiledPolicy) bindRuntime(data map[string]any, rt *imageverify.Runtime, libctx libs.Context) {
+	if c.imageVerifyFactory != nil {
+		data[imageverify.RuntimeKey] = c.imageVerifyFactory.Bind(rt)
+	}
+	if libctx != nil {
+		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
+	}
 }
