@@ -183,6 +183,7 @@ func TestAdmissionWatchReadinessRegression(t *testing.T) {
 			drop = make(chan struct{})
 			mu.Unlock()
 			require.Eventually(t, func() bool {
+				clock.Step(time.Second)
 				current, err := cpol.Lister().Get("require-label")
 				return err == nil && current.ResourceVersion == "2" && probe() == http.StatusOK
 			}, 15*time.Second, 10*time.Millisecond)

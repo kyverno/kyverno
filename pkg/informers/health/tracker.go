@@ -21,7 +21,7 @@ const GracePeriod = 30 * time.Second
 type Tracker struct {
 	mu      sync.RWMutex
 	streams []*stream
-	clock   clock.PassiveClock
+	clock   clock.Clock
 	logger  logr.Logger
 }
 
@@ -34,7 +34,7 @@ type stream struct {
 	stopped       bool
 }
 
-func NewTracker(logger logr.Logger, clock clock.PassiveClock) *Tracker {
+func NewTracker(logger logr.Logger, clock clock.Clock) *Tracker {
 	return &Tracker{logger: logger, clock: clock}
 }
 

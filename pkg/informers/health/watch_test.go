@@ -67,7 +67,7 @@ func TestWatchInterruptionAndRecovery(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(w.Stop)
 			clock.Step(time.Hour)
-			require.True(t, tracker.Ready(), "quiet watches are healthy")
+			require.Eventually(t, tracker.Ready, time.Second, time.Millisecond, "quiet watches are healthy")
 			if failure == "error event" {
 				upstream.Error(&metav1.Status{Status: metav1.StatusFailure})
 				require.Equal(t, watch.Error, receive(t, w).Type)
@@ -94,9 +94,9 @@ func TestWatchInterruptionAndRecovery(t *testing.T) {
 			recovered, err := lw.WatchWithContext(t.Context(), metav1.ListOptions{ResourceVersion: "2"})
 			require.NoError(t, err)
 			t.Cleanup(recovered.Stop)
-			require.True(t, tracker.Ready())
 			upstream.Add(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "updated"}})
 			require.Equal(t, "updated", receive(t, recovered).Object.(*corev1.ConfigMap).Name)
+			require.True(t, tracker.Ready())
 		})
 	}
 }
@@ -175,6 +175,12 @@ func TestIndependentStreamsAndObsoleteCallbacks(t *testing.T) {
 	current, err := lw.WatchWithContext(t.Context(), metav1.ListOptions{ResourceVersion: "2"})
 	require.NoError(t, err)
 	t.Cleanup(current.Stop)
+	clock.Step(watchStabilityPeriod)
+	require.Eventually(t, func() bool {
+		tracker.mu.RLock()
+		defer tracker.mu.RUnlock()
+		return !tracker.streams[0].interrupted
+	}, time.Second, time.Millisecond)
 	old.Stop()
 	closed(t, old)
 	require.False(t, tracker.Ready(), "one recovered stream must not hide another")
@@ -199,7 +205,35 @@ func TestTransientInterruption(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(w.Stop)
 	clock.Step(time.Hour)
-	require.True(t, tracker.Ready())
+	require.Eventually(t, tracker.Ready, time.Second, time.Millisecond)
+}
+
+func TestRepeatedSuccessfulWatchClosuresPreserveDeadline(t *testing.T) {
+	t.Parallel()
+	clock := clocktesting.NewFakeClock(time.Now())
+	tracker := NewTracker(logr.Discard(), clock)
+	var upstream watch.Interface
+	lw := testStream(t, tracker, &cache.ListWatch{WatchFuncWithContext: func(context.Context, metav1.ListOptions) (watch.Interface, error) {
+		upstream = watch.NewRaceFreeFake()
+		return upstream, nil
+	}})
+
+	for range int(GracePeriod / watchStabilityPeriod) {
+		w, err := lw.WatchWithContext(t.Context(), metav1.ListOptions{ResourceVersion: "1"})
+		require.NoError(t, err)
+		upstream.Stop()
+		closed(t, w)
+		clock.Step(watchStabilityPeriod - time.Nanosecond)
+	}
+	w, err := lw.WatchWithContext(t.Context(), metav1.ListOptions{ResourceVersion: "1"})
+	require.NoError(t, err)
+	t.Cleanup(w.Stop)
+
+	// The API server accepted the latest watch, but every connection has
+	// immediately closed. Reopening a watch must not clear the original
+	// interruption deadline until a connection has remained stable.
+	clock.Step(30 * time.Nanosecond)
+	require.False(t, tracker.Ready())
 }
 
 func TestCancellationWhileForwarding(t *testing.T) {
@@ -212,6 +246,7 @@ func TestCancellationWhileForwarding(t *testing.T) {
 	w, err := lw.WatchWithContext(ctx, metav1.ListOptions{ResourceVersion: "1"})
 	require.NoError(t, err)
 	upstream.Add(&corev1.ConfigMap{})
+	receive(t, w)
 	cancel()
 	// Stop is safe concurrently and does not depend on draining ResultChan.
 	var wg sync.WaitGroup

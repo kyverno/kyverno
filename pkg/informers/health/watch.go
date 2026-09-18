@@ -3,13 +3,17 @@ package health
 import (
 	"context"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/utils/clock"
 )
+
+const watchStabilityPeriod = time.Second
 
 type listWatcher struct {
 	cache.ListerWatcherWithContext
@@ -40,21 +44,24 @@ func (l *listWatcher) WatchWithContext(ctx context.Context, options metav1.ListO
 		return nil, err
 	}
 	initialEvents := options.SendInitialEvents != nil && *options.SendInitialEvents
+	var recoveryTimer clock.Timer
 	if !initialEvents && ctx.Err() == nil {
-		// Resumption from the reflector's resource version restores connectivity;
-		// client-go remains responsible for replay and cache processing.
-		l.stream.recover(attempt)
+		// Do not clear an interruption until the returned watch has remained
+		// open briefly. A watch can be accepted successfully and then close
+		// immediately; client-go may retry that cycle indefinitely.
+		recoveryTimer = l.stream.tracker.clock.NewTimer(watchStabilityPeriod)
 	}
-	out := &monitoredWatch{upstream: w, result: make(chan watch.Event), done: make(chan struct{})}
+	out := &monitoredWatch{upstream: w, result: make(chan watch.Event), done: make(chan struct{}), recoveryTimer: recoveryTimer}
 	go out.forward(ctx, l.stream, attempt, initialEvents)
 	return out, nil
 }
 
 type monitoredWatch struct {
-	upstream watch.Interface
-	result   chan watch.Event
-	done     chan struct{}
-	once     sync.Once
+	upstream      watch.Interface
+	result        chan watch.Event
+	done          chan struct{}
+	once          sync.Once
+	recoveryTimer clock.Timer
 }
 
 func (w *monitoredWatch) Stop() {
@@ -69,18 +76,30 @@ func (w *monitoredWatch) ResultChan() <-chan watch.Event { return w.result }
 func (w *monitoredWatch) forward(ctx context.Context, s *stream, attempt uint64, initialEvents bool) {
 	defer close(w.result)
 	defer w.Stop()
+	if w.recoveryTimer != nil {
+		defer w.recoveryTimer.Stop()
+	}
 	defer func() {
 		if ctx.Err() == nil {
 			s.fail(attempt)
 		}
 	}()
 	failed := false
+	var recovery <-chan time.Time
+	if w.recoveryTimer != nil {
+		recovery = w.recoveryTimer.C()
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-w.done:
 			return
+		case <-recovery:
+			if ctx.Err() == nil {
+				s.recover(attempt)
+			}
+			recovery = nil
 		case event, ok := <-w.upstream.ResultChan():
 			if !ok {
 				return
@@ -88,6 +107,13 @@ func (w *monitoredWatch) forward(ctx context.Context, s *stream, attempt uint64,
 			if event.Type == watch.Error {
 				failed = true
 				s.fail(attempt)
+				recovery = nil
+				if w.recoveryTimer != nil {
+					w.recoveryTimer.Stop()
+				}
+			} else if !initialEvents && !failed && ctx.Err() == nil {
+				s.recover(attempt)
+				recovery = nil
 			}
 			select {
 			case <-ctx.Done():
