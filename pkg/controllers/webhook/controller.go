@@ -990,7 +990,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
 	}
 
-	if err := c.buildForJSONPoliciesMutation(cfg, caBundle, result); err != nil {
+	if err := c.buildForJSONPoliciesMutation(ctx, cfg, caBundle, result); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for imageverificationpolicies: %v", err))
 	}
 
@@ -1003,7 +1003,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 	return result, multierr.Combine(errs...)
 }
 
-func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.MutatingWebhookConfiguration) error {
+func (c *controller) buildForJSONPoliciesMutation(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	if !c.watchdogCheck() {
 		return nil
 	}
@@ -1013,7 +1013,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return err
 	}
 
-	validate := buildWebhookRules(cfg,
+	validate := buildWebhookRules(ctx, cfg,
 		c.server,
 		config.MutatingPolicyWebhookName,
 		"/mpol",
@@ -1027,7 +1027,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return err
 	}
 
-	validate = append(validate, buildWebhookRules(cfg,
+	validate = append(validate, buildWebhookRules(ctx, cfg,
 		c.server,
 		config.NamespacedMutatingPolicyWebhookName,
 		"/nmpol",
@@ -1041,7 +1041,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return err
 	}
 
-	validate = append(validate, buildWebhookRules(cfg,
+	validate = append(validate, buildWebhookRules(ctx, cfg,
 		c.server,
 		config.ImageValidatingPolicyMutateWebhookName,
 		"/ivpol/mutate",
@@ -1055,7 +1055,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		return err
 	}
 
-	validate = append(validate, buildWebhookRules(cfg,
+	validate = append(validate, buildWebhookRules(ctx, cfg,
 		c.server,
 		config.NamespacedImageValidatingPolicyMutateWebhookName,
 		"/nivpol/mutate",
@@ -1240,7 +1240,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
 	}
 
-	if err := c.buildForJSONPoliciesValidation(cfg, caBundle, webhookConfig); err != nil {
+	if err := c.buildForJSONPoliciesValidation(ctx, cfg, caBundle, webhookConfig); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
@@ -1253,7 +1253,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	return webhookConfig, multierr.Combine(errs...)
 }
 
-func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+func (c *controller) buildForJSONPoliciesValidation(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	if !c.watchdogCheck() {
 		return nil
 	}
@@ -1262,7 +1262,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	vpolWebhooks := buildWebhookRules(cfg,
+	vpolWebhooks := buildWebhookRules(ctx, cfg,
 		c.server,
 		config.ValidatingPolicyWebhookName,
 		"/vpol",
@@ -1280,7 +1280,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	nvpolWebhooks := buildWebhookRules(cfg,
+	nvpolWebhooks := buildWebhookRules(ctx, cfg,
 		c.server,
 		config.NamespacedValidatingPolicyWebhookName,
 		"/nvpol",
@@ -1298,7 +1298,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	gpolWebhooks := buildWebhookRules(cfg,
+	gpolWebhooks := buildWebhookRules(ctx, cfg,
 		c.server,
 		config.GeneratingPolicyWebhookName,
 		"/gpol",
@@ -1316,7 +1316,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	ngpolWebhooks := buildWebhookRules(cfg,
+	ngpolWebhooks := buildWebhookRules(ctx, cfg,
 		c.server,
 		config.NamespacedGeneratingPolicyWebhookName,
 		"/ngpol",
@@ -1334,7 +1334,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	ivpolWebhooks := buildWebhookRules(cfg,
+	ivpolWebhooks := buildWebhookRules(ctx, cfg,
 		c.server,
 		config.ImageValidatingPolicyValidateWebhookName,
 		"/ivpol/validate",
@@ -1352,7 +1352,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	if err != nil {
 		return err
 	}
-	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
+	result.Webhooks = append(result.Webhooks, buildWebhookRules(ctx, cfg,
 		c.server,
 		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",

@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -114,7 +115,7 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
+func Validate(ctx context.Context, policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
 	var warnings []string
 	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
 		warnings = append(warnings, "A clusterpolicy should not have the namespace defined")
@@ -340,7 +341,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
+		w, err := validateActions(ctx, i, &rules[i], client, mock, backgroundSA, reportsSA)
 		if err != nil {
 			return warnings, err
 		} else if len(w) > 0 {
