@@ -404,6 +404,36 @@ func Test_ContextSizeLimitWithReplace(t *testing.T) {
 	assert.ErrorAs(t, err, &sizeErr)
 }
 
+// Test_ReplaceContextEntryDoesNotLeakSize is a regression test for
+// https://github.com/kyverno/kyverno/issues/17408.
+// Replacing the same context entry repeatedly (as happens during foreach iterations)
+// must not accumulate contextSize. Before the fix, contextSize only ever grew on each
+// call to ReplaceContextEntry, eventually triggering a spurious
+// ContextSizeLimitExceededError even when the actual live data was small.
+func Test_ReplaceContextEntryDoesNotLeakSize(t *testing.T) {
+	const limit = 100
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: limit,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	// Simulate a foreach loop that replaces the same context variable many times.
+	// Each payload is ~20 bytes; 10 iterations would sum to ~200 bytes (> limit)
+	// if contextSize were never decremented — but since we replace the same key each
+	// time, the net size should stay at ~20 bytes and never exceed the 100-byte limit.
+	payload := []byte(`"iteration-value-xx"`)
+	for i := range 10 {
+		err := ctx.ReplaceContextEntry("loopVar", payload)
+		assert.NoError(t, err, "iteration %d should not exceed the context size limit", i)
+	}
+
+	// The running contextSize must not exceed the limit.
+	assert.LessOrEqual(t, ctx.contextSize, int64(limit),
+		"contextSize should not grow unboundedly when the same entry is replaced repeatedly")
+}
+
 func Test_ContextSizeLimitExceededError(t *testing.T) {
 	err := ContextSizeLimitExceededError{Size: 3000, Limit: 2000}
 	assert.Equal(t, "context size limit exceeded: 3000 bytes exceeds limit of 2000 bytes", err.Error())

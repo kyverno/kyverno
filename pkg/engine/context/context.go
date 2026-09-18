@@ -227,7 +227,18 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 }
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
-	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
+	// Compute the size of the existing entry (if any) so we can subtract it from
+	// the running total. Without this, contextSize only ever grows during foreach
+	// iterations that replace the same variable, causing a spurious
+	// ContextSizeLimitExceededError even when actual live data is well under the limit.
+	var oldSize int64
+	if existing, ok := ctx.jsonRaw[name]; ok {
+		if oldData, err := json.Marshal(existing); err == nil {
+			oldSize = int64(len(oldData))
+		}
+	}
+	// Check the limit against the net size change only.
+	if err := ctx.checkContextSizeLimit(int64(len(dataRaw)) - oldSize); err != nil {
 		return err
 	}
 	var data interface{}
@@ -240,7 +251,7 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "unable to replace context entry", "context entry name", name)
 		return err
 	}
-	ctx.contextSize += int64(len(dataRaw))
+	ctx.contextSize = ctx.contextSize - oldSize + int64(len(dataRaw))
 	return addToContext(ctx, data, false, name)
 }
 
