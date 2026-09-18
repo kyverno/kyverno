@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-namespaced-generating-policy
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generatedResource.yaml
+  isGeneratingPolicy: true
+  kind: ConfigMap
+  policy: generate-k8s-ca-secret-from-configmap
+  resources:
+  - kube-root-ca.crt
+  result: pass

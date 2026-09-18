@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kube-root-ca-secret
+  namespace: default
+data:
+  cacert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tClRlc3QgQ2VydGlmaWNhdGUgQ29udGVudAotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+type: Opaque

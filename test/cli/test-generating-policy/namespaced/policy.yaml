@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedGeneratingPolicy
+metadata:
+  name: generate-k8s-ca-secret-from-configmap
+  namespace: default
+spec:
+  evaluation:
+    generateExisting:
+      enabled: true
+    synchronize:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+      resourceNames: ["kube-root-ca.crt"]
+  variables:
+  - name: downstream
+    expression: >-
+      [{
+        "apiVersion": dyn("v1"),
+        "kind": dyn("Secret"),
+        "metadata": dyn({
+          "name": "kube-root-ca-secret",
+          "namespace": "default"
+        }),
+        "data": dyn({
+          "cacert": base64.encode(bytes(object.data["ca.crt"]))
+        }),
+        "type": "Opaque"
+      }]
+  generate:
+  - expression: generator.Apply(variables.downstream)
