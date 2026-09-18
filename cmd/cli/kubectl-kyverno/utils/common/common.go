@@ -4,11 +4,14 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/memfs"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -20,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -215,6 +219,42 @@ func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths ...string)
 		gitPathToYamls = strings.ReplaceAll(policyPaths[0], repoURL, "/")
 	}
 	return gitBranch, gitPathToYamls
+}
+
+// ResolveGitSource clones the git repository identified by a source URL and
+// returns the resulting filesystem, the directory within the repository the
+// caller should list YAMLs from, and the branch that was ultimately used.
+//
+// Repositories on hosts such as GitLab can live under an arbitrary number of
+// nested groups/subgroups (e.g. <group>/<subgroup>/<team>/<repository>), so
+// the boundary between the repository path and the branch/directory that
+// follows it in the URL can't be determined from syntax alone. This starts
+// from the conventional <owner>/<repository> boundary and widens it one path
+// element at a time until a clone actually succeeds, so both flat
+// (GitHub-style) and nested layouts resolve correctly without guessing.
+func ResolveGitSource(path string, gitBranch string, clone gitutils.CloneFunc, auth githttp.BasicAuth) (billy.Filesystem, string, string, error) {
+	gitURL, err := url.Parse(path)
+	if err != nil {
+		return nil, "", "", err
+	}
+	pathElems := strings.Split(gitURL.Path[1:], "/")
+	if len(pathElems) <= 1 {
+		return nil, "", "", fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
+	}
+	var cloneErr error
+	for n := 2; n <= len(pathElems); n++ {
+		candidateURL := *gitURL
+		candidateURL.Path = strings.Join(pathElems[:n], "/")
+		candidateRepoURL := candidateURL.String()
+		candidateBranch, candidateGitPathToYamls := GetGitBranchOrPolicyPaths(gitBranch, candidateRepoURL, path)
+		candidateFS := memfs.New()
+		if _, err := clone(candidateRepoURL, candidateFS, candidateBranch, auth); err != nil {
+			cloneErr = err
+			continue
+		}
+		return candidateFS, candidateGitPathToYamls, candidateBranch, nil
+	}
+	return nil, "", "", cloneErr
 }
 
 // ReadFile reads a file from either a billy.Filesystem or the local filesystem.

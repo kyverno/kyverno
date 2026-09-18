@@ -296,6 +296,50 @@ type TestCase struct {
 	stdinFile       string
 }
 
+// TestApply_GitNestedGroupRepository verifies that a git source URL whose
+// repository lives under nested groups/subgroups (as on GitLab) is resolved
+// correctly: the CLI is expected to try the conventional <owner>/<repository>
+// boundary first, and only widen it, one path element at a time, until a
+// clone actually succeeds - it must not guess the boundary from URL syntax
+// alone. See https://github.com/kyverno/kyverno/issues/16925.
+func TestApply_GitNestedGroupRepository(t *testing.T) {
+	const realRepoURL = "https://gitlab.example.com/group/subgroup/team/project"
+	var attemptedRepoURLs []string
+	cloner := func(repoURL string, fs billy.Filesystem, branch string, auth http.BasicAuth) (*git.Repository, error) {
+		attemptedRepoURLs = append(attemptedRepoURLs, repoURL)
+		if repoURL != realRepoURL {
+			return nil, fmt.Errorf("repository not found: %s", repoURL)
+		}
+		return nil, copyFixturesToFS(t, "../../../../../test/cli/apply/git-test-fixtures", "/", fs)
+	}
+
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{realRepoURL + "/best-practices/require-labels/", "../../../../../test/best_practices/disallow_latest_tag.yaml"},
+		ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
+		GitBranch:     "main",
+		PolicyReport:  true,
+		Cloner:        cloner,
+	}
+
+	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
+	assert.NoError(t, err)
+
+	clustered, _ := report.ComputePolicyReports(config.AuditWarn, responses...)
+	assert.Greater(t, len(clustered), 0, "policy reports should not be empty")
+	combined := report.MergeClusterReports(clustered)
+	assert.Equal(t, 2, combined.Summary.Pass)
+	assert.Equal(t, 1, combined.Summary.Fail)
+
+	// The conventional two-element boundary, and every intermediate
+	// boundary, must be tried - and fail - before the real (nested)
+	// repository boundary is finally attempted and succeeds.
+	assert.Equal(t, []string{
+		"https://gitlab.example.com/group/subgroup",
+		"https://gitlab.example.com/group/subgroup/team",
+		realRepoURL,
+	}, attemptedRepoURLs)
+}
+
 func Test_Apply_ValidatingPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
