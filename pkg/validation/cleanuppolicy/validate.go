@@ -125,4 +125,4 @@ func validateVariables(logger logr.Logger, policy kyvernov2.CleanupPolicyInterfa
 	return nil
 }
 
-var allowedVariables = regexp.MustCompile(`^(target\.|images\.)|^([a-z_0-9]+\()[^{}]`)
+var allowedVariables = regexp.MustCompile(`^(target|images)([^A-Za-z0-9_]|$)|^([a-z_0-9]+\()[^{}]`)

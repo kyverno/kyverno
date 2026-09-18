@@ -31,6 +31,14 @@ func TestAllowedVariables_Anchored(t *testing.T) {
 			key:  "{{ length(target.metadata.name) }}",
 		},
 		{
+			name: "allow_target_pipe_keys",
+			key:  "{{ target | keys(@) }}",
+		},
+		{
+			name: "allow_images_pipe_keys",
+			key:  "{{ images | keys(@) }}",
+		},
+		{
 			name: "allow_context_var",
 			key:  "{{ varname }}",
 			context: []kyvernov1.ContextEntry{{
@@ -53,6 +61,11 @@ func TestAllowedVariables_Anchored(t *testing.T) {
 		{
 			name:    "reject_substring_target",
 			key:     "{{ mytarget.metadata.name }}",
+			wantErr: true,
+		},
+		{
+			name:    "reject_substring_target_pipe",
+			key:     "{{ mytarget | keys(@) }}",
 			wantErr: true,
 		},
 		{
