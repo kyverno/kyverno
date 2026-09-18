@@ -4167,6 +4167,7 @@ spec:
                                     - Privilege Escalation
                                     - Running as Non-root
                                     - Running as Non-root user
+                                    - Host Probes / Lifecycle Hooks
                                     type: string
                                   images:
                                     description: |-
@@ -9310,6 +9311,7 @@ spec:
                                         - Privilege Escalation
                                         - Running as Non-root
                                         - Running as Non-root user
+                                        - Host Probes / Lifecycle Hooks
                                         type: string
                                       images:
                                         description: |-
@@ -14235,6 +14237,7 @@ spec:
                                     - Privilege Escalation
                                     - Running as Non-root
                                     - Running as Non-root user
+                                    - Host Probes / Lifecycle Hooks
                                     type: string
                                   images:
                                     description: |-
@@ -19346,6 +19349,7 @@ spec:
                                         - Privilege Escalation
                                         - Running as Non-root
                                         - Running as Non-root user
+                                        - Host Probes / Lifecycle Hooks
                                         type: string
                                       images:
                                         description: |-
