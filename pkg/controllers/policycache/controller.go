@@ -62,7 +62,45 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
+	// Register callback for discovery changes to re-evaluate all policies
+	client.Discovery().OnChanged(c.requeueAllPolicies)
 	return &c
+}
+
+// requeueAllPolicies is called when discovery resources change (e.g., CRD added/updated/deleted).
+// It re-queues all policies to ensure they are re-evaluated with the updated discovery cache.
+func (c *controller) requeueAllPolicies() {
+	logger.V(4).Info("discovery change detected, re-queuing all policies for cache update")
+
+	// Re-queue all namespace policies
+	pols, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "failed to list policies for re-queuing")
+	}
+	for _, policy := range pols {
+		key, err := cache.MetaNamespaceKeyFunc(policy)
+		if err != nil {
+			logger.Error(err, "failed to get key for policy", "namespace", policy.GetNamespace(), "name", policy.GetName())
+			continue
+		}
+		c.queue.Add(key)
+	}
+	logger.V(4).Info("re-queued policies", "count", len(pols))
+
+	// Re-queue all cluster policies
+	cpols, err := c.cpolLister.List(labels.Everything())
+	if err != nil {
+		logger.Error(err, "failed to list cluster policies for re-queuing")
+	}
+	for _, policy := range cpols {
+		key, err := cache.MetaNamespaceKeyFunc(policy)
+		if err != nil {
+			logger.Error(err, "failed to get key for cluster policy", "name", policy.GetName())
+			continue
+		}
+		c.queue.Add(key)
+	}
+	logger.V(4).Info("re-queued cluster policies", "count", len(cpols))
 }
 
 func (c *controller) WarmUp() error {
