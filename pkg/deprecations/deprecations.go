@@ -4,6 +4,7 @@
 package deprecations
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 
@@ -20,7 +21,7 @@ const MigrationGuideURL = "https://kyverno.io/docs/guides/migration-to-cel/"
 // replacements maps a legacy kyverno.io kind to its policies.kyverno.io replacement(s).
 var replacements = map[string]string{
 	"ClusterPolicy":        "ValidatingPolicy, MutatingPolicy, GeneratingPolicy or ImageValidatingPolicy",
-	"Policy":               "NamespacedValidatingPolicy, NamespacedMutatingPolicy, NamespacedGeneratingPolicy or NamespacedImageValidatingPolicy",
+	"Policy":               "NamespacedValidatingPolicy and the other namespaced policy types",
 	"ClusterCleanupPolicy": "DeletingPolicy",
 	"CleanupPolicy":        "NamespacedDeletingPolicy",
 	"PolicyException":      "PolicyException",
@@ -31,7 +32,13 @@ type DeprecationWarning struct {
 	Version string
 	Kind    string
 	Field   string
-	Message string
+	// Replacement is the policies.kyverno.io equivalent(s) for the kind, on its
+	// own (for example "DeletingPolicy"), without the surrounding removal notice
+	// or migration URL. Callers that want a compact "kind -> target" rendering
+	// use this instead of parsing it back out of Message. Empty for field-level
+	// warnings.
+	Replacement string
+	Message     string
 }
 
 // Warning returns a deprecation warning for the given legacy kyverno.io kind,
@@ -57,14 +64,60 @@ func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
 		apiVersion = fmt.Sprintf("%s/%s", group, version)
 	}
 	return DeprecationWarning{
-		Group:   group,
-		Version: version,
-		Kind:    kind,
+		Group:       group,
+		Version:     version,
+		Kind:        kind,
+		Replacement: replacement,
 		Message: fmt.Sprintf(
 			"%s %s is deprecated and will be removed in a future release; migrate to %s (policies.kyverno.io), see %s",
 			apiVersion, kind, replacement, MigrationGuideURL,
 		),
 	}, true
+}
+
+// IsLegacyPolicyKind reports whether kind (in the given group) is one of the legacy
+// kyverno.io policy kinds subject to the 1.20 write-time block on creates/spec-updates.
+func IsLegacyPolicyKind(group, kind string) bool {
+	if group != "kyverno.io" {
+		return false
+	}
+	_, ok := replacements[kind]
+	return ok
+}
+
+// legacyPolicyBlockError marks an error returned by BuildKindError, so callers that otherwise treat
+// load/parse failures as soft/skippable (e.g. the CLI silently skipping a non-Kyverno YAML file) can
+// tell this one apart and surface it as a hard failure instead.
+type legacyPolicyBlockError struct{ error }
+
+func (e legacyPolicyBlockError) Unwrap() error { return e.error }
+
+// IsLegacyPolicyBlockError reports whether err is (or wraps) the hard error returned by BuildKindError,
+// as opposed to an unrelated YAML/parsing error.
+func IsLegacyPolicyBlockError(err error) bool {
+	var e legacyPolicyBlockError
+	return errors.As(err, &e)
+}
+
+// BuildKindError returns a hard error rejecting a create or spec-changing update of a legacy
+// kyverno.io policy kind, or false if the kind is not a legacy policy type. It reuses the same
+// replacements table and migration URL as BuildKindWarning so the two messages stay consistent.
+func BuildKindError(group, version, kind string) (error, bool) {
+	if group != "kyverno.io" {
+		return nil, false
+	}
+	replacement, ok := replacements[kind]
+	if !ok {
+		return nil, false
+	}
+	apiVersion := group
+	if version != "" {
+		apiVersion = fmt.Sprintf("%s/%s", group, version)
+	}
+	return legacyPolicyBlockError{fmt.Errorf(
+		"%s %s is no longer accepted for create, or for an update that changes spec; migrate to %s (policies.kyverno.io), see %s",
+		apiVersion, kind, replacement, MigrationGuideURL,
+	)}, true
 }
 
 // PolicyFieldWarnings returns field-level deprecation warnings for legacy policy fields.

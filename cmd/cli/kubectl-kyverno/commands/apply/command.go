@@ -43,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -386,12 +387,16 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 
 	var exceptions []*kyvernov2.PolicyException
 	var celExceptions []*policiesv1beta1.PolicyException
+	// `kyverno apply` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
 	if c.exceptionsWithinResources || c.inlineExceptions {
-		results := exception.SelectFrom(resources)
+		results, err := exception.SelectFrom(resources, false)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+		}
 		exceptions = results.Exceptions
 		celExceptions = results.CELExceptions
 	} else {
-		results, err := exception.Load(c.Exception...)
+		results, err := exception.Load(false, c.Exception...)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 		}
@@ -688,10 +693,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if len(ivps) == 0 {
 		return nil, nil
 	}
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
 
 	var lister corev1listers.SecretLister
 	if dclient != nil {
@@ -707,14 +708,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 
 		lister = informerFactory.Core().V1().Secrets().Lister()
 	}
-	engine := ivpolengine.NewEngine(
-		provider,
-		namespaceProvider,
-		matching.NewMatcher(),
-		lister,
-		imageverifycache.DisabledImageVerifyCache(),
-		config.NewDefaultConfiguration(false),
-	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
@@ -724,6 +717,21 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
+
+	// Compilation captures the CLI library defaults, so initialize them first.
+	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := ivpolengine.NewEngine(
+		provider,
+		namespaceProvider,
+		matching.NewMatcher(),
+		lister,
+		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
+	)
 
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
@@ -1151,13 +1159,16 @@ func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				loaderResults, err := policy.Load(fs, "", policyYaml)
+				loaderResults, err := policy.Load(fs, "", false, policyYaml)
 				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 					for _, err := range loaderResults.NonFatalErrors {
 						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 					}
 				}
 				if err != nil {
+					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+					}
 					continue
 				}
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
@@ -1178,11 +1189,14 @@ func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		} else {
-			loaderResults, err := policy.Load(nil, "", path)
+			loaderResults, err := policy.Load(nil, "", false, path)
 			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 				for _, err := range loaderResults.NonFatalErrors {
 					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 				}
+			}
+			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)

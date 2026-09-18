@@ -6,6 +6,7 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
@@ -56,9 +57,9 @@ func NewProvider(
 		if err != nil {
 			return nil, err
 		}
-		for _, autogen := range generated {
+		for config, generatedPolicy := range generated {
 			autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
-			*autogenPolicy.GetValidatingPolicySpec() = *autogen.Spec
+			*autogenPolicy.GetValidatingPolicySpec() = *generatedPolicy.Spec
 			compiled, errs := compiler.Compile(autogenPolicy, matchedExceptions)
 			if len(errs) > 0 {
 				return nil, fmt.Errorf("failed to compile policy %s (%w)", autogenPolicy.GetName(), errs.ToAggregate())
@@ -67,6 +68,7 @@ func NewProvider(
 				Actions:        actions,
 				Policy:         autogenPolicy,
 				CompiledPolicy: compiled,
+				ExtractionMode: config == autogen.ExtractionReplacementsRef,
 			})
 		}
 	}
@@ -81,6 +83,13 @@ func NewKubeProvider(
 	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) (Provider, error) {
+	// Lets an unrecognized bare controller name (e.g. "jobsets") resolve via
+	// live discovery instead of requiring the explicit
+	// "<resource>.<version>.<group>" format - see autogen.BareNameResolver.
+	// Also corrects the explicit format's best-effort Kind guess (see
+	// autogen.KindResolver) for irregular plurals like "jobsets" -> "JobSet".
+	celautogen.BareNameResolver = celautogen.RESTMapperBareNameResolver(mgr.GetRESTMapper())
+	celautogen.KindResolver = celautogen.RESTMapperKindResolver(mgr.GetRESTMapper())
 	reconciler := newReconciler(compiler, mgr.GetClient(), polexLister, polexEnabled)
 
 	vpolBuilder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1beta1.ValidatingPolicy{})

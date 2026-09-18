@@ -135,7 +135,7 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 				continue
 			}
 			logger.V(4).Info("adding rule context", "rule", rule.Name, "trigger", trigger.GetNamespace()+"/"+trigger.GetName())
-			addRuleContext(ur, rule.Name, common.ResourceSpecFromUnstructured(*trigger), false, false)
+			addRuleContext(ur, rule.Name, common.ResourceSpecFromUnstructured(*trigger), false, false, false)
 		}
 	}
 
@@ -227,7 +227,7 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 	for _, downstream := range downstreams.Items {
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
-		addRuleContext(ur, ruleName, trigger, deleteDownstream, false)
+		addRuleContext(ur, ruleName, trigger, deleteDownstream, false, false)
 		if policyDeletion {
 			addGeneratedResources(ur, downstream)
 		}
