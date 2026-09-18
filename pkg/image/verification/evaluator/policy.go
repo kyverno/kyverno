@@ -96,7 +96,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, rt *imageverify.Runtime, 
 	if err != nil {
 		return nil, err
 	}
-	c.bindRuntime(data, rt, context)
+	boundRuntime := c.bindRuntime(data, rt, context)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -210,7 +210,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, rt *imageverify.Runtime, 
 	data[engine.AttestorsKey] = attestors
 
 	for i, v := range c.validations {
+		boundRuntime.BeginValidation()
 		out, _, err := v.Program.ContextEval(ctx, data)
+		diagnostics := boundRuntime.VerificationDiagnostics()
 		if err != nil {
 			return nil, err
 		}
@@ -230,6 +232,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, rt *imageverify.Runtime, 
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
+			message += diagnostics
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
 				return nil, err
@@ -522,11 +525,14 @@ func prepareK8sData(
 
 // bindRuntime keeps request-owned state out of reusable programs, including CLI
 // HTTP mocks. Binding precedes match conditions and exceptions in both paths.
-func (c *compiledPolicy) bindRuntime(data map[string]any, rt *imageverify.Runtime, libctx libs.Context) {
+func (c *compiledPolicy) bindRuntime(data map[string]any, rt *imageverify.Runtime, libctx libs.Context) imageverify.Runtime {
+	var bound imageverify.Runtime
 	if c.imageVerifyFactory != nil {
-		data[imageverify.RuntimeKey] = c.imageVerifyFactory.Bind(rt)
+		bound = c.imageVerifyFactory.Bind(rt)
+		data[imageverify.RuntimeKey] = bound
 	}
 	if libctx != nil {
 		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
 	}
+	return bound
 }
