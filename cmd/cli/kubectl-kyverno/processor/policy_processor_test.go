@@ -10,6 +10,7 @@ import (
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var policyNamespaceSelector = []byte(`{
@@ -119,6 +120,46 @@ func Test_NamespaceSelector(t *testing.T) {
 		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
 		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
 	}
+}
+
+// Test_ApplyPoliciesOnResource_NamespacedGeneratingPolicy locks the fix for #17583:
+// the CLI used to hand the generating policy engine a typed-nil *GeneratingPolicy
+// extracted from the policy-like value (AsGeneratingPolicy() on a namespaced
+// policy), which escaped the engine's nil check and panicked in GetSpec().
+func Test_ApplyPoliciesOnResource_NamespacedGeneratingPolicy(t *testing.T) {
+	ngpol := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "generate-cm",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}},
+			},
+			Generation: []policiesv1beta1.Generation{{
+				Expression: `generator.Apply([{"kind": dyn("ConfigMap"), "apiVersion": dyn("v1"), "metadata": dyn({"name": "generated", "namespace": "default"}), "data": dyn({"hello": "world"})}])`,
+			}},
+		},
+	}
+
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		GeneratingPolicies: []policiesv1beta1.GeneratingPolicyLike{ngpol},
+		Rc:                 &ResultCounts{},
+		Out:                os.Stdout,
+	}
+
+	_, err := processor.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
 }
 
 func Test_resolveResource_fromValidatingPolicy(t *testing.T) {
