@@ -4,10 +4,21 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic/fake"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/util/retry"
 )
 
 // mockStatusControl implements StatusControlInterface for testing
@@ -105,4 +116,187 @@ func TestUpdateURStatus_FailedReturnsError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "status update failed", err.Error())
 	assert.True(t, mock.failedCalled)
+}
+
+// newTargetClient returns a fake client whose first `conflicts` update calls fail
+// with a conflict, plus a counter of how many update calls were made.
+func newTargetClient(target *unstructured.Unstructured, conflicts int, failWith error) (dclient.Interface, *int) {
+	scheme := runtime.NewScheme()
+	gvk := target.GroupVersionKind()
+	scheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+	listGVK := gvk
+	listGVK.Kind += "List"
+	scheme.AddKnownTypeWithName(listGVK, &unstructured.UnstructuredList{})
+
+	dyn := fake.NewSimpleDynamicClientWithCustomListKinds(
+		scheme,
+		map[schema.GroupVersionResource]string{
+			{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+		},
+		target,
+	)
+
+	updates := 0
+	dyn.PrependReactor("update", "configmaps", func(k8stesting.Action) (bool, runtime.Object, error) {
+		updates++
+		if updates <= conflicts {
+			return true, nil, failWith
+		}
+		return false, nil, nil
+	})
+
+	client := dclient.NewFakeClientWithDisco(dyn, kubefake.NewSimpleClientset(), dclient.NewFakeDiscoveryClient(nil))
+	return client, &updates
+}
+
+func targetConfigMap() *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":            "shared-target",
+			"namespace":       "default",
+			"resourceVersion": "1",
+		},
+		"data": map[string]interface{}{"registered": ""},
+	}}
+}
+
+// mutationResponse builds the engine response the controller would get for a
+// mutate-existing rule that patched `target`.
+func mutationResponse(target *unstructured.Unstructured) engineapi.EngineResponse {
+	rule := engineapi.RulePass("register", engineapi.Mutation, "", nil).
+		WithPatchedTarget(target.DeepCopy(), metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "")
+	var pr engineapi.PolicyResponse
+	pr.Add(engineapi.ExecutionStats{}, *rule)
+	return engineapi.EngineResponse{}.WithPolicyResponse(pr)
+}
+
+func conflictErr(name string) error {
+	return apierrors.NewConflict(schema.GroupResource{Resource: "configmaps"}, name, errors.New("the object has been modified"))
+}
+
+// A conflict must reach the caller so it can recompute and retry, and must also be
+// carried in the results so that a conflict which outlives the retries is reported
+// rather than only logged.
+func TestApplyMutations_ConflictIsReturnedAndCarried(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	client, updates := newTargetClient(target, 1, conflictErr(target.GetName()))
+	c := &mutateExistingController{client: client}
+
+	reports, errs, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(target))
+
+	assert.True(t, apierrors.IsConflict(conflict), "conflict must be returned to the caller")
+	assert.Len(t, errs, 1, "the conflict must be carried in case the retries are exhausted")
+	assert.Len(t, reports, 1, "the conflicting target must be reportable")
+	assert.True(t, apierrors.IsConflict(reports[0].err))
+	assert.Equal(t, 1, *updates)
+}
+
+// The caller keeps only the final attempt's results, so once the retries are
+// exhausted the conflict is surfaced as a terminal error and a report instead of
+// disappearing into the log.
+func TestApplyMutations_ExhaustedRetriesAreReportable(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	client, updates := newTargetClient(target, 100, conflictErr(target.GetName()))
+	c := &mutateExistingController{client: client}
+
+	var reports []targetMutation
+	var errs []error
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var conflict error
+		reports, errs, conflict = c.applyMutations(logr.Discard(), "register", mutationResponse(target))
+		return conflict
+	})
+
+	assert.True(t, apierrors.IsConflict(err), "the retries must give up with the conflict")
+	assert.Len(t, errs, 1, "the final attempt carries the conflict as a terminal error")
+	assert.Len(t, reports, 1, "the final attempt carries a report so the failure is not log-only")
+	assert.True(t, apierrors.IsConflict(reports[0].err))
+	assert.Greater(t, *updates, 1, "every attempt recomputes and retries the update")
+}
+
+// A conflict on a later target must not discard outcomes already collected for
+// earlier targets in the same attempt.
+func TestApplyMutations_EarlierTargetOutcomesSurviveAConflict(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	client, _ := newTargetClient(target, 1, conflictErr(target.GetName()))
+	c := &mutateExistingController{client: client}
+
+	// Two rule responses: the first update succeeds, the second conflicts.
+	first := engineapi.RuleError("earlier", engineapi.Mutation, "earlier target failed", errors.New("earlier"), nil).
+		WithPatchedTarget(target.DeepCopy(), metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "")
+	second := engineapi.RulePass("register", engineapi.Mutation, "", nil).
+		WithPatchedTarget(target.DeepCopy(), metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "")
+	var pr engineapi.PolicyResponse
+	pr.Add(engineapi.ExecutionStats{}, *first, *second)
+	er := engineapi.EngineResponse{}.WithPolicyResponse(pr)
+
+	reports, errs, conflict := c.applyMutations(logr.Discard(), "register", er)
+
+	assert.True(t, apierrors.IsConflict(conflict))
+	assert.Len(t, errs, 2, "the earlier target's error must survive the later conflict")
+	assert.Len(t, reports, 2)
+}
+
+// The mutation is recomputed on every attempt. Replaying the previously computed
+// patch against a newer resourceVersion would overwrite the other writer instead
+// of merging with it, so the recompute has to happen inside the retry.
+func TestApplyMutations_RetryRecomputesTheMutation(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	client, updates := newTargetClient(target, 1, conflictErr(target.GetName()))
+	c := &mutateExistingController{client: client}
+
+	recomputes := 0
+	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		recomputes++
+		_, _, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(target))
+		return conflict
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, 2, recomputes, "the mutation must be recomputed after a conflict, not replayed")
+	assert.Equal(t, 2, *updates)
+}
+
+func TestApplyMutations_NonConflictErrorIsCollected(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	failure := apierrors.NewInternalError(errors.New("boom"))
+	client, updates := newTargetClient(target, 1, failure)
+	c := &mutateExistingController{client: client}
+
+	reports, errs, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(target))
+
+	assert.NoError(t, conflict, "only conflicts are retryable")
+	assert.Len(t, errs, 1)
+	assert.Len(t, reports, 1, "a terminal failure is still reported")
+	assert.Error(t, reports[0].err)
+	assert.Equal(t, 1, *updates)
+}
+
+func TestApplyMutations_SuccessIsReportedOnce(t *testing.T) {
+	t.Parallel()
+
+	target := targetConfigMap()
+	client, updates := newTargetClient(target, 0, nil)
+	c := &mutateExistingController{client: client}
+
+	reports, errs, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(target))
+
+	assert.NoError(t, conflict)
+	assert.Empty(t, errs)
+	assert.Len(t, reports, 1)
+	assert.NoError(t, reports[0].err)
+	assert.Equal(t, "shared-target", reports[0].target.GetName())
+	assert.Equal(t, 1, *updates)
 }
