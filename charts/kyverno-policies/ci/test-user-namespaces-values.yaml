@@ -1,0 +1,6 @@
+# Exercises the podSecurityUserNamespaces flag against the legacy ClusterPolicy
+# (JMESPath) rendering path, covering the disallow-proc-mount anyPattern branch
+# added for hostUsers: false pods.
+policyType: ClusterPolicy
+podSecurityStandard: baseline
+podSecurityUserNamespaces: true

@@ -1,0 +1,6 @@
+# Exercises the podSecurityUserNamespaces flag against the CEL ValidatingPolicy
+# rendering path, covering the disallow-proc-mount hostUsers OR-clause added
+# for hostUsers: false pods.
+policyType: ValidatingPolicy
+podSecurityStandard: baseline
+podSecurityUserNamespaces: true
