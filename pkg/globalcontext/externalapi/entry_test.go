@@ -11,6 +11,8 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	fake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
@@ -620,3 +622,245 @@ func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
 	assert.Contains(t, e.err.Error(), "projection evaluation error")
 	assert.Equal(t, expectedSnapshot, e.dataMap)
 }
+
+func TestUpdateStatus_StatusReadyAndRefreshTime(t *testing.T) {
+	status := &kyvernov2beta1.GlobalContextEntryStatus{}
+
+	status.SetReady(true, "Ready")
+	assert.True(t, status.IsReady())
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryConditionReady, status.Conditions[0].Type)
+	assert.Equal(t, metav1.ConditionTrue, status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonSucceeded, status.Conditions[0].Reason)
+
+	status.SetReady(false, "Connection refused")
+	assert.False(t, status.IsReady())
+	assert.Equal(t, metav1.ConditionFalse, status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonFailed, status.Conditions[0].Reason)
+	assert.Equal(t, "Connection refused", status.Conditions[0].Message)
+}
+
+func TestUpdateStatus_WithFakeClient(t *testing.T) {
+	ctx := context.Background()
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce",
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+
+	// Test success path
+	err := updateStatus(ctx, gce, client, true, "Ready")
+	assert.NoError(t, err)
+
+	updated, err := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.True(t, updated.Status.IsReady())
+	assert.False(t, updated.Status.LastRefreshTime.IsZero())
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonSucceeded, updated.Status.Conditions[0].Reason)
+
+	lastRefresh := updated.Status.LastRefreshTime
+
+	// Test failure path
+	err = updateStatus(ctx, gce, client, false, "Connection refused")
+	assert.NoError(t, err)
+
+	updated, err = client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce", metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.False(t, updated.Status.IsReady())
+	assert.Equal(t, metav1.ConditionFalse, updated.Status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonFailed, updated.Status.Conditions[0].Reason)
+	assert.Equal(t, "Connection refused", updated.Status.Conditions[0].Message)
+	assert.Equal(t, lastRefresh, updated.Status.LastRefreshTime)
+}
+
+type fakeAPIClient struct {
+	data []byte
+	err  error
+}
+
+func (f *fakeAPIClient) RawAbsPath(ctx context.Context, _ string, _ string, _ io.Reader) ([]byte, error) {
+	return f.data, f.err
+}
+
+type mockJMESPathInterface struct {
+	queryResult jmespath.Query
+	queryErr    error
+}
+
+func (m *mockJMESPathInterface) Query(q string) (jmespath.Query, error) {
+	return m.queryResult, m.queryErr
+}
+
+func (m *mockJMESPathInterface) Search(q string, data any) (any, error) {
+	return nil, nil
+}
+
+func TestNew_PollingErrorPath_InvalidResponseData(t *testing.T) {
+	ctx := context.Background()
+	initialRefreshTime := metav1.NewTime(time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC))
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce-invalid",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Millisecond},
+				RetryLimit:      1,
+			},
+		},
+		Status: kyvernov2beta1.GlobalContextEntryStatus{
+			LastRefreshTime: initialRefreshTime,
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+	apiClient := &fakeAPIClient{data: []byte("{invalid json}")}
+
+	e, err := New(
+		ctx,
+		gce,
+		event.NewFake(),
+		client,
+		nil,
+		logr.Discard(),
+		apiClient,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		true,
+		nil,
+	)
+	assert.NoError(t, err)
+	defer e.Stop()
+
+	assert.Eventually(t, func() bool {
+		updated, err := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce-invalid", metav1.GetOptions{})
+		if err != nil || len(updated.Status.Conditions) == 0 {
+			return false
+		}
+		return !updated.Status.IsReady() &&
+			updated.Status.Conditions[0].Status == metav1.ConditionFalse &&
+			updated.Status.Conditions[0].Reason == kyvernov2beta1.GlobalContextEntryReasonFailed &&
+			updated.Status.Conditions[0].Message != "" &&
+			updated.Status.LastRefreshTime.Equal(&initialRefreshTime)
+	}, 5*time.Second, 10*time.Millisecond)
+}
+
+func TestNew_PollingErrorPath_FailingProjection(t *testing.T) {
+	ctx := context.Background()
+	initialRefreshTime := metav1.NewTime(time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC))
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce-proj-err",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Millisecond},
+				RetryLimit:      1,
+			},
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{
+					Name:     "badProj",
+					JMESPath: "invalid.jmespath",
+				},
+			},
+		},
+		Status: kyvernov2beta1.GlobalContextEntryStatus{
+			LastRefreshTime: initialRefreshTime,
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+	apiClient := &fakeAPIClient{data: []byte(`{"key":"value"}`)}
+	mockJP := &mockJMESPathInterface{
+		queryResult: &mockJMESPathQuery{err: fmt.Errorf("projection evaluation error")},
+	}
+
+	e, err := New(
+		ctx,
+		gce,
+		event.NewFake(),
+		client,
+		nil,
+		logr.Discard(),
+		apiClient,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		true,
+		mockJP,
+	)
+	assert.NoError(t, err)
+	defer e.Stop()
+
+	assert.Eventually(t, func() bool {
+		updated, err := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce-proj-err", metav1.GetOptions{})
+		if err != nil || len(updated.Status.Conditions) == 0 {
+			return false
+		}
+		return !updated.Status.IsReady() &&
+			updated.Status.Conditions[0].Status == metav1.ConditionFalse &&
+			updated.Status.Conditions[0].Reason == kyvernov2beta1.GlobalContextEntryReasonFailed &&
+			updated.Status.Conditions[0].Message == "projection evaluation error" &&
+			updated.Status.LastRefreshTime.Equal(&initialRefreshTime)
+	}, 5*time.Second, 10*time.Millisecond)
+}
+
+func TestNew_PollingSuccessPath(t *testing.T) {
+	ctx := context.Background()
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce-success",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Millisecond},
+				RetryLimit:      1,
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+	apiClient := &fakeAPIClient{data: []byte(`{"key":"value"}`)}
+
+	e, err := New(
+		ctx,
+		gce,
+		event.NewFake(),
+		client,
+		nil,
+		logr.Discard(),
+		apiClient,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		true,
+		nil,
+	)
+	assert.NoError(t, err)
+	defer e.Stop()
+
+	assert.Eventually(t, func() bool {
+		updated, err := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce-success", metav1.GetOptions{})
+		if err != nil || len(updated.Status.Conditions) == 0 {
+			return false
+		}
+		return updated.Status.IsReady() &&
+			updated.Status.Conditions[0].Status == metav1.ConditionTrue &&
+			updated.Status.Conditions[0].Reason == kyvernov2beta1.GlobalContextEntryReasonSucceeded
+	}, 5*time.Second, 10*time.Millisecond)
+}
+
+
