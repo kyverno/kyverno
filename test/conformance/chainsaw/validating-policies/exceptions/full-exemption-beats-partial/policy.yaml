@@ -1,0 +1,18 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: restrict-images
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+        operations: ["CREATE", "UPDATE"]
+  validations:
+    - message: "Only trusted images are allowed unless exempted."
+      expression: >
+        object.spec.containers.all(container,
+          string(container.image) in exceptions.allowedImages ||
+          container.image.startsWith('trusted-registry.example.com/')
+        )
