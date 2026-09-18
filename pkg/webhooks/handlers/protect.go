@@ -17,7 +17,9 @@ import (
 
 const namespaceControllerUsername = "system:serviceaccount:kube-system:namespace-controller"
 
-var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
+func kyvernoUsernamePrefix() string {
+	return fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
+}
 
 func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	if !enabled {
@@ -40,7 +42,7 @@ func (inner AdmissionHandler) withProtection() AdmissionHandler {
 		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 			resLabels := resource.GetLabels()
 			if resLabels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp {
-				if !strings.HasPrefix(request.UserInfo.Username, kyvernoUsernamePrefix) {
+				if !strings.HasPrefix(request.UserInfo.Username, kyvernoUsernamePrefix()) {
 					logger.V(2).Info("access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 					return admissionutils.Response(request.UID, errors.New("A kyverno managed resource can only be modified by kyverno"))
 				}
