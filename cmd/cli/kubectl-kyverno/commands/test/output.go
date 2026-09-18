@@ -157,7 +157,14 @@ func printTestResult(
 							},
 							Message: color.Excluded(),
 						}
-						rc.Skip++
+
+						if test.Result == openreports.StatusFail {
+							row.Result = color.ResultFail()
+							row.IsFailure = true
+							rc.Fail++
+						} else {
+							rc.Skip++
+						}
 						testCount++
 						rows = append(rows, row)
 					}
