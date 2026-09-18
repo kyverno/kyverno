@@ -559,3 +559,25 @@ func TestGenerateResources_ServerSideApply_UnmanagedExistingResourceNotAdopted(t
 	assert.False(t, mock.applyCalled, "ApplyResource must not be called for unmanaged pre-existing resources")
 	assert.Empty(t, cp.GetGeneratedResources(), "unmanaged pre-existing resources must not be adopted")
 }
+
+func TestAddGenerateLabelsStampsPolicyNamespace(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	obj := &unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "down"}}}
+	cp.addGenerateLabels(obj)
+
+	assert.Equal(t, "test-ngpol", obj.GetLabels()[common.GeneratePolicyLabel])
+	assert.Equal(t, "tenant-ns", obj.GetLabels()[common.GeneratePolicyNamespaceLabel])
+}
+
+func TestAddGenerateLabelsLeavesPolicyNamespaceEmptyForClusterPolicy(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, false)
+
+	obj := &unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "down"}}}
+	cp.addGenerateLabels(obj)
+
+	assert.Equal(t, "test-gpol", obj.GetLabels()[common.GeneratePolicyLabel])
+	assert.Empty(t, obj.GetLabels()[common.GeneratePolicyNamespaceLabel])
+}

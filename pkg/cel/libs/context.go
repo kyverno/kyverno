@@ -387,6 +387,7 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 
 	labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
 	labels[common.GeneratePolicyLabel] = cp.genCtx.policyName
+	labels[common.GeneratePolicyNamespaceLabel] = cp.genCtx.policyNamespace
 	labels[common.GenerateTriggerNameLabel] = cp.genCtx.triggerName
 	labels[common.GenerateTriggerNSLabel] = cp.genCtx.triggerNamespace
 	labels[common.GenerateTriggerUIDLabel] = cp.genCtx.triggerUID

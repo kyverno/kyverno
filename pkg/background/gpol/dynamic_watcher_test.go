@@ -1609,3 +1609,90 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	assert.True(t, hasFirst)
 	assert.True(t, hasSecond)
 }
+
+// Namespaced policies use a "namespace/name" WatchManager key while cluster
+// policies use a bare name. Downstream resources must be matched against the
+// policy name and namespace labels so a same-named policy in another namespace
+// is never touched.
+func TestWatchManager_PolicyKeyMatchesDownstream(t *testing.T) {
+	const (
+		namespacedKey = "tenant-ns/pol"
+		clusterKey    = "pol"
+	)
+	namespacedLabels := map[string]string{
+		common.GeneratePolicyLabel:          "pol",
+		common.GeneratePolicyNamespaceLabel: "tenant-ns",
+	}
+	clusterLabels := map[string]string{
+		common.GeneratePolicyLabel: "pol",
+	}
+
+	newManager := func(client *MockClient, policyKey string, labels map[string]string) *WatchManager {
+		downstream := makeUnstructured("1", "", "v1", "Secret", "down", "tenant-ns", "uid-down", labels)
+		return &WatchManager{
+			client:     client,
+			policyRefs: map[string][]schema.GroupVersionResource{policyKey: {gvr}},
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {
+					metadataCache: map[types.UID]Resource{
+						"uid-down": {
+							Name:      "down",
+							Namespace: "tenant-ns",
+							Hash:      reportutils.CalculateResourceHash(*downstream),
+							Labels:    labels,
+							Data:      downstream,
+						},
+					},
+				},
+			},
+			refCount: map[schema.GroupVersionResource]int{},
+		}
+	}
+
+	t.Run("GetDownstreams returns the namespaced downstream", func(t *testing.T) {
+		wm := newManager(&MockClient{}, namespacedKey, namespacedLabels)
+		downstreams := wm.GetDownstreams(namespacedKey)
+		require.Len(t, downstreams, 1)
+		assert.Equal(t, "down", downstreams[0].GetName())
+	})
+
+	t.Run("GetDownstreams does not match a same-named policy in another namespace", func(t *testing.T) {
+		wm := newManager(&MockClient{}, "other-ns/pol", namespacedLabels)
+		assert.Empty(t, wm.GetDownstreams("other-ns/pol"))
+	})
+
+	t.Run("DeleteDownstreams deletes the namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, namespacedKey, namespacedLabels)
+		wm.DeleteDownstreams(namespacedKey, nil)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("CleanupStaleDownstreams deletes the namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, namespacedKey, namespacedLabels)
+		wm.CleanupStaleDownstreams(namespacedKey, nil, nil)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("RemoveWatchersForPolicy deletes the namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, namespacedKey, namespacedLabels)
+		wm.RemoveWatchersForPolicy(namespacedKey, true)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("cluster policy matches a downstream without a namespace label", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, clusterKey, clusterLabels)
+		wm.RemoveWatchersForPolicy(clusterKey, true)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("cluster policy does not match a namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, clusterKey, namespacedLabels)
+		wm.RemoveWatchersForPolicy(clusterKey, true)
+		assert.Empty(t, client.deleted)
+	})
+}

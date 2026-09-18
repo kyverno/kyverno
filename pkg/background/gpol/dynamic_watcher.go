@@ -154,7 +154,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyvernov1.Resou
 				var uidsToDelete []types.UID
 				for uid, resource := range oldWatcher.metadataCache {
 					// identify resources managed by this specific policy and trigger via labels
-					if resource.Labels[common.GeneratePolicyLabel] != policyName {
+					if !policyMatches(resource.Labels, policyName) {
 						continue
 					}
 					if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
@@ -180,7 +180,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyvernov1.Resou
 				// keep the watcher, the ref count and the policy reference in that case
 				stillReferenced := false
 				for _, resource := range oldWatcher.metadataCache {
-					if resource.Labels[common.GeneratePolicyLabel] == policyName {
+					if policyMatches(resource.Labels, policyName) {
 						stillReferenced = true
 						break
 					}
@@ -231,7 +231,7 @@ func (wm *WatchManager) GetDownstreams(policyName string) []*unstructured.Unstru
 
 			for _, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if resource.Labels[common.GeneratePolicyLabel] == policyName {
+				if policyMatches(resource.Labels, policyName) {
 					logger.V(4).Info("found downstream resource", "kind", resource.Data.GetKind(), "name", resource.Name, "namespace", resource.Namespace)
 					// create a copy of the resource to avoid modifying the original one
 					downstream := resource.Data.DeepCopy()
@@ -298,7 +298,7 @@ func (wm *WatchManager) walkDownstreams(policyName string, trigger *kyvernov1.Re
 			var uids []types.UID
 			for uid, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if resource.Labels[common.GeneratePolicyLabel] == policyName {
+				if policyMatches(resource.Labels, policyName) {
 					if trigger == nil || resource.Labels[common.GenerateTriggerUIDLabel] == string(trigger.UID) {
 						uids = append(uids, uid)
 					}
@@ -334,7 +334,7 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 		var uidsToDelete []types.UID
 		for uid, resource := range watcher.metadataCache {
 			// identify resources managed by this specific policy and trigger via labels
-			if resource.Labels[common.GeneratePolicyLabel] != policyName {
+			if !policyMatches(resource.Labels, policyName) {
 				continue
 			}
 			if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
@@ -363,6 +363,20 @@ func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 	return gvk.String() + "/" + namespace + "/" + name
 }
 
+// policyMatches reports whether the labels of a generated resource identify the
+// policy referenced by policyKey. Namespaced policies use a "namespace/name"
+// key and their resources carry both the policy name and namespace labels.
+// Cluster-scoped policies use a bare name key and their resources carry an
+// empty namespace label.
+func policyMatches(labels map[string]string, policyKey string) bool {
+	namespace, name, err := cache.SplitMetaNamespaceKey(policyKey)
+	if err != nil {
+		return false
+	}
+	return labels[common.GeneratePolicyLabel] == name &&
+		labels[common.GeneratePolicyNamespaceLabel] == namespace
+}
+
 // RemoveWatchersForPolicy removes all downstream resources and watchers for a given policy name.
 func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstream bool) {
 	wm.lock.Lock()
@@ -379,7 +393,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 				var uidsToDelete []types.UID
 				for uid, resource := range watcher.metadataCache {
 					// identify resources managed by this specific policy via a label
-					if resource.Labels[common.GeneratePolicyLabel] == policyName {
+					if policyMatches(resource.Labels, policyName) {
 						uidsToDelete = append(uidsToDelete, uid)
 					}
 				}
