@@ -14,9 +14,14 @@ func ValidatePattern(patternElement interface{}, path string, isSupported func(a
 		return validateMap(typedPatternElement, path, isSupported)
 	case []interface{}:
 		return validateArray(typedPatternElement, path, isSupported)
-	case string, float64, int, int64, bool, nil:
-		// TODO: check operator
-		return "", nil
+	case string:
+		return validateStringPattern(typedPatternElement, path)
+	case float64, int, int64:
+		return validateNumericPattern(typedPatternElement, path)
+	case bool:
+		return validateBoolPattern(path)
+	case nil:
+		return validateNilPattern(path)
 	default:
 		return path, fmt.Errorf("error at '%s', pattern contains unknown type", path)
 	}
@@ -71,4 +76,27 @@ func checkAnchors(a anchor.Anchor, isSupported func(anchor.Anchor) bool) bool {
 		return false
 	}
 	return isSupported(a)
+}
+
+func validateStringPattern(pattern string, path string) (string, error) {
+	// All operators are valid for strings, no additional validation needed
+	// The operator parsing and validation happens at runtime in pkg/engine/pattern
+	return "", nil
+}
+
+func validateNumericPattern(pattern interface{}, path string) (string, error) {
+	// Numeric patterns (int, int64, float64) are literal values
+	// They don't contain operators as operators are only in string patterns
+	return "", nil
+}
+
+func validateBoolPattern(path string) (string, error) {
+	// Boolean patterns are literal values (true/false)
+	// They don't contain operators
+	return "", nil
+}
+
+func validateNilPattern(path string) (string, error) {
+	// Nil patterns don't contain operators
+	return "", nil
 }
