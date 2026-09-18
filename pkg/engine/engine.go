@@ -22,6 +22,7 @@ import (
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"go.opentelemetry.io/otel/trace"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type engine struct {
@@ -33,6 +34,7 @@ type engine struct {
 	ivCache           imageverifycache.Client
 	contextLoader     engineapi.ContextLoaderFactory
 	exceptionSelector engineapi.PolicyExceptionSelector
+	nsLister          corev1listers.NamespaceLister
 	metrics           metrics.PolicyEngineMetrics
 }
 
@@ -47,6 +49,7 @@ func NewEngine(
 	contextLoader engineapi.ContextLoaderFactory,
 	exceptionSelector engineapi.PolicyExceptionSelector,
 	isCluster *bool,
+	nsLister corev1listers.NamespaceLister,
 ) engineapi.Engine {
 	if isCluster == nil {
 		defaultCluster := true
@@ -61,6 +64,7 @@ func NewEngine(
 		isCluster:         *isCluster,
 		contextLoader:     contextLoader,
 		exceptionSelector: exceptionSelector,
+		nsLister:          nsLister,
 		metrics:           metrics.GetPolicyEngineMetrics(),
 	}
 }

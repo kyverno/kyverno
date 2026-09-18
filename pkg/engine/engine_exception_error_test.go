@@ -21,7 +21,7 @@ func TestInvokeRuleHandler_ExceptionLookupError_ReturnsRuleError(t *testing.T) {
 		Return(([]*kyvernov2.PolicyException)(nil), fmt.Errorf("exception lister unavailable"))
 
 	e := NewEngine(cfg, jp, nil, nil, imageverifycache.DisabledImageVerifyCache(),
-		factories.DefaultContextLoaderFactory(nil), mockSelector, nil)
+		factories.DefaultContextLoaderFactory(nil), mockSelector, nil, nil)
 
 	policy := &kyverno.ClusterPolicy{}
 	policy.SetName("test-policy")
@@ -80,7 +80,7 @@ func TestFilterRule_ExceptionLookupError_ReturnsRuleError(t *testing.T) {
 		Return(([]*kyvernov2.PolicyException)(nil), fmt.Errorf("exception lister unavailable"))
 
 	e := NewEngine(cfg, jp, nil, nil, imageverifycache.DisabledImageVerifyCache(),
-		factories.DefaultContextLoaderFactory(nil), mockSelector, nil)
+		factories.DefaultContextLoaderFactory(nil), mockSelector, nil, nil)
 
 	policy := &kyverno.ClusterPolicy{}
 	policy.SetName("test-policy")
