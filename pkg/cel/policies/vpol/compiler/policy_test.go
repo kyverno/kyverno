@@ -26,6 +26,10 @@ func (m *mockVpolProgram) Eval(any) (ref.Val, *cel.EvalDetails, error) {
 	return m.retVal, nil, m.err
 }
 
+func (m *mockVpolProgram) ConcurrentEval(_ context.Context, _ any) <-chan cel.EvalResult {
+	return nil
+}
+
 // TestEvaluateWithData_FullExemptionPrecedence is a regression test for
 // https://github.com/kyverno/kyverno/issues/16053.
 //

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_newToggle(t *testing.T) {
@@ -173,6 +174,22 @@ func Test_toggle_Enabled(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func Test_BlockLegacyPolicyAPIs_DefaultsOn(t *testing.T) {
+	// BlockLegacyPolicyAPIs must default to true: it is the 1.20 write-time block on legacy
+	// kyverno.io policy APIs, and the block must be on unless an operator explicitly opts out.
+	tr := newToggle(defaultBlockLegacyPolicyAPIs, blockLegacyPolicyAPIsEnvVar)
+	assert.True(t, tr.Enabled())
+
+	require.NoError(t, tr.Parse(""))
+	assert.True(t, tr.Enabled())
+}
+
+func Test_BlockLegacyPolicyAPIs_EnvVarOptOut(t *testing.T) {
+	t.Setenv(blockLegacyPolicyAPIsEnvVar, "false")
+	tr := newToggle(defaultBlockLegacyPolicyAPIs, blockLegacyPolicyAPIsEnvVar)
+	assert.False(t, tr.Enabled())
 }
 
 func Test_StringSliceFlag_Values(t *testing.T) {

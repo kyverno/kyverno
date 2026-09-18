@@ -16,7 +16,7 @@ import (
 	"k8s.io/apiserver/pkg/admission/plugin/webhook/matchconditions"
 )
 
-func MatchPolicyContext(logger logr.Logger, client engineapi.Client, policyContext engineapi.PolicyContext, configuration config.Configuration) bool {
+func MatchPolicyContext(ctx context.Context, logger logr.Logger, client engineapi.Client, policyContext engineapi.PolicyContext, configuration config.Configuration) bool {
 	policy := policyContext.Policy()
 	old := policyContext.OldResource()
 	new := policyContext.NewResource()
@@ -31,7 +31,7 @@ func MatchPolicyContext(logger logr.Logger, client engineapi.Client, policyConte
 	}
 
 	if policy.GetSpec().GetMatchConditions() != nil {
-		if !checkMatchConditions(logger, policyContext, gvk, subresource) {
+		if !checkMatchConditions(ctx, logger, policyContext, gvk, subresource) {
 			logger.V(4).Info("webhookConfiguration.matchConditions doesn't match request")
 			return false
 		}
@@ -69,7 +69,7 @@ func checkNamespacedPolicy(policy kyvernov1.PolicyInterface, resources ...unstru
 	return true
 }
 
-func checkMatchConditions(logger logr.Logger, policyContext engineapi.PolicyContext, gvk schema.GroupVersionKind, subresource string) bool {
+func checkMatchConditions(ctx context.Context, logger logr.Logger, policyContext engineapi.PolicyContext, gvk schema.GroupVersionKind, subresource string) bool {
 	policy := policyContext.Policy()
 	old := policyContext.OldResource()
 	new := policyContext.NewResource()
@@ -95,6 +95,6 @@ func checkMatchConditions(logger logr.Logger, policyContext engineapi.PolicyCont
 	}
 	matchConditionFilter := compiler.CompileMatchConditions(optionalVars)
 	matcher := matchconditions.NewMatcher(matchConditionFilter, nil, policy.GetKind(), "", policy.GetName())
-	result := matcher.Match(context.TODO(), versionedAttr, nil, nil)
+	result := matcher.Match(ctx, versionedAttr, nil, nil)
 	return result.Matches
 }

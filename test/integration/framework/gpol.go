@@ -156,7 +156,7 @@ func urProcessorClosure(
 				if len(generated) == 0 {
 					continue
 				}
-				if err := wm.SyncWatchers(spec.GetPolicyKey(), generated); err != nil {
+				if err := wm.SyncWatchers(spec.GetPolicyKey(), &rc.Trigger, generated); err != nil {
 					return fmt.Errorf("failed to sync watchers for policy %s: %w", spec.GetPolicyKey(), err)
 				}
 			}

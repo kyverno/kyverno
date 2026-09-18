@@ -11,4 +11,9 @@ type Policy struct {
 	Actions        sets.Set[admissionregistrationv1.ValidationAction]
 	Policy         policiesv1beta1.ValidatingPolicyLike
 	CompiledPolicy *compiler.Policy
+	// ExtractionMode is true for an autogen'd target whose pod template is
+	// discovered by structural extraction at evaluation time (custom
+	// workload CRDs like JobSet) rather than by matching the literal
+	// admitted object directly against CompiledPolicy.
+	ExtractionMode bool
 }

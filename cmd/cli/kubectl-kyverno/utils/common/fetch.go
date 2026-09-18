@@ -118,7 +118,7 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 			return nil, err
 		}
 		for _, resource := range resourceList {
-			key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s::%s::%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
 			resourceMap[key] = resource.DeepCopy()
 		}
 
@@ -134,7 +134,7 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 				return nil, err
 			}
 			for _, resource := range subResourceList {
-				key := fmt.Sprintf("%s-%s-%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+				key := fmt.Sprintf("%s::%s::%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
 				resourceMap[key] = resource.DeepCopy()
 			}
 		}
@@ -154,9 +154,12 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	} else {
 		for _, resourcePath := range rf.ResourcePaths {
 			lenOfResource := len(resources)
+			baseName := filepath.Base(resourcePath)
+			nameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 			for rn, rr := range resourceMap {
-				s := strings.Split(rn, "-")
-				if s[2] == resourcePath {
+				s := strings.Split(rn, "::")
+				name := s[len(s)-1]
+				if name == resourcePath || name == baseName || name == nameNoExt || rr.GetName() == resourcePath || rr.GetName() == baseName || rr.GetName() == nameNoExt {
 					resources = append(resources, rr)
 				}
 			}
@@ -185,8 +188,12 @@ func (rf *ResourceFetcher) extractResourcesFromPolicies(info *resourceTypeInfo) 
 				matchResources = vap.GetDefinition().Spec.MatchConstraints
 			} else if vp := policy.AsValidatingPolicy(); vp != nil {
 				matchResources = vp.Spec.MatchConstraints
+			} else if nvp := policy.AsNamespacedValidatingPolicy(); nvp != nil {
+				matchResources = nvp.Spec.MatchConstraints
 			} else if ivp := policy.AsImageValidatingPolicy(); ivp != nil {
 				matchResources = ivp.Spec.MatchConstraints
+			} else if nivp := policy.AsNamespacedImageValidatingPolicy(); nivp != nil {
+				matchResources = nivp.Spec.MatchConstraints
 			} else if dp := policy.AsDeletingPolicy(); dp != nil {
 				matchResources = dp.GetDeletingPolicySpec().MatchConstraints
 			} else if cp := policy.AsCleanupPolicy(); cp != nil {
@@ -319,7 +326,7 @@ func (rf *ResourceFetcher) listResources(
 			continue
 		}
 		for _, resource := range resourceList.Items {
-			key := fmt.Sprintf("%s-%s-%s", gvk.Kind, resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s::%s::%s", gvk.Kind, resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(gvk)
 			result[key] = resource.DeepCopy()
 		}
@@ -358,7 +365,7 @@ func (rf *ResourceFetcher) listResources(
 				continue
 			}
 
-			key := fmt.Sprintf("%s-%s-%s", subGVK.Kind, resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s::%s::%s", subGVK.Kind, resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(subGVK)
 			result[key] = resource.DeepCopy()
 		}

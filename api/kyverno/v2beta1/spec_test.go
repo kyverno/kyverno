@@ -5,7 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -29,13 +29,16 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 		}, {
 			Name: "deny-privileged-disallowpriviligedescalation",
 			MatchResources: MatchResources{
-				Any: kyvernov1.ResourceFilters{{
-					ResourceDescription: kyvernov1.ResourceDescription{
-						Kinds: []string{
-							"Pod",
+				Any: kyvernov1.ResourceFilters{
+					{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{
+								"Pod",
+							},
 						},
-					}},
-				}},
+					},
+				},
+			},
 			Validation: &Validation{
 				Message:       "message",
 				RawAnyPattern: kyverno.ToAny("{"),

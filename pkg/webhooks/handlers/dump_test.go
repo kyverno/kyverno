@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 

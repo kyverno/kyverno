@@ -32,8 +32,12 @@ func Validate(gpol v1beta1.GeneratingPolicyLike) ([]string, error) {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
-	if gpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
-		if compiler.ExpressionsUseHTTP(gpolExpressions(spec)...) {
+	if gpol.GetNamespace() != "" {
+		exprs := gpolExpressions(spec)
+		if compiler.ExpressionsUseGlobalContext(exprs...) {
+			err = append(err, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && compiler.ExpressionsUseHTTP(exprs...) {
 			err = append(err, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}

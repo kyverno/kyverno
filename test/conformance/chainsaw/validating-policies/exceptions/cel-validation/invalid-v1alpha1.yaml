@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: invalid-v1alpha1
+spec:
+  policyRefs:
+  - name: test-policy
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: invalid-function
+    expression: object.metadata.name.endsWithTYPO('pod')
