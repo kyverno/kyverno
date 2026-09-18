@@ -143,6 +143,7 @@ spec:
             {{- end }}
             {{- end }}
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.cleanupController.featuresOverride)
+              "blockLegacyPolicyAPIs"
               "deferredLoading"
               "dumpPayload"
               "globalContext"

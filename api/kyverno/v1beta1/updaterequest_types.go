@@ -55,7 +55,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=ur,categories=kyverno
-// +kubebuilder:deprecatedversion
+// +kubebuilder:deprecatedversion:warning="kyverno.io/v1beta1 UpdateRequest is deprecated; use kyverno.io/v2 UpdateRequest"
 // +kubebuilder:unservedversion
 
 // UpdateRequest is a request to process mutate and generate rules in background.

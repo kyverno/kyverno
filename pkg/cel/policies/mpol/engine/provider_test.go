@@ -2,12 +2,16 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -160,7 +164,62 @@ func TestStaticProviderMatchesMutateExisting(t *testing.T) {
 	}
 
 	t.Run("match all", func(t *testing.T) {
-		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, nil, &corev1.Namespace{})
+		names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, nil, &corev1.Namespace{}, nil)
 		assert.Equal(t, []string{"match"}, names)
 	})
+}
+
+// TestStaticProviderMatchesMutateExisting_BuildsRequestMapAtMostOnce is the
+// CI-assertable regression guard for the mutate-existing matching hoist:
+// with N candidate policies that all have matchConditions (so
+// MatchesConditions, and therefore prepareData, is actually invoked for
+// each one), the caller-supplied requestMapFn - a real sync.OnceValues
+// memoized thunk, exactly what engineImpl.MatchedMutateExistingPolicies
+// builds - must be invoked at most once across the whole matching pass, not
+// once per policy.
+func TestStaticProviderMatchesMutateExisting_BuildsRequestMapAtMostOnce(t *testing.T) {
+	trueBool := true
+	const n = 5
+
+	comp := compiler.NewCompiler()
+	policies := make([]Policy, 0, n)
+	for i := 0; i < n; i++ {
+		mpol := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("match-%d", i)},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+						Enabled: &trueBool,
+					},
+				},
+				MatchConstraints: &admissionregistrationv1.MatchResources{}, // match everything
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{Name: "always-true", Expression: "true"},
+				},
+			},
+		}
+		compiled, errs := comp.Compile(mpol, nil)
+		require.Empty(t, errs)
+		policies = append(policies, Policy{Policy: mpol, CompiledPolicy: compiled})
+	}
+	provider := &staticProvider{policies: policies}
+
+	request := &admissionv1.AdmissionRequest{
+		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		Name:      "nginx",
+		Namespace: "default",
+		Operation: admissionv1.Create,
+	}
+
+	calls := 0
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		calls++
+		return celcompiler.BuildNormalizedRequestMap(request)
+	})
+
+	names := provider.MatchesMutateExisting(context.Background(), &mockAttributes{}, request, &corev1.Namespace{}, requestMapFn)
+	assert.Len(t, names, n, "all %d policies must have matched", n)
+	assert.Equal(t, 1, calls,
+		"requestMapFn must be invoked at most once across all %d candidate policies, not once per policy", n)
 }

@@ -21,8 +21,8 @@ func TestAnnotations(t *testing.T) {
 		name: "cluster policy",
 		policy: &kyvernov1.ClusterPolicy{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       "kyverno.io/v1",
-				APIVersion: "ClusterPolicy",
+				Kind:       "ClusterPolicy",
+				APIVersion: "kyverno.io/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",
@@ -34,11 +34,27 @@ func TestAnnotations(t *testing.T) {
 			AnnotationApiVersion: "kyverno.io/v1",
 		},
 	}, {
+		name: "cluster policy custom api version",
+		policy: &kyvernov1.ClusterPolicy{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ClusterPolicy",
+				APIVersion: "kyverno.io/v2beta1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "test",
+			},
+		},
+		want: map[string]string{
+			AnnotationKind:       "ClusterPolicy",
+			AnnotationName:       "test",
+			AnnotationApiVersion: "kyverno.io/v2beta1",
+		},
+	}, {
 		name: "policy",
 		policy: &kyvernov1.Policy{
 			TypeMeta: metav1.TypeMeta{
-				Kind:       "kyverno.io/v1",
-				APIVersion: "Policy",
+				Kind:       "Policy",
+				APIVersion: "kyverno.io/v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test",

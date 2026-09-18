@@ -279,6 +279,24 @@ func TestIsPolicyLabel_AllPrefixes(t *testing.T) {
 }
 
 func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-vpol"},
+	}
+	nsVpol := &policiesv1beta1.NamespacedValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-vpol", Namespace: "default"},
+	}
+	ivpol := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-ivpol"},
+	}
+	nsIvpol := &policiesv1beta1.NamespacedImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-ivpol", Namespace: "default"},
+	}
+	gpol := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gpol"},
+	}
+	nsGpol := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-gpol", Namespace: "default"},
+	}
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-mpol"},
 	}
@@ -303,6 +321,12 @@ func TestPolicyLabelPrefix_MutatingAndDeletingPolicies(t *testing.T) {
 		policy engineapi.GenericPolicy
 		prefix string
 	}{
+		{"validating policy", engineapi.NewValidatingPolicy(vpol), LabelPrefixValidatingPolicy},
+		{"namespaced validating policy", engineapi.NewNamespacedValidatingPolicy(nsVpol), LabelPrefixValidatingPolicy},
+		{"image validating policy", engineapi.NewImageValidatingPolicy(ivpol), LabelPrefixImageValidatingPolicy},
+		{"namespaced image validating policy", engineapi.NewNamespacedImageValidatingPolicy(nsIvpol), LabelPrefixImageValidatingPolicy},
+		{"generating policy", engineapi.NewGeneratingPolicy(gpol), LabelPrefixGeneratingPolicy},
+		{"namespaced generating policy", engineapi.NewNamespacedGeneratingPolicy(nsGpol), LabelPrefixGeneratingPolicy},
 		{"mutating policy", engineapi.NewMutatingPolicy(mpol), LabelPrefixMutatingPolicy},
 		{"namespaced mutating policy", engineapi.NewNamespacedMutatingPolicy(nsMpol), LabelPrefixMutatingPolicy},
 		{"deleting policy", engineapi.NewDeletingPolicyFromLike(dpol), LabelPrefixDeletingPolicy},
