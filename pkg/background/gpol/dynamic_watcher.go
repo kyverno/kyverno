@@ -367,14 +367,20 @@ func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 // policy referenced by policyKey. Namespaced policies use a "namespace/name"
 // key and their resources carry both the policy name and namespace labels.
 // Cluster-scoped policies use a bare name key and their resources carry an
-// empty namespace label.
+// explicit empty namespace label. A resource without that label pre-dates it
+// and has no established owner, so it matches no policy until the generator
+// migrates it.
 func policyMatches(labels map[string]string, policyKey string) bool {
 	namespace, name, err := cache.SplitMetaNamespaceKey(policyKey)
 	if err != nil {
 		return false
 	}
+	policyNamespace, hasNamespaceLabel := labels[common.GeneratePolicyNamespaceLabel]
+	if !hasNamespaceLabel {
+		return false
+	}
 	return labels[common.GeneratePolicyLabel] == name &&
-		labels[common.GeneratePolicyNamespaceLabel] == namespace
+		policyNamespace == namespace
 }
 
 // RemoveWatchersForPolicy removes all downstream resources and watchers for a given policy name.
