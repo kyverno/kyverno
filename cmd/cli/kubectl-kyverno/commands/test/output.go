@@ -359,10 +359,11 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 			for _, policyRow := range rows {
 				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", policyRow.Rule, policyRow.Resource))
 				if policyRow.IsFailure {
-					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource, policyRow.Result))
+					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource, policyRow.Result))
 					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n   </failure>\n", policyRow.Message))
+						b.WriteString(fmt.Sprintf("    Message: %s\n", policyRow.Message))
 					}
+					b.WriteString("   </failure>\n")
 				} else {
 					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource))
 					if detailedResults {
