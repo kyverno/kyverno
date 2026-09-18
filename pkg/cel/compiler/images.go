@@ -21,6 +21,9 @@ var (
 	}, {
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.?ephemeralContainers.orValue([]).map(e, e.image)",
+	}, {
+		Name:       "imageVolumes",
+		Expression: "(object != null ? object : oldObject).spec.?volumes.orValue([]).filter(e, has(e.image)).map(e, e.image.reference)",
 	}}
 	podControllerImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -31,6 +34,9 @@ var (
 	}, {
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
+	}, {
+		Name:       "imageVolumes",
+		Expression: "(object != null ? object : oldObject).spec.template.spec.?volumes.orValue([]).filter(e, has(e.image)).map(e, e.image.reference)",
 	}}
 	cronJobImageExtractors = []v1beta1.ImageExtractor{{
 		Name:       "containers",
@@ -41,6 +47,9 @@ var (
 	}, {
 		Name:       "ephemeralContainers",
 		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?ephemeralContainers.orValue([]).map(e, e.image)",
+	}, {
+		Name:       "imageVolumes",
+		Expression: "(object != null ? object : oldObject).spec.jobTemplate.spec.template.spec.?volumes.orValue([]).filter(e, has(e.image)).map(e, e.image.reference)",
 	}}
 )
 

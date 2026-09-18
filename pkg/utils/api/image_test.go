@@ -470,6 +470,39 @@ func Test_extractImageInfo(t *testing.T) {
 				},
 			},
 		},
+		{
+			raw: []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"myapp"},"spec":{"containers":[{"name":"nginx","image":"nginx:latest"}],"volumes":[{"name":"model","image":{"reference":"kyverno/model:v1"}},{"name":"cfg","configMap":{"name":"cm"}}]}}`),
+			images: map[string]map[string]ImageInfo{
+				"containers": {
+					"nginx": {
+						imageutils.ImageInfo{
+							Registry:         "docker.io",
+							Name:             "nginx",
+							Path:             "nginx",
+							Tag:              "latest",
+							Reference:        "docker.io/nginx:latest",
+							ReferenceWithTag: "docker.io/nginx:latest",
+						},
+						"/spec/containers/0/image",
+						[]string{},
+					},
+				},
+				"imageVolumes": {
+					"/spec/volumes/0/image/reference": {
+						imageutils.ImageInfo{
+							Registry:         "docker.io",
+							Name:             "model",
+							Path:             "kyverno/model",
+							Tag:              "v1",
+							Reference:        "docker.io/kyverno/model:v1",
+							ReferenceWithTag: "docker.io/kyverno/model:v1",
+						},
+						"/spec/volumes/0/image/reference",
+						[]string{},
+					},
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		resource, err := kubeutils.BytesToUnstructured(test.raw)

@@ -93,6 +93,7 @@ func Test_Match(t *testing.T) {
 				"kyverno/ephr-image-one",
 				"kyverno/ephr-image-two",
 			},
+			"imageVolumes": {},
 		},
 		gvr:     &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
 		wantErr: false,
@@ -146,6 +147,57 @@ func Test_Match(t *testing.T) {
 			"ephemeralContainers": {
 				"kyverno/ephr-image-one",
 				"kyverno/ephr-image-two",
+			},
+			"imageVolumes": {},
+		},
+		gvr:     &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		wantErr: false,
+	}, {
+		name: "pod image volume extraction",
+		imageExtractor: []v1beta1.ImageExtractor{{
+			Name:       "one",
+			Expression: "request.images",
+		}},
+		request: map[string]any{
+			"request": map[string]any{
+				"images": []string{
+					"nginx:latest",
+				},
+			},
+			"object": map[string]any{
+				"spec": map[string]any{
+					"containers": []map[string]string{{
+						"image": "kyverno/image-one",
+					}},
+					"volumes": []map[string]any{{
+						"name": "model",
+						"image": map[string]string{
+							"reference": "kyverno/model:v1",
+						},
+					}, {
+						"name":      "config",
+						"configMap": map[string]string{"name": "cm"},
+					}, {
+						"name": "extra-model",
+						"image": map[string]string{
+							"reference": "kyverno/model:v2",
+						},
+					}},
+				},
+			},
+		},
+		wantResult: map[string][]string{
+			"one": {
+				"nginx:latest",
+			},
+			"containers": {
+				"kyverno/image-one",
+			},
+			"initContainers":      {},
+			"ephemeralContainers": {},
+			"imageVolumes": {
+				"kyverno/model:v1",
+				"kyverno/model:v2",
 			},
 		},
 		gvr:     &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
