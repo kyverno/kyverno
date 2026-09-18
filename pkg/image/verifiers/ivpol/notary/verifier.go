@@ -74,6 +74,7 @@ func (v *Verifier) VerifyAttestationSignature(
 		return err
 	}
 	var errs []error
+	found := false
 	for _, r := range referrers {
 		reference := image.WithDigest(r.Digest.String())
 		logger := logger.WithValues("attestation ref", reference)
@@ -101,6 +102,10 @@ func (v *Verifier) VerifyAttestationSignature(
 		}
 
 		image.AddVerifiedReferrer(r)
+		found = true
+	}
+
+	if found {
 		return nil
 	}
 
