@@ -161,3 +161,61 @@ func TestCreateFakeClientFromResources_ResourceDataPreserved(t *testing.T) {
 	assert.Equal(t, "production", gotData["environment"])
 	assert.Equal(t, "3", gotData["replicas"])
 }
+
+func TestCreateFakeClientFromResources_ListResource(t *testing.T) {
+	// Regression test for https://github.com/kyverno/kyverno/issues/17371:
+	// `kyverno apply` on a `kind: List` resource used to panic with
+	// "*unstructured.Unstructured is not a list: no Items field in this object"
+	// because client-go's fake tracker cannot ingest a List object directly.
+	list := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items": []interface{}{
+				map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "cm-a",
+						"namespace": "default",
+					},
+				},
+				map[string]interface{}{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata": map[string]interface{}{
+						"name":      "cm-b",
+						"namespace": "default",
+					},
+				},
+			},
+		},
+	}
+
+	client, err := createFakeClientFromResources([]*unstructured.Unstructured{list}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, client)
+
+	// The flattened items must be individually retrievable from the fake client.
+	cmA, err := client.GetResource(context.Background(), "v1", "ConfigMap", "default", "cm-a")
+	require.NoError(t, err)
+	assert.Equal(t, "cm-a", cmA.GetName())
+	assert.Equal(t, "default", cmA.GetNamespace())
+
+	cmB, err := client.GetResource(context.Background(), "v1", "ConfigMap", "default", "cm-b")
+	require.NoError(t, err)
+	assert.Equal(t, "cm-b", cmB.GetName())
+}
+
+func TestCreateFakeClientFromResources_ListResourceNoItems(t *testing.T) {
+	// A List with no items should produce a clear error instead of a panic.
+	emptyList := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "List",
+			"items":      []interface{}{},
+		},
+	}
+	_, err := createFakeClientFromResources([]*unstructured.Unstructured{emptyList}, nil, nil)
+	require.NoError(t, err)
+}
