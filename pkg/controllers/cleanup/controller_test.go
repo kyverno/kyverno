@@ -15,6 +15,7 @@ import (
 	configpkg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,7 +144,7 @@ func Test_SkipResourceDueToFilter(t *testing.T) {
 	}
 
 	mockConfig.EXPECT().
-		ToFilter(gvk, "ConfigMap", "kube-system", "filtered-cm").
+		ToFilter(gvk, "", "kube-system", "filtered-cm").
 		Return(true).
 		AnyTimes()
 
@@ -157,10 +158,87 @@ func Test_SkipResourceDueToFilter(t *testing.T) {
 	resource.SetName("filtered-cm")
 
 	filtered := c.configuration.ToFilter(
-		gvk, resource.GetKind(), resource.GetNamespace(), resource.GetName(),
+		gvk, "", resource.GetNamespace(), resource.GetName(),
 	)
 
 	assert.True(t, filtered, "Expected resource to be filtered and skipped")
+}
+
+func Test_Cleanup_HonorsResourceFilters(t *testing.T) {
+	policy := &kyvernov2.ClusterCleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-policy",
+		},
+		Spec: kyvernov2.CleanupPolicySpec{
+			MatchResources: kyvernov2.MatchResources{
+				Any: []kyvernov1.ResourceFilter{
+					{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{"ConfigMap"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	makeCM := func(name string) unstructured.Unstructured {
+		resource := unstructured.Unstructured{}
+		resource.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "ConfigMap",
+		})
+		resource.SetName(name)
+		resource.SetNamespace("kube-system")
+		return resource
+	}
+	filtered := makeCM("filtered-cm")
+	unfiltered := makeCM("unfiltered-cm")
+
+	mockClient := &mockDClient{
+		Interface: dclient.NewEmptyFakeClient(),
+	}
+	mockClient.listResource = func(ctx context.Context, apiVersion string, kind string, namespace string, lselector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+		return &unstructured.UnstructuredList{
+			Items: []unstructured.Unstructured{filtered, unfiltered},
+		}, nil
+	}
+	deleted := map[string]bool{}
+	mockClient.deleteResource = func(ctx context.Context, apiVersion string, kind string, namespace string, name string, dryRun bool, options metav1.DeleteOptions) error {
+		deleted[name] = true
+		return nil
+	}
+
+	configuration := configpkg.NewDefaultConfiguration(false)
+	configuration.Load(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno",
+			Namespace: "kyverno",
+		},
+		Data: map[string]string{
+			"resourceFilters": "[ConfigMap,kube-system,filtered-cm]",
+		},
+	})
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	if err := indexer.Add(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "kube-system"}}); err != nil {
+		t.Fatalf("failed to add namespace: %v", err)
+	}
+
+	c := &controller{
+		client:        mockClient,
+		configuration: configuration,
+		nsLister:      corev1listers.NewNamespaceLister(indexer),
+		jp:            jmespath.New(configuration),
+		eventGen:      event.NewFake(),
+	}
+
+	if err := c.cleanup(context.Background(), logr.Discard(), policy); err != nil {
+		t.Fatalf("cleanup failed: %v", err)
+	}
+	assert.False(t, deleted["filtered-cm"], "filtered-cm must not be deleted")
+	assert.True(t, deleted["unfiltered-cm"], "unfiltered-cm must be deleted")
 }
 
 // captureQueue wraps a real typed queue but captures the last AddAfter delay used by the controller.

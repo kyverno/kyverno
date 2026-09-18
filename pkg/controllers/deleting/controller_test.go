@@ -50,7 +50,7 @@ func Test_SkipResourceDueToFilter(t *testing.T) {
 	}
 
 	mockConfig.EXPECT().
-		ToFilter(gvk, "ConfigMap", "kube-system", "filtered-cm").
+		ToFilter(gvk, "", "kube-system", "filtered-cm").
 		Return(true).
 		AnyTimes()
 
@@ -64,10 +64,77 @@ func Test_SkipResourceDueToFilter(t *testing.T) {
 	resource.SetName("filtered-cm")
 
 	filtered := c.configuration.ToFilter(
-		gvk, resource.GetKind(), resource.GetNamespace(), resource.GetName(),
+		gvk, "", resource.GetNamespace(), resource.GetName(),
 	)
 
 	assert.True(t, filtered, "Expected resource to be filtered and skipped")
+}
+
+func Test_Deleting_HonorsResourceFilters(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	pol := &policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "dpol",
+		},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{"CREATE"},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cm := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "filtered-cm",
+			Namespace: "kube-system",
+		},
+	}
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to build scheme: %v", err)
+	}
+	client, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{
+		{Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+	}, cm)
+	if err != nil {
+		t.Fatalf("failed to build fake client: %v", err)
+	}
+
+	mockConfig := mocks.NewMockConfiguration(ctrl)
+	gvk := schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ConfigMap",
+	}
+	mockConfig.EXPECT().
+		ToFilter(gvk, "", "kube-system", "filtered-cm").
+		Return(true)
+
+	c := &controller{
+		client:        client,
+		configuration: mockConfig,
+	}
+
+	if err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: pol}); err != nil {
+		t.Fatalf("deleting failed: %v", err)
+	}
 }
 
 // captureQueue wraps a real typed queue but captures the last AddAfter delay used by the controller.
