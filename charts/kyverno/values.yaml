@@ -325,10 +325,8 @@ crds:
     # -- Node affinity constraints.
     nodeAffinity: {}
 
-    # -- Security context for the hook containers
+    # -- Security context for the hook containers. UID/GID are unset by default so platforms such as OpenShift can assign them.
     securityContext:
-      runAsUser: 65534
-      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -706,10 +704,8 @@ test:
       cpu: 10m
       memory: 64Mi
 
-  # -- Security context for the test containers
+  # -- Security context for the test containers. UID/GID are unset by default so platforms such as OpenShift can assign them.
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -790,10 +786,8 @@ webhooksCleanup:
   # -- Node affinity constraints.
   nodeAffinity: {}
 
-  # -- Security context for the hook containers
+  # -- Security context for the hook containers. UID/GID are unset by default so platforms such as OpenShift can assign them.
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -1393,10 +1387,8 @@ admissionController:
         cpu: 10m
         memory: 64Mi
 
-    # -- Container security context
+    # -- Container security context. UID/GID are unset by default so platforms such as OpenShift can assign them.
     securityContext:
-      runAsUser: 65534
-      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1440,10 +1432,8 @@ admissionController:
         cpu: 100m
         memory: 128Mi
 
-    # -- Container security context
+    # -- Container security context. UID/GID are unset by default so platforms such as OpenShift can assign them.
     securityContext:
-      runAsUser: 65534
-      runAsGroup: 65534
       runAsNonRoot: true
       privileged: false
       allowPrivilegeEscalation: false
@@ -1821,10 +1811,8 @@ backgroundController:
   # -- Security context for the pod
   podSecurityContext: {}
 
-  # -- Security context for the containers
+  # -- Security context for the containers. UID/GID are unset by default so platforms such as OpenShift can assign them.
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -2242,10 +2230,8 @@ cleanupController:
   # -- Security context for the pod
   podSecurityContext: {}
 
-  # -- Security context for the containers
+  # -- Security context for the containers. UID/GID are unset by default so platforms such as OpenShift can assign them.
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
@@ -2592,10 +2578,8 @@ reportsController:
   # -- Security context for the pod
   podSecurityContext: {}
 
-  # -- Security context for the containers
+  # -- Security context for the containers. UID/GID are unset by default so platforms such as OpenShift can assign them.
   securityContext:
-    runAsUser: 65534
-    runAsGroup: 65534
     runAsNonRoot: true
     privileged: false
     allowPrivilegeEscalation: false
