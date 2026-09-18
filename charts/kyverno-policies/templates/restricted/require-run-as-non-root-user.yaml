@@ -65,8 +65,12 @@ spec:
           spec.containers[*].securityContext.runAsUser, spec.initContainers[*].securityContext.runAsUser,
           and spec.ephemeralContainers[*].securityContext.runAsUser must be unset or
           set to a number greater than zero.
-        pattern:
-          spec:
+        anyPattern:
+        {{- if .Values.podSecurityUserNamespaces }}
+        - spec:
+            hostUsers: false
+        {{- end }}
+        - spec:
             =(securityContext):
               =(runAsUser): ">0"
             =(ephemeralContainers):
