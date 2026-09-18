@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"sync"
 
@@ -271,13 +270,13 @@ func cleanUpWgPolicyReports(logger logr.Logger, wgpolicyClient wgpolicyk8sv1alph
 
 	for _, r := range polrs.Items {
 		if err = wgpolicyClient.PolicyReports(r.Namespace).Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
-			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+			logger.Error(err, "error cleaning up report after migrating to openreports", "report", r.Name)
 		}
 	}
 
 	for _, r := range cpolrs.Items {
 		if err = wgpolicyClient.ClusterPolicyReports().Delete(context.Background(), r.Name, metav1.DeleteOptions{}); err != nil {
-			logger.Error(err, fmt.Sprintf("error cleaning up report %s after migrating to openreports", r.Name))
+			logger.Error(err, "error cleaning up report after migrating to openreports", "report", r.Name)
 		}
 	}
 	return nil
