@@ -209,7 +209,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 			debug := debug.WithValues("name", name, "namespace", namespace)
 			gvk := resource.GroupVersionKind()
 			// Skip if resource matches resourceFilters from config
-			if c.configuration.ToFilter(gvk, resource.GetKind(), namespace, name) {
+			if c.configuration.ToFilter(gvk, "", namespace, name) {
 				debug.Info("skipping resource due to resourceFilters in ConfigMap")
 				continue
 			}
