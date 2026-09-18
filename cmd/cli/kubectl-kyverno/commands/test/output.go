@@ -252,25 +252,6 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 	}
 	*globalTestCounter++
 	rows = append(rows, row)
-
-	// if there are no RuleResponse, the resource has been excluded. This is a pass.
-	if len(rows) == 0 {
-		row := table.Row{
-			RowCompact: table.RowCompact{
-				ID:        *globalTestCounter,
-				Policy:    color.Policy("", test.Policy),
-				Rule:      color.Rule(test.Rule),
-				Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]), // todo: handle namespace
-				Result:    color.ResultPass(),
-				Reason:    color.Excluded(),
-				IsFailure: false,
-			},
-			Message: color.Excluded(),
-		}
-		rc.Skip++
-		*globalTestCounter++
-		rows = append(rows, row)
-	}
 	return rows
 }
 
