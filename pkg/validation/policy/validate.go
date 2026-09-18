@@ -485,7 +485,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			},
 		}
 		genericPolicy := engineapi.NewKyvernoPolicy(policy)
-		err = admissionpolicy.BuildValidatingAdmissionPolicy(client.Discovery(), vap, genericPolicy, nil)
+		err = admissionpolicy.BuildValidatingAdmissionPolicy(client.Discovery(), vap, genericPolicy, nil, "", nil)
 		if err != nil {
 			return nil, err
 		}
