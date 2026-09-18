@@ -236,6 +236,45 @@ func TestRepeatedSuccessfulWatchClosuresPreserveDeadline(t *testing.T) {
 	require.False(t, tracker.Ready())
 }
 
+func TestRecoveryBoundaryPreservesDeadline(t *testing.T) {
+	t.Parallel()
+	for _, failure := range []string{"error", "closure"} {
+		t.Run(failure, func(t *testing.T) {
+			t.Parallel()
+			for range 64 {
+				clock := clocktesting.NewFakeClock(time.Now())
+				tracker := NewTracker(logr.Discard(), clock)
+				var upstream *gatedWatch
+				lw := testStream(t, tracker, &cache.ListWatch{WatchFuncWithContext: func(context.Context, metav1.ListOptions) (watch.Interface, error) {
+					upstream = newGatedWatch()
+					return upstream, nil
+				}})
+				w, err := lw.WatchWithContext(t.Context(), metav1.ListOptions{ResourceVersion: "1"})
+				require.NoError(t, err)
+				<-upstream.requested
+				tracker.mu.RLock()
+				initialInterruptedAt := tracker.streams[0].interruptedAt
+				tracker.mu.RUnlock()
+				if failure == "error" {
+					upstream.result <- watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure}}
+				} else {
+					close(upstream.result)
+				}
+				clock.Step(watchStabilityPeriod)
+				upstream.release()
+				if failure == "error" {
+					require.Equal(t, watch.Error, receive(t, w).Type)
+					w.Stop()
+				}
+				closed(t, w)
+				tracker.mu.RLock()
+				require.Equal(t, initialInterruptedAt, tracker.streams[0].interruptedAt)
+				tracker.mu.RUnlock()
+			}
+		})
+	}
+}
+
 func TestCancellationWhileForwarding(t *testing.T) {
 	t.Parallel()
 	clock := clocktesting.NewFakeClock(time.Now())
@@ -298,3 +337,27 @@ type capabilityListWatch struct {
 }
 
 func (l *capabilityListWatch) IsWatchListSemanticsUnSupported() bool { return l.unsupported }
+
+type gatedWatch struct {
+	result        chan watch.Event
+	requested     chan struct{}
+	releaseCh     chan struct{}
+	requestedOnce sync.Once
+	releaseOnce   sync.Once
+}
+
+func newGatedWatch() *gatedWatch {
+	return &gatedWatch{result: make(chan watch.Event, 1), requested: make(chan struct{}), releaseCh: make(chan struct{})}
+}
+
+func (w *gatedWatch) Stop() { w.release() }
+
+func (w *gatedWatch) ResultChan() <-chan watch.Event {
+	w.requestedOnce.Do(func() { close(w.requested) })
+	<-w.releaseCh
+	return w.result
+}
+
+func (w *gatedWatch) release() {
+	w.releaseOnce.Do(func() { close(w.releaseCh) })
+}

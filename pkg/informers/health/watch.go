@@ -89,44 +89,71 @@ func (w *monitoredWatch) forward(ctx context.Context, s *stream, attempt uint64,
 	if w.recoveryTimer != nil {
 		recovery = w.recoveryTimer.C()
 	}
+	recoveryPending := false
+	forwardEvent := func(event watch.Event) bool {
+		if event.Type == watch.Error {
+			failed = true
+			s.fail(attempt)
+			recovery = nil
+			if w.recoveryTimer != nil {
+				w.recoveryTimer.Stop()
+			}
+		} else if !initialEvents && !failed && ctx.Err() == nil {
+			s.recover(attempt)
+			recovery = nil
+		}
+		select {
+		case <-ctx.Done():
+			return false
+		case <-w.done:
+			return false
+		case w.result <- event:
+		}
+		if initialEvents && !failed && event.Type == watch.Bookmark && ctx.Err() == nil {
+			if obj, err := meta.Accessor(event.Object); err == nil && obj.GetAnnotations()[metav1.InitialEventsAnnotationKey] == "true" {
+				s.recover(attempt)
+				initialEvents = false
+			}
+		}
+		return true
+	}
 	for {
+		if recoveryPending {
+			select {
+			case <-ctx.Done():
+				return
+			case <-w.done:
+				return
+			case event, ok := <-w.upstream.ResultChan():
+				recoveryPending = false
+				if !ok {
+					return
+				}
+				if !forwardEvent(event) {
+					return
+				}
+				continue
+			default:
+				if ctx.Err() == nil {
+					s.recover(attempt)
+				}
+				recoveryPending = false
+			}
+		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-w.done:
 			return
 		case <-recovery:
-			if ctx.Err() == nil {
-				s.recover(attempt)
-			}
 			recovery = nil
+			recoveryPending = true
 		case event, ok := <-w.upstream.ResultChan():
 			if !ok {
 				return
 			}
-			if event.Type == watch.Error {
-				failed = true
-				s.fail(attempt)
-				recovery = nil
-				if w.recoveryTimer != nil {
-					w.recoveryTimer.Stop()
-				}
-			} else if !initialEvents && !failed && ctx.Err() == nil {
-				s.recover(attempt)
-				recovery = nil
-			}
-			select {
-			case <-ctx.Done():
+			if !forwardEvent(event) {
 				return
-			case <-w.done:
-				return
-			case w.result <- event:
-			}
-			if initialEvents && !failed && event.Type == watch.Bookmark && ctx.Err() == nil {
-				if obj, err := meta.Accessor(event.Object); err == nil && obj.GetAnnotations()[metav1.InitialEventsAnnotationKey] == "true" {
-					s.recover(attempt)
-					initialEvents = false
-				}
 			}
 		}
 	}
