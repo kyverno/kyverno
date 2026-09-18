@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: require-department-annotation
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  validations:
+    - expression: >
+        object.metadata.?annotations["app.example.com/department"].orValue("") != ""
+      messageExpression: >
+        "Department: " + object.metadata.annotations["app.example.com/department"]
