@@ -57,7 +57,53 @@ func TestPrintTestResult_GenerateRuleEmptyTriggerIsSkipNotFail(t *testing.T) {
 	row := resultsTable.RawRows[0]
 
 	assert.False(t, row.IsFailure, "a resource with zero rule responses must not be reported as a failure")
+	assert.Equal(t, color.ResultPass(), row.Result)
+	assert.Equal(t, color.Excluded(), row.Reason)
+	assert.Equal(t, color.Excluded(), row.Message)
 	assert.Equal(t, 1, rc.Skip, "expected the resource to be counted as Skip")
 	assert.Equal(t, 0, rc.Fail, "expected no failures")
 	assert.Equal(t, 0, rc.Pass, "this code path increments Skip, not Pass")
+}
+
+func TestPrintTestResult_EmptyTriggerPreservesInvalidPolicyResult(t *testing.T) {
+	color.Init(true)
+
+	const (
+		resourceKey  = "v1,Pod,default,test-pod"
+		policyName   = "test-policy"
+		errorMessage = "policy validation failed"
+	)
+
+	tests := []v1alpha1.TestResult{
+		{
+			TestResultBase: v1alpha1.TestResultBase{
+				Policy: policyName,
+				Rule:   "test-rule",
+				Result: openreportsv1alpha1.Result(openreports.StatusSkip),
+			},
+		},
+	}
+	responses := &TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{
+			resourceKey: {},
+		},
+		SkippedPolicies: map[string]string{
+			policyName: errorMessage,
+		},
+	}
+	rc := &resultCounts{}
+	resultsTable := &table.Table{}
+
+	err := printTestResult(tests, responses, rc, resultsTable, nil, "", true)
+	require.NoError(t, err)
+	require.Len(t, resultsTable.RawRows, 1)
+
+	row := resultsTable.RawRows[0]
+	assert.False(t, row.IsFailure)
+	assert.Equal(t, color.ResultSkip(), row.Result)
+	assert.Equal(t, color.InvalidPolicy(), row.Reason)
+	assert.Equal(t, errorMessage, row.Message)
+	assert.Equal(t, 1, rc.Skip)
+	assert.Zero(t, rc.Fail)
+	assert.Zero(t, rc.Pass)
 }
