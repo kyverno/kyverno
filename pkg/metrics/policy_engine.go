@@ -42,7 +42,7 @@ func (m *policyEngineMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.resultCounter, err = meter.Int64Counter(
-		"kyverno_policy_results",
+		"kyverno_policy_results_total",
 		metric.WithDescription("can be used to track the results associated with the policies applied in the user's cluster, at the level from rule to policy to admission requests"),
 	)
 	if err != nil {

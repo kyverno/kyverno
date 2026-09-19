@@ -164,12 +164,12 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 		return nil
 	}
 
-	m.policyChangesMetric, err = meter.Int64Counter("kyverno_policy_changes", metric.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
+	m.policyChangesMetric, err = meter.Int64Counter("kyverno_policy_changes_total", metric.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes")
 		return err
 	}
-	m.clientQueriesMetric, err = meter.Int64Counter("kyverno_client_queries", metric.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
+	m.clientQueriesMetric, err = meter.Int64Counter("kyverno_client_queries_total", metric.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries")
 		return err

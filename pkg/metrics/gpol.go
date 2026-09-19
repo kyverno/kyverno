@@ -43,7 +43,7 @@ func (m *generatingMetrics) init(meter metric.Meter) {
 	}
 
 	m.resultCounter, err = meter.Int64Counter(
-		"kyverno_generating_policy_results",
+		"kyverno_generating_policy_results_total",
 		metric.WithDescription("can be used to track the results associated with the generating policies applied in the user's cluster, at the level from rule to policy to admission requests."),
 	)
 	if err != nil {
