@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	"github.com/kyverno/kyverno/pkg/logging"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/admission"
@@ -60,50 +61,7 @@ func NewKubeProvider(
 	nmpolBuilder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1beta1.NamespacedMutatingPolicy{})
 
 	if polexEnabled {
-		polexHandler := &handler.Funcs{
-			CreateFunc: func(
-				ctx context.Context,
-				tce event.TypedCreateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tce.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-			UpdateFunc: func(
-				ctx context.Context,
-				tce event.TypedUpdateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tce.ObjectNew.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-			DeleteFunc: func(
-				ctx context.Context,
-				tde event.TypedDeleteEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tde.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-		}
+		polexHandler := newPolicyExceptionHandler(mgr.GetClient())
 		mpolBuilder.Watches(&policiesv1beta1.PolicyException{}, polexHandler)
 		nmpolBuilder.Watches(&policiesv1beta1.PolicyException{}, polexHandler)
 	}
@@ -115,6 +73,48 @@ func NewKubeProvider(
 	}
 
 	return reconciler, typeConverter, nil
+}
+
+type policyExceptionQueue = workqueue.TypedRateLimitingInterface[reconcile.Request]
+
+// newPolicyExceptionHandler requeues the policies a PolicyException refers to.
+// Policy refs carry no namespace, so a ref to a namespaced policy requeues every
+// NamespacedMutatingPolicy with that name.
+func newPolicyExceptionHandler(c client.Client) *handler.Funcs {
+	enqueue := func(ctx context.Context, obj client.Object, q policyExceptionQueue) {
+		polex, ok := obj.(*policiesv1beta1.PolicyException)
+		if !ok {
+			return
+		}
+		for _, ref := range polex.Spec.PolicyRefs {
+			switch ref.Kind {
+			case "MutatingPolicy":
+				q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Name: ref.Name}})
+			case "NamespacedMutatingPolicy":
+				var policies policiesv1beta1.NamespacedMutatingPolicyList
+				if err := c.List(ctx, &policies); err != nil {
+					logging.Error(err, "failed to list namespaced mutating policies", "policy", ref.Name)
+					continue
+				}
+				for _, policy := range policies.Items {
+					if policy.Name == ref.Name {
+						q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Namespace: policy.Namespace, Name: policy.Name}})
+					}
+				}
+			}
+		}
+	}
+	return &handler.Funcs{
+		CreateFunc: func(ctx context.Context, e event.TypedCreateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+		UpdateFunc: func(ctx context.Context, e event.TypedUpdateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.ObjectNew, q)
+		},
+		DeleteFunc: func(ctx context.Context, e event.TypedDeleteEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+	}
 }
 
 type staticProvider struct {

@@ -16,7 +16,13 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
+	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type fakeCompiledPolicy struct{}
@@ -222,4 +228,39 @@ func TestStaticProviderMatchesMutateExisting_BuildsRequestMapAtMostOnce(t *testi
 	assert.Len(t, names, n, "all %d policies must have matched", n)
 	assert.Equal(t, 1, calls,
 		"requestMapFn must be invoked at most once across all %d candidate policies, not once per policy", n)
+}
+
+func TestPolicyExceptionHandler_RequeuesNamespacedPoliciesWithNamespace(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, policiesv1beta1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "add-label", Namespace: "team-a"}},
+		&policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "add-label", Namespace: "team-b"}},
+		&policiesv1beta1.NamespacedMutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: "team-a"}},
+	).Build()
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "exempt", Namespace: "team-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{
+				{Name: "add-label", Kind: "NamespacedMutatingPolicy"},
+				{Name: "cluster-policy", Kind: "MutatingPolicy"},
+			},
+		},
+	}
+	q := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+	defer q.ShutDown()
+
+	newPolicyExceptionHandler(c).Create(context.Background(), event.TypedCreateEvent[client.Object]{Object: polex}, q)
+
+	var got []reconcile.Request
+	for q.Len() > 0 {
+		item, _ := q.Get()
+		got = append(got, item)
+		q.Done(item)
+	}
+	assert.ElementsMatch(t, []reconcile.Request{
+		{NamespacedName: client.ObjectKey{Namespace: "team-a", Name: "add-label"}},
+		{NamespacedName: client.ObjectKey{Namespace: "team-b", Name: "add-label"}},
+		{NamespacedName: client.ObjectKey{Name: "cluster-policy"}},
+	}, got)
 }
