@@ -139,28 +139,34 @@ func printTestResult(
 							}
 						}
 					}
+				}
 
-					// if there are no RuleResponse, the resource has been excluded. This is a pass.
-					if len(rows) == 0 && !resourceSkipped {
-						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-						resourceParts := strings.Split(resourceGVKAndName, "/")
+				// if there are no RuleResponse, the resource has been excluded. This is a pass.
+				// NOTE: this check must run once after the response loop, not per-response,
+				// so it also fires when trigger[resource] exists but is an EMPTY slice
+				// (e.g. a generate/mutateExisting rule whose resource didn't match at all,
+				// see kyverno/kyverno#8942 - the engine/CLI processor never appends an
+				// EngineResponse for a non-matching generate rule, so this branch must not
+				// depend on iterating at least one response).
+				if len(rows) == 0 && !resourceSkipped {
+					resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
+					resourceParts := strings.Split(resourceGVKAndName, "/")
 
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
-						}
-						rc.Skip++
-						testCount++
-						rows = append(rows, row)
+					row := table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Result:    color.ResultPass(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+						},
+						Message: color.Excluded(),
 					}
+					rc.Skip++
+					testCount++
+					rows = append(rows, row)
 				}
 			}
 
