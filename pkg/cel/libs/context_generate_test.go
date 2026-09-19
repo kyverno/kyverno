@@ -45,7 +45,7 @@ func TestGenerateResources_NamespacedPolicyRejectsClusterScoped(t *testing.T) {
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	err := cp.GenerateResources("tenant-ns", []map[string]any{clusterRoleBinding()})
 	assert.Error(t, err, "namespaced policy must not generate a cluster-scoped resource")
@@ -59,7 +59,7 @@ func TestGenerateResources_NamespacedPolicyAllowsNamespaced(t *testing.T) {
 		cliEvaluation: true,
 		restMapper:    generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -104,9 +104,10 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:          "test-gpol",
+					common.GeneratePolicyNamespaceLabel: "tenant-ns",
+					common.GenerateTriggerUIDLabel:      "trigger-uid",
 				},
 			},
 		},
@@ -119,7 +120,7 @@ func TestGenerateResources_ExistingResourceReportedAsGenerated(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -161,7 +162,7 @@ func TestGenerateResources_DifferentTriggerExistingResourceNotAdopted(t *testing
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -199,7 +200,7 @@ func TestGenerateResources_UnmanagedExistingResourceNotAdopted(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -229,9 +230,10 @@ func TestGenerateResources_ExistingResourceUpdatedInPlace(t *testing.T) {
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:          "test-gpol",
+					common.GeneratePolicyNamespaceLabel: "tenant-ns",
+					common.GenerateTriggerUIDLabel:      "trigger-uid",
 				},
 			},
 			"data": map[string]any{"quota": "10"},
@@ -245,7 +247,7 @@ func TestGenerateResources_ExistingResourceUpdatedInPlace(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -273,9 +275,10 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 				"name":      "data",
 				"namespace": "tenant-ns",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:          "test-gpol",
+					common.GeneratePolicyNamespaceLabel: "tenant-ns",
+					common.GenerateTriggerUIDLabel:      "trigger-uid",
 				},
 			},
 		},
@@ -288,7 +291,7 @@ func TestGenerateResources_RestoreCacheReportsExistingButDoesNotCreate(t *testin
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true, false)
+	cp.SetGenerateContext("test-gpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -327,7 +330,7 @@ func TestGenerateResources_CrossNamespaceStripsOwnerReferences(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -382,7 +385,7 @@ func TestGenerateResources_SameNamespaceKeepsOwnerReferences(t *testing.T) {
 		client:     fakeClient,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false)
+	cp.SetGenerateContext("test-gpol", "", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -416,7 +419,7 @@ func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 			{Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "orig"}}},
 		},
 	}
-	original.SetGenerateContext("policy-a", "default", "trigger-a", "default", "v1", "", "Pod", "uid-a", true, false)
+	original.SetGenerateContext("policy-a", "default", "trigger-a", "default", "v1", "", "Pod", "uid-a", true, false, nil)
 
 	cloned := original.Clone()
 	clone, ok := cloned.(*contextProvider)
@@ -426,7 +429,7 @@ func TestContextProvider_CloneIsolatesPerEvaluationState(t *testing.T) {
 	assert.Empty(t, clone.generatedResources)
 	assert.Equal(t, original.genCtx, clone.genCtx)
 
-	clone.SetGenerateContext("policy-b", "kube-system", "trigger-b", "kube-system", "v1", "", "Service", "uid-b", false, false)
+	clone.SetGenerateContext("policy-b", "kube-system", "trigger-b", "kube-system", "v1", "", "Service", "uid-b", false, false, nil)
 	clone.generatedResources = append(clone.generatedResources, &unstructured.Unstructured{
 		Object: map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "clone"}},
 	})
@@ -468,7 +471,7 @@ func TestGenerateResources_ServerSideApply_Create(t *testing.T) {
 		client:     mock,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true)
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -495,9 +498,10 @@ func TestGenerateResources_ServerSideApply_Update(t *testing.T) {
 				"name":      "ssa-cm",
 				"namespace": "default",
 				"labels": map[string]any{
-					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-					common.GeneratePolicyLabel:     "test-gpol",
-					common.GenerateTriggerUIDLabel: "trigger-uid",
+					kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:          "test-gpol",
+					common.GeneratePolicyNamespaceLabel: "",
+					common.GenerateTriggerUIDLabel:      "trigger-uid",
 				},
 			},
 			"data": map[string]any{"old-key": "old-value"},
@@ -512,7 +516,7 @@ func TestGenerateResources_ServerSideApply_Update(t *testing.T) {
 		client:     mock,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true)
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -547,7 +551,7 @@ func TestGenerateResources_ServerSideApply_UnmanagedExistingResourceNotAdopted(t
 		client:     mock,
 		restMapper: generateTestRESTMapper(),
 	}
-	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true)
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, true, nil)
 
 	cm := map[string]any{
 		"apiVersion": "v1",
@@ -558,4 +562,409 @@ func TestGenerateResources_ServerSideApply_UnmanagedExistingResourceNotAdopted(t
 	require.NoError(t, err)
 	assert.False(t, mock.applyCalled, "ApplyResource must not be called for unmanaged pre-existing resources")
 	assert.Empty(t, cp.GetGeneratedResources(), "unmanaged pre-existing resources must not be adopted")
+}
+
+func TestAddGenerateLabelsStampsPolicyNamespace(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+
+	obj := &unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "down"}}}
+	cp.addGenerateLabels(obj)
+
+	assert.Equal(t, "test-ngpol", obj.GetLabels()[common.GeneratePolicyLabel])
+	assert.Equal(t, "tenant-ns", obj.GetLabels()[common.GeneratePolicyNamespaceLabel])
+}
+
+func TestAddGenerateLabelsLeavesPolicyNamespaceEmptyForClusterPolicy(t *testing.T) {
+	cp := &contextProvider{}
+	cp.SetGenerateContext("test-gpol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+
+	obj := &unstructured.Unstructured{Object: map[string]any{"metadata": map[string]any{"name": "down"}}}
+	cp.addGenerateLabels(obj)
+
+	assert.Equal(t, "test-gpol", obj.GetLabels()[common.GeneratePolicyLabel])
+	policyNamespace, exists := obj.GetLabels()[common.GeneratePolicyNamespaceLabel]
+	assert.True(t, exists, "a cluster-scoped policy must stamp an explicit empty policy-namespace label")
+	assert.Empty(t, policyNamespace)
+}
+
+func managedDownstream(name, ns, policyName, policyNS, triggerUID string, includeNSKey bool) *unstructured.Unstructured {
+	labels := map[string]any{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     policyName,
+		common.GenerateTriggerUIDLabel: triggerUID,
+	}
+	if includeNSKey {
+		labels[common.GeneratePolicyNamespaceLabel] = policyNS
+	}
+	return &unstructured.Unstructured{
+		Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":            name,
+				"namespace":       ns,
+				"uid":             "uid-" + name,
+				"resourceVersion": "1",
+				"labels":          labels,
+			},
+		},
+	}
+}
+
+// contestedIn mirrors the conflict set the gpol engine provider derives from
+// the cluster: the namespaces in which a same-named policy of the other scope
+// can generate, and where a legacy downstream therefore has no known owner.
+func contestedIn(namespaces ...string) map[string]bool {
+	conflicts := make(map[string]bool, len(namespaces))
+	for _, namespace := range namespaces {
+		conflicts[namespace] = true
+	}
+	return conflicts
+}
+
+func TestIsManagedByPolicy_NamespaceAware(t *testing.T) {
+	t.Run("cluster genCtx does not adopt resource with policy-namespace=tenant-ns", func(t *testing.T) {
+		cp := &contextProvider{}
+		cp.SetGenerateContext("pol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		obj := managedDownstream("data", "default", "pol", "tenant-ns", "trigger-uid", true)
+		assert.False(t, cp.isManagedByPolicy(obj))
+	})
+
+	t.Run("namespaced genCtx does not adopt resource with policy-namespace=other-ns", func(t *testing.T) {
+		cp := &contextProvider{}
+		cp.SetGenerateContext("pol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		obj := managedDownstream("data", "tenant-ns", "pol", "other-ns", "trigger-uid", true)
+		assert.False(t, cp.isManagedByPolicy(obj))
+	})
+
+	t.Run("explicit empty namespace label belongs to cluster only", func(t *testing.T) {
+		cluster := &contextProvider{}
+		cluster.SetGenerateContext("pol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		ngpol := &contextProvider{}
+		ngpol.SetGenerateContext("pol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		obj := managedDownstream("data", "default", "pol", "", "trigger-uid", true)
+		assert.True(t, cluster.isManagedByPolicy(obj))
+		assert.False(t, ngpol.isManagedByPolicy(obj))
+	})
+
+	t.Run("tenant-ns label belongs to that ngpol only", func(t *testing.T) {
+		cluster := &contextProvider{}
+		cluster.SetGenerateContext("pol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		ngpol := &contextProvider{}
+		ngpol.SetGenerateContext("pol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		other := &contextProvider{}
+		other.SetGenerateContext("pol", "other-ns", "trigger", "other-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		obj := managedDownstream("data", "tenant-ns", "pol", "tenant-ns", "trigger-uid", true)
+		assert.False(t, cluster.isManagedByPolicy(obj))
+		assert.True(t, ngpol.isManagedByPolicy(obj))
+		assert.False(t, other.isManagedByPolicy(obj))
+	})
+
+	t.Run("missing namespace label is unowned, not cluster", func(t *testing.T) {
+		cluster := &contextProvider{}
+		cluster.SetGenerateContext("pol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		ngpol := &contextProvider{}
+		ngpol.SetGenerateContext("pol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		obj := managedDownstream("data", "default", "pol", "", "trigger-uid", false)
+		assert.False(t, cluster.isManagedByPolicy(obj), "a missing namespace label must not read as cluster ownership")
+		assert.False(t, ngpol.isManagedByPolicy(obj))
+		assert.True(t, cluster.isLegacyDownstream(obj), "either scope may report it as an unowned legacy resource")
+		assert.True(t, ngpol.isLegacyDownstream(obj))
+	})
+
+	t.Run("unrelated resources are neither owned nor legacy", func(t *testing.T) {
+		cp := &contextProvider{}
+		cp.SetGenerateContext("pol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+		otherPolicy := managedDownstream("data", "tenant-ns", "other-pol", "", "trigger-uid", false)
+		otherTrigger := managedDownstream("data", "tenant-ns", "pol", "", "other-trigger-uid", false)
+		assert.False(t, cp.isLegacyDownstream(otherPolicy))
+		assert.False(t, cp.isLegacyDownstream(otherTrigger))
+	})
+}
+
+func TestGenerateResources_RestoreCacheMigratesLegacyNamespaceLabel(t *testing.T) {
+	existing := managedDownstream("data", "tenant-ns", "test-ngpol", "", "trigger-uid", false)
+	legacyLabels := existing.GetLabels()
+	legacyLabels[common.GenerateSourceUIDLabel] = "clone-source-uid"
+	existing.SetLabels(legacyLabels)
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", true, false, nil)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	updated, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "tenant-ns", "data")
+	require.NoError(t, err)
+	labels := updated.GetLabels()
+	assert.Equal(t, "tenant-ns", labels[common.GeneratePolicyNamespaceLabel],
+		"restoreCache must migrate legacy resources by stamping policy-namespace")
+	assert.Equal(t, "test-ngpol", labels[common.GeneratePolicyLabel])
+	assert.Equal(t, "clone-source-uid", labels[common.GenerateSourceUIDLabel],
+		"migration must preserve the clone source UID the watcher resolves downstreams by")
+	assert.Equal(t, "tenant-ns", cp.GetGeneratedResources()[0].GetLabels()[common.GeneratePolicyNamespaceLabel])
+}
+
+func TestGenerateResources_RestoreCacheClusterDoesNotStealNamespaced(t *testing.T) {
+	existing := managedDownstream("data", "default", "pol", "tenant-ns", "trigger-uid", true)
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("pol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", true, false, nil)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "default"},
+	}
+	err = cp.GenerateResources("default", []map[string]any{cm})
+	require.NoError(t, err)
+	assert.Empty(t, cp.GetGeneratedResources(), "cluster genCtx must not adopt a resource labeled for tenant-ns")
+
+	still, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "default", "data")
+	require.NoError(t, err)
+	assert.Equal(t, "tenant-ns", still.GetLabels()[common.GeneratePolicyNamespaceLabel])
+}
+
+func TestGenerateResources_RestoreCacheClusterMigratesLegacyEmptyNSLabel(t *testing.T) {
+	existing := managedDownstream("data", "default", "pol", "", "trigger-uid", false)
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("pol", "", "trigger", "default", "v1", "", "Namespace", "trigger-uid", true, false, nil)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "default"},
+	}
+	err = cp.GenerateResources("default", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	updated, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "default", "data")
+	require.NoError(t, err)
+	_, hasNS := updated.GetLabels()[common.GeneratePolicyNamespaceLabel]
+	assert.True(t, hasNS, "cluster restoreCache should stamp an explicit empty policy-namespace label")
+	assert.Equal(t, "", updated.GetLabels()[common.GeneratePolicyNamespaceLabel])
+}
+
+func TestGenerateResources_NamespacedDoesNotAdoptExplicitClusterLabel(t *testing.T) {
+	existing := managedDownstream("data", "tenant-ns", "pol", "", "trigger-uid", true)
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("pol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	assert.Empty(t, cp.GetGeneratedResources(), "ngpol must not adopt a resource with explicit empty (cluster) namespace label")
+}
+
+// A downstream generated before the policy namespace label existed has no
+// recorded owner. When a policy with the same name exists in the other scope,
+// neither policy may claim it: writing the label would attribute the resource
+// by guesswork, and updating it would let one policy overwrite the content of
+// the other's downstream. This holds for ordinary evaluations and for the
+// cache restore pass alike.
+func TestGenerateResources_AmbiguousLegacyDownstreamIsLeftUntouched(t *testing.T) {
+	for _, restoreCache := range []bool{false, true} {
+		for _, policyNamespace := range []string{"", "tenant-ns"} {
+			t.Run(fmt.Sprintf("restoreCache=%t policyNamespace=%q", restoreCache, policyNamespace), func(t *testing.T) {
+				existing := managedDownstream("data", "tenant-ns", "pol", "", "trigger-uid", false)
+				fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+				require.NoError(t, err)
+				fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+				cp := &contextProvider{
+					client:     fakeClient,
+					restMapper: generateTestRESTMapper(),
+				}
+				cp.SetGenerateContext("pol", policyNamespace, "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", restoreCache, false, contestedIn("tenant-ns"))
+
+				cm := map[string]any{
+					"apiVersion": "v1",
+					"kind":       "ConfigMap",
+					"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+					"data":       map[string]any{"quota": "50"},
+				}
+				err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+				require.NoError(t, err)
+				assert.Empty(t, cp.GetGeneratedResources(), "an ambiguous legacy downstream must not be reported as generated")
+
+				untouched, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "tenant-ns", "data")
+				require.NoError(t, err)
+				_, hasNamespaceLabel := untouched.GetLabels()[common.GeneratePolicyNamespaceLabel]
+				assert.False(t, hasNamespaceLabel, "ambiguous ownership must not be settled by writing a namespace label")
+				data, _, err := unstructured.NestedStringMap(untouched.Object, "data")
+				require.NoError(t, err)
+				assert.Empty(t, data, "the ambiguous resource must not be updated")
+			})
+		}
+	}
+}
+
+// The same ambiguous owner reached from both scopes: whichever policy is
+// evaluated first, the legacy downstream must stay untouched, so the outcome
+// does not depend on evaluation order.
+func TestGenerateResources_AmbiguousLegacyOwnerCollisionIsOrderIndependent(t *testing.T) {
+	const namespace = "tenant-ns"
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": namespace},
+		"data":       map[string]any{"quota": "50"},
+	}
+
+	for _, order := range [][]string{{"pol", "tenant-ns/pol"}, {"tenant-ns/pol", "pol"}} {
+		t.Run(fmt.Sprintf("order=%v", order), func(t *testing.T) {
+			existing := managedDownstream("data", namespace, "pol", "", "trigger-uid", false)
+			fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+			require.NoError(t, err)
+			fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+			for _, key := range order {
+				policyNamespace := ""
+				if key == "tenant-ns/pol" {
+					policyNamespace = namespace
+				}
+				cp := &contextProvider{
+					client:     fakeClient,
+					restMapper: generateTestRESTMapper(),
+				}
+				cp.SetGenerateContext("pol", policyNamespace, "trigger", namespace, "v1", "", "Namespace", "trigger-uid", false, false, contestedIn(namespace))
+				require.NoError(t, cp.GenerateResources(namespace, []map[string]any{cm}))
+				assert.Empty(t, cp.GetGeneratedResources(), "ambiguous legacy downstream must not be claimed by %s", key)
+			}
+
+			final, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", namespace, "data")
+			require.NoError(t, err)
+			_, hasNamespaceLabel := final.GetLabels()[common.GeneratePolicyNamespaceLabel]
+			assert.False(t, hasNamespaceLabel, "the first policy evaluated must not settle ambiguous ownership")
+		})
+	}
+}
+
+// Conflict detection is scoped to the namespaces a same-named policy of the
+// other scope can generate into. A cluster policy is therefore free to migrate
+// a legacy downstream in a namespace that hosts no conflicting policy, and is
+// only held back where the competing policy could really have produced it.
+func TestGenerateResources_LegacyMigrationOnlyContestsConflictingNamespaces(t *testing.T) {
+	const namespace = "tenant-ns"
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": namespace},
+	}
+
+	for _, test := range []struct {
+		name      string
+		conflicts map[string]bool
+		migrated  bool
+	}{
+		{
+			name:      "conflicting policy in another namespace does not block migration here",
+			conflicts: contestedIn("other-ns"),
+			migrated:  true,
+		},
+		{
+			name:      "conflicting policy in this namespace blocks migration",
+			conflicts: contestedIn(namespace),
+		},
+		{
+			name:      "an unknown conflicting namespace blocks migration everywhere",
+			conflicts: contestedIn(LegacyOwnerAnyNamespace),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			existing := managedDownstream("data", namespace, "pol", "", "trigger-uid", false)
+			fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+			require.NoError(t, err)
+			fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+			cp := &contextProvider{
+				client:     fakeClient,
+				restMapper: generateTestRESTMapper(),
+			}
+			cp.SetGenerateContext("pol", "", "trigger", namespace, "v1", "", "Namespace", "trigger-uid", false, false, test.conflicts)
+
+			require.NoError(t, cp.GenerateResources(namespace, []map[string]any{cm}))
+			updated, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", namespace, "data")
+			require.NoError(t, err)
+			_, hasNamespaceLabel := updated.GetLabels()[common.GeneratePolicyNamespaceLabel]
+			if test.migrated {
+				assert.Len(t, cp.GetGeneratedResources(), 1)
+				assert.True(t, hasNamespaceLabel, "an uncontested legacy downstream must be migrated")
+				assert.Equal(t, "", updated.GetLabels()[common.GeneratePolicyNamespaceLabel])
+			} else {
+				assert.Empty(t, cp.GetGeneratedResources())
+				assert.False(t, hasNamespaceLabel)
+			}
+		})
+	}
+}
+
+// With no same-named policy in the other scope the legacy downstream has a
+// single possible owner, so it is migrated on any evaluation, not only the
+// cache restore pass, and the persisted label is what the watch manager reads.
+func TestGenerateResources_UnambiguousLegacyDownstreamMigratedOnUpdate(t *testing.T) {
+	existing := managedDownstream("data", "tenant-ns", "test-ngpol", "", "trigger-uid", false)
+	fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), nil, existing)
+	require.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	cp := &contextProvider{
+		client:     fakeClient,
+		restMapper: generateTestRESTMapper(),
+	}
+	cp.SetGenerateContext("test-ngpol", "tenant-ns", "trigger", "tenant-ns", "v1", "", "Namespace", "trigger-uid", false, false, nil)
+
+	cm := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "data", "namespace": "tenant-ns"},
+		"data":       map[string]any{"quota": "50"},
+	}
+	err = cp.GenerateResources("tenant-ns", []map[string]any{cm})
+	require.NoError(t, err)
+	require.Len(t, cp.GetGeneratedResources(), 1)
+
+	updated, err := fakeClient.GetResource(t.Context(), "v1", "ConfigMap", "tenant-ns", "data")
+	require.NoError(t, err)
+	assert.Equal(t, "tenant-ns", updated.GetLabels()[common.GeneratePolicyNamespaceLabel],
+		"an unambiguous legacy downstream must be migrated on update as well as on restore")
+	assert.Equal(t, "test-ngpol", updated.GetLabels()[common.GeneratePolicyLabel])
 }
