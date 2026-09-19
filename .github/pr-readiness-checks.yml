@@ -1,0 +1,30 @@
+# Checks pr-readiness-check.yaml reports on open PRs in the active release milestone. Each key becomes a possible
+# finding; `test` is a jq boolean expression evaluated against the PR object that workflow's GraphQL query fetches
+# (see its `query` variable for the exact shape), with `$author` bound to the PR author's login. To add a check:
+# add an entry here — pr-readiness-check.yaml itself never needs to change.
+
+dco:
+  message: fix the DCO
+  test: |
+    [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.name // .context) == "DCO") | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR")
+
+conflicts:
+  message: fix the merge conflicts
+  test: |
+    [.labels.nodes[].name] | any(. == "merge-conflicts")
+
+# True only if the author has not pushed or commented since the newest unresolved thread — if they have, they
+# have already reacted and are just waiting on a re-review, not ignoring it.
+threads:
+  message: resolve all review comments — mark each thread resolved, or leave a response if you are not sure what to do
+  test: |
+    [.reviewThreads.nodes[] | select(.isResolved | not) | .comments.nodes[0].createdAt] as $unresolved
+    | if ($unresolved | length) == 0 then false else
+        ($unresolved | max) as $latest_thread
+        | ([.commits.nodes[0].commit.committedDate]
+           + [.comments.nodes[] | select(.author.login == $author) | .createdAt]) as $author_activity
+        | (if ($author_activity | length) == 0 then "1970-01-01T00:00:00Z" else ($author_activity | max) end)
+          < $latest_thread
+      end

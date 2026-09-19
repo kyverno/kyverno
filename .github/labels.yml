@@ -522,3 +522,11 @@ spam:
 merge-conflicts:
   color: E65100
   description: PR has merge conflicts
+
+ai-generated:
+  color: 8B5CF6
+  description: Flagged by CodeRabbit's slop detection as likely low-quality AI-generated content (.coderabbit.yaml's reviews.slop_detection)
+
+needs-author-action:
+  color: B60205
+  description: Failing DCO, a merge conflict, or unresolved review threads — applied and removed automatically by pr-readiness-check.yaml
