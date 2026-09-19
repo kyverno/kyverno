@@ -39,6 +39,16 @@ jobs:
           helm repo update
       - name: Run chart-testing (lint)
         run: ct lint --all --check-version-increment=false --validate-maintainers=false
+      - name: Verify legacy CRD retention
+        # Asserts the five legacy policy CRDs still carry
+        # helm.sh/resource-policy: keep (#17489). The annotation reaches the
+        # chart through codegen from a kubebuilder marker, so nothing in the
+        # chart pins it; this renders the chart and checks. It needs no
+        # cluster, which is why it lives here rather than in the conformance
+        # helm-tests job.
+        run: |
+          set -e
+          make verify-legacy-crd-retention
 
   sync-issue:
     if: always() && github.event_name == 'push'
