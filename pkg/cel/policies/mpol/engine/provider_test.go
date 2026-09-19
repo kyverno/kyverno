@@ -264,3 +264,52 @@ func TestPolicyExceptionHandler_RequeuesNamespacedPoliciesWithNamespace(t *testi
 		{NamespacedName: client.ObjectKey{Name: "cluster-policy"}},
 	}, got)
 }
+
+func TestPolicyExceptionHandler_RequeuesOldAndNewRefs(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, policiesv1beta1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).Build()
+	polex := func(names ...string) *policiesv1beta1.PolicyException {
+		var refs []policiesv1beta1.PolicyRef
+		for _, name := range names {
+			refs = append(refs, policiesv1beta1.PolicyRef{Name: name, Kind: "MutatingPolicy"})
+		}
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "exempt", Namespace: "team-a"},
+			Spec:       policiesv1beta1.PolicyExceptionSpec{PolicyRefs: refs},
+		}
+	}
+	drain := func(q workqueue.TypedRateLimitingInterface[reconcile.Request]) []reconcile.Request {
+		var got []reconcile.Request
+		for q.Len() > 0 {
+			item, _ := q.Get()
+			got = append(got, item)
+			q.Done(item)
+		}
+		return got
+	}
+
+	t.Run("update requeues refs removed from the exception", func(t *testing.T) {
+		q := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+		defer q.ShutDown()
+		newPolicyExceptionHandler(c).Update(context.Background(), event.TypedUpdateEvent[client.Object]{
+			ObjectOld: polex("policy-a", "policy-b"),
+			ObjectNew: polex("policy-a"),
+		}, q)
+		assert.ElementsMatch(t, []reconcile.Request{
+			{NamespacedName: client.ObjectKey{Name: "policy-a"}},
+			{NamespacedName: client.ObjectKey{Name: "policy-b"}},
+		}, drain(q))
+	})
+
+	t.Run("delete requeues the refs", func(t *testing.T) {
+		q := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[reconcile.Request]())
+		defer q.ShutDown()
+		newPolicyExceptionHandler(c).Delete(context.Background(), event.TypedDeleteEvent[client.Object]{
+			Object: polex("policy-a"),
+		}, q)
+		assert.ElementsMatch(t, []reconcile.Request{
+			{NamespacedName: client.ObjectKey{Name: "policy-a"}},
+		}, drain(q))
+	})
+}
