@@ -147,6 +147,7 @@ func newPolicyExceptionHandler(c client.Client) *handler.Funcs {
 		},
 		UpdateFunc: func(ctx context.Context, e event.TypedUpdateEvent[client.Object], q policyExceptionQueue) {
 			enqueue(ctx, e.ObjectNew, q)
+			enqueue(ctx, e.ObjectOld, q)
 		},
 		DeleteFunc: func(ctx context.Context, e event.TypedDeleteEvent[client.Object], q policyExceptionQueue) {
 			enqueue(ctx, e.Object, q)
