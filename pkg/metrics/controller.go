@@ -34,19 +34,19 @@ func (m *controllerMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.reconcileTotal, err = meter.Int64Counter(
-		"kyverno_controller_reconcile",
+		"kyverno_controller_reconcile_total",
 		metric.WithDescription("can be used to track number of reconciliation cycles"))
 	if err != nil {
 		m.logger.Error(err, "Failed to create instrument, kyverno_controller_reconcile_total")
 	}
 	m.requeueTotal, err = meter.Int64Counter(
-		"kyverno_controller_requeue",
+		"kyverno_controller_requeue_total",
 		metric.WithDescription("can be used to track number of reconciliation errors"))
 	if err != nil {
 		m.logger.Error(err, "Failed to create instrument, kyverno_controller_requeue_total")
 	}
 	m.queueDropTotal, err = meter.Int64Counter(
-		"kyverno_controller_drop",
+		"kyverno_controller_drop_total",
 		metric.WithDescription("can be used to track number of queue drops"))
 	if err != nil {
 		m.logger.Error(err, "Failed to create instrument, kyverno_controller_drop_total")

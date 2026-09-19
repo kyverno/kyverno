@@ -29,7 +29,7 @@ func (m *eventMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.dropped, err = meter.Int64Counter(
-		"kyverno_events_dropped",
+		"kyverno_events_dropped_total",
 		metric.WithDescription("can be used to track the number of events dropped by the event generator"),
 	)
 	if err != nil {

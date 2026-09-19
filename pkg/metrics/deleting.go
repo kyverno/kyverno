@@ -34,14 +34,14 @@ func (m *deletingMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.deletedObjectsTotal, err = meter.Int64Counter(
-		"kyverno_deleting_controller_deletedobjects",
+		"kyverno_deleting_controller_deletedobjects_total",
 		metric.WithDescription("can be used to track number of deleted objects."),
 	)
 	if err != nil {
 		m.logger.Error(err, "Failed to create instrument, deleting_controller_deletedobjects_total")
 	}
 	m.deletingFailuresTotal, err = meter.Int64Counter(
-		"kyverno_deleting_controller_errors",
+		"kyverno_deleting_controller_errors_total",
 		metric.WithDescription("can be used to track number of deleting failures."),
 	)
 	if err != nil {

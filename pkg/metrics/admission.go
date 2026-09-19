@@ -34,7 +34,7 @@ func (m *admissionMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.requestsMetric, err = meter.Int64Counter(
-		"kyverno_admission_requests",
+		"kyverno_admission_requests_total",
 		metric.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"),
 	)
 	if err != nil {

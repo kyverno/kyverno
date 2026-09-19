@@ -33,7 +33,7 @@ func (m *httpMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.requestsMetric, err = meter.Int64Counter(
-		"kyverno_http_requests",
+		"kyverno_http_requests_total",
 		metric.WithDescription("can be used to track the number of http requests"),
 	)
 	if err != nil {

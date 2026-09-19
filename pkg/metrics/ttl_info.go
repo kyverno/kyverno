@@ -39,14 +39,14 @@ func (m *ttlInfoMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.deletedObjectsTotal, err = meter.Int64Counter(
-		"kyverno_ttl_controller_deletedobjects",
+		"kyverno_ttl_controller_deletedobjects_total",
 		metric.WithDescription("can be used to track number of deleted objects by the ttl resource controller."),
 	)
 	if err != nil {
 		m.logger.Error(err, "Failed to create instrument, ttl_controller_deletedobjects_total")
 	}
 	m.ttlFailureTotal, err = meter.Int64Counter(
-		"kyverno_ttl_controller_errors",
+		"kyverno_ttl_controller_errors_total",
 		metric.WithDescription("can be used to track number of ttl cleanup failures."),
 	)
 	if err != nil {

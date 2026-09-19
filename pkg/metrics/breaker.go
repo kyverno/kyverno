@@ -32,7 +32,7 @@ func (m *breakerMetrics) init(meter metric.Meter) {
 	var err error
 
 	m.drops, err = meter.Int64Counter(
-		"kyverno_breaker_drops",
+		"kyverno_breaker_drops_total",
 		metric.WithDescription("track the number of times the breaker failed open and dropped"),
 	)
 	if err != nil {
