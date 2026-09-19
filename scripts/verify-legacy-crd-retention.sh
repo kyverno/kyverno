@@ -106,13 +106,20 @@ awk '
 
 TOTAL_CRDS="$(wc -l < "${WORK_DIR}/crds.txt" | tr -d ' ')"
 if [ "${TOTAL_CRDS}" -eq 0 ]; then
-  fail "the chart render contained no CustomResourceDefinition documents; is crds.install still honored, or did the render layout change? (render kept at ${RENDER})"
+  fail "the chart render contained no CustomResourceDefinition documents; is crds.install still honored, or did the render layout change?"
 fi
 log "found ${TOTAL_CRDS} CRDs in the render"
 
 # kept_state echoes "kept", "none", or "absent" for one CRD name, matching
 # on the whole field rather than a substring (see the header comment on the
 # policies.kyverno.io name collision).
+#
+# If the render somehow contains the same CRD name twice - a stray
+# .bak/.orig file left in the templates directory, which helm renders like
+# any other template, or a bad merge - this prints one line per occurrence.
+# Callers must treat that multi-line output as an error rather than letting
+# it fall through a case statement unmatched, which would pass the check
+# while one of the two copies has lost its annotation.
 kept_state() {
   awk -v want="$1" '$1 == want { print $2; found = 1 } END { if (!found) print "absent" }' "${WORK_DIR}/crds.txt"
 }
@@ -124,6 +131,7 @@ for name in "${EXPECTED_KEPT[@]}"; do
     kept) log "  OK   ${name}" ;;
     none) fail "legacy CRD ${name} is missing the '${ANNOTATION}' annotation. A Helm uninstall would cascade-delete it and every policy resource stored under it. The annotation comes from a +kubebuilder:metadata:annotations marker on the Go type - check api/kyverno/*/ for the marker on every served version of this kind, then re-run 'make codegen-crds-all codegen-helm-crds'." ;;
     absent) fail "legacy CRD ${name} was not present in the chart render at all" ;;
+    *) fail "could not determine a single retention state for ${name} (got: $(echo "${state}" | tr '\n' ' ')). The render most likely contains this CRD more than once - check for a stray .bak/.orig/duplicate file under charts/kyverno/charts/crds/templates/, which helm renders like any other template." ;;
   esac
 done
 
@@ -140,6 +148,7 @@ for name in "${EXPECTED_NOT_KEPT[@]}"; do
     none) log "  OK   ${name} (correctly not kept)" ;;
     kept) fail "${name} carries '${ANNOTATION}' but must not: it is not one of the five legacy policy CRDs, so Helm should be free to prune it normally." ;;
     absent) fail "expected ${name} in the chart render, but it was absent; update this script if the chart's CRD set changed" ;;
+    *) fail "could not determine a single retention state for ${name} (got: $(echo "${state}" | tr '\n' ' ')). The render most likely contains this CRD more than once - check for a stray .bak/.orig/duplicate file under charts/kyverno/charts/crds/templates/, which helm renders like any other template." ;;
   esac
 done
 
