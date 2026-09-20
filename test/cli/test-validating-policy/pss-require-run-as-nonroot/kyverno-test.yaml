@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-require-run-as-nonroot
+policies:
+- policy.yaml
+resources:
+- pods.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-nonroot
+  resources:
+  - pod-false-containers-true
+  - pod-false-containers-unset
+  - pod-unset-containers-unset
+  - pod-true-container-false
+  - pod-true-init-container-false
+  - pod-unset-ephemeral-unset
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-nonroot
+  resources:
+  - pod-unset-containers-true
+  - pod-true-containers-unset
+  - pod-true-all-scopes-unset
+  result: pass

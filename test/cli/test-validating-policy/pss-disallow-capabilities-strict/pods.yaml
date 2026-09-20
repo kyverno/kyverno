@@ -1,0 +1,147 @@
+# No securityContext at all. PSA capabilitiesRestricted_1_22 denies this; the
+# old `!has(c.securityContext)` short-circuit let it pass.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-security-context
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+---
+# capabilities set but no `drop` key. PSA denies; the old expression passed it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: capabilities-no-drop
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        add:
+        - NET_BIND_SERVICE
+---
+# Drops a capability, but not ALL.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: drop-net-raw
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        drop:
+        - NET_RAW
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: drop-all
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: drop-all-add-net-bind-service
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+---
+# NET_BIND_SERVICE is the only capability that may be added back.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: drop-all-add-sys-admin
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - SYS_ADMIN
+---
+# Init containers are in scope for PSA's visitContainers.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-container-no-security-context
+spec:
+  initContainers:
+  - name: init
+    image: busybox:latest
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+---
+# Ephemeral containers are in scope too.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ephemeral-container-drop-net-raw
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+  ephemeralContainers:
+  - name: debugger
+    image: busybox:latest
+    securityContext:
+      capabilities:
+        drop:
+        - NET_RAW
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: all-scopes-drop-all
+spec:
+  initContainers:
+  - name: init
+    image: busybox:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+  ephemeralContainers:
+  - name: debugger
+    image: busybox:latest
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
