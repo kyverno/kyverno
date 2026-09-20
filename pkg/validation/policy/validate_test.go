@@ -1179,9 +1179,14 @@ func Test_Wildcards_Kind_Deny_NonStringConditionKey(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.Nil(t, err)
 
+	var validateErr error
 	assert.NotPanics(t, func() {
-		_, _ = Validate(policy, nil, nil, true, "", "")
+		_, validateErr = Validate(policy, nil, nil, true, "", "")
 	})
+	// A non-string key can never satisfy the metadata-only restriction, so
+	// the policy must still be rejected with the existing validation error,
+	// not silently accepted.
+	assert.ErrorContains(t, validateErr, "policy can only deal with the metadata field of the resource if the rule does not match any kind")
 }
 
 func Test_Namespced_Policy(t *testing.T) {
