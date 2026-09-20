@@ -27,6 +27,8 @@ CRD_NAMES=(
 # count_legacy_crs: "" for cluster-scoped, "-A" for namespaced), so the
 # count assertions below can count each legacy kind cluster-wide.
 CRD_SCOPES=("" "-A" "-A" "" "-A")
+# Display names for the same positions, used by the exclusivity guard's message.
+CRD_KINDS=(ClusterPolicy Policy CleanupPolicy ClusterCleanupPolicy PolicyException)
 
 # RUN_ID keeps fixture names unique across runs but doesn't buy concurrency
 # safety: the release name, namespace, and cluster-wide legacy counts are
@@ -174,19 +176,10 @@ count_legacy_crs() {
 # A leftover legacy CR of any kind - from a prior run or something else -
 # would otherwise fail scenario B later with a confusing error, so refuse
 # up front instead.
-for preexisting_probe in \
-  "clusterpolicies.kyverno.io|ClusterPolicy|" \
-  "policies.kyverno.io|Policy|-A" \
-  "cleanuppolicies.kyverno.io|CleanupPolicy|-A" \
-  "clustercleanuppolicies.kyverno.io|ClusterCleanupPolicy|" \
-  "policyexceptions.kyverno.io|PolicyException|-A"; do
-  PREEXISTING_RESOURCE="${preexisting_probe%%|*}"
-  PREEXISTING_REST="${preexisting_probe#*|}"
-  PREEXISTING_KIND="${PREEXISTING_REST%%|*}"
-  PREEXISTING_SCOPE="${PREEXISTING_REST#*|}"
-  PREEXISTING_COUNT="$(count_legacy_crs "${PREEXISTING_RESOURCE}" "${PREEXISTING_SCOPE}")"
+for i in "${!CRD_NAMES[@]}"; do
+  PREEXISTING_COUNT="$(count_legacy_crs "${CRD_NAMES[$i]}" "${CRD_SCOPES[$i]}")"
   if [ "${PREEXISTING_COUNT}" != "0" ]; then
-    fail "found ${PREEXISTING_COUNT} pre-existing ${PREEXISTING_KIND} object(s) on this cluster; this script requires exclusive use of the cluster and cannot run correctly alongside them - clear them or use a fresh cluster"
+    fail "found ${PREEXISTING_COUNT} pre-existing ${CRD_KINDS[$i]} object(s) on this cluster; this script requires exclusive use of the cluster and cannot run correctly alongside them - clear them or use a fresh cluster"
   fi
 done
 
@@ -213,9 +206,10 @@ cleanup() {
     kubectl delete cleanuppolicies.kyverno.io -n "${TEST_NAMESPACE}" "${CLEANUP_POLICY_NAME}" "${SECOND_CLEANUP_POLICY_NAME}" --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete policyexceptions.kyverno.io -n "${TEST_NAMESPACE}" "${POLEX_NAME}" "${SECOND_POLEX_NAME}" "${DELETE_PROBE_POLEX_NAME}" --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete clusterrole "${CLEANUP_RBAC_NAME}" --ignore-not-found >/dev/null 2>&1 || true
-    # The five legacy CRDs stay behind: helm never removes chart CRDs, and
-    # deleting one here would cascade to every CR of that kind cluster-wide,
-    # including objects this run did not create. A later run re-installs them.
+    # Whether the uninstall also drops the legacy CRDs is chart-dependent:
+    # today they carry no helm.sh/resource-policy, #17494 proposes keep.
+    # Either way the guard refused to start unless the cluster was free of
+    # legacy CRs, so no CR this run did not create is caught by that cascade.
     rm -rf "${WORK_DIR}"
   else
     log "exiting non-zero (${exit_code}): leaving the \"${RELEASE_NAME}\" release, the \"${NAMESPACE}\"/\"${TEST_NAMESPACE}\" namespaces, this run's fixtures, and \"${WORK_DIR}\" (logs and CRD/webhook snapshots) in place so the workflow's Debug-failure logs step (and manual kubectl inspection) can see the failure state"
@@ -259,10 +253,10 @@ spec:
 EOF
 }
 
-# Applies the throwaway delete-probe fixture (see DELETE_PROBE_CLUSTERPOLICY_NAME).
-# Called in A1, then again in A5 after the rollback to recreate it.
-apply_delete_probe_clusterpolicy() {
-  kubectl apply -f - <<EOF >/dev/null
+# Emits the throwaway delete-probe fixture (see DELETE_PROBE_CLUSTERPOLICY_NAME).
+# Applied in A1, then again in A5 after the rollback.
+delete_probe_clusterpolicy_manifest() {
+  cat <<EOF
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -946,9 +940,8 @@ wait_for_allow "A1 policy exception fixture create" "${WORK_DIR}/polex.yaml"
 log "A1: applying dedicated delete-probe fixtures (ClusterPolicy, ClusterCleanupPolicy, PolicyException) - these exist only to be deleted in A4b while the 1.20 write-block is active, and recreated in A5 after the rollback (excluded only from the per-name spec-hash assertions)"
 clustercleanuppolicy_manifest "${DELETE_PROBE_CLUSTERCLEANUP_POLICY_NAME}" > "${WORK_DIR}/delete-probe-clustercleanup-policy.yaml"
 polex_manifest "${DELETE_PROBE_POLEX_NAME}" > "${WORK_DIR}/delete-probe-polex.yaml"
-# Plain apply, no RBAC dependency: a create failure aborts under `set -e`,
-# which is what proves the probe exists before A4b tries to delete it.
-apply_delete_probe_clusterpolicy
+delete_probe_clusterpolicy_manifest > "${WORK_DIR}/delete-probe-clusterpolicy.yaml"
+wait_for_allow "A1 delete-probe ClusterPolicy fixture create" "${WORK_DIR}/delete-probe-clusterpolicy.yaml"
 # wait_for_allow, not a bare apply: same RBAC-aggregation race as the
 # ClusterCleanupPolicy/PolicyException fixtures above.
 wait_for_allow "A1 delete-probe cluster cleanup policy fixture create" "${WORK_DIR}/delete-probe-clustercleanup-policy.yaml"
@@ -1122,10 +1115,10 @@ assert_delete_probe_absent "A5" "${DELETE_PROBE_POLEX_NAME}" policyexceptions.ky
 # any earlier). All three are counted in the A2 baseline, so without this
 # the post-rollback count check below would see baseline-minus-one and fail.
 log "A5: recreating the three delete-probes deleted in A4b, so the count assertion below still matches the untouched baseline"
-apply_delete_probe_clusterpolicy
-# wait_for_allow, not a bare apply: same post-rollback cold-start race as
-# A1's own creates of these two (the cleanup controller's webhook runs a
-# SubjectAccessReview and was just restarted by the rollback).
+# wait_for_allow, not bare applies: the rollback just restarted the
+# admission and cleanup controllers, so their webhooks may briefly reject
+# these creates before they are ready.
+wait_for_allow "A5 delete-probe ClusterPolicy recreate" "${WORK_DIR}/delete-probe-clusterpolicy.yaml"
 wait_for_allow "A5 delete-probe cluster cleanup policy recreate" "${WORK_DIR}/delete-probe-clustercleanup-policy.yaml"
 wait_for_allow "A5 delete-probe policy exception recreate" "${WORK_DIR}/delete-probe-polex.yaml"
 
