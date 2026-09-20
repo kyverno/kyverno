@@ -480,6 +480,42 @@ func Test_PercentEncodedPathTraversal(t *testing.T) {
 	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
 }
 
+func Test_transformAndStore_NonStringJMESPath(t *testing.T) {
+	// Regression test: when context.apiCall.jmesPath is written as a single,
+	// whole variable reference (e.g. "{{ somePriority }}"), SubstituteAll
+	// returns the resolved value with its native JSON type instead of
+	// coercing it to string. If that type isn't a string (a JSON number
+	// here), transformAndStore used to do path.(string) unchecked and
+	// panic. This path is not reachable via the production
+	// Fetch-then-Store sequence (loaders.apiLoader.LoadData), since
+	// Fetch's own SubstituteAllInType call on the same field fails closed
+	// first -- but Store is an exported method and must not panic if
+	// invoked directly, e.g. with jsonData supplied out-of-band.
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			JMESPath: "{{ somePriority }}",
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+	err := ctx.AddContextEntry("somePriority", []byte("5"))
+	assert.NilError(t, err)
+
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
+	assert.NilError(t, err)
+
+	assert.Assert(t, func() (ok bool) {
+		defer func() {
+			if r := recover(); r != nil {
+				ok = false
+			}
+		}()
+		_, err = call.Store([]byte(`{"day":"Monday"}`))
+		return true
+	}())
+	assert.ErrorContains(t, err, "JMESPath did not resolve to a string")
+}
+
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {
 	// Default timeout via constructor
 	config := NewAPICallConfiguration(1000, 30*time.Second)
