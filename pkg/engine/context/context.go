@@ -11,6 +11,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -27,92 +28,11 @@ var (
 	ReservedKeys = regexp.MustCompile(`request|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images|image|([a-z_0-9]+\()[^{}]`)
 )
 
-// EvalInterface is used to query and inspect context data
-// TODO: move to contextapi to prevent circular dependencies
-type EvalInterface interface {
-	// Query accepts a JMESPath expression and returns matching data
-	Query(query string) (interface{}, error)
+// EvalInterface is a type alias for engineapi.EvalInterface.
+type EvalInterface = engineapi.EvalInterface
 
-	// Operation returns the admission operation i.e. "request.operation"
-	QueryOperation() string
-
-	// HasChanged accepts a JMESPath expression and compares matching data in the
-	// request.object and request.oldObject context fields. If the data has changed
-	// it return `true`. If the data has not changed it returns false. If either
-	// request.object or request.oldObject are not found, an error is returned.
-	HasChanged(jmespath string) (bool, error)
-}
-
-// Interface to manage context operations
-// TODO: move to contextapi to prevent circular dependencies
-type Interface interface {
-	EvalInterface
-
-	// AddRequest marshals and adds the admission request to the context
-	AddRequest(request admissionv1.AdmissionRequest) error
-
-	// AddVariable adds a variable to the context
-	AddVariable(key string, value interface{}) error
-
-	// AddContextEntry adds a context entry to the context
-	AddContextEntry(name string, dataRaw []byte) error
-
-	// ReplaceContextEntry replaces a context entry to the context
-	ReplaceContextEntry(name string, dataRaw []byte) error
-
-	// AddResource merges resource json under request.object
-	AddResource(data map[string]interface{}) error
-
-	// AddOldResource merges resource json under request.oldObject
-	AddOldResource(data map[string]interface{}) error
-
-	// SetTargetResource merges resource json under target
-	SetTargetResource(data map[string]interface{}) error
-
-	// AddOperation merges operation under request.operation
-	AddOperation(data string) error
-
-	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo kyvernov2.RequestInfo) error
-
-	// AddServiceAccount merges ServiceAccount types
-	AddServiceAccount(userName string) error
-
-	// AddNamespace merges resource json under request.namespace
-	AddNamespace(namespace string) error
-
-	// AddElement adds element info to the context
-	AddElement(data interface{}, index, nesting int) error
-
-	// AddImageInfo adds image info to the context
-	AddImageInfo(info apiutils.ImageInfo, cfg config.Configuration) error
-
-	// AddImageInfos adds image infos to the context
-	AddImageInfos(resource *unstructured.Unstructured, cfg config.Configuration) error
-
-	// AddDeferredLoader adds a loader that is executed on first use (query)
-	// If deferred loading is disabled the loader is immediately executed.
-	AddDeferredLoader(loader DeferredLoader) error
-
-	// ImageInfo returns image infos present in the context
-	ImageInfo() map[string]map[string]apiutils.ImageInfo
-
-	// GenerateCustomImageInfo returns image infos as defined by a custom image extraction config
-	// and updates the context
-	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs, cfg config.Configuration) (map[string]map[string]apiutils.ImageInfo, error)
-
-	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
-	Checkpoint()
-
-	// Restore sets the internal state to the last checkpoint, and removes the checkpoint.
-	Restore()
-
-	// Reset sets the internal state to the last checkpoint, but does not remove the checkpoint.
-	Reset()
-
-	// AddJSON  merges the json map with context
-	addJSON(dataMap map[string]interface{}, overwriteMaps bool) error
-}
+// Interface is a type alias for engineapi.Interface.
+type Interface = engineapi.Interface
 
 // DefaultMaxContextSize is the default maximum size of context data in bytes (2MB)
 const DefaultMaxContextSize = 2 * 1024 * 1024

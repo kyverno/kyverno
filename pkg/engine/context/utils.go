@@ -6,9 +6,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+type jsonAdder interface {
+	addJSON(dataMap map[string]interface{}, overwriteMaps bool) error
+}
+
 // AddJSONObject merges json data
 func AddJSONObject(ctx Interface, data map[string]interface{}) error {
-	return ctx.addJSON(data, false)
+	if ja, ok := ctx.(jsonAdder); ok {
+		return ja.addJSON(data, false)
+	}
+	return nil
 }
 
 func AddResource(ctx Interface, dataRaw []byte) error {

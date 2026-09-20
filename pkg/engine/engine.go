@@ -10,7 +10,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -166,7 +165,7 @@ func (e *engine) ContextLoader(
 	rule kyvernov1.Rule,
 ) engineapi.EngineContextLoader {
 	loader := e.contextLoader(policy, rule)
-	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+	return func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext engineapi.Interface) error {
 		return loader.Load(
 			ctx,
 			e.jp,
