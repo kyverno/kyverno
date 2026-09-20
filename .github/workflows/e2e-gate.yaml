@@ -68,6 +68,8 @@ jobs:
       group: e2e-gate-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || 'sweep' }}
       cancel-in-progress: true
     permissions:
+      # contents: the head commit of each PR is read to find its current status
+      contents: read
       issues: read
       pull-requests: read
       statuses: write
