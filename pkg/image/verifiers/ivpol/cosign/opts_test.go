@@ -425,6 +425,33 @@ func TestCheckOptions_NoInlineTrustedRootWithTlogIgnored(t *testing.T) {
 	assert.True(t, opts.TrustedMaterial == nil, "TrustedMaterial must be a nil interface, got %T", opts.TrustedMaterial)
 }
 
+// TestCheckOptions_MalformedInlineTrustedRootWithTlogIgnored pins a deliberate
+// behavior change: the fast path now parses the inline trustedRoot, so a
+// malformed one is reported instead of being silently ignored as it was while
+// the field was never read on this path. Accepting a policy that names trust
+// material and then quietly verifying without it is the failure mode this fix
+// exists to remove, so surfacing the error is the intended behavior.
+func TestCheckOptions_MalformedInlineTrustedRootWithTlogIgnored(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{
+			Value: "{not valid json",
+		},
+	}
+
+	_, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "parsing inline trustedRoot JSON")
+}
+
 func TestInitTUFAndFetch_Default(t *testing.T) {
 	ctx := context.TODO()
 	trust, err := initTUFAndFetch(ctx, nil)
