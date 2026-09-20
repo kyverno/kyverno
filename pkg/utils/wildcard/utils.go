@@ -2,11 +2,13 @@ package wildcard
 
 import "strings"
 
+// ContainsWildcard reports whether v contains a '*' or '?' wildcard.
 func ContainsWildcard(v string) bool {
-	return strings.Contains(v, "*") || strings.Contains(v, "?")
+	return strings.ContainsAny(v, "*?")
 }
 
-// MatchPatterns check if any text satisfies any pattern
+// MatchPatterns returns the first name matching one of the patterns, together with
+// the pattern it matched.
 func MatchPatterns(patterns []string, names ...string) (string, string, bool) {
 	for _, name := range names {
 		for _, pattern := range patterns {
@@ -18,19 +20,20 @@ func MatchPatterns(patterns []string, names ...string) (string, string, bool) {
 	return "", "", false
 }
 
-// CheckPatterns check if any text satisfies any pattern
+// CheckPatterns reports whether any of the names matches any of the patterns.
 func CheckPatterns(patterns []string, names ...string) bool {
 	_, _, match := MatchPatterns(patterns, names...)
 	return match
 }
 
-func SeperateWildcards(l []string) (lw []string, rl []string) {
+// SeparateWildcards splits l into the elements containing a wildcard and the others.
+func SeparateWildcards(l []string) (wildcards []string, others []string) {
 	for _, val := range l {
 		if ContainsWildcard(val) {
-			lw = append(lw, val)
+			wildcards = append(wildcards, val)
 		} else {
-			rl = append(rl, val)
+			others = append(others, val)
 		}
 	}
-	return lw, rl
+	return wildcards, others
 }

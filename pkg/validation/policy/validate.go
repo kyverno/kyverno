@@ -1634,7 +1634,7 @@ func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationF
 		if !vfa.Action.IsValid() {
 			return fmt.Errorf("invalid action")
 		}
-		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
+		patternList, nsList := wildcard.SeparateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {
 			if action["enforce"].HasAny(nsList...) {
