@@ -364,6 +364,67 @@ func TestCheckOptions_RekorOfflineMode(t *testing.T) {
 	assert.False(t, opts.Offline)
 }
 
+// TestCheckOptions_InlineTrustedRootWithTlogIgnored is the regression for
+// https://github.com/kyverno/kyverno/issues/17562. A key or certificate attestor
+// combined with insecureIgnoreTlog takes the fast path that skips all Sigstore
+// infrastructure, and the inline trustedRoot used to be resolved only inside that
+// skipped branch. CheckOpts.TrustedMaterial was therefore left nil and bundle
+// verification failed with "a trusted root is required for identity-based
+// verification", leaving no way to verify against a private trust root offline.
+//
+// TUF is deliberately not stubbed here: honoring an inline trustedRoot must not
+// require a reachable TUF repository, which is the whole point of the field.
+func TestCheckOptions_InlineTrustedRootWithTlogIgnored(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	trustedRootJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{
+			Value: string(trustedRootJSON),
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, opts.TrustedMaterial, "inline trustedRoot must be honored when the transparency log is ignored")
+}
+
+// TestCheckOptions_NoInlineTrustedRootWithTlogIgnored pins the other half of the
+// contract: with no inline trustedRoot the fast path has no trust material to
+// resolve, and TrustedMaterial must stay a genuinely nil interface. Returning the
+// typed nil *root.TrustedRoot here would produce a non-nil interface and silently
+// flip callers that branch on TrustedMaterial != nil, including cosign's own
+// "a trusted root is required" guard and the TSA wrapping in checkOptions.
+func TestCheckOptions_NoInlineTrustedRootWithTlogIgnored(t *testing.T) {
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Key: &v1beta1.Key{
+			Data: testPublicKey,
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+		},
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	// compared against nil directly rather than with assert.Nil, which is
+	// reflection-based and reports a typed nil pointer as nil, i.e. it would
+	// pass for exactly the interface this test exists to rule out
+	assert.True(t, opts.TrustedMaterial == nil, "TrustedMaterial must be a nil interface, got %T", opts.TrustedMaterial)
+}
+
 func TestInitTUFAndFetch_Default(t *testing.T) {
 	ctx := context.TODO()
 	trust, err := initTUFAndFetch(ctx, nil)
