@@ -23,6 +23,10 @@ CRD_NAMES=(
   clustercleanuppolicies.kyverno.io
   policyexceptions.kyverno.io
 )
+# Scope flag per CRD_NAMES entry (same positions, same convention as
+# count_legacy_crs: "" for cluster-scoped, "-A" for namespaced), so the
+# count assertions below can count each legacy kind cluster-wide.
+CRD_SCOPES=("" "-A" "-A" "" "-A")
 
 # RUN_ID keeps fixture names unique across runs but doesn't buy concurrency
 # safety: the release name, namespace, and cluster-wide legacy counts are
@@ -47,9 +51,9 @@ SECOND_POLEX_NAME="legacy-policy-migration-verify-polex2-${RUN_ID}"
 # service account can delete AND list the matched kind. The chart grants no
 # such RBAC by default, so the fixture brings its own, like a real user would.
 CLEANUP_RBAC_NAME="legacy-policy-migration-verify-cleanup-rbac-${RUN_ID}"
-# Delete probes: throwaway fixtures that exist only to be deleted in A4b (see
-# that comment for what it proves). Excluded from every A4/A5 hash/count
-# comparison except legacy_clusterpolicy_count() - see the A5 recreation.
+# Delete probes: throwaway fixtures deleted in A4b (see that comment) and
+# recreated in A5 so the A5 count assertions still match the A2 baseline.
+# Excluded only from the per-name spec-hash comparisons.
 DELETE_PROBE_CLUSTERPOLICY_NAME="legacy-policy-migration-verify-delcp-${RUN_ID}"
 DELETE_PROBE_CLUSTERCLEANUP_POLICY_NAME="legacy-policy-migration-verify-delccup-${RUN_ID}"
 DELETE_PROBE_POLEX_NAME="legacy-policy-migration-verify-delpolex-${RUN_ID}"
@@ -198,9 +202,8 @@ cleanup() {
     # call site tolerates a non-zero uninstall.
     helm_uninstall_if_present || log "cleanup: helm uninstall of a successful run's release did not complete cleanly (ignored)"
     kubectl delete namespace "${TEST_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
-    # DELETE_PROBE_CLUSTERPOLICY_NAME is included because A5 recreates it;
-    # the other two delete probes are already gone, and --ignore-not-found
-    # tolerates that.
+    # All three delete-probe names are included below because A5 recreates
+    # them; --ignore-not-found tolerates any that somehow aren't present.
     kubectl delete clusterpolicies.kyverno.io "${CLUSTERPOLICY_NAME}" "${SECOND_CLUSTERPOLICY_NAME}" "${DELETE_PROBE_CLUSTERPOLICY_NAME}" --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUP_POLICY_NAME}" "${SECOND_CLUSTERCLEANUP_POLICY_NAME}" "${DELETE_PROBE_CLUSTERCLEANUP_POLICY_NAME}" --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete validatingpolicies.policies.kyverno.io "${VPOL_NAME}" --ignore-not-found >/dev/null 2>&1 || true
@@ -210,6 +213,9 @@ cleanup() {
     kubectl delete cleanuppolicies.kyverno.io -n "${TEST_NAMESPACE}" "${CLEANUP_POLICY_NAME}" "${SECOND_CLEANUP_POLICY_NAME}" --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete policyexceptions.kyverno.io -n "${TEST_NAMESPACE}" "${POLEX_NAME}" "${SECOND_POLEX_NAME}" "${DELETE_PROBE_POLEX_NAME}" --ignore-not-found >/dev/null 2>&1 || true
     kubectl delete clusterrole "${CLEANUP_RBAC_NAME}" --ignore-not-found >/dev/null 2>&1 || true
+    # The five legacy CRDs stay behind: helm never removes chart CRDs, and
+    # deleting one here would cascade to every CR of that kind cluster-wide,
+    # including objects this run did not create. A later run re-installs them.
     rm -rf "${WORK_DIR}"
   else
     log "exiting non-zero (${exit_code}): leaving the \"${RELEASE_NAME}\" release, the \"${NAMESPACE}\"/\"${TEST_NAMESPACE}\" namespaces, this run's fixtures, and \"${WORK_DIR}\" (logs and CRD/webhook snapshots) in place so the workflow's Debug-failure logs step (and manual kubectl inspection) can see the failure state"
@@ -799,11 +805,28 @@ clusterscoped_spec_hash() {
   kubectl get "$1" "$2" -o json | jq -Sc '.spec' | shasum -a 256 | awk '{print $1}'
 }
 
-# Counts every ClusterPolicy on the cluster, so a rollback that duplicates
-# or resurrects a stray legacy CR is caught even if the fixture's own
-# object still looks untouched.
-legacy_clusterpolicy_count() {
-  kubectl get clusterpolicies.kyverno.io -o name | wc -l | tr -d ' '
+# Counts every object of every legacy kind, cluster-wide, so a stray
+# duplicate or resurrection is caught even when a per-name spec hash still
+# looks untouched. Captures count_legacy_crs's abort explicitly so `set -e` sees it.
+legacy_cr_counts_snapshot() {
+  local i count
+  for i in "${!CRD_NAMES[@]}"; do
+    count="$(count_legacy_crs "${CRD_NAMES[$i]}" "${CRD_SCOPES[$i]}")" || return 1
+    printf '%s=%s\n' "${CRD_NAMES[$i]}" "${count}"
+  done
+}
+
+# Compares two legacy_cr_counts_snapshot outputs, per legacy kind at once.
+assert_legacy_cr_counts_unchanged() {
+  local baseline="$1" current="$2" context="$3"
+  [ "${baseline}" = "${current}" ] && return 0
+  {
+    echo "baseline counts:"
+    echo "${baseline}"
+    echo "current counts:"
+    echo "${current}"
+  } >&2
+  fail "${context}: legacy CR count(s) changed (see baseline vs current counts above) - a duplicate, deletion, or resurrection of any legacy-kind object would show here even when the fixture's own per-name spec hash still looks unchanged"
 }
 
 # Asserts a delete probe is genuinely absent, not just trusted absent:
@@ -920,7 +943,7 @@ wait_for_allow "A1 cleanup policy fixture create" "${WORK_DIR}/cleanup-policy.ya
 wait_for_allow "A1 cluster cleanup policy fixture create" "${WORK_DIR}/clustercleanup-policy.yaml"
 wait_for_allow "A1 policy exception fixture create" "${WORK_DIR}/polex.yaml"
 
-log "A1: applying dedicated delete-probe fixtures (ClusterPolicy, ClusterCleanupPolicy, PolicyException) - these exist only to be deleted in A4b while the 1.20 write-block is active, and are excluded from every hash/count assertion above and below"
+log "A1: applying dedicated delete-probe fixtures (ClusterPolicy, ClusterCleanupPolicy, PolicyException) - these exist only to be deleted in A4b while the 1.20 write-block is active, and recreated in A5 after the rollback (excluded only from the per-name spec-hash assertions)"
 clustercleanuppolicy_manifest "${DELETE_PROBE_CLUSTERCLEANUP_POLICY_NAME}" > "${WORK_DIR}/delete-probe-clustercleanup-policy.yaml"
 polex_manifest "${DELETE_PROBE_POLEX_NAME}" > "${WORK_DIR}/delete-probe-polex.yaml"
 # Plain apply, no RBAC dependency: a create failure aborts under `set -e`,
@@ -937,10 +960,10 @@ wait_for_deny "A1 pre-upgrade Policy enforcement" "${WORK_DIR}/violating-pod.yam
 wait_for_allow "A1 pre-upgrade compliant pod" "${WORK_DIR}/compliant-pod.yaml"
 kubectl delete -f "${WORK_DIR}/compliant-pod.yaml" --ignore-not-found >/dev/null
 
-log "A2: snapshotting the baseline (CRD versions/spec hash/storedVersions, ClusterPolicy spec/count, webhook rules)"
+log "A2: snapshotting the baseline (CRD versions/spec hash/storedVersions, per-kind spec hashes, legacy CR counts across all five kinds, webhook rules)"
 snapshot_crds "baseline"
 BASELINE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
-BASELINE_CLUSTERPOLICY_COUNT="$(legacy_clusterpolicy_count)"
+BASELINE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
 BASELINE_POLICY_HASH="$(namespaced_spec_hash policies.kyverno.io "${POLICY_NAME}")"
 BASELINE_CLEANUP_POLICY_HASH="$(namespaced_spec_hash cleanuppolicy "${CLEANUP_POLICY_NAME}")"
 BASELINE_CLUSTERCLEANUP_POLICY_HASH="$(clusterscoped_spec_hash clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUP_POLICY_NAME}")"
@@ -958,9 +981,8 @@ POST_UPGRADE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME
 if [ "${POST_UPGRADE_CLUSTERPOLICY_HASH}" != "${BASELINE_CLUSTERPOLICY_HASH}" ]; then
   fail "A4: the pre-existing ClusterPolicy's spec changed across the opt-out upgrade"
 fi
-POST_UPGRADE_CLUSTERPOLICY_COUNT="$(legacy_clusterpolicy_count)"
-[ "${POST_UPGRADE_CLUSTERPOLICY_COUNT}" = "${BASELINE_CLUSTERPOLICY_COUNT}" ] \
-  || fail "A4: the legacy ClusterPolicy count changed across the opt-out upgrade (baseline=${BASELINE_CLUSTERPOLICY_COUNT}, now=${POST_UPGRADE_CLUSTERPOLICY_COUNT})"
+POST_UPGRADE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
+assert_legacy_cr_counts_unchanged "${BASELINE_CR_COUNTS}" "${POST_UPGRADE_CR_COUNTS}" "A4"
 wait_for_deny "A4 ClusterPolicy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${CP_DENY_MSG}"
 wait_for_deny "A4 Policy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${POLICY_DENY_MSG}"
 
@@ -1068,7 +1090,7 @@ assert_crds_unchanged "baseline" "post-upgrade" "A4"
 # Not strict equality: baseline is the published 1.19 chart and this is
 # the local chart, so a legitimate capability addition must not fail this.
 assert_legacy_webhook_rules_not_narrowed "baseline" "post-upgrade" "A4"
-log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CRDs unchanged, webhook coverage not narrowed)"
+log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts across all five kinds, CRDs unchanged, webhook coverage not narrowed)"
 
 # --- A4b: legacy-policy deletes keep succeeding while the write-block is active
 # Proves an operator can still delete a legacy policy on 1.20 to migrate off
@@ -1090,26 +1112,30 @@ log "A5: rolling back to revision 1 (the 1.19 chart)"
 wait_kyverno_ready
 
 # Confirm all three A4b delete probes are genuinely absent: a blind
-# re-apply would be an idempotent no-op if a rollback resurrected one. The
-# other two probes are never recreated, so this is their only absence check.
+# re-apply would mask a resurrected probe. Must run before any recreation
+# below, or the recreation's own idempotent apply would hide that.
 assert_delete_probe_absent "A5" "${DELETE_PROBE_CLUSTERPOLICY_NAME}" clusterpolicy
 assert_delete_probe_absent "A5" "${DELETE_PROBE_CLUSTERCLEANUP_POLICY_NAME}" clustercleanuppolicies.kyverno.io
 assert_delete_probe_absent "A5" "${DELETE_PROBE_POLEX_NAME}" policyexceptions.kyverno.io -n "${TEST_NAMESPACE}"
 
-# Recreate it now that 1.19 unblocks creates again (couldn't be done any
-# earlier). It's counted in the A2 baseline, so without this the
-# post-rollback count check below would see baseline-minus-one and fail.
-log "A5: recreating the ClusterPolicy delete-probe deleted in A4b, so the count assertion below still matches the untouched baseline"
+# Recreate all three now that 1.19 unblocks creates again (couldn't be done
+# any earlier). All three are counted in the A2 baseline, so without this
+# the post-rollback count check below would see baseline-minus-one and fail.
+log "A5: recreating the three delete-probes deleted in A4b, so the count assertion below still matches the untouched baseline"
 apply_delete_probe_clusterpolicy
+# wait_for_allow, not a bare apply: same post-rollback cold-start race as
+# A1's own creates of these two (the cleanup controller's webhook runs a
+# SubjectAccessReview and was just restarted by the rollback).
+wait_for_allow "A5 delete-probe cluster cleanup policy recreate" "${WORK_DIR}/delete-probe-clustercleanup-policy.yaml"
+wait_for_allow "A5 delete-probe policy exception recreate" "${WORK_DIR}/delete-probe-polex.yaml"
 
 log "A5: post-rollback assertions"
 POST_ROLLBACK_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
 if [ "${POST_ROLLBACK_CLUSTERPOLICY_HASH}" != "${POST_UPGRADE_CLUSTERPOLICY_HASH}" ]; then
   fail "A5: the ClusterPolicy's spec changed across the rollback (it should carry over the A4 metadata annotation untouched, and the spec itself must be identical)"
 fi
-POST_ROLLBACK_CLUSTERPOLICY_COUNT="$(legacy_clusterpolicy_count)"
-[ "${POST_ROLLBACK_CLUSTERPOLICY_COUNT}" = "${BASELINE_CLUSTERPOLICY_COUNT}" ] \
-  || fail "A5: the legacy ClusterPolicy count changed across the rollback (baseline=${BASELINE_CLUSTERPOLICY_COUNT}, now=${POST_ROLLBACK_CLUSTERPOLICY_COUNT})"
+POST_ROLLBACK_CR_COUNTS="$(legacy_cr_counts_snapshot)"
+assert_legacy_cr_counts_unchanged "${BASELINE_CR_COUNTS}" "${POST_ROLLBACK_CR_COUNTS}" "A5"
 wait_for_deny "A5 ClusterPolicy enforcement still active post-rollback" "${WORK_DIR}/violating-pod.yaml" "${CP_DENY_MSG}"
 wait_for_deny "A5 Policy enforcement still active post-rollback" "${WORK_DIR}/violating-pod.yaml" "${POLICY_DENY_MSG}"
 snapshot_crds "post-rollback"
@@ -1140,7 +1166,7 @@ POST_ROLLBACK_POLEX_HASH="$(namespaced_spec_hash policyexceptions.kyverno.io "${
 # ships in the admission-controller image already proven above.
 wait_for_allow "A5 cleanup policy create succeeds on 1.19 (no write-time block)" "${WORK_DIR}/new-cleanup-policy.yaml"
 kubectl delete cleanuppolicy -n "${TEST_NAMESPACE}" "${SECOND_CLEANUP_POLICY_NAME}" --ignore-not-found >/dev/null
-log "A5: PASS (CR count/spec, CRDs, webhook rules, and enforcement unchanged; write-time block itself rolled back in both controllers)"
+log "A5: PASS (CR counts across all five legacy kinds and per-fixture spec unchanged; CRDs, webhook rules, and enforcement unchanged; write-time block itself rolled back in both controllers)"
 
 log "=== scenario A: PASS ==="
 
@@ -1149,9 +1175,9 @@ log "=== scenario A: PASS ==="
 # ==============================================================================
 
 log "=== resetting for scenario B ==="
-# DELETE_PROBE_CLUSTERPOLICY_NAME is included here because A5 recreated it
-# (see the comment there); the other two delete probes were already
-# permanently deleted in A4b and --ignore-not-found tolerates that.
+# All three delete-probe names are included below because A5 recreated all
+# of them (see the comment there); --ignore-not-found tolerates any that
+# somehow aren't present.
 kubectl delete clusterpolicy "${CLUSTERPOLICY_NAME}" "${DELETE_PROBE_CLUSTERPOLICY_NAME}" --ignore-not-found >/dev/null
 kubectl delete clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUP_POLICY_NAME}" "${SECOND_CLUSTERCLEANUP_POLICY_NAME}" "${DELETE_PROBE_CLUSTERCLEANUP_POLICY_NAME}" --ignore-not-found >/dev/null
 # TEST_NAMESPACE survives this reset, so namespaced fixtures need explicit
