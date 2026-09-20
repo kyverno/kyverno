@@ -8,9 +8,11 @@ and process live in the files it points to below; don't restate their content he
    workload in a cluster. Prefer flagging a plausible correctness issue over staying silent on it.
 2. **The admission webhook path (`pkg/webhooks/**`) is latency-critical.** Flag any new synchronous blocking
    operation without a timeout, missing panic recovery, or anything that could block admission incorrectly.
-3. **`api/**` is an external module boundary**, not local package code — the real Go types live in
-   `github.com/kyverno/api`, a separate repository (see `docs/context/shared/repo-boundaries.md`). Judge backward
-   compatibility against external consumers of that module, not just this repo's own callers.
+3. **`api/**` holds this repository's own local API types** — `kyverno.io`, `wgpolicyk8s.io`
+   (as `policyreport`), and `reports.kyverno.io`. New `kyverno.io` types go to `v2alpha1` only, never directly to
+   `v1`/`v2`. The CEL-policy types (`policies.kyverno.io`) are the ones that live in the separate
+   `github.com/kyverno/api` module (see `docs/context/shared/repo-boundaries.md`) — judge backward compatibility
+   against external consumers only for those, not for anything under this repo's own `api/`.
 
 ## Before reviewing a package: read its `AGENTS.md`
 
@@ -56,7 +58,8 @@ source of truth instead of two copies drifting apart — read it, don't expect i
 
 ## Lane separation with CodeRabbit
 
-This PR is also reviewed by CodeRabbit, instructed (via `.coderabbit.yaml`) to focus on security vulnerabilities,
-linting/static-analysis findings, and style. To avoid duplicate or conflicting comments, focus here on logic
-correctness, cross-file impact, and architectural concerns that need full-repository context to see — don't
+This PR is also reviewed by CodeRabbit — except on a Dependabot-authored PR, which `.coderabbit.yaml` configures
+it to skip entirely. Where CodeRabbit is reviewing too, it's instructed to focus on security vulnerabilities,
+linting/static-analysis findings, and style; to avoid duplicate or conflicting comments, focus here on logic
+correctness, cross-file impact, and architectural concerns that need full-repository context to see, and don't
 re-flag something CodeRabbit already commented on in this same review round.

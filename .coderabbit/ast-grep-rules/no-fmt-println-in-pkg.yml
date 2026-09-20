@@ -3,10 +3,17 @@ language: go
 severity: warning
 message: Use Kyverno's structured logger instead of fmt.Println/fmt.Printf in pkg/.
 note: |
-  pkg/ has zero existing fmt.Println usage (verified) — the repo's actual convention is pkg/logging's
-  logr.Logger, obtained via logging.WithName("...") (see pkg/engine/engine.go for the live pattern). Direct
-  fmt.Println/Printf bypasses log-level controls (see docs/dev/logging/logging.md) and structured fields.
+  The repo's logging convention is pkg/logging's logr.Logger, obtained via logging.WithName("...") (see
+  pkg/engine/engine.go for the live pattern) — fmt.Println/Printf bypasses log-level controls (see
+  docs/dev/logging/logging.md) and structured fields. Not a blanket rule, though: pkg/cli/** uses fmt.Printf
+  legitimately for the CLI's own stdout output (its primary output mechanism, not a log message), and tests use
+  it for debug/fuzz output — both are excluded below rather than flagged.
 rule:
   any:
     - pattern: fmt.Println($$$)
     - pattern: fmt.Printf($$$)
+files:
+  - "pkg/**/*.go"
+ignores:
+  - "pkg/cli/**"
+  - "**/*_test.go"

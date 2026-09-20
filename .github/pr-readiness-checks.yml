@@ -15,16 +15,13 @@ conflicts:
   test: |
     [.labels.nodes[].name] | any(. == "merge-conflicts")
 
-# True only if the author has not pushed or commented since the newest unresolved thread — if they have, they
-# have already reacted and are just waiting on a re-review, not ignoring it.
+# Per unresolved thread, not a global timestamp comparison: the author owes a response unless the LAST comment
+# in that specific thread is already theirs (a fix pushed without replying still counts as owing a response —
+# matches the real nudge this mirrors: "mark it resolved, or leave a response").
 threads:
   message: resolve all review comments — mark each thread resolved, or leave a response if you are not sure what to do
   test: |
-    [.reviewThreads.nodes[] | select(.isResolved | not) | .comments.nodes[0].createdAt] as $unresolved
-    | if ($unresolved | length) == 0 then false else
-        ($unresolved | max) as $latest_thread
-        | ([.commits.nodes[0].commit.committedDate]
-           + [.comments.nodes[] | select(.author.login == $author) | .createdAt]) as $author_activity
-        | (if ($author_activity | length) == 0 then "1970-01-01T00:00:00Z" else ($author_activity | max) end)
-          < $latest_thread
-      end
+    [.reviewThreads.nodes[]
+      | select(.isResolved | not)
+      | select(.comments.nodes[0].author.login != $author)
+    ] | length > 0

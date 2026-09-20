@@ -44,8 +44,14 @@ reviews:
     - "!pkg/client/**"
     - "!api/**/zz_generated.*.go"
     - "!config/crds/**/*.yaml"
+    - "!cmd/cli/kubectl-kyverno/config/crds/**"
+    - "!cmd/cli/kubectl-kyverno/data/crds/**"
+    - "!charts/kyverno/charts/crds/templates/**"
+    - "!config/install-latest-testing.yaml"
     - "!docs/user/crd/**"
-    - "!charts/*/README.md"
+    # Double-star, not single: helm-docs generates 4 README.md files, 2 top-level plus 2 nested
+    # (charts/kyverno/charts/{crds,grafana}/README.md) — a single-star glob only matched the top-level pair.
+    - "!charts/**/README.md"
     - "!pkg/clients/**/*.generated.go"
     - "!pkg/clients/**/interface.generated.go"
     - "!pkg/config/mocks/mock_config.go"
@@ -102,15 +108,17 @@ reviews:
 
     - path: "api/**"
       instructions: |
-        Read api/AGENTS.md and docs/context/shared/api-versioning.md before reviewing. This is the external
-        github.com/kyverno/api module boundary — new types must land in v2alpha1, never directly in v1/v2, and
-        fields are additive-only within a version (never removed/modified in place — deprecate and remove after
-        the notice period). If this PR touches api/ or any *_types.go file, verify the corresponding generated
-        files (zz_generated.*.go, deepcopy) are also updated — see ARCHITECTURE.md's Generated/no-edit-zones table
-        for the full fan-out (a CRD schema change also touches config/crds/**, the CLI's offline copy under
-        cmd/cli/kubectl-kyverno/data/crds/, and charts/kyverno/charts/crds/templates/). When a CodeGraph MCP server
-        is connected, query it for callers/implementors of any modified type before flagging a breaking-change
-        concern; cite exact file:line.
+        Read api/AGENTS.md and docs/context/shared/api-versioning.md before reviewing. api/ holds this
+        repository's own local API types — kyverno.io, wgpolicyk8s.io (as policyreport), and reports.kyverno.io.
+        (The CEL-policy types under policies.kyverno.io are the ones that live in the separate
+        github.com/kyverno/api module — that boundary applies there, not to this directory.) New kyverno.io types
+        must land in v2alpha1, never directly in v1/v2, and fields are additive-only within a version (never
+        removed/modified in place — deprecate and remove after the notice period). If this PR adds or modifies a
+        type definition under api/**/*_types.go, verify the applicable generated file was also updated — see
+        ARCHITECTURE.md's Generated/no-edit-zones table for the full fan-out (a CRD schema change also touches
+        config/crds/**, the CLI's offline copy under cmd/cli/kubectl-kyverno/{config,data}/crds/, and
+        charts/kyverno/charts/crds/templates/). When a CodeGraph MCP server is connected, query it for
+        callers/implementors of any modified type before flagging a breaking-change concern; cite exact file:line.
 
     - path: "pkg/clients/**"
       instructions: |
@@ -175,10 +183,14 @@ reviews:
       - name: "Codegen gate"
         mode: error
         instructions: |
-          If this PR modifies any file under api/ or any file ending in _types.go, verify that the corresponding
-          generated files (zz_generated.deepcopy.go, zz_generated.register.go) are also updated in this PR. Fail
-          if api/ is touched but no generated files appear in the diff. This mirrors the `make codegen-all-code` /
-          `make verify-codegen` CI gate, applied at review time instead of only at merge time.
+          If this PR adds or modifies a type definition under api/**/*_types.go — not api/**/zz_generated.*.go,
+          which is itself generated, and not a *_types.go file outside api/ like pkg/metrics/common_types.go,
+          which isn't a codegen input — verify that the applicable generated file was also updated: deepcopy.go
+          for a struct/field change, register.go only if a new type was registered. Fail only when a real
+          generator input changed with no corresponding generated-file update at all; don't require both files
+          for every edit, and don't fail for non-type changes elsewhere under api/ (docs, AGENTS.md, non-generated
+          helpers). This mirrors the `make codegen-all-code` / `make verify-codegen` CI gate, applied at review
+          time instead of only at merge time.
       - name: "Breaking change documentation"
         mode: warning
         instructions: |

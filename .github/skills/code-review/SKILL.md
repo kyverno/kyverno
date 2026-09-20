@@ -14,9 +14,10 @@ repo has real, already-verified ones for `pkg/engine/`, `pkg/webhooks/`, `pkg/ce
 `.github/instructions/*.instructions.md` already carry the pointers for the highest-traffic ones
 (`pkg/engine/`, `pkg/webhooks/`, `api/`) — this skill is the fallback for anywhere else in the tree.
 
-**Lane separation**: CodeRabbit also reviews every PR on this repo, focused on security vulnerabilities, linting,
-and style. Prioritize logic correctness, cross-file impact, and architectural concerns that need full-repository
-context to detect, rather than duplicating what a linter or CodeRabbit would already flag.
+**Lane separation**: CodeRabbit also reviews eligible PRs on this repo (all but Dependabot's, which it's
+configured to skip), focused on security vulnerabilities, linting, and style. Prioritize logic correctness,
+cross-file impact, and architectural concerns that need full-repository context to detect, rather than duplicating
+what a linter or CodeRabbit would already flag.
 
 **Architecture context**: consult [`ARCHITECTURE.md`](../../../ARCHITECTURE.md) for the domain layering (legacy
 `pkg/engine` vs. the CEL `pkg/cel` stack) and its Generated/no-edit-zones table before flagging a change to a
