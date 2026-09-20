@@ -475,7 +475,7 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	} else {
 		msg, ok := msgRaw.(string)
 		if !ok {
-			v.log.V(2).Info("message did not resolve to a string after variable substitution", "value", msgRaw)
+			v.log.V(2).Info("message did not resolve to a string after variable substitution", "type", fmt.Sprintf("%T", msgRaw))
 			return fmt.Sprintf("validation error: message did not resolve to a string in rule %s execution error: %s", v.rule.Name, err.Error())
 		}
 		if !strings.HasSuffix(msg, ".") {
@@ -500,7 +500,7 @@ func (v *validator) buildAnyPatternErrorMessage(errors []string) string {
 	} else {
 		msg, ok := msgRaw.(string)
 		if !ok {
-			v.log.V(2).Info("message did not resolve to a string after variable substitution", "value", msgRaw)
+			v.log.V(2).Info("message did not resolve to a string after variable substitution", "type", fmt.Sprintf("%T", msgRaw))
 			return fmt.Sprintf("validation error: message did not resolve to a string in rule %s execution error: %s", v.rule.Name, errStr)
 		}
 		if strings.HasSuffix(msg, ".") {
