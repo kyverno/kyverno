@@ -85,20 +85,31 @@ log "rendering ${CHART_DIR} with --kube-version ${KUBE_VERSION}"
   > "${RENDER}"
 
 # Build "<crd name> <kept|none>" for every CustomResourceDefinition in the
-# render. Documents are split on the YAML "---" separator. Within a
-# document, the first line matching "^  name: " is .metadata.name: metadata
-# precedes spec in every rendered CRD, and the only other two-space-indented
-# "name:" keys in a CRD live under spec.names/spec.versions, which come
-# later. Everything in the OpenAPI schema is indented far deeper.
+# render. Documents are split on the YAML "---" separator. Both the name and
+# the annotation are read only while inside the top-level metadata block, and
+# the annotation specifically only while inside metadata.annotations: this is
+# tracked with a small section state machine rather than a bare indent match,
+# so a same-indent "helm.sh/resource-policy: keep" that ever appeared under
+# metadata.labels or any other section cannot be mistaken for the annotation.
+# metadata is at column 0, its keys (name, labels, annotations) at two spaces,
+# and annotation entries at four; anything deeper in the OpenAPI schema lives
+# under spec and never re-enters metadata.
 awk '
   BEGIN { RS = "\n---\n" }
   {
     if ($0 !~ /(^|\n)kind: CustomResourceDefinition(\n|$)/) next
-    name = ""; kept = "none"
+    name = ""; kept = "none"; section = ""; in_annotations = 0
     n = split($0, lines, "\n")
     for (i = 1; i <= n; i++) {
-      if (name == "" && lines[i] ~ /^  name: /) { name = lines[i]; sub(/^  name: /, "", name) }
-      if (lines[i] ~ /^    helm\.sh\/resource-policy: keep[[:space:]]*$/) kept = "kept"
+      line = lines[i]
+      if (line ~ /^metadata:[[:space:]]*$/) { section = "metadata"; in_annotations = 0; continue }
+      if (line ~ /^[^[:space:]#]/) { section = ""; in_annotations = 0 }   # left metadata for a new top-level key
+      if (section == "metadata") {
+        if (line ~ /^  annotations:[[:space:]]*$/) { in_annotations = 1; continue }
+        if (line ~ /^  [^[:space:]]/) in_annotations = 0                  # a sibling of annotations (name, labels, ...)
+        if (name == "" && line ~ /^  name: /) { name = line; sub(/^  name: /, "", name) }
+      }
+      if (in_annotations && line ~ /^    helm\.sh\/resource-policy: keep[[:space:]]*$/) kept = "kept"
     }
     if (name != "") print name, kept
   }
