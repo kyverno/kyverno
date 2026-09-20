@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -14,9 +15,24 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
-	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	extyaml "github.com/kyverno/kyverno/ext/yaml"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
+
+// legacyKinds lists kyverno.io/v1 kinds that are no longer accepted in OCI bundles.
+var legacyKinds = map[string]bool{
+	"Policy":               true,
+	"ClusterPolicy":        true,
+	"CleanupPolicy":        true,
+	"ClusterCleanupPolicy": true,
+}
+
+// celGroups lists the API groups for CEL policy kinds that are accepted in OCI bundles.
+var celGroups = map[string]bool{
+	"policies.kyverno.io":          true,
+	"admissionregistration.k8s.io": true,
+}
 
 type options struct {
 	imageRef string
@@ -86,9 +102,11 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	return nil
 }
 
-// extractAndSavePolicies reads the policies out of a single layer's blob and writes them to
-// disk. It is factored out of execute so the layer's ReadCloser is closed at the end of each
-// iteration rather than accumulating open readers until execute returns.
+// extractAndSavePolicies reads CEL policy documents from a single layer blob and
+// writes each accepted document to disk. Legacy kyverno.io/v1 policy kinds are
+// rejected. Unknown Kubernetes objects are skipped with a warning.
+//
+// The layer's ReadCloser is closed at the end of the call regardless of outcome.
 func extractAndSavePolicies(layer v1.Layer, dir string) error {
 	blob, err := layer.Compressed()
 	if err != nil {
@@ -100,19 +118,54 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 	if err != nil {
 		return fmt.Errorf("reading layer blob: %v", err)
 	}
-	policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(layerBytes) //nolint:dogsled // GetPolicy returns 7 policy-kind slices; only ClusterPolicy/Policy results are relevant here
+
+	documents, err := extyaml.SplitDocuments(layerBytes)
 	if err != nil {
-		return fmt.Errorf("unmarshaling layer blob: %v", err)
+		return fmt.Errorf("splitting YAML documents: %v", err)
 	}
-	for _, policy := range policies {
-		policyBytes, err := policyutils.ToYaml(policy)
+
+	for _, doc := range documents {
+		jsonBytes, err := k8syaml.ToJSON(doc)
 		if err != nil {
-			return fmt.Errorf("converting policy to yaml: %v", err)
+			return fmt.Errorf("converting document to JSON: %v", err)
 		}
-		pp := filepath.Join(dir, policy.GetName()+".yaml")
-		fmt.Fprintf(os.Stderr, "Saving policy into disk [%s]...\n", pp)
-		if err := os.WriteFile(pp, policyBytes, 0o600); err != nil {
-			return fmt.Errorf("creating file: %v", err)
+		var us unstructured.Unstructured
+		if err := us.UnmarshalJSON(jsonBytes); err != nil {
+			return fmt.Errorf("unmarshaling document: %v", err)
+		}
+
+		kind := us.GetKind()
+		apiVersion := us.GetAPIVersion()
+		objName := us.GetName()
+
+		if len(strings.TrimSpace(string(doc))) == 0 || (kind == "" && objName == "") {
+			continue
+		}
+
+		if legacyKinds[kind] {
+			return fmt.Errorf(
+				"legacy policy kind %q (apiVersion: %s) is no longer supported in OCI bundles; "+
+					"migrate to policies.kyverno.io/v1beta1 CEL policy kinds",
+				kind, apiVersion,
+			)
+		}
+
+		group := strings.SplitN(apiVersion, "/", 2)[0]
+		if apiVersion != "" && !strings.Contains(apiVersion, "/") {
+			// core API group resources have no group prefix
+			group = ""
+		}
+		if !celGroups[group] {
+			return fmt.Errorf(
+				"unsupported resource %s/%s %q; only CEL policy kinds are supported in OCI bundles",
+				apiVersion, kind, objName,
+			)
+		}
+
+		pp := filepath.Join(dir, objName+".yaml")
+		fmt.Fprintf(os.Stderr, "Saving %s [%s] to disk [%s]...\n", kind, objName, pp)
+		if err := os.WriteFile(pp, doc, 0o600); err != nil {
+			return fmt.Errorf("creating file %s: %v", pp, err)
 		}
 	}
 	return nil

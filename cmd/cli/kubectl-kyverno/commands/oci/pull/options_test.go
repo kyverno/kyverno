@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -12,7 +13,39 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-const testClusterPolicyYAML = `
+const testValidatingPolicyYAML = `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]
+      operations: ["CREATE", "UPDATE"]
+  validations:
+  - expression: "object.metadata.labels != null"
+    message: "labels are required"
+`
+
+const testDeletingPolicyYAML = `
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: delete-stale-pods
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]
+  conditions:
+  - expression: "object.status.phase == 'Succeeded'"
+`
+
+const testLegacyClusterPolicyYAML = `
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -64,9 +97,9 @@ func (l *trackedLayer) Compressed() (io.ReadCloser, error) {
 	return l.rc, nil
 }
 
-func TestExtractAndSavePolicies(t *testing.T) {
+func TestExtractAndSavePoliciesValidatingPolicy(t *testing.T) {
 	dir := t.TempDir()
-	layer := newTrackedLayer(t, []byte(testClusterPolicyYAML))
+	layer := newTrackedLayer(t, []byte(testValidatingPolicyYAML))
 
 	err := extractAndSavePolicies(layer, dir)
 	assert.NoError(t, err)
@@ -75,6 +108,30 @@ func TestExtractAndSavePolicies(t *testing.T) {
 	out, err := os.ReadFile(filepath.Join(dir, "require-labels.yaml"))
 	assert.NoError(t, err)
 	assert.Contains(t, string(out), "require-labels")
+	assert.Contains(t, string(out), "ValidatingPolicy")
+}
+
+func TestExtractAndSavePoliciesDeletingPolicy(t *testing.T) {
+	dir := t.TempDir()
+	layer := newTrackedLayer(t, []byte(testDeletingPolicyYAML))
+
+	err := extractAndSavePolicies(layer, dir)
+	assert.NoError(t, err)
+	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
+
+	out, err := os.ReadFile(filepath.Join(dir, "delete-stale-pods.yaml"))
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "delete-stale-pods")
+}
+
+func TestExtractAndSavePoliciesRejectsLegacyKinds(t *testing.T) {
+	dir := t.TempDir()
+	layer := newTrackedLayer(t, []byte(testLegacyClusterPolicyYAML))
+
+	err := extractAndSavePolicies(layer, dir)
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "legacy"), "error should mention 'legacy'")
+	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
 }
 
 func TestExtractAndSavePoliciesClosesReaderOnUnmarshalError(t *testing.T) {
@@ -83,5 +140,32 @@ func TestExtractAndSavePoliciesClosesReaderOnUnmarshalError(t *testing.T) {
 
 	err := extractAndSavePolicies(layer, dir)
 	assert.Error(t, err)
+	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
+}
+
+func TestExtractAndSavePoliciesEmptyDocument(t *testing.T) {
+	dir := t.TempDir()
+	layer := newTrackedLayer(t, []byte("   \n---\n   "))
+
+	err := extractAndSavePolicies(layer, dir)
+	assert.NoError(t, err)
+	assert.True(t, layer.rc.closed, "layer reader should be closed")
+}
+
+func TestExtractAndSavePoliciesRejectsUnknownResources(t *testing.T) {
+	dir := t.TempDir()
+	unknownYAML := `
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  key: value
+`
+	layer := newTrackedLayer(t, []byte(unknownYAML))
+
+	err := extractAndSavePolicies(layer, dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported resource")
 	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
 }

@@ -1,7 +1,8 @@
 package internal
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -9,31 +10,27 @@ const (
 	PolicyLayerMediaType  = "application/vnd.cncf.kyverno.policy.layer.v1+yaml"
 	AnnotationKind        = "io.kyverno.image.kind"
 	AnnotationName        = "io.kyverno.image.name"
+	AnnotationNamespace   = "io.kyverno.image.namespace"
 	AnnotationApiVersion  = "io.kyverno.image.apiVersion"
 )
 
-func apiVersion(policy kyvernov1.PolicyInterface) string {
-	switch p := policy.(type) {
-	case *kyvernov1.Policy:
-		return p.APIVersion
-	case *kyvernov1.ClusterPolicy:
-		return p.APIVersion
-	default:
-		return ""
-	}
-}
-
-func Annotations(policy kyvernov1.PolicyInterface) map[string]string {
-	if policy == nil {
+// Annotations builds OCI layer annotations for any Kubernetes object that is
+// also a runtime.Object (so GroupVersionKind is available).
+func Annotations(obj interface {
+	metav1.Object
+	runtime.Object
+}) map[string]string {
+	if obj == nil {
 		return nil
 	}
-	kind := "ClusterPolicy"
-	if policy.IsNamespaced() {
-		kind = "Policy"
+	gvk := obj.GetObjectKind().GroupVersionKind()
+	ann := map[string]string{
+		AnnotationKind:       gvk.Kind,
+		AnnotationName:       obj.GetName(),
+		AnnotationApiVersion: gvk.GroupVersion().String(),
 	}
-	return map[string]string{
-		AnnotationKind:       kind,
-		AnnotationName:       policy.GetName(),
-		AnnotationApiVersion: apiVersion(policy),
+	if ns := obj.GetNamespace(); ns != "" {
+		ann[AnnotationNamespace] = ns
 	}
+	return ann
 }
