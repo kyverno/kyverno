@@ -89,8 +89,17 @@ func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy
 	return vars
 }
 
-func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, contextProvider libs.Context) bool {
-	data, err := prepareData(attr, request, namespace)
+// MatchesConditions is called once per candidate policy inside the
+// mutate-existing matching loops (staticProvider.MatchesMutateExisting,
+// reconciler.MatchesMutateExisting) as well as once per UpdateRequest from
+// the background mutate-existing processor. requestMapFn lets the former
+// (genuinely per-policy) callers hoist the request-map build to once per
+// request via a memoized thunk (see compiler.BuildNormalizedRequestMap and
+// sync.OnceValues at the call sites); the latter (genuinely single-shot,
+// one policy per UpdateRequest) callers pass nil and prepareData builds
+// locally, which costs nothing extra since there is only one call.
+func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), contextProvider libs.Context) bool {
+	data, err := prepareData(attr, request, namespace, requestMapFn)
 	if err != nil {
 		return false
 	}
@@ -105,11 +114,17 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 	return result
 }
 
+// EvaluateTargetExpression has exactly one caller
+// (background/mpol/processor.go's getTargetsFromExpression), invoked at
+// most once per UpdateRequest - each UpdateRequest resolves to exactly one
+// mpol (processor.Process -> GetPolicy), so this is genuinely single-shot,
+// not a per-policy loop. There is no hoist benefit; building the request
+// map locally is correct here.
 func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) (map[string]interface{}, error) {
 	if p.targetExpression == nil {
 		return nil, nil
 	}
-	data, err := prepareData(attr, request, namespace)
+	data, err := prepareData(attr, request, namespace, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -127,9 +142,10 @@ func (p *Policy) Evaluate(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
+	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, false)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, false)
 }
 
 func (p *Policy) EvaluateTarget(
@@ -138,9 +154,10 @@ func (p *Policy) EvaluateTarget(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
+	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, true)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, true)
 }
 
 func (p *Policy) evaluate(
@@ -149,6 +166,7 @@ func (p *Policy) evaluate(
 	namespace *corev1.Namespace,
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
+	requestMapFn func() (map[string]any, error),
 	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
@@ -156,7 +174,7 @@ func (p *Policy) evaluate(
 		VersionedObject: attr.GetObject(),
 		VersionedKind:   attr.GetKind(),
 	}
-	data, err := prepareData(attr, &request, namespace)
+	data, err := prepareData(attr, &request, namespace, requestMapFn)
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}

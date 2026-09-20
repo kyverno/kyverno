@@ -10,12 +10,12 @@ on:
 jobs:
   stale-branches:
     name: Cleanup stale branches
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Cleanup Stale Branches
-        uses: cbrgm/cleanup-stale-branches-action@8e8d707397cb703ebb7d47e360c317eab7e508ae # v1.2.12
+        uses: cbrgm/cleanup-stale-branches-action@c932d1f1b7e7506224d8a5bd8dd5d123295f6682 # v1.2.13
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: ${{ github.repository }}
@@ -30,7 +30,7 @@ jobs:
       - stale-branches
     permissions:
       issues: write
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
