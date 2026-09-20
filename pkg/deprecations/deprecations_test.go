@@ -1,6 +1,8 @@
 package deprecations
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -174,6 +176,46 @@ func TestBuildKindErrorIgnoresNonKyvernoGroup(t *testing.T) {
 	t.Parallel()
 	if _, ok := BuildKindError("policies.kyverno.io", "v1", "PolicyException"); ok {
 		t.Fatalf("expected non-kyverno.io group to be ignored")
+	}
+}
+
+func TestIsLegacyPolicyBlockError(t *testing.T) {
+	t.Parallel()
+	blockErr, ok := BuildKindError("kyverno.io", "v1", "ClusterPolicy")
+	if !ok {
+		t.Fatalf("BuildKindError() ok = false, want true")
+	}
+	if !IsLegacyPolicyBlockError(blockErr) {
+		t.Errorf("IsLegacyPolicyBlockError(%v) = false, want true for a BuildKindError result", blockErr)
+	}
+	if IsLegacyPolicyBlockError(errors.New("some unrelated error")) {
+		t.Errorf("IsLegacyPolicyBlockError() = true for an unrelated error, want false")
+	}
+	if IsLegacyPolicyBlockError(nil) {
+		t.Errorf("IsLegacyPolicyBlockError(nil) = true, want false")
+	}
+	// Wrapping the block error (e.g. fmt.Errorf("...: %w", blockErr), as the CLI loaders do) must
+	// still be recognized -- that's the whole point of the sentinel implementing Unwrap.
+	wrapped := fmt.Errorf("failed to process document: %w", blockErr)
+	if !IsLegacyPolicyBlockError(wrapped) {
+		t.Errorf("IsLegacyPolicyBlockError(%v) = false, want true for a wrapped BuildKindError result", wrapped)
+	}
+}
+
+// TestLegacyPolicyBlockErrorUnwrap exercises legacyPolicyBlockError.Unwrap directly: errors.As stops
+// at the first assignable match, so wrapping alone (as above) never actually invokes it.
+func TestLegacyPolicyBlockErrorUnwrap(t *testing.T) {
+	t.Parallel()
+	blockErr, ok := BuildKindError("kyverno.io", "v1", "ClusterPolicy")
+	if !ok {
+		t.Fatalf("BuildKindError() ok = false, want true")
+	}
+	sentinel, ok := blockErr.(legacyPolicyBlockError)
+	if !ok {
+		t.Fatalf("BuildKindError() returned %T, want legacyPolicyBlockError", blockErr)
+	}
+	if got := sentinel.Unwrap(); got != sentinel.error {
+		t.Errorf("legacyPolicyBlockError.Unwrap() = %v, want %v", got, sentinel.error)
 	}
 }
 
