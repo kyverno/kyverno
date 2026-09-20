@@ -1132,6 +1132,58 @@ func Test_Wildcards_Kind(t *testing.T) {
 	assert.NotNil(t, err)
 }
 
+func Test_Wildcards_Kind_Deny_NonStringConditionKey(t *testing.T) {
+	// Regression test: condition.GetKey() returns apiextensions.JSON (an
+	// interface{}); validateWildcard used to type-assert it directly to
+	// string with no comma-ok check, which panicked when a wildcard-kind
+	// policy's deny condition had a non-string key (e.g. a JSON number).
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "wildcard-deny-nonstring-key"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "deny-with-nonstring-key",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"*"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "denied",
+				"deny": {
+				  "conditions": [
+					{
+					  "key": 1,
+					  "operator": "Equals",
+					  "value": 1
+					}
+				  ]
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	assert.NotPanics(t, func() {
+		_, _ = Validate(policy, nil, nil, true, "", "")
+	})
+}
+
 func Test_Namespced_Policy(t *testing.T) {
 	rawPolicy := []byte(`
 	{
