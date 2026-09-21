@@ -279,14 +279,12 @@ runs:
               // full list, which would drop labels added by maintainers.
               const current = existing.labels.map(l => (typeof l === 'string' ? l : l.name));
               const missing = extraLabels.filter(l => !current.includes(l));
+              // Not caught: other automation selects issues by these labels,
+              // so failing to add one must fail the job rather than pass quietly.
               if (missing.length > 0) {
-                try {
-                  await github.rest.issues.addLabels({
-                    owner, repo, issue_number: existing.number, labels: missing
-                  });
-                } catch (err) {
-                  core.warning(`Could not add labels ${missing.join(', ')} to issue #${existing.number} (${err.message || String(err)}).`);
-                }
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: existing.number, labels: missing
+                });
               }
             } else {
               try {
@@ -299,7 +297,12 @@ runs:
                   const { data: issue } = await github.rest.issues.create({
                     owner, repo, title, body
                   });
-                  core.warning(`Created issue #${issue.number} without labels (create ${[label, ...extraLabels].map(l => `"${l}"`).join(', ')} in repo to use them).`);
+                  core.warning(`Created issue #${issue.number} without the "${label}" label (create it in the repo to use it).`);
+                  if (extraLabels.length > 0) {
+                    await github.rest.issues.addLabels({
+                      owner, repo, issue_number: issue.number, labels: extraLabels
+                    });
+                  }
                 } else {
                   throw err;
                 }

@@ -126,6 +126,7 @@ jobs:
 
             const PR_FIELDS = `
               number
+              state
               baseRefName
               labels(first: 100) { nodes { name } }
               commits(last: 1) { nodes { commit {
@@ -138,6 +139,7 @@ jobs:
               const current = commit.status && commit.status.context;
               return {
                 number: node.number,
+                open: node.state === 'OPEN',
                 base: node.baseRefName,
                 sha: commit.oid,
                 labels: node.labels.nodes.map(l => l.name),
@@ -185,19 +187,37 @@ jobs:
               return toPr(res.repository.pullRequest);
             }
 
-            const prs = context.eventName === 'pull_request_target'
-              ? [await getPr(context.payload.pull_request.number)]
-              : await listOpenPrs();
+            const sweep = context.eventName !== 'pull_request_target';
+            const prs = sweep
+              ? await listOpenPrs()
+              : [await getPr(context.payload.pull_request.number)];
 
-            let written = 0;
-            for (const pr of prs) {
+            /** The status to write, or null when the PR already shows it. */
+            function pendingWrite(pr) {
               const want = desiredStatus(pr);
               want.description = want.description.slice(0, DESCRIPTION_MAX);
+              const same = pr.current && pr.current.state === want.state &&
+                pr.current.description === want.description &&
+                pr.current.target_url === want.target_url;
+              return same ? null : want;
+            }
+
+            let written = 0;
+            for (let pr of prs) {
               // Writing only on change keeps the usual sweep, where nothing
               // flipped, down to the read queries above.
-              if (pr.current && pr.current.state === want.state &&
-                  pr.current.description === want.description &&
-                  pr.current.target_url === want.target_url) {
+              if (!pendingWrite(pr)) {
+                continue;
+              }
+              // A sweep that flips every PR runs for minutes, and a PR event
+              // runs in its own concurrency group in the meantime. Re-read the
+              // PR just before writing, so that a push, a bypass label or a
+              // status written since the list was fetched is not overwritten.
+              if (sweep) {
+                pr = await getPr(pr.number);
+              }
+              const want = pr.open ? pendingWrite(pr) : null;
+              if (!want) {
                 continue;
               }
               if (written > 0) {
