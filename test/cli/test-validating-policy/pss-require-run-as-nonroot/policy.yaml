@@ -23,7 +23,8 @@ spec:
           c.?securityContext.?runAsNonRoot.orValue(
             object.spec.?securityContext.?runAsNonRoot.orValue(false)) == true)
       message: >-
-        Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
-        must be set to `true`, or the fields spec.containers[*].securityContext.runAsNonRoot,
-        spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
-        must be set to `true`. The field spec.securityContext.runAsNonRoot must never be set to `false`.
+        Running as root is not allowed. The field spec.securityContext.runAsNonRoot
+        must be unset or set to `true`, and the fields
+        spec.containers[*].securityContext.runAsNonRoot,
+        spec.initContainers[*].securityContext.runAsNonRoot, and
+        spec.ephemeralContainers[*].securityContext.runAsNonRoot must not be set to `false`.

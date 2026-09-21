@@ -23,4 +23,7 @@ spec:
           c.?securityContext.?capabilities.?add.orValue([]).all(cap, cap == 'NET_BIND_SERVICE'))
       message: >-
         Containers must drop `ALL` capabilities and may only add `NET_BIND_SERVICE`.
-        The field spec.containers[*].securityContext.capabilities.drop must include `ALL`.
+        The fields spec.containers[*].securityContext.capabilities.drop,
+        spec.initContainers[*].securityContext.capabilities.drop, and
+        spec.ephemeralContainers[*].securityContext.capabilities.drop must include `ALL`,
+        and the matching capabilities.add fields must be unset or contain only `NET_BIND_SERVICE`.
