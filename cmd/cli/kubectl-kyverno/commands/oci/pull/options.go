@@ -14,11 +14,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // legacyKinds lists kyverno.io/v1 kinds that are no longer accepted in OCI bundles.
@@ -191,15 +190,24 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool)
 
 		// Include kind and namespace (if present) in filename to prevent collisions
 		// when multiple resources share the same name across kinds or namespaces.
+		// Use an underscore delimiter between namespace and object name to prevent ambiguous
+		// hyphenated collisions (e.g. namespace "team-a" and name "check-pod" vs
+		// namespace "team" and name "a-check-pod").
 		// Use securejoin to prevent path traversal attacks if objName contains "../".
 		filename := strings.ToLower(kind) + "-" + objName + ".yaml"
 		if ns != "" {
-			filename = strings.ToLower(kind) + "-" + ns + "-" + objName + ".yaml"
+			filename = strings.ToLower(kind) + "-" + ns + "_" + objName + ".yaml"
 		}
 		pp, err := securejoin.SecureJoin(dir, filename)
 		if err != nil {
 			return fmt.Errorf("constructing output path for %s %q: %v", kind, objName, err)
 		}
+		pathKey := "path:" + pp
+		if seenTracker[pathKey] {
+			return fmt.Errorf("duplicate output file path collision %q", pp)
+		}
+		seenTracker[pathKey] = true
+
 		fmt.Fprintf(os.Stderr, "Saving %s [%s] to disk [%s]...\n", kind, objName, pp)
 		if err := os.WriteFile(pp, doc, 0o600); err != nil {
 			return fmt.Errorf("creating file %s: %v", pp, err)

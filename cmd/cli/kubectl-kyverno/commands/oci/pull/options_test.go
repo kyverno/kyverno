@@ -318,13 +318,49 @@ spec:
 	err := extractAndSavePolicies(layer, dir)
 	assert.NoError(t, err)
 
-	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a-check-pod.yaml"))
-	assert.NoError(t, errA, "expected namespacedvalidatingpolicy-team-a-check-pod.yaml")
+	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a_check-pod.yaml"))
+	assert.NoError(t, errA, "expected namespacedvalidatingpolicy-team-a_check-pod.yaml")
 	assert.Contains(t, string(outA), "team-a")
 
-	outB, errB := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-b-check-pod.yaml"))
-	assert.NoError(t, errB, "expected namespacedvalidatingpolicy-team-b-check-pod.yaml")
+	outB, errB := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-b_check-pod.yaml"))
+	assert.NoError(t, errB, "expected namespacedvalidatingpolicy-team-b_check-pod.yaml")
 	assert.Contains(t, string(outB), "team-b")
+}
+
+func TestExtractAndSavePoliciesHyphenatedNamespaceAndNameNoCollision(t *testing.T) {
+	// (namespace=team-a, name=check-pod) and (namespace=team, name=a-check-pod)
+	// have distinct identities and must produce distinct filenames without collision or overwriting.
+	dir := t.TempDir()
+	multiYAML := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: check-pod
+  namespace: team-a
+spec:
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: a-check-pod
+  namespace: team
+spec:
+  validations:
+  - expression: "true"
+`
+	layer := newTrackedLayer(t, []byte(multiYAML))
+	err := extractAndSavePolicies(layer, dir)
+	assert.NoError(t, err)
+
+	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a_check-pod.yaml"))
+	assert.NoError(t, errA, "expected namespacedvalidatingpolicy-team-a_check-pod.yaml")
+	assert.Contains(t, string(outA), "team-a")
+
+	outB, errB := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team_a-check-pod.yaml"))
+	assert.NoError(t, errB, "expected namespacedvalidatingpolicy-team_a-check-pod.yaml")
+	assert.Contains(t, string(outB), "team")
 }
 
 func TestExtractAndSavePoliciesRejectsDuplicateIdentity(t *testing.T) {
