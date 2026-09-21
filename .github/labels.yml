@@ -526,7 +526,7 @@ merge-conflicts:
 # ── E2E gate (.github/workflows/e2e-gate.yaml) ───────────────────────────────
 e2e-failure:
   color: B60205
-  description: E2E tests are failing on a branch; the E2E gate blocks PRs to it
+  description: Post-merge tests are failing on a branch; the E2E gate blocks PRs to it
 
 e2e-gate-bypass:
   color: FBCA04

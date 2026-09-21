@@ -11,7 +11,7 @@
 #
 # The status is set through the API instead of being this job's own result, so
 # that it can change without a new push to the PR: when the Tests workflow
-# finishes, every open PR to that branch is re-evaluated. The tracking issue is
+# finishes, every open PR is re-evaluated. The tracking issue is
 # opened and closed with GITHUB_TOKEN, which does not trigger workflows, hence
 # workflow_run rather than relying on the issues event alone.
 #
@@ -40,6 +40,7 @@ on:
     types:
       - closed
       - reopened
+      - deleted
       - labeled
       - unlabeled
   workflow_dispatch: {}
@@ -61,11 +62,11 @@ jobs:
           github.event.label.name == 'e2e-failure'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # A newer run for the same PR or branch re-reads everything, so it can
-    # replace an older one; runs for different branches must not cancel each
-    # other half-way through a sweep.
+    # Every sweep re-reads the open issues and covers all open PRs, whatever
+    # triggered it, so a newer sweep can always replace an older one: it
+    # rewrites whatever the cancelled run had not reached yet.
     concurrency:
-      group: e2e-gate-${{ github.event.pull_request.number || github.event.workflow_run.head_branch || 'sweep' }}
+      group: e2e-gate-${{ github.event.pull_request.number || 'sweep' }}
       cancel-in-progress: true
     permissions:
       # contents: the head commit of each PR is read to find its current status
@@ -118,7 +119,7 @@ jobs:
               const refs = blocking.map(b => `#${b.number}`).join(', ');
               return {
                 state: 'failure',
-                description: `E2E tests are failing on ${pr.base}; fix ${refs} first`.slice(0, DESCRIPTION_MAX),
+                description: `Post-merge tests are failing on ${pr.base}; fix ${refs} first`,
                 target_url: blocking[0].url,
               };
             }
@@ -129,7 +130,7 @@ jobs:
               labels(first: 100) { nodes { name } }
               commits(last: 1) { nodes { commit {
                 oid
-                status { context(name: "${STATUS_CONTEXT}") { state description } }
+                status { context(name: "${STATUS_CONTEXT}") { state description targetUrl } }
               } } }`;
 
             function toPr(node) {
@@ -141,26 +142,29 @@ jobs:
                 sha: commit.oid,
                 labels: node.labels.nodes.map(l => l.name),
                 current: current
-                  ? { state: current.state.toLowerCase(), description: current.description }
+                  ? {
+                    state: current.state.toLowerCase(),
+                    description: current.description,
+                    target_url: current.targetUrl || undefined,
+                  }
                   : null,
               };
             }
 
-            /** Open PRs, optionally only those targeting one base branch. */
-            async function listOpenPrs(base) {
+            async function listOpenPrs() {
               const prs = [];
               let cursor = null;
               do {
                 const res = await github.graphql(
-                  `query($owner: String!, $repo: String!, $base: String, $cursor: String) {
+                  `query($owner: String!, $repo: String!, $cursor: String) {
                     repository(owner: $owner, name: $repo) {
-                      pullRequests(states: OPEN, baseRefName: $base, first: 100, after: $cursor) {
+                      pullRequests(states: OPEN, first: 100, after: $cursor) {
                         pageInfo { hasNextPage endCursor }
                         nodes { ${PR_FIELDS} }
                       }
                     }
                   }`,
-                  { owner, repo, base, cursor }
+                  { owner, repo, cursor }
                 );
                 const page = res.repository.pullRequests;
                 prs.push(...page.nodes.map(toPr));
@@ -181,24 +185,19 @@ jobs:
               return toPr(res.repository.pullRequest);
             }
 
-            let prs;
-            if (context.eventName === 'pull_request_target') {
-              prs = [await getPr(context.payload.pull_request.number)];
-            } else if (context.eventName === 'workflow_run') {
-              prs = await listOpenPrs(context.payload.workflow_run.head_branch);
-            } else if (context.eventName === 'issues') {
-              // null for a hand-labelled issue: it gates every branch.
-              prs = await listOpenPrs(markerBranch(context.payload.issue.body));
-            } else {
-              prs = await listOpenPrs(null);
-            }
+            const prs = context.eventName === 'pull_request_target'
+              ? [await getPr(context.payload.pull_request.number)]
+              : await listOpenPrs();
 
             let written = 0;
             for (const pr of prs) {
               const want = desiredStatus(pr);
+              want.description = want.description.slice(0, DESCRIPTION_MAX);
               // Writing only on change keeps the usual sweep, where nothing
               // flipped, down to the read queries above.
-              if (pr.current && pr.current.state === want.state && pr.current.description === want.description) {
+              if (pr.current && pr.current.state === want.state &&
+                  pr.current.description === want.description &&
+                  pr.current.target_url === want.target_url) {
                 continue;
               }
               if (written > 0) {

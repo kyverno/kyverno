@@ -237,8 +237,8 @@ runs:
           const label = 'workflow-failure';
           // Extra labels let other automation select a subset of the tracking
           // issues, e.g. the E2E gate reads the ones labelled e2e-failure.
-          const extraLabels = (process.env.EXTRA_LABELS || '')
-            .split(',').map(l => l.trim()).filter(l => l && l !== label);
+          const extraLabels = [...new Set((process.env.EXTRA_LABELS || '')
+            .split(',').map(l => l.trim()).filter(l => l && l !== label))];
           const issueId = `workflow-failure:${workflowName}:${branch}`;
           const listOptions = { owner, repo, state: 'open', per_page: 100 };
           const issues = await github.paginate(github.rest.issues.listForRepo, { ...listOptions, labels: label })
