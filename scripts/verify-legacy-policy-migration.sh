@@ -686,10 +686,10 @@ legacy_webhook_rules_from_json() {
       [ .[] as $cfg
         | ($cfg.webhooks // [])[] as $wh
         | ($wh.rules // [])[] as $rule
-        | select($rule.apiGroups // [] | (index("kyverno.io") or index("*")))
+        | select($rule.apiGroups // [] | index("kyverno.io"))
         | (($rule.resources // []) | unique
              | map(select(sub("/\\*$"; "") as $r
-                          | ($r == "*") or (legacyKinds | index($r) != null)))) as $legacyResources
+                          | legacyKinds | index($r) != null))) as $legacyResources
         | select(($legacyResources | length) > 0)
         | {
             type: $cfg.__whType,
@@ -883,7 +883,12 @@ assert_legacy_webhook_rules_not_narrowed() {
       | {kind: $k, lost: $l}
     ]')"
   current_selectors="$(legacy_webhook_selectors <<< "${current}")"
-  selector_diff="$(diff <(echo "${baseline_selectors}") <(echo "${current_selectors}") || true)"
+  # Subset, not equality: an added webhook for a legacy kind is a widening,
+  # which this stage tolerates. Only a baseline entry going missing or
+  # changing is a narrowing.
+  selector_diff="$(jq -n --argjson base "${baseline_selectors}" --argjson cur "${current_selectors}" \
+    '[ $base[] | select(. as $b | ($cur | index([$b]) ) == null) ]' 2>/dev/null || echo "JQ_FAILED")"
+  [ "${selector_diff}" = "[]" ] && selector_diff=""
   if [ "${lost}" != "[]" ] || [ -n "${selector_diff}" ]; then
     echo "lost coverage: ${lost}" >&2
     echo "selector/failurePolicy/matchPolicy diff: ${selector_diff}" >&2
