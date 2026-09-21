@@ -967,6 +967,11 @@ helm-test: $(HELM) ## Run helm test
 	@$(HELM) dependency build ./charts/kyverno
 	@$(HELM) test --namespace kyverno kyverno
 
+.PHONY: verify-legacy-crd-retention
+verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five legacy policy CRDs keep their helm.sh/resource-policy annotation (no cluster needed)
+	@echo Verify legacy CRD retention... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
+
 .PHONY: verify-legacy-policy-gate
 verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
 	@echo Verify legacy policy gate... >&2
