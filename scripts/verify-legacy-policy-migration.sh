@@ -228,8 +228,11 @@ helm_uninstall_if_present() {
 
 # --- fixture manifests -------------------------------------------------------
 
-apply_legacy_fixture() {
-  kubectl apply -f - <<EOF >/dev/null
+# Emitted rather than applied directly so apply_legacy_fixture can retry
+# through wait_for_allow (defined below): applied right after a fresh
+# install/rollback, where the webhook may not be serving yet.
+legacy_fixture_manifest() {
+  cat <<EOF
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
@@ -253,6 +256,15 @@ spec:
 EOF
 }
 
+# Applies the primary legacy fixture through wait_for_allow instead of a
+# bare apply: right after A1/B1's fresh install, wait_kyverno_ready only
+# proves pod readiness, not that the webhook is already serving.
+apply_legacy_fixture() {
+  local desc="$1"
+  legacy_fixture_manifest > "${WORK_DIR}/legacy-fixture.yaml"
+  wait_for_allow "${desc}" "${WORK_DIR}/legacy-fixture.yaml"
+}
+
 # Emits the throwaway delete-probe fixture (see DELETE_PROBE_CLUSTERPOLICY_NAME).
 # Applied in A1, then again in A5 after the rollback.
 delete_probe_clusterpolicy_manifest() {
@@ -266,9 +278,9 @@ spec:
 EOF
 }
 
-# Namespaced twin of apply_legacy_fixture, as a kyverno.io/v1 Policy. Emitted
-# rather than applied so callers can apply it directly or stash it to a file
-# for the retry helpers.
+# Namespaced twin of legacy_fixture_manifest, as a kyverno.io/v1 Policy.
+# Emitted rather than applied so callers can apply it directly or stash it
+# to a file for the retry helpers.
 policy_manifest() {
   # No match.resources.namespaces: a namespaced Policy is already scoped to
   # its own namespace.
@@ -380,10 +392,11 @@ EOF
 
 
 
-# CEL twin of apply_legacy_fixture: a ValidatingPolicy enforcing the same
-# require-label rule on Pods in TEST_NAMESPACE.
-apply_vpol_fixture() {
-  kubectl apply -f - <<EOF >/dev/null
+# CEL twin of legacy_fixture_manifest: a ValidatingPolicy enforcing the
+# same require-label rule on Pods in TEST_NAMESPACE. Emitted rather than
+# applied directly so apply_vpol_fixture can retry through wait_for_allow.
+vpol_fixture_manifest() {
+  cat <<EOF
 apiVersion: policies.kyverno.io/v1
 kind: ValidatingPolicy
 metadata:
@@ -401,6 +414,14 @@ spec:
         (has(object.metadata.labels) && "app" in object.metadata.labels)
       message: "${VPOL_DENY_MSG}"
 EOF
+}
+
+# Applies the ValidatingPolicy fixture through wait_for_allow: B4 can run
+# right after B3's recovery rollback (see B3), which restarts pods just
+# like a fresh install does, so the same webhook-readiness race applies.
+apply_vpol_fixture() {
+  vpol_fixture_manifest > "${WORK_DIR}/vpol-fixture.yaml"
+  wait_for_allow "B4 ValidatingPolicy fixture create" "${WORK_DIR}/vpol-fixture.yaml"
 }
 
 violating_pod_manifest() {
@@ -492,6 +513,9 @@ wait_for_patch_denied() {
     ns_flag="-n ${namespace}"
   fi
   local waited=0 timeout=120 interval=3
+  # One accepted patch can be the webhook coming up; a second means the block
+  # is letting spec writes through intermittently, which no retry should hide.
+  local allowed=0 max_allowed=1
   while true; do
     # shellcheck disable=SC2086 # ns_flag must expand to zero args when empty, not one empty arg.
     if ! kubectl patch ${ns_flag} "${resource}" "${name}" --type merge -p "${patch_json}" >"${WORK_DIR}/last-apply.log" 2>&1; then
@@ -502,7 +526,10 @@ wait_for_patch_denied() {
       # failing immediately (see wait_for_deny).
       :
     else
+      allowed=$((allowed + 1))
       "${recover_fn}"
+      [ "${allowed}" -le "${max_allowed}" ] \
+        || fail "${desc}: the spec patch was accepted ${allowed} times before any denial - the write-time block is letting spec updates through intermittently, which is a regression, not the webhook still coming up"
     fi
     waited=$((waited + interval))
     if [ "${waited}" -ge "${timeout}" ]; then
@@ -596,6 +623,13 @@ webhook_configs_json() {
   jq -nc --argjson v "${validating}" --argjson m "${mutating}" '$v + $m'
 }
 
+# Reduces a legacy_webhook_rules_snapshot array (stdin) to the distinct
+# (type, config name) pairs that own a legacy-kind rule, one per line as
+# "validating<TAB>name" or "mutating<TAB>name". Feeds the reconcile poke.
+legacy_webhook_config_targets() {
+  jq -r 'map({type, config}) | unique | .[] | "\(.type)\t\(.config)"'
+}
+
 # Scans every validating AND mutating webhook config, not just validating:
 # buildPolicyMutatingWebhookConfiguration mirrors the same policyRule, and
 # losing only the mutating side must not be masked by validating coverage.
@@ -640,13 +674,21 @@ webhook_rules_cover_legacy_kinds() {
   done
 }
 
-# Normalized snapshot of every legacy-kind rule, across both validating and
-# mutating configs, keyed by type/config/webhook so losing one type isn't
-# masked by the other. "/*" normalizes to the bare plural (kept as sub=below).
-legacy_webhook_rules_snapshot() {
-  webhook_configs_json \
-    | jq -Sc '
+# Normalized snapshot of every legacy-kind rule, keyed by type/config/webhook,
+# plus the owning webhook's namespaceSelector/objectSelector/failurePolicy/
+# matchPolicy. Reads merged config JSON (webhook_configs_json's shape) from
+# stdin, so the reconcile-wait loop below can reuse one read for both.
+legacy_webhook_rules_from_json() {
+  jq -Sc '
       def legacyKinds: ["clusterpolicies","policies","cleanuppolicies","clustercleanuppolicies","policyexceptions"];
+      def normSelector(sel):
+        (sel // {}) as $s
+        | {
+            matchLabels: ($s.matchLabels // {}),
+            matchExpressions: ($s.matchExpressions // []
+              | map({key, operator, values: (.values // [] | sort)})
+              | sort_by(.key, .operator))
+          };
       [ .[] as $cfg
         | ($cfg.webhooks // [])[] as $wh
         | ($wh.rules // [])[] as $rule
@@ -663,10 +705,18 @@ legacy_webhook_rules_snapshot() {
             apiVersions: ($rule.apiVersions // [] | sort),
             resources: ($legacyResources | sort),
             operations: ($rule.operations // [] | sort),
-            scope: ($rule.scope // "*")
+            scope: ($rule.scope // "*"),
+            namespaceSelector: normSelector($wh.namespaceSelector),
+            objectSelector: normSelector($wh.objectSelector),
+            failurePolicy: ($wh.failurePolicy // "Fail"),
+            matchPolicy: ($wh.matchPolicy // "Equivalent")
           }
       ] | sort
     '
+}
+
+legacy_webhook_rules_snapshot() {
+  webhook_configs_json | legacy_webhook_rules_from_json
 }
 
 # Writes the webhook-rule snapshot to ${WORK_DIR}/<label>-webhook-rules.snapshot.
@@ -690,28 +740,95 @@ snapshot_legacy_webhook_rules() {
   done
 }
 
-# Compares a fresh webhook-rule snapshot against a saved baseline, retrying
-# rather than sampling once: rules reconcile asynchronously after an
-# upgrade/rollback, so a transient mismatch isn't itself a failure.
+# Stamps a nonce on every webhook config owning a legacy-kind rule, then
+# waits for the controller to overwrite it away: this makes observed differ
+# from desired by construction, so its removal proves a write cycle ran.
+# baseline_label: a snapshot file if one exists (A4/A5), else "" for a live read.
+wait_for_webhook_configs_reconciled() {
+  local context="$1" baseline_label="$2"
+  local timeout=300 interval=5
+  local deadline=$((SECONDS + timeout))
+  local targets
+  if [ -n "${baseline_label}" ]; then
+    targets="$(legacy_webhook_config_targets < "${WORK_DIR}/${baseline_label}-webhook-rules.snapshot")"
+    [ -n "${targets}" ] || fail "${context}: found no webhook config owning a legacy-kind rule to poke - the reconcile gate has nothing to prove"
+    # A missing mutating target means M2 (the mirrored mutating-webhook rule)
+    # is never poked, and nothing else would catch that this gate went vacuous.
+    grep -q $'^mutating\t' <<< "${targets}" \
+      || fail "${context}: found no MUTATING webhook config owning a legacy-kind rule to poke - mutating coverage would go unverified"
+  else
+    # No baseline file exists yet for the pre-A2 call, so targets come from a
+    # live read - which can itself race the async reconcile this gate exists
+    # to wait for, so retry until both kinds show up instead of failing cold.
+    while true; do
+      targets="$(legacy_webhook_rules_snapshot | legacy_webhook_config_targets || true)"
+      if [ -n "${targets}" ] && grep -q $'^mutating\t' <<< "${targets}"; then
+        break
+      fi
+      if [ "${SECONDS}" -ge "${deadline}" ]; then
+        fail "${context}: never observed a webhook config owning a legacy-kind rule for both validating and mutating within ${timeout}s - either none exist yet or the API stayed unreachable"
+      fi
+      sleep "${interval}"
+    done
+  fi
+
+  local nonce
+  nonce="${RUN_ID}-$(date +%s)"
+  local wh_type name resource
+  while IFS=$'\t' read -r wh_type name; do
+    case "${wh_type}" in
+      validating) resource=validatingwebhookconfigurations ;;
+      mutating) resource=mutatingwebhookconfigurations ;;
+      *) fail "${context}: unrecognized webhook type '${wh_type}' in reconcile targets" ;;
+    esac
+    kubectl annotate --overwrite "${resource}" "${name}" "kyverno.io/legacy-migration-reconcile-probe=${nonce}" >/dev/null \
+      || fail "${context}: could not stamp the reconcile probe onto ${resource}/${name}"
+  done <<< "${targets}"
+
+  # They heal in parallel, so all targets are stamped above before this
+  # single wait loop, rather than waiting on each one in turn.
+  local current_json pending have
+  while true; do
+    # A transient read failure must keep waiting, not abort the script:
+    # webhook_configs_json can fail under set -e on an API blip.
+    current_json="$(webhook_configs_json || true)"
+    if [ -z "${current_json}" ]; then
+      pending="<could not read webhook configs>"
+    else
+      pending=""
+      while IFS=$'\t' read -r wh_type name; do
+        # Absent is not healed: a config missing from the live cluster must
+        # keep failing the wait, not slip through as if it had reconciled.
+        have="$(jq -r --arg t "${wh_type}" --arg n "${name}" --arg nonce "${nonce}" '
+          [.[] | select(.__whType == $t and .metadata.name == $n)] as $m
+          | if ($m | length) == 0 then "absent"
+            elif ($m[0].metadata.annotations["kyverno.io/legacy-migration-reconcile-probe"] // "") == $nonce then "pending"
+            else "healed" end' <<< "${current_json}" 2>/dev/null || echo "unreadable")"
+        [ "${have}" = "healed" ] || pending="${pending}${wh_type}/${name} (${have}); "
+      done <<< "${targets}"
+    fi
+    [ -z "${pending}" ] && return 0
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+      fail "${context}: webhook config(s) still carry the reconcile probe after ${timeout}s: ${pending}the controller never rewrote them, so nothing below can prove coverage was preserved - treat as unverified"
+    fi
+    sleep "${interval}"
+  done
+}
+
+# Reconcile completion is proven by wait_for_webhook_configs_reconciled
+# before this runs, so one read is enough - any diff found here is a real
+# regression, not the controller still mid-write.
 assert_legacy_webhook_rules_unchanged() {
   local baseline_label="$1" current_label="$2" context="$3"
   local baseline_file="${WORK_DIR}/${baseline_label}-webhook-rules.snapshot"
   local current_file="${WORK_DIR}/${current_label}-webhook-rules.snapshot"
-  local waited=0 timeout=60 interval=3
   local current
-  while true; do
-    current="$(legacy_webhook_rules_snapshot || true)"
-    echo "${current}" > "${current_file}"
-    if diff -u "${baseline_file}" "${current_file}" >"${WORK_DIR}/webhook-rules-diff.log" 2>&1; then
-      return 0
-    fi
-    waited=$((waited + interval))
-    if [ "${waited}" -ge "${timeout}" ]; then
-      cat "${WORK_DIR}/webhook-rules-diff.log" >&2
-      fail "${context}: legacy-kind webhook rules (validating and mutating) still differ from '${baseline_label}' after ${timeout}s (apiGroups/apiVersions/resources/operations/scope, or which type/config/webhook owns them) - see the diff above; an empty current side means the API stayed unreachable"
-    fi
-    sleep "${interval}"
-  done
+  current="$(legacy_webhook_rules_snapshot || true)"
+  echo "${current}" > "${current_file}"
+  if ! diff -u "${baseline_file}" "${current_file}" >"${WORK_DIR}/webhook-rules-diff.log" 2>&1; then
+    cat "${WORK_DIR}/webhook-rules-diff.log" >&2
+    fail "${context}: legacy-kind webhook rules (validating and mutating) differ from '${baseline_label}' (apiGroups/apiVersions/resources/operations/scope, the owning webhook's namespaceSelector/objectSelector/failurePolicy/matchPolicy, or which type/config/webhook owns them) - see the diff above; an empty current side means the API stayed unreachable"
+  fi
 }
 
 # Reduces a legacy_webhook_rules_snapshot array to, per legacy kind, the
@@ -730,48 +847,53 @@ legacy_webhook_capabilities() {
   '
 }
 
-# Like assert_legacy_webhook_rules_unchanged, but tolerates additions: fails
-# only if a baseline (kind, type, apiVersion, operation, scope, sub)
-# capability is lost - type is exact, so a missing mutating rule can't hide behind a still-covering validating one.
+# The owning webhook's selector and policy attributes, one entry per
+# (type, config, webhook). These have no "wider/narrower" ordering the way
+# a capability does, so they are compared for equality, not containment.
+legacy_webhook_selectors() {
+  jq -Sc '[ .[] | {type, config, webhook, namespaceSelector, objectSelector, failurePolicy, matchPolicy} ] | unique'
+}
+
+# Tolerates added capabilities, fails on lost ones (type exact, so a missing
+# mutating rule can't hide behind a surviving validating one; selectors and
+# failurePolicy compared strictly). One read: wait_for_webhook_configs_reconciled
+# already proved reconcile completed, so a failed read here just fails the check.
 assert_legacy_webhook_rules_not_narrowed() {
   local baseline_label="$1" current_label="$2" context="$3"
   local baseline_file="${WORK_DIR}/${baseline_label}-webhook-rules.snapshot"
   local current_file="${WORK_DIR}/${current_label}-webhook-rules.snapshot"
-  local baseline_caps
+  local baseline_caps baseline_selectors
   baseline_caps="$(legacy_webhook_capabilities < "${baseline_file}")"
-  local waited=0 timeout=60 interval=3
-  local current current_caps lost
-  while true; do
-    current="$(legacy_webhook_rules_snapshot || true)"
-    lost=""
-    if [ -n "${current}" ] && jq -e . >/dev/null 2>&1 <<< "${current}"; then
-      echo "${current}" > "${current_file}"
-      current_caps="$(legacy_webhook_capabilities <<< "${current}")"
-      lost="$(jq -n --argjson base "${baseline_caps}" --argjson cur "${current_caps}" '
-      def covers($c; $b):
-        ($c[0] == $b[0])
-        and ($c[1] == $b[1] or $c[1] == "*")
-        and ($c[2] == $b[2] or $c[2] == "*")
-        and ($c[3] == $b[3] or $c[3] == "*")
-        and ($c[4] == $b[4] or $c[4] == "sub=true");
-      [ ($base | keys[]) as $k
-        | (($cur[$k] // []) | map(split("|"))) as $curTriples
-        | ($base[$k] | map(select(. as $t | ($t | split("|")) as $bt
-            | ($curTriples | any(covers(.; $bt))) | not))) as $l
-        | select(($l | length) > 0)
-        | {kind: $k, lost: $l}
-      ]')"
-    fi
-    if [ "${lost}" = "[]" ]; then
-      return 0
-    fi
-    waited=$((waited + interval))
-    if [ "${waited}" -ge "${timeout}" ]; then
-      echo "lost coverage: ${lost}" >&2
-      fail "${context}: legacy-kind webhook coverage still differs from '${baseline_label}' after ${timeout}s (type|apiVersion|operation|scope|sub triple(s) missing) - see above; an empty current side means the API stayed unreachable"
-    fi
-    sleep "${interval}"
-  done
+  baseline_selectors="$(legacy_webhook_selectors < "${baseline_file}")"
+  local current
+  current="$(legacy_webhook_rules_snapshot || true)"
+  if [ -z "${current}" ] || ! jq -e . >/dev/null 2>&1 <<< "${current}"; then
+    fail "${context}: could not read legacy-kind webhook rules to compare against '${baseline_label}' - either none exist or the API stayed unreachable"
+  fi
+  echo "${current}" > "${current_file}"
+  local current_caps lost current_selectors selector_diff
+  current_caps="$(legacy_webhook_capabilities <<< "${current}")"
+  lost="$(jq -n --argjson base "${baseline_caps}" --argjson cur "${current_caps}" '
+    def covers($c; $b):
+      ($c[0] == $b[0])
+      and ($c[1] == $b[1] or $c[1] == "*")
+      and ($c[2] == $b[2] or $c[2] == "*")
+      and ($c[3] == $b[3] or $c[3] == "*")
+      and ($c[4] == $b[4] or $c[4] == "sub=true");
+    [ ($base | keys[]) as $k
+      | (($cur[$k] // []) | map(split("|"))) as $curTriples
+      | ($base[$k] | map(select(. as $t | ($t | split("|")) as $bt
+          | ($curTriples | any(covers(.; $bt))) | not))) as $l
+      | select(($l | length) > 0)
+      | {kind: $k, lost: $l}
+    ]')"
+  current_selectors="$(legacy_webhook_selectors <<< "${current}")"
+  selector_diff="$(diff <(echo "${baseline_selectors}") <(echo "${current_selectors}") || true)"
+  if [ "${lost}" != "[]" ] || [ -n "${selector_diff}" ]; then
+    echo "lost coverage: ${lost}" >&2
+    echo "selector/failurePolicy/matchPolicy diff: ${selector_diff}" >&2
+    fail "${context}: legacy-kind webhook coverage narrowed from '${baseline_label}' (type|apiVersion|operation|scope|sub triple(s) missing, or a namespaceSelector/objectSelector/failurePolicy/matchPolicy change on the owning webhook) - see above"
+  fi
 }
 
 # Hashes only .spec, not the whole object, so unrelated metadata/annotation
@@ -886,6 +1008,69 @@ controller_deployment_images() {
     2>/dev/null || true
 }
 
+# Corroborating gate for the webhook-rule assertions below: waits until the
+# Deployments' images differ from a pre-change snapshot, so later checks
+# start from the post-change manifest (not proof stale pods are gone -
+# wait_for_no_stale_controller_pods below is what catches that).
+wait_for_controller_images_changed() {
+  local desc="$1" before_images="$2"
+  local timeout=120 interval=5
+  local deadline=$((SECONDS + timeout))
+  local current
+  while true; do
+    current="$(controller_deployment_images)"
+    if [ -n "${current}" ] && [ "${current}" != "null" ] && [ "${current}" != "${before_images}" ]; then
+      return 0
+    fi
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+      fail "${desc}: controller deployment images still match the pre-change set after ${timeout}s (before='${before_images}') - the rollout may not have progressed"
+    fi
+    sleep "${interval}"
+  done
+}
+
+# Must run before the poke: a terminating old-image pod still reports Ready,
+# so it could heal the probe and hide a stale controller. Compares .spec
+# images, since .status reports digest-resolved refs that never match the tag.
+wait_for_no_stale_controller_pods() {
+  local context="$1"
+  local timeout=120 interval=5
+  local deadline=$((SECONDS + timeout))
+  local expected pods_json matched stale
+  while true; do
+    expected="$(controller_deployment_images)"
+    pods_json="$(kubectl get pods -n "${NAMESPACE}" --selector '!job-name' -o json 2>/dev/null || true)"
+    # An unreadable expected/pod-list set, or zero pods matching a known
+    # component, must NOT read as "no stale pods" - that would pass without
+    # having observed anything, the same vacuous-pass failure this guards against.
+    if [ -n "${expected}" ] && [ "${expected}" != "null" ] && [ "${expected}" != "[]" ] && [ -n "${pods_json}" ]; then
+      matched="$(jq -r --argjson expected "${expected}" '
+        (reduce $expected[] as $e ({}; .[$e.component] = $e.image)) as $want
+        | [.items[]? | select($want[(.metadata.labels["app.kubernetes.io/component"] // "")] != null)] | length
+        ' <<< "${pods_json}" 2>/dev/null || echo 0)"
+      if [ "${matched:-0}" -gt 0 ]; then
+        stale="$(jq -r --argjson expected "${expected}" '
+          (reduce $expected[] as $e ({}; .[$e.component] = $e.image)) as $want
+          | .items[]?
+          | (.metadata.labels["app.kubernetes.io/component"] // "") as $c
+          | select($want[$c] != null)
+          | .spec.containers[0].image as $img
+          | select($img != $want[$c])
+          | "\(.metadata.name)=\($img) (want \($want[$c]))"' <<< "${pods_json}" 2>/dev/null)"
+      else
+        stale="<no controller pod matched a known component - the read may have failed>"
+      fi
+    else
+      stale="<could not read controller deployment images or the pod list>"
+    fi
+    [ -z "${stale}" ] && return 0
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+      fail "${context}: ${stale//$'\n'/; } after ${timeout}s - could not confirm every controller pod is on the current image, so a stale pod could heal the reconcile-probe poke and mask it"
+    fi
+    sleep "${interval}"
+  done
+}
+
 release_revision() {
   "${HELM}" history "${RELEASE_NAME}" -n "${NAMESPACE}" -o json 2>/dev/null | jq -r '.[-1].revision' 2>/dev/null || true
 }
@@ -905,7 +1090,7 @@ kubectl create namespace "${TEST_NAMESPACE}" >/dev/null
 "${HELM}" install "${RELEASE_NAME}" --repo https://kyverno.github.io/kyverno kyverno \
   --version "${LEGACY_CHART_VERSION}" -n "${NAMESPACE}" --create-namespace --wait --timeout 5m
 wait_kyverno_ready
-apply_legacy_fixture
+apply_legacy_fixture "A1 legacy ClusterPolicy fixture create"
 
 violating_pod_manifest > "${WORK_DIR}/violating-pod.yaml"
 compliant_pod_manifest > "${WORK_DIR}/compliant-pod.yaml"
@@ -928,9 +1113,10 @@ cleanup_policy_manifest "${SECOND_CLEANUP_POLICY_NAME}" > "${WORK_DIR}/new-clean
 polex_manifest "${SECOND_POLEX_NAME}" > "${WORK_DIR}/new-polex.yaml"
 clustercleanuppolicy_manifest "${CLUSTERCLEANUP_POLICY_NAME}" > "${WORK_DIR}/clustercleanup-policy.yaml"
 clustercleanuppolicy_manifest "${SECOND_CLUSTERCLEANUP_POLICY_NAME}" > "${WORK_DIR}/new-clustercleanup-policy.yaml"
-# Policy goes through the same handler as ClusterPolicy and needs no extra
-# RBAC, so a plain apply (matching apply_legacy_fixture above) is enough.
-kubectl apply -f "${WORK_DIR}/policy.yaml" >/dev/null
+# Policy goes through the same handler as ClusterPolicy and shares the
+# same fresh-install webhook race, so it gets the same wait_for_allow
+# treatment as apply_legacy_fixture above (no extra RBAC needed either way).
+wait_for_allow "A1 policy fixture create" "${WORK_DIR}/policy.yaml"
 # wait_for_allow, not a bare apply: RBAC aggregation for the ClusterRole
 # just applied is reconciled asynchronously by kube-controller-manager.
 wait_for_allow "A1 cleanup policy fixture create" "${WORK_DIR}/cleanup-policy.yaml"
@@ -962,20 +1148,27 @@ BASELINE_CLEANUP_POLICY_HASH="$(namespaced_spec_hash cleanuppolicy "${CLEANUP_PO
 BASELINE_CLUSTERCLEANUP_POLICY_HASH="$(clusterscoped_spec_hash clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUP_POLICY_NAME}")"
 BASELINE_POLEX_HASH="$(namespaced_spec_hash policyexceptions.kyverno.io "${POLEX_NAME}")"
 webhook_rules_cover_legacy_kinds "A2 baseline"
+# No baseline file exists yet, so this call derives its poke targets from a
+# live read (baseline_label "") instead of the usual snapshot file.
+wait_for_webhook_configs_reconciled "A2 baseline" ""
 snapshot_legacy_webhook_rules "baseline"
 
 log "A3: upgrading to the LOCAL chart with upgrade.allowLegacyPolicies=true (default write-block left ON)"
+PRE_A3_IMAGES="$(controller_deployment_images)"
 run_local_upgrade "--set upgrade.allowLegacyPolicies=true" "${WORK_DIR}/a3-upgrade.log" \
   || { cat "${WORK_DIR}/a3-upgrade.log" >&2; fail "A3: opt-out upgrade to the local chart was expected to succeed"; }
+wait_for_controller_images_changed "A3" "${PRE_A3_IMAGES}"
 wait_kyverno_ready
 
 log "A4: post-upgrade assertions"
+# Before anything is asserted: a surviving 1.19 pod would satisfy the
+# enforcement checks below, proving the old build still works rather than
+# the new one.
+wait_for_no_stale_controller_pods "A4"
 POST_UPGRADE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
 if [ "${POST_UPGRADE_CLUSTERPOLICY_HASH}" != "${BASELINE_CLUSTERPOLICY_HASH}" ]; then
   fail "A4: the pre-existing ClusterPolicy's spec changed across the opt-out upgrade"
 fi
-POST_UPGRADE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
-assert_legacy_cr_counts_unchanged "${BASELINE_CR_COUNTS}" "${POST_UPGRADE_CR_COUNTS}" "A4"
 wait_for_deny "A4 ClusterPolicy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${CP_DENY_MSG}"
 wait_for_deny "A4 Policy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${POLICY_DENY_MSG}"
 
@@ -991,15 +1184,24 @@ EOF
 # "kubectl apply -f" is expected to be denied, not the manifest's kind.
 wait_for_deny "A4 create blocked" "${WORK_DIR}/new-legacy-policy.yaml" "no longer accepted for create"
 
-# Re-applies the canonical fixture spec if the spec-changing patch below
-# unexpectedly succeeds, so a spurious mutation can't corrupt later hash
-# comparisons (A5's rollback check in particular).
+# Re-applies a fixture after a spec patch slipped through. The block can deny
+# the revert once it is serving, so retry briefly before treating it as stuck.
+reapply_fixture_spec() {
+  local desc="$1" manifest="$2"
+  local waited=0 timeout=30 interval=3
+  while true; do
+    kubectl apply -f "${manifest}" >/dev/null 2>&1 && return 0
+    waited=$((waited + interval))
+    if [ "${waited}" -ge "${timeout}" ]; then
+      fail "${desc}: could not restore the fixture spec within ${timeout}s after a patch slipped through; the fixture is left drifted, so the later spec-hash checks cannot mean anything - rerun"
+    fi
+    sleep "${interval}"
+  done
+}
+
 a4_recover_clusterpolicy_spec() {
-  # This revert is itself a spec-changing update, so it can also be denied
-  # in the tiny window where the patch succeeded and the webhook then came
-  # up. Report that plainly instead of letting a raw kubectl error abort.
-  apply_legacy_fixture \
-    || fail "A4 spec-update-blocked recovery: could not re-apply the fixture spec (most likely denied by the write-time block under test, in a race between the spurious patch success and the webhook becoming ready - see the kubectl error above); this is a flake window, not a real regression, rerun"
+  legacy_fixture_manifest > "${WORK_DIR}/legacy-fixture-revert.yaml"
+  reapply_fixture_spec "A4 spec-update-blocked recovery" "${WORK_DIR}/legacy-fixture-revert.yaml"
 }
 SPEC_PATCH='{"spec":{"rules":[{"name":"check-label","match":{"resources":{"kinds":["Pod"],"namespaces":["'"${TEST_NAMESPACE}"'"]}},"validate":{"message":"changed","pattern":{"metadata":{"labels":{"app":"?*"}}}}}]}}'
 wait_for_patch_denied "A4 spec-update blocked" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "${SPEC_PATCH}" "no longer accepted" a4_recover_clusterpolicy_spec
@@ -1025,8 +1227,7 @@ POST_UPGRADE_POLICY_HASH="$(namespaced_spec_hash policies.kyverno.io "${POLICY_N
 wait_for_deny "A4 policy create blocked" "${WORK_DIR}/new-policy.yaml" "no longer accepted for create"
 
 a4_recover_policy_spec() {
-  kubectl apply -f "${WORK_DIR}/policy.yaml" >/dev/null \
-    || fail "A4 policy spec-update-blocked recovery: could not re-apply the fixture spec (most likely denied by the write-time block under test, in a race between the spurious patch success and the webhook becoming ready); this is a flake window, not a real regression, rerun"
+  reapply_fixture_spec "A4 policy spec-update-blocked recovery" "${WORK_DIR}/policy.yaml"
 }
 POLICY_SPEC_PATCH='{"spec":{"rules":[{"name":"check-label","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"changed","pattern":{"metadata":{"labels":{"app":"?*"}}}}}]}}'
 wait_for_patch_denied "A4 policy spec-update blocked" "policies.kyverno.io" "${POLICY_NAME}" "${POLICY_SPEC_PATCH}" "no longer accepted" a4_recover_policy_spec "${TEST_NAMESPACE}"
@@ -1055,16 +1256,13 @@ wait_for_deny "A4 policy exception create blocked" "${WORK_DIR}/new-polex.yaml" 
 
 # One recover_fn per kind, same reason as a4_recover_clusterpolicy_spec.
 a4_recover_cleanup_policy_spec() {
-  kubectl apply -f "${WORK_DIR}/cleanup-policy.yaml" >/dev/null \
-    || fail "A4 cleanup-policy spec-update-blocked recovery: could not re-apply the fixture spec (most likely denied by the write-time block under test, in a race between the spurious patch success and the webhook becoming ready); this is a flake window, not a real regression, rerun"
+  reapply_fixture_spec "A4 cleanup-policy spec-update-blocked recovery" "${WORK_DIR}/cleanup-policy.yaml"
 }
 a4_recover_clustercleanup_policy_spec() {
-  kubectl apply -f "${WORK_DIR}/clustercleanup-policy.yaml" >/dev/null \
-    || fail "A4 cluster-cleanup-policy spec-update-blocked recovery: could not re-apply the fixture spec (most likely denied by the write-time block under test, in a race between the spurious patch success and the webhook becoming ready); this is a flake window, not a real regression, rerun"
+  reapply_fixture_spec "A4 cluster-cleanup-policy spec-update-blocked recovery" "${WORK_DIR}/clustercleanup-policy.yaml"
 }
 a4_recover_polex_spec() {
-  kubectl apply -f "${WORK_DIR}/polex.yaml" >/dev/null \
-    || fail "A4 policy-exception spec-update-blocked recovery: could not re-apply the fixture spec (most likely denied by the write-time block under test, in a race between the spurious patch success and the webhook becoming ready); this is a flake window, not a real regression, rerun"
+  reapply_fixture_spec "A4 policy-exception spec-update-blocked recovery" "${WORK_DIR}/polex.yaml"
 }
 
 CLEANUP_SPEC_PATCH='{"spec":{"schedule":"0 0 2 1 *"}}'
@@ -1078,12 +1276,42 @@ wait_for_annotate_allowed "A4 cleanup policy metadata patch allowed" "cleanuppol
 wait_for_annotate_allowed "A4 cluster cleanup policy metadata patch allowed" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "legacy-policy-migration-verify/probe=1"
 wait_for_annotate_allowed "A4 policy exception metadata patch allowed" "policyexceptions.kyverno.io" "${POLEX_NAME}" "legacy-policy-migration-verify/probe=1" "${TEST_NAMESPACE}"
 
+# Sampled here, not right after the upgrade: every create above is expected
+# to be denied and wait_for_deny force-deletes any spurious success, so
+# nothing in this block can grow the count - but sampling this late still
+# catches a controller-driven resurrection the early read would miss.
+POST_UPGRADE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
+assert_legacy_cr_counts_unchanged "${BASELINE_CR_COUNTS}" "${POST_UPGRADE_CR_COUNTS}" "A4"
+
+# Second, late hash sample per kind, vs BASELINE: recover_fns above
+# re-apply each fixture's original spec, so an early-only sample would
+# let recovery mask drift landing mid-block; it restores the baseline spec.
+LATE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
+[ "${LATE_CLUSTERPOLICY_HASH}" = "${BASELINE_CLUSTERPOLICY_HASH}" ] \
+  || fail "A4: the ClusterPolicy's spec drifted from baseline during the A4 block (late sample)"
+LATE_POLICY_HASH="$(namespaced_spec_hash policies.kyverno.io "${POLICY_NAME}")"
+[ "${LATE_POLICY_HASH}" = "${BASELINE_POLICY_HASH}" ] \
+  || fail "A4: the Policy's spec drifted from baseline during the A4 block (late sample)"
+LATE_CLEANUP_POLICY_HASH="$(namespaced_spec_hash cleanuppolicy "${CLEANUP_POLICY_NAME}")"
+[ "${LATE_CLEANUP_POLICY_HASH}" = "${BASELINE_CLEANUP_POLICY_HASH}" ] \
+  || fail "A4: the CleanupPolicy's spec drifted from baseline during the A4 block (late sample)"
+LATE_CLUSTERCLEANUP_POLICY_HASH="$(clusterscoped_spec_hash clustercleanuppolicies.kyverno.io "${CLUSTERCLEANUP_POLICY_NAME}")"
+[ "${LATE_CLUSTERCLEANUP_POLICY_HASH}" = "${BASELINE_CLUSTERCLEANUP_POLICY_HASH}" ] \
+  || fail "A4: the ClusterCleanupPolicy's spec drifted from baseline during the A4 block (late sample)"
+LATE_POLEX_HASH="$(namespaced_spec_hash policyexceptions.kyverno.io "${POLEX_NAME}")"
+[ "${LATE_POLEX_HASH}" = "${BASELINE_POLEX_HASH}" ] \
+  || fail "A4: the PolicyException's spec drifted from baseline during the A4 block (late sample)"
+
 snapshot_crds "post-upgrade"
+# Must stay after the whole A4 block above (not just after the upgrade):
+# that's what gives it the same implicit settle window the CR-count and
+# spec-hash late samples get explicitly. Do not reorder it earlier.
 assert_crds_unchanged "baseline" "post-upgrade" "A4"
+wait_for_webhook_configs_reconciled "A4" "baseline"
 # Not strict equality: baseline is the published 1.19 chart and this is
 # the local chart, so a legitimate capability addition must not fail this.
 assert_legacy_webhook_rules_not_narrowed "baseline" "post-upgrade" "A4"
-log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts across all five kinds, CRDs unchanged, webhook coverage not narrowed)"
+log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook selector/failurePolicy/matchPolicy change)"
 
 # --- A4b: legacy-policy deletes keep succeeding while the write-block is active
 # Proves an operator can still delete a legacy policy on 1.20 to migrate off
@@ -1101,8 +1329,13 @@ kubectl delete policyexceptions.kyverno.io -n "${TEST_NAMESPACE}" "${DELETE_PROB
 log "A4b: PASS (deletes of legacy ClusterPolicy, ClusterCleanupPolicy, and PolicyException all succeeded against a live 1.20 cluster with the write-block active; DELETE itself does not reach any block handler today - see pkg/deprecations/block_test.go for that coverage)"
 
 log "A5: rolling back to revision 1 (the 1.19 chart)"
+PRE_A5_IMAGES="$(controller_deployment_images)"
 "${HELM}" rollback "${RELEASE_NAME}" 1 -n "${NAMESPACE}" --wait --timeout 5m
+wait_for_controller_images_changed "A5" "${PRE_A5_IMAGES}"
 wait_kyverno_ready
+# Before anything is asserted or recreated: a surviving 1.20 pod would
+# satisfy the checks below on the build we just rolled away from.
+wait_for_no_stale_controller_pods "A5"
 
 # Confirm all three A4b delete probes are genuinely absent: a blind
 # re-apply would mask a resurrected probe. Must run before any recreation
@@ -1133,6 +1366,7 @@ wait_for_deny "A5 ClusterPolicy enforcement still active post-rollback" "${WORK_
 wait_for_deny "A5 Policy enforcement still active post-rollback" "${WORK_DIR}/violating-pod.yaml" "${POLICY_DENY_MSG}"
 snapshot_crds "post-rollback"
 assert_crds_unchanged "baseline" "post-rollback" "A5"
+wait_for_webhook_configs_reconciled "A5" "baseline"
 assert_legacy_webhook_rules_unchanged "baseline" "post-rollback" "A5"
 
 # 1.19 has no write-time block, so a second legacy ClusterPolicy must now be
@@ -1187,7 +1421,7 @@ log "B1: fresh 1.19 install, re-applying the legacy fixture"
 "${HELM}" install "${RELEASE_NAME}" --repo https://kyverno.github.io/kyverno kyverno \
   --version "${LEGACY_CHART_VERSION}" -n "${NAMESPACE}" --create-namespace --wait --timeout 5m
 wait_kyverno_ready
-apply_legacy_fixture
+apply_legacy_fixture "B1 legacy ClusterPolicy fixture create"
 wait_for_deny "B1 pre-upgrade ClusterPolicy enforcement" "${WORK_DIR}/violating-pod.yaml" "${CP_DENY_MSG}"
 
 log "B2: snapshotting every controller's deployment image and the release revision before the blocked upgrade attempt"
