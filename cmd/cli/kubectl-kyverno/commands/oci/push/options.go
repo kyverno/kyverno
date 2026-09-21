@@ -26,8 +26,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const supportedAPIVersion = "policies.kyverno.io/v1beta1"
-
 type options struct {
 	imageRef string
 }
@@ -42,7 +40,6 @@ func (o options) validate(dir string) error {
 	return nil
 }
 
-// toYAML serialises any JSON-marshalable value to YAML, honouring json struct tags.
 func toYAML(v any) ([]byte, error) {
 	jsonBytes, err := json.Marshal(v)
 	if err != nil {
@@ -51,7 +48,6 @@ func toYAML(v any) ([]byte, error) {
 	return yaml.JSONToYAML(jsonBytes)
 }
 
-// appendCELLayer serialises obj to YAML and appends it as an OCI layer to img.
 func appendCELLayer(img v1.Image, obj internal.Object) (v1.Image, error) {
 	b, err := toYAML(obj)
 	if err != nil {
@@ -65,7 +61,6 @@ func appendCELLayer(img v1.Image, obj internal.Object) (v1.Image, error) {
 	})
 }
 
-// buildImage validates loaded CEL resources and constructs the OCI image.
 func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 	if len(results.Policies) > 0 {
 		return nil, fmt.Errorf("push rejected: directory contains %d legacy kyverno.io policy resource(s); only policies.kyverno.io/v1beta1 CEL kinds are supported in OCI bundles", len(results.Policies))
@@ -86,9 +81,9 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 	seen := make(map[string]bool)
 	checkResource := func(obj internal.Object) error {
 		gvk := obj.GetObjectKind().GroupVersionKind()
-		if gv := gvk.GroupVersion().String(); gv != supportedAPIVersion {
+		if gv := gvk.GroupVersion().String(); gv != internal.SupportedAPIVersion {
 			return fmt.Errorf("unsupported resource %s/%s %q; only %s CEL kinds are supported in OCI bundles",
-				gv, gvk.Kind, obj.GetName(), supportedAPIVersion)
+				gv, gvk.Kind, obj.GetName(), internal.SupportedAPIVersion)
 		}
 		key := fmt.Sprintf("%s/%s/%s", gvk.Kind, obj.GetNamespace(), obj.GetName())
 		if seen[key] {
@@ -97,6 +92,8 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		seen[key] = true
 		return nil
 	}
+
+	var toAppend []internal.Object
 
 	vCompiler := vpolcompiler.NewCompiler()
 	for _, pol := range results.ValidatingPolicies {
@@ -110,6 +107,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
+		toAppend = append(toAppend, obj)
 	}
 	for _, pol := range results.EnvoyPolicies {
 		if err := checkResource(pol); err != nil {
@@ -118,6 +116,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in EnvoyPolicy %q: %v", pol.GetName(), errs.ToAggregate())
 		}
+		toAppend = append(toAppend, pol)
 	}
 	for _, pol := range results.HTTPPolicies {
 		if err := checkResource(pol); err != nil {
@@ -126,6 +125,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in HTTPPolicy %q: %v", pol.GetName(), errs.ToAggregate())
 		}
+		toAppend = append(toAppend, pol)
 	}
 
 	mCompiler := mpolcompiler.NewCompiler()
@@ -140,6 +140,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if _, errs := mCompiler.Compile(pol, nil); len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
+		toAppend = append(toAppend, obj)
 	}
 
 	gCompiler := gpolcompiler.NewCompiler()
@@ -154,6 +155,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if _, errs := gCompiler.Compile(pol, nil); len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
+		toAppend = append(toAppend, obj)
 	}
 
 	dCompiler := dpolcompiler.NewCompiler()
@@ -168,6 +170,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if _, errs := dCompiler.Compile(pol, nil); len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
+		toAppend = append(toAppend, obj)
 	}
 
 	ivpCompiler := ivpolevaluator.NewCompiler(nil)
@@ -182,6 +185,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if _, errs := ivpCompiler.Compile(pol, nil); len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
+		toAppend = append(toAppend, obj)
 	}
 
 	for _, ex := range results.PolicyCelExceptions {
@@ -195,65 +199,23 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 			return nil, fmt.Errorf("validating CEL expression in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
 		}
 		for _, ref := range ex.Spec.PolicyRefs {
-			refKey := fmt.Sprintf("%s/%s/%s", ref.Kind, "", ref.Name)
+			// PolicyRef has no namespace field; check cluster-scoped and same-namespace forms.
+			clusterKey := fmt.Sprintf("%s/%s/%s", ref.Kind, "", ref.Name)
 			namespacedKey := fmt.Sprintf("%s/%s/%s", ref.Kind, ex.GetNamespace(), ref.Name)
-			if !seen[refKey] && !seen[namespacedKey] {
+			if !seen[clusterKey] && !seen[namespacedKey] {
 				return nil, fmt.Errorf("policy exception %q references unknown policy %s/%s", ex.GetName(), ref.Kind, ref.Name)
 			}
 		}
+		toAppend = append(toAppend, ex)
 	}
 
 	img := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
 	img = mutate.ConfigMediaType(img, internal.PolicyConfigMediaType)
 
-	appendAll := func(list []internal.Object) error {
+	for _, obj := range toAppend {
+		fmt.Fprintf(os.Stderr, "Adding %s [%s]\n", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName())
 		var err error
-		for _, obj := range list {
-			fmt.Fprintf(os.Stderr, "Adding %s [%s]\n", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName())
-			if img, err = appendCELLayer(img, obj); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-
-	for _, pol := range results.ValidatingPolicies {
-		if err := appendAll([]internal.Object{pol.(internal.Object)}); err != nil {
-			return nil, err
-		}
-	}
-	for _, pol := range results.EnvoyPolicies {
-		if err := appendAll([]internal.Object{pol}); err != nil {
-			return nil, err
-		}
-	}
-	for _, pol := range results.HTTPPolicies {
-		if err := appendAll([]internal.Object{pol}); err != nil {
-			return nil, err
-		}
-	}
-	for _, pol := range results.MutatingPolicies {
-		if err := appendAll([]internal.Object{pol.(internal.Object)}); err != nil {
-			return nil, err
-		}
-	}
-	for _, pol := range results.GeneratingPolicies {
-		if err := appendAll([]internal.Object{pol.(internal.Object)}); err != nil {
-			return nil, err
-		}
-	}
-	for _, pol := range results.DeletingPolicies {
-		if err := appendAll([]internal.Object{pol.(internal.Object)}); err != nil {
-			return nil, err
-		}
-	}
-	for _, pol := range results.ImageValidatingPolicies {
-		if err := appendAll([]internal.Object{pol.(internal.Object)}); err != nil {
-			return nil, err
-		}
-	}
-	for _, ex := range results.PolicyCelExceptions {
-		if err := appendAll([]internal.Object{ex}); err != nil {
+		if img, err = appendCELLayer(img, obj); err != nil {
 			return nil, err
 		}
 	}

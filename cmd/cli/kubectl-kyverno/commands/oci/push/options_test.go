@@ -161,7 +161,6 @@ spec:
 }
 
 func TestBuildImageRejectsNonFatalErrors(t *testing.T) {
-	// NonFatalErrors in results must be escalated to a hard failure at push time.
 	results := &policy.LoaderResults{
 		NonFatalErrors: []policy.LoaderError{{
 			Path:  "bad.yaml",
@@ -208,7 +207,6 @@ func TestBuildImageExceptionOnlyBundleAlwaysChecksRefs(t *testing.T) {
 	assert.Contains(t, err.Error(), "references unknown policy")
 }
 
-// makeResultsWithVAPs returns a LoaderResults containing a fake VAP entry.
 func makeResultsWithVAPs() *policy.LoaderResults {
 	return &policy.LoaderResults{
 		VAPs: []admissionregistrationv1.ValidatingAdmissionPolicy{{}},

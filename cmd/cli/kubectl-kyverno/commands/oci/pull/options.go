@@ -20,32 +20,6 @@ import (
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// legacyKinds lists kyverno.io/v1 kinds that are no longer accepted in OCI bundles.
-var legacyKinds = map[string]bool{
-	"Policy":               true,
-	"ClusterPolicy":        true,
-	"CleanupPolicy":        true,
-	"ClusterCleanupPolicy": true,
-}
-
-const supportedAPIVersion = "policies.kyverno.io/v1beta1"
-
-// supportedCELKinds lists the exact policies.kyverno.io/v1beta1 CEL policy kinds
-// and PolicyException accepted in OCI bundles.
-var supportedCELKinds = map[string]bool{
-	"ValidatingPolicy":                true,
-	"NamespacedValidatingPolicy":      true,
-	"MutatingPolicy":                  true,
-	"NamespacedMutatingPolicy":        true,
-	"GeneratingPolicy":                true,
-	"NamespacedGeneratingPolicy":      true,
-	"DeletingPolicy":                  true,
-	"NamespacedDeletingPolicy":        true,
-	"ImageValidatingPolicy":           true,
-	"NamespacedImageValidatingPolicy": true,
-	"PolicyException":                 true,
-}
-
 type options struct {
 	imageRef string
 }
@@ -89,11 +63,11 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	fmt.Fprintf(os.Stderr, "Downloading policies from an image [%s]...\n", ref.Name())
 	rmt, err := remote.Get(ref, remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain))
 	if err != nil {
-		return fmt.Errorf("getting image: %v", err)
+		return fmt.Errorf("fetching remote image: %v", err)
 	}
 	img, err := rmt.Image()
 	if err != nil {
-		return fmt.Errorf("getting image: %v", err)
+		return fmt.Errorf("loading image from manifest: %v", err)
 	}
 	l, err := img.Layers()
 	if err != nil {
@@ -115,9 +89,7 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	return nil
 }
 
-// extractAndSavePolicies reads CEL policy documents from a single layer blob and
-// writes each accepted document to disk.
-func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool) error {
+func extractAndSavePolicies(layer v1.Layer, dir string, seen map[string]bool) error {
 	blob, err := layer.Compressed()
 	if err != nil {
 		return fmt.Errorf("getting layer blob: %v", err)
@@ -132,13 +104,6 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool)
 	documents, err := extyaml.SplitDocuments(layerBytes)
 	if err != nil {
 		return fmt.Errorf("splitting YAML documents: %v", err)
-	}
-
-	var seenTracker map[string]bool
-	if len(seen) > 0 && seen[0] != nil {
-		seenTracker = seen[0]
-	} else {
-		seenTracker = make(map[string]bool)
 	}
 
 	for _, doc := range documents {
@@ -163,18 +128,18 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool)
 		if strings.TrimSpace(kind) == "" || strings.TrimSpace(objName) == "" {
 			return fmt.Errorf("resource missing kind or metadata.name")
 		}
-		if legacyKinds[kind] {
+		if internal.LegacyKinds[kind] {
 			return fmt.Errorf("legacy policy kind %q (apiVersion: %s) is no longer supported in OCI bundles; migrate to policies.kyverno.io/v1beta1 CEL policy kinds", kind, apiVersion)
 		}
-		if apiVersion != supportedAPIVersion || !supportedCELKinds[kind] {
+		if apiVersion != internal.SupportedAPIVersion || !internal.SupportedCELKinds[kind] {
 			return fmt.Errorf("unsupported resource %s/%s %q; only policies.kyverno.io/v1beta1 CEL policy kinds are supported in OCI bundles", apiVersion, kind, objName)
 		}
 
 		identity := fmt.Sprintf("%s/%s/%s", kind, ns, objName)
-		if seenTracker[identity] {
+		if seen[identity] {
 			return fmt.Errorf("duplicate resource identity %s", identity)
 		}
-		seenTracker[identity] = true
+		seen[identity] = true
 
 		filename := strings.ToLower(kind) + "-" + objName + ".yaml"
 		if ns != "" {
@@ -184,11 +149,6 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool)
 		if err != nil {
 			return fmt.Errorf("constructing output path for %s %q: %v", kind, objName, err)
 		}
-		pathKey := "path:" + pp
-		if seenTracker[pathKey] {
-			return fmt.Errorf("duplicate output file path collision %q", pp)
-		}
-		seenTracker[pathKey] = true
 
 		fmt.Fprintf(os.Stderr, "Saving %s [%s] to disk [%s]...\n", kind, objName, pp)
 		if err := os.WriteFile(pp, doc, 0o600); err != nil {

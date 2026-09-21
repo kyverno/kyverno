@@ -65,9 +65,6 @@ spec:
             team: "?*"
 `
 
-// trackedReadCloser records whether Close was called, so tests can assert
-// that a layer's reader is actually released rather than only checking
-// the returned error.
 type trackedReadCloser struct {
 	io.Reader
 	closed bool
@@ -78,8 +75,6 @@ func (t *trackedReadCloser) Close() error {
 	return nil
 }
 
-// trackedLayer wraps a static layer, returning a trackedReadCloser from
-// Compressed so tests can observe whether it was closed.
 type trackedLayer struct {
 	v1.Layer
 	rc *trackedReadCloser
@@ -101,7 +96,7 @@ func TestExtractAndSavePoliciesValidatingPolicy(t *testing.T) {
 	dir := t.TempDir()
 	layer := newTrackedLayer(t, []byte(testValidatingPolicyYAML))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.NoError(t, err)
 	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
 
@@ -116,7 +111,7 @@ func TestExtractAndSavePoliciesDeletingPolicy(t *testing.T) {
 	dir := t.TempDir()
 	layer := newTrackedLayer(t, []byte(testDeletingPolicyYAML))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.NoError(t, err)
 	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
 
@@ -130,7 +125,7 @@ func TestExtractAndSavePoliciesRejectsLegacyKinds(t *testing.T) {
 	dir := t.TempDir()
 	layer := newTrackedLayer(t, []byte(testLegacyClusterPolicyYAML))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "legacy"), "error should mention 'legacy'")
 	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
@@ -140,7 +135,7 @@ func TestExtractAndSavePoliciesClosesReaderOnUnmarshalError(t *testing.T) {
 	dir := t.TempDir()
 	layer := newTrackedLayer(t, []byte("not: [valid, policy"))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
 }
@@ -149,7 +144,7 @@ func TestExtractAndSavePoliciesEmptyDocument(t *testing.T) {
 	dir := t.TempDir()
 	layer := newTrackedLayer(t, []byte("   \n---\n   "))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.NoError(t, err)
 	assert.True(t, layer.rc.closed, "layer reader should be closed")
 }
@@ -166,7 +161,7 @@ data:
 `
 	layer := newTrackedLayer(t, []byte(unknownYAML))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported resource")
 	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
@@ -193,7 +188,7 @@ spec:
 `
 	layer := newTrackedLayer(t, []byte(vapYAML))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported resource")
 	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
@@ -219,7 +214,7 @@ metadata:
 `
 	layer := newTrackedLayer(t, []byte(multiYAML))
 
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.NoError(t, err)
 
 	_, errVP := os.Stat(filepath.Join(dir, "validatingpolicy-same-name.yaml"))
@@ -240,7 +235,7 @@ spec:
   - expression: "true"
 `
 	layer := newTrackedLayer(t, []byte(noNameYAML))
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "resource missing kind or metadata.name")
 
@@ -251,9 +246,9 @@ metadata:
   name: no-kind-policy
 `
 	layer2 := newTrackedLayer(t, []byte(noKindYAML))
-	err2 := extractAndSavePolicies(layer2, dir)
+	err2 := extractAndSavePolicies(layer2, dir, make(map[string]bool))
 	assert.Error(t, err2)
-	assert.Contains(t, err2.Error(), "Object 'Kind' is missing")
+	assert.Contains(t, err2.Error(), "unmarshaling document")
 }
 
 func TestExtractAndSavePoliciesRejectsUnsupportedAPIVersion(t *testing.T) {
@@ -268,7 +263,7 @@ spec:
   - expression: "true"
 `
 	layer := newTrackedLayer(t, []byte(v1alpha1YAML))
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported resource")
 }
@@ -285,7 +280,7 @@ spec:
   - expression: "true"
 `
 	layer := newTrackedLayer(t, []byte(unknownKindYAML))
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported resource")
 }
@@ -315,7 +310,7 @@ spec:
   - expression: "true"
 `
 	layer := newTrackedLayer(t, []byte(multiYAML))
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.NoError(t, err)
 
 	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a_check-pod.yaml"))
@@ -351,7 +346,7 @@ spec:
   - expression: "true"
 `
 	layer := newTrackedLayer(t, []byte(multiYAML))
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.NoError(t, err)
 
 	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a_check-pod.yaml"))
@@ -385,7 +380,7 @@ spec:
   - expression: "true"
 `
 	layer := newTrackedLayer(t, []byte(dupYAML))
-	err := extractAndSavePolicies(layer, dir)
+	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate resource identity")
 }
