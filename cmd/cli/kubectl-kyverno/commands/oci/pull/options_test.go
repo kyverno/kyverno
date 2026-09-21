@@ -227,3 +227,65 @@ metadata:
 	_, errMP := os.Stat(filepath.Join(dir, "mutatingpolicy-same-name.yaml"))
 	assert.NoError(t, errMP, "expected mutatingpolicy-same-name.yaml")
 }
+
+func TestExtractAndSavePoliciesRejectsPartialIdentity(t *testing.T) {
+	dir := t.TempDir()
+
+	// Missing metadata.name
+	noNameYAML := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+spec:
+  validations:
+  - expression: "true"
+`
+	layer := newTrackedLayer(t, []byte(noNameYAML))
+	err := extractAndSavePolicies(layer, dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "resource missing kind or metadata.name")
+
+	// Missing kind
+	noKindYAML := `
+apiVersion: policies.kyverno.io/v1beta1
+metadata:
+  name: no-kind-policy
+`
+	layer2 := newTrackedLayer(t, []byte(noKindYAML))
+	err2 := extractAndSavePolicies(layer2, dir)
+	assert.Error(t, err2)
+	assert.Contains(t, err2.Error(), "Object 'Kind' is missing")
+}
+
+func TestExtractAndSavePoliciesRejectsUnsupportedAPIVersion(t *testing.T) {
+	dir := t.TempDir()
+	v1alpha1YAML := `
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: alpha-policy
+spec:
+  validations:
+  - expression: "true"
+`
+	layer := newTrackedLayer(t, []byte(v1alpha1YAML))
+	err := extractAndSavePolicies(layer, dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported resource")
+}
+
+func TestExtractAndSavePoliciesRejectsUnknownKind(t *testing.T) {
+	dir := t.TempDir()
+	unknownKindYAML := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: FooBarPolicy
+metadata:
+  name: unknown-kind
+spec:
+  validations:
+  - expression: "true"
+`
+	layer := newTrackedLayer(t, []byte(unknownKindYAML))
+	err := extractAndSavePolicies(layer, dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported resource")
+}

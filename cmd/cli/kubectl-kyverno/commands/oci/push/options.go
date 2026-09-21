@@ -15,8 +15,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"sigs.k8s.io/yaml"
-
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
@@ -24,6 +22,7 @@ import (
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	ivpolevaluator "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"sigs.k8s.io/yaml"
 )
 
 type options struct {

@@ -9,13 +9,12 @@ import (
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 )
 
 func TestBuildImageValidCELPolicyAndException(t *testing.T) {

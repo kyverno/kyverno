@@ -14,11 +14,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
-
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	extyaml "github.com/kyverno/kyverno/ext/yaml"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 // legacyKinds lists kyverno.io/v1 kinds that are no longer accepted in OCI bundles.
@@ -29,12 +28,22 @@ var legacyKinds = map[string]bool{
 	"ClusterCleanupPolicy": true,
 }
 
-// allowedAPIGroups lists the API groups that are accepted in OCI bundles.
-// Only policies.kyverno.io/v1beta1 CEL kinds (ValidatingPolicy, MutatingPolicy,
-// GeneratingPolicy, DeletingPolicy, ImageValidatingPolicy, EnvoyPolicy,
-// HTTPPolicy, PolicyException) are supported.
-var allowedAPIGroups = map[string]bool{
-	"policies.kyverno.io": true,
+const supportedAPIVersion = "policies.kyverno.io/v1beta1"
+
+// supportedCELKinds lists the exact policies.kyverno.io/v1beta1 CEL policy kinds
+// and PolicyException accepted in OCI bundles.
+var supportedCELKinds = map[string]bool{
+	"ValidatingPolicy":                true,
+	"NamespacedValidatingPolicy":      true,
+	"MutatingPolicy":                  true,
+	"NamespacedMutatingPolicy":        true,
+	"GeneratingPolicy":                true,
+	"NamespacedGeneratingPolicy":      true,
+	"DeletingPolicy":                  true,
+	"NamespacedDeletingPolicy":        true,
+	"ImageValidatingPolicy":           true,
+	"NamespacedImageValidatingPolicy": true,
+	"PolicyException":                 true,
 }
 
 type options struct {
@@ -141,8 +150,12 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 		apiVersion := us.GetAPIVersion()
 		objName := us.GetName()
 
-		if len(strings.TrimSpace(string(doc))) == 0 || (kind == "" && objName == "") {
+		if len(strings.TrimSpace(string(doc))) == 0 {
 			continue
+		}
+
+		if strings.TrimSpace(kind) == "" || strings.TrimSpace(objName) == "" {
+			return fmt.Errorf("resource missing kind or metadata.name")
 		}
 
 		if legacyKinds[kind] {
@@ -153,12 +166,7 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 			)
 		}
 
-		// Extract group from apiVersion (format: "group/version" or just "version" for core).
-		group := ""
-		if strings.Contains(apiVersion, "/") {
-			group = strings.SplitN(apiVersion, "/", 2)[0]
-		}
-		if !allowedAPIGroups[group] {
+		if apiVersion != supportedAPIVersion || !supportedCELKinds[kind] {
 			return fmt.Errorf(
 				"unsupported resource %s/%s %q; only policies.kyverno.io/v1beta1 CEL policy kinds are supported in OCI bundles",
 				apiVersion, kind, objName,
