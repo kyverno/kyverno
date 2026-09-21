@@ -669,12 +669,13 @@ webhook_rules_cover_legacy_kinds() {
 }
 
 # Normalized snapshot of every legacy-kind rule, keyed by type/config/webhook,
-# plus the owning webhook's namespaceSelector/objectSelector/failurePolicy/
-# matchPolicy. Reads merged config JSON (webhook_configs_json's shape) from
-# stdin, so the reconcile-wait loop below can reuse one read for both.
+# plus the owning webhook's full attribute set (see normWebhook). Reads
+# merged config JSON (webhook_configs_json's shape) from stdin.
 legacy_webhook_rules_from_json() {
   jq -Sc '
       def legacyKinds: ["clusterpolicies","policies","cleanuppolicies","clustercleanuppolicies","policyexceptions"];
+      # LabelSelector is a frozen core type with exactly these two fields,
+      # unlike ValidatingWebhook/MutatingWebhook which k8s keeps extending.
       def normSelector(sel):
         (sel // {}) as $s
         | {
@@ -683,6 +684,20 @@ legacy_webhook_rules_from_json() {
               | map({key, operator, values: (.values // [] | sort)})
               | sort_by(.key, .operator))
           };
+      # Whole webhook entry, not a hand-picked field list, so a future
+      # Kubernetes field is caught automatically (.rules/.name excluded:
+      # covered by the record below). caBundle is regenerated per install.
+      def normWebhook(wh):
+        (wh | del(.rules) | del(.name)) as $w
+        | ($w | if has("clientConfig") then .clientConfig |= del(.caBundle) else . end) as $w2
+        | $w2
+        | .namespaceSelector = normSelector($w2.namespaceSelector)
+        | .objectSelector = normSelector($w2.objectSelector)
+        # Defaulted explicitly: filling in the documented server default
+        # is identity, so an absent field on one side does not spuriously
+        # diff against an explicit but equal value on the other side.
+        | .failurePolicy = ($w2.failurePolicy // "Fail")
+        | .matchPolicy = ($w2.matchPolicy // "Equivalent");
       [ .[] as $cfg
         | ($cfg.webhooks // [])[] as $wh
         | ($wh.rules // [])[] as $rule
@@ -700,10 +715,11 @@ legacy_webhook_rules_from_json() {
             resources: ($legacyResources | sort),
             operations: ($rule.operations // [] | sort),
             scope: ($rule.scope // "*"),
-            namespaceSelector: normSelector($wh.namespaceSelector),
-            objectSelector: normSelector($wh.objectSelector),
-            failurePolicy: ($wh.failurePolicy // "Fail"),
-            matchPolicy: ($wh.matchPolicy // "Equivalent")
+            # Rule fields not read by covers(): captured as-is (not
+            # whole-rule) so a legitimately widened non-legacy field
+            # (e.g. an added resource) does not false-fail the A5 byte diff.
+            ruleExtra: ($rule | del(.apiGroups, .apiVersions, .resources, .operations, .scope)),
+            webhookObject: normWebhook($wh)
           }
       ] | sort
     '
@@ -821,7 +837,7 @@ assert_legacy_webhook_rules_unchanged() {
   echo "${current}" > "${current_file}"
   if ! diff -u "${baseline_file}" "${current_file}" >"${WORK_DIR}/webhook-rules-diff.log" 2>&1; then
     cat "${WORK_DIR}/webhook-rules-diff.log" >&2
-    fail "${context}: legacy-kind webhook rules (validating and mutating) differ from '${baseline_label}' (apiGroups/apiVersions/resources/operations/scope, the owning webhook's namespaceSelector/objectSelector/failurePolicy/matchPolicy, or which type/config/webhook owns them) - see the diff above; an empty current side means the API stayed unreachable"
+    fail "${context}: legacy-kind webhook rules (validating and mutating) differ from '${baseline_label}' (apiGroups/apiVersions/resources/operations/scope, any attribute of the owning webhook object other than clientConfig.caBundle, or which type/config/webhook owns them) - see the diff above; an empty current side means the API stayed unreachable"
   fi
 }
 
@@ -841,31 +857,31 @@ legacy_webhook_capabilities() {
   '
 }
 
-# The owning webhook's selector and policy attributes, one entry per
-# (type, config, webhook). These have no "wider/narrower" ordering the way
-# a capability does, so they are compared for equality, not containment.
-legacy_webhook_selectors() {
-  jq -Sc '[ .[] | {type, config, webhook, namespaceSelector, objectSelector, failurePolicy, matchPolicy} ] | unique'
+# The owning webhook's full attribute object, one entry per (type, config,
+# webhook). These have no "wider/narrower" ordering the way a capability
+# does, so they are compared for equality, not containment.
+legacy_webhook_attributes() {
+  jq -Sc '[ .[] | {type, config, webhook, webhookObject} ] | unique'
 }
 
 # Tolerates added capabilities, fails on lost ones (type exact, so a missing
-# mutating rule can't hide behind a surviving validating one; selectors and
-# failurePolicy compared strictly). One read: wait_for_webhook_configs_reconciled
+# mutating rule can't hide behind a surviving validating one; webhook
+# attributes compared strictly). One read: wait_for_webhook_configs_reconciled
 # already proved reconcile completed, so a failed read here just fails the check.
 assert_legacy_webhook_rules_not_narrowed() {
   local baseline_label="$1" current_label="$2" context="$3"
   local baseline_file="${WORK_DIR}/${baseline_label}-webhook-rules.snapshot"
   local current_file="${WORK_DIR}/${current_label}-webhook-rules.snapshot"
-  local baseline_caps baseline_selectors
+  local baseline_caps baseline_attrs
   baseline_caps="$(legacy_webhook_capabilities < "${baseline_file}")"
-  baseline_selectors="$(legacy_webhook_selectors < "${baseline_file}")"
+  baseline_attrs="$(legacy_webhook_attributes < "${baseline_file}")"
   local current
   current="$(legacy_webhook_rules_snapshot || true)"
   if [ -z "${current}" ] || ! jq -e . >/dev/null 2>&1 <<< "${current}"; then
     fail "${context}: could not read legacy-kind webhook rules to compare against '${baseline_label}' - either none exist or the API stayed unreachable"
   fi
   echo "${current}" > "${current_file}"
-  local current_caps lost current_selectors selector_diff
+  local current_caps lost current_attrs attr_diff
   current_caps="$(legacy_webhook_capabilities <<< "${current}")"
   lost="$(jq -n --argjson base "${baseline_caps}" --argjson cur "${current_caps}" '
     def covers($c; $b):
@@ -882,17 +898,17 @@ assert_legacy_webhook_rules_not_narrowed() {
       | select(($l | length) > 0)
       | {kind: $k, lost: $l}
     ]')"
-  current_selectors="$(legacy_webhook_selectors <<< "${current}")"
+  current_attrs="$(legacy_webhook_attributes <<< "${current}")"
   # Subset, not equality: an added webhook for a legacy kind is a widening,
   # which this stage tolerates. Only a baseline entry going missing or
   # changing is a narrowing.
-  selector_diff="$(jq -n --argjson base "${baseline_selectors}" --argjson cur "${current_selectors}" \
+  attr_diff="$(jq -n --argjson base "${baseline_attrs}" --argjson cur "${current_attrs}" \
     '[ $base[] | select(. as $b | ($cur | index([$b]) ) == null) ]' 2>/dev/null || echo "JQ_FAILED")"
-  [ "${selector_diff}" = "[]" ] && selector_diff=""
-  if [ "${lost}" != "[]" ] || [ -n "${selector_diff}" ]; then
+  [ "${attr_diff}" = "[]" ] && attr_diff=""
+  if [ "${lost}" != "[]" ] || [ -n "${attr_diff}" ]; then
     echo "lost coverage: ${lost}" >&2
-    echo "selector/failurePolicy/matchPolicy diff: ${selector_diff}" >&2
-    fail "${context}: legacy-kind webhook coverage narrowed from '${baseline_label}' (type|apiGroups|apiVersion|operation|scope|sub triple(s) missing, or a namespaceSelector/objectSelector/failurePolicy/matchPolicy change on the owning webhook) - see above"
+    echo "owning-webhook attribute diff: ${attr_diff}" >&2
+    fail "${context}: legacy-kind webhook coverage narrowed from '${baseline_label}' (type|apiGroups|apiVersion|operation|scope|sub triple(s) missing, or any attribute change on the owning webhook other than clientConfig.caBundle) - see above"
   fi
 }
 
@@ -1279,7 +1295,7 @@ wait_for_webhook_configs_reconciled "A4" "baseline"
 # Not strict equality: baseline is the published 1.19 chart and this is
 # the local chart, so a legitimate capability addition must not fail this.
 assert_legacy_webhook_rules_not_narrowed "baseline" "post-upgrade" "A4"
-log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook selector/failurePolicy/matchPolicy change)"
+log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook attribute change)"
 
 # --- A4b: legacy-policy deletes keep succeeding while the write-block is active
 # Proves an operator can still delete a legacy policy on 1.20 to migrate off
