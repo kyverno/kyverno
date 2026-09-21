@@ -297,11 +297,20 @@ runs:
                   const { data: issue } = await github.rest.issues.create({
                     owner, repo, title, body
                   });
-                  core.warning(`Created issue #${issue.number} without the "${label}" label (create it in the repo to use it).`);
-                  if (extraLabels.length > 0) {
+                  // Later runs find the issue by its workflow-failure label, and
+                  // other automation by the extra ones, so an unlabelled issue
+                  // could never be closed. addLabels creates labels that do not
+                  // exist yet, which the create call above does not always do.
+                  try {
                     await github.rest.issues.addLabels({
-                      owner, repo, issue_number: issue.number, labels: extraLabels
+                      owner, repo, issue_number: issue.number, labels: [label, ...extraLabels]
                     });
+                    core.info(`Created issue #${issue.number}: ${issue.html_url}`);
+                  } catch (labelErr) {
+                    if (extraLabels.length > 0) {
+                      throw labelErr;
+                    }
+                    core.warning(`Created issue #${issue.number} without label (create label "${label}" in repo to use it).`);
                   }
                 } else {
                   throw err;
