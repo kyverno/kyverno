@@ -31,6 +31,15 @@ reviews:
   suggested_reviewers: true
   auto_assign_reviewers: true
   poem: false
+  # Stops CodeRabbit from continuing to spend review budget on a PR that's already been closed or merged out from
+  # under it mid-review — matches this repo's OSS rate limit being worth conserving.
+  abort_on_close: true
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
 
   auto_review:
     enabled: true
@@ -242,3 +251,9 @@ reviews:
         If this PR was merged into a release branch (release-1.x, release-v1.x), draft a release note entry for
         this change and post it as a comment on the merged PR. One plain-English paragraph: what changed and why
         it matters for Kyverno users. Include the PR number and any associated CVE if present.
+
+chat:
+  # Matches the platform default (true) — pinned explicitly so it's visible here rather than only in the
+  # dashboard. Lets CodeRabbit reply in a PR conversation without requiring an explicit @coderabbitai mention,
+  # in addition to always responding when it is mentioned.
+  auto_reply: true

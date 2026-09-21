@@ -37,7 +37,7 @@ jobs:
         run: |
           yq -o=json '.' .github/pr-readiness-checks.yml | jq -r '
             to_entries
-            | map("(if (" + .value.test + ") then {id: \"" + .key + "\", message: " + (.value.message | tojson) + "} else empty end)")
+            | map("(if (" + .value.test + ") then {id: \"" + .key + "\", message: (" + .value.message + ")} else empty end)")
             | join(",\n")
             | ".author.login as $author\n| [\n" + . + "\n]"
           ' > readiness-checks.jq
@@ -61,24 +61,25 @@ jobs:
           query='
             query($search: String!) {
               search(query: $search, type: ISSUE, first: 100) {
+                issueCount
                 nodes {
                   ... on PullRequest {
                     number
                     isDraft
                     author { login }
-                    labels(first: 20) { nodes { name } }
+                    labels(first: 100) { pageInfo { hasNextPage } nodes { name } }
                     commits(last: 1) {
                       nodes { commit {
-                        committedDate
-                        statusCheckRollup { contexts(first: 50) { nodes {
+                        statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes {
                           ... on CheckRun { name conclusion }
                           ... on StatusContext { context state }
                         } } }
                       } }
                     }
-                    comments(last: 30) { nodes { author { login } body createdAt } }
-                    reviewThreads(first: 50) {
-                      nodes { isResolved comments(last: 1) { nodes { createdAt } } }
+                    comments(last: 100) { pageInfo { hasPreviousPage } nodes { author { login } body createdAt } }
+                    reviewThreads(first: 100) {
+                      pageInfo { hasNextPage }
+                      nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } }
                     }
                   }
                 }
@@ -86,23 +87,50 @@ jobs:
             }'
           search="repo:${GITHUB_REPOSITORY} is:pr is:open draft:false -author:app/dependabot milestone:\"$milestone\""
 
-          gh api graphql -f query="$query" -f search="$search" --jq '.data.search.nodes[] | select(.isDraft | not)' \
-            > prs.jsonl
+          # Straight to a file, never through a bash variable — a PR comment/description can contain arbitrary
+          # multi-line text, and no shell variable capture of that content is assumed safe here.
+          gh api graphql -f query="$query" -f search="$search" > response.json
 
-          while IFS= read -r pr; do
-            number=$(jq -r '.number' <<< "$pr")
-            author=$(jq -r '.author.login' <<< "$pr")
-            findings=$(jq -c -f readiness-checks.jq <<< "$pr")
-            has_label=$(jq -r '[.labels.nodes[].name] | any(. == "needs-author-action")' <<< "$pr")
+          issue_count=$(jq -r '.data.search.issueCount' response.json)
+          jq -c '[.data.search.nodes[] | select(.isDraft | not)]' response.json > prs.json
+          returned_count=$(jq 'length' prs.json)
+          if [[ "$returned_count" -lt "$issue_count" ]]; then
+            echo "::warning::Search matched $issue_count PRs but only $returned_count were fetched (first: 100 page limit) — some open PRs in this milestone were not checked."
+          fi
+
+          for ((i = 0; i < returned_count; i++)); do
+            # Each PR isolated to its own file for the same reason — every jq call below reads pr.json directly
+            # rather than piping its (potentially multi-line) content through a shell variable.
+            jq -c ".[$i]" prs.json > pr.json
+
+            number=$(jq -r '.number' pr.json)
+            author=$(jq -r '.author.login' pr.json)
+            findings=$(jq -c -f readiness-checks.jq pr.json)
+            has_label=$(jq -r '[.labels.nodes[].name] | any(. == "needs-author-action")' pr.json)
+
+            # A truncated connection means the "no findings" verdict below is unproven, not confirmed — retaining
+            # the label in that case (rather than clearing it) is the fix CodeRabbit asked for on this workflow.
+            truncated=$(jq -r '
+              [.labels.pageInfo.hasNextPage,
+               (.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false),
+               .comments.pageInfo.hasPreviousPage,
+               .reviewThreads.pageInfo.hasNextPage]
+              | any' pr.json)
 
             if [[ "$findings" == "[]" ]]; then
-              [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
+              if [[ "$has_label" == "true" && "$truncated" == "false" ]]; then
+                gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
+              elif [[ "$truncated" == "true" ]]; then
+                echo "PR #$number: a connection was truncated, no findings seen — leaving the label as-is rather than clearing it on incomplete data."
+              fi
               continue
             fi
 
+            # $findings only ever holds the short id/message strings this repo's own pr-readiness-checks.yml
+            # defines — never PR content — so piping it through further jq calls here is fine.
             ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$findings")
             marker="<!-- pr-readiness-check: $ids -->"
-            already_reported=$(jq --arg m "$marker" '[.comments.nodes[] | select(.body | contains($m))] | length > 0' <<< "$pr")
+            already_reported=$(jq --arg m "$marker" '[.comments.nodes[] | select(.body | contains($m))] | length > 0' pr.json)
 
             [[ "$has_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "needs-author-action"
             [[ "$already_reported" == "true" ]] && continue
@@ -111,4 +139,4 @@ jobs:
             body=$(printf '%s\n\n@%s this PR needs a bit more before it can be reviewed:\n%s' "$marker" "$author" "$items")
 
             gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$body"
-          done < prs.jsonl
+          done

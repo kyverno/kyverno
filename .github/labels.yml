@@ -523,10 +523,16 @@ merge-conflicts:
   color: E65100
   description: PR has merge conflicts
 
+# Applied by .coderabbit.yaml's reviews.slop_detection.
 ai-generated:
   color: 8B5CF6
-  description: Flagged by CodeRabbit's slop detection as likely low-quality AI-generated content (.coderabbit.yaml's reviews.slop_detection)
+  description: Flagged by CodeRabbit's slop detection as likely low-quality AI-generated content
 
+# Applied and removed automatically by .github/workflows/pr-readiness-check.yaml.
 needs-author-action:
   color: B60205
-  description: Failing DCO, a merge conflict, or unresolved review threads — applied and removed automatically by pr-readiness-check.yaml
+  description: Failing DCO, a merge conflict, or unresolved review threads on this PR
+
+needs-human-review:
+  color: D93F0B
+  description: Copilot CLI autofix skipped a major-semver bump or hit its attempt cap — applied and removed automatically by copilot-cli-dependabot-autofix.yaml

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+#
+# Asks Dependabot to rebase itself when its own PR gets the `merge-conflicts` label (applied by the
+# `merge-conflicts` job in pr-labelling.yaml, which re-checks open PRs on every push — including a push to main
+# that didn't touch the PR itself). `rebase-strategy: disabled` in .github/dependabot.yml only turns off automatic
+# rebasing on every base-branch push (costly — it would re-run CI on every open Dependabot PR on every merge to
+# main, needed or not); the `@dependabot rebase` comment command works regardless of that setting and only fires
+# here when a conflict actually exists. Dependabot regenerates its own diff against the new base, whatever files
+# that touches (go.mod/go.sum or a GitHub Actions workflow file, depending on the PR).
+
+name: "Dependabot rebase on conflict"
+
+permissions: {}
+
+on:
+  pull_request:
+    types:
+      - labeled
+
+jobs:
+  rebase:
+    name: Ask Dependabot to rebase
+    if: >
+      github.event.label.name == 'merge-conflicts' &&
+      github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Comment @dependabot rebase, once per conflicting commit
+        run: |
+          set -euo pipefail
+          pr="${{ github.event.pull_request.number }}"
+          sha="${{ github.event.pull_request.head.sha }}"
+          marker="<!-- dependabot-rebase-on-conflict: $sha -->"
+
+          existing_comments=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json comments --jq '.comments[].body')
+          if grep -qF -- "$marker" <<< "$existing_comments"; then
+            echo "Already asked Dependabot to rebase this commit — skipping."
+            exit 0
+          fi
+
+          gh pr comment "$pr" --repo "${GITHUB_REPOSITORY}" --body "$marker
+          @dependabot rebase"
