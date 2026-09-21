@@ -2,18 +2,20 @@ package push
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 )
 
 func TestBuildImageValidCELPolicyAndException(t *testing.T) {
@@ -157,4 +159,59 @@ spec:
 	err = opts.execute(context.Background(), dir, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1")
+}
+
+func TestBuildImageRejectsNonFatalErrors(t *testing.T) {
+	// NonFatalErrors in results must be escalated to a hard failure at push time.
+	results := &policy.LoaderResults{
+		NonFatalErrors: []policy.LoaderError{{
+			Path:  "bad.yaml",
+			Error: fmt.Errorf("schema validation failed"),
+		}},
+	}
+	_, err := buildImage(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "push rejected")
+}
+
+func TestBuildImageRejectsVAPResources(t *testing.T) {
+	results := makeResultsWithVAPs()
+	_, err := buildImage(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "push rejected")
+	assert.Contains(t, err.Error(), "native Kubernetes admission policy")
+}
+
+func TestBuildImageExceptionOnlyBundleAlwaysChecksRefs(t *testing.T) {
+	// hasPolicies gate removed: an exception that references a policy not in
+	// the same bundle is always a packaging error, even if the bundle contains
+	// no policies at all.
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PolicyException",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "orphan-exception",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1alpha1.PolicyRef{{
+				Name: "nonexistent",
+				Kind: "ValidatingPolicy",
+			}},
+		},
+	}
+	results := &policy.LoaderResults{
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+	_, err := buildImage(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "references unknown policy")
+}
+
+// makeResultsWithVAPs returns a LoaderResults containing a fake VAP entry.
+func makeResultsWithVAPs() *policy.LoaderResults {
+	return &policy.LoaderResults{
+		VAPs: []admissionregistrationv1.ValidatingAdmissionPolicy{{}},
+	}
 }

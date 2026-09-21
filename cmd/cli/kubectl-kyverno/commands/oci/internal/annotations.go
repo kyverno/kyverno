@@ -12,14 +12,22 @@ const (
 	AnnotationName        = "io.kyverno.image.name"
 	AnnotationNamespace   = "io.kyverno.image.namespace"
 	AnnotationApiVersion  = "io.kyverno.image.apiVersion"
+	// AnnotationPath records the relative source path of the document within the
+	// original directory so that kyverno oci pull can restore the original layout.
+	AnnotationPath = "io.kyverno.image.path"
 )
+
+// Object is satisfied by all CEL policy kinds and CEL PolicyException which
+// embed metav1.ObjectMeta and metav1.TypeMeta so that GroupVersionKind is
+// available via GetObjectKind().
+type Object interface {
+	metav1.Object
+	runtime.Object
+}
 
 // Annotations builds OCI layer annotations for any Kubernetes object that is
 // also a runtime.Object (so GroupVersionKind is available).
-func Annotations(obj interface {
-	metav1.Object
-	runtime.Object
-}) map[string]string {
+func Annotations(obj Object) map[string]string {
 	if obj == nil {
 		return nil
 	}

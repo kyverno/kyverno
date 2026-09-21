@@ -105,7 +105,8 @@ func TestExtractAndSavePoliciesValidatingPolicy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
 
-	out, err := os.ReadFile(filepath.Join(dir, "require-labels.yaml"))
+	// Filename is now kind-prefixed to prevent collisions: validatingpolicy-<name>.yaml
+	out, err := os.ReadFile(filepath.Join(dir, "validatingpolicy-require-labels.yaml"))
 	assert.NoError(t, err)
 	assert.Contains(t, string(out), "require-labels")
 	assert.Contains(t, string(out), "ValidatingPolicy")
@@ -119,7 +120,8 @@ func TestExtractAndSavePoliciesDeletingPolicy(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
 
-	out, err := os.ReadFile(filepath.Join(dir, "delete-stale-pods.yaml"))
+	// Filename is now kind-prefixed: deletingpolicy-<name>.yaml
+	out, err := os.ReadFile(filepath.Join(dir, "deletingpolicy-delete-stale-pods.yaml"))
 	assert.NoError(t, err)
 	assert.Contains(t, string(out), "delete-stale-pods")
 }
@@ -168,4 +170,60 @@ data:
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported resource")
 	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
+}
+
+func TestExtractAndSavePoliciesRejectsVAP(t *testing.T) {
+	dir := t.TempDir()
+	// ValidatingAdmissionPolicy is a native k8s type in admissionregistration.k8s.io
+	// and must be rejected even though it is a CEL-based type.
+	vapYAML := `
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: check-labels
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]
+      operations: ["CREATE"]
+  validations:
+  - expression: "object.metadata.labels != null"
+`
+	layer := newTrackedLayer(t, []byte(vapYAML))
+
+	err := extractAndSavePolicies(layer, dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported resource")
+	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
+}
+
+func TestExtractAndSavePoliciesKindPrefixedFilenames(t *testing.T) {
+	// Two policies of different kinds with the same object name must produce
+	// two distinct files — no silent overwrite.
+	dir := t.TempDir()
+	multiYAML := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: same-name
+spec:
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: same-name
+`
+	layer := newTrackedLayer(t, []byte(multiYAML))
+
+	err := extractAndSavePolicies(layer, dir)
+	assert.NoError(t, err)
+
+	_, errVP := os.Stat(filepath.Join(dir, "validatingpolicy-same-name.yaml"))
+	assert.NoError(t, errVP, "expected validatingpolicy-same-name.yaml")
+	_, errMP := os.Stat(filepath.Join(dir, "mutatingpolicy-same-name.yaml"))
+	assert.NoError(t, errMP, "expected mutatingpolicy-same-name.yaml")
 }

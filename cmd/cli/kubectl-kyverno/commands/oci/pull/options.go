@@ -14,10 +14,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	extyaml "github.com/kyverno/kyverno/ext/yaml"
 )
 
 // legacyKinds lists kyverno.io/v1 kinds that are no longer accepted in OCI bundles.
@@ -28,10 +29,12 @@ var legacyKinds = map[string]bool{
 	"ClusterCleanupPolicy": true,
 }
 
-// celGroups lists the API groups for CEL policy kinds that are accepted in OCI bundles.
-var celGroups = map[string]bool{
-	"policies.kyverno.io":          true,
-	"admissionregistration.k8s.io": true,
+// allowedAPIGroups lists the API groups that are accepted in OCI bundles.
+// Only policies.kyverno.io/v1beta1 CEL kinds (ValidatingPolicy, MutatingPolicy,
+// GeneratingPolicy, DeletingPolicy, ImageValidatingPolicy, EnvoyPolicy,
+// HTTPPolicy, PolicyException) are supported.
+var allowedAPIGroups = map[string]bool{
+	"policies.kyverno.io": true,
 }
 
 type options struct {
@@ -150,19 +153,25 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 			)
 		}
 
-		group := strings.SplitN(apiVersion, "/", 2)[0]
-		if apiVersion != "" && !strings.Contains(apiVersion, "/") {
-			// core API group resources have no group prefix
-			group = ""
+		// Extract group from apiVersion (format: "group/version" or just "version" for core).
+		group := ""
+		if strings.Contains(apiVersion, "/") {
+			group = strings.SplitN(apiVersion, "/", 2)[0]
 		}
-		if !celGroups[group] {
+		if !allowedAPIGroups[group] {
 			return fmt.Errorf(
-				"unsupported resource %s/%s %q; only CEL policy kinds are supported in OCI bundles",
+				"unsupported resource %s/%s %q; only policies.kyverno.io/v1beta1 CEL policy kinds are supported in OCI bundles",
 				apiVersion, kind, objName,
 			)
 		}
 
-		pp := filepath.Join(dir, objName+".yaml")
+		// Include kind in filename to prevent collisions when multiple kinds share the same name.
+		// Use securejoin to prevent path traversal attacks if objName contains "../".
+		filename := strings.ToLower(kind) + "-" + objName + ".yaml"
+		pp, err := securejoin.SecureJoin(dir, filename)
+		if err != nil {
+			return fmt.Errorf("constructing output path for %s %q: %v", kind, objName, err)
+		}
 		fmt.Fprintf(os.Stderr, "Saving %s [%s] to disk [%s]...\n", kind, objName, pp)
 		if err := os.WriteFile(pp, doc, 0o600); err != nil {
 			return fmt.Errorf("creating file %s: %v", pp, err)
