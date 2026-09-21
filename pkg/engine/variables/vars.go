@@ -480,6 +480,7 @@ func valFromReferenceToString(value interface{}, operator string) (string, error
 	}
 }
 
+// FindAndShiftReferences shifts references in the value string using regex rules.
 func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string {
 	return regex.FindAndShiftReferences(log, value, shift, pivot)
 }

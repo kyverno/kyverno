@@ -92,6 +92,11 @@ func (ctx *context) addJSON(dataMap map[string]interface{}, overwriteMaps bool) 
 	return nil
 }
 
+// AddJSON merges json data into the context.
+func (ctx *context) AddJSON(dataMap map[string]interface{}, overwriteMaps bool) error {
+	return ctx.addJSON(dataMap, overwriteMaps)
+}
+
 func (ctx *context) QueryOperation() string {
 	if ctx.operation != "" {
 		return string(ctx.operation)

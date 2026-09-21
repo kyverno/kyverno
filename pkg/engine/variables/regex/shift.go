@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 )
 
+// FindAndShiftReferences searches for references matching RegexReferences in value and shifts their path based on pivot.
 func FindAndShiftReferences(log logr.Logger, value, shift, pivot string) string {
 	for _, reference := range RegexReferences.FindAllString(value, -1) {
 		initial := reference[:2] == `$(`
