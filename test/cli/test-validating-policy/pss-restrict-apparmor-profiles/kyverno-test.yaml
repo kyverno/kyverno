@@ -1,0 +1,30 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-restrict-apparmor-profiles
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: restrict-apparmor-profiles
+  resources:
+  - annotation-unconfined
+  - annotation-bogus
+  - pod-profile-unconfined
+  - container-profile-unconfined
+  - init-profile-unconfined
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: restrict-apparmor-profiles
+  resources:
+  - annotation-localhost
+  - annotation-runtime-default
+  - annotation-empty
+  - annotation-unrelated
+  - profile-localhost
+  - no-apparmor
+  result: pass

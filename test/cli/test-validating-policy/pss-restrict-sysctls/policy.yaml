@@ -1,0 +1,32 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: restrict-sysctls
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  validations:
+    # Safe sysctl allow-list, matching Kubernetes Pod Security Admission at policy version 1.37.
+    - expression: >-
+        object.spec.?securityContext.?sysctls.orValue([]).all(s, s.name in [
+          'kernel.shm_rmid_forced',
+          'net.ipv4.ip_local_port_range',
+          'net.ipv4.tcp_syncookies',
+          'net.ipv4.ping_group_range',
+          'net.ipv4.ip_unprivileged_port_start',
+          'net.ipv4.ip_local_reserved_ports',
+          'net.ipv4.tcp_keepalive_time',
+          'net.ipv4.tcp_fin_timeout',
+          'net.ipv4.tcp_keepalive_intvl',
+          'net.ipv4.tcp_keepalive_probes',
+          'net.ipv4.tcp_rmem',
+          'net.ipv4.tcp_wmem',
+          'net.ipv4.tcp_slow_start_after_idle',
+          'net.ipv4.tcp_notsent_lowat'])
+      message: >-
+        Sysctls must be restricted to safe values. The field spec.securityContext.sysctls[*].name
+        must be one of the allowed safe sysctls.
