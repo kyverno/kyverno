@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-disallow-capabilities-strict
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-capabilities-strict
+  resources:
+  - linux-drop-net-raw
+  - linux-add-sys-admin
+  - linux-init-add-sys-admin
+  - linux-ephemeral-add-sys-admin
+  - linux-explicit-os-add-sys-admin
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-capabilities-strict
+  resources:
+  - linux-drop-all
+  - linux-drop-all-add-net-bind
+  - windows-no-security-context
+  result: pass

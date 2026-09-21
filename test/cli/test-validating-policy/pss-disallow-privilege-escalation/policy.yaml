@@ -1,0 +1,30 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-privilege-escalation
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  variables:
+    - name: allContainers
+      expression: >-
+        object.spec.containers
+        + object.spec.?initContainers.orValue([])
+        + object.spec.?ephemeralContainers.orValue([])
+  validations:
+    # Windows pods are exempt: the Pod API rejects allowPrivilegeEscalation when
+    # spec.os.name is windows, so PSA admits them with the field unset.
+    - expression: >-
+        object.spec.?os.?name.orValue('') == 'windows' ||
+        variables.allContainers.all(c,
+          c.?securityContext.?allowPrivilegeEscalation.orValue(true) == false)
+      message: >-
+        Privilege escalation is disallowed. The fields
+        spec.containers[*].securityContext.allowPrivilegeEscalation,
+        spec.initContainers[*].securityContext.allowPrivilegeEscalation,
+        and spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation
+        must be set to `false`. Windows Pods are exempt.
