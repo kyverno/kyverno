@@ -25,6 +25,8 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const supportedAPIVersion = "policies.kyverno.io/v1beta1"
+
 type options struct {
 	imageRef string
 }
@@ -85,8 +87,12 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 	}
 
 	seen := make(map[string]bool)
-	checkDuplicate := func(obj internal.Object) error {
+	checkResource := func(obj internal.Object) error {
 		gvk := obj.GetObjectKind().GroupVersionKind()
+		if gv := gvk.GroupVersion().String(); gv != supportedAPIVersion {
+			return fmt.Errorf("unsupported resource %s/%s %q; only %s CEL kinds are supported in OCI bundles",
+				gv, gvk.Kind, obj.GetName(), supportedAPIVersion)
+		}
 		key := fmt.Sprintf("%s/%s/%s", gvk.Kind, obj.GetNamespace(), obj.GetName())
 		if seen[key] {
 			return fmt.Errorf("duplicate resource identity %s", key)
@@ -101,7 +107,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if !ok {
 			return nil, fmt.Errorf("ValidatingPolicy does not implement runtime.Object")
 		}
-		if err := checkDuplicate(obj); err != nil {
+		if err := checkResource(obj); err != nil {
 			return nil, err
 		}
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
@@ -109,7 +115,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		}
 	}
 	for _, pol := range results.EnvoyPolicies {
-		if err := checkDuplicate(pol); err != nil {
+		if err := checkResource(pol); err != nil {
 			return nil, err
 		}
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
@@ -117,7 +123,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		}
 	}
 	for _, pol := range results.HTTPPolicies {
-		if err := checkDuplicate(pol); err != nil {
+		if err := checkResource(pol); err != nil {
 			return nil, err
 		}
 		if _, errs := vCompiler.Compile(pol, nil); len(errs) > 0 {
@@ -131,7 +137,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if !ok {
 			return nil, fmt.Errorf("MutatingPolicy does not implement runtime.Object")
 		}
-		if err := checkDuplicate(obj); err != nil {
+		if err := checkResource(obj); err != nil {
 			return nil, err
 		}
 		if _, errs := mCompiler.Compile(pol, nil); len(errs) > 0 {
@@ -145,7 +151,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if !ok {
 			return nil, fmt.Errorf("GeneratingPolicy does not implement runtime.Object")
 		}
-		if err := checkDuplicate(obj); err != nil {
+		if err := checkResource(obj); err != nil {
 			return nil, err
 		}
 		if _, errs := gCompiler.Compile(pol, nil); len(errs) > 0 {
@@ -159,7 +165,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if !ok {
 			return nil, fmt.Errorf("DeletingPolicy does not implement runtime.Object")
 		}
-		if err := checkDuplicate(obj); err != nil {
+		if err := checkResource(obj); err != nil {
 			return nil, err
 		}
 		if _, errs := dCompiler.Compile(pol, nil); len(errs) > 0 {
@@ -175,7 +181,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if !ok {
 			return nil, fmt.Errorf("ImageValidatingPolicy does not implement runtime.Object")
 		}
-		if err := checkDuplicate(obj); err != nil {
+		if err := checkResource(obj); err != nil {
 			return nil, err
 		}
 		if _, errs := ivpCompiler.Compile(pol, nil); len(errs) > 0 {
@@ -187,7 +193,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 	// an exception-only bundle that references a policy not present in the bundle is
 	// always a packaging error that must be caught before publication.
 	for _, ex := range results.PolicyCelExceptions {
-		if err := checkDuplicate(ex); err != nil {
+		if err := checkResource(ex); err != nil {
 			return nil, err
 		}
 		if errs := ex.Validate(); len(errs) > 0 {

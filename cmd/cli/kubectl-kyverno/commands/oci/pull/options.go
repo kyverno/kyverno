@@ -115,8 +115,8 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 }
 
 // extractAndSavePolicies reads CEL policy documents from a single layer blob and
-// writes each accepted document to disk. Legacy kyverno.io/v1 policy kinds are
-// rejected. Unknown Kubernetes objects are skipped with a warning.
+// writes each accepted document to disk. Legacy kyverno.io/v1 policy kinds and
+// unknown or non-CEL Kubernetes resources are rejected with an error.
 //
 // The layer's ReadCloser is closed at the end of the call regardless of outcome.
 func extractAndSavePolicies(layer v1.Layer, dir string) error {

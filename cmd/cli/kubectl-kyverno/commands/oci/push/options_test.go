@@ -214,3 +214,22 @@ func makeResultsWithVAPs() *policy.LoaderResults {
 		VAPs: []admissionregistrationv1.ValidatingAdmissionPolicy{{}},
 	}
 }
+
+func TestBuildImageRejectsUnsupportedAPIVersion(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ValidatingPolicy",
+			APIVersion: "policies.kyverno.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-labels-alpha",
+		},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vp},
+	}
+	_, err := buildImage(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported resource")
+	assert.Contains(t, err.Error(), "policies.kyverno.io/v1alpha1")
+}
