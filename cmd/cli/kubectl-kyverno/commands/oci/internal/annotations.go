@@ -12,9 +12,6 @@ const (
 	AnnotationName        = "io.kyverno.image.name"
 	AnnotationNamespace   = "io.kyverno.image.namespace"
 	AnnotationApiVersion  = "io.kyverno.image.apiVersion"
-	// AnnotationPath records the relative source path of the document within the
-	// original directory so that kyverno oci pull can restore the original layout.
-	AnnotationPath = "io.kyverno.image.path"
 )
 
 // Object is satisfied by all CEL policy kinds and CEL PolicyException which
