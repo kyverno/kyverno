@@ -1455,9 +1455,17 @@ apply_vpol_fixture
 kubectl delete clusterpolicy "${CLUSTERPOLICY_NAME}" --ignore-not-found >/dev/null
 
 log "B5: re-running the upgrade without the opt-out, now expecting it to succeed"
+PRE_B5_IMAGES="$(controller_deployment_images)"
+[ -n "${PRE_B5_IMAGES}" ] && [ "${PRE_B5_IMAGES}" != "[]" ] && [ "${PRE_B5_IMAGES}" != "null" ] \
+  || fail "B5: could not read the controller deployment images before the change, so the image gate below cannot tell a real rollout from a failed read"
 run_local_upgrade "" "${WORK_DIR}/b5-upgrade.log" \
   || { cat "${WORK_DIR}/b5-upgrade.log" >&2; fail "B5: the upgrade was expected to succeed once no legacy CRs remain"; }
+wait_for_controller_images_changed "B5" "${PRE_B5_IMAGES}"
 wait_kyverno_ready
+# Before anything is asserted: release-1.19 ships the ValidatingPolicy CRDs
+# too, so a terminating-but-Ready pre-upgrade pod could serve this deny and
+# mask a broken new build.
+wait_for_no_stale_controller_pods "B5"
 
 log "B5: verifying the ValidatingPolicy enforces post-upgrade"
 wait_for_deny "B5 ValidatingPolicy enforcement post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${VPOL_DENY_MSG}"
