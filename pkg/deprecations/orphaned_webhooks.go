@@ -85,38 +85,61 @@ func FindOrphanedWebhookConfigs(checkers map[string]WebhookExistenceChecker) ([]
 	return found, errors.Join(errs...)
 }
 
+// qualifiedTargets renders each name in foundValidating/foundMutating as a kubectl
+// resource/name target ("validatingwebhookconfiguration/<name>",
+// "mutatingwebhookconfiguration/<name>"), sorted within each kind. A name's kind must be kept
+// alongside it (never merged into one untyped list) -- a single object name only exists as one
+// kind or the other, so a combined "kubectl delete validatingwebhookconfigurations,
+// mutatingwebhookconfigurations <all names>" would apply every name to both resource types and
+// fail with a spurious NotFound for whichever kind that particular name isn't.
+func qualifiedTargets(foundValidating, foundMutating []string) []string {
+	validating := append([]string(nil), foundValidating...)
+	sort.Strings(validating)
+	mutating := append([]string(nil), foundMutating...)
+	sort.Strings(mutating)
+
+	targets := make([]string, 0, len(validating)+len(mutating))
+	for _, name := range validating {
+		targets = append(targets, "validatingwebhookconfiguration/"+name)
+	}
+	for _, name := range mutating {
+		targets = append(targets, "mutatingwebhookconfiguration/"+name)
+	}
+	return targets
+}
+
 // OrphanedWebhookConfigSummary builds a human-readable, deterministic summary of the orphaned
 // webhook configuration objects found, for use in the startup L0 log. Unlike a legacy policy
 // custom resource, these objects have no replacement to migrate to -- they're dead leftovers
 // from an old install -- so the guidance is simply to delete them, and the exact remediation
-// command is included inline. ok is false when found is empty, in which case message is empty
+// command is included inline, with each name qualified by its actual kind (kubectl's
+// resource/name syntax) so the command works regardless of which kind(s) were found. ok is
+// false when both foundValidating and foundMutating are empty, in which case message is empty
 // and callers should not log or emit anything.
-func OrphanedWebhookConfigSummary(found []string) (message string, ok bool) {
-	if len(found) == 0 {
+func OrphanedWebhookConfigSummary(foundValidating, foundMutating []string) (message string, ok bool) {
+	targets := qualifiedTargets(foundValidating, foundMutating)
+	if len(targets) == 0 {
 		return "", false
 	}
-	sorted := append([]string(nil), found...)
-	sort.Strings(sorted)
 	return fmt.Sprintf(
 		"orphaned webhook configuration(s) from an old Kyverno install found and can be safely deleted, "+
-			"for example: kubectl delete validatingwebhookconfigurations,mutatingwebhookconfigurations %s; "+
-			"these are not created or used by this version of Kyverno",
-		strings.Join(sorted, " "),
+			"for example: kubectl delete %s; these are not created or used by this version of Kyverno",
+		strings.Join(targets, " "),
 	), true
 }
 
 // OrphanedWebhookConfigEventNote builds a short summary of the orphaned webhook configuration
 // objects found, suitable for a Kubernetes Event Note. Like LegacyPolicyEventNote, it stays
-// well under the 1024-byte Note limit even when every known orphaned name is present.
-func OrphanedWebhookConfigEventNote(found []string) (message string, ok bool) {
-	if len(found) == 0 {
+// well under the 1024-byte Note limit even when every known orphaned name is present. Each name
+// is qualified by its kind, for the same reason as OrphanedWebhookConfigSummary.
+func OrphanedWebhookConfigEventNote(foundValidating, foundMutating []string) (message string, ok bool) {
+	targets := qualifiedTargets(foundValidating, foundMutating)
+	if len(targets) == 0 {
 		return "", false
 	}
-	sorted := append([]string(nil), found...)
-	sort.Strings(sorted)
 	return fmt.Sprintf(
 		"orphaned webhook configuration(s) from an old Kyverno install found (%s); these can be safely "+
 			"deleted, they are not created or used by this version of Kyverno",
-		strings.Join(sorted, ", "),
+		strings.Join(targets, ", "),
 	), true
 }

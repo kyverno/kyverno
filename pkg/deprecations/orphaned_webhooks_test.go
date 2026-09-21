@@ -66,52 +66,72 @@ func TestFindOrphanedWebhookConfigs(t *testing.T) {
 
 func TestOrphanedWebhookConfigSummary(t *testing.T) {
 	tests := []struct {
-		name   string
-		found  []string
-		wantOK bool
+		name            string
+		foundValidating []string
+		foundMutating   []string
+		wantOK          bool
 	}{
 		{
 			name:   "none found",
-			found:  nil,
 			wantOK: false,
 		},
 		{
-			name:   "empty slice",
-			found:  []string{},
-			wantOK: false,
+			name:            "empty slices",
+			foundValidating: []string{},
+			foundMutating:   []string{},
+			wantOK:          false,
 		},
 		{
-			name:   "one found",
-			found:  []string{"kyverno-validating-webhook-cfg"},
-			wantOK: true,
+			name:            "one validating found",
+			foundValidating: []string{"kyverno-validating-webhook-cfg"},
+			wantOK:          true,
 		},
 		{
-			name:   "multiple found",
-			found:  []string{"kyverno-validating-webhook-cfg", "kyverno-resource-mutating-webhook-cfg-debug"},
-			wantOK: true,
+			name:          "one mutating found",
+			foundMutating: []string{"kyverno-resource-mutating-webhook-cfg-debug"},
+			wantOK:        true,
+		},
+		{
+			name:            "mixed kinds found",
+			foundValidating: []string{"kyverno-validating-webhook-cfg"},
+			foundMutating:   []string{"kyverno-resource-mutating-webhook-cfg-debug"},
+			wantOK:          true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			message, ok := OrphanedWebhookConfigSummary(tt.found)
+			message, ok := OrphanedWebhookConfigSummary(tt.foundValidating, tt.foundMutating)
 			if ok != tt.wantOK {
 				t.Fatalf("OrphanedWebhookConfigSummary() ok = %v, want %v", ok, tt.wantOK)
 			}
-			if tt.wantOK {
-				if message == "" {
-					t.Errorf("OrphanedWebhookConfigSummary() expected a non-empty message")
+			if !tt.wantOK {
+				if message != "" {
+					t.Errorf("OrphanedWebhookConfigSummary() expected an empty message, got %q", message)
 				}
-				if !strings.Contains(message, "kubectl delete") {
-					t.Errorf("OrphanedWebhookConfigSummary() = %q, expected remediation guidance", message)
+				return
+			}
+			if message == "" {
+				t.Errorf("OrphanedWebhookConfigSummary() expected a non-empty message")
+			}
+			if !strings.Contains(message, "kubectl delete") {
+				t.Errorf("OrphanedWebhookConfigSummary() = %q, expected remediation guidance", message)
+			}
+			// Each name must be qualified with its actual resource type -- a bare "kubectl
+			// delete validatingwebhookconfigurations,mutatingwebhookconfigurations <names>"
+			// applies every name to both types and fails with a spurious NotFound for
+			// whichever type a given name isn't.
+			for _, name := range tt.foundValidating {
+				want := "validatingwebhookconfiguration/" + name
+				if !strings.Contains(message, want) {
+					t.Errorf("OrphanedWebhookConfigSummary() = %q, missing qualified target %q", message, want)
 				}
-				for _, name := range tt.found {
-					if !strings.Contains(message, name) {
-						t.Errorf("OrphanedWebhookConfigSummary() = %q, missing name %q", message, name)
-					}
+			}
+			for _, name := range tt.foundMutating {
+				want := "mutatingwebhookconfiguration/" + name
+				if !strings.Contains(message, want) {
+					t.Errorf("OrphanedWebhookConfigSummary() = %q, missing qualified target %q", message, want)
 				}
-			} else if message != "" {
-				t.Errorf("OrphanedWebhookConfigSummary() expected an empty message, got %q", message)
 			}
 		})
 	}
@@ -119,28 +139,26 @@ func TestOrphanedWebhookConfigSummary(t *testing.T) {
 
 func TestOrphanedWebhookConfigEventNote(t *testing.T) {
 	tests := []struct {
-		name   string
-		found  []string
-		wantOK bool
+		name            string
+		foundValidating []string
+		foundMutating   []string
+		wantOK          bool
 	}{
 		{
 			name:   "none found",
-			found:  nil,
 			wantOK: false,
 		},
 		{
-			name: "all known names present",
-			found: append(
-				append([]string(nil), OrphanedValidatingWebhookConfigNames...),
-				OrphanedMutatingWebhookConfigNames...,
-			),
-			wantOK: true,
+			name:            "all known names present",
+			foundValidating: append([]string(nil), OrphanedValidatingWebhookConfigNames...),
+			foundMutating:   append([]string(nil), OrphanedMutatingWebhookConfigNames...),
+			wantOK:          true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			note, ok := OrphanedWebhookConfigEventNote(tt.found)
+			note, ok := OrphanedWebhookConfigEventNote(tt.foundValidating, tt.foundMutating)
 			if ok != tt.wantOK {
 				t.Fatalf("OrphanedWebhookConfigEventNote() ok = %v, want %v", ok, tt.wantOK)
 			}

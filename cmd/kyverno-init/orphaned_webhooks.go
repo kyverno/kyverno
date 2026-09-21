@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/kyverno/kyverno/cmd/internal"
@@ -36,7 +37,7 @@ func checkOrphanedWebhookConfigs(ctx context.Context, setup internal.SetupResult
 	ctx, cancel := context.WithTimeout(ctx, orphanedWebhookConfigCheckTimeout)
 	defer cancel()
 
-	found, err := findOrphanedWebhookConfigs(ctx, setup)
+	foundValidating, foundMutating, err := findOrphanedWebhookConfigs(ctx, setup)
 	if err != nil {
 		// The result is partial when a checker fails, so it is not presented as
 		// authoritative: skip the aggregate summary log and Warning Event below, which
@@ -45,7 +46,7 @@ func checkOrphanedWebhookConfigs(ctx context.Context, setup internal.SetupResult
 		return
 	}
 
-	message, ok := deprecations.OrphanedWebhookConfigSummary(found)
+	message, ok := deprecations.OrphanedWebhookConfigSummary(foundValidating, foundMutating)
 	if !ok {
 		return
 	}
@@ -55,17 +56,20 @@ func checkOrphanedWebhookConfigs(ctx context.Context, setup internal.SetupResult
 
 	// The Event Note has its own, much shorter, size limit than a log message, so it
 	// gets its own terse summary rather than reusing the verbose L0 log message.
-	if note, ok := deprecations.OrphanedWebhookConfigEventNote(found); ok {
+	if note, ok := deprecations.OrphanedWebhookConfigEventNote(foundValidating, foundMutating); ok {
 		emitDeprecationEvent(ctx, logger, setup, event.OrphanedWebhookConfigPresent, note)
 	}
 }
 
 // findOrphanedWebhookConfigs is a thin adapter from the typed client to
-// deprecations.FindOrphanedWebhookConfigs, the shared pure decision core.
-func findOrphanedWebhookConfigs(ctx context.Context, setup internal.SetupResult) ([]string, error) {
-	checkers := map[string]deprecations.WebhookExistenceChecker{}
+// deprecations.FindOrphanedWebhookConfigs, the shared pure decision core. It calls that
+// function once per webhook kind (rather than merging both kinds' names into one lookup) so the
+// found names keep their kind attached -- deprecations.OrphanedWebhookConfigSummary/EventNote
+// need that to build a delete command that qualifies each name with its actual resource type.
+func findOrphanedWebhookConfigs(ctx context.Context, setup internal.SetupResult) (foundValidating, foundMutating []string, err error) {
+	validatingCheckers := map[string]deprecations.WebhookExistenceChecker{}
 	for _, name := range deprecations.OrphanedValidatingWebhookConfigNames {
-		checkers[name] = func() (bool, error) {
+		validatingCheckers[name] = func() (bool, error) {
 			_, err := setup.KubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
@@ -76,8 +80,9 @@ func findOrphanedWebhookConfigs(ctx context.Context, setup internal.SetupResult)
 			return true, nil
 		}
 	}
+	mutatingCheckers := map[string]deprecations.WebhookExistenceChecker{}
 	for _, name := range deprecations.OrphanedMutatingWebhookConfigNames {
-		checkers[name] = func() (bool, error) {
+		mutatingCheckers[name] = func() (bool, error) {
 			_, err := setup.KubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, name, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
@@ -88,5 +93,8 @@ func findOrphanedWebhookConfigs(ctx context.Context, setup internal.SetupResult)
 			return true, nil
 		}
 	}
-	return deprecations.FindOrphanedWebhookConfigs(checkers)
+
+	foundValidating, validatingErr := deprecations.FindOrphanedWebhookConfigs(validatingCheckers)
+	foundMutating, mutatingErr := deprecations.FindOrphanedWebhookConfigs(mutatingCheckers)
+	return foundValidating, foundMutating, errors.Join(validatingErr, mutatingErr)
 }
