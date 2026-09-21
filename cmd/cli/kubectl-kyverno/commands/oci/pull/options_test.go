@@ -289,3 +289,89 @@ spec:
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported resource")
 }
+
+func TestExtractAndSavePoliciesNamespacedResourceIncludesNamespaceInFilename(t *testing.T) {
+	// A namespaced CEL policy name is unique within its namespace.
+	// When multiple namespaces contain a policy with the same name, both must be saved
+	// without collision or silent overwrites.
+	dir := t.TempDir()
+	multiYAML := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: check-pod
+  namespace: team-a
+spec:
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: check-pod
+  namespace: team-b
+spec:
+  validations:
+  - expression: "true"
+`
+	layer := newTrackedLayer(t, []byte(multiYAML))
+	err := extractAndSavePolicies(layer, dir)
+	assert.NoError(t, err)
+
+	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a-check-pod.yaml"))
+	assert.NoError(t, errA, "expected namespacedvalidatingpolicy-team-a-check-pod.yaml")
+	assert.Contains(t, string(outA), "team-a")
+
+	outB, errB := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-b-check-pod.yaml"))
+	assert.NoError(t, errB, "expected namespacedvalidatingpolicy-team-b-check-pod.yaml")
+	assert.Contains(t, string(outB), "team-b")
+}
+
+func TestExtractAndSavePoliciesRejectsDuplicateIdentity(t *testing.T) {
+	dir := t.TempDir()
+	dupYAML := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: check-pod
+  namespace: team-a
+spec:
+  validations:
+  - expression: "true"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedValidatingPolicy
+metadata:
+  name: check-pod
+  namespace: team-a
+spec:
+  validations:
+  - expression: "true"
+`
+	layer := newTrackedLayer(t, []byte(dupYAML))
+	err := extractAndSavePolicies(layer, dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate resource identity")
+}
+
+func TestExtractAndSavePoliciesRejectsDuplicateAcrossLayers(t *testing.T) {
+	dir := t.TempDir()
+	yamlDoc := `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-labels
+spec:
+  validations:
+  - expression: "true"
+`
+	seen := make(map[string]bool)
+	layer1 := newTrackedLayer(t, []byte(yamlDoc))
+	err := extractAndSavePolicies(layer1, dir, seen)
+	assert.NoError(t, err)
+
+	layer2 := newTrackedLayer(t, []byte(yamlDoc))
+	err = extractAndSavePolicies(layer2, dir, seen)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "duplicate resource identity")
+}

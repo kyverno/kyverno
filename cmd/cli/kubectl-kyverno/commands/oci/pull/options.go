@@ -14,10 +14,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	extyaml "github.com/kyverno/kyverno/ext/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
+	extyaml "github.com/kyverno/kyverno/ext/yaml"
 )
 
 // legacyKinds lists kyverno.io/v1 kinds that are no longer accepted in OCI bundles.
@@ -99,13 +100,14 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	if err != nil {
 		return fmt.Errorf("getting image layers: %v", err)
 	}
+	seen := make(map[string]bool)
 	for _, layer := range l {
 		lmt, err := layer.MediaType()
 		if err != nil {
 			return fmt.Errorf("getting layer media type: %v", err)
 		}
 		if lmt == internal.PolicyLayerMediaType {
-			if err := extractAndSavePolicies(layer, dir); err != nil {
+			if err := extractAndSavePolicies(layer, dir, seen); err != nil {
 				return err
 			}
 		}
@@ -119,7 +121,7 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 // unknown or non-CEL Kubernetes resources are rejected with an error.
 //
 // The layer's ReadCloser is closed at the end of the call regardless of outcome.
-func extractAndSavePolicies(layer v1.Layer, dir string) error {
+func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool) error {
 	blob, err := layer.Compressed()
 	if err != nil {
 		return fmt.Errorf("getting layer blob: %v", err)
@@ -136,7 +138,18 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 		return fmt.Errorf("splitting YAML documents: %v", err)
 	}
 
+	var seenTracker map[string]bool
+	if len(seen) > 0 && seen[0] != nil {
+		seenTracker = seen[0]
+	} else {
+		seenTracker = make(map[string]bool)
+	}
+
 	for _, doc := range documents {
+		if len(strings.TrimSpace(string(doc))) == 0 {
+			continue
+		}
+
 		jsonBytes, err := k8syaml.ToJSON(doc)
 		if err != nil {
 			return fmt.Errorf("converting document to JSON: %v", err)
@@ -149,10 +162,7 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 		kind := us.GetKind()
 		apiVersion := us.GetAPIVersion()
 		objName := us.GetName()
-
-		if len(strings.TrimSpace(string(doc))) == 0 {
-			continue
-		}
+		ns := us.GetNamespace()
 
 		if strings.TrimSpace(kind) == "" || strings.TrimSpace(objName) == "" {
 			return fmt.Errorf("resource missing kind or metadata.name")
@@ -173,9 +183,19 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 			)
 		}
 
-		// Include kind in filename to prevent collisions when multiple kinds share the same name.
+		identity := fmt.Sprintf("%s/%s/%s", kind, ns, objName)
+		if seenTracker[identity] {
+			return fmt.Errorf("duplicate resource identity %s", identity)
+		}
+		seenTracker[identity] = true
+
+		// Include kind and namespace (if present) in filename to prevent collisions
+		// when multiple resources share the same name across kinds or namespaces.
 		// Use securejoin to prevent path traversal attacks if objName contains "../".
 		filename := strings.ToLower(kind) + "-" + objName + ".yaml"
+		if ns != "" {
+			filename = strings.ToLower(kind) + "-" + ns + "-" + objName + ".yaml"
+		}
 		pp, err := securejoin.SecureJoin(dir, filename)
 		if err != nil {
 			return fmt.Errorf("constructing output path for %s %q: %v", kind, objName, err)
