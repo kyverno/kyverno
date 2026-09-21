@@ -233,3 +233,47 @@ func TestBuildImageRejectsUnsupportedAPIVersion(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported resource")
 	assert.Contains(t, err.Error(), "policies.kyverno.io/v1alpha1")
 }
+
+func TestBuildImageRejectsInvalidExceptionCELExpression(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ValidatingPolicy",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-labels",
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+	polex := &policiesv1beta1.PolicyException{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PolicyException",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "exempt-labels",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{
+				{Kind: "ValidatingPolicy", Name: "check-labels"},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "invalid-condition",
+					Expression: "invalid.syntax == (((",
+				},
+			},
+		},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies:  []policiesv1beta1.ValidatingPolicyLike{vp},
+		PolicyCelExceptions: []*policiesv1beta1.PolicyException{polex},
+	}
+	_, err := buildImage(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validating CEL expression in policy exception")
+}

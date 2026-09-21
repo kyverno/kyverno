@@ -17,6 +17,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
@@ -198,6 +199,9 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		}
 		if errs := ex.Validate(); len(errs) > 0 {
 			return nil, fmt.Errorf("validating policy exception %q: %v", ex.GetName(), errs.ToAggregate())
+		}
+		if errs := celcompiler.CompilePolicyExceptionMatchConditions(ex.Spec.MatchConditions, nil); len(errs) > 0 {
+			return nil, fmt.Errorf("validating CEL expression in policy exception %q: %v", ex.GetName(), errs.ToAggregate())
 		}
 		for _, ref := range ex.Spec.PolicyRefs {
 			refKey := fmt.Sprintf("%s/%s/%s", ref.Kind, "", ref.Name)
