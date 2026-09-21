@@ -65,12 +65,8 @@ func appendCELLayer(img v1.Image, obj internal.Object) (v1.Image, error) {
 	})
 }
 
-// buildImage validates the loaded CEL resources (schema, duplicate identities,
-// CEL expressions, and exception references) and constructs the OCI image.
-// It rejects any non-CEL resources that leaked through the loader.
+// buildImage validates loaded CEL resources and constructs the OCI image.
 func buildImage(results *policy.LoaderResults) (v1.Image, error) {
-	// Reject non-CEL kinds that policy.Load may populate even with allowLegacyPolicies=false.
-	// A directory containing VAPs, MAPs, or legacy Policies must fail push explicitly.
 	if len(results.Policies) > 0 {
 		return nil, fmt.Errorf("push rejected: directory contains %d legacy kyverno.io policy resource(s); only policies.kyverno.io/v1beta1 CEL kinds are supported in OCI bundles", len(results.Policies))
 	}
@@ -174,8 +170,6 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		}
 	}
 
-	// ImageValidatingPolicy: compile CEL expressions via the ivpol evaluator.
-	// NewCompiler(nil) is safe for offline pre-push validation (no cluster secret lister needed).
 	ivpCompiler := ivpolevaluator.NewCompiler(nil)
 	for _, pol := range results.ImageValidatingPolicies {
 		obj, ok := pol.(internal.Object)
@@ -190,9 +184,6 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		}
 	}
 
-	// Validate PolicyExceptions unconditionally — the hasPolicies gate was removed because
-	// an exception-only bundle that references a policy not present in the bundle is
-	// always a packaging error that must be caught before publication.
 	for _, ex := range results.PolicyCelExceptions {
 		if err := checkResource(ex); err != nil {
 			return nil, err
@@ -271,8 +262,6 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 }
 
 func (o options) execute(ctx context.Context, dir string, keychain authn.Keychain) error {
-	// allowLegacyPolicies=false: kyverno.io/v1 Policy/ClusterPolicy and legacy
-	// cleanup/exception kinds are rejected with actionable migration errors.
 	results, err := policy.Load(nil, "", false, dir)
 	if err != nil {
 		return fmt.Errorf("loading policies from %s: %w", dir, err)

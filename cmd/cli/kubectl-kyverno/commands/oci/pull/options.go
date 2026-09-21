@@ -116,10 +116,7 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 }
 
 // extractAndSavePolicies reads CEL policy documents from a single layer blob and
-// writes each accepted document to disk. Legacy kyverno.io/v1 policy kinds and
-// unknown or non-CEL Kubernetes resources are rejected with an error.
-//
-// The layer's ReadCloser is closed at the end of the call regardless of outcome.
+// writes each accepted document to disk.
 func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool) error {
 	blob, err := layer.Compressed()
 	if err != nil {
@@ -166,20 +163,11 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool)
 		if strings.TrimSpace(kind) == "" || strings.TrimSpace(objName) == "" {
 			return fmt.Errorf("resource missing kind or metadata.name")
 		}
-
 		if legacyKinds[kind] {
-			return fmt.Errorf(
-				"legacy policy kind %q (apiVersion: %s) is no longer supported in OCI bundles; "+
-					"migrate to policies.kyverno.io/v1beta1 CEL policy kinds",
-				kind, apiVersion,
-			)
+			return fmt.Errorf("legacy policy kind %q (apiVersion: %s) is no longer supported in OCI bundles; migrate to policies.kyverno.io/v1beta1 CEL policy kinds", kind, apiVersion)
 		}
-
 		if apiVersion != supportedAPIVersion || !supportedCELKinds[kind] {
-			return fmt.Errorf(
-				"unsupported resource %s/%s %q; only policies.kyverno.io/v1beta1 CEL policy kinds are supported in OCI bundles",
-				apiVersion, kind, objName,
-			)
+			return fmt.Errorf("unsupported resource %s/%s %q; only policies.kyverno.io/v1beta1 CEL policy kinds are supported in OCI bundles", apiVersion, kind, objName)
 		}
 
 		identity := fmt.Sprintf("%s/%s/%s", kind, ns, objName)
@@ -188,12 +176,6 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen ...map[string]bool)
 		}
 		seenTracker[identity] = true
 
-		// Include kind and namespace (if present) in filename to prevent collisions
-		// when multiple resources share the same name across kinds or namespaces.
-		// Use an underscore delimiter between namespace and object name to prevent ambiguous
-		// hyphenated collisions (e.g. namespace "team-a" and name "check-pod" vs
-		// namespace "team" and name "a-check-pod").
-		// Use securejoin to prevent path traversal attacks if objName contains "../".
 		filename := strings.ToLower(kind) + "-" + objName + ".yaml"
 		if ns != "" {
 			filename = strings.ToLower(kind) + "-" + ns + "_" + objName + ".yaml"
