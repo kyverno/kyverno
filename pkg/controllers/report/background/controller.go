@@ -40,6 +40,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
@@ -500,26 +501,40 @@ func (c *controller) enqueueResources() {
 }
 
 func (c *controller) getReport(ctx context.Context, namespace, name string) (reportsv1.ReportInterface, error) {
+	reportMeta, err := c.getMeta(namespace, name)
+	if err != nil {
+		return nil, err
+	}
 	if namespace == "" {
-		return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Get(ctx, name, metav1.GetOptions{})
+		return c.kyvernoClient.ReportsV1().ClusterEphemeralReports().Get(ctx, reportMeta.GetName(), metav1.GetOptions{})
 	} else {
-		return c.kyvernoClient.ReportsV1().EphemeralReports(namespace).Get(ctx, name, metav1.GetOptions{})
+		return c.kyvernoClient.ReportsV1().EphemeralReports(namespace).Get(ctx, reportMeta.GetName(), metav1.GetOptions{})
 	}
 }
 
 func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
+	selector, err := reportutils.SelectorResourceUidEquals(types.UID(name))
+	if err != nil {
+		return nil, err
+	}
 	if namespace == "" {
-		obj, err := c.cbgscanrLister.Get(name)
+		objs, err := c.cbgscanrLister.List(selector)
 		if err != nil {
 			return nil, err
 		}
-		return obj.(metav1.Object), err
+		if len(objs) == 0 {
+			return nil, apierrors.NewNotFound(reportsv1.Resource("clusterephemeralreport"), name)
+		}
+		return objs[0].(metav1.Object), nil
 	} else {
-		obj, err := c.bgscanrLister.ByNamespace(namespace).Get(name)
+		objs, err := c.bgscanrLister.ByNamespace(namespace).List(selector)
 		if err != nil {
 			return nil, err
 		}
-		return obj.(metav1.Object), err
+		if len(objs) == 0 {
+			return nil, apierrors.NewNotFound(reportsv1.Resource("ephemeralreport"), name)
+		}
+		return objs[0].(metav1.Object), nil
 	}
 }
 
