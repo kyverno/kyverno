@@ -503,19 +503,16 @@ wait_for_allow() {
   done
 }
 
-# Asserts a `kubectl patch --type merge` is denied for expected_substr. On
-# an unexpected success, calls recover_fn to restore the pre-patch spec so a
-# spurious mutation can't corrupt later hash checks (optional 7th arg: namespace).
+# Asserts a `kubectl patch --type merge` is denied for expected_substr. An
+# accepted patch fails outright: the create-blocked check above already proved
+# the webhook is serving (optional 6th arg: namespace).
 wait_for_patch_denied() {
-  local desc="$1" resource="$2" name="$3" patch_json="$4" expected_substr="$5" recover_fn="$6" namespace="${7:-}"
+  local desc="$1" resource="$2" name="$3" patch_json="$4" expected_substr="$5" namespace="${6:-}"
   local ns_flag=""
   if [ -n "${namespace}" ]; then
     ns_flag="-n ${namespace}"
   fi
   local waited=0 timeout=120 interval=3
-  # One accepted patch can be the webhook coming up; a second means the block
-  # is letting spec writes through intermittently, which no retry should hide.
-  local allowed=0 max_allowed=1
   while true; do
     # shellcheck disable=SC2086 # ns_flag must expand to zero args when empty, not one empty arg.
     if ! kubectl patch ${ns_flag} "${resource}" "${name}" --type merge -p "${patch_json}" >"${WORK_DIR}/last-apply.log" 2>&1; then
@@ -526,10 +523,7 @@ wait_for_patch_denied() {
       # failing immediately (see wait_for_deny).
       :
     else
-      allowed=$((allowed + 1))
-      "${recover_fn}"
-      [ "${allowed}" -le "${max_allowed}" ] \
-        || fail "${desc}: the spec patch was accepted ${allowed} times before any denial - the write-time block is letting spec updates through intermittently, which is a regression, not the webhook still coming up"
+      fail "${desc}: the spec patch was accepted - the create-blocked assertion above already proved the webhook is serving, so this is the write-time block letting a spec update through, not the webhook still coming up. The fixture is left drifted on purpose; rerun after fixing the block."
     fi
     waited=$((waited + interval))
     if [ "${waited}" -ge "${timeout}" ]; then
@@ -832,7 +826,7 @@ assert_legacy_webhook_rules_unchanged() {
 }
 
 # Reduces a legacy_webhook_rules_snapshot array to, per legacy kind, the
-# sorted set of "type|apiVersion|operation|scope|sub=" capabilities it is
+# sorted set of "type|apiGroups|apiVersion|operation|scope|sub=" capabilities it is
 # covered for. A4 tolerates gaining one (e.g. a storage-version fix); only losing one is a regression.
 legacy_webhook_capabilities() {
   jq -Sc '
@@ -841,7 +835,7 @@ legacy_webhook_capabilities() {
       | ($raw | endswith("/*")) as $wildcard
       | $rule.apiVersions[] as $av | $rule.operations[] as $op
       | {kind: $kind,
-         triple: ($rule.type + "|" + $av + "|" + $op + "|" + $rule.scope + "|sub=" + ($wildcard | tostring))}) as $e
+         triple: ($rule.type + "|" + ($rule.apiGroups | sort | join(",")) + "|" + $av + "|" + $op + "|" + $rule.scope + "|sub=" + ($wildcard | tostring))}) as $e
       ({}; .[$e.kind] += [$e.triple])
     | map_values(unique)
   '
@@ -876,10 +870,11 @@ assert_legacy_webhook_rules_not_narrowed() {
   lost="$(jq -n --argjson base "${baseline_caps}" --argjson cur "${current_caps}" '
     def covers($c; $b):
       ($c[0] == $b[0])
-      and ($c[1] == $b[1] or $c[1] == "*")
+      and ($c[1] == $b[1])
       and ($c[2] == $b[2] or $c[2] == "*")
       and ($c[3] == $b[3] or $c[3] == "*")
-      and ($c[4] == $b[4] or $c[4] == "sub=true");
+      and ($c[4] == $b[4] or $c[4] == "*")
+      and ($c[5] == $b[5] or $c[5] == "sub=true");
     [ ($base | keys[]) as $k
       | (($cur[$k] // []) | map(split("|"))) as $curTriples
       | ($base[$k] | map(select(. as $t | ($t | split("|")) as $bt
@@ -892,7 +887,7 @@ assert_legacy_webhook_rules_not_narrowed() {
   if [ "${lost}" != "[]" ] || [ -n "${selector_diff}" ]; then
     echo "lost coverage: ${lost}" >&2
     echo "selector/failurePolicy/matchPolicy diff: ${selector_diff}" >&2
-    fail "${context}: legacy-kind webhook coverage narrowed from '${baseline_label}' (type|apiVersion|operation|scope|sub triple(s) missing, or a namespaceSelector/objectSelector/failurePolicy/matchPolicy change on the owning webhook) - see above"
+    fail "${context}: legacy-kind webhook coverage narrowed from '${baseline_label}' (type|apiGroups|apiVersion|operation|scope|sub triple(s) missing, or a namespaceSelector/objectSelector/failurePolicy/matchPolicy change on the owning webhook) - see above"
   fi
 }
 
@@ -1155,6 +1150,8 @@ snapshot_legacy_webhook_rules "baseline"
 
 log "A3: upgrading to the LOCAL chart with upgrade.allowLegacyPolicies=true (default write-block left ON)"
 PRE_A3_IMAGES="$(controller_deployment_images)"
+[ -n "${PRE_A3_IMAGES}" ] && [ "${PRE_A3_IMAGES}" != "[]" ] && [ "${PRE_A3_IMAGES}" != "null" ] \
+  || fail "A3: could not read the controller deployment images before the change, so the image gate below cannot tell a real rollout from a failed read"
 run_local_upgrade "--set upgrade.allowLegacyPolicies=true" "${WORK_DIR}/a3-upgrade.log" \
   || { cat "${WORK_DIR}/a3-upgrade.log" >&2; fail "A3: opt-out upgrade to the local chart was expected to succeed"; }
 wait_for_controller_images_changed "A3" "${PRE_A3_IMAGES}"
@@ -1184,27 +1181,8 @@ EOF
 # "kubectl apply -f" is expected to be denied, not the manifest's kind.
 wait_for_deny "A4 create blocked" "${WORK_DIR}/new-legacy-policy.yaml" "no longer accepted for create"
 
-# Re-applies a fixture after a spec patch slipped through. The block can deny
-# the revert once it is serving, so retry briefly before treating it as stuck.
-reapply_fixture_spec() {
-  local desc="$1" manifest="$2"
-  local waited=0 timeout=30 interval=3
-  while true; do
-    kubectl apply -f "${manifest}" >/dev/null 2>&1 && return 0
-    waited=$((waited + interval))
-    if [ "${waited}" -ge "${timeout}" ]; then
-      fail "${desc}: could not restore the fixture spec within ${timeout}s after a patch slipped through; the fixture is left drifted, so the later spec-hash checks cannot mean anything - rerun"
-    fi
-    sleep "${interval}"
-  done
-}
-
-a4_recover_clusterpolicy_spec() {
-  legacy_fixture_manifest > "${WORK_DIR}/legacy-fixture-revert.yaml"
-  reapply_fixture_spec "A4 spec-update-blocked recovery" "${WORK_DIR}/legacy-fixture-revert.yaml"
-}
 SPEC_PATCH='{"spec":{"rules":[{"name":"check-label","match":{"resources":{"kinds":["Pod"],"namespaces":["'"${TEST_NAMESPACE}"'"]}},"validate":{"message":"changed","pattern":{"metadata":{"labels":{"app":"?*"}}}}}]}}'
-wait_for_patch_denied "A4 spec-update blocked" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "${SPEC_PATCH}" "no longer accepted" a4_recover_clusterpolicy_spec
+wait_for_patch_denied "A4 spec-update blocked" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "${SPEC_PATCH}" "no longer accepted"
 
 wait_for_annotate_allowed "A4 metadata patch allowed" "clusterpolicy" "${CLUSTERPOLICY_NAME}" "legacy-policy-migration-verify/probe=1"
 # kubectl get returns the served version, not the storage version - this
@@ -1226,11 +1204,8 @@ POST_UPGRADE_POLICY_HASH="$(namespaced_spec_hash policies.kyverno.io "${POLICY_N
 
 wait_for_deny "A4 policy create blocked" "${WORK_DIR}/new-policy.yaml" "no longer accepted for create"
 
-a4_recover_policy_spec() {
-  reapply_fixture_spec "A4 policy spec-update-blocked recovery" "${WORK_DIR}/policy.yaml"
-}
 POLICY_SPEC_PATCH='{"spec":{"rules":[{"name":"check-label","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"changed","pattern":{"metadata":{"labels":{"app":"?*"}}}}}]}}'
-wait_for_patch_denied "A4 policy spec-update blocked" "policies.kyverno.io" "${POLICY_NAME}" "${POLICY_SPEC_PATCH}" "no longer accepted" a4_recover_policy_spec "${TEST_NAMESPACE}"
+wait_for_patch_denied "A4 policy spec-update blocked" "policies.kyverno.io" "${POLICY_NAME}" "${POLICY_SPEC_PATCH}" "no longer accepted" "${TEST_NAMESPACE}"
 
 wait_for_annotate_allowed "A4 policy metadata patch allowed" "policies.kyverno.io" "${POLICY_NAME}" "legacy-policy-migration-verify/probe=1" "${TEST_NAMESPACE}"
 
@@ -1254,23 +1229,12 @@ wait_for_deny "A4 cleanup policy create blocked" "${WORK_DIR}/new-cleanup-policy
 wait_for_deny "A4 cluster cleanup policy create blocked" "${WORK_DIR}/new-clustercleanup-policy.yaml" "no longer accepted for create"
 wait_for_deny "A4 policy exception create blocked" "${WORK_DIR}/new-polex.yaml" "no longer accepted for create"
 
-# One recover_fn per kind, same reason as a4_recover_clusterpolicy_spec.
-a4_recover_cleanup_policy_spec() {
-  reapply_fixture_spec "A4 cleanup-policy spec-update-blocked recovery" "${WORK_DIR}/cleanup-policy.yaml"
-}
-a4_recover_clustercleanup_policy_spec() {
-  reapply_fixture_spec "A4 cluster-cleanup-policy spec-update-blocked recovery" "${WORK_DIR}/clustercleanup-policy.yaml"
-}
-a4_recover_polex_spec() {
-  reapply_fixture_spec "A4 policy-exception spec-update-blocked recovery" "${WORK_DIR}/polex.yaml"
-}
-
 CLEANUP_SPEC_PATCH='{"spec":{"schedule":"0 0 2 1 *"}}'
-wait_for_patch_denied "A4 cleanup policy spec-update blocked" "cleanuppolicy" "${CLEANUP_POLICY_NAME}" "${CLEANUP_SPEC_PATCH}" "no longer accepted" a4_recover_cleanup_policy_spec "${TEST_NAMESPACE}"
+wait_for_patch_denied "A4 cleanup policy spec-update blocked" "cleanuppolicy" "${CLEANUP_POLICY_NAME}" "${CLEANUP_SPEC_PATCH}" "no longer accepted" "${TEST_NAMESPACE}"
 CLUSTERCLEANUP_SPEC_PATCH='{"spec":{"schedule":"0 0 2 1 *"}}'
-wait_for_patch_denied "A4 cluster cleanup policy spec-update blocked" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "${CLUSTERCLEANUP_SPEC_PATCH}" "no longer accepted" a4_recover_clustercleanup_policy_spec
+wait_for_patch_denied "A4 cluster cleanup policy spec-update blocked" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "${CLUSTERCLEANUP_SPEC_PATCH}" "no longer accepted"
 POLEX_SPEC_PATCH='{"spec":{"exceptions":[{"policyName":"legacy-policy-migration-verify-changed","ruleNames":["*"]}]}}'
-wait_for_patch_denied "A4 policy exception spec-update blocked" "policyexceptions.kyverno.io" "${POLEX_NAME}" "${POLEX_SPEC_PATCH}" "no longer accepted" a4_recover_polex_spec "${TEST_NAMESPACE}"
+wait_for_patch_denied "A4 policy exception spec-update blocked" "policyexceptions.kyverno.io" "${POLEX_NAME}" "${POLEX_SPEC_PATCH}" "no longer accepted" "${TEST_NAMESPACE}"
 
 wait_for_annotate_allowed "A4 cleanup policy metadata patch allowed" "cleanuppolicy" "${CLEANUP_POLICY_NAME}" "legacy-policy-migration-verify/probe=1" "${TEST_NAMESPACE}"
 wait_for_annotate_allowed "A4 cluster cleanup policy metadata patch allowed" "clustercleanuppolicies.kyverno.io" "${CLUSTERCLEANUP_POLICY_NAME}" "legacy-policy-migration-verify/probe=1"
@@ -1283,9 +1247,8 @@ wait_for_annotate_allowed "A4 policy exception metadata patch allowed" "policyex
 POST_UPGRADE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
 assert_legacy_cr_counts_unchanged "${BASELINE_CR_COUNTS}" "${POST_UPGRADE_CR_COUNTS}" "A4"
 
-# Second, late hash sample per kind, vs BASELINE: recover_fns above
-# re-apply each fixture's original spec, so an early-only sample would
-# let recovery mask drift landing mid-block; it restores the baseline spec.
+# Second, late hash sample per kind, vs BASELINE: catches spec drift that
+# lands during the block, which an early-only sample would miss.
 LATE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
 [ "${LATE_CLUSTERPOLICY_HASH}" = "${BASELINE_CLUSTERPOLICY_HASH}" ] \
   || fail "A4: the ClusterPolicy's spec drifted from baseline during the A4 block (late sample)"
@@ -1330,6 +1293,8 @@ log "A4b: PASS (deletes of legacy ClusterPolicy, ClusterCleanupPolicy, and Polic
 
 log "A5: rolling back to revision 1 (the 1.19 chart)"
 PRE_A5_IMAGES="$(controller_deployment_images)"
+[ -n "${PRE_A5_IMAGES}" ] && [ "${PRE_A5_IMAGES}" != "[]" ] && [ "${PRE_A5_IMAGES}" != "null" ] \
+  || fail "A5: could not read the controller deployment images before the change, so the image gate below cannot tell a real rollout from a failed read"
 "${HELM}" rollback "${RELEASE_NAME}" 1 -n "${NAMESPACE}" --wait --timeout 5m
 wait_for_controller_images_changed "A5" "${PRE_A5_IMAGES}"
 wait_kyverno_ready
