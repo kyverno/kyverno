@@ -15,7 +15,6 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
-	"github.com/google/go-containerregistry/pkg/authn"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -1133,7 +1132,7 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	var httpPols []*policiesv1beta1.ValidatingPolicy
 	for _, path := range c.PolicyPaths {
 		if source.IsOCI(path) {
-			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), authn.DefaultKeychain)
+			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), pull.NewKeychain())
 			if err != nil {
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
 			}

@@ -16,6 +16,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -25,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -109,6 +111,16 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 	}
 
 	fmt.Fprintln(out, "  Loading policies", "...")
+	for i, p := range testCase.Test.Policies {
+		if source.IsOCI(p) {
+			tmpDir, cleanup, err := pull.ToTempDir(context.TODO(), source.StripOCIPrefix(p), pull.NewKeychain())
+			if err != nil {
+				return nil, fmt.Errorf("failed to pull OCI policy %s (%w)", p, err)
+			}
+			defer cleanup()
+			testCase.Test.Policies[i] = tmpDir
+		}
+	}
 	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, false, policyFullPath...)
 	if err != nil {

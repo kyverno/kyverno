@@ -8,7 +8,6 @@ import (
 	"regexp"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
@@ -83,7 +82,7 @@ func testCommandExecute(
 	resolvedPaths := make([]string, 0, len(dirPath))
 	for _, p := range dirPath {
 		if source.IsOCI(p) {
-			tmpDir, cleanup, ociErr := pull.ToTempDir(ctx, source.StripOCIPrefix(p), authn.DefaultKeychain)
+			tmpDir, cleanup, ociErr := pull.ToTempDir(ctx, source.StripOCIPrefix(p), pull.NewKeychain())
 			if ociErr != nil {
 				return fmt.Errorf("failed to pull OCI bundle %s (%w)", p, ociErr)
 			}

@@ -13,6 +13,9 @@ import (
 // directory, and any error. The caller must invoke cleanup() when the directory
 // is no longer needed.
 func ToTempDir(ctx context.Context, imageRef string, keychain authn.Keychain) (string, func(), error) {
+	if keychain == nil {
+		keychain = NewKeychain()
+	}
 	dir, err := os.MkdirTemp("", "kyverno-oci-*")
 	if err != nil {
 		return "", nil, fmt.Errorf("creating temp dir: %w", err)
