@@ -122,9 +122,9 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 		if name == "" {
 			name = fmt.Sprintf("resource-%d", i)
 		}
-		kind := strings.ToLower(us.GetKind())
+		kind := us.GetKind()
 		if kind == "" {
-			kind = "policy"
+			kind = "Policy"
 		}
 		filename := name + ".yaml"
 		if ns := us.GetNamespace(); ns != "" {
@@ -134,7 +134,7 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 		if err != nil {
 			return fmt.Errorf("constructing output path: %v", err)
 		}
-		fmt.Fprintf(os.Stderr, "Saving %s [%s] into disk [%s]...\n", us.GetKind(), name, pp)
+		fmt.Fprintf(os.Stderr, "Saving %s [%s] into disk [%s]...\n", kind, name, pp)
 		if err := os.WriteFile(pp, doc, 0o600); err != nil {
 			return fmt.Errorf("creating file %s: %w", pp, err)
 		}
