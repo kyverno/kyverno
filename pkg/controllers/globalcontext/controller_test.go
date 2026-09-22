@@ -63,13 +63,14 @@ func (f *fakeMetricsManager) AdmissionMetrics() metrics.AdmissionMetrics        
 func (f *fakeMetricsManager) DeprecatedAPIRequestMetrics() metrics.DeprecatedAPIRequestMetrics {
 	return nil
 }
-func (f *fakeMetricsManager) LegacyPolicyMetrics() metrics.LegacyPolicyMetrics   { return nil }
-func (f *fakeMetricsManager) HTTPMetrics() metrics.HTTPMetrics                   { return nil }
-func (f *fakeMetricsManager) VPOLMetrics() metrics.ValidatingMetrics             { return nil }
-func (f *fakeMetricsManager) IVPOLMetrics() metrics.ImageValidatingMetrics       { return nil }
-func (f *fakeMetricsManager) MPOLMetrics() metrics.MutatingMetrics               { return nil }
-func (f *fakeMetricsManager) GPOLMetrics() metrics.GeneratingMetrics             { return nil }
-func (f *fakeMetricsManager) GlobalContextMetrics() metrics.GlobalContextMetrics { return f.gctx }
+func (f *fakeMetricsManager) LegacyPolicyMetrics() metrics.LegacyPolicyMetrics       { return nil }
+func (f *fakeMetricsManager) PolicyExceptionMetrics() metrics.PolicyExceptionMetrics { return nil }
+func (f *fakeMetricsManager) HTTPMetrics() metrics.HTTPMetrics                       { return nil }
+func (f *fakeMetricsManager) VPOLMetrics() metrics.ValidatingMetrics                 { return nil }
+func (f *fakeMetricsManager) IVPOLMetrics() metrics.ImageValidatingMetrics           { return nil }
+func (f *fakeMetricsManager) MPOLMetrics() metrics.MutatingMetrics                   { return nil }
+func (f *fakeMetricsManager) GPOLMetrics() metrics.GeneratingMetrics                 { return nil }
+func (f *fakeMetricsManager) GlobalContextMetrics() metrics.GlobalContextMetrics     { return f.gctx }
 
 // fakeGCELister is a minimal GlobalContextEntryLister test double backed by a fixed slice,
 // so reportProjectionMetrics can be exercised without an informer.

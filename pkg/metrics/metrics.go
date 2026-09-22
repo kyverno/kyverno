@@ -36,23 +36,24 @@ func SetManager(manager MetricsConfigManager) {
 
 type MetricsConfig struct {
 	// instruments
-	clientQueriesMetric  metric.Int64Counter
-	kyvernoInfoMetric    metric.Int64Gauge
-	breakerMetrics       *breakerMetrics
-	controllerMetrics    *controllerMetrics
-	deletingMetrics      *deletingMetrics
-	updateRequestMetrics *updateRequestMetrics
-	ttlInfoMetrics       *ttlInfoMetrics
-	eventMetrics         *eventMetrics
-	admissionMetrics     *admissionMetrics
-	deprecatedMetrics    *deprecatedAPIRequestMetrics
-	legacyPolicyMetrics  *legacyPolicyMetrics
-	httpMetrics          *httpMetrics
-	vpolMetrics          *validatingMetrics
-	ivpolMetrics         *imageValidatingMetrics
-	mpolMetrics          *mutatingMetrics
-	gpolMetrics          *generatingMetrics
-	globalContextMetrics *globalContextMetrics
+	clientQueriesMetric    metric.Int64Counter
+	kyvernoInfoMetric      metric.Int64Gauge
+	breakerMetrics         *breakerMetrics
+	controllerMetrics      *controllerMetrics
+	deletingMetrics        *deletingMetrics
+	updateRequestMetrics   *updateRequestMetrics
+	ttlInfoMetrics         *ttlInfoMetrics
+	eventMetrics           *eventMetrics
+	admissionMetrics       *admissionMetrics
+	deprecatedMetrics      *deprecatedAPIRequestMetrics
+	legacyPolicyMetrics    *legacyPolicyMetrics
+	policyExceptionMetrics *policyExceptionMetrics
+	httpMetrics            *httpMetrics
+	vpolMetrics            *validatingMetrics
+	ivpolMetrics           *imageValidatingMetrics
+	mpolMetrics            *mutatingMetrics
+	gpolMetrics            *generatingMetrics
+	globalContextMetrics   *globalContextMetrics
 
 	// config
 	config kconfig.MetricsConfiguration
@@ -71,6 +72,7 @@ type MetricsConfigManager interface {
 	AdmissionMetrics() AdmissionMetrics
 	DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics
 	LegacyPolicyMetrics() LegacyPolicyMetrics
+	PolicyExceptionMetrics() PolicyExceptionMetrics
 	HTTPMetrics() HTTPMetrics
 	VPOLMetrics() ValidatingMetrics
 	IVPOLMetrics() ImageValidatingMetrics
@@ -117,6 +119,10 @@ func (m *MetricsConfig) DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetric
 
 func (m *MetricsConfig) LegacyPolicyMetrics() LegacyPolicyMetrics {
 	return m.legacyPolicyMetrics
+}
+
+func (m *MetricsConfig) PolicyExceptionMetrics() PolicyExceptionMetrics {
+	return m.policyExceptionMetrics
 }
 
 func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
@@ -172,6 +178,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.admissionMetrics.init(meter)
 	m.deprecatedMetrics.init(meter)
 	m.legacyPolicyMetrics.init(meter)
+	m.policyExceptionMetrics.init(meter)
 	m.httpMetrics.init(meter)
 	m.vpolMetrics.init(meter)
 	m.ivpolMetrics.init(meter)
@@ -312,23 +319,24 @@ func initKyvernoInfoMetric(m *MetricsConfig) {
 
 func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.MetricsConfiguration) *MetricsConfig {
 	config := &MetricsConfig{
-		Log:                  logger,
-		config:               metricsConfiguration,
-		breakerMetrics:       &breakerMetrics{logger: logger.WithName("circuit-breaker")},
-		controllerMetrics:    &controllerMetrics{logger: logger.WithName("controller")},
-		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
-		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
-		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
-		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},
-		admissionMetrics:     &admissionMetrics{logger: logger.WithName("admission")},
-		deprecatedMetrics:    &deprecatedAPIRequestMetrics{logger: logger.WithName("deprecated-api-requests")},
-		legacyPolicyMetrics:  &legacyPolicyMetrics{logger: logger.WithName("legacy-policies")},
-		httpMetrics:          &httpMetrics{logger: logger.WithName("http")},
-		vpolMetrics:          &validatingMetrics{logger: logger.WithName("validating-policy")},
-		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
-		mpolMetrics:          &mutatingMetrics{logger: logger.WithName("mutating-policy")},
-		gpolMetrics:          &generatingMetrics{logger: logger.WithName("generating-policy")},
-		globalContextMetrics: &globalContextMetrics{logger: logger.WithName("global-context")},
+		Log:                    logger,
+		config:                 metricsConfiguration,
+		breakerMetrics:         &breakerMetrics{logger: logger.WithName("circuit-breaker")},
+		controllerMetrics:      &controllerMetrics{logger: logger.WithName("controller")},
+		deletingMetrics:        &deletingMetrics{logger: logger.WithName("deleting")},
+		updateRequestMetrics:   &updateRequestMetrics{logger: logger.WithName("updaterequest")},
+		ttlInfoMetrics:         &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
+		eventMetrics:           &eventMetrics{logger: logger.WithName("event")},
+		admissionMetrics:       &admissionMetrics{logger: logger.WithName("admission")},
+		deprecatedMetrics:      &deprecatedAPIRequestMetrics{logger: logger.WithName("deprecated-api-requests")},
+		legacyPolicyMetrics:    &legacyPolicyMetrics{logger: logger.WithName("legacy-policies")},
+		policyExceptionMetrics: &policyExceptionMetrics{logger: logger.WithName("policy-exceptions"), config: metricsConfiguration},
+		httpMetrics:            &httpMetrics{logger: logger.WithName("http")},
+		vpolMetrics:            &validatingMetrics{logger: logger.WithName("validating-policy")},
+		ivpolMetrics:           &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
+		mpolMetrics:            &mutatingMetrics{logger: logger.WithName("mutating-policy")},
+		gpolMetrics:            &generatingMetrics{logger: logger.WithName("generating-policy")},
+		globalContextMetrics:   &globalContextMetrics{logger: logger.WithName("global-context")},
 	}
 
 	return config
