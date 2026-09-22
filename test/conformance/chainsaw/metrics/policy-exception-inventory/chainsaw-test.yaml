@@ -1,0 +1,41 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policy-exception-inventory
+spec:
+  concurrent: false
+  steps:
+    - name: create
+      try:
+        - apply:
+            file: exceptions.yaml
+        - script:
+            timeout: 90s
+            env:
+              - name: TEST_NAMESPACE
+                value: ($namespace)
+            content: bash check.sh created "$TEST_NAMESPACE"
+    - name: update
+      try:
+        - script:
+            timeout: 90s
+            env:
+              - name: TEST_NAMESPACE
+                value: ($namespace)
+            content: |
+              set -eu
+              kubectl -n "$TEST_NAMESPACE" patch policyexceptions.kyverno.io legacy-inventory --type=merge -p '{"spec":{"exceptions":[{"policyName":"replacement-legacy","ruleNames":["missing-rule"]}]}}'
+              kubectl -n "$TEST_NAMESPACE" patch policyexceptions.policies.kyverno.io cel-inventory --type=merge -p '{"spec":{"policyRefs":[{"name":"replacement-cel","kind":"ValidatingPolicy"}]}}'
+              bash check.sh updated "$TEST_NAMESPACE"
+    - name: delete
+      try:
+        - script:
+            timeout: 90s
+            env:
+              - name: TEST_NAMESPACE
+                value: ($namespace)
+            content: |
+              set -eu
+              kubectl -n "$TEST_NAMESPACE" delete policyexceptions.kyverno.io legacy-inventory
+              kubectl -n "$TEST_NAMESPACE" delete policyexceptions.policies.kyverno.io cel-inventory
+              bash check.sh deleted "$TEST_NAMESPACE"
