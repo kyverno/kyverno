@@ -156,7 +156,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
 			return err
 		}
-		// Detect duplicate lookup keys — last-write-wins in buildHTTPMockIndex would
+		// Detect duplicate lookup keys â€” last-write-wins in buildHTTPMockIndex would
 		// silently discard earlier entries, so we surface it as a validation error.
 		resolvedURL := entries[i].ResolvedURL()
 		method := strings.ToUpper(strings.TrimSpace(entries[i].Method))
@@ -165,7 +165,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 			key = method + ":" + resolvedURL
 		}
 		if _, dup := seen[key]; dup {
-			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) — each method+url combination must be unique", resolvedURL, key)
+			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) â€” each method+url combination must be unique", resolvedURL, key)
 		}
 		seen[key] = struct{}{}
 	}
@@ -333,11 +333,11 @@ type CheckResult struct {
 	// Match tells how to match relevant rule responses.
 	Match CheckMatch `json:"match,omitempty"`
 
-	// Assert contains assertion to be performed on the relevant rule responses.
-	Assert kyvernov1.Any `json:"assert"`
+	// Assert contains positive CEL assertions to be performed on relevant rule responses.
+	Assert *CheckAssertions `json:"assert,omitempty"`
 
-	// Error contains negative assertion to be performed on the relevant rule responses.
-	Error kyvernov1.Any `json:"error"`
+	// Error contains negative CEL assertions to be performed on relevant rule responses.
+	Error *CheckAssertions `json:"error,omitempty"`
 }
 
 type CheckMatch struct {
@@ -349,6 +349,25 @@ type CheckMatch struct {
 
 	// Rule filters rule responses.
 	Rule *kyvernov1.Any `json:"rule,omitempty"`
+}
+
+type CheckAssertions struct {
+	// CEL contains CEL expressions used for assertions.
+	CEL *CheckCEL `json:"cel,omitempty"`
+}
+
+type CheckCEL struct {
+	// Expressions are CEL expressions which must satisfy the assertion.
+	// +kubebuilder:validation:MinItems=1
+	Expressions []CheckExpression `json:"expressions"`
+}
+
+type CheckExpression struct {
+	// Expression is the CEL expression to evaluate.
+	Expression string `json:"expression"`
+
+	// Message is the message displayed when the expression assertion fails.
+	Message string `json:"message,omitempty"`
 }
 
 type TestResourceSpec struct {

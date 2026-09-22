@@ -1,15 +1,14 @@
 package test
 
 import (
-	"context"
 	"fmt"
 	"reflect"
-	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -25,7 +24,7 @@ func printCheckResult(
 		engineResponses = append(engineResponses, responseList...)
 	}
 
-	testCount := 1
+	testCount := len(resultsTable.RawRows) + 1
 
 	for _, check := range checks {
 		matches := engineResponses
@@ -44,10 +43,16 @@ func printCheckResult(
 		if check.Match.Policy != nil {
 			filtered := make([]engineapi.EngineResponse, 0, len(matches))
 			for _, response := range matches {
-				actual, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
+				policy := response.Policy()
+				if policy == nil {
+					continue
+				}
+
+				actual, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy.AsObject())
 				if err != nil {
 					return fmt.Errorf("convert policy response: %w", err)
 				}
+
 				if checkMatches(check.Match.Policy.Value, addMetadataAliases(actual)) {
 					filtered = append(filtered, response)
 				}
@@ -61,7 +66,11 @@ func printCheckResult(
 			if check.Match.Rule != nil {
 				filtered := make([]engineapi.RuleResponse, 0, len(rules))
 				for _, rule := range rules {
-					actual := map[string]any{"name": rule.Name()}
+					actual := map[string]any{
+						"name":   rule.Name(),
+						"type":   string(rule.RuleType()),
+						"status": string(rule.Status()),
+					}
 					if checkMatches(check.Match.Rule.Value, actual) {
 						filtered = append(filtered, rule)
 					}
@@ -70,30 +79,44 @@ func printCheckResult(
 			}
 
 			for _, rule := range rules {
-				actual := map[string]any{
-					"name":              rule.Name(),
-					"ruleType":          rule.RuleType(),
-					"message":           rule.Message(),
-					"status":            string(rule.Status()),
-					"podSecurityChecks": rule.PodSecurityChecks(),
-					"exceptions":        rule.Exceptions(),
+				activation, err := buildCheckActivation(response, rule)
+				if err != nil {
+					return fmt.Errorf("build check activation: %w", err)
 				}
 
-				if check.Assert.Value != nil {
-					ok, err := evaluateCheck(context.Background(), check.Assert.Value, actual)
+				if check.Assert != nil {
+					pass, message, err := evaluateAssertions(check.Assert, activation, false)
 					if err != nil {
 						return fmt.Errorf("evaluate check assertion: %w", err)
 					}
-					addCheckResultRow(resultsTable, rc, testCount, response, rule, ok, "Assertion failed")
+
+					addCheckResultRow(
+						resultsTable,
+						rc,
+						testCount,
+						response,
+						rule,
+						pass,
+						message,
+					)
 					testCount++
 				}
 
-				if check.Error.Value != nil {
-					ok, err := evaluateCheck(context.Background(), check.Error.Value, actual)
+				if check.Error != nil {
+					pass, message, err := evaluateAssertions(check.Error, activation, true)
 					if err != nil {
 						return fmt.Errorf("evaluate check error assertion: %w", err)
 					}
-					addCheckResultRow(resultsTable, rc, testCount, response, rule, !ok, "The assertion succeeded but was expected to fail")
+
+					addCheckResultRow(
+						resultsTable,
+						rc,
+						testCount,
+						response,
+						rule,
+						pass,
+						message,
+					)
 					testCount++
 				}
 			}
@@ -101,6 +124,125 @@ func printCheckResult(
 	}
 
 	return nil
+}
+
+func buildCheckActivation(
+	response engineapi.EngineResponse,
+	rule engineapi.RuleResponse,
+) (map[string]any, error) {
+	var policy map[string]any
+
+	if response.Policy() != nil {
+		converted, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
+		if err != nil {
+			return nil, err
+		}
+		policy = converted
+	}
+
+	result := map[string]any{
+		"name":              rule.Name(),
+		"ruleType":          string(rule.RuleType()),
+		"message":           rule.Message(),
+		"status":            string(rule.Status()),
+		"podSecurityChecks": rule.PodSecurityChecks(),
+		"exceptions":        rule.Exceptions(),
+		"properties":        rule.Properties(),
+	}
+
+	ruleObject := map[string]any{
+		"name":       rule.Name(),
+		"type":       string(rule.RuleType()),
+		"status":     string(rule.Status()),
+		"message":    rule.Message(),
+		"properties": rule.Properties(),
+	}
+
+	return map[string]any{
+		"result":   result,
+		"resource": response.Resource.UnstructuredContent(),
+		"policy":   policy,
+		"rule":     ruleObject,
+	}, nil
+}
+
+func evaluateAssertions(
+	assertions *v1alpha1.CheckAssertions,
+	activation map[string]any,
+	negative bool,
+) (bool, string, error) {
+	if assertions == nil || assertions.CEL == nil {
+		return true, "", nil
+	}
+
+	if len(assertions.CEL.Expressions) == 0 {
+		return false, "at least one CEL expression is required", nil
+	}
+
+	for _, expression := range assertions.CEL.Expressions {
+		value, err := evaluateCEL(expression.Expression, activation)
+		if err != nil {
+			return false, "", err
+		}
+
+		passed := value
+		if negative {
+			passed = !value
+		}
+
+		if !passed {
+			message := expression.Message
+			if message == "" {
+				if negative {
+					message = fmt.Sprintf("CEL error assertion unexpectedly succeeded: %s", expression.Expression)
+				} else {
+					message = fmt.Sprintf("CEL assertion failed: %s", expression.Expression)
+				}
+			}
+			return false, message, nil
+		}
+	}
+
+	return true, "", nil
+}
+
+func evaluateCEL(expression string, activation map[string]any) (bool, error) {
+	env, err := celcompiler.NewBaseEnv()
+	if err != nil {
+		return false, err
+	}
+
+	env, err = env.Extend(
+		cel.Variable("result", cel.DynType),
+		cel.Variable("resource", cel.DynType),
+		cel.Variable("policy", cel.DynType),
+		cel.Variable("rule", cel.DynType),
+	)
+	if err != nil {
+		return false, err
+	}
+
+	ast, issues := env.Compile(expression)
+	if issues.Err() != nil {
+		return false, issues.Err()
+	}
+
+	program, err := env.Program(ast)
+	if err != nil {
+		return false, err
+	}
+
+	value, _, err := program.Eval(activation)
+	if err != nil {
+		return false, err
+	}
+
+	result, ok := value.Value().(bool)
+	if !ok {
+		return false, fmt.Errorf("assertion expression %q did not return bool", expression)
+	}
+
+	return result, nil
 }
 
 func addCheckResultRow(
@@ -133,80 +275,14 @@ func addCheckResultRow(
 		}
 	} else {
 		row.Result = color.ResultFail()
+		if failureReason == "" {
+			failureReason = "Assertion failed"
+		}
 		row.Reason = failureReason
 		rc.Fail++
 	}
 
 	resultsTable.Add(row)
-}
-
-func evaluateCheck(ctx context.Context, value any, actual map[string]any) (bool, error) {
-	expected, ok := value.(map[string]any)
-	if !ok {
-		return false, fmt.Errorf("assertion must be an object")
-	}
-
-	for key, expectedValue := range expected {
-		if strings.HasPrefix(key, "(") && strings.HasSuffix(key, ")") {
-			expression := strings.TrimSpace(key[1 : len(key)-1])
-
-			result, err := evaluateCEL(ctx, expression, actual)
-			if err != nil {
-				return false, err
-			}
-
-			want, ok := expectedValue.(bool)
-			if !ok {
-				return false, fmt.Errorf("assertion expression %q must have a boolean expected value", expression)
-			}
-
-			if result != want {
-				return false, nil
-			}
-			continue
-		}
-
-		actualValue, exists := actual[key]
-		if !exists || !checkMatches(expectedValue, actualValue) {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-func evaluateCEL(_ context.Context, expression string, activation map[string]any) (bool, error) {
-	options := make([]cel.EnvOption, 0, len(activation))
-	for name := range activation {
-		options = append(options, cel.Variable(name, cel.DynType))
-	}
-
-	env, err := cel.NewEnv(options...)
-	if err != nil {
-		return false, err
-	}
-
-	ast, issues := env.Compile(expression)
-	if issues.Err() != nil {
-		return false, issues.Err()
-	}
-
-	program, err := env.Program(ast)
-	if err != nil {
-		return false, err
-	}
-
-	value, _, err := program.Eval(activation)
-	if err != nil {
-		return false, err
-	}
-
-	result, ok := value.Value().(bool)
-	if !ok {
-		return false, fmt.Errorf("assertion expression %q did not return bool", expression)
-	}
-
-	return result, nil
 }
 
 func checkMatches(expected, actual any) bool {
