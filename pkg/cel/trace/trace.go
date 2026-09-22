@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 )
 
@@ -29,10 +30,11 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 	if details == nil || ast == nil {
 		return et
 	}
-state := details.State()
-if state == nil {
-	return et
-}
+	state := details.State()
+	if state == nil {
+		return et
+	}
+	native := ast.NativeRep()
 	sourceInfo := native.SourceInfo()
 
 	idToExpr := map[int64]celast.Expr{}
@@ -57,7 +59,11 @@ if state == nil {
 		val, ok := state.Value(id)
 		nt := NodeTrace{Expression: text}
 		if ok {
-			nt.Value = stringify(val)
+			if types.IsError(val) {
+				nt.Error = stringify(val)
+			} else {
+				nt.Value = stringify(val)
+			}
 		}
 		offset, _ := sourceInfo.GetOffsetRange(id)
 		entries = append(entries, located{start: offset.Start, node: nt})
