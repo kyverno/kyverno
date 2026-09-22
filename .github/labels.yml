@@ -544,3 +544,15 @@ ready-for-review:
 needs-human-review:
   color: D93F0B
   description: A major-semver Dependabot bump, or an autofix attempt cap was hit
+
+# Applied and removed automatically by dependabot-merge-triage.yaml — classifies and labels only, never merges or
+# edits a PR; merging is a separate, human-approved step elsewhere.
+needs-review:
+  color: FBCA04
+  description: Not safe to auto-merge — failing CI, a conflict, or Copilot didn't recommend approval
+
+# Applied automatically by dependabot-merge-triage.yaml. Purely informational (a permanent fact about the bump,
+# never removed) — always paired with needs-review.
+major-bump:
+  color: 5319E7
+  description: A major-semver Dependabot bump — needs a human to check for breaking changes

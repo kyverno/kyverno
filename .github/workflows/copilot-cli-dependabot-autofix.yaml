@@ -243,7 +243,7 @@ jobs:
           one or more .github/workflows/*.yaml files) — fix whichever kind of failure this actually is, including
           editing a workflow file directly if that's what this PR itself changed.
 
-          Two cases where you should make NO changes and say so instead of guessing:
+          Handle these two cases as follows:
           - The failure is a stale test fixture (e.g. a hardcoded expected value in a _test.go file no longer
             matches real output because of the dependency bump) — in that case DO fix it, that's in scope.
           - The real fix is in a file this PR doesn't already touch, and would be needed regardless of this
@@ -323,11 +323,11 @@ jobs:
           ref: ${{ env.HEAD_SHA }}
 
       - name: Download the patch, if prepare-fix produced one
+        id: download
         if: needs.prepare-fix.result == 'success'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: fix-${{ github.event.workflow_run.id }}
-        continue-on-error: true
 
       - name: Apply the patch, commit, and push
         id: push
@@ -355,6 +355,8 @@ jobs:
 
           if [[ "${{ needs.prepare-fix.result }}" != "success" ]]; then
             headline="Copilot CLI run failed or was cancelled while working on the \`$CHECK_NAME\` check ($run_url) — needs a human look."
+          elif [[ "${{ steps.download.outcome }}" == "failure" ]]; then
+            headline="Copilot CLI may have found a fix for \`$CHECK_NAME\` ($run_url), but downloading it failed — needs a human look."
           elif [[ "${{ steps.push.outputs.pushed }}" == "true" ]]; then
             headline="Copilot CLI fixed the failing \`$CHECK_NAME\` check ($run_url) and pushed a commit. This push used the workflow's own token, so CI on it may be sitting in \"action required\" and need a maintainer to approve the run."
           else
