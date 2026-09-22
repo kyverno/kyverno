@@ -531,8 +531,16 @@ ai-generated:
 # Applied and removed automatically by .github/workflows/pr-readiness-check.yaml.
 needs-author-action:
   color: B60205
-  description: Failing DCO, a merge conflict, or unresolved review threads on this PR
+  description: Failing DCO or CI, a merge conflict, or unresolved review threads on this PR
 
+# Applied and removed automatically by pr-readiness-check.yaml (human PRs in the active milestone: DCO/CI/
+# conflicts/review-threads all clean) and dependabot-autofix.yaml (Dependabot PRs: every check green, no conflict).
+ready-for-review:
+  color: 0E8A16
+  description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
+
+# Applied and removed automatically by dependabot-autofix.yaml and copilot-cli-dependabot-autofix.yaml — both
+# independently apply it for a major-semver bump or a hit attempt cap, on their own respective triggers.
 needs-human-review:
   color: D93F0B
-  description: Copilot CLI autofix skipped a major-semver bump or hit its attempt cap — applied and removed automatically by copilot-cli-dependabot-autofix.yaml
+  description: A major-semver Dependabot bump, or an autofix attempt cap was hit

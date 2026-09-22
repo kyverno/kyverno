@@ -27,6 +27,9 @@ reviews:
   # CodeRabbit re-suggest those would just be noise. auto_apply_labels here is for what path-globbing structurally
   # can't produce — content-based labels like kind/security (PR description mentions a CVE) or ai-generated (see
   # slop_detection below).
+  labeling_instructions:
+    - label: "kind/security"
+      instructions: Apply only when the PR description identifies a security fix or vulnerability.
   auto_apply_labels: true
   suggested_reviewers: true
   auto_assign_reviewers: true
@@ -91,8 +94,10 @@ reviews:
         same policy see each other's patches (engine.go's invokeRuleHandler checkpoints/restores the JSON context
         between rules). Flag anything in the diff that contradicts these documented behaviors, and flag any new
         rule-type handler or evaluation path that doesn't fit the existing dispatch pattern without explanation.
-        When a CodeGraph MCP server is connected, query it for callers/implementors of any modified function or
-        interface before flagging a cross-package concern here; cite exact file:line, don't guess.
+        CodeRabbit's native Code Graph Analysis already tracks cross-file callers/implementors — use it for any
+        cross-package concern here; cite exact file:line, don't guess. An MCP server would only add value for
+        something that graph doesn't cover, e.g. a genuinely cross-repo lookup into kyverno/api — see
+        docs/dev/ai-review-open-questions.md.
 
     - path: "pkg/webhooks/**"
       instructions: |
@@ -102,17 +107,18 @@ reviews:
         inline, and enforce-mode/audit-with-emitWarning validate runs synchronously in the same wait.Group that
         produces the admission decision (a resource can be Allowed: true and still carry a Warning). This is the
         latency-critical admission path — flag any new synchronous blocking call without a timeout, any missing
-        panic recovery, and anything that could block admission incorrectly. When a CodeGraph MCP server is
-        connected, query it for callers/implementors of any modified function before flagging cross-package impact
-        here; cite exact file:line.
+        panic recovery, and anything that could block admission incorrectly. CodeRabbit's native Code Graph
+        Analysis already tracks cross-file callers/implementors — use it before flagging cross-package impact
+        here; cite exact file:line. See docs/dev/ai-review-open-questions.md for the (likely redundant) external
+        CodeGraph MCP server question.
 
     - path: "pkg/cel/**"
       instructions: |
         Read pkg/cel/AGENTS.md in full before reviewing — the five policy kinds (vpol/mpol/gpol/dpol/ivpol) do not
         share one structural template (confirmed: gpol and dpol have no autogen/, gpol has a custom template/
         placeholder scanner); don't assume a change to one kind's compiler/engine pattern generalizes to the
-        others. Flag any CEL expression evaluation path that doesn't handle nil/absent values gracefully. When a
-        CodeGraph MCP server is connected, query it for callers/implementors of any modified function before
+        others. Flag any CEL expression evaluation path that doesn't handle nil/absent values gracefully.
+        CodeRabbit's native Code Graph Analysis already tracks cross-file callers/implementors — use it before
         flagging cross-package impact; cite exact file:line.
 
     - path: "api/**"
@@ -126,8 +132,10 @@ reviews:
         type definition under api/**/*_types.go, verify the applicable generated file was also updated — see
         ARCHITECTURE.md's Generated/no-edit-zones table for the full fan-out (a CRD schema change also touches
         config/crds/**, the CLI's offline copy under cmd/cli/kubectl-kyverno/{config,data}/crds/, and
-        charts/kyverno/charts/crds/templates/). When a CodeGraph MCP server is connected, query it for
-        callers/implementors of any modified type before flagging a breaking-change concern; cite exact file:line.
+        charts/kyverno/charts/crds/templates/). CodeRabbit's native Code Graph Analysis already tracks cross-file
+        callers/implementors — use it before flagging a breaking-change concern; cite exact file:line. A separate
+        MCP server would only add value for a genuinely cross-repo lookup into kyverno/api itself — see
+        docs/dev/ai-review-open-questions.md.
 
     - path: "pkg/clients/**"
       instructions: |
@@ -251,6 +259,20 @@ reviews:
         If this PR was merged into a release branch (release-1.x, release-v1.x), draft a release note entry for
         this change and post it as a comment on the merged PR. One plain-English paragraph: what changed and why
         it matters for Kyverno users. Include the PR number and any associated CVE if present.
+
+knowledge_base:
+  opt_out: false
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "AGENTS.md"
+      - "**/AGENTS.md"
+      - "ARCHITECTURE.md"
+      - "REVIEW.md"
+  learnings:
+    scope: auto
+  linked_repositories:
+    - repository: "kyverno/api"
 
 chat:
   # Matches the platform default (true) — pinned explicitly so it's visible here rather than only in the

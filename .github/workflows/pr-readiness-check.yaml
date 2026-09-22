@@ -1,9 +1,10 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
 # Daily sweep of open PRs in the nearest upcoming release milestone, checking whether each one is actually clean:
-# DCO passing, no merge conflicts, no unresolved review threads the author hasn't responded to. A PR that fails
-# any check gets commented on and labeled `needs-author-action`; a PR with none of that label removed. "Open PRs
-# minus that label" is then a reliable answer to "what's actually ready for review."
+# DCO passing, no merge conflicts (via the `merge-conflicts` label pr-labelling.yaml applies), no unresolved
+# review threads the author hasn't responded to. A PR that fails any check is commented on, labeled
+# `needs-author-action`, and loses `ready-for-review` if it had it; a clean PR gets the reverse — both labels
+# fully re-evaluated on every run, so a PR that goes dirty again (e.g. a new merge conflict) flips back correctly.
 #
 # Checks live in .github/pr-readiness-checks.yml, not here — add one there, nothing in this file changes.
 
@@ -59,9 +60,10 @@ jobs:
           echo "Active milestone: $milestone"
 
           query='
-            query($search: String!) {
-              search(query: $search, type: ISSUE, first: 100) {
+            query($search: String!, $after: String) {
+              search(query: $search, type: ISSUE, first: 100, after: $after) {
                 issueCount
+                pageInfo { hasNextPage endCursor }
                 nodes {
                   ... on PullRequest {
                     number
@@ -76,7 +78,7 @@ jobs:
                         } } }
                       } }
                     }
-                    comments(last: 100) { pageInfo { hasPreviousPage } nodes { author { login } body createdAt } }
+                    comments(last: 100) { nodes { author { login } body createdAt } }
                     reviewThreads(first: 100) {
                       pageInfo { hasNextPage }
                       nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } }
@@ -87,16 +89,34 @@ jobs:
             }'
           search="repo:${GITHUB_REPOSITORY} is:pr is:open draft:false -author:app/dependabot milestone:\"$milestone\""
 
-          # Straight to a file, never through a bash variable — a PR comment/description can contain arbitrary
-          # multi-line text, and no shell variable capture of that content is assumed safe here.
-          gh api graphql -f query="$query" -f search="$search" > response.json
+          # Paginate the outer search itself — first:100 alone would silently skip PRs past the 100th in a large
+          # milestone, which could wrongly mark an unfetched PR ready from data that was never actually seen.
+          echo '[]' > prs.json
+          after=""
+          page=0
+          while :; do
+            page=$((page + 1))
+            # Straight to a file, never through a bash variable — a PR comment/description can contain arbitrary
+            # multi-line text, and no shell variable capture of that content is assumed safe here.
+            if [[ -z "$after" ]]; then
+              gh api graphql -f query="$query" -f search="$search" > response.json
+            else
+              gh api graphql -f query="$query" -f search="$search" -f after="$after" > response.json
+            fi
 
-          issue_count=$(jq -r '.data.search.issueCount' response.json)
-          jq -c '[.data.search.nodes[] | select(.isDraft | not)]' response.json > prs.json
+            jq -c '[.data.search.nodes[] | select(.isDraft | not)]' response.json > page-prs.json
+            jq -s 'add' prs.json page-prs.json > prs-next.json && mv prs-next.json prs.json
+
+            has_next=$(jq -r '.data.search.pageInfo.hasNextPage' response.json)
+            [[ "$has_next" != "true" ]] && break
+            after=$(jq -r '.data.search.pageInfo.endCursor' response.json)
+
+            if [[ "$page" -ge 20 ]]; then
+              echo "::warning::Stopped paginating the search after 20 pages (2000 PRs) — implausible for one milestone; treating anything beyond this as unchecked rather than looping forever."
+              break
+            fi
+          done
           returned_count=$(jq 'length' prs.json)
-          if [[ "$returned_count" -lt "$issue_count" ]]; then
-            echo "::warning::Search matched $issue_count PRs but only $returned_count were fetched (first: 100 page limit) — some open PRs in this milestone were not checked."
-          fi
 
           for ((i = 0; i < returned_count; i++)); do
             # Each PR isolated to its own file for the same reason — every jq call below reads pr.json directly
@@ -107,21 +127,24 @@ jobs:
             author=$(jq -r '.author.login' pr.json)
             findings=$(jq -c -f readiness-checks.jq pr.json)
             has_label=$(jq -r '[.labels.nodes[].name] | any(. == "needs-author-action")' pr.json)
+            has_ready_label=$(jq -r '[.labels.nodes[].name] | any(. == "ready-for-review")' pr.json)
 
             # A truncated connection means the "no findings" verdict below is unproven, not confirmed — retaining
             # the label in that case (rather than clearing it) is the fix CodeRabbit asked for on this workflow.
+            # `.comments` deliberately isn't included here: it only feeds marker dedup below, never a readiness
+            # check, so a PR with >100 historical comments shouldn't be stuck unable to ever clear its labels.
             truncated=$(jq -r '
               [.labels.pageInfo.hasNextPage,
                (.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false),
-               .comments.pageInfo.hasPreviousPage,
                .reviewThreads.pageInfo.hasNextPage]
               | any' pr.json)
 
             if [[ "$findings" == "[]" ]]; then
-              if [[ "$has_label" == "true" && "$truncated" == "false" ]]; then
-                gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
-              elif [[ "$truncated" == "true" ]]; then
-                echo "PR #$number: a connection was truncated, no findings seen — leaving the label as-is rather than clearing it on incomplete data."
+              if [[ "$truncated" == "false" ]]; then
+                [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
+                [[ "$has_ready_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
+              else
+                echo "PR #$number: a connection was truncated, no findings seen — leaving labels as-is rather than acting on incomplete data."
               fi
               continue
             fi
@@ -133,6 +156,7 @@ jobs:
             already_reported=$(jq --arg m "$marker" '[.comments.nodes[] | select(.body | contains($m))] | length > 0' pr.json)
 
             [[ "$has_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "needs-author-action"
+            [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
             [[ "$already_reported" == "true" ]] && continue
 
             items=$(jq -r '.[] | "- " + .message' <<< "$findings")

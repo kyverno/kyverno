@@ -4,12 +4,15 @@
 # `message` can name specifics from the PR's own data, not just return a fixed string. To add a check: add an
 # entry here — pr-readiness-check.yaml itself never needs to change.
 
+# Every terminal-but-unsuccessful check conclusion GitHub defines — not just FAILURE/ERROR — so a timed-out or
+# cancelled check doesn't slip through as "ready." NEUTRAL and SKIPPED are excluded: GitHub treats those as
+# successful outcomes, not something the author owes a fix for.
 dco:
   message: '"fix the DCO"'
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
       | select((.name // .context) == "DCO") | (.conclusion // .state)]
-    | any(. == "FAILURE" or . == "ERROR")
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE")
 
 # Excludes DCO — that gets its own message above, so a DCO failure doesn't also fire this one redundantly.
 ci:
@@ -17,14 +20,14 @@ ci:
     "fix the failing check(s): " + (
       [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
         | select((.name // .context) != "DCO")
-        | select((.conclusion // .state) == "FAILURE" or (.conclusion // .state) == "ERROR")
+        | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE"] | any(. == $c))
         | (.name // .context)]
       | join(", ")
     )
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
       | select((.name // .context) != "DCO") | (.conclusion // .state)]
-    | any(. == "FAILURE" or . == "ERROR")
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE")
 
 conflicts:
   message: '"fix the merge conflicts"'
