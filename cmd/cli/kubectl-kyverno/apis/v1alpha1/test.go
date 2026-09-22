@@ -156,7 +156,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
 			return err
 		}
-		// Detect duplicate lookup keys â€” last-write-wins in buildHTTPMockIndex would
+		// Detect duplicate lookup keys - last-write-wins in buildHTTPMockIndex would
 		// silently discard earlier entries, so we surface it as a validation error.
 		resolvedURL := entries[i].ResolvedURL()
 		method := strings.ToUpper(strings.TrimSpace(entries[i].Method))
@@ -165,7 +165,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 			key = method + ":" + resolvedURL
 		}
 		if _, dup := seen[key]; dup {
-			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) â€” each method+url combination must be unique", resolvedURL, key)
+			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) - each method+url combination must be unique", resolvedURL, key)
 		}
 		seen[key] = struct{}{}
 	}
