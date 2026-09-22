@@ -45,7 +45,7 @@ func TestHandle_ValidationIndexInProperties(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 3: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -70,7 +70,7 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 1: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -165,7 +165,7 @@ func buildDisallowLatestTagPolicyUsingRequest() *policiesv1beta1.ValidatingPolic
 
 func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
 	policy := buildDisallowLatestTagPolicyUsingRequest()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -215,7 +215,7 @@ func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) 
 
 func TestHandle_ExtractionMode_JobSet(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
