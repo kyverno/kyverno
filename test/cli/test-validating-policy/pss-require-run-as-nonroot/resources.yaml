@@ -1,0 +1,84 @@
+# Nothing set anywhere and hostUsers absent: enforce.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-unset-host-users-absent
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# hostUsers true is not a user namespace Pod: enforce.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-unset-host-users-true
+spec:
+  hostUsers: true
+  containers:
+  - name: app
+    image: nginx
+---
+# hostUsers explicitly false: relax.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-unset-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: app
+    image: nginx
+---
+# A container that opts out of runAsNonRoot still fails when hostUsers is absent.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-container-false-host-users-absent
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      runAsNonRoot: false
+---
+# Same Pod inside a user namespace: relax.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-container-false-host-users-false
+spec:
+  hostUsers: false
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      runAsNonRoot: false
+---
+# Pod-level true with containers inheriting it: allowed without any relaxation.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-pod-true
+spec:
+  securityContext:
+    runAsNonRoot: true
+  containers:
+  - name: app
+    image: nginx
+---
+# Every container sets it explicitly: allowed without any relaxation.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-containers-true
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      runAsNonRoot: true
