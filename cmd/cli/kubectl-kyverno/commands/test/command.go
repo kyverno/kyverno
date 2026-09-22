@@ -174,7 +174,7 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, registryAccess, warningsAsErrors)
+			responses, err := runTest(ctx, out, test, registryAccess, warningsAsErrors)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}

@@ -73,7 +73,7 @@ type TestResponse struct {
 }
 
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
-func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
+func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
@@ -113,7 +113,7 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 	fmt.Fprintln(out, "  Loading policies", "...")
 	for i, p := range testCase.Test.Policies {
 		if source.IsOCI(p) {
-			tmpDir, cleanup, err := pull.ToTempDir(context.TODO(), source.StripOCIPrefix(p), pull.NewKeychain())
+			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(p), pull.NewKeychain())
 			if err != nil {
 				return nil, fmt.Errorf("failed to pull OCI policy %s (%w)", p, err)
 			}
