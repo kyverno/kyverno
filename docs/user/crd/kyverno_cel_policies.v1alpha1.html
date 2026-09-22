@@ -2057,6 +2057,37 @@ Required.</p>
     
     
       <tr>
+        <td><code>validations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations are compensating controls that must be satisfied for this exception to be
+granted. They are evaluated only for resources that already matched MatchConditions.
+If any expression evaluates to false, the exception is not granted and the resource is
+rejected with that validation's message.
+Only honored for exceptions referencing a ValidatingPolicy.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>images</code>
           
           </br>
@@ -8146,6 +8177,37 @@ Optional. Defaults to &quot;false&quot; if not specified.</p>
           
 
           <p>MatchConditions is a list of CEL expressions that must be met for a resource to be excluded.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>validations</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">[]admissionregistration/v1.Validation</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>Validations are compensating controls that must be satisfied for this exception to be
+granted. They are evaluated only for resources that already matched MatchConditions.
+If any expression evaluates to false, the exception is not granted and the resource is
+rejected with that validation's message.
+Only honored for exceptions referencing a ValidatingPolicy.</p>
 
 
           

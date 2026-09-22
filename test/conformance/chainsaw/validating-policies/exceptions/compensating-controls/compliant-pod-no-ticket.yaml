@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: legacy-app-compliant-no-ticket
+spec:
+  containers:
+  - name: app
+    image: public.ecr.aws/docker/library/busybox:latest
+    securityContext:
+      runAsNonRoot: true

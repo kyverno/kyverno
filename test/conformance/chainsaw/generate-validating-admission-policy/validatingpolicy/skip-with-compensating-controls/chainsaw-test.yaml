@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: skip-with-compensating-controls
+spec:
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: check-deployment-labels
+  - name: create an exception carrying compensating controls
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 15s
+  # a generated VAP would grant the bypass with the controls silently dropped, and could not
+  # report a control's message even if it evaluated them, so generation must be skipped and
+  # evaluation left to Kyverno's own webhook.
+  - name: no validatingadmissionpolicy is generated
+    try:
+    - error:
+        file: validatingadmissionpolicy.yaml
+    - error:
+        file: validatingadmissionpolicybinding.yaml
+  # the exception name in the message carries chainsaw's ephemeral namespace, so match on the
+  # explanation rather than the full string
+  - name: the policy status explains why
+    try:
+    - script:
+        content: kubectl get validatingpolicy check-deployment-labels -o jsonpath='{.status.conditionStatus.message}'
+        check:
+          (contains($stdout, 'compensating controls')): true
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ValidatingPolicy
+          metadata:
+            name: check-deployment-labels
+          status:
+            generated: false
