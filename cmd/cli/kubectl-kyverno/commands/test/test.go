@@ -111,20 +111,35 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 
 	fmt.Fprintln(out, "  Loading policies", "...")
-	for i, p := range testCase.Test.Policies {
+	var ociPolicies []string
+	var regularPolicies []string
+	for _, p := range testCase.Test.Policies {
 		if source.IsOCI(p) {
 			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(p), pull.NewKeychain())
 			if err != nil {
 				return nil, fmt.Errorf("failed to pull OCI policy %s (%w)", p, err)
 			}
 			defer cleanup()
-			testCase.Test.Policies[i] = tmpDir
+			ociPolicies = append(ociPolicies, tmpDir)
+		} else {
+			regularPolicies = append(regularPolicies, p)
 		}
 	}
-	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
+	policyFullPath := path.GetFullPaths(regularPolicies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, false, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
+	}
+	if len(ociPolicies) > 0 {
+		ociResults, err := policy.Load(nil, "", false, ociPolicies...)
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load OCI policies (%s)", err)
+		}
+		if results == nil {
+			results = ociResults
+		} else {
+			results.Merge(ociResults)
+		}
 	}
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {
