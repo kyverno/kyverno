@@ -1,13 +1,16 @@
 # Design notes
 
-This directory is for lightweight, in-repo technical notes. The project's
-design-proposal process is now documented in
-[docs/dev/proposals/](../dev/proposals/README.md).
+This directory is for lightweight, in-repo technical notes. Before the KDP
+handoff, the project's design-proposal process is in
+[kyverno/KDP](https://github.com/kyverno/KDP). After the handoff, it is
+documented in [docs/dev/proposals/](../dev/proposals/README.md).
 
-**Substantial design proposals belong in
+**After the KDP handoff, substantial design proposals belong in
 [docs/dev/proposals/](../dev/proposals/README.md)** (Kyverno Design Proposals).
-The separate [kyverno/KDP](https://github.com/kyverno/KDP) repository contains
-historical proposals and should not receive new proposals.
+Before the handoff, submit new proposals to the separate
+[kyverno/KDP](https://github.com/kyverno/KDP) repository. After the handoff,
+that repository contains historical proposals and should not receive new
+proposals.
 
 Use a file here instead of a proposal in `docs/dev/proposals/` only when
 **all** of the following are true:

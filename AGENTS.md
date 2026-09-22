@@ -193,10 +193,11 @@ don't restate rules here.
 
 ## Design Proposals
 
-New Kyverno Design Proposals (KDPs) live in `docs/dev/proposals/`, which
-replaces the separate `kyverno/KDP` repository for new proposals. Start from
-`docs/dev/proposals/template.md` and follow the lifecycle documented in
-`docs/dev/proposals/README.md`.
+After the KDP handoff, new Kyverno Design Proposals (KDPs) live in
+`docs/dev/proposals/`. Until then, submit new proposals and substantive
+revisions to the separate `kyverno/KDP` repository. Start from
+`docs/dev/proposals/template.md` after the handoff and follow the lifecycle
+documented in `docs/dev/proposals/README.md`.
 
 Proposals guide design review and implementation. They are historical design
 records, not canonical post-release documentation, and may not be maintained

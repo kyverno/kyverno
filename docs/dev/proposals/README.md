@@ -1,14 +1,13 @@
 # Kyverno Design Proposals
 
-This directory is the home for Kyverno Design Proposals (KDPs). It replaces
-the separate [kyverno/KDP](https://github.com/kyverno/KDP) repository for new
-proposals so that designs, implementation, and repository history can evolve
-together. Existing proposals in the KDP repository remain historical records;
-new proposals and substantive revisions belong here as part of a staged
-migration. This repository should be treated as the process location only
-after the KDP handoff is complete; until then, the KDP repository remains the
-authoritative venue for new proposals. The KDP repository should receive a
-redirect or archival update as part of that handoff.
+This directory will become the home for Kyverno Design Proposals (KDPs) after
+the KDP handoff. Until then, the separate
+[kyverno/KDP](https://github.com/kyverno/KDP) repository remains the
+authoritative venue for new proposals and substantive revisions. After the
+handoff, new proposals and substantive revisions belong here so that designs,
+implementation, and repository history can evolve together. Existing
+proposals in the KDP repository remain historical records. The KDP repository
+should receive a redirect or archival update as part of that handoff.
 
 Use [template.md](./template.md) when starting a proposal. A proposal should
 explain the motivation, user-facing design, implementation approach, migration
