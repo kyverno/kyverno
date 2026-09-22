@@ -1,0 +1,66 @@
+{{- $name := "disallow-host-probes" }}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: {{ $name }}
+  annotations:
+    policies.kyverno.io/title: Disallow Host in Probes and Lifecycle Handlers
+    policies.kyverno.io/category: Pod Security Standards (Baseline)
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
+    {{- end }}
+    policies.kyverno.io/subject: Pod
+    kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
+    kyverno.io/kubernetes-version: "{{ default .Chart.KubeVersion .Values.kubeVersionOverride }}"
+    policies.kyverno.io/description: >-
+      Pointing a probe or lifecycle handler at a host other than the Pod itself lets a
+      container make the kubelet reach arbitrary network endpoints on its behalf and should
+      not be allowed. This policy ensures the `host` field is unset or empty on the `httpGet`
+      and `tcpSocket` handlers of `livenessProbe`, `readinessProbe`, `startupProbe`,
+      `lifecycle.postStart`, and `lifecycle.preStop`.
+    {{- include "kyverno-policies.customAnnotations" (dict "name" $name "values" .Values) | nindent 4 }}
+  labels: {{ include "kyverno-policies.labels" . | nindent 4 }}
+spec:
+  failurePolicy: {{ .Values.failurePolicy }}
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+    {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
+    {{- with .excludeResourceRules }}
+    excludeResourceRules:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
+  {{ end }}
+  variables:
+    - name: allContainers
+      expression: >-
+        object.spec.containers
+        + object.spec.?initContainers.orValue([])
+        + object.spec.?ephemeralContainers.orValue([])
+
+  validations:
+    - expression: >-
+        variables.allContainers.all(c,
+          [
+            c.?livenessProbe.orValue({}),
+            c.?readinessProbe.orValue({}),
+            c.?startupProbe.orValue({}),
+            c.?lifecycle.?postStart.orValue({}),
+            c.?lifecycle.?preStop.orValue({})
+          ].all(h,
+            h.?httpGet.?host.orValue('') == '' &&
+            h.?tcpSocket.?host.orValue('') == ''))
+      message: >-
+        Probes and lifecycle handlers must not target a specific host. The fields
+        livenessProbe, readinessProbe, startupProbe, lifecycle.postStart, and
+        lifecycle.preStop must leave httpGet.host and tcpSocket.host unset or empty
+        in spec.containers[*], spec.initContainers[*], and spec.ephemeralContainers[*].
+  {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
+  {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
+  validationActions: {{ $actions | nindent 4 }}
+{{- end }}

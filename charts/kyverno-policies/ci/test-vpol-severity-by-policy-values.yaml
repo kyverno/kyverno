@@ -9,6 +9,7 @@ podSecuritySeverity: medium
 # Per-policy overrides
 podSecuritySeverityByPolicy:
   disallow-host-path: high
+  disallow-host-probes: low
   disallow-privileged-containers: critical
   require-run-as-nonroot: 1
   # Empty string: suppresses severity annotation entirely for this policy

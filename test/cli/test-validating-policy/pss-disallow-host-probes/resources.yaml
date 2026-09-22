@@ -1,0 +1,269 @@
+# Failing cases: a non-empty host on each of the ten restricted field paths,
+# spread across spec.containers, spec.initContainers, and spec.ephemeralContainers.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-liveness-httpget
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+        host: 10.0.0.1
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-liveness-tcpsocket
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    livenessProbe:
+      tcpSocket:
+        port: 8080
+        host: example.com
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-readiness-httpget
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8080
+        host: 10.0.0.2
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-readiness-tcpsocket
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+        host: example.com
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-startup-httpget
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    startupProbe:
+      httpGet:
+        path: /start
+        port: 8080
+        host: 10.0.0.3
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-startup-tcpsocket
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    startupProbe:
+      tcpSocket:
+        port: 8080
+        host: startup.example.com
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-poststart-httpget
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    lifecycle:
+      postStart:
+        httpGet:
+          path: /hello
+          port: 8080
+          host: 10.0.0.4
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-poststart-tcpsocket
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    lifecycle:
+      postStart:
+        tcpSocket:
+          port: 8080
+          host: poststart.example.com
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-prestop-httpget
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    lifecycle:
+      preStop:
+        httpGet:
+          path: /bye
+          port: 8080
+          host: 10.0.0.5
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-prestop-tcpsocket
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+    lifecycle:
+      preStop:
+        tcpSocket:
+          port: 8080
+          host: prestop.example.com
+---
+# The host sits on an init container; every other container is clean.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-init-container
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    startupProbe:
+      httpGet:
+        path: /start
+        port: 8080
+        host: init.example.com
+  containers:
+  - name: nginx
+    image: nginx
+---
+# The host sits on an ephemeral container; every other container is clean.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-ephemeral-container
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  ephemeralContainers:
+  - name: debug
+    image: busybox
+    lifecycle:
+      preStop:
+        tcpSocket:
+          port: 8080
+          host: ephemeral.example.com
+---
+# Passing cases.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-no-probes
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+---
+# Every handler position is present across all three container scopes, with host unset.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-hosts-unset
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    startupProbe:
+      httpGet:
+        path: /start
+        port: 8080
+  containers:
+  - name: nginx
+    image: nginx
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+    lifecycle:
+      postStart:
+        httpGet:
+          path: /hello
+          port: 8080
+      preStop:
+        tcpSocket:
+          port: 8080
+  ephemeralContainers:
+  - name: debug
+    image: busybox
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8080
+---
+# Every handler position is present across all three container scopes, with host set to "".
+apiVersion: v1
+kind: Pod
+metadata:
+  name: good-pod-empty-hosts
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    startupProbe:
+      tcpSocket:
+        port: 8080
+        host: ""
+  containers:
+  - name: nginx
+    image: nginx
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 8080
+        host: ""
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+        host: ""
+    lifecycle:
+      postStart:
+        httpGet:
+          path: /hello
+          port: 8080
+          host: ""
+      preStop:
+        httpGet:
+          path: /bye
+          port: 8080
+          host: ""
+  ephemeralContainers:
+  - name: debug
+    image: busybox
+    readinessProbe:
+      tcpSocket:
+        port: 8080
+        host: ""
