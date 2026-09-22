@@ -7,8 +7,7 @@ Roadmap changes are discussed in weekly maintainer meetings and tracked via GitH
 
 Major features and changes follow the Kyverno Design Proposal process:
 
-- [Kyverno Design Proposals (KDP)](https://github.com/kyverno/KDP)
+- [Kyverno Design Proposals (KDP)](docs/dev/proposals/README.md)
 
 Kyverno releases progress is tracked via a project board: 
 - [Release Tracker board](https://github.com/orgs/kyverno/projects/9/views/1)
-
