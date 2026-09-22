@@ -2,7 +2,6 @@ package trace
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
@@ -37,41 +36,24 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 	native := ast.NativeRep()
 	sourceInfo := native.SourceInfo()
 
-	idToExpr := map[int64]celast.Expr{}
 	celast.PreOrderVisit(native.Expr(), celast.NewExprVisitor(func(e celast.Expr) {
-		idToExpr[e.ID()] = e
-	}))
-
-	type located struct {
-		start int32
-		node  NodeTrace
-	}
-	var entries []located
-	for _, id := range state.IDs() {
-		node, ok := idToExpr[id]
+		val, ok := state.Value(e.ID())
 		if !ok {
-			continue
+			// this node never evaluated (e.g. short-circuited by &&/||), nothing to trace
+			return
 		}
-		text, err := cel.ExprToString(node, sourceInfo)
+		text, err := cel.ExprToString(e, sourceInfo)
 		if err != nil || text == "" {
-			continue
+			return
 		}
-		val, ok := state.Value(id)
 		nt := NodeTrace{Expression: text}
-		if ok {
-			if types.IsError(val) {
-				nt.Error = stringify(val)
-			} else {
-				nt.Value = stringify(val)
-			}
+		if types.IsError(val) {
+			nt.Error = stringify(val)
+		} else {
+			nt.Value = stringify(val)
 		}
-		offset, _ := sourceInfo.GetOffsetRange(id)
-		entries = append(entries, located{start: offset.Start, node: nt})
-	}
-	sort.SliceStable(entries, func(i, j int) bool { return entries[i].start < entries[j].start })
-	for _, e := range entries {
-		et.Nodes = append(et.Nodes, e.node)
-	}
+		et.Nodes = append(et.Nodes, nt)
+	}))
 	return et
 }
 
