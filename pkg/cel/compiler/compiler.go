@@ -133,7 +133,7 @@ func CompileAuditAnnotations(path *field.Path, env *cel.Env, auditAnnotations ..
 	return result, allErrs
 }
 
-func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistrationv1.Validation) (Validation, field.ErrorList) {
+func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistrationv1.Validation, trace bool) (Validation, field.ErrorList) {
 	var allErrs field.ErrorList
 	compiled := Validation{Message: rule.Message}
 	{
@@ -146,11 +146,18 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
 		}
-		program, err := env.Program(ast)
+		var opts []cel.ProgramOption
+		if trace {
+			opts = append(opts, cel.EvalOptions(cel.OptTrackState))
+		}
+		program, err := env.Program(ast, opts...)
 		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
 		compiled.Program = program
+		if trace {
+			compiled.AST = ast
+		}
 	}
 	if rule.MessageExpression != "" {
 		path := path.Child("messageExpression")

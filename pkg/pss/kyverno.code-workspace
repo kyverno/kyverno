@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		},
+		{
+			"path": "../../../pod-security-admission"
+		},
+		{
+			"path": "../../../kyverno-api"
+		},
+		{
+			"path": "../../../kyverno-authz"
+		}
+	],
+	"settings": {}
+}

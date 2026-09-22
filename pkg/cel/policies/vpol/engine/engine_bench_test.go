@@ -84,7 +84,7 @@ func buildAlwaysTruePolicies(b *testing.B, n int) Provider {
 			},
 		})
 	}
-	provider, err := NewProvider(compiler.NewCompiler(), policies, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), policies, nil)
 	require.NoError(b, err)
 	return provider
 }
@@ -162,7 +162,7 @@ func buildNonMatchingPolicies(t testing.TB, n int) Provider {
 			},
 		})
 	}
-	provider, err := NewProvider(compiler.NewCompiler(), policies, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), policies, nil)
 	require.NoError(t, err)
 	return provider
 }
