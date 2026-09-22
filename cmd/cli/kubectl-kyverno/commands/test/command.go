@@ -43,7 +43,7 @@ func Command() *cobra.Command {
 				removeColor = true
 			}
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors)
+			return testCommandExecute(cmd.Context(), cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -66,6 +66,7 @@ type resultCounts struct {
 }
 
 func testCommandExecute(
+	ctx context.Context,
 	out io.Writer,
 	dirPath []string,
 	fileName string,
@@ -82,7 +83,7 @@ func testCommandExecute(
 	resolvedPaths := make([]string, 0, len(dirPath))
 	for _, p := range dirPath {
 		if source.IsOCI(p) {
-			tmpDir, cleanup, ociErr := pull.ToTempDir(context.Background(), source.StripOCIPrefix(p), authn.DefaultKeychain)
+			tmpDir, cleanup, ociErr := pull.ToTempDir(ctx, source.StripOCIPrefix(p), authn.DefaultKeychain)
 			if ociErr != nil {
 				return fmt.Errorf("failed to pull OCI bundle %s (%w)", p, ociErr)
 			}
