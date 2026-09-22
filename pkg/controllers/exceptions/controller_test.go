@@ -501,11 +501,16 @@ func TestFind_ConcurrentReads(t *testing.T) {
 		},
 	}
 
+	var startBarrier sync.WaitGroup
 	var wg sync.WaitGroup
+	start := make(chan struct{})
 	for i := 0; i < 50; i++ {
 		wg.Add(1)
+		startBarrier.Add(1)
 		go func() {
 			defer wg.Done()
+			startBarrier.Done()
+			<-start
 			for j := 0; j < 50; j++ {
 				res, err := c.Find("policy1", "rule1")
 				assert.NoError(t, err)
@@ -513,6 +518,8 @@ func TestFind_ConcurrentReads(t *testing.T) {
 			}
 		}()
 	}
+	startBarrier.Wait()
+	close(start)
 	wg.Wait()
 }
 
@@ -537,6 +544,21 @@ func TestReconcile_ConcurrentWithFind(t *testing.T) {
 		require.NoError(t, cpolIndexer.Add(cpol))
 	}
 
+	polex := &kyvernov2.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "polex-1",
+		},
+		Spec: kyvernov2.PolicyExceptionSpec{
+			Exceptions: []kyvernov2.Exception{
+				{
+					PolicyName: "policy-0",
+					RuleNames:  []string{"rule-1"},
+				},
+			},
+		},
+	}
+	require.NoError(t, polexIndexer.Add(polex))
+
 	c := &controller{
 		cpolLister:  kyvernov1listers.NewClusterPolicyLister(cpolIndexer),
 		polLister:   kyvernov1listers.NewPolicyLister(polIndexer),
@@ -545,30 +567,42 @@ func TestReconcile_ConcurrentWithFind(t *testing.T) {
 		namespace:   "*",
 	}
 
+	var startBarrier sync.WaitGroup
 	var wg sync.WaitGroup
+	start := make(chan struct{})
 	ctx := context.Background()
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
+		startBarrier.Add(1)
 		policyName := fmt.Sprintf("policy-%d", i)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 20; j++ {
-				_ = c.reconcile(ctx, logr.Discard(), policyName, "", policyName)
+			startBarrier.Done()
+			<-start
+			for j := 0; j < 50; j++ {
+				err := c.reconcile(ctx, logr.Discard(), policyName, "", policyName)
+				assert.NoError(t, err)
 			}
 		}()
 	}
 
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
+		startBarrier.Add(1)
 		policyName := fmt.Sprintf("policy-%d", i)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 20; j++ {
-				_, _ = c.Find(policyName, "rule-1")
+			startBarrier.Done()
+			<-start
+			for j := 0; j < 50; j++ {
+				_, err := c.Find(policyName, "rule-1")
+				assert.NoError(t, err)
 			}
 		}()
 	}
 
+	startBarrier.Wait()
+	close(start)
 	wg.Wait()
 }
