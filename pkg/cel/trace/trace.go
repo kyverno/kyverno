@@ -29,8 +29,10 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 	if details == nil || ast == nil {
 		return et
 	}
-	state := details.State()
-	native := ast.NativeRep()
+state := details.State()
+if state == nil {
+	return et
+}
 	sourceInfo := native.SourceInfo()
 
 	idToExpr := map[int64]celast.Expr{}
