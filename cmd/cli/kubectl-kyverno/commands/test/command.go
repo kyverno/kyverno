@@ -1,18 +1,22 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path/filepath"
 	"regexp"
 
 	"github.com/go-git/go-billy/v5"
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -75,6 +79,20 @@ func testCommandExecute(
 	removeColor bool,
 	warningsAsErrors bool,
 ) (err error) {
+	resolvedPaths := make([]string, 0, len(dirPath))
+	for _, p := range dirPath {
+		if source.IsOCI(p) {
+			tmpDir, cleanup, ociErr := pull.ToTempDir(context.Background(), source.StripOCIPrefix(p), authn.DefaultKeychain)
+			if ociErr != nil {
+				return fmt.Errorf("failed to pull OCI bundle %s (%w)", p, ociErr)
+			}
+			defer cleanup()
+			resolvedPaths = append(resolvedPaths, tmpDir)
+		} else {
+			resolvedPaths = append(resolvedPaths, p)
+		}
+	}
+	dirPath = resolvedPaths
 	// check input dir
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
