@@ -4,8 +4,11 @@ This directory is the home for Kyverno Design Proposals (KDPs). It replaces
 the separate [kyverno/KDP](https://github.com/kyverno/KDP) repository for new
 proposals so that designs, implementation, and repository history can evolve
 together. Existing proposals in the KDP repository remain historical records;
-new proposals and substantive revisions belong here. The KDP repository should
-receive a redirect or archival update as part of this migration.
+new proposals and substantive revisions belong here as part of a staged
+migration. This repository should be treated as the process location only
+after the KDP handoff is complete; until then, the KDP repository remains the
+authoritative venue for new proposals. The KDP repository should receive a
+redirect or archival update as part of that handoff.
 
 Use [template.md](./template.md) when starting a proposal. A proposal should
 explain the motivation, user-facing design, implementation approach, migration
@@ -69,8 +72,8 @@ or reverses an important decision.
 3. Mark the pull request as entering the seven-day FCP. Maintainers may end
    the FCP early only with unanimous maintainer agreement.
 4. Record binding maintainer votes. A majority in favor accepts the proposal;
-   no vote from a maintainer with a binding vote counts as an affirmative vote.
-   Substantial new arguments return the proposal to **Proposed** for further
-   development.
+   an absent vote from a maintainer with binding voting rights counts as
+   affirmative, as in the existing KDP process. Substantial new arguments
+   return the proposal to **Proposed** for further development.
 5. After the FCP outcome, update the proposal status and link the pull request
    or decision record that contains the approvals, votes, and evidence.
