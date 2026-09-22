@@ -134,6 +134,16 @@ func extractAndSavePolicies(layer v1.Layer, dir string) error {
 		if err != nil {
 			return fmt.Errorf("constructing output path: %v", err)
 		}
+		if _, err := os.Stat(pp); err == nil {
+			filename = fmt.Sprintf("%s_%d.yaml", name, i)
+			if ns := us.GetNamespace(); ns != "" {
+				filename = fmt.Sprintf("%s_%s_%d.yaml", ns, name, i)
+			}
+			pp, err = securejoin.SecureJoin(dir, filename)
+			if err != nil {
+				return fmt.Errorf("constructing output path: %v", err)
+			}
+		}
 		fmt.Fprintf(os.Stderr, "Saving %s [%s] into disk [%s]...\n", kind, name, pp)
 		if err := os.WriteFile(pp, doc, 0o600); err != nil {
 			return fmt.Errorf("creating file %s: %w", pp, err)
