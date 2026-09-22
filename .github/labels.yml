@@ -539,11 +539,6 @@ ready-for-review:
   color: 0E8A16
   description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
 
-# Applied and removed automatically by dependabot-autofix.yaml — for a major-semver bump or a hit attempt cap.
-needs-human-review:
-  color: D93F0B
-  description: A major-semver Dependabot bump, or an autofix attempt cap was hit
-
 # Applied and removed automatically by dependabot-merge-triage.yaml — classifies and labels only, never merges or
 # edits a PR; merging is a separate, human-approved step elsewhere.
 needs-review:
