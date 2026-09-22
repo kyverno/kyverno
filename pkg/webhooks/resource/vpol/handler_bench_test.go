@@ -98,7 +98,7 @@ func buildGateValidatePolicy(b *testing.B) vpolengine.Provider {
 			},
 		},
 	}
-	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{pol}, nil)
+	provider, err := vpolengine.NewProvider(vpolcompiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{pol}, nil)
 	require.NoError(b, err)
 	return provider
 }

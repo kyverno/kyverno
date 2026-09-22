@@ -8,4 +8,5 @@ type Validation struct {
 	Message           string
 	MessageExpression cel.Program
 	Program           cel.Program
+	AST               *cel.Ast
 }

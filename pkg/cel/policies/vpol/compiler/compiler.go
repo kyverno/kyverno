@@ -48,11 +48,15 @@ type Compiler interface {
 	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
-func NewCompiler() Compiler {
-	return &compilerImpl{}
+// NewCompiler builds a vpol compiler. When trace is true, every validation it compiles is
+// built with tracing on (see compiler.CompileValidation), so a later evaluation can produce a
+// trace.ExpressionTrace instead of just a pass/fail result. The webhook admission path must
+// always construct this with trace=false; only offline callers (the CLI) should opt in.
+func NewCompiler(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
 }
 
-type compilerImpl struct{}
+type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
@@ -100,7 +104,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, env, rule)
+			program, errs := compiler.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -177,7 +181,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, env, rule)
+			program, errs := compiler.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
