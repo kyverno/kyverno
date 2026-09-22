@@ -24,7 +24,11 @@ it does implement `Controller.Run`, wired through `internal.NewController` like 
 is no informer behind it because #17710 PR 4 deleted the legacy engine's typed `kyverno.io` listers, which
 forced the gauge onto metadata-only `list` calls instead of a watch — and that, in turn, is what let the chart
 narrow the admission/cleanup controllers' RBAC for these kinds down to `list` only (no `watch`). Don't assume
-the queue pattern applies to any of these three.
+the queue pattern applies to these packages. `pkg/controllers/metrics/policyexception`
+also has no queue or `Controller.Run`: it registers an OpenTelemetry scrape-time callback
+backed by synchronized listers in dedicated inventory caches on every admission-controller
+replica, without an admission-startup synchronization barrier. It discovers
+each optional API independently before requesting its informer.
 
 ## Subdirectory → responsibility → leader election
 
@@ -38,6 +42,7 @@ leader-elected = created before/outside that block, so it runs on every replica.
 | `admissionpolicygenerator` | Generates native `ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy` from Kyverno CEL policies, gated by the `GenerateValidatingAdmissionPolicy`/`GenerateMutatingAdmissionPolicy` toggles | Yes |
 | `globalcontext` | `GlobalContextEntry`/`ClusterGlobalContextEntry` → in-memory cache store for CEL/JMESPath external lookups | **No** — created/run before/outside the leader-election block in all four binaries that use it (`kyverno`, background, cleanup, reports controllers; in `cmd/kyverno/main.go` it's explicitly under the "start non leader controllers" comment) |
 | `metrics/legacypolicy` | Reports the `kyverno_legacy_policies_total` gauge at scrape time, from counts refreshed every 30s via metadata-only `list` calls for the legacy kinds the admission and cleanup controllers each cover | **No** — created/run before/outside the leader-election block, same as `globalcontext` above |
+| `metrics/policyexception` | Reports PolicyException inventory from synchronized informer listers at scrape time | **No** — registered before informer startup and outside leader election |
 | `metrics/updaterequest` | Updates `UpdateRequest` count/status metrics from an informer lister, read at scrape time | No (scrape-time callback, no queue) |
 | `policystatus` | Aggregates and writes `.status` for CEL policy kinds | Yes |
 | `report/aggregate` | Aggregates intermediary Admission/BackgroundScan reports into final `PolicyReport`/`ClusterPolicyReport`, dropping results whose policy no longer exists and every legacy `source: kyverno` result; uses two separate queues (front/back) and, while legacy `ClusterPolicy`/`Policy` are still present, runs a one-time startup sweep over every existing report | Yes |
