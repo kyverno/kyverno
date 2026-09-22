@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -77,12 +78,21 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
 		shouldDelete := !wantVap
 
+		var celexceptions []policiesv1beta1.PolicyException
 		var reason string
 		if wantVap {
+			var err error
+			celexceptions, err = c.getCELExceptions(policy.GetName())
+			if err != nil {
+				return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
+			}
 			isAutogen := len(pol.GetStatus().Autogen.Configs) > 0
 			if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
+			} else if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
+				shouldDelete = true
+				reason = "skip generating ValidatingAdmissionPolicy: " + msg
 			}
 		} else {
 			reason = "skip generating ValidatingAdmissionPolicy: not enabled."
@@ -102,10 +112,6 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 			}
 			c.updatePolicyStatus(ctx, policy, false, reason)
 			return nil
-		}
-		celexceptions, err := c.getCELExceptions(policy.GetName())
-		if err != nil {
-			return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
 		}
 		for _, exception := range celexceptions {
 			genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))

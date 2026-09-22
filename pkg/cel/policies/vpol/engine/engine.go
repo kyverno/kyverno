@@ -220,6 +220,21 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
+		} else if refused := result.RefusedException; refused != nil {
+			// an exception matched but its controls were not satisfied, and the policy then
+			// failed. Report what the exception required: nowhere else does the submitter learn
+			// one was in play. reportResult is not consulted — nothing was granted.
+			exceptions := []engineapi.GenericException{engineapi.NewCELPolicyException(refused.Exception)}
+			if refused.Error != nil {
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation,
+					fmt.Sprintf("failed to evaluate compensating controls of policy exception %s", cache.MetaObjectToName(refused.Exception)),
+					refused.Error, withValidationIndex(nil, result.Index),
+				).WithExceptions(exceptions))
+			} else {
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message,
+					withValidationIndex(result.AuditAnnotations, result.Index),
+				).WithExceptions(exceptions))
+			}
 		} else {
 			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
 		}
