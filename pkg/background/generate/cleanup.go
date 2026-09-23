@@ -58,7 +58,7 @@ func (c *GenerateController) handleNonPolicyChanges(policy kyvernov1.PolicyInter
 
 		downstreams, err := c.getDownstreams(rule, labels, &ruleContext)
 		if err != nil {
-			return fmt.Errorf("failed to fetch downstream resources: %v", err)
+			return fmt.Errorf("failed to fetch downstream resources: %w", err)
 		}
 
 		if len(downstreams) == 0 {

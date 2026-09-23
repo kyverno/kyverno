@@ -84,7 +84,7 @@ func processEnvoyPolicy(vpol *policiesv1beta1.ValidatingPolicy, request *authv3.
 	compiler := authzcompiler.NewCompiler[dynamic.Interface, *authv3.CheckRequest, *authv3.CheckResponse](dynClient)
 	compiled, errs := compiler.Compile(&policiesv1.ValidatingPolicy{TypeMeta: vpol.TypeMeta, ObjectMeta: vpol.ObjectMeta, Spec: vpol.Spec}, nil)
 	if len(errs) > 0 {
-		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile envoy policy %s: %v", vpol.Name, errs.ToAggregate())
+		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile envoy policy %s: %w", vpol.Name, errs.ToAggregate())
 	}
 
 	eng := core.NewEngine(
@@ -149,7 +149,7 @@ func processHTTPPolicy(vpol *policiesv1beta1.ValidatingPolicy, request *authzhtt
 	compiler := authzcompiler.NewCompiler[dynamic.Interface, *authzhttp.CheckRequest, *authzhttp.CheckResponse](dynClient)
 	compiled, errs := compiler.Compile(&policiesv1.ValidatingPolicy{TypeMeta: vpol.TypeMeta, ObjectMeta: vpol.ObjectMeta, Spec: vpol.Spec}, nil)
 	if len(errs) > 0 {
-		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile HTTP policy %s: %v", vpol.Name, errs.ToAggregate())
+		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile HTTP policy %s: %w", vpol.Name, errs.ToAggregate())
 	}
 
 	eng := core.NewEngine(

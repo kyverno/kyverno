@@ -96,12 +96,12 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 
 	celexceptions, err := c.getCELExceptions(mpol.GetName())
 	if err != nil {
-		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+		return fmt.Errorf("failed to get celexceptions by name %s: %w", mpol.GetName(), err)
 	}
 
 	if mapErr != nil {
 		if !apierrors.IsNotFound(mapErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %v", mapName, mapErr)
+			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
 		}
 		observedMAP = &admissionregistrationv1.MutatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: mapName},
@@ -109,7 +109,7 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 	}
 	if mapBindingErr != nil {
 		if !apierrors.IsNotFound(mapBindingErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %v", mapBindingName, mapBindingErr)
+			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
 		}
 		observedMAPbinding = &admissionregistrationv1.MutatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: mapBindingName},
@@ -119,28 +119,28 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 	if observedMAP.ResourceVersion == "" {
 		admissionpolicy.BuildMutatingAdmissionPolicyV1(observedMAP, mpol, celexceptions)
 		if _, err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %w", observedMAP.GetName(), err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAP, c.client.AdmissionregistrationV1().MutatingAdmissionPolicies(), func(observed *admissionregistrationv1.MutatingAdmissionPolicy) error {
 			admissionpolicy.BuildMutatingAdmissionPolicyV1(observed, mpol, celexceptions)
 			return nil
 		}); err != nil {
-			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %w", observedMAP.GetName(), err)
 		}
 	}
 
 	if observedMAPbinding.ResourceVersion == "" {
 		admissionpolicy.BuildMutatingAdmissionPolicyBindingV1(observedMAPbinding, mpol)
 		if _, err := c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Create(ctx, observedMAPbinding, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+			return fmt.Errorf("failed to create mutatingadmissionpolicybinding %s: %w", observedMAPbinding.GetName(), err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAPbinding, c.client.AdmissionregistrationV1().MutatingAdmissionPolicyBindings(), func(observed *admissionregistrationv1.MutatingAdmissionPolicyBinding) error {
 			admissionpolicy.BuildMutatingAdmissionPolicyBindingV1(observed, mpol)
 			return nil
 		}); err != nil {
-			return fmt.Errorf("failed to update mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+			return fmt.Errorf("failed to update mutatingadmissionpolicybinding %s: %w", observedMAPbinding.GetName(), err)
 		}
 	}
 
@@ -187,12 +187,12 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 
 	celexceptions, err := c.getCELExceptions(mpol.GetName())
 	if err != nil {
-		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+		return fmt.Errorf("failed to get celexceptions by name %s: %w", mpol.GetName(), err)
 	}
 
 	if mapErr != nil {
 		if !apierrors.IsNotFound(mapErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %v", mapName, mapErr)
+			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
 		}
 		observedMAP = &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: mapName},
@@ -200,7 +200,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 	}
 	if mapBindingErr != nil {
 		if !apierrors.IsNotFound(mapBindingErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %v", mapBindingName, mapBindingErr)
+			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
 		}
 		observedMAPbinding = &admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: mapBindingName},
@@ -210,7 +210,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 	if observedMAP.ResourceVersion == "" {
 		admissionpolicy.BuildMutatingAdmissionPolicy(observedMAP, mpol, celexceptions)
 		if _, err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %w", observedMAP.GetName(), err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAP, c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicies(),
@@ -218,14 +218,14 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 				admissionpolicy.BuildMutatingAdmissionPolicy(observed, mpol, celexceptions)
 				return nil
 			}); err != nil {
-			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %w", observedMAP.GetName(), err)
 		}
 	}
 
 	if observedMAPbinding.ResourceVersion == "" {
 		admissionpolicy.BuildMutatingAdmissionPolicyBinding(observedMAPbinding, mpol)
 		if _, err := c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings().Create(ctx, observedMAPbinding, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+			return fmt.Errorf("failed to create mutatingadmissionpolicybinding %s: %w", observedMAPbinding.GetName(), err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAPbinding, c.client.AdmissionregistrationV1alpha1().MutatingAdmissionPolicyBindings(),
@@ -233,7 +233,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 				admissionpolicy.BuildMutatingAdmissionPolicyBinding(observed, mpol)
 				return nil
 			}); err != nil {
-			return fmt.Errorf("failed to update mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+			return fmt.Errorf("failed to update mutatingadmissionpolicybinding %s: %w", observedMAPbinding.GetName(), err)
 		}
 	}
 
@@ -262,12 +262,12 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 
 	celexceptions, err := c.getCELExceptions(mpol.GetName())
 	if err != nil {
-		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
+		return fmt.Errorf("failed to get celexceptions by name %s: %w", mpol.GetName(), err)
 	}
 
 	if mapErr != nil {
 		if !apierrors.IsNotFound(mapErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %v", mapName, mapErr)
+			return fmt.Errorf("failed to get mutatingadmissionpolicy %s: %w", mapName, mapErr)
 		}
 		observedMAP = &admissionregistrationv1beta1.MutatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{Name: mapName},
@@ -275,7 +275,7 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 	}
 	if mapBindingErr != nil {
 		if !apierrors.IsNotFound(mapBindingErr) {
-			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %v", mapBindingName, mapBindingErr)
+			return fmt.Errorf("failed to get mutatingadmissionpolicybinding %s: %w", mapBindingName, mapBindingErr)
 		}
 		observedMAPbinding = &admissionregistrationv1beta1.MutatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: mapBindingName},
@@ -285,7 +285,7 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 	if observedMAP.ResourceVersion == "" {
 		admissionpolicy.BuildMutatingAdmissionPolicyBeta(observedMAP, mpol, celexceptions)
 		if _, err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies().Create(ctx, observedMAP, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+			return fmt.Errorf("failed to create mutatingadmissionpolicy %s: %w", observedMAP.GetName(), err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAP, c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicies(),
@@ -293,14 +293,14 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 				admissionpolicy.BuildMutatingAdmissionPolicyBeta(observed, mpol, celexceptions)
 				return nil
 			}); err != nil {
-			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %v", observedMAP.GetName(), err)
+			return fmt.Errorf("failed to update mutatingadmissionpolicy %s: %w", observedMAP.GetName(), err)
 		}
 	}
 
 	if observedMAPbinding.ResourceVersion == "" {
 		admissionpolicy.BuildMutatingAdmissionPolicyBindingBeta(observedMAPbinding, mpol)
 		if _, err := c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings().Create(ctx, observedMAPbinding, metav1.CreateOptions{}); err != nil {
-			return fmt.Errorf("failed to create mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+			return fmt.Errorf("failed to create mutatingadmissionpolicybinding %s: %w", observedMAPbinding.GetName(), err)
 		}
 	} else {
 		if _, err := controllerutils.Update(ctx, observedMAPbinding, c.client.AdmissionregistrationV1beta1().MutatingAdmissionPolicyBindings(),
@@ -308,7 +308,7 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 				admissionpolicy.BuildMutatingAdmissionPolicyBindingBeta(observed, mpol)
 				return nil
 			}); err != nil {
-			return fmt.Errorf("failed to update mutatingadmissionpolicybinding %s: %v", observedMAPbinding.GetName(), err)
+			return fmt.Errorf("failed to update mutatingadmissionpolicybinding %s: %w", observedMAPbinding.GetName(), err)
 		}
 	}
 

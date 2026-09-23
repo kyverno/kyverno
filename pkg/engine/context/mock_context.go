@@ -44,7 +44,7 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 	// compile the query
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 	if _, err := jp.Query(query); err != nil {
-		return emptyResult, fmt.Errorf("invalid JMESPath query %s: %v", query, err)
+		return emptyResult, fmt.Errorf("invalid JMESPath query %s: %w", query, err)
 	}
 
 	// strip escaped quotes from JMESPath variables with dashes e.g. {{ \"my-map.data\".key }}

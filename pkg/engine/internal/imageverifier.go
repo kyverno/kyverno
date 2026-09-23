@@ -625,7 +625,7 @@ func (iv *imageVerifier) validate(imageVerify kyvernov1.ImageVerification, ctx c
 
 func (iv *imageVerifier) validateDeny(imageVerify kyvernov1.ImageVerification) error {
 	if deny, msg, err := CheckDenyPreconditions(iv.logger, iv.policyContext.JSONContext(), imageVerify.Validation.Deny.GetAnyAllConditions()); err != nil {
-		return fmt.Errorf("failed to check deny conditions: %v", err)
+		return fmt.Errorf("failed to check deny conditions: %w", err)
 	} else {
 		if deny {
 			return fmt.Errorf("%s", iv.getDenyMessage(imageVerify, deny, msg))

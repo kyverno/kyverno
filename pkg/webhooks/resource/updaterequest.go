@@ -89,7 +89,7 @@ func (h *resourceHandlers) handleMutateExisting(ctx context.Context, logger logr
 
 	if failedResponse := applyUpdateRequest(ctx, request.AdmissionRequest, kyvernov2.Mutate, h.urGenerator, policyContext.AdmissionInfo(), request.Operation, engineResponses...); failedResponse != nil {
 		for _, failedUR := range failedResponse {
-			err := fmt.Errorf("failed to create update request: %v", failedUR.err)
+			err := fmt.Errorf("failed to create update request: %w", failedUR.err)
 
 			var policy kyvernov1.PolicyInterface
 			for _, pol := range policies {

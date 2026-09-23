@@ -102,7 +102,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		fmt.Fprintln(out, "  Loading user infos", "...")
 		info, err := userinfo.Load(testCase.Fs, testCase.Test.UserInfo, testDir)
 		if err != nil {
-			return nil, fmt.Errorf("error: failed to load request info (%s)", err)
+			return nil, fmt.Errorf("error: failed to load request info (%w)", err)
 		}
 		if deprecations.CheckUserInfo(out, testCase.Test.UserInfo, info) {
 			return nil, fmt.Errorf("userInfo file %s uses a deprecated schema — please migrate to the latest format", testCase.Test.UserInfo)
@@ -128,12 +128,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	policyFullPath := path.GetFullPaths(regularPolicies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, false, policyFullPath...)
 	if err != nil {
-		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
+		return nil, fmt.Errorf("error: failed to load policies (%w)", err)
 	}
 	if len(ociPolicies) > 0 {
 		ociResults, err := policy.Load(nil, "", false, ociPolicies...)
 		if err != nil {
-			return nil, fmt.Errorf("error: failed to load OCI policies (%s)", err)
+			return nil, fmt.Errorf("error: failed to load OCI policies (%w)", err)
 		}
 		if results == nil {
 			results = ociResults
@@ -169,7 +169,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
 	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
-		return nil, fmt.Errorf("error: failed to load resources (%s)", err)
+		return nil, fmt.Errorf("error: failed to load resources (%w)", err)
 	}
 	resources = ProcessResources(resources)
 	uniques, duplicates := resource.RemoveDuplicates(resources)
@@ -206,7 +206,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 
 			if loadErr != nil {
-				return nil, fmt.Errorf("error: failed to load JSON payload %s (%s)", testCase.Test.JSONPayloads[i], loadErr)
+				return nil, fmt.Errorf("error: failed to load JSON payload %s (%w)", testCase.Test.JSONPayloads[i], loadErr)
 			}
 			if data == nil {
 				return nil, fmt.Errorf("error: JSON payload %s is empty or nil", testCase.Test.JSONPayloads[i])
@@ -225,7 +225,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		for _, p := range httpFullPaths {
 			reqs, err := processor.LoadHTTPRequests(p)
 			if err != nil {
-				return nil, fmt.Errorf("error: failed to load HTTP payloads from path %s (%s)", p, err)
+				return nil, fmt.Errorf("error: failed to load HTTP payloads from path %s (%w)", p, err)
 			}
 			httpPayloads[p] = reqs
 		}
@@ -238,7 +238,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		for _, p := range envoyFullPaths {
 			reqs, err := processor.LoadEnvoyRequests(p)
 			if err != nil {
-				return nil, fmt.Errorf("error: failed to load Envoy payloads from path %s (%s)", p, err)
+				return nil, fmt.Errorf("error: failed to load Envoy payloads from path %s (%w)", p, err)
 			}
 			envoyPayloads[p] = reqs
 		}
@@ -247,7 +247,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	targetResourcesPath := path.GetFullPaths(testCase.Test.TargetResources, testDir, isGit)
 	targetResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, targetResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
-		return nil, fmt.Errorf("error: failed to load target resources (%s)", err)
+		return nil, fmt.Errorf("error: failed to load target resources (%w)", err)
 	}
 	targetsObjectArr := []runtime.Object{}
 	for _, t := range targetResources {
@@ -257,7 +257,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	parameterResourcesPath := path.GetFullPaths(testCase.Test.ParamResources, testDir, isGit)
 	paramResources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, parameterResourcesPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
 	if err != nil {
-		return nil, fmt.Errorf("error: failed to load parameter resources (%s)", err)
+		return nil, fmt.Errorf("error: failed to load parameter resources (%w)", err)
 	}
 	paramObjectsArr := []runtime.Object{}
 	for _, p := range paramResources {
@@ -289,7 +289,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				return &v1alpha1.ClusterResource{}
 			})
 			if err != nil {
-				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
+				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %w", err)
 			}
 			if len(src.Spec.CRDs) > 0 {
 				crdFullPaths := path.GetFullPaths(src.Spec.CRDs, testDir, isGit)
@@ -300,7 +300,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 						return &apiextensionsv1.CustomResourceDefinition{}
 					})
 					if err != nil {
-						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %s", crdFullPath, err)
+						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %w", crdFullPath, err)
 					}
 					allCRDs = append(allCRDs, crd)
 				}
@@ -332,7 +332,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
 	polexLoader, err := exception.Load(false, exceptionFullPath...)
 	if err != nil {
-		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
+		return nil, fmt.Errorf("error: failed to load exceptions (%w)", err)
 	}
 	if polexLoader != nil && polexLoader.Warnings != nil {
 		for _, warning := range polexLoader.Warnings {
@@ -798,7 +798,7 @@ func applyImageValidatingPolicies(
 			if continueOnFail {
 				continue
 			}
-			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%w)\n", gvk, err)
 		}
 		gvr := mapping.Resource
 		var user authenticationv1.UserInfo

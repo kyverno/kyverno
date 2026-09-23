@@ -33,12 +33,12 @@ func ExtractResources(newRaw []byte, request admissionv1.AdmissionRequest) (unst
 	if newRaw != nil {
 		newResource, err = ConvertResource(newRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 		if err != nil {
-			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %w", err)
 		}
 	} else if request.Object.Object != nil {
 		ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(request.Object.Object)
 		if err != nil {
-			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %w", err)
 		}
 		newResource = unstructured.Unstructured{Object: ret}
 	}
@@ -48,12 +48,12 @@ func ExtractResources(newRaw []byte, request admissionv1.AdmissionRequest) (unst
 	if oldRaw != nil {
 		oldResource, err = ConvertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 		if err != nil {
-			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %w", err)
 		}
 	} else if request.OldObject.Object != nil {
 		ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(request.OldObject.Object)
 		if err != nil {
-			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
+			return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %w", err)
 		}
 		oldResource = unstructured.Unstructured{Object: ret}
 	}
@@ -65,7 +65,7 @@ func ExtractResources(newRaw []byte, request admissionv1.AdmissionRequest) (unst
 func ConvertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
 	obj, err := kubeutils.BytesToUnstructured(raw)
 	if err != nil {
-		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %v", err)
+		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %w", err)
 	}
 
 	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})

@@ -271,7 +271,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 		}
 		targets, err := common.FindDownstream(ctx, h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
-			return fmt.Errorf("failed to list targets resources: %v", err)
+			return fmt.Errorf("failed to list targets resources: %w", err)
 		}
 
 		for i := range targets.Items {
@@ -289,7 +289,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 		}
 		targets, err = common.FindDownstream(ctx, h.client, old.GetAPIVersion(), old.GetKind(), targetSelector)
 		if err != nil {
-			return fmt.Errorf("failed to list targets resources: %v", err)
+			return fmt.Errorf("failed to list targets resources: %w", err)
 		}
 
 		for i := range targets.Items {

@@ -70,14 +70,14 @@ func buildHashes(rules []kyvernov1.Rule, oldHasSynchronizingRule bool) (ruleHash
 		r, generation := resetMutableFields(rule, oldHasSynchronizingRule)
 		data, err := json.Marshal(generation)
 		if err != nil {
-			return ruleHashes, generationHashes, fmt.Errorf("failed to create hash from the generate rule %v", err)
+			return ruleHashes, generationHashes, fmt.Errorf("failed to create hash from the generate rule %w", err)
 		}
 		hash := md5.Sum(data)
 		generationHashes.Insert(hex.EncodeToString(hash[:]))
 
 		data, err = json.Marshal(r)
 		if err != nil {
-			return ruleHashes, generationHashes, fmt.Errorf("failed to create hash from the generate rule %v", err)
+			return ruleHashes, generationHashes, fmt.Errorf("failed to create hash from the generate rule %w", err)
 		}
 		hash = md5.Sum(data)
 		ruleHashes.Insert(hex.EncodeToString(hash[:]))

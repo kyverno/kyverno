@@ -75,7 +75,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		return nil, fmt.Errorf("push rejected: directory contains native Kubernetes admission policy resources; only policies.kyverno.io/v1beta1 CEL kinds are supported in OCI bundles")
 	}
 	if len(results.NonFatalErrors) > 0 {
-		return nil, fmt.Errorf("push rejected: %d file(s) could not be loaded: %v", len(results.NonFatalErrors), results.NonFatalErrors[0].Error)
+		return nil, fmt.Errorf("push rejected: %d file(s) could not be loaded: %w", len(results.NonFatalErrors), results.NonFatalErrors[0].Error)
 	}
 
 	seen := make(map[string]bool)

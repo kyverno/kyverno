@@ -98,7 +98,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
-			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
+			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %w", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
 		if c.configuration != nil && c.configuration.ToFilter(trigger.GroupVersionKind(), "", trigger.GetNamespace(), trigger.GetName()) {
@@ -112,7 +112,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			gvk := trigger.GroupVersionKind()
 			mapping, err := c.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
-				return fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
+				return fmt.Errorf("failed to map gvk to gvr %s (%w)", gvk, err)
 			}
 
 			gvr := mapping.Resource
@@ -136,14 +136,14 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
 		if err != nil {
 			logger.Error(err, "failed to fetch gpol", "gpol", ur.Spec.GetPolicyKey())
-			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
+			failures = append(failures, fmt.Errorf("gpol %s failed: %w", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
 		isSync := policy.Policy.GetSpec().SynchronizationEnabled()
 		gpolResponse, err := c.engine.Handle(request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
-			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
+			failures = append(failures, fmt.Errorf("gpol %s failed: %w", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
 		var reportableEngineResponses []engineapi.EngineResponse

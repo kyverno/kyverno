@@ -124,7 +124,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 				resources, err := p.client.ListResource(context.TODO(), r.gvk.GroupVersion().String(), r.gvk.Kind, ns, targetConstraints.ObjectSelector)
 				if err != nil {
-					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.gvk.String(), ur.Spec.GetPolicyKey(), err))
+					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %w", r.gvk.String(), ur.Spec.GetPolicyKey(), err))
 					continue
 				}
 
@@ -153,7 +153,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			for _, object := range objects.Items {
 				parentResource, subresource, err := p.resolveTargetRoute(object, mpol.GetTargetMatchConstraints().MatchResources)
 				if err != nil {
-					failures = append(failures, fmt.Errorf("failed to resolve target route for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+					failures = append(failures, fmt.Errorf("failed to resolve target route for mpol %s: %w", ur.Spec.GetPolicyKey(), err))
 					continue
 				}
 				targets = append(targets, resolvedTarget{object: object, parentResource: parentResource, subresource: subresource})
@@ -190,7 +190,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		if ar == nil {
 			raw, err := json.Marshal(object.Object)
 			if err != nil {
-				failures = append(failures, fmt.Errorf("failed to marshal target object for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+				failures = append(failures, fmt.Errorf("failed to marshal target object for mpol %s: %w", ur.Spec.GetPolicyKey(), err))
 				continue
 			}
 			gvk := object.GroupVersionKind()
@@ -229,7 +229,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
 		if err != nil {
-			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %w", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
 		if response.PatchedResource != nil {
@@ -249,7 +249,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				if apierrors.IsNotFound(err) {
 					continue
 				}
-				failures = append(failures, fmt.Errorf("failed to refresh target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+				failures = append(failures, fmt.Errorf("failed to refresh target resource for mpol %s: %w", ur.Spec.GetPolicyKey(), err))
 				continue
 			}
 			new := response.PatchedResource
@@ -263,7 +263,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				if apierrors.IsNotFound(err) {
 					continue
 				}
-				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+				failures = append(failures, fmt.Errorf("failed to update target resource for mpol %s: %w", ur.Spec.GetPolicyKey(), err))
 				continue
 			}
 
@@ -449,7 +449,7 @@ func (p *processor) GetPolicy(ur *kyvernov2.UpdateRequest) (v1beta1.MutatingPoli
 		}
 	}
 
-	failures = append(failures, fmt.Errorf("failed to fetch mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+	failures = append(failures, fmt.Errorf("failed to fetch mpol %s: %w", ur.Spec.GetPolicyKey(), err))
 	return nil, updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 }
 
