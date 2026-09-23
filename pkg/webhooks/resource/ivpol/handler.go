@@ -52,31 +52,59 @@ func New(
 	}
 }
 
-func (h *handler) Mutate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
-	var policies []string
+// policyNames returns the policy names carried in the webhook URL path.
+func policyNames(ctx context.Context) []string {
 	if params := httprouter.ParamsFromContext(ctx); params != nil {
 		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
-			policies = params
+			return params
 		}
 	}
+	return nil
+}
+
+// MutateClustered serves the /ivpol/mutate route, so it only evaluates cluster scoped policies.
+func (h *handler) MutateClustered(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	predicate := ivpolengine.And(ivpolengine.MatchNames(policyNames(ctx)...), ivpolengine.ClusteredPolicy())
+	return h.mutate(ctx, admissionRequest, predicate)
+}
+
+// MutateNamespaced serves the /nivpol/mutate route. The provider watches cluster scoped and
+// namespaced image validating policies as one set, and policy names are not unique across
+// namespaces, so the request's namespace is matched as well to avoid evaluating a same named
+// policy from another namespace (or a cluster scoped one).
+func (h *handler) MutateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	predicate := ivpolengine.And(ivpolengine.MatchNames(policyNames(ctx)...), ivpolengine.NamespacedPolicy(admissionRequest.Namespace))
+	return h.mutate(ctx, admissionRequest, predicate)
+}
+
+func (h *handler) mutate(ctx context.Context, admissionRequest handlers.AdmissionRequest, predicate ivpolengine.Predicate) handlers.AdmissionResponse {
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, patches, err := h.engine.HandleMutating(ctx, request, ivpolengine.MatchNames(policies...))
+	response, patches, err := h.engine.HandleMutating(ctx, request, predicate)
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 	rawPatches := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
-	return h.mutationResponse(request, response, rawPatches)
+	admissionResponse := h.mutationResponse(request, response, rawPatches)
+	h.mutationEvents(ctx, response, !admissionResponse.Allowed)
+	return admissionResponse
 }
 
-func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, failurePolicy string, startTime time.Time) handlers.AdmissionResponse {
-	var policies []string
-	if params := httprouter.ParamsFromContext(ctx); params != nil {
-		if params := strings.Split(strings.TrimLeft(params.ByName("policies"), "/"), "/"); len(params) != 0 {
-			policies = params
-		}
-	}
+// ValidateClustered serves the /ivpol/validate route, so it only evaluates cluster scoped policies.
+func (h *handler) ValidateClustered(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	predicate := ivpolengine.And(ivpolengine.MatchNames(policyNames(ctx)...), ivpolengine.ClusteredPolicy())
+	return h.validate(ctx, logger, admissionRequest, predicate)
+}
+
+// ValidateNamespaced serves the /nivpol/validate route, scoping evaluation to policies in the
+// request's namespace (see MutateNamespaced).
+func (h *handler) ValidateNamespaced(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
+	predicate := ivpolengine.And(ivpolengine.MatchNames(policyNames(ctx)...), ivpolengine.NamespacedPolicy(admissionRequest.Namespace))
+	return h.validate(ctx, logger, admissionRequest, predicate)
+}
+
+func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, predicate ivpolengine.Predicate) handlers.AdmissionResponse {
 	request := celengine.RequestFromAdmission(h.context, admissionRequest.AdmissionRequest)
-	response, err := h.engine.HandleValidating(ctx, request, ivpolengine.MatchNames(policies...))
+	response, err := h.engine.HandleValidating(ctx, request, predicate)
 	if err != nil {
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
@@ -89,8 +117,18 @@ func (h *handler) Validate(ctx context.Context, logger logr.Logger, admissionReq
 }
 
 func (h *handler) mutationResponse(request celengine.EngineRequest, response eval.ImageVerifyEngineResponse, rawPatches []byte) handlers.AdmissionResponse {
+	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
+		if policy.Actions.Has(admissionregistrationv1.Deny) {
+			switch policy.Result.Status() {
+			case engineapi.RuleStatusFail:
+				errs = append(errs, fmt.Errorf("Policy %s failed: %s", policy.Policy.GetName(), policy.Result.Message()))
+			case engineapi.RuleStatusError:
+				errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+			}
+		}
+
 		if policy.Actions.Has(admissionregistrationv1.Warn) {
 			switch policy.Result.Status() {
 			case engineapi.RuleStatusFail:
@@ -100,7 +138,37 @@ func (h *handler) mutationResponse(request celengine.EngineRequest, response eva
 			}
 		}
 	}
+	if len(errs) > 0 {
+		return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
+	}
+
 	return admissionutils.MutationResponse(request.AdmissionRequest().UID, rawPatches, warnings...)
+}
+
+// mutationEvents reports digest pinning failures as events against the policy and the resource.
+// Only failures reach it: handleMutation records a policy result solely when a policy errors, so a
+// mutation that pins every image (or has nothing to pin) is silent.
+//
+// Unlike the validating phase this deliberately creates no admission report. When the failure is not
+// blocking, the request carries on to the validating webhook, which evaluates the same policies and
+// reports against them, so reporting here as well would duplicate that. When it is blocking the
+// request is rejected outright and no report is produced, matching ClusterPolicy, which likewise
+// skips handleAudit for a blocked request (pkg/webhooks/resource/imageverification/handler.go).
+func (h *handler) mutationEvents(ctx context.Context, response eval.ImageVerifyEngineResponse, blocked bool) {
+	if len(response.Policies) == 0 || response.Resource == nil {
+		return
+	}
+	responses := make([]engineapi.EngineResponse, 0, len(response.Policies))
+	for _, r := range response.Policies {
+		engineResponse := engineapi.EngineResponse{
+			Resource: *response.Resource,
+			PolicyResponse: engineapi.PolicyResponse{
+				Rules: []engineapi.RuleResponse{r.Result},
+			},
+		}
+		responses = append(responses, engineResponse.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy)))
+	}
+	h.admissionEvent(ctx, responses, blocked)
 }
 
 func (h *handler) validationResponse(request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) handlers.AdmissionResponse {

@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -169,6 +170,22 @@ func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1lister
 	return policies, nil
 }
 
+func FetchMutatingAdmissionPoliciesV1(mapLister admissionregistrationv1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
+	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
+	r, err := getIncludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, *admissionpolicy.ConvertMutatingAdmissionPolicyToBeta(pol))
+		}
+	}
+	return policies, nil
+}
+
 func FetchMutatingAdmissionPoliciesAlpha(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
 	r, err := getIncludeReportingLabelRequirement()
@@ -192,6 +209,18 @@ func FetchMutatingAdmissionPolicyBindings(mapBindingLister admissionregistration
 	} else {
 		for _, pol := range pols {
 			bindings = append(bindings, *pol)
+		}
+	}
+	return bindings, nil
+}
+
+func FetchMutatingAdmissionPolicyBindingsV1(mapBindingLister admissionregistrationv1listers.MutatingAdmissionPolicyBindingLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicyBinding, error) {
+	var bindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding
+	if pols, err := mapBindingLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			bindings = append(bindings, *admissionpolicy.ConvertMutatingAdmissionPolicyBindingToBeta(pol))
 		}
 	}
 	return bindings, nil

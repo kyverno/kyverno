@@ -1,13 +1,14 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
-	"gopkg.in/yaml.v2"
+	"go.yaml.in/yaml/v3"
 )
 
 func getAction(hasViolations bool, i int) string {
@@ -56,7 +57,17 @@ func GetBlockedMessages(engineResponses []engineapi.EngineResponse) string {
 	}
 	r := engineResponses[0].Resource
 	resourceName := fmt.Sprintf("%s/%s/%s", r.GetKind(), r.GetNamespace(), r.GetName())
-	results, _ := yaml.Marshal(failures)
+	var buf bytes.Buffer
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	err := enc.Encode(failures)
+	if cerr := enc.Close(); err == nil {
+		err = cerr
+	}
+	results := bytes.TrimPrefix(buf.Bytes(), []byte("---\n"))
+	if err != nil {
+		results = []byte(fmt.Sprintf("failed to encode failures: %v\n", err))
+	}
 	msg := fmt.Sprintf("\n\nresource %s was blocked due to the following policies \n\n%s", resourceName, results)
 	return msg
 }

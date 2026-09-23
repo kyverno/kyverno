@@ -2,8 +2,13 @@
 
 {{- define "kyverno.image" -}}
 {{- $tag := default .defaultTag .image.tag -}}
-{{- if not (typeIs "string" $tag) -}}
-  {{ fail "Image tags must be strings." }}
+{{- if kindIs "invalid" $tag -}}
+  {{- fail "An image tag is required. Please set a tag value or ensure defaultTag is provided." -}}
+{{- else if not (typeIs "string" $tag) -}}
+  {{- fail "Image tags must be strings." -}}
+{{- end -}}
+{{- if eq $tag "" -}}
+  {{- fail "An image tag is required. Please set a tag value or ensure defaultTag is provided." -}}
 {{- end -}}
 {{- $imageRegistry := default (default .image.defaultRegistry .globalRegistry) .image.registry -}}
 {{- if $imageRegistry -}}

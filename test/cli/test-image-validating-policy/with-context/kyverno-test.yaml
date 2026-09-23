@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+context: context.yaml
+kind: Test
+metadata:
+  name: ivpol-compiled-context
+policies:
+- policy.yaml
+resources:
+- pod.yaml
+results:
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: compiled-context
+  resources:
+  - test-pod
+  result: pass

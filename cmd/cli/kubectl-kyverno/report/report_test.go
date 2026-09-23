@@ -8,14 +8,14 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestComputeClusterReports(t *testing.T) {
-	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
 	policy := results.Policies[0]
@@ -51,7 +51,7 @@ func TestComputeClusterReports(t *testing.T) {
 }
 
 func TestComputePolicyReports(t *testing.T) {
-	results, err := policy.Load(nil, "", "../_testdata/policies/pol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", true, "../_testdata/policies/pol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
 	policy := results.Policies[0]
@@ -88,7 +88,7 @@ func TestComputePolicyReports(t *testing.T) {
 }
 
 func TestComputeReportResultsPerPolicyOld(t *testing.T) {
-	loaderResults, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	loaderResults, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(loaderResults.Policies), 1)
 	policy := loaderResults.Policies[0]
@@ -168,7 +168,7 @@ func TestMergeClusterReport(t *testing.T) {
 }
 
 func TestComputeReportResult(t *testing.T) {
-	results, err := policy.Load(nil, "", "../_testdata/policies/cpol-pod-requirements.yaml")
+	results, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
 	policy := results.Policies[0]
@@ -293,7 +293,7 @@ func TestComputeReportResult(t *testing.T) {
 }
 
 func TestPSSComputeReportResult(t *testing.T) {
-	results, err := policy.Load(nil, "", "../_testdata/policies/restricted.yaml")
+	results, err := policy.Load(nil, "", true, "../_testdata/policies/restricted.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
 	policy := results.Policies[0]
@@ -357,7 +357,7 @@ func TestComputeReportResultsPerPolicy(t *testing.T) {
 }
 
 func TestNamespacedPolicyReportGeneration(t *testing.T) {
-	results, err := policy.Load(nil, "", "../_testdata/policies/namespace-policy.yaml")
+	results, err := policy.Load(nil, "", true, "../_testdata/policies/namespace-policy.yaml")
 	assert.NilError(t, err)
 	assert.Equal(t, len(results.Policies), 1)
 	policy := results.Policies[0]

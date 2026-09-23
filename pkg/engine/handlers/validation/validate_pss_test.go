@@ -17,7 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	pssapi "k8s.io/pod-security-admission/api"
 	"k8s.io/pod-security-admission/policy"

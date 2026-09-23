@@ -7,12 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-
-	corev1 "k8s.io/api/core/v1"
-
 	fuzz "github.com/AdamKorcz/go-fuzz-headers-1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"golang.org/x/exp/slices"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var (

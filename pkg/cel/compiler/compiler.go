@@ -215,7 +215,8 @@ func CompileMatchImageReferences(path *field.Path, env *cel.Env, matches ...v1be
 	return result, allErrs
 }
 
-func compileGeneration(path *field.Path, env *cel.Env, generation policiesv1beta1.Generation) (cel.Program, field.ErrorList) {
+// CompileGeneration compiles the CEL expression of a generation entry.
+func CompileGeneration(path *field.Path, env *cel.Env, generation policiesv1beta1.Generation) (cel.Program, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
@@ -241,7 +242,7 @@ func CompileGenerations(path *field.Path, env *cel.Env, generations ...policiesv
 	}
 	result = make([]cel.Program, 0, len(generations))
 	for i, generation := range generations {
-		prog, errs := compileGeneration(path.Index(i), env, generation)
+		prog, errs := CompileGeneration(path.Index(i), env, generation)
 		allErrs = append(allErrs, errs...)
 		if prog != nil {
 			result = append(result, prog)

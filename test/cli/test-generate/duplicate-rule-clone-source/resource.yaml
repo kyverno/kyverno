@@ -3,3 +3,9 @@ kind: Namespace
 metadata:
   name: hello-world-namespace
   namespace: hello-world-namespace
+  name: namespace-a
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: namespace-b

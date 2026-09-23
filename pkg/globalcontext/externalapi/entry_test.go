@@ -1,11 +1,20 @@
 package externalapi
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"sync"
 	"testing"
+	"time"
 
+	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // mockJMESPathQuery implements jmespath.Query for testing
@@ -116,6 +125,68 @@ func TestEntry_Stop_CallsStopFunction(t *testing.T) {
 
 	e.Stop()
 	assert.True(t, stopCalled, "stop function should be called")
+}
+
+type blockingAPIClient struct {
+	started chan struct{}
+	once    sync.Once
+}
+
+func (b *blockingAPIClient) RawAbsPath(ctx context.Context, _ string, _ string, _ io.Reader) ([]byte, error) {
+	b.once.Do(func() { close(b.started) })
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestEntry_Stop_NoDeadlockWithInflightCall(t *testing.T) {
+	client := &blockingAPIClient{started: make(chan struct{})}
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: time.Millisecond},
+				RetryLimit:      1,
+			},
+		},
+	}
+
+	e, err := New(
+		context.Background(),
+		gce,
+		event.NewFake(),
+		nil,
+		nil,
+		logr.Discard(),
+		client,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		false,
+		nil,
+	)
+	assert.NoError(t, err)
+
+	select {
+	case <-client.started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for the API call to start")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		e.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("entry.Stop() deadlocked while an API call was in flight")
+	}
 }
 
 func TestEntry_Stop_WithNilStopFunction(t *testing.T) {
@@ -458,4 +529,94 @@ func TestEntry_SetData_MultipleScenarios(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestEntry_Stop_DoesNotHoldLockWhileWaitingForWorker is a regression test
+// for the deadlock where Stop() held e.Lock() while waiting for the polling
+// worker: a worker blocked in setData (which needs e.Lock()) could then never
+// finish, so Stop's wait never returned. The channels below force exactly
+// that interleaving deterministically: the worker only enters setData after
+// Stop has begun waiting for it. With the old lock-holding Stop this test
+// times out; with the fix it completes.
+func TestEntry_Stop_DoesNotHoldLockWhileWaitingForWorker(t *testing.T) {
+	workerReady := make(chan struct{})
+	release := make(chan struct{})
+	var worker sync.WaitGroup // stands in for the wait.Group in New
+
+	e := &entry{dataMap: make(map[string]any)}
+	worker.Add(1)
+	e.stop = func() {
+		// mirrors the production stop: signal the worker, then wait for it
+		close(release)
+		worker.Wait()
+	}
+
+	go func() {
+		defer worker.Done()
+		close(workerReady)
+		<-release
+		// needs e.Lock(); deadlocks if Stop still holds it while waiting
+		e.setData([]byte(`{"key":"val"}`), nil)
+	}()
+
+	<-workerReady
+	done := make(chan struct{})
+	go func() {
+		e.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop() deadlocked while a worker was calling setData")
+	}
+
+	// Stop is idempotent: a second call must not re-run the stop function
+	// (which would panic closing the already-closed release channel).
+	e.Stop()
+
+	// the worker's setData must have completed and been applied
+	e.Lock()
+	defer e.Unlock()
+	assert.Equal(t, map[string]any{"key": "val"}, e.dataMap[""])
+}
+
+func TestEntry_SetData_AtomicProjectionUpdates(t *testing.T) {
+	// Independent snapshot of expected initial data map
+	expectedSnapshot := map[string]any{
+		"":               map[string]any{"key": "old"},
+		"successfulProj": "old_val",
+	}
+
+	// Distinct map instance assigned to e.dataMap
+	initialDataMap := map[string]any{
+		"":               map[string]any{"key": "old"},
+		"successfulProj": "old_val",
+	}
+
+	e := &entry{
+		dataMap: initialDataMap,
+		projections: []store.Projection{
+			{
+				Name: "successfulProj",
+				JP: &mockJMESPathQuery{
+					result: "new_val",
+					err:    nil,
+				},
+			},
+			{
+				Name: "failingProj",
+				JP: &mockJMESPathQuery{
+					err: fmt.Errorf("projection evaluation error"),
+				},
+			},
+		},
+	}
+
+	e.setData([]byte(`{"key":"new"}`), nil)
+
+	assert.Error(t, e.err)
+	assert.Contains(t, e.err.Error(), "projection evaluation error")
+	assert.Equal(t, expectedSnapshot, e.dataMap)
 }

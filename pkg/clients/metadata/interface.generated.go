@@ -6,7 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_metadata "k8s.io/client-go/metadata"
-	"k8s.io/client-go/rest"
+	k8s_io_client_go_rest "k8s.io/client-go/rest"
 )
 
 type UpstreamInterface = k8s_io_client_go_metadata.Interface
@@ -46,7 +46,7 @@ func WithLogging(logger logr.Logger) NewOption {
 	}
 }
 
-func NewForConfig(c *rest.Config, opts ...NewOption) (Interface, error) {
+func NewForConfig(c *k8s_io_client_go_rest.Config, opts ...NewOption) (Interface, error) {
 	inner, err := k8s_io_client_go_metadata.NewForConfig(c)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func NewForConfig(c *rest.Config, opts ...NewOption) (Interface, error) {
 	return From(inner, opts...), nil
 }
 
-func NewForConfigAndClient(c *rest.Config, httpClient *http.Client, opts ...NewOption) (Interface, error) {
+func NewForConfigAndClient(c *k8s_io_client_go_rest.Config, httpClient *http.Client, opts ...NewOption) (Interface, error) {
 	inner, err := k8s_io_client_go_metadata.NewForConfigAndClient(c, httpClient)
 	if err != nil {
 		return nil, err
@@ -62,7 +62,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client, opts ...NewO
 	return From(inner, opts...), nil
 }
 
-func NewForConfigOrDie(c *rest.Config, opts ...NewOption) Interface {
+func NewForConfigOrDie(c *k8s_io_client_go_rest.Config, opts ...NewOption) Interface {
 	return From(k8s_io_client_go_metadata.NewForConfigOrDie(c), opts...)
 }
 

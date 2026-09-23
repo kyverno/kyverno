@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -9,12 +10,15 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,7 +29,7 @@ var ansiRegex = regexp.MustCompile("[\u001B\u009B][[\\]()#;?]*(?:(?:[a-zA-Z0-9]*
 func Command() *cobra.Command {
 	var testCase, outputFormat string
 	var fileName, gitBranch string
-	var registryAccess, failOnly, removeColor, detailedResults, requireTests bool
+	var registryAccess, failOnly, removeColor, detailedResults, requireTests, warningsAsErrors bool
 	cmd := &cobra.Command{
 		Use:          "test [local folder or git repository]...",
 		Short:        command.FormatDescription(true, websiteUrl, false, description...),
@@ -38,7 +42,7 @@ func Command() *cobra.Command {
 				removeColor = true
 			}
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor)
+			return testCommandExecute(cmd.Context(), cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -50,6 +54,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVar(&requireTests, "require-tests", false, "If set to true, return an error if no tests are found")
+	cmd.Flags().BoolVar(&warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
 	return cmd
 }
 
@@ -60,6 +65,7 @@ type resultCounts struct {
 }
 
 func testCommandExecute(
+	ctx context.Context,
 	out io.Writer,
 	dirPath []string,
 	fileName string,
@@ -71,7 +77,22 @@ func testCommandExecute(
 	detailedResults bool,
 	requireTests bool,
 	removeColor bool,
+	warningsAsErrors bool,
 ) (err error) {
+	resolvedPaths := make([]string, 0, len(dirPath))
+	for _, p := range dirPath {
+		if source.IsOCI(p) {
+			tmpDir, cleanup, ociErr := pull.ToTempDir(ctx, source.StripOCIPrefix(p), pull.NewKeychain())
+			if ociErr != nil {
+				return fmt.Errorf("failed to pull OCI bundle %s (%w)", p, ociErr)
+			}
+			defer cleanup()
+			resolvedPaths = append(resolvedPaths, tmpDir)
+		} else {
+			resolvedPaths = append(resolvedPaths, p)
+		}
+	}
+	dirPath = resolvedPaths
 	// check input dir
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
@@ -153,16 +174,13 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, registryAccess)
+			responses, err := runTest(ctx, out, test, registryAccess, warningsAsErrors)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}
 			fmt.Fprintln(out, "  Checking results ...")
 			var resultsTable table.Table
 			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath, removeColor); err != nil {
-				return fmt.Errorf("failed to print test result (%w)", err)
-			}
-			if err := printCheckResult(test.Test.Checks, *responses, rc, &resultsTable); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
 			fullTable.AddFailed(resultsTable.RawRows...)
@@ -266,11 +284,29 @@ func checkResult(
 			return false, fmt.Sprintf("Generated resource didn't match any of the expected generated resources in the test result\n(%s)\n\n%s", legend, lastDiff), "Resource diff"
 		}
 	}
+	return compareExpectedRuleResult(expected, response, rule)
+}
+
+func compareExpectedRuleResult(
+	expected openreportsv1alpha1.Result,
+	response engineapi.EngineResponse,
+	rule engineapi.RuleResponse,
+) (bool, string, string) {
 	result := report.ComputePolicyReportResult(false, response, rule)
 	if result.Result != expected {
 		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
 	return true, result.Description, "Ok"
+}
+
+// checkRuleResultOnly validates the expected test result against the computed policy
+// report result without comparing resource manifests. Use this for Generation rules
+// that produced no generated resources (for example a CEL evaluation error, or a
+// pass due to policy exceptions with nothing generated): passing the trigger resource
+// into checkResult would compare it against generatedResource and fail with a
+// misleading resource diff instead of the status mismatch.
+func checkRuleResultOnly(test v1alpha1.TestResult, response engineapi.EngineResponse, rule engineapi.RuleResponse) (bool, string, string) {
+	return compareExpectedRuleResult(test.Result, response, rule)
 }
 
 func isRulelessPolicyKind(kind string) bool {

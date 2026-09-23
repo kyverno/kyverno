@@ -24,3 +24,19 @@ results:
   - hello-world-namespace
   result: pass
   rule: clone-list-labelled-secrets
+- cloneSourceResource: clone-source-a.yaml
+  generatedResource: generated-a.yaml
+  kind: Namespace
+  policy: sync-secrets-a
+  resources:
+  - namespace-a
+  result: pass
+  rule: sync-image-pull-secret
+- cloneSourceResource: clone-source-b.yaml
+  generatedResource: generated-b.yaml
+  kind: Namespace
+  policy: sync-secrets-b
+  resources:
+  - namespace-b
+  result: pass
+  rule: sync-image-pull-secret

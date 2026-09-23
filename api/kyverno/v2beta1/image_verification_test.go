@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -15,13 +15,14 @@ func Test_ImageVerification(t *testing.T) {
 		name    string
 		subject ImageVerification
 		errors  func(*ImageVerification) field.ErrorList
-	}{{
-		name: "no attestors",
-		subject: ImageVerification{
-			ImageReferences: []string{"*"},
-			Attestors:       []kyvernov1.AttestorSet{},
+	}{
+		{
+			name: "no attestors",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestors:       []kyvernov1.AttestorSet{},
+			},
 		},
-	},
 		{
 			name: "no entries",
 			subject: ImageVerification{
@@ -159,7 +160,8 @@ func Test_Audit_VerifyImageRule(t *testing.T) {
 					field.Invalid(
 						path.Child("mutateDigest"),
 						i.MutateDigest,
-						"mutateDigest must be set to false for ‘Audit’ failure action"),
+						"mutateDigest must be set to false for ‘Audit’ failure action",
+					),
 				}
 			},
 		},

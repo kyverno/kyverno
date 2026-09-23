@@ -6,7 +6,7 @@ import (
 	poddisruptionbudgets "github.com/kyverno/kyverno/pkg/clients/kube/policyv1/poddisruptionbudgets"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_policy_v1 "k8s.io/client-go/kubernetes/typed/policy/v1"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 )
 
 func WithMetrics(inner k8s_io_client_go_kubernetes_typed_policy_v1.PolicyV1Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes_typed_policy_v1.PolicyV1Interface {
@@ -27,7 +27,7 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) Evictions(namespace string) k8s_io_client_go_kubernetes_typed_policy_v1.EvictionInterface {
@@ -44,7 +44,7 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) Evictions(namespace string) k8s_io_client_go_kubernetes_typed_policy_v1.EvictionInterface {
@@ -59,7 +59,7 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) Evictions(namespace string) k8s_io_client_go_kubernetes_typed_policy_v1.EvictionInterface {

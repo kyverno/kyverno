@@ -7,14 +7,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
-	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	extyaml "github.com/kyverno/kyverno/ext/yaml"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type options struct {
@@ -76,33 +79,75 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 			return fmt.Errorf("getting layer media type: %v", err)
 		}
 		if lmt == internal.PolicyLayerMediaType {
-			blob, err := layer.Compressed()
-			if err != nil {
-				return fmt.Errorf("getting layer blob: %v", err)
-			}
-			defer blob.Close()
-
-			layerBytes, err := io.ReadAll(blob)
-			if err != nil {
-				return fmt.Errorf("reading layer blob: %v", err)
-			}
-			policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(layerBytes)
-			if err != nil {
-				return fmt.Errorf("unmarshaling layer blob: %v", err)
-			}
-			for _, policy := range policies {
-				policyBytes, err := policyutils.ToYaml(policy)
-				if err != nil {
-					return fmt.Errorf("converting policy to yaml: %v", err)
-				}
-				pp := filepath.Join(dir, policy.GetName()+".yaml")
-				fmt.Fprintf(os.Stderr, "Saving policy into disk [%s]...\n", pp)
-				if err := os.WriteFile(pp, policyBytes, 0o600); err != nil {
-					return fmt.Errorf("creating file: %v", err)
-				}
+			if err := extractAndSavePolicies(layer, dir); err != nil {
+				return err
 			}
 		}
 	}
 	fmt.Fprintf(os.Stderr, "Done.")
+	return nil
+}
+
+// extractAndSavePolicies reads the policies out of a single layer's blob and writes them to
+// disk. It is factored out of execute so the layer's ReadCloser is closed at the end of each
+// iteration rather than accumulating open readers until execute returns.
+func extractAndSavePolicies(layer v1.Layer, dir string) error {
+	blob, err := layer.Compressed()
+	if err != nil {
+		return fmt.Errorf("getting layer blob: %v", err)
+	}
+	defer blob.Close()
+
+	layerBytes, err := io.ReadAll(blob)
+	if err != nil {
+		return fmt.Errorf("reading layer blob: %v", err)
+	}
+	documents, err := extyaml.SplitDocuments(layerBytes)
+	if err != nil {
+		return fmt.Errorf("splitting documents: %v", err)
+	}
+	for i, doc := range documents {
+		if len(strings.TrimSpace(string(doc))) == 0 {
+			continue
+		}
+		jsonBytes, err := k8syaml.ToJSON(doc)
+		if err != nil {
+			return fmt.Errorf("converting to JSON: %v", err)
+		}
+		var us unstructured.Unstructured
+		if err := us.UnmarshalJSON(jsonBytes); err != nil {
+			return fmt.Errorf("unmarshaling document: %v", err)
+		}
+		name := us.GetName()
+		if name == "" {
+			name = fmt.Sprintf("resource-%d", i)
+		}
+		kind := us.GetKind()
+		if kind == "" {
+			kind = "Policy"
+		}
+		filename := name + ".yaml"
+		if ns := us.GetNamespace(); ns != "" {
+			filename = ns + "_" + name + ".yaml"
+		}
+		pp, err := securejoin.SecureJoin(dir, filename)
+		if err != nil {
+			return fmt.Errorf("constructing output path: %v", err)
+		}
+		if _, err := os.Stat(pp); err == nil {
+			filename = fmt.Sprintf("%s_%d.yaml", name, i)
+			if ns := us.GetNamespace(); ns != "" {
+				filename = fmt.Sprintf("%s_%s_%d.yaml", ns, name, i)
+			}
+			pp, err = securejoin.SecureJoin(dir, filename)
+			if err != nil {
+				return fmt.Errorf("constructing output path: %v", err)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "Saving %s [%s] into disk [%s]...\n", kind, name, pp)
+		if err := os.WriteFile(pp, doc, 0o600); err != nil {
+			return fmt.Errorf("creating file %s: %w", pp, err)
+		}
+	}
 	return nil
 }

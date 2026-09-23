@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-trigger-stops-matching
+  namespace: sync-trigger-stops-matching
+data:
+  source: GeneratingPolicy

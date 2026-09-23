@@ -1,104 +1,97 @@
 package imageverify
 
 import (
-	"github.com/go-logr/logr"
+	"reflect"
+
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
-	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/ext"
 	"github.com/kyverno/sdk/extensions/cel/libs/versions"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const libraryName = "kyverno.imageverify"
 
-type lib struct {
-	logger  logr.Logger
-	version *version.Version
-	imgCtx  imagedataloader.ImageContext
-	ivpol   policiesv1beta1.ImageValidatingPolicyLike
-	lister  k8scorev1.SecretInterface
-}
+// RuntimeKey is supplied by the evaluator, never stored in a reusable program.
+const RuntimeKey = "__kyverno_imageverify"
 
-func Latest() *version.Version {
-	return versions.KyvernoLatest
-}
+var runtimeType = cel.ObjectType("imageverify.Runtime")
 
-func Lib(v *version.Version, imgCtx imagedataloader.ImageContext, ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) cel.EnvOption {
-	// create the cel lib env option
-	return cel.Lib(&lib{
-		version: v,
-		imgCtx:  imgCtx,
-		ivpol:   ivpol,
-		lister:  lister,
-	})
-}
+type lib struct{}
 
-func Types() []*apiservercel.DeclType {
-	return []*apiservercel.DeclType{}
-}
+func Latest() *version.Version { return versions.KyvernoLatest }
 
-func (*lib) LibraryName() string {
-	return libraryName
-}
+// Lib declares stateless bindings. Public function syntax is preserved by macros
+// which pass the current activation's runtime as an internal receiver.
+func Lib() cel.EnvOption { return cel.Lib(&lib{}) }
 
-func (c *lib) CompileOptions() []cel.EnvOption {
-	return []cel.EnvOption{
-		c.extendEnv,
-	}
-}
+func Types() []*apiservercel.DeclType            { return nil }
+func (*lib) LibraryName() string                 { return libraryName }
+func (*lib) ProgramOptions() []cel.ProgramOption { return nil }
 
-func (*lib) ProgramOptions() []cel.ProgramOption {
-	return []cel.ProgramOption{}
-}
-
-func (c *lib) extendEnv(env *cel.Env) (*cel.Env, error) {
-	impl, err := ImageVerifyCELFuncs(c.logger, c.imgCtx, c.ivpol, c.lister, env.CELTypeAdapter())
-	if err != nil {
-		return nil, err
-	}
-	// build our function overloads
-	libraryDecls := map[string][]cel.FunctionOpt{
-		"verifyImageSignatures": {
-			cel.Overload(
-				"verify_image_signature_string_stringarray",
-				[]*cel.Type{types.StringType, types.NewListType(types.DynType)},
-				types.IntType,
-				cel.BinaryBinding(impl.verify_image_signature_string_stringarray),
-			),
+func (*lib) CompileOptions() []cel.EnvOption {
+	functions := []struct {
+		name   string
+		args   []*cel.Type
+		result *cel.Type
+		call   func(*ivfuncs, []ref.Val) ref.Val
+	}{
+		{
+			"verifyImageSignatures",
+			[]*cel.Type{cel.StringType, cel.ListType(cel.DynType)},
+			cel.IntType,
+			func(f *ivfuncs, args []ref.Val) ref.Val {
+				return f.verify_image_signature_string_stringarray(args[0], args[1])
+			},
 		},
-		"verifyAttestationSignatures": {
-			cel.Overload(
-				"verify_image_attestations_string_string_stringarray",
-				[]*cel.Type{types.StringType, types.StringType, types.NewListType(types.DynType)},
-				types.IntType,
-				cel.FunctionBinding(impl.verify_image_attestations_string_string_stringarray),
-			),
+		{
+			"verifyAttestationSignatures",
+			[]*cel.Type{cel.StringType, cel.StringType, cel.ListType(cel.DynType)},
+			cel.IntType,
+			func(f *ivfuncs, args []ref.Val) ref.Val {
+				return f.verify_image_attestations_string_string_stringarray(args...)
+			},
 		},
-		"getImageData": {
-			cel.Overload(
-				"get_image_data_string",
-				[]*cel.Type{types.StringType},
-				types.DynType,
-				cel.UnaryBinding(impl.get_image_data_string),
-			),
+		{
+			"getImageData",
+			[]*cel.Type{cel.StringType},
+			cel.DynType,
+			func(f *ivfuncs, args []ref.Val) ref.Val { return f.get_image_data_string(args[0]) },
 		},
-		"extractPayload": {
-			cel.Overload(
-				"payload_string_string",
-				[]*cel.Type{types.StringType, types.StringType},
-				types.DynType,
-				cel.BinaryBinding(impl.payload_string_string),
-			),
+		{
+			"extractPayload",
+			[]*cel.Type{cel.StringType, cel.StringType},
+			cel.DynType,
+			func(f *ivfuncs, args []ref.Val) ref.Val { return f.payload_string_string(args[0], args[1]) },
 		},
 	}
-	// create env options corresponding to our function overloads
-	options := []cel.EnvOption{}
-	for name, overloads := range libraryDecls {
-		options = append(options, cel.Function(name, overloads...))
+	options := make([]cel.EnvOption, 0, 2+2*len(functions))
+	options = append(options,
+		ext.NativeTypes(reflect.TypeFor[Runtime]()),
+		cel.Variable(RuntimeKey, runtimeType),
+	)
+	for _, fn := range functions {
+		internalName := "__" + fn.name
+		options = append(options,
+			cel.Macros(cel.GlobalMacro(fn.name, len(fn.args), func(e cel.MacroExprFactory, _ ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
+				return e.NewMemberCall(internalName, e.NewIdent(RuntimeKey), args...), nil
+			})),
+			cel.Function(internalName, cel.MemberOverload(internalName+"_runtime", append([]*cel.Type{runtimeType}, fn.args...), fn.result,
+				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
+					r, err := utils.ConvertToNative[Runtime](args[0])
+					if err != nil {
+						return types.WrapErr(err)
+					}
+					if r.functions == nil {
+						return types.NewErr("missing image verification runtime")
+					}
+					return fn.call(r.functions, args[1:])
+				}))),
+		)
 	}
-	// extend environment with our function overloads
-	return env.Extend(options...)
+	return options
 }

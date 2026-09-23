@@ -12,6 +12,49 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+func TestRegexReplace(t *testing.T) {
+	tests := []struct {
+		name       string
+		expression string
+		want       string
+	}{
+		{
+			name:       "simple replace",
+			expression: `regex.replace("hello world hello", "hello", "hi")`,
+			want:       "hi world hi",
+		},
+		{
+			name:       "replace with capture group",
+			expression: `regex.replace("foo bar", "(fo)o (ba)r", r'\2 \1')`,
+			want:       "ba fo",
+		},
+		{
+			name:       "replace image registry",
+			expression: `regex.replace("docker.io/myimage:latest", "^docker\\.io/", "myregistry.io/")`,
+			want:       "myregistry.io/myimage:latest",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env, err := NewBaseEnv()
+			assert.NoError(t, err)
+			assert.NotNil(t, env)
+
+			ast, issues := env.Compile(tt.expression)
+			if issues != nil {
+				assert.NoError(t, issues.Err())
+			}
+			prg, err := env.Program(ast)
+			assert.NoError(t, err)
+
+			out, _, err := prg.Eval(map[string]any{})
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, out.Value())
+		})
+	}
+}
+
 func TestCompileMatchConditions(t *testing.T) {
 	tests := []struct {
 		name            string

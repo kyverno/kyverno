@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func TestParseRuleType_validate_rule(t *testing.T) {
@@ -331,4 +332,24 @@ func TestParseRuleType_generation_over_image_verify(t *testing.T) {
 
 	result := ParseRuleType(rule)
 	assert.Equal(t, Generate, result)
+}
+
+func TestGetResourceKindAndNamespace_NilResource(t *testing.T) {
+	t.Parallel()
+
+	kind, namespace := GetResourceKindAndNamespace(nil)
+	assert.Equal(t, "", kind)
+	assert.Equal(t, "", namespace)
+}
+
+func TestGetResourceKindAndNamespace_NonNilResource(t *testing.T) {
+	t.Parallel()
+
+	resource := &unstructured.Unstructured{}
+	resource.SetKind("Pod")
+	resource.SetNamespace("default")
+
+	kind, namespace := GetResourceKindAndNamespace(resource)
+	assert.Equal(t, "Pod", kind)
+	assert.Equal(t, "default", namespace)
 }

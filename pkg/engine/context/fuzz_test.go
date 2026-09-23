@@ -3,10 +3,9 @@ package context
 import (
 	"testing"
 
-	admissionv1 "k8s.io/api/admission/v1"
-
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 var (

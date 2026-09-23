@@ -13,6 +13,13 @@ metadata:
     policies.kyverno.io/subject: Secret
     policies.kyverno.io/title: Clone List Secrets
   name: clone-list-secrets-a
+      those Secrets is time consuming and error prone. This policy will copy a Secret
+      called `regcred` which exists in the `default` Namespace to new Namespaces when
+      they are created. It will also push updates to the copied Secrets should the
+      source Secret be changed.      '
+    policies.kyverno.io/subject: Secret
+    policies.kyverno.io/title: Sync Secrets
+  name: sync-secrets-a
 spec:
   admission: true
   background: true
@@ -26,6 +33,12 @@ spec:
         selector:
           matchLabels:
             allowedToBeCloned: "true"
+      apiVersion: v1
+      clone:
+        name: regcred-a
+        namespace: default
+      kind: Secret
+      name: regcred-a
       namespace: '{{request.object.metadata.name}}'
       synchronize: true
     match:
@@ -34,3 +47,6 @@ spec:
           kinds:
           - Namespace
     name: clone-list-labelled-secrets
+          names:
+          - namespace-a
+    name: sync-image-pull-secret

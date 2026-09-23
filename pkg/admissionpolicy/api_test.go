@@ -101,6 +101,35 @@ func TestCustomNamespaceListerList(t *testing.T) {
 		assert.Len(t, list, 2)
 	})
 
+	t.Run("list namespaces filtered by selector", func(t *testing.T) {
+		k8sClient := fake.NewClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns1, Labels: map[string]string{"team": "a"}}},
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns2, Labels: map[string]string{"team": "b"}}},
+		)
+
+		mockDC := &mockDClient{kubeClient: k8sClient}
+		lister := NewCustomNamespaceLister(mockDC)
+
+		list, err := lister.List(labels.SelectorFromSet(map[string]string{"team": "a"}))
+		assert.NoError(t, err)
+		assert.Len(t, list, 1)
+		assert.Equal(t, ns1, list[0].Name)
+	})
+
+	t.Run("nil selector lists all namespaces", func(t *testing.T) {
+		k8sClient := fake.NewClientset(
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns1}},
+			&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns2}},
+		)
+
+		mockDC := &mockDClient{kubeClient: k8sClient}
+		lister := NewCustomNamespaceLister(mockDC)
+
+		list, err := lister.List(nil)
+		assert.NoError(t, err)
+		assert.Len(t, list, 2)
+	})
+
 	t.Run("list namespaces failure", func(t *testing.T) {
 		k8sClient := fake.NewClientset()
 

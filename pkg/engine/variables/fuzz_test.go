@@ -5,7 +5,6 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	"github.com/go-logr/logr"
-
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"

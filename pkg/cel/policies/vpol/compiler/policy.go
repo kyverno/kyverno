@@ -41,13 +41,14 @@ func (p *Policy) Evaluate(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
 	case policieskyvernoio.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
-		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
+		return p.evaluateKubernetes(ctx, attr, request, namespace, requestMapFn, context)
 	}
 }
 
@@ -67,9 +68,10 @@ func (p *Policy) evaluateKubernetes(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (*EvaluationResult, error) {
-	data, err := prepareK8sData(attr, request, namespace, context)
+	data, err := prepareK8sData(attr, request, namespace, requestMapFn, context)
 	if err != nil {
 		return nil, err
 	}
@@ -91,20 +93,28 @@ func (p *Policy) evaluateWithData(
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+		fullExemptionFound := false
 		for _, polex := range p.exceptions {
 			match, err := p.match(ctx, dataNew, polex.MatchConditions)
 			if err != nil {
+				if fullExemptionFound {
+					// exception already granted; a broken later exception must not negate it
+					continue
+				}
 				return nil, err
 			}
 			if match {
 				matchedExceptions = append(matchedExceptions, polex.Exception)
-				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
-				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+				if len(polex.Exception.Spec.Images) == 0 && len(polex.Exception.Spec.AllowedValues) == 0 {
+					fullExemptionFound = true
+				} else if !fullExemptionFound {
+					// partial scopes are irrelevant once a full exemption is granted
+					allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+					allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+				}
 			}
 		}
-		// if there are matched exceptions and no allowed images, no need to evaluate the policy
-		// as the resource is excluded from policy evaluation
-		if len(matchedExceptions) > 0 && len(allowedImages) == 0 && len(allowedValues) == 0 {
+		if fullExemptionFound {
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}

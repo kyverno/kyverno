@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: deny-protected-deletion
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [DELETE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        !(has(oldObject.metadata.labels) && 'protected' in oldObject.metadata.labels && oldObject.metadata.labels['protected'] == 'true')
+      message: "protected pods cannot be deleted"
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-env-label
+spec:
+  validationActions:
+    - Deny
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE]
+      resources:   [pods]
+  validations:
+    - expression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels
+      message: "pods must have an env label"

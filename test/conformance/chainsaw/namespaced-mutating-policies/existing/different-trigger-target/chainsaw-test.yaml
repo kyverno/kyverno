@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: different-trigger-target
+spec:
+  concurrent: false
+  steps:
+  - name: create namespace, trigger secret and target configmap
+    try:
+    - create:
+        file: namespace.yaml
+    - assert:
+        file: namespace.yaml
+    - create:
+        file: secret.yaml
+    - assert:
+        file: secret.yaml
+    - create:
+        file: configmap.yaml
+    - assert:
+        file: configmap.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-namespaced-mutating-policy-ready
+    use:
+      template: ../../../_step-templates/namespaced-mutating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: test-nmpol-different-trigger-target
+        - name: namespace
+          value: test-nmpol-dtt-ns
+  - name: sleep
+    try:
+    - sleep:
+        duration: 5s
+  - name: trigger mutation by updating the secret
+    description: >
+      Updating the trigger Secret drives an admission event; the webhook
+      enqueues a CELMutate UpdateRequest with the stable namespace/name policy
+      key and the background controller mutates the cross-resource target.
+      Regression test for https://github.com/kyverno/kyverno/issues/16124.
+    try:
+    - apply:
+        file: secret-update.yaml
+  - name: verify target configmap is mutated
+    try:
+    - assert:
+        timeout: 90s
+        file: configmap-assert.yaml

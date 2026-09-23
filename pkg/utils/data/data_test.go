@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestOriginalMapMustNotBeChanged(t *testing.T) {
@@ -18,6 +18,43 @@ func TestOriginalMapMustNotBeChanged(t *testing.T) {
 	mapCopy := CopyMap(originalMap)
 	mapCopy["r"] = 1
 	assert.Equal(t, originalMap["r"], 2138)
+}
+
+func TestCopyMap(t *testing.T) {
+	tests := []struct {
+		name string
+		m    map[string]interface{}
+		want map[string]interface{}
+	}{
+		{
+			name: "nil map",
+			m:    nil,
+			want: nil,
+		},
+		{
+			name: "empty map",
+			m:    map[string]interface{}{},
+			want: map[string]interface{}{},
+		},
+		{
+			name: "populated map",
+			m: map[string]interface{}{
+				"key": "value",
+			},
+			want: map[string]interface{}{
+				"key": "value",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CopyMap(tt.m)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("CopyMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestSliceContains(t *testing.T) {

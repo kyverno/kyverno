@@ -5,7 +5,7 @@ import (
 	certificatesigningrequests "github.com/kyverno/kyverno/pkg/clients/kube/certificatesv1/certificatesigningrequests"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_kubernetes_typed_certificates_v1 "k8s.io/client-go/kubernetes/typed/certificates/v1"
-	"k8s.io/client-go/rest"
+	k8sclientgorest "k8s.io/client-go/rest"
 )
 
 func WithMetrics(inner k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface, metrics metrics.MetricsConfigManager, clientType metrics.ClientType) k8s_io_client_go_kubernetes_typed_certificates_v1.CertificatesV1Interface {
@@ -26,7 +26,7 @@ type withMetrics struct {
 	clientType metrics.ClientType
 }
 
-func (c *withMetrics) RESTClient() rest.Interface {
+func (c *withMetrics) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withMetrics) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1.CertificateSigningRequestInterface {
@@ -39,7 +39,7 @@ type withTracing struct {
 	client string
 }
 
-func (c *withTracing) RESTClient() rest.Interface {
+func (c *withTracing) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withTracing) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1.CertificateSigningRequestInterface {
@@ -51,7 +51,7 @@ type withLogging struct {
 	logger logr.Logger
 }
 
-func (c *withLogging) RESTClient() rest.Interface {
+func (c *withLogging) RESTClient() k8sclientgorest.Interface {
 	return c.inner.RESTClient()
 }
 func (c *withLogging) CertificateSigningRequests() k8s_io_client_go_kubernetes_typed_certificates_v1.CertificateSigningRequestInterface {

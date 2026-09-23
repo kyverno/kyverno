@@ -25,6 +25,11 @@ import (
 )
 
 func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]map[string]string) ([]engineapi.RuleResponse, error) {
+func PolicyRuleKey(policy kyvernov1.PolicyInterface, ruleName string) string {
+	return fmt.Sprintf("%s/%s/%s/%s", policy.GetKind(), policy.GetNamespace(), policy.GetName(), ruleName)
+}
+
+func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
 	newResource := policyContext.NewResource()
 	objects := []runtime.Object{&newResource}
 	policyName := policyContext.Policy().GetName()
@@ -32,6 +37,12 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 		if paths, ok := ruleToCloneSourceResource[policyName]; ok {
 			if path, ok := paths[rule.Name()]; ok {
 				resourceBytes, err := resource.GetFileBytes(path)
+		if path, ok := ruleToCloneSourceResource[PolicyRuleKey(policyContext.Policy(), rule.Name())]; ok {
+			resourceBytes, err := resource.GetFileBytes(path)
+			if err != nil {
+				fmt.Fprintf(out, "failed to get resource bytes\n")
+			} else {
+				r, err := resource.GetUnstructuredResources(resourceBytes)
 				if err != nil {
 					fmt.Fprintf(out, "failed to get resource bytes\n")
 				} else {

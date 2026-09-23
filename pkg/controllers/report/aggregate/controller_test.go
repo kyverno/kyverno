@@ -12,11 +12,10 @@ import (
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	orfake "github.com/openreports/reports-api/pkg/client/clientset/versioned/fake"
-
-	"github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,7 +142,7 @@ func TestController(t *testing.T) {
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: kyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 	metaClient.CreateFake(&metav1.PartialObjectMetadata{ObjectMeta: notKyvernoPolr.ObjectMeta}, metav1.CreateOptions{})
 
-	controller := aggregate.NewController(client, nil, nil, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	controller := aggregate.NewController(client, nil, nil, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -206,7 +205,7 @@ func TestControllerWithOpenreports(t *testing.T) {
 	dClient, _ := dclient.NewFakeClient(s, map[schema.GroupVersionResource]string{}, pod)
 	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 
-	controller := aggregate.NewController(client, orClient.OpenreportsV1alpha1(), dClient, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	controller := aggregate.NewController(client, orClient.OpenreportsV1alpha1(), dClient, metaFactory, polInformer, cpolInformer, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

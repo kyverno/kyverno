@@ -180,7 +180,7 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $conditions := list -}}
 {{- $namespaces := .excludeNamespaces | default list -}}
 {{- if gt (len $namespaces) 0 -}}
-  {{- $conditions = append $conditions (dict "name" "exclude-namespaces" "expression" (printf "!(object.metadata.namespace in [%s])" (include "kyverno-policies.celStringList" $namespaces))) -}}
+  {{- $conditions = append $conditions (dict "name" "exclude-namespaces" "expression" (printf "!(request.namespace in [%s])" (include "kyverno-policies.celStringList" $namespaces))) -}}
 {{- end -}}
 {{- $subjects := .excludeSubjects | default list -}}
 {{- if gt (len $subjects) 0 -}}

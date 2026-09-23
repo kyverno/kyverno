@@ -61,9 +61,9 @@ func TestFetchSignatureBlob(t *testing.T) {
 }
 
 func setuprepo(t *testing.T) (notationregistry.Repository, *imagedataloader.ImageData) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, image)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
 	assert.NoError(t, err)
 	return NewRepository(img), img
 }

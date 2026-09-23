@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -31,6 +33,7 @@ type Engine interface {
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
 	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
+	GetCompiledPolicies(names ...string) map[string]Policy
 }
 
 type EngineResponse struct {
@@ -91,9 +94,24 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		Resource: object,
 	}
 
+	// The request here is loop-invariant (attr is rebuilt per policy below,
+	// but the underlying admission request is not), so the `request` CEL
+	// activation value is built at most once for the whole loop instead of
+	// once per policy - but lazily: matching happens per policy inside
+	// handlePolicy, before this is ever called, so a request matching zero
+	// policies must not pay this cost at all. sync.OnceValues memoizes on
+	// first actual invocation. BuildNormalizedRequestMap self-extracts
+	// request.object/oldObject from request - it must not take attr's
+	// (per-policy patched) object, or the hoisted map would alias mutable
+	// per-policy state. If a future change makes per-target synthetic
+	// requests, this hoist must be re-examined.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildNormalizedRequestMap(&request)
+	})
+
 	for _, mpol := range mpols {
 		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil)
+			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true)
 			response.Policies = append(response.Policies, r)
 			if patched != nil {
 				response.PatchedResource = patched
@@ -150,11 +168,23 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 		namespace = e.nsResolver(ns)
 	}
 
+	// request.Request is loop-invariant across the mpol loop below (only attr
+	// is rebuilt per policy with the patched object), so the `request` CEL
+	// activation value - including its object/oldObject, which derive from
+	// this same original request via BuildNormalizedRequestMap's own
+	// ExtractResources call (not attr's per-policy patched object) - is
+	// built at most once for the whole loop, lazily: a request matching zero
+	// policies below never invokes the func, so it never pays the build
+	// cost. sync.OnceValues memoizes on first actual invocation.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildNormalizedRequestMap(&request.Request)
+	})
+
 	for _, mpol := range mpols {
 		if predicate != nil && !predicate(mpol.Policy) {
 			continue
 		}
-		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace)
+		ruleResponse, patchedResource := e.handlePolicy(ctx, mpol, attr, request.Request, namespace, requestMapFn, false)
 		response.Policies = append(response.Policies, ruleResponse)
 		if patchedResource != nil {
 			response.PatchedResource = patchedResource
@@ -177,7 +207,7 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace) (MutatingPolicyResponse, *unstructured.Unstructured) {
+func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: mpol.Policy,
 		Rules:  []engineapi.RuleResponse{},
@@ -186,6 +216,12 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	startTime := time.Now()
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
+		if target {
+			targetConstraints := mpol.Policy.GetTargetMatchConstraints()
+			if len(targetConstraints.ResourceRules) > 0 {
+				constraints = targetConstraints.MatchResources
+			}
+		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if err != nil {
 			ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
@@ -194,7 +230,23 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			return ruleResponse, nil
 		}
 	}
-	result := mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, e.contextProvider)
+	if mpol.ExtractionMode {
+		// Mutating a custom workload CRD correctly requires writing the
+		// patch back into the parent object at the extracted template's
+		// path, not the top level - not implemented yet. Skip rather than
+		// apply the policy's Pod-shaped ApplyConfiguration to the literal
+		// admitted object, which would produce a meaningless or broken
+		// patch. ValidatingPolicy/ImageValidatingPolicy extraction-mode
+		// targets are unaffected - this only concerns mutation.
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "extraction mode: mutation for custom workload CRDs is not yet supported", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		return ruleResponse, nil
+	}
+	var result *compiler.EvaluationResult
+	if target {
+		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
+	} else {
+		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
+	}
 	if result == nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "skip", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 		return ruleResponse, nil
@@ -256,19 +308,58 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			)
 		}
 	} else {
-		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		// Surface evaluated audit annotations as report result properties on successful evaluation.
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", result.AuditAnnotations).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
-	pols := e.provider.Fetch(context.TODO(), true)
-	for _, p := range pols {
-		if p.Policy.GetName() == policyName {
-			return p, nil
-		}
+	policies := e.GetCompiledPolicies(policyName)
+	if policy, ok := policies[policyName]; ok {
+		return policy, nil
 	}
 	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
+}
+
+func (e *engineImpl) GetCompiledPolicies(names ...string) map[string]Policy {
+	expectedNames := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		expectedNames[name] = struct{}{}
+	}
+
+	policies := make(map[string]Policy, len(expectedNames))
+	for _, mutateExisting := range []bool{false, true} {
+		compiledPolicies := e.provider.Fetch(context.TODO(), mutateExisting)
+		for _, policy := range compiledPolicies {
+			name := policy.Policy.GetName()
+			key := PolicyKey(policy.Policy)
+			if len(expectedNames) > 0 {
+				// index by whichever identifier the caller used: the stable
+				// policy key (namespace/name) or the bare name. Never overwrite
+				// a recorded match so lookups stay stable when autogenerated
+				// variants or same-named policies share an identifier.
+				if _, ok := expectedNames[key]; ok {
+					if _, exists := policies[key]; !exists {
+						policies[key] = policy
+					}
+				}
+				if _, ok := expectedNames[name]; ok {
+					if _, exists := policies[name]; !exists {
+						policies[name] = policy
+					}
+				}
+				continue
+			}
+			if _, ok := policies[key]; !ok {
+				policies[key] = policy
+			}
+			if _, ok := policies[name]; !ok {
+				policies[name] = policy
+			}
+		}
+	}
+	return policies
 }
 
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
@@ -300,5 +391,25 @@ func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request 
 		namespace = e.nsResolver(ns)
 	}
 
-	return e.provider.MatchesMutateExisting(ctx, attr, &request.Request, namespace)
+	// Build the `request` CEL activation value at most once for the whole
+	// mutate-existing matching pass below, lazily: both provider
+	// implementations (staticProvider, reconciler) call MatchesConditions
+	// once per candidate policy inside their own loops, and previously each
+	// call independently rebuilt the request map from scratch - the exact
+	// O(policy count) cost this hoist eliminates elsewhere in mpol. A
+	// request matching zero policies (or whose policies have no
+	// matchConditions) never invokes this func at all.
+	//
+	// Reuse the object/oldObject already extracted above (for attr) via the
+	// FromResources variant, so building the request map does not re-run
+	// ExtractResources - a second full unmarshal of the admitted object.
+	// This matching pass is read-only (attr is built once here and never
+	// rebuilt with a patch, and MatchesConditions only reads), so aliasing
+	// those resources into request.object/request.oldObject is safe; see
+	// BuildNormalizedRequestMapFromResources' aliasing contract.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildNormalizedRequestMapFromResources(&request.Request, object, oldObject)
+	})
+
+	return e.provider.MatchesMutateExisting(ctx, attr, &request.Request, namespace, requestMapFn)
 }

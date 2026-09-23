@@ -1,0 +1,39 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: gpol-audit-annotations
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "gpol-generated-cm",
+              "namespace": string(variables.nsName)
+            }),
+            "data": dyn({
+              "created-for": string(variables.nsName)
+            })
+          }
+        ]
+  generate:
+    - expression: generator.apply(variables.nsName, variables.configmap)
+  auditAnnotations:
+    - key: namespace
+      valueExpression: "object.metadata.name"
+    - key: env
+      valueExpression: >-
+        has(object.metadata.labels) && 'env' in object.metadata.labels
+          ? object.metadata.labels['env']
+          : 'unknown'

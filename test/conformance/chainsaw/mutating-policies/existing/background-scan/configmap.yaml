@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-mpol-background-scan-cm
+  namespace: test-mpol-background-scan-ns
+data:
+  key: value

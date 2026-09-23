@@ -21,6 +21,28 @@ rules:
       - patch
       - update
       - watch
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - deletingpolicies
+      - generatingpolicies
+      - imagevalidatingpolicies
+      - mutatingpolicies
+      - namespaceddeletingpolicies
+      - namespacedgeneratingpolicies
+      - namespacedimagevalidatingpolicies
+      - namespacedmutatingpolicies
+      - namespacedvalidatingpolicies
+      - policyexceptions
+      - validatingpolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -36,6 +58,24 @@ rules:
       - clustercleanuppolicies
       - policies
       - clusterpolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - deletingpolicies
+      - generatingpolicies
+      - imagevalidatingpolicies
+      - mutatingpolicies
+      - namespaceddeletingpolicies
+      - namespacedgeneratingpolicies
+      - namespacedimagevalidatingpolicies
+      - namespacedmutatingpolicies
+      - namespacedvalidatingpolicies
+      - policyexceptions
+      - validatingpolicies
     verbs:
       - get
       - list

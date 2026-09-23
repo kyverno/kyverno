@@ -28,13 +28,16 @@ import (
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
+	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
 	ttlcontroller "github.com/kyverno/kyverno/pkg/controllers/ttl"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/informers"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -44,6 +47,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -80,17 +84,19 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 
 func main() {
 	var (
-		dumpPayload              bool
-		serverIP                 string
-		servicePort              int
-		webhookServerPort        int
-		maxQueuedEvents          int
-		interval                 time.Duration
-		renewBefore              time.Duration
-		maxAPICallResponseLength int64
-		apiCallTimeout           time.Duration
-		autoDeleteWebhooks       bool
-		tlsKeyAlgorithm          string
+		dumpPayload                  bool
+		serverIP                     string
+		servicePort                  int
+		webhookServerPort            int
+		maxQueuedEvents              int
+		interval                     time.Duration
+		renewBefore                  time.Duration
+		maxAPICallResponseLength     int64
+		apiCallTimeout               time.Duration
+		autoDeleteWebhooks           bool
+		tlsKeyAlgorithm              string
+		maxGlobalContextEntries      int
+		disableCertManagerController bool
 	)
 	flagset := flag.NewFlagSet("cleanup-controller", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
@@ -104,6 +110,7 @@ func main() {
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
 	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
+	flagset.Func(toggle.BlockLegacyPolicyAPIsFlagName, toggle.BlockLegacyPolicyAPIsDescription, toggle.BlockLegacyPolicyAPIs.Parse)
 	flagset.StringVar(&caSecretName, "caSecretName", "", "Name of the secret containing CA.")
 	flagset.StringVar(&tlsSecretName, "tlsSecretName", "", "Name of the secret containing TLS pair.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
@@ -111,6 +118,8 @@ func main() {
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.BoolVar(&autoDeleteWebhooks, "autoDeleteWebhooks", false, "Set this flag to 'true' to enable autodeletion of webhook configurations using finalizers (requires extra permissions).")
 	flagset.StringVar(&tlsKeyAlgorithm, "tlsKeyAlgorithm", "RSA", "Key algorithm for self-signed TLS certificates (RSA, ECDSA, Ed25519)")
+	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
+	flagset.BoolVar(&disableCertManagerController, "disableCertManagerController", false, "Disable the in-process certificate manager controller.")
 	// config
 	appConfig := internal.NewConfiguration(
 		internal.WithProfiling(),
@@ -189,6 +198,20 @@ func main() {
 			kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
 			genericloggingcontroller.CheckGeneration,
 		)
+		// kyverno_legacy_policies_total gauge: only the legacy kinds natively watched
+		// by the cleanup-controller through synced listers -- CleanupPolicy and
+		// ClusterCleanupPolicy. ClusterPolicy, Policy, and legacy PolicyException are
+		// gauged by the admission controller instead, which natively watches those kinds.
+		legacypolicymetricscontroller.NewController(metrics.GetLegacyPolicyMetrics(), "kyverno.io", map[string]deprecations.KindCounter{
+			"CleanupPolicy": func() (int, error) {
+				pols, err := kyvernoInformer.Kyverno().V2().CleanupPolicies().Lister().List(labels.Everything())
+				return len(pols), err
+			},
+			"ClusterCleanupPolicy": func() (int, error) {
+				pols, err := kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies().Lister().List(labels.Everything())
+				return len(pols), err
+			},
+		})
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -200,7 +223,7 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		gcstore := store.New()
+		gcstore := store.New(maxGlobalContextEntries)
 		gceController := internal.NewController(
 			globalcontextcontroller.ControllerName,
 			globalcontextcontroller.NewController(
@@ -227,7 +250,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, nil, gcstore, restMapper, false)
+		libCtx, err := libs.NewContextProvider(setup.KyvernoDynamicClient, setup.RegistrySecretLister, gcstore, restMapper, false)
 		if err != nil {
 			setup.Logger.Error(err, "failed to create CEL context provider")
 			os.Exit(1)
@@ -271,18 +294,21 @@ func main() {
 					tlsSecretName,
 					keyAlgorithm,
 				)
-				certController := internal.NewController(
-					certmanager.ControllerName,
-					certmanager.NewController(
-						caSecret,
-						tlsSecret,
-						renewer,
-						caSecretName,
-						tlsSecretName,
-						config.KyvernoNamespace(),
-					),
-					certmanager.Workers,
-				)
+				var certController internal.Controller
+				if !disableCertManagerController {
+					certController = internal.NewController(
+						certmanager.ControllerName,
+						certmanager.NewController(
+							caSecret,
+							tlsSecret,
+							renewer,
+							caSecretName,
+							tlsSecretName,
+							config.KyvernoNamespace(),
+						),
+						certmanager.Workers,
+					)
+				}
 				policyValidatingWebhookController := internal.NewController(
 					policyWebhookControllerName,
 					genericwebhookcontroller.NewController(
@@ -298,8 +324,11 @@ func main() {
 						[]admissionregistrationv1.RuleWithOperations{
 							{
 								Rule: admissionregistrationv1.Rule{
-									APIGroups:   []string{"kyverno.io"},
-									APIVersions: []string{"v2beta1"},
+									APIGroups: []string{"kyverno.io"},
+									// v2 is the storage version for cleanuppolicies/clustercleanuppolicies.kyverno.io.
+									// Without it, a "kyverno.io/v2" CleanupPolicy (the version most manifests
+									// actually use) never reaches this webhook at all.
+									APIVersions: []string{"v2", "v2beta1"},
 									Resources: []string{
 										"cleanuppolicies/*",
 										"clustercleanuppolicies/*",
@@ -382,13 +411,7 @@ func main() {
 						kyvernoInformer.Policies().V1beta1().NamespacedDeletingPolicies(),
 						provider,
 						engine.NewEngine(
-							func(name string) *corev1.Namespace {
-								ns, err := nsLister.Get(name)
-								if err != nil {
-									return nil
-								}
-								return ns
-							},
+							celengine.NewNamespaceResolver(logger.WithName("ns-resolver"), nsLister, setup.KubeClient),
 							restMapper,
 							libCtx,
 							matching.NewMatcher(),
@@ -418,7 +441,9 @@ func main() {
 				}
 				// start leader controllers
 				var wg wait.Group
-				certController.Run(ctx, logger, &wg)
+				if certController != nil {
+					certController.Run(ctx, logger, &wg)
+				}
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)
 				cleanupController.Run(ctx, logger, &wg)

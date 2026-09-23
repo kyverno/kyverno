@@ -1,0 +1,35 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: NamespacedMutatingPolicy
+metadata:
+  name: test-nmpol-different-trigger-target
+  namespace: test-nmpol-dtt-ns
+spec:
+  failurePolicy: Fail
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "UPDATE" ]
+      resources: [ "secrets" ]
+      resourceNames: [ "test-nmpol-dtt-trigger" ]
+  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: [ "" ]
+      apiVersions: [ "v1" ]
+      operations: [ "CREATE", "UPDATE" ]
+      resources: [ "configmaps" ]
+      resourceNames: [ "test-nmpol-dtt-target" ]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            labels: Object.metadata.labels{
+              mutated: "by-trigger"
+            }
+          }
+        }

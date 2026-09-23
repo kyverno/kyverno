@@ -122,7 +122,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			compiler.KyvernoVersion,
 		),
 		image.Lib(
@@ -131,6 +131,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libsctx},
 			compiler.KyvernoVersion,
+			nil, // this policy doesn't have a way to specify extra registry credentials, only the ivpol does.
 		),
 		resource.Lib(
 			resource.Context{ContextInterface: libsctx},

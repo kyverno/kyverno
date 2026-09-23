@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -14,41 +14,46 @@ func Test_ImageVerification(t *testing.T) {
 		name    string
 		subject ImageVerification
 		errors  func(*ImageVerification) field.ErrorList
-	}{{
-		name: "only key",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-			Key:             "bla",
+	}{
+		{
+			name: "only key",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+				Key:             "bla",
+			},
 		},
-	}, {
-		name: "only keyless",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-			Issuer:          "bla",
-			Subject:         "*",
+		{
+			name: "only keyless",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+				Issuer:          "bla",
+				Subject:         "*",
+			},
+			errors: func(i *ImageVerification) field.ErrorList {
+				return field.ErrorList{
+					field.Invalid(
+						path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
+						i.Attestors[0].Entries[0].Keyless,
+						"Either Rekor URL or roots are required",
+					),
+				}
+			},
 		},
-		errors: func(i *ImageVerification) field.ErrorList {
-			return field.ErrorList{
-				field.Invalid(
-					path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
-					i.Attestors[0].Entries[0].Keyless,
-					"Either Rekor URL or roots are required"),
-			}
+		{
+			name: "key roots, issuer, and subject",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+				Issuer:          "bla",
+				Subject:         "bla",
+				Roots:           "bla",
+			},
 		},
-	}, {
-		name: "key roots, issuer, and subject",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-			Issuer:          "bla",
-			Subject:         "bla",
-			Roots:           "bla",
+		{
+			name: "empty",
+			subject: ImageVerification{
+				ImageReferences: []string{"bla"},
+			},
 		},
-	}, {
-		name: "empty",
-		subject: ImageVerification{
-			ImageReferences: []string{"bla"},
-		},
-	},
 		{
 			name: "no image",
 			subject: ImageVerification{
@@ -288,7 +293,8 @@ func Test_Audit_VerifyImageRule(t *testing.T) {
 					field.Invalid(
 						path.Child("mutateDigest"),
 						i.MutateDigest,
-						"mutateDigest must be set to false for ‘Audit’ failure action"),
+						"mutateDigest must be set to false for ‘Audit’ failure action",
+					),
 				}
 			},
 		},

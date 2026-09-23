@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"cmp"
 	"encoding/json"
 	"maps"
 	"slices"
@@ -9,6 +10,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
+
+// ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
+// callers of this package (e.g. the engine provider) don't need to import
+// pkg/cel/autogen directly just to check it.
+const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
 
 func Autogen(policy policiesv1beta1.ImageValidatingPolicyLike) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	if policy == nil {
@@ -30,7 +36,7 @@ func Autogen(policy policiesv1beta1.ImageValidatingPolicyLike) (map[string]polic
 func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ImageValidatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
-		if config := autogen.ConfigsMap[config]; config != nil {
+		if config := autogen.ResolveConfig(config); config != nil {
 			targets := mapping[config.ReplacementsRef]
 			targets = append(targets, config.Target)
 			mapping[config.ReplacementsRef] = targets
@@ -41,7 +47,7 @@ func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.
 		targets := mapping[config]
 		spec := spec.DeepCopy()
 		operations := spec.MatchConstraints.ResourceRules[0].Operations
-		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations)
+		spec.MatchConstraints = autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
 		bytes, err := json.Marshal(spec)
 		if err != nil {
 			return nil, err
@@ -50,7 +56,21 @@ func autogenIvPols(spec policiesv1beta1.ImageValidatingPolicySpec, configs sets.
 		if err := json.Unmarshal(bytes, spec); err != nil {
 			return nil, err
 		}
-
+		slices.SortFunc(targets, func(a, b policiesv1beta1.Target) int {
+			if x := cmp.Compare(a.Group, b.Group); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Version, b.Version); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Resource, b.Resource); x != 0 {
+				return x
+			}
+			if x := cmp.Compare(a.Kind, b.Kind); x != 0 {
+				return x
+			}
+			return 0
+		})
 		rules[config] = policiesv1beta1.ImageValidatingPolicyAutogen{
 			Targets: targets,
 			Spec:    spec,
