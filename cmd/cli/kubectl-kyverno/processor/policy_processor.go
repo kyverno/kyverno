@@ -1279,15 +1279,7 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 }
 
 func (p *PolicyProcessor) loadCrds() error {
-	for _, crdPath := range p.CrdPaths {
-		if strings.TrimSpace(crdPath) == "" {
-			continue
-		}
-		if err := common.LoadCrdsFromPath(crdPath); err != nil {
-			return err
-		}
-	}
-	return nil
+	return common.LoadCrdsFromPaths(p.CrdPaths)
 }
 
 func getAbsPath(path string) string {

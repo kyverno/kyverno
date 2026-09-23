@@ -284,6 +284,10 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
+	// CRDs are registered before any resource is loaded so that cluster-scoped custom kinds are not defaulted into a namespace.
+	if err := common.LoadCrdsFromPaths(c.CrdPaths); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
 
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {

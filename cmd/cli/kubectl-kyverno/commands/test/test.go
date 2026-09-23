@@ -165,6 +165,43 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		genericPolicies = append(genericPolicies, engineapi.NewMutatingAdmissionPolicy(&pol))
 	}
 
+	var crdPaths []string
+	var clusterCRDs []*apiextensionsv1.CustomResourceDefinition
+	var clusterObjects []runtime.Object
+	if len(testCase.Test.ClusterResources) > 0 {
+		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
+
+		for _, p := range path.GetFullPaths(testCase.Test.ClusterResources, testDir, isGit) {
+			src, err := common.LoadYAML(testCase.Fs, p, func() *v1alpha1.ClusterResource {
+				return &v1alpha1.ClusterResource{}
+			})
+			if err != nil {
+				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
+			}
+			if len(src.Spec.CRDs) > 0 {
+				crdFullPaths := path.GetFullPaths(src.Spec.CRDs, testDir, isGit)
+				crdPaths = append(crdPaths, crdFullPaths...)
+
+				for _, crdFullPath := range crdFullPaths {
+					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
+						return &apiextensionsv1.CustomResourceDefinition{}
+					})
+					if err != nil {
+						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %s", crdFullPath, err)
+					}
+					clusterCRDs = append(clusterCRDs, crd)
+				}
+			}
+			for _, resource := range src.Spec.Resources {
+				clusterObjects = append(clusterObjects, resource)
+			}
+		}
+		// Resources are loaded below, and a cluster-scoped custom kind would get the default namespace if its CRD was not known yet.
+		if err := common.RegisterCRDs(clusterCRDs); err != nil {
+			return nil, err
+		}
+	}
+
 	fmt.Fprintln(out, "  Loading resources", "...")
 	resourceFullPath := path.GetFullPaths(testCase.Test.Resources, testDir, isGit)
 	resources, err := common.GetResourceAccordingToResourcePath(out, testCase.Fs, resourceFullPath, false, genericPolicies, dClient, "", false, false, testDir, loader.ResourceOptions{}, false)
@@ -279,40 +316,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 
 	var cmResolver engineapi.ConfigmapResolver
 	var restMapper meta.RESTMapper
-	var crdPaths []string
 	if len(testCase.Test.ClusterResources) > 0 {
-		fmt.Fprintln(out, "Loading Kubernetes resources", "...")
-
-		allCRDs := []*apiextensionsv1.CustomResourceDefinition{}
-		for _, p := range path.GetFullPaths(testCase.Test.ClusterResources, testDir, isGit) {
-			src, err := common.LoadYAML(testCase.Fs, p, func() *v1alpha1.ClusterResource {
-				return &v1alpha1.ClusterResource{}
-			})
-			if err != nil {
-				return nil, fmt.Errorf("error: failed to load Kubernetes resources: %s", err)
-			}
-			if len(src.Spec.CRDs) > 0 {
-				crdFullPaths := path.GetFullPaths(src.Spec.CRDs, testDir, isGit)
-				crdPaths = append(crdPaths, crdFullPaths...)
-
-				for _, crdFullPath := range crdFullPaths {
-					crd, err := common.LoadYAML(testCase.Fs, crdFullPath, func() *apiextensionsv1.CustomResourceDefinition {
-						return &apiextensionsv1.CustomResourceDefinition{}
-					})
-					if err != nil {
-						return nil, fmt.Errorf("error: failed to load CRDs from path %s: %s", crdFullPath, err)
-					}
-					allCRDs = append(allCRDs, crd)
-				}
-			}
-			if len(src.Spec.Resources) > 0 {
-				for _, resource := range src.Spec.Resources {
-					allObjects = append(allObjects, resource)
-				}
-			}
-		}
-		restMapper = cl.RESTMapper(allCRDs)
-		for _, crd := range allCRDs {
+		restMapper = cl.RESTMapper(clusterCRDs)
+		allObjects = append(allObjects, clusterObjects...)
+		for _, crd := range clusterCRDs {
 			allObjects = append(allObjects, crd)
 		}
 
