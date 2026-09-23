@@ -20,6 +20,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -154,7 +155,7 @@ func Command() *cobra.Command {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
-			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(out)
+			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				return err
 			}
@@ -267,7 +268,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
 	err := c.checkArguments()
@@ -302,7 +303,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(out)
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -1095,7 +1096,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
+func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
@@ -1130,6 +1131,14 @@ func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 	var envoyPols []*policiesv1beta1.ValidatingPolicy
 	var httpPols []*policiesv1beta1.ValidatingPolicy
 	for _, path := range c.PolicyPaths {
+		if source.IsOCI(path) {
+			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), pull.NewKeychain())
+			if err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
+			}
+			defer cleanup()
+			path = tmpDir
+		}
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)

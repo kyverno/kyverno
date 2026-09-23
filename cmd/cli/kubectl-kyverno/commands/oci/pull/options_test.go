@@ -85,3 +85,26 @@ func TestExtractAndSavePoliciesClosesReaderOnUnmarshalError(t *testing.T) {
 	assert.Error(t, err)
 	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
 }
+
+const testValidatingPolicyYAML = `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-workload-labels
+spec:
+  validations:
+    - expression: "object.metadata.labels != null"
+`
+
+func TestExtractAndSaveCELPolicy(t *testing.T) {
+	dir := t.TempDir()
+	layer := newTrackedLayer(t, []byte(testValidatingPolicyYAML))
+
+	err := extractAndSavePolicies(layer, dir)
+	assert.NoError(t, err)
+	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
+
+	out, err := os.ReadFile(filepath.Join(dir, "check-workload-labels.yaml"))
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "check-workload-labels")
+}
