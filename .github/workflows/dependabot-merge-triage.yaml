@@ -81,13 +81,24 @@ jobs:
             # every dependency entry out of every such block (usually just one) instead of substring-matching.
             # Cleared before use, not just after — a prior iteration's leftover block-*.yml must never leak in.
             : > deps.json
-            rm -f block-*.yml
+            rm -f block-*.yml block-deps.json deps.jsonl
             awk '/^---$/ { n++; capturing=1; next } /^\.\.\.$/ { capturing=0; next } capturing { print > ("block-" n ".yml") }' commit-messages.txt
             if ls block-*.yml > /dev/null 2>&1; then
+              : > deps.jsonl
               for f in block-*.yml; do
-                yq -o=json '.["updated-dependencies"] // []' "$f"
-              done | jq -s 'add' > deps.json
-              rm -f block-*.yml
+                # A block that fails to parse (e.g. a human's commit containing a bare "---" with no matching
+                # "...") counts as one dependency with no update-type, so the PR falls to "unknown" below
+                # instead of a bad block crashing the whole sweep.
+                if yq -o=json '.["updated-dependencies"] // []' "$f" > block-deps.json 2>/dev/null \
+                  && jq -e 'type == "array"' block-deps.json > /dev/null 2>&1; then
+                  cat block-deps.json >> deps.jsonl
+                else
+                  echo '[{"update-type": null}]' >> deps.jsonl
+                fi
+              done
+              jq -s 'add' deps.jsonl > deps.json
+              jq -e 'type == "array"' deps.json > /dev/null 2>&1 || echo '[]' > deps.json
+              rm -f block-*.yml block-deps.json deps.jsonl
             else
               echo '[]' > deps.json
             fi

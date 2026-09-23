@@ -248,11 +248,12 @@ jobs:
             ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$findings")
             marker="<!-- pr-readiness-check: $ids -->"
             # REST, fully paginated — a GraphQL comments(last: 100) cap could miss the marker on a busy PR.
+            # Fetched to a file first, then searched — piping straight into `grep -q` would let grep close the
+            # pipe on an early match, SIGPIPE-ing gh mid-fetch and (with pipefail) reporting failure even though
+            # the marker was genuinely found.
+            gh api "repos/${GITHUB_REPOSITORY}/issues/$number/comments" --paginate --jq '.[].body' > comments.txt
             already_reported=false
-            if gh api "repos/${GITHUB_REPOSITORY}/issues/$number/comments" --paginate --jq '.[].body' \
-              | grep -qF -- "$marker"; then
-              already_reported=true
-            fi
+            grep -qF -- "$marker" comments.txt && already_reported=true
 
             [[ "$has_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "needs-author-action"
             [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
