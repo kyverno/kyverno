@@ -1849,18 +1849,67 @@ func Test_Apply_LocalApiCall(t *testing.T) {
 // resource snapshot supplied via --resource (no live cluster).
 //
 // It exercises the multi-document YAML input form by pointing --resource at a
-// single file containing both Deployments and the PDB. The PDB is declared
-// before the Deployments in the file, proving the complete snapshot is
-// available before the first resource is evaluated (web-app passes because a
-// matching PDB exists; api-server fails because none does).
-//
-// Fixtures are reused from the local-apicall-list directory so no new fixture
-// is introduced.
+// single file containing both Deployments and the PDB. The file deliberately
+// declares the Deployments before the PDB to validate that the complete local
+// snapshot is available before the first Deployment is evaluated (web-app
+// passes because a matching PDB exists; api-server fails because none does).
 func Test_Apply_CrossResource_PDB_5498(t *testing.T) {
+	resourcesFile := filepath.Join(t.TempDir(), "resources.yaml")
+	resourcesYAML := `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.21
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-app-pdb
+  namespace: default
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: web-app
+`
+	assert.NoError(t, os.WriteFile(resourcesFile, []byte(resourcesYAML), 0o644))
+
 	tc := &TestCase{
 		config: ApplyCommandConfig{
 			PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-list/pol/policy.yaml"},
-			ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-list/res/resources.yaml"},
+			ResourcePaths: []string{resourcesFile},
 			PolicyReport:  true,
 		},
 		expectedReports: []openreportsv1alpha1.Report{{
