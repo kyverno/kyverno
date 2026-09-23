@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -309,7 +310,7 @@ func Test_JSONPayload(t *testing.T) {
 
 	out := &bytes.Buffer{}
 	t.Logf("Running test with files from %s", testCase.Dir())
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 
 	t.Logf("Test output: %s", out.String())
@@ -373,7 +374,7 @@ func Test_JSONPayloads(t *testing.T) {
 	require.Len(t, testCase.Test.JSONPayloads, 2, "Expected 2 JSON payloads after loading")
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 
 	t.Run("Both payloads produce trigger responses", func(t *testing.T) {
@@ -432,7 +433,7 @@ func TestRunTest_InvalidHTTPPayloadPath(t *testing.T) {
 	testCase.Test.HTTPPayloads = []string{"./missing-http-request.json"}
 	out := &bytes.Buffer{}
 
-	_, err = runTest(out, testCase, false)
+	_, err = runTest(context.TODO(), out, testCase, false)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to load HTTP payloads from path")
 }
@@ -457,7 +458,7 @@ func TestRunTest_InvalidEnvoyPayloadPath(t *testing.T) {
 	testCase.Test.EnvoyPayloads = []string{"./missing-envoy-request.json"}
 	out := &bytes.Buffer{}
 
-	_, err = runTest(out, testCase, false)
+	_, err = runTest(context.TODO(), out, testCase, false)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to load Envoy payloads from path")
 }
@@ -478,7 +479,7 @@ func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {
 		testCases := test.LoadTest(nil, testFile)
 		require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 		out := &bytes.Buffer{}
-		testResponse, err := runTest(out, testCases[0], false)
+		testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 		require.NoError(t, err, "runTest http-allow: %s", out.String())
 		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for HTTP payload")
 		var found bool
@@ -504,7 +505,7 @@ func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {
 		testCases := test.LoadTest(nil, testFile)
 		require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 		out := &bytes.Buffer{}
-		testResponse, err := runTest(out, testCases[0], false)
+		testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 		require.NoError(t, err, "runTest envoy-allow: %s", out.String())
 		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for Envoy payload")
 		var found bool
@@ -536,7 +537,7 @@ func TestRunTest_CELHTTPGetMock(t *testing.T) {
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "runTest cel-http-get-mock failed: %s", out.String())
 	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-get-mock")
 
@@ -575,7 +576,7 @@ func TestRunTest_CELHTTPPostMock(t *testing.T) {
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "runTest cel-http-post-mock failed: %s", out.String())
 	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-post-mock")
 
@@ -614,7 +615,7 @@ func TestRunTest_CELHTTPPostMockDeny(t *testing.T) {
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "runTest cel-http-post-mock-deny failed: %s", out.String())
 	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-post-mock-deny")
 
@@ -657,7 +658,7 @@ func TestMutatingPolicyContextResourceLookup(t *testing.T) {
 
 	out := &bytes.Buffer{}
 	t.Logf("Running MutatingPolicy context resource lookup test from %s", testCase.Dir())
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	t.Logf("Test output: %s", out.String())
@@ -701,7 +702,7 @@ func TestGeneratingPolicyContextResourceLookup(t *testing.T) {
 
 	out := &bytes.Buffer{}
 	t.Logf("Running GeneratingPolicy context resource lookup test from %s", testCase.Dir())
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	t.Logf("Test output: %s", out.String())
@@ -949,7 +950,7 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	testCase := testCases[0]
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 	t.Logf("Test output: %s", out.String())
 
@@ -983,7 +984,7 @@ func TestRunTest_MutatingPolicySubresourceMatch(t *testing.T) {
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	// A resourceRule of "pods/binding" only matches when the engine request
@@ -1020,7 +1021,7 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	got := map[string]engineapi.RuleStatus{}
@@ -1051,7 +1052,7 @@ func Test_OperationDelete(t *testing.T) {
 	testCase := testCases[0]
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 
 	resourceKey := "v1,Pod,test-ns,protected-pod"
@@ -1113,7 +1114,7 @@ func Test_InvalidResultOperation(t *testing.T) {
 	testCase := testCases[0]
 	testCase.Test.Results[0].Operation = "CONNECT"
 
-	_, err = runTest(io.Discard, testCase, false)
+	_, err = runTest(context.TODO(), io.Discard, testCase, false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid operation")
 }
@@ -1128,7 +1129,7 @@ func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 	testCases := test.LoadTest(nil, testFile)
 	require.Len(t, testCases, 1)
 
-	_, err = runTest(io.Discard, testCases[0], false)
+	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
@@ -1144,7 +1145,7 @@ func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
 	testCases := test.LoadTest(nil, testFile)
 	require.Len(t, testCases, 1)
 
-	_, err = runTest(io.Discard, testCases[0], false)
+	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
