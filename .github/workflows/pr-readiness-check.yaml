@@ -1,13 +1,12 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
-# Daily sweep: for every open PR that closes an issue with an open "Kyverno Release ..." milestone, check DCO, CI,
-# merge conflicts, and unresolved review threads. Clean -> `ready-for-review`; not clean -> `needs-author-action`
-# plus a comment; both labels re-evaluated every run.
+# Daily sweep: for every open PR closing an issue with an open "Kyverno Release ..." milestone, check DCO, CI,
+# conflicts, and unresolved review threads. Clean -> `ready-for-review`; not -> `needs-author-action` + a comment.
 #
-# PRs never carry the milestone themselves (assign-milestone.yaml only assigns it retroactively, at release-tag
-# time), so discovery goes through each PR's closing issue instead.
+# PRs never carry the milestone themselves (assign-milestone.yaml assigns it retroactively, at release-tag time),
+# so discovery goes through each PR's closing issue instead.
 #
-# Checks live in .github/pr-readiness-checks.yml, not here — add one there, nothing in this file changes.
+# Checks live in .github/pr-readiness-checks.yml, not here.
 
 name: "PR readiness check"
 
@@ -48,9 +47,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Fetches only closingIssuesReferences for every open PR — fetching the full readiness payload for all
-          # ~300+ open PRs in one pass times out the GraphQL API, so that's deferred to the next step, for
-          # qualifying PRs only.
+          # Cheap fields only — the full payload for all ~300+ open PRs times out the GraphQL API.
           query='
             query($search: String!, $after: String) {
               search(query: $search, type: ISSUE, first: 100, after: $after) {
@@ -114,10 +111,10 @@ jobs:
                 pullRequest(number: $number) {
                   number
                   author { login }
-                  labels(first: 100) { pageInfo { hasNextPage } nodes { name } }
+                  labels(first: 100) { pageInfo { hasNextPage endCursor } nodes { name } }
                   commits(last: 1) {
                     nodes { commit {
-                      statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes {
+                      statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage endCursor } nodes {
                         ... on CheckRun { name conclusion status }
                         ... on StatusContext { context state }
                       } } }
@@ -125,20 +122,72 @@ jobs:
                   }
                   comments(last: 100) { nodes { author { login } body createdAt } }
                   reviewThreads(first: 100) {
-                    pageInfo { hasNextPage }
+                    pageInfo { hasNextPage endCursor }
                     nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } }
                   }
                 }
               }
             }'
+          # Continuation queries for the three connections above, used to finish any that didn't fit in 100.
+          labels_page_query='
+            query($owner: String!, $name: String!, $number: Int!, $after: String!) {
+              repository(owner: $owner, name: $name) { pullRequest(number: $number) {
+                labels(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes { name } }
+              } }
+            }'
+          checks_page_query='
+            query($owner: String!, $name: String!, $number: Int!, $after: String!) {
+              repository(owner: $owner, name: $name) { pullRequest(number: $number) {
+                commits(last: 1) { nodes { commit {
+                  statusCheckRollup { contexts(first: 100, after: $after) { pageInfo { hasNextPage endCursor } nodes {
+                    ... on CheckRun { name conclusion status }
+                    ... on StatusContext { context state }
+                  } } }
+                } } }
+              } }
+            }'
+          threads_page_query='
+            query($owner: String!, $name: String!, $number: Int!, $after: String!) {
+              repository(owner: $owner, name: $name) { pullRequest(number: $number) {
+                reviewThreads(first: 100, after: $after) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } }
+                }
+              } }
+            }'
           owner="${GITHUB_REPOSITORY%/*}"
           name="${GITHUB_REPOSITORY#*/}"
+
+          # Paginates one connection on $pr_file to completion, given its jq path and *_page_query. 20-page cap
+          # as a last-resort safety valve; the truncated-connection handling below still covers that case.
+          paginate_connection() {
+            local pr_file="$1" conn_path="$2" query="$3" extra_page=0
+            while [[ "$(jq -r "${conn_path}.pageInfo.hasNextPage" "$pr_file")" == "true" ]]; do
+              extra_page=$((extra_page + 1))
+              if [[ "$extra_page" -gt 20 ]]; then
+                echo "::warning::$conn_path on PR in $pr_file still has more pages after 20 extra fetches — leaving it truncated."
+                break
+              fi
+              after=$(jq -r "${conn_path}.pageInfo.endCursor" "$pr_file")
+              gh api graphql -f query="$query" -f owner="$owner" -f name="$name" -F number="$number" -f after="$after" > page.json
+              jq --argjson extra "$(jq -c ".data.repository.pullRequest${conn_path}.nodes" page.json)" \
+                "${conn_path}.nodes += \$extra" "$pr_file" > pr-next.json && mv pr-next.json "$pr_file"
+              jq --argjson pi "$(jq -c ".data.repository.pullRequest${conn_path}.pageInfo" page.json)" \
+                "${conn_path}.pageInfo = \$pi" "$pr_file" > pr-next.json && mv pr-next.json "$pr_file"
+            done
+          }
 
           # Written straight to a file, never through a bash variable — PR content can contain arbitrary text.
           : > pr-details.jsonl
           for number in $(jq -r '.[]' qualifying-numbers.json); do
             gh api graphql -f query="$detail_query" -f owner="$owner" -f name="$name" -F number="$number" \
-              | jq -c '.data.repository.pullRequest' >> pr-details.jsonl
+              | jq -c '.data.repository.pullRequest' > one-pr.json
+
+            paginate_connection one-pr.json ".labels" "$labels_page_query"
+            paginate_connection one-pr.json ".commits.nodes[0].commit.statusCheckRollup.contexts" "$checks_page_query"
+            paginate_connection one-pr.json ".reviewThreads" "$threads_page_query"
+
+            cat one-pr.json >> pr-details.jsonl
           done
           jq -s '.' pr-details.jsonl > prs.json
           returned_count=$(jq 'length' prs.json)
@@ -167,8 +216,7 @@ jobs:
 
             if [[ "$findings" == "[]" ]]; then
               if [[ "$truncated" == "true" ]]; then
-                # Can't trust a "clean" verdict from a partial connection — drop a stale ready-for-review rather
-                # than keep asserting it, but leave needs-author-action alone (incomplete data proves nothing).
+                # Still-truncated after pagination — drop a stale ready-for-review, leave needs-author-action.
                 [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
                 echo "PR #$number: truncated connection, no findings on the visible page — removed ready-for-review if present."
               elif [[ "$pending" == "true" ]]; then
