@@ -9,7 +9,10 @@ note: |
   exactly that standalone case (see pkg/deprecations/summary.go's ErrLegacyPoliciesPresent), so it's excluded
   here rather than flagged.
 rule:
-  pattern: errors.New($MSG)
+  pattern:
+    context: |
+      func sample() { errors.New($MSG) }
+    selector: call_expression
   not:
     inside:
       kind: var_declaration

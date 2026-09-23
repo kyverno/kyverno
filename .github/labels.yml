@@ -539,8 +539,7 @@ ready-for-review:
   color: 0E8A16
   description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
 
-# Applied and removed automatically by dependabot-merge-triage.yaml — classifies and labels only, never merges or
-# edits a PR; merging is a separate, human-approved step elsewhere.
+# Applied and removed automatically by dependabot-merge-triage.yaml
 needs-review:
   color: FBCA04
   description: Not safe to auto-merge — failing CI, a conflict, or Copilot didn't recommend approval

@@ -1,8 +1,9 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
-# Classifies every open Dependabot PR and marks it — never merges. Major bump → major-bump + needs-review. CI not
-# clean, a conflict, or Copilot didn't recommend approval → needs-review. Otherwise (patch/minor, clean,
-# approved) → ready-for-review. Merging is a separate, human-approved step elsewhere.
+# Classifies every open Dependabot PR and marks it — never merges. Major bump, or no semver update-type trailer at
+# all (e.g. a non-semver-versioned dependency) → needs-review. CI not clean, a conflict, or Copilot didn't
+# recommend approval → needs-review. Otherwise (confirmed patch/minor, clean, approved) → ready-for-review.
+# Merging is a separate, human-approved step elsewhere.
 #
 # Triggers on whichever of CI or Copilot's review settles last (workflow_run / pull_request_review), plus the
 # schedule as a backstop for what neither catches — e.g. a conflict appearing because main moved, not because
@@ -62,11 +63,15 @@ jobs:
             echo "=== PR #$pr ==="
 
             commit_message=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json commits --jq '.commits[-1].messageBody')
-            level=patch
+            # Unknown by default — a dependency without semver versioning (e.g. CalVer) gets no update-type
+            # trailer at all, and that's not the same as a confirmed-safe patch bump.
+            level=unknown
             if grep -q 'update-type: version-update:semver-major' <<< "$commit_message"; then
               level=major
             elif grep -q 'update-type: version-update:semver-minor' <<< "$commit_message"; then
               level=minor
+            elif grep -q 'update-type: version-update:semver-patch' <<< "$commit_message"; then
+              level=patch
             fi
 
             verdict=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/$pr/reviews" --paginate \
@@ -91,6 +96,10 @@ jobs:
               echo "Major bump — needs-review + major-bump."
               [[ "$has_ready_label" == "true" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
               gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --add-label "major-bump,needs-review"
+            elif [[ "$level" == "unknown" ]]; then
+              echo "No semver update-type trailer — can't confirm blast radius, needs-review."
+              [[ "$has_ready_label" == "true" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
+              gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --add-label "needs-review"
             elif [[ "$not_green" != "0" || "$has_conflict" == "true" || "$copilot_approved" == "false" ]]; then
               echo "Not clean/approved yet — needs-review."
               [[ "$has_ready_label" == "true" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"

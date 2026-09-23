@@ -1,10 +1,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
-# Daily sweep of open PRs in the nearest upcoming release milestone, checking whether each one is actually clean:
-# DCO passing, no merge conflicts (via the `merge-conflicts` label pr-labelling.yaml applies), no unresolved
-# review threads the author hasn't responded to. A PR that fails any check is commented on, labeled
-# `needs-author-action`, and loses `ready-for-review` if it had it; a clean PR gets the reverse — both labels
-# fully re-evaluated on every run, so a PR that goes dirty again (e.g. a new merge conflict) flips back correctly.
+# Daily sweep: for every open PR that closes an issue with an open "Kyverno Release ..." milestone, check DCO, CI,
+# merge conflicts, and unresolved review threads. Clean -> `ready-for-review`; not clean -> `needs-author-action`
+# plus a comment; both labels re-evaluated every run.
+#
+# PRs never carry the milestone themselves (assign-milestone.yaml only assigns it retroactively, at release-tag
+# time), so discovery goes through each PR's closing issue instead.
 #
 # Checks live in .github/pr-readiness-checks.yml, not here — add one there, nothing in this file changes.
 
@@ -15,7 +16,7 @@ permissions: {}
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 8 * * *"
+    - cron: "0 0,8,16 * * *"
 
 jobs:
   check:
@@ -43,84 +44,106 @@ jobs:
             | ".author.login as $author\n| [\n" + . + "\n]"
           ' > readiness-checks.jq
 
-      - name: Check readiness of PRs in the active milestone
+      - name: Discover which open PRs close a milestoned issue (cheap pass)
         run: |
           set -euo pipefail
 
-          # Nearest-due open "Kyverno Release ..." milestone — release milestones overlap (a patch and the next
-          # minor can both be open at once), so nearest due date is what makes this the current one, never hardcoded.
-          milestone=$(gh api "repos/${GITHUB_REPOSITORY}/milestones" --jq '
-            [.[] | select(.state == "open" and (.title | test("^Kyverno Release ")))]
-            | sort_by(.due_on // "9999-12-31")
-            | .[0].title // empty')
-          if [[ -z "$milestone" ]]; then
-            echo "No open release milestone found, nothing to check."
-            exit 0
-          fi
-          echo "Active milestone: $milestone"
-
+          # Fetches only closingIssuesReferences for every open PR — fetching the full readiness payload for all
+          # ~300+ open PRs in one pass times out the GraphQL API, so that's deferred to the next step, for
+          # qualifying PRs only.
           query='
             query($search: String!, $after: String) {
               search(query: $search, type: ISSUE, first: 100, after: $after) {
-                issueCount
                 pageInfo { hasNextPage endCursor }
                 nodes {
                   ... on PullRequest {
                     number
                     isDraft
-                    author { login }
-                    labels(first: 100) { pageInfo { hasNextPage } nodes { name } }
-                    commits(last: 1) {
-                      nodes { commit {
-                        statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes {
-                          ... on CheckRun { name conclusion status }
-                          ... on StatusContext { context state }
-                        } } }
-                      } }
-                    }
-                    comments(last: 100) { nodes { author { login } body createdAt } }
-                    reviewThreads(first: 100) {
-                      pageInfo { hasNextPage }
-                      nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } }
+                    closingIssuesReferences(first: 10) {
+                      nodes { repository { nameWithOwner } milestone { title state } }
                     }
                   }
                 }
               }
             }'
-          search="repo:${GITHUB_REPOSITORY} is:pr is:open draft:false -author:app/dependabot milestone:\"$milestone\""
+          search="repo:${GITHUB_REPOSITORY} is:pr is:open draft:false -author:app/dependabot"
 
-          # Paginate the outer search itself — first:100 alone would silently skip PRs past the 100th in a large
-          # milestone, which could wrongly mark an unfetched PR ready from data that was never actually seen.
-          echo '[]' > prs.json
+          # Qualifies if it closes a same-repo issue with an open "Kyverno Release ..." milestone.
+          qualifies='
+            [.closingIssuesReferences.nodes[]?
+              | select(.repository.nameWithOwner == $repo
+                  and .milestone != null
+                  and .milestone.state == "OPEN"
+                  and (.milestone.title | test("^Kyverno Release ")))]
+            | length > 0'
+
+          echo '[]' > qualifying-numbers.json
           after=""
           page=0
           while :; do
             page=$((page + 1))
-            # Straight to a file, never through a bash variable — a PR comment/description can contain arbitrary
-            # multi-line text, and no shell variable capture of that content is assumed safe here.
             if [[ -z "$after" ]]; then
               gh api graphql -f query="$query" -f search="$search" > response.json
             else
               gh api graphql -f query="$query" -f search="$search" -f after="$after" > response.json
             fi
 
-            jq -c '[.data.search.nodes[] | select(.isDraft | not)]' response.json > page-prs.json
-            jq -s 'add' prs.json page-prs.json > prs-next.json && mv prs-next.json prs.json
+            jq -c --arg repo "${GITHUB_REPOSITORY}" \
+              "[.data.search.nodes[] | select(.isDraft | not) | select($qualifies) | .number]" \
+              response.json > page-numbers.json
+            jq -s 'add' qualifying-numbers.json page-numbers.json > numbers-next.json && mv numbers-next.json qualifying-numbers.json
 
             has_next=$(jq -r '.data.search.pageInfo.hasNextPage' response.json)
             [[ "$has_next" != "true" ]] && break
             after=$(jq -r '.data.search.pageInfo.endCursor' response.json)
 
             if [[ "$page" -ge 20 ]]; then
-              echo "::warning::Stopped paginating the search after 20 pages (2000 PRs) — implausible for one milestone; treating anything beyond this as unchecked rather than looping forever."
+              echo "::warning::Stopped paginating discovery after 20 pages (2000 PRs)."
               break
             fi
           done
+          echo "Found $(jq 'length' qualifying-numbers.json) PR(s) closing a milestoned issue."
+
+      - name: Fetch full readiness data and check each qualifying PR (per-PR pass)
+        run: |
+          set -euo pipefail
+
+          detail_query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  number
+                  author { login }
+                  labels(first: 100) { pageInfo { hasNextPage } nodes { name } }
+                  commits(last: 1) {
+                    nodes { commit {
+                      statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes {
+                        ... on CheckRun { name conclusion status }
+                        ... on StatusContext { context state }
+                      } } }
+                    } }
+                  }
+                  comments(last: 100) { nodes { author { login } body createdAt } }
+                  reviewThreads(first: 100) {
+                    pageInfo { hasNextPage }
+                    nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } }
+                  }
+                }
+              }
+            }'
+          owner="${GITHUB_REPOSITORY%/*}"
+          name="${GITHUB_REPOSITORY#*/}"
+
+          # Written straight to a file, never through a bash variable — PR content can contain arbitrary text.
+          : > pr-details.jsonl
+          for number in $(jq -r '.[]' qualifying-numbers.json); do
+            gh api graphql -f query="$detail_query" -f owner="$owner" -f name="$name" -F number="$number" \
+              | jq -c '.data.repository.pullRequest' >> pr-details.jsonl
+          done
+          jq -s '.' pr-details.jsonl > prs.json
           returned_count=$(jq 'length' prs.json)
 
           for ((i = 0; i < returned_count; i++)); do
-            # Each PR isolated to its own file for the same reason — every jq call below reads pr.json directly
-            # rather than piping its (potentially multi-line) content through a shell variable.
             jq -c ".[$i]" prs.json > pr.json
 
             number=$(jq -r '.number' pr.json)
@@ -129,35 +152,34 @@ jobs:
             has_label=$(jq -r '[.labels.nodes[].name] | any(. == "needs-author-action")' pr.json)
             has_ready_label=$(jq -r '[.labels.nodes[].name] | any(. == "ready-for-review")' pr.json)
 
-            # A truncated connection means the "no findings" verdict below is unproven, not confirmed — retaining
-            # the label in that case (rather than clearing it) is the fix CodeRabbit asked for on this workflow.
-            # `.comments` deliberately isn't included here: it only feeds marker dedup below, never a readiness
-            # check, so a PR with >100 historical comments shouldn't be stuck unable to ever clear its labels.
+            # A truncated connection means "no findings" is unproven — leave labels as-is rather than clear them.
             truncated=$(jq -r '
               [.labels.pageInfo.hasNextPage,
                (.commits.nodes[0].commit.statusCheckRollup.contexts.pageInfo.hasNextPage // false),
                .reviewThreads.pageInfo.hasNextPage]
               | any' pr.json)
 
-            # A check still running (CheckRun status != COMPLETED, or StatusContext state == PENDING) isn't a
-            # finding, so don't mark the PR ready until it settles.
+            # A check still running isn't a finding — don't mark ready until it settles.
             pending=$(jq -r '
               [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-                | select((.status? and .status != "COMPLETED") or .state? == "PENDING")]
+                | select((.status? and .status != "COMPLETED") or .state? == "PENDING" or .state? == "EXPECTED")]
               | length > 0' pr.json)
 
             if [[ "$findings" == "[]" ]]; then
-              if [[ "$truncated" == "false" && "$pending" == "false" ]]; then
+              if [[ "$truncated" == "true" ]]; then
+                # Can't trust a "clean" verdict from a partial connection — drop a stale ready-for-review rather
+                # than keep asserting it, but leave needs-author-action alone (incomplete data proves nothing).
+                [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
+                echo "PR #$number: truncated connection, no findings on the visible page — removed ready-for-review if present."
+              elif [[ "$pending" == "true" ]]; then
+                echo "PR #$number: checks still pending — leaving labels as-is."
+              else
                 [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
                 [[ "$has_ready_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
-              else
-                echo "PR #$number: truncated=$truncated pending=$pending, no findings seen — leaving labels as-is rather than acting on incomplete data."
               fi
               continue
             fi
 
-            # $findings only ever holds the short id/message strings this repo's own pr-readiness-checks.yml
-            # defines — never PR content — so piping it through further jq calls here is fine.
             ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$findings")
             marker="<!-- pr-readiness-check: $ids -->"
             already_reported=$(jq --arg m "$marker" '[.comments.nodes[] | select(.body | contains($m))] | length > 0' pr.json)
