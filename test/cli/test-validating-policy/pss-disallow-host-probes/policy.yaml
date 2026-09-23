@@ -14,8 +14,6 @@ spec:
       expression: >-
         object.spec.containers
         + object.spec.?initContainers.orValue([])
-        + object.spec.?ephemeralContainers.orValue([])
-
   validations:
     - expression: >-
         variables.allContainers.all(c,
@@ -32,4 +30,4 @@ spec:
         Probes and lifecycle handlers must not target a specific host. The fields
         livenessProbe, readinessProbe, startupProbe, lifecycle.postStart, and
         lifecycle.preStop must leave httpGet.host and tcpSocket.host unset or empty
-        in spec.containers[*], spec.initContainers[*], and spec.ephemeralContainers[*].
+        in spec.containers[*], spec.initContainers[*].

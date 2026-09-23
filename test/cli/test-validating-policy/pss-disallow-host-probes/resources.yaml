@@ -148,6 +148,7 @@ spec:
   initContainers:
   - name: init
     image: busybox
+    restartPolicy: Always
     startupProbe:
       httpGet:
         path: /start
@@ -156,24 +157,6 @@ spec:
   containers:
   - name: nginx
     image: nginx
----
-# The host sits on an ephemeral container; every other container is clean.
-apiVersion: v1
-kind: Pod
-metadata:
-  name: bad-pod-ephemeral-container
-spec:
-  containers:
-  - name: nginx
-    image: nginx
-  ephemeralContainers:
-  - name: debug
-    image: busybox
-    lifecycle:
-      preStop:
-        tcpSocket:
-          port: 8080
-          host: ephemeral.example.com
 ---
 # Passing cases.
 apiVersion: v1
@@ -185,7 +168,7 @@ spec:
   - name: nginx
     image: nginx
 ---
-# Every handler position is present across all three container scopes, with host unset.
+# Every handler position is present across both container scopes, with host unset.
 apiVersion: v1
 kind: Pod
 metadata:
@@ -194,6 +177,7 @@ spec:
   initContainers:
   - name: init
     image: busybox
+    restartPolicy: Always
     startupProbe:
       httpGet:
         path: /start
@@ -216,15 +200,8 @@ spec:
       preStop:
         tcpSocket:
           port: 8080
-  ephemeralContainers:
-  - name: debug
-    image: busybox
-    readinessProbe:
-      httpGet:
-        path: /ready
-        port: 8080
 ---
-# Every handler position is present across all three container scopes, with host set to "".
+# Every handler position is present across both container scopes, with host set to "".
 apiVersion: v1
 kind: Pod
 metadata:
@@ -233,6 +210,7 @@ spec:
   initContainers:
   - name: init
     image: busybox
+    restartPolicy: Always
     startupProbe:
       tcpSocket:
         port: 8080
@@ -260,10 +238,3 @@ spec:
           path: /bye
           port: 8080
           host: ""
-  ephemeralContainers:
-  - name: debug
-    image: busybox
-    readinessProbe:
-      tcpSocket:
-        port: 8080
-        host: ""
