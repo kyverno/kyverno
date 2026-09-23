@@ -268,7 +268,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			}
 
 			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %w", v, data.Path, err)
+				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s", v, data.Path)
 			}
 
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
