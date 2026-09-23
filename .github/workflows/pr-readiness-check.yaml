@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      issues: read
+      issues: write
       checks: read
     env:
       GH_TOKEN: ${{ github.token }}
@@ -73,7 +73,7 @@ jobs:
                     commits(last: 1) {
                       nodes { commit {
                         statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage } nodes {
-                          ... on CheckRun { name conclusion }
+                          ... on CheckRun { name conclusion status }
                           ... on StatusContext { context state }
                         } } }
                       } }
@@ -139,12 +139,19 @@ jobs:
                .reviewThreads.pageInfo.hasNextPage]
               | any' pr.json)
 
+            # A check still running (CheckRun status != COMPLETED, or StatusContext state == PENDING) isn't a
+            # finding, so don't mark the PR ready until it settles.
+            pending=$(jq -r '
+              [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+                | select((.status? and .status != "COMPLETED") or .state? == "PENDING")]
+              | length > 0' pr.json)
+
             if [[ "$findings" == "[]" ]]; then
-              if [[ "$truncated" == "false" ]]; then
+              if [[ "$truncated" == "false" && "$pending" == "false" ]]; then
                 [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
                 [[ "$has_ready_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
               else
-                echo "PR #$number: a connection was truncated, no findings seen — leaving labels as-is rather than acting on incomplete data."
+                echo "PR #$number: truncated=$truncated pending=$pending, no findings seen — leaving labels as-is rather than acting on incomplete data."
               fi
               continue
             fi

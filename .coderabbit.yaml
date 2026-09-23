@@ -95,9 +95,7 @@ reviews:
         between rules). Flag anything in the diff that contradicts these documented behaviors, and flag any new
         rule-type handler or evaluation path that doesn't fit the existing dispatch pattern without explanation.
         CodeRabbit's native Code Graph Analysis already tracks cross-file callers/implementors — use it for any
-        cross-package concern here; cite exact file:line, don't guess. An MCP server would only add value for
-        something that graph doesn't cover, e.g. a genuinely cross-repo lookup into kyverno/api — see
-        docs/dev/ai-review-open-questions.md.
+        cross-package concern here; cite exact file:line, don't guess.
 
     - path: "pkg/webhooks/**"
       instructions: |
@@ -109,8 +107,7 @@ reviews:
         latency-critical admission path — flag any new synchronous blocking call without a timeout, any missing
         panic recovery, and anything that could block admission incorrectly. CodeRabbit's native Code Graph
         Analysis already tracks cross-file callers/implementors — use it before flagging cross-package impact
-        here; cite exact file:line. See docs/dev/ai-review-open-questions.md for the (likely redundant) external
-        CodeGraph MCP server question.
+        here; cite exact file:line.
 
     - path: "pkg/cel/**"
       instructions: |
@@ -133,9 +130,7 @@ reviews:
         ARCHITECTURE.md's Generated/no-edit-zones table for the full fan-out (a CRD schema change also touches
         config/crds/**, the CLI's offline copy under cmd/cli/kubectl-kyverno/{config,data}/crds/, and
         charts/kyverno/charts/crds/templates/). CodeRabbit's native Code Graph Analysis already tracks cross-file
-        callers/implementors — use it before flagging a breaking-change concern; cite exact file:line. A separate
-        MCP server would only add value for a genuinely cross-repo lookup into kyverno/api itself — see
-        docs/dev/ai-review-open-questions.md.
+        callers/implementors — use it before flagging a breaking-change concern; cite exact file:line.
 
     - path: "pkg/clients/**"
       instructions: |
@@ -193,7 +188,7 @@ reviews:
         Should follow conventional commits: feat/fix/docs/chore/refactor/test(<scope>): short description.
         Scope should be the Kyverno component touched: engine, webhook, cli, api, cel, image, background, etc.
     description:
-      mode: error
+      mode: warning
     issue_assessment:
       mode: warning
     custom_checks:

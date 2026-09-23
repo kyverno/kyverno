@@ -5,6 +5,12 @@ message: "Wrap with context: fmt.Errorf(\"<operation>: %w\", err) instead of a b
 note: |
   A bare errors.New($MSG) loses the call-site context a caller further up the stack needs to debug a failure.
   Prefer fmt.Errorf("...: %w", err) when wrapping an existing error, or a descriptive errors.New only for a new,
-  standalone error with no underlying cause to wrap.
+  standalone error with no underlying cause to wrap. A package-level `var Err... = errors.New(...)` sentinel is
+  exactly that standalone case (see pkg/deprecations/summary.go's ErrLegacyPoliciesPresent), so it's excluded
+  here rather than flagged.
 rule:
   pattern: errors.New($MSG)
+  not:
+    inside:
+      kind: var_declaration
+      stopBy: end

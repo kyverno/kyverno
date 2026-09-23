@@ -46,6 +46,7 @@ jobs:
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
+      checks: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -55,7 +56,7 @@ jobs:
 
           numbers=$(gh pr list --repo "${GITHUB_REPOSITORY}" \
             --search "is:pr is:open author:app/dependabot" \
-            --json number --jq '.[].number')
+            --json number --jq '.[].number' --limit 1000)
 
           for pr in $numbers; do
             echo "=== PR #$pr ==="
@@ -68,13 +69,15 @@ jobs:
               level=minor
             fi
 
-            verdict=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/$pr/reviews" \
-              --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | .body // ""')
+            verdict=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/$pr/reviews" --paginate \
+              | jq -rs '[.[][] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | .body // ""')
             copilot_approved=false
             grep -qF "Approval recommended" <<< "$verdict" && copilot_approved=true
 
+            # gh pr checks exits non-zero when any check is failing or pending — capture that instead of letting
+            # set -e kill the whole loop before the PR can be labeled needs-review for that exact state.
             not_green=$(gh pr checks "$pr" --repo "${GITHUB_REPOSITORY}" --json bucket \
-              --jq '[.[] | select(.bucket == "fail" or .bucket == "pending" or .bucket == "cancel")] | length')
+              --jq '[.[] | select(.bucket == "fail" or .bucket == "pending" or .bucket == "cancel")] | length') || true
 
             mergeable_state=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json mergeStateStatus --jq '.mergeStateStatus')
             has_conflict=false
