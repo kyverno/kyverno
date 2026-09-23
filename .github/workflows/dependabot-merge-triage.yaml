@@ -50,11 +50,18 @@ jobs:
       github.event.review.user.login == 'copilot-pull-request-reviewer[bot]'
     runs-on: ubuntu-slim
     permissions:
+      contents: read
       pull-requests: write
       checks: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install yq
+        uses: ./.github/actions/tools/yq
+
       - name: Classify and label each Dependabot PR
         run: |
           set -euo pipefail
@@ -66,15 +73,39 @@ jobs:
           for pr in $numbers; do
             echo "=== PR #$pr ==="
 
-            commit_message=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json commits --jq '.commits[-1].messageBody')
-            # Unknown by default — a non-semver dependency (e.g. CalVer) has no update-type trailer at all.
+            # Every commit's body, not just the last — a rebase can leave the update-type trailer off the tip.
+            gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json commits \
+              --jq '[.commits[].messageBody] | join("\n")' > commit-messages.txt
+
+            # Each Dependabot-authored commit carries a "---\nupdated-dependencies:\n...\n...\n" YAML doc; pull
+            # every dependency entry out of every such block (usually just one) instead of substring-matching.
+            # Cleared before use, not just after — a prior iteration's leftover block-*.yml must never leak in.
+            : > deps.json
+            rm -f block-*.yml
+            awk '/^---$/ { n++; capturing=1; next } /^\.\.\.$/ { capturing=0; next } capturing { print > ("block-" n ".yml") }' commit-messages.txt
+            if ls block-*.yml > /dev/null 2>&1; then
+              for f in block-*.yml; do
+                yq -o=json '.["updated-dependencies"] // []' "$f"
+              done | jq -s 'add' > deps.json
+              rm -f block-*.yml
+            else
+              echo '[]' > deps.json
+            fi
+
+            # Unknown unless every listed dependency has a recognized semver level — a mix of a semver dep and a
+            # non-semver one (e.g. CalVer) must not silently inherit the semver dep's level. Otherwise, the
+            # highest level across all deps wins.
+            total=$(jq 'length' deps.json)
+            known=$(jq '[.[] | select(.["update-type"] // "" | test("^version-update:semver-(major|minor|patch)$"))] | length' deps.json)
             level=unknown
-            if grep -q 'update-type: version-update:semver-major' <<< "$commit_message"; then
-              level=major
-            elif grep -q 'update-type: version-update:semver-minor' <<< "$commit_message"; then
-              level=minor
-            elif grep -q 'update-type: version-update:semver-patch' <<< "$commit_message"; then
-              level=patch
+            if [[ "$total" -gt 0 && "$known" -eq "$total" ]]; then
+              if jq -e 'any(.["update-type"] == "version-update:semver-major")' deps.json > /dev/null; then
+                level=major
+              elif jq -e 'any(.["update-type"] == "version-update:semver-minor")' deps.json > /dev/null; then
+                level=minor
+              else
+                level=patch
+              fi
             fi
 
             verdict=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/$pr/reviews" --paginate \
