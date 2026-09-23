@@ -127,11 +127,11 @@ func extract(
 			jp := jmespath.New(cfg)
 			q, err := jp.Query(jmesPath)
 			if err != nil {
-				return fmt.Errorf("invalid jmespath %s: %v", jmesPath, err)
+				return fmt.Errorf("invalid jmespath %s: %w", jmesPath, err)
 			}
 			result, err := q.Search(value)
 			if err != nil {
-				return fmt.Errorf("failed to apply jmespath %s: %v", jmesPath, err)
+				return fmt.Errorf("failed to apply jmespath %s: %w", jmesPath, err)
 			}
 			resultStr, ok := result.(string)
 			if !ok {

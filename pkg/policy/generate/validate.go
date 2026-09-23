@@ -59,7 +59,7 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 		// TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
 		if path, err := common.ValidatePattern(target, "/", nil); err != nil {
-			return nil, fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
+			return nil, fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %w", err)
 		}
 	}
 

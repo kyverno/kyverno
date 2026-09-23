@@ -20,7 +20,7 @@ func ProcessPatchJSON6902(logger logr.Logger, patchesJSON6902 []byte, resource r
 func applyPatchesWithOptions(resource, patch []byte) ([]byte, error) {
 	patches, err := jsonpatch.DecodePatch(patch)
 	if err != nil {
-		return resource, fmt.Errorf("failed to decode patches: %v", err)
+		return resource, fmt.Errorf("failed to decode patches: %w", err)
 	}
 	options := &jsonpatch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
 	patchedResource, err := patches.ApplyWithOptions(resource, options)

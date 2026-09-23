@@ -24,16 +24,16 @@ func RegistryClient(client registryclient.Client) engineapi.RegistryClient {
 func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.ImageData, error) {
 	desc, err := a.Client.FetchImageDescriptor(ctx, ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch image descriptor: %s, error: %w", ref, err)
 	}
 	nameOpts := a.Client.NameOptions()
 	parsedRef, err := name.ParseReference(ref, nameOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %w", ref, err)
 	}
 	image, err := desc.Image()
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %w", ref, err)
 	}
 	// we ignore image index errors as it might be unavailable
 	manifestList, _ := desc.ImageIndex()
@@ -41,17 +41,17 @@ func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.Ima
 	// which are not defined in GGCR structs.
 	rawManifest, err := image.RawManifest()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %w", ref, err)
 	}
 	rawConfig, err := image.RawConfigFile()
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
+		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %w", ref, err)
 	}
 	var rawManifestList []byte
 	if manifestList != nil {
 		rawManifestList, err = manifestList.RawManifest()
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch image index for image reference: %s, error: %v", ref, err)
+			return nil, fmt.Errorf("failed to fetch image index for image reference: %s, error: %w", ref, err)
 		}
 	}
 	var tag string

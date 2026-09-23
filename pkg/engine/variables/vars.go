@@ -263,12 +263,12 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				case context.InvalidVariableError:
 					return nil, err
 				default:
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
+					return nil, fmt.Errorf("failed to resolve %v at path %s: %w", v, data.Path, err)
 				}
 			}
 
 			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %v", v, data.Path, err)
+				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %w", v, data.Path, err)
 			}
 
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
@@ -352,7 +352,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					case context.InvalidVariableError, gojmespath.NotFoundError:
 						return nil, err
 					default:
-						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
+						return nil, fmt.Errorf("failed to resolve %v at path %s: %w", variable, data.Path, err)
 					}
 				}
 
