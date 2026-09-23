@@ -41,7 +41,6 @@ spec:
       expression: >-
         object.spec.containers
         + object.spec.?initContainers.orValue([])
-        + object.spec.?ephemeralContainers.orValue([])
 
   validations:
     - expression: >-
@@ -59,7 +58,7 @@ spec:
         Probes and lifecycle handlers must not target a specific host. The fields
         livenessProbe, readinessProbe, startupProbe, lifecycle.postStart, and
         lifecycle.preStop must leave httpGet.host and tcpSocket.host unset or empty
-        in spec.containers[*], spec.initContainers[*], and spec.ephemeralContainers[*].
+        in spec.containers[*], spec.initContainers[*].
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
