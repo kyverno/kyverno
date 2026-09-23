@@ -11,6 +11,12 @@ name: "Dependabot merge triage"
 
 permissions: {}
 
+# Several of the workflow_run triggers below can complete near-simultaneously for the same PR; without this, an
+# older run's stale read could overwrite a newer run's labels out of order.
+concurrency:
+  group: dependabot-merge-triage
+  cancel-in-progress: false
+
 on:
   workflow_dispatch: {}
   schedule:

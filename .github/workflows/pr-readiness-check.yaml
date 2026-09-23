@@ -56,7 +56,8 @@ jobs:
                   ... on PullRequest {
                     number
                     isDraft
-                    closingIssuesReferences(first: 10) {
+                    closingIssuesReferences(first: 100) {
+                      pageInfo { hasNextPage endCursor }
                       nodes { repository { nameWithOwner } milestone { title state } }
                     }
                   }
@@ -65,7 +66,8 @@ jobs:
             }'
           search="repo:${GITHUB_REPOSITORY} is:pr is:open draft:false -author:app/dependabot"
 
-          # Qualifies if it closes a same-repo issue with an open "Kyverno Release ..." milestone.
+          # Qualifies if it closes a same-repo issue with an open "Kyverno Release ..." milestone. Expects an
+          # object with .closingIssuesReferences.nodes, e.g. a PullRequest node or a detail-query response.
           qualifies='
             [.closingIssuesReferences.nodes[]?
               | select(.repository.nameWithOwner == $repo
@@ -89,6 +91,12 @@ jobs:
               "[.data.search.nodes[] | select(.isDraft | not) | select($qualifies) | .number]" \
               response.json > page-numbers.json
             jq -s 'add' qualifying-numbers.json page-numbers.json > numbers-next.json && mv numbers-next.json qualifying-numbers.json
+
+            # A PR closing more than 100 issues isn't realistic, but flag it loudly rather than silently miss it.
+            still_truncated=$(jq --arg repo "${GITHUB_REPOSITORY}" \
+              "[.data.search.nodes[] | select(.isDraft | not) | select(.closingIssuesReferences.pageInfo.hasNextPage and ($qualifies | not)) | .number]" \
+              response.json)
+            [[ "$still_truncated" != "[]" ]] && echo "::warning::PR(s) $still_truncated close more than 100 issues and may be wrongly excluded."
 
             has_next=$(jq -r '.data.search.pageInfo.hasNextPage' response.json)
             [[ "$has_next" != "true" ]] && break
@@ -120,7 +128,6 @@ jobs:
                       } } }
                     } }
                   }
-                  comments(last: 100) { nodes { author { login } body createdAt } }
                   reviewThreads(first: 100) {
                     pageInfo { hasNextPage endCursor }
                     nodes { isResolved comments(last: 1) { nodes { author { login } createdAt } } }
@@ -183,6 +190,12 @@ jobs:
             gh api graphql -f query="$detail_query" -f owner="$owner" -f name="$name" -F number="$number" \
               | jq -c '.data.repository.pullRequest' > one-pr.json
 
+            # A qualifying PR can close between discovery and here — skip rather than process a null result.
+            if [[ "$(jq -r 'type' one-pr.json)" != "object" ]]; then
+              echo "PR #$number: detail fetch returned nothing (closed mid-run?) — skipping."
+              continue
+            fi
+
             paginate_connection one-pr.json ".labels" "$labels_page_query"
             paginate_connection one-pr.json ".commits.nodes[0].commit.statusCheckRollup.contexts" "$checks_page_query"
             paginate_connection one-pr.json ".reviewThreads" "$threads_page_query"
@@ -208,11 +221,13 @@ jobs:
                .reviewThreads.pageInfo.hasNextPage]
               | any' pr.json)
 
-            # A check still running isn't a finding — don't mark ready until it settles.
+            # A check still running isn't a finding — don't mark ready until it settles. No check data at all
+            # (rollup absent, or empty — e.g. right after a PR opens) counts as pending too, not "clean."
             pending=$(jq -r '
-              [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+              (.commits.nodes[0].commit.statusCheckRollup.contexts.nodes | length == 0) or
+              ([.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
                 | select((.status? and .status != "COMPLETED") or .state? == "PENDING" or .state? == "EXPECTED")]
-              | length > 0' pr.json)
+               | length > 0)' pr.json)
 
             if [[ "$findings" == "[]" ]]; then
               if [[ "$truncated" == "true" ]]; then
@@ -220,7 +235,9 @@ jobs:
                 [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
                 echo "PR #$number: truncated connection, no findings on the visible page — removed ready-for-review if present."
               elif [[ "$pending" == "true" ]]; then
-                echo "PR #$number: checks still pending — leaving labels as-is."
+                # A new commit's checks aren't settled yet — don't let an old ready-for-review keep claiming so.
+                [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
+                echo "PR #$number: checks still pending — removed ready-for-review if present."
               else
                 [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
                 [[ "$has_ready_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
@@ -230,7 +247,12 @@ jobs:
 
             ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$findings")
             marker="<!-- pr-readiness-check: $ids -->"
-            already_reported=$(jq --arg m "$marker" '[.comments.nodes[] | select(.body | contains($m))] | length > 0' pr.json)
+            # REST, fully paginated — a GraphQL comments(last: 100) cap could miss the marker on a busy PR.
+            already_reported=false
+            if gh api "repos/${GITHUB_REPOSITORY}/issues/$number/comments" --paginate --jq '.[].body' \
+              | grep -qF -- "$marker"; then
+              already_reported=true
+            fi
 
             [[ "$has_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "needs-author-action"
             [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"

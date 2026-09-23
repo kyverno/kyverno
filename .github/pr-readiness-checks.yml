@@ -12,7 +12,7 @@ dco:
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
       | select((.name // .context) == "DCO") | (.conclusion // .state)]
-    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE")
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
 # Excludes DCO — that gets its own message above, so a DCO failure doesn't also fire this one redundantly.
 ci:
@@ -20,14 +20,14 @@ ci:
     "fix the failing check(s): " + (
       [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
         | select((.name // .context) != "DCO")
-        | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE"] | any(. == $c))
+        | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
         | (.name // .context)]
       | join(", ")
     )
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
       | select((.name // .context) != "DCO") | (.conclusion // .state)]
-    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE")
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
 conflicts:
   message: '"fix the merge conflicts"'
