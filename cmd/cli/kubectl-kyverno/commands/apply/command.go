@@ -281,6 +281,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
+	// CRDs are registered before any resource is loaded so that cluster-scoped custom kinds are not defaulted into a namespace.
+	crdLoadErr := common.LoadCrdsFromPaths(c.CrdPaths)
+	if crdLoadErr != nil && !c.ContinueOnFail {
+		return nil, nil, skippedInvalidPolicies, nil, crdLoadErr
+	}
 
 	var userInfo *kyvernov2.RequestInfo
 	if c.UserInfoPath != "" {
@@ -462,6 +467,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		dClient,
 		userInfo,
 		mutateLogPathIsDir,
+		crdLoadErr,
 	)
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
@@ -530,6 +536,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	dClient dclient.Interface,
 	userInfo *kyvernov2.RequestInfo,
 	mutateLogPathIsDir bool,
+	crdLoadErr error,
 ) (*processor.ResultCounts, []*unstructured.Unstructured, []engineapi.EngineResponse, error) {
 	if vars != nil {
 		vars.SetInStore(store)
@@ -545,21 +552,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 	crdPreloaded := false
 	crdPreloadFailed := false
 	if len(c.CrdPaths) > 0 {
-		crdPreloaded = true
-		for _, crdPath := range c.CrdPaths {
-			if strings.TrimSpace(crdPath) == "" {
-				continue
-			}
-			if err := common.LoadCrdsFromPath(crdPath); err != nil {
-				if !c.ContinueOnFail {
-					return &rc, resources, responses, err
-				}
-				log.Log.V(2).Info(fmt.Sprintf("failed to load CRDs from %s: %v", crdPath, err))
-				rc.IncrementError(1)
-				crdPreloaded = false
-				crdPreloadFailed = true
-				break
-			}
+		// The CRDs were already registered before the resources were loaded.
+		if crdLoadErr != nil {
+			log.Log.V(2).Info(fmt.Sprintf("failed to load CRDs: %v", crdLoadErr))
+			rc.IncrementError(1)
+			crdPreloadFailed = true
+		} else {
+			crdPreloaded = true
 		}
 	}
 
