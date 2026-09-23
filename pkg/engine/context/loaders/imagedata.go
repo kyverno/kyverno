@@ -73,7 +73,7 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	entry := idl.entry
 	ref, err := variables.SubstituteAll(idl.logger, idl.enginectx, entry.ImageRegistry.Reference)
 	if err != nil {
-		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %w", entry.Name, entry.ImageRegistry.Reference, err)
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %w", entry.Name, entry.ImageRegistry.Reference, err)
 	}
 
 	refString, ok := ref.(string)

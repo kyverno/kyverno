@@ -96,9 +96,14 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
-		if err != nil || trigger == nil {
+		if err != nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
 			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %w", ur.Spec.GetPolicyKey(), err))
+			continue
+		}
+		if trigger == nil {
+			logger.V(4).Info("the trigger resource does not exist or is pending creation")
+			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: not found", ur.Spec.GetPolicyKey()))
 			continue
 		}
 		if c.configuration != nil && c.configuration.ToFilter(trigger.GroupVersionKind(), "", trigger.GetNamespace(), trigger.GetName()) {
