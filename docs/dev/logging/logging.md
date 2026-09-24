@@ -12,7 +12,7 @@ Logging in Kyverno follows a structured approach using `logr`, with `zerologr` f
 ## **Identifiers**
 - `WithName`: `logging.WithName("setup")` → Adds "setup" as a prefix.
 - `WithValues`: `logging.WithValues("key", "value")` → Adds key-value pairs to logs.
-- `ControllerLogger`: `logging.ControllerLogger("name")` → Creates a logger for controllers, setting a log level of 3.
+- `ControllerLogger`: `logging.ControllerLogger("name")` → Creates a logger for controllers, setting a log level of 1 (`LogLevelController` in `pkg/logging/log.go`).
 
 ## **Error Logging (L0)**
 ```bash

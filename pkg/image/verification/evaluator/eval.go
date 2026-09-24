@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -28,12 +27,10 @@ type CompiledImageValidatingPolicy struct {
 
 func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, request interface{}, admissionAttr admission.Attributes, namespace runtime.Object, lister corev1listers.SecretLister) (map[string]*EvaluationResult, error) {
 	isAdmissionRequest := false
-	var gvr *metav1.GroupVersionResource
 	// nil until proven otherwise: JSON-mode payloads never build a request map.
 	var requestMapFn func() (map[string]any, error)
 	if r, ok := request.(*admissionv1.AdmissionRequest); ok {
 		isAdmissionRequest = true
-		gvr = requestGVR(r)
 		// Built at most once for the whole loop below, and lazily: the thunk is
 		// only invoked if some policy's Evaluate actually reaches prepareK8sData.
 		requestMapFn = sync.OnceValues(func() (map[string]any, error) {
@@ -50,17 +47,17 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 	}
 
 	results := make(map[string]*EvaluationResult, len(policies))
-	// shared by every policy compiled below, so required sees cross-policy evidence
+	// Shared by every policy evaluated below, so required sees cross-policy evidence.
 	verifications := imageverify.NewImageVerificationResults()
-	c := NewCompiler(ictx, lister, gvr, imageverifycache.DisabledImageVerifyCache())
+	c := NewCompiler(lister)
 	compiled := make(map[string]CompiledPolicy, len(policies))
 	for _, ivpol := range policies {
-		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions, verifications)
+		p, errList := c.Compile(ivpol.Policy, ivpol.Exceptions)
 		if errList != nil {
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
-		result, err := p.Evaluate(ctx, ictx, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
+		result, err := p.Evaluate(ctx, &imageverify.Runtime{ImageContext: ictx, Cache: imageverifycache.DisabledImageVerifyCache(), Results: verifications}, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +70,7 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 		if result == nil || !result.Result {
 			continue
 		}
-		if err := compiled[name].EnforceRequired(result.MatchedImages); err != nil {
+		if err := compiled[name].EnforceRequired(result.MatchedImages, verifications); err != nil {
 			result.Result = false
 			result.Message = err.Error()
 		}
@@ -84,14 +81,6 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 func isK8s(request interface{}) bool {
 	_, ok := request.(*admissionv1.AdmissionRequest)
 	return ok
-}
-
-func requestGVR(request *admissionv1.AdmissionRequest) *metav1.GroupVersionResource {
-	if request == nil {
-		return nil
-	}
-
-	return request.RequestResource
 }
 
 func filterPolicies(ivpols []*CompiledImageValidatingPolicy, isK8s bool) []*CompiledImageValidatingPolicy {
