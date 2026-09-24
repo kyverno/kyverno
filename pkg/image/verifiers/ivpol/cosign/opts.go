@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/sigstore/cosign/v3/pkg/blob"
@@ -384,7 +385,7 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), signaturePullSecrets...)
+		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), logging.GlobalLogger(), signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil

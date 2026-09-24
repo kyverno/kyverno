@@ -4,73 +4,108 @@ import (
 	"reflect"
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestAnnotations(t *testing.T) {
-	tests := []struct {
-		name   string
-		policy kyvernov1.PolicyInterface
-		want   map[string]string
-	}{{
-		name:   "nil",
-		policy: nil,
-		want:   nil,
-	}, {
-		name: "cluster policy",
-		policy: &kyvernov1.ClusterPolicy{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterPolicy",
-				APIVersion: "kyverno.io/v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
-			},
+func TestAnnotationsValidatingPolicy(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ValidatingPolicy",
+			APIVersion: "policies.kyverno.io/v1beta1",
 		},
-		want: map[string]string{
-			AnnotationKind:       "ClusterPolicy",
-			AnnotationName:       "test",
-			AnnotationApiVersion: "kyverno.io/v1",
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-labels",
 		},
-	}, {
-		name: "cluster policy custom api version",
-		policy: &kyvernov1.ClusterPolicy{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ClusterPolicy",
-				APIVersion: "kyverno.io/v2beta1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
-			},
+	}
+	got := Annotations(vp)
+	want := map[string]string{
+		AnnotationKind:       "ValidatingPolicy",
+		AnnotationName:       "check-labels",
+		AnnotationApiVersion: "policies.kyverno.io/v1beta1",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Annotations(ValidatingPolicy) = %v, want %v", got, want)
+	}
+}
+
+func TestAnnotationsDeletingPolicy(t *testing.T) {
+	dp := &policiesv1beta1.DeletingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "DeletingPolicy",
+			APIVersion: "policies.kyverno.io/v1beta1",
 		},
-		want: map[string]string{
-			AnnotationKind:       "ClusterPolicy",
-			AnnotationName:       "test",
-			AnnotationApiVersion: "kyverno.io/v2beta1",
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "delete-stale",
 		},
-	}, {
-		name: "policy",
-		policy: &kyvernov1.Policy{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Policy",
-				APIVersion: "kyverno.io/v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "test",
-			},
+	}
+	got := Annotations(dp)
+	want := map[string]string{
+		AnnotationKind:       "DeletingPolicy",
+		AnnotationName:       "delete-stale",
+		AnnotationApiVersion: "policies.kyverno.io/v1beta1",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Annotations(DeletingPolicy) = %v, want %v", got, want)
+	}
+}
+
+func TestAnnotationsMutatingPolicy(t *testing.T) {
+	mp := &policiesv1beta1.MutatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "MutatingPolicy",
+			APIVersion: "policies.kyverno.io/v1beta1",
 		},
-		want: map[string]string{
-			AnnotationKind:       "Policy",
-			AnnotationName:       "test",
-			AnnotationApiVersion: "kyverno.io/v1",
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "add-labels",
 		},
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := Annotations(tt.policy); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Annotations() = %v, want %v", got, tt.want)
-			}
-		})
+	}
+	got := Annotations(mp)
+	want := map[string]string{
+		AnnotationKind:       "MutatingPolicy",
+		AnnotationName:       "add-labels",
+		AnnotationApiVersion: "policies.kyverno.io/v1beta1",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Annotations(MutatingPolicy) = %v, want %v", got, want)
+	}
+}
+
+func TestAnnotationsCELPolicyException(t *testing.T) {
+	pe := &policiesv1beta1.PolicyException{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PolicyException",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-exception",
+			Namespace: "default",
+		},
+	}
+	got := Annotations(pe)
+	want := map[string]string{
+		AnnotationKind:       "PolicyException",
+		AnnotationName:       "my-exception",
+		AnnotationNamespace:  "default",
+		AnnotationApiVersion: "policies.kyverno.io/v1beta1",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Annotations(CEL PolicyException) = %v, want %v", got, want)
+	}
+}
+
+func TestAnnotationsNamespaceOmittedWhenEmpty(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ValidatingPolicy",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster-scoped",
+		},
+	}
+	got := Annotations(vp)
+	if _, ok := got[AnnotationNamespace]; ok {
+		t.Errorf("expected no namespace annotation for cluster-scoped resource, got %v", got)
 	}
 }
