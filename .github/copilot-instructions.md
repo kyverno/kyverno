@@ -4,8 +4,10 @@ and process live in the files it points to below; don't restate their content he
 
 ## Priorities
 
-1. **Policy evaluation correctness is the highest priority.** A wrong evaluation can incorrectly block or allow a
-   workload in a cluster. Prefer flagging a plausible correctness issue over staying silent on it.
+1. **Kyverno operates as a Kubernetes admission controller, enforcing security and best-practice policies on every
+   change request in a cluster — it must be correct, secure, and performant.** A wrong policy evaluation can
+   incorrectly block or allow a workload cluster-wide, not just in this one PR's scope. Prefer flagging a plausible
+   correctness issue over staying silent on it.
 2. **The admission webhook path (`pkg/webhooks/**`) is latency-critical.** Flag any new synchronous blocking
    operation without a timeout, missing panic recovery, or anything that could block admission incorrectly.
 3. **`api/**` holds this repository's own local API types** — `kyverno.io`, `wgpolicyk8s.io`
@@ -40,9 +42,6 @@ than silently proceeding as if there were nothing non-obvious to know.
 - **Distinguish blocking from advisory.** Say plainly whether something must change before merge (a correctness or
   security issue) versus something worth considering (a readability/structure suggestion) — don't let severity
   language drift toward "must" for the latter.
-- **When a CodeGraph MCP server is connected**, query it for callers/implementors of any modified function or
-  interface before asserting a cross-package impact — cite the exact file:line it returns, don't guess at blast
-  radius from the diff alone.
 - **Prefer a question over an assertion when the repo-specific reasoning genuinely isn't visible** — e.g. "is this
   intentional given X?" surfaces the same concern without misrepresenting confidence.
 - **Don't flag a hand-edit to a generated file as ordinary content** — check [`ARCHITECTURE.md`](../ARCHITECTURE.md)'s
