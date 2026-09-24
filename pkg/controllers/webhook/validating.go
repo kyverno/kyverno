@@ -113,7 +113,7 @@ func buildWebhookRules(ctx context.Context, cfg config.Configuration, server, na
 					}
 				}
 			}
-			if ivpol, ok := p.(*policiesv1beta1.ImageValidatingPolicy); ok {
+			if ivpol := policy.AsImageValidatingPolicyLike(); ivpol != nil {
 				policies, err := ivpolautogen.Autogen(ivpol)
 				if err != nil {
 					continue
