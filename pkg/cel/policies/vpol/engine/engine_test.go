@@ -262,6 +262,55 @@ func TestHandle_ExtractionMode_JobSet(t *testing.T) {
 	})
 }
 
+func TestHandle_ExtractionMode_RefusedExceptionCarriesTemplatePath(t *testing.T) {
+	const templatePath = "spec.replicatedJobs[0].template.spec.template"
+	handleJobSet := func(t *testing.T, control admissionregistrationv1.Validation) engineapi.RuleResponse {
+		t.Helper()
+		policy := buildDisallowLatestTagPolicy()
+		polex := buildException("default", "polex", policy.GetName(), control)
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{polex})
+		require.NoError(t, err)
+		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+			schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+			"",
+			"latest-tag-jobset",
+			"default",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			jobSetWithImage("bash:latest"),
+			nil,
+			false,
+			nil,
+		)
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+		require.Len(t, fired, 1)
+		require.Len(t, fired[0].Rules, 1)
+		return fired[0].Rules[0]
+	}
+
+	t.Run("failed control", func(t *testing.T) {
+		rule := handleJobSet(t, admissionregistrationv1.Validation{Expression: "false", Message: "ticket required"})
+		assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+		assert.Equal(t, "ticket required (pod template at "+templatePath+")", rule.Message())
+	})
+
+	t.Run("control evaluation error", func(t *testing.T) {
+		rule := handleJobSet(t, admissionregistrationv1.Validation{Expression: "object.missing == 'x'"})
+		assert.Equal(t, engineapi.RuleStatusError, rule.Status())
+		assert.Contains(t, rule.Message(), "pod template at "+templatePath)
+	})
+}
+
 func TestWithValidationIndex(t *testing.T) {
 	t.Run("nil props", func(t *testing.T) {
 		out := withValidationIndex(nil, 3)

@@ -12,7 +12,7 @@ spec:
       expression: "object.metadata.name.startsWith('legacy-app')"
   # Step 2: compensating controls required to grant the exception
   validations:
-    - expression: "'security.company.com/ticket-id' in object.metadata.?annotations.orValue({})"
+    - expression: "object.metadata.?annotations[?'security.company.com/ticket-id'].orValue('') != ''"
       message: >-
         Compensating Control Failure: Exception requires a valid security ticket
         annotation ('security.company.com/ticket-id').
