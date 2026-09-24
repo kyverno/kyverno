@@ -216,12 +216,7 @@ crds:
     # are deprecated and will be removed in a future release, migrate to the `policies.kyverno.io` policy types
     # (see https://kyverno.io/docs/guides/migration-to-cel/).
     kyverno:
-      cleanuppolicies: true
-      clustercleanuppolicies: true
-      clusterpolicies: true
       globalcontextentries: true
-      policies: true
-      policyexceptions: true
       updaterequests: true
 
     # -- Install CRDs in group `policies.kyverno.io`
