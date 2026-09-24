@@ -2,6 +2,7 @@ package test
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"strings"
@@ -355,19 +356,19 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 					failures++
 				}
 			}
-			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", policyName, len(rows), failures))
+			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", escapeXML(policyName), len(rows), failures))
 			for _, policyRow := range rows {
-				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", policyRow.Rule, policyRow.Resource))
+				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", escapeXML(policyRow.Rule), escapeXML(policyRow.Resource)))
 				if policyRow.IsFailure {
-					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource, policyRow.Result))
+					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s\n", escapeXML(policyRow.Reason), escapeXML(policyRow.Policy), escapeXML(policyRow.Rule), escapeXML(policyRow.Resource), escapeXML(policyRow.Result)))
 					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n", policyRow.Message))
+						b.WriteString(fmt.Sprintf("    Message: %s\n", escapeXML(policyRow.Message)))
 					}
 					b.WriteString("   </failure>\n")
 				} else {
-					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource))
+					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", escapeCDATA(policyRow.Reason), escapeCDATA(policyRow.Policy), escapeCDATA(policyRow.Rule), escapeCDATA(policyRow.Resource)))
 					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n", policyRow.Message))
+						b.WriteString(fmt.Sprintf("    Message: %s\n", escapeCDATA(policyRow.Message)))
 					}
 					b.WriteString("   ]]></system-out>\n")
 				}
@@ -389,4 +390,14 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		fmt.Fprintln(out, string(finalOutput))
 		fmt.Fprintln(out)
 	}
+}
+
+func escapeXML(s string) string {
+	var b strings.Builder
+	_ = xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
+func escapeCDATA(s string) string {
+	return strings.ReplaceAll(s, "]]>", "]]]]><![CDATA[>")
 }

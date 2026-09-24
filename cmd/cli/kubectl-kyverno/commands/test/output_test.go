@@ -15,14 +15,21 @@ import (
 func TestPrintOutputFormatsJunitFailureIsValidXML(t *testing.T) {
 	for _, detailedResults := range []bool{false, true} {
 		var resultTable table.Table
-		row := table.Row{Message: "validation error: label app is required"}
-		row.Policy = "require-labels"
-		row.Rule = "check-labels"
+		row := table.Row{Message: `validation error: label "app" must be <a & b>`}
+		row.Policy = `require-"labels"`
+		row.Rule = "check-labels<&>"
 		row.Resource = "v1/Pod/default/nginx"
 		row.Result = "Fail"
-		row.Reason = "Want pass, got fail"
+		row.Reason = `Want "pass", got <fail> & more`
 		row.IsFailure = true
 		resultTable.Add(row)
+		passRow := table.Row{Message: "data ]]> end"}
+		passRow.Policy = "require-labels"
+		passRow.Rule = "check-labels"
+		passRow.Resource = "v1/Pod/default/web"
+		passRow.Result = "Pass"
+		passRow.Reason = "Ok ]]> done"
+		resultTable.Add(passRow)
 
 		var out bytes.Buffer
 		printOutputFormats(&out, "junit", resultTable, detailedResults)
