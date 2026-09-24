@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -327,33 +328,53 @@ func isNamespaced(gvr schema.GroupVersionResource, mapper apimeta.RESTMapper) bo
 func (c *controller) updateDeletingPolicyStatus(ctx context.Context, policy v1beta1.DeletingPolicyLike, time time.Time) error {
 	switch p := policy.(type) {
 	case *v1beta1.DeletingPolicy:
-		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().DeletingPolicies(), func(p *v1beta1.DeletingPolicy) error {
-			// Only update LastExecutionTime; ConditionStatus is owned by the
-			// policy status controller and must be preserved to avoid the two
-			// writers clobbering each other's field.
-			p.Status.LastExecutionTime = metav1.NewTime(time)
-			return nil
-		}, func(current, expect *v1beta1.DeletingPolicy) bool {
-			return datautils.DeepEqual(current.Status, expect.Status)
+		client := c.kyvernoClient.PoliciesV1beta1().DeletingPolicies()
+		// The policy status controller also writes to this status subresource
+		// (ConditionStatus), so retry on conflict instead of surfacing a
+		// transient resourceVersion conflict as a reconcile error.
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			latest, err := client.Get(ctx, p.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			return controllerutils.UpdateStatus(ctx, latest, client, func(p *v1beta1.DeletingPolicy) error {
+				// Only update LastExecutionTime; ConditionStatus is owned by the
+				// policy status controller and must be preserved to avoid the two
+				// writers clobbering each other's field.
+				p.Status.LastExecutionTime = metav1.NewTime(time)
+				return nil
+			}, func(current, expect *v1beta1.DeletingPolicy) bool {
+				return datautils.DeepEqual(current.Status, expect.Status)
+			})
 		})
 		if err != nil {
 			return err
 		}
-		logging.Info("updated deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
+		logging.Info("updated deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace())
 	case *v1beta1.NamespacedDeletingPolicy:
-		err := controllerutils.UpdateStatus(ctx, p, c.kyvernoClient.PoliciesV1beta1().NamespacedDeletingPolicies(p.GetNamespace()), func(p *v1beta1.NamespacedDeletingPolicy) error {
-			// Only update LastExecutionTime; ConditionStatus is owned by the
-			// policy status controller and must be preserved to avoid the two
-			// writers clobbering each other's field.
-			p.Status.LastExecutionTime = metav1.NewTime(time)
-			return nil
-		}, func(current, expect *v1beta1.NamespacedDeletingPolicy) bool {
-			return datautils.DeepEqual(current.Status, expect.Status)
+		client := c.kyvernoClient.PoliciesV1beta1().NamespacedDeletingPolicies(p.GetNamespace())
+		// The policy status controller also writes to this status subresource
+		// (ConditionStatus), so retry on conflict instead of surfacing a
+		// transient resourceVersion conflict as a reconcile error.
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			latest, err := client.Get(ctx, p.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			return controllerutils.UpdateStatus(ctx, latest, client, func(p *v1beta1.NamespacedDeletingPolicy) error {
+				// Only update LastExecutionTime; ConditionStatus is owned by the
+				// policy status controller and must be preserved to avoid the two
+				// writers clobbering each other's field.
+				p.Status.LastExecutionTime = metav1.NewTime(time)
+				return nil
+			}, func(current, expect *v1beta1.NamespacedDeletingPolicy) bool {
+				return datautils.DeepEqual(current.Status, expect.Status)
+			})
 		})
 		if err != nil {
 			return err
 		}
-		logging.Info("updated namespaced deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace(), "status", p.Status)
+		logging.Info("updated namespaced deleting policy status", "name", p.GetName(), "namespace", p.GetNamespace())
 	default:
 		return fmt.Errorf("unsupported policy type: %T", policy)
 	}

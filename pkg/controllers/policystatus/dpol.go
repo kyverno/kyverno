@@ -2,10 +2,12 @@ package policystatus
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
+	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -37,7 +39,7 @@ func (c controller) reconcileDeletingConditions(ctx context.Context, matchConstr
 	}
 	gvrs := c.resolveGVRs(rules)
 	if errs := c.permissionsCheck(ctx, gvrs); len(errs) != 0 {
-		status.SetReadyByCondition(v1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, "Kyverno cannot access the resources targeted by this policy, missing permissions.")
+		status.SetReadyByCondition(v1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Kyverno cannot access the resources targeted by this policy, missing permissions: %v.", multierr.Combine(errs...)))
 	} else {
 		status.SetReadyByCondition(v1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Kyverno can access the resources targeted by this policy.")
 	}
