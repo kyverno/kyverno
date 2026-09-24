@@ -42,6 +42,14 @@ func Test_Attestors(t *testing.T) {
 					},
 				},
 				{
+					Name: "cosign-keyed-kms",
+					Cosign: &v1beta1.Cosign{
+						Key: &v1beta1.Key{
+							Expression: `"hashivault://" + data.foo[0]`,
+						},
+					},
+				},
+				{
 					Name: "cosign-cert",
 					Cosign: &v1beta1.Cosign{
 						Certificate: &v1beta1.Certificate{
@@ -94,6 +102,15 @@ func Test_Attestors(t *testing.T) {
 						Key: &v1beta1.Key{
 							Data:       "bar",
 							Expression: "data.foo[0]",
+						},
+					},
+				},
+				{
+					Name: "cosign-keyed-kms",
+					Cosign: &v1beta1.Cosign{
+						Key: &v1beta1.Key{
+							KMS:        "hashivault://bar",
+							Expression: `"hashivault://" + data.foo[0]`,
 						},
 					},
 				},
