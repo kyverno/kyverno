@@ -1,0 +1,236 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# E2E tests run after merge, on push to main and release branches (Tests
+# workflow), not on pull requests. When they fail, the failure-issue action
+# opens a tracking issue labelled e2e-failure. This workflow turns that issue
+# into a merge gate: it reports an "E2E Gate" commit status on every open pull
+# request, red while an e2e-failure issue is open for the PR's base branch.
+#
+# To enforce it, mark the "E2E Gate" status as required in branch protection,
+# then run this workflow once manually so every open PR gets a status.
+#
+# The status is set through the API instead of being this job's own result, so
+# that it can change without a new push to the PR: when the Tests workflow
+# finishes, every open PR is re-evaluated. The tracking issue is
+# opened and closed with GITHUB_TOKEN, which does not trigger workflows, hence
+# workflow_run rather than relying on the issues event alone.
+#
+# - An e2e-failure issue without the failure-issue marker (one labelled by
+#   hand) closes the gate for every branch.
+# - The e2e-gate-bypass label lets a single PR through, for the PR that fixes
+#   the branch.
+
+name: E2E gate
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+      - labeled
+      - unlabeled
+  workflow_run:
+    workflows:
+      - Tests
+    types:
+      - completed
+  issues:
+    types:
+      - closed
+      - reopened
+      - deleted
+      - labeled
+      - unlabeled
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  gate:
+    name: Sync E2E Gate status
+    # Label events matter only for the two labels the gate reads.
+    if: >-
+      github.event_name == 'workflow_run' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request_target' &&
+        ((github.event.action != 'labeled' && github.event.action != 'unlabeled') ||
+          github.event.label.name == 'e2e-gate-bypass')) ||
+      (github.event_name == 'issues' &&
+        (contains(github.event.issue.labels.*.name, 'e2e-failure') ||
+          github.event.label.name == 'e2e-failure'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Every sweep re-reads the open issues and covers all open PRs, whatever
+    # triggered it, so a newer sweep can always replace an older one: it
+    # rewrites whatever the cancelled run had not reached yet.
+    concurrency:
+      group: e2e-gate-${{ github.event.pull_request.number || 'sweep' }}
+      cancel-in-progress: true
+    permissions:
+      # contents: the head commit of each PR is read to find its current status
+      contents: read
+      issues: read
+      pull-requests: read
+      statuses: write
+    steps:
+      # No checkout: under pull_request_target this job holds a write token,
+      # so it only talks to the API and never runs code from the PR.
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+
+            const STATUS_CONTEXT = 'E2E Gate';
+            const FAILURE_LABEL = 'e2e-failure';
+            const BYPASS_LABEL = 'e2e-gate-bypass';
+            const DESCRIPTION_MAX = 140; // commit status API limit
+            // GitHub's secondary rate limit allows about 80 content-creating
+            // requests a minute; a sweep that flips every open PR stays under it.
+            const WRITE_DELAY_MS = 1000;
+
+            /** The branch a failure-issue tracking issue is about, or null. */
+            function markerBranch(body) {
+              const m = /<!-- workflow-failure:.*:refs\/heads\/(.+?) -->/.exec(body || '');
+              return m ? m[1] : null;
+            }
+
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open', labels: FAILURE_LABEL, per_page: 100
+            });
+            // The issues API also returns pull requests carrying the label.
+            const blockers = openIssues
+              .filter(i => !i.pull_request)
+              .map(i => ({ number: i.number, url: i.html_url, branch: markerBranch(i.body) }));
+            core.info(`Open ${FAILURE_LABEL} issues: ${blockers.map(b => `#${b.number} (${b.branch || 'all branches'})`).join(', ') || 'none'}`);
+
+            /**
+             * @param {{ base: string, labels: string[] }} pr
+             */
+            function desiredStatus(pr) {
+              if (pr.labels.includes(BYPASS_LABEL)) {
+                return { state: 'success', description: `Bypassed by the ${BYPASS_LABEL} label` };
+              }
+              const blocking = blockers.filter(b => b.branch === null || b.branch === pr.base);
+              if (blocking.length === 0) {
+                return { state: 'success', description: `No open ${FAILURE_LABEL} issue for ${pr.base}` };
+              }
+              const refs = blocking.map(b => `#${b.number}`).join(', ');
+              return {
+                state: 'failure',
+                description: `Post-merge tests are failing on ${pr.base}; fix ${refs} first`,
+                target_url: blocking[0].url,
+              };
+            }
+
+            const PR_FIELDS = `
+              number
+              state
+              baseRefName
+              labels(first: 100) { nodes { name } }
+              commits(last: 1) { nodes { commit {
+                oid
+                status { context(name: "${STATUS_CONTEXT}") { state description targetUrl } }
+              } } }`;
+
+            function toPr(node) {
+              const commit = node.commits.nodes[0].commit;
+              const current = commit.status && commit.status.context;
+              return {
+                number: node.number,
+                open: node.state === 'OPEN',
+                base: node.baseRefName,
+                sha: commit.oid,
+                labels: node.labels.nodes.map(l => l.name),
+                current: current
+                  ? {
+                    state: current.state.toLowerCase(),
+                    description: current.description,
+                    target_url: current.targetUrl || undefined,
+                  }
+                  : null,
+              };
+            }
+
+            async function listOpenPrs() {
+              const prs = [];
+              let cursor = null;
+              do {
+                const res = await github.graphql(
+                  `query($owner: String!, $repo: String!, $cursor: String) {
+                    repository(owner: $owner, name: $repo) {
+                      pullRequests(states: OPEN, first: 100, after: $cursor) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes { ${PR_FIELDS} }
+                      }
+                    }
+                  }`,
+                  { owner, repo, cursor }
+                );
+                const page = res.repository.pullRequests;
+                prs.push(...page.nodes.map(toPr));
+                cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+              } while (cursor);
+              return prs;
+            }
+
+            async function getPr(number) {
+              const res = await github.graphql(
+                `query($owner: String!, $repo: String!, $number: Int!) {
+                  repository(owner: $owner, name: $repo) {
+                    pullRequest(number: $number) { ${PR_FIELDS} }
+                  }
+                }`,
+                { owner, repo, number }
+              );
+              return toPr(res.repository.pullRequest);
+            }
+
+            const sweep = context.eventName !== 'pull_request_target';
+            const prs = sweep
+              ? await listOpenPrs()
+              : [await getPr(context.payload.pull_request.number)];
+
+            /** The status to write, or null when the PR already shows it. */
+            function pendingWrite(pr) {
+              const want = desiredStatus(pr);
+              want.description = want.description.slice(0, DESCRIPTION_MAX);
+              const same = pr.current && pr.current.state === want.state &&
+                pr.current.description === want.description &&
+                pr.current.target_url === want.target_url;
+              return same ? null : want;
+            }
+
+            let written = 0;
+            for (let pr of prs) {
+              // Writing only on change keeps the usual sweep, where nothing
+              // flipped, down to the read queries above.
+              if (!pendingWrite(pr)) {
+                continue;
+              }
+              // A sweep that flips every PR runs for minutes, and a PR event
+              // runs in its own concurrency group in the meantime. Re-read the
+              // PR just before writing, so that a push, a bypass label or a
+              // status written since the list was fetched is not overwritten.
+              if (sweep) {
+                pr = await getPr(pr.number);
+              }
+              const want = pr.open ? pendingWrite(pr) : null;
+              if (!want) {
+                continue;
+              }
+              if (written > 0) {
+                await new Promise(resolve => setTimeout(resolve, WRITE_DELAY_MS));
+              }
+              try {
+                await github.rest.repos.createCommitStatus({
+                  owner, repo, sha: pr.sha, context: STATUS_CONTEXT, ...want
+                });
+                written++;
+                core.info(`#${pr.number} (${pr.base}): ${want.state} — ${want.description}`);
+              } catch (err) {
+                core.warning(`Could not set the ${STATUS_CONTEXT} status on #${pr.number} (${err.message || String(err)}).`);
+              }
+            }
+            core.info(`Evaluated ${prs.length} pull request(s), updated ${written}.`);
