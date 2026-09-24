@@ -39,10 +39,6 @@ spec:
   # explanation rather than the full string
   - name: the policy status explains why
     try:
-    - script:
-        content: kubectl get validatingpolicy check-deployment-labels -o jsonpath='{.status.conditionStatus.message}'
-        check:
-          (contains($stdout, 'compensating controls')): true
     - assert:
         resource:
           apiVersion: policies.kyverno.io/v1beta1
@@ -51,3 +47,5 @@ spec:
             name: check-deployment-labels
           status:
             generated: false
+            conditionStatus:
+              (contains(message, 'compensating controls')): true

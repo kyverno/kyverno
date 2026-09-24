@@ -323,6 +323,15 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 			if result.Error != nil {
 				result.Error = fmt.Errorf("%w (pod template at %s)", result.Error, tpl.Path)
 			}
+			// a refusal is what gets reported, so it must carry the path too
+			if refused := result.RefusedException; refused != nil {
+				if refused.Message != "" {
+					refused.Message = fmt.Sprintf("%s (pod template at %s)", refused.Message, tpl.Path)
+				}
+				if refused.Error != nil {
+					refused.Error = fmt.Errorf("%w (pod template at %s)", refused.Error, tpl.Path)
+				}
+			}
 			return result, nil
 		}
 		last = result
