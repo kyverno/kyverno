@@ -480,6 +480,106 @@ func Test_PercentEncodedPathTraversal(t *testing.T) {
 	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
 }
 
+// recordingClient captures the exact path that was executed, so tests can
+// assert that the executor receives the same canonical path that namespace
+// validation checked - not the original, unvalidated URLPath.
+type recordingClient struct {
+	gotPath string
+}
+
+func (c *recordingClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
+	c.gotPath = path
+	return []byte("{}"), nil
+}
+
+// Test_URLPathCanonicalization covers GHSA-3xfv-vq8x-qhg4 / GHSA-pcx2-xcq4-65vf:
+// validation and execution must operate on the exact same canonical path, and
+// query/fragment/encoding tricks must not be able to spoof the namespace that
+// validation checks versus the resource that is actually requested.
+func Test_URLPathCanonicalization(t *testing.T) {
+	newCall := func(urlPath string) kyvernov1.ContextEntry {
+		return kyvernov1.ContextEntry{
+			Name: "test",
+			APICall: &kyvernov1.ContextAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: urlPath,
+					Method:  "GET",
+				},
+			},
+		}
+	}
+
+	t.Run("query-string namespace spoofing is rejected", func(t *testing.T) {
+		// The query string carries a traversal attempt targeting kube-system,
+		// but query strings are never used by the API server for routing -
+		// the actual resource stays within the declared namespace, so this
+		// must be accepted and the *path* portion alone must reach the executor.
+		entry := newCall("/api/v1/namespaces/default/pods?x=../../../kube-system/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/pods?x=../../../kube-system/secrets", client.gotPath)
+
+		// A path that genuinely resolves elsewhere via the path itself must
+		// still be rejected: the namespace segment is what is checked.
+		entry2 := newCall("/api/v1/namespaces/kube-system/secrets?x=default")
+		call2, err := New(logr.Discard(), jp, entry2, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call2.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "refers to namespace kube-system")
+	})
+
+	t.Run("fragment-hidden traversal is rejected", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default/pods#/../../kube-system/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "must not contain a fragment")
+	})
+
+	t.Run("executor receives only the validated canonical path", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default//pods/./foo/../bar")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/pods/bar", client.gotPath)
+	})
+
+	t.Run("percent-encoded traversal that stays in namespace is passed to the executor canonicalized", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default/pods/%2e%2e/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/secrets", client.gotPath)
+	})
+
+	t.Run("absolute URL as urlPath is rejected", func(t *testing.T) {
+		entry := newCall("https://evil.example.com/api/v1/namespaces/default/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "must be a relative Kubernetes API path")
+	})
+}
+
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {
 	// Default timeout via constructor
 	config := NewAPICallConfiguration(1000, 30*time.Second)

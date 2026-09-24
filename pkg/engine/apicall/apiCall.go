@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"path"
 	"regexp"
 
 	"github.com/go-logr/logr"
@@ -71,26 +69,27 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
-	// Decode percent-encoded characters (e.g., %2e%2e -> ..) before normalizing
-	// to prevent path traversal bypasses using encoded dot-segments.
-	unescapedPath, err := url.PathUnescape(call.APICall.URLPath)
-	if err != nil {
-		// If unescaping fails, use the original path for validation.
-		// The K8s API server will reject invalid encoding if present.
-		unescapedPath = call.APICall.URLPath
-	}
-	cleanPath := path.Clean(unescapedPath)
-
-	if a.policyNamespace != "" {
-		// Namespaced Policy: verify path accesses only the policy's namespace
-		if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
-			ns := matches[2]
-			if ns != a.policyNamespace {
-				return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", cleanPath, ns, a.policyNamespace)
-			}
-		} else {
-			return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", cleanPath)
+	if call.APICall.URLPath != "" {
+		canonicalPath, err := canonicalizeURLPath(call.APICall.URLPath)
+		if err != nil {
+			return nil, fmt.Errorf("invalid urlPath for context entry %s: %w", a.entry.Name, err)
 		}
+
+		if a.policyNamespace != "" {
+			// Namespaced Policy: verify path accesses only the policy's namespace
+			if matches := namespacePathRegex.FindStringSubmatch(canonicalPath); len(matches) > 2 {
+				ns := matches[2]
+				if ns != a.policyNamespace {
+					return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", canonicalPath, ns, a.policyNamespace)
+				}
+			} else {
+				return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", canonicalPath)
+			}
+		}
+
+		// Execute the exact same canonical path that was just validated -
+		// validation and execution must never diverge on representation.
+		call.APICall.URLPath = canonicalPath
 	}
 
 	data, err := a.Execute(ctx, &call.APICall)
