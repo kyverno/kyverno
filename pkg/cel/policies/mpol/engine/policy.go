@@ -11,7 +11,6 @@ type Policy struct {
 	// ExtractionMode is true for an autogen'd target whose pod template is
 	// discovered by structural extraction at evaluation time (custom
 	// workload CRDs like JobSet) rather than by matching the literal
-	// admitted object directly. Mutation is not supported for these targets
-	// yet - see engineImpl.handlePolicy.
+	// admitted object directly - see engineImpl.evaluateExtracted.
 	ExtractionMode bool
 }
