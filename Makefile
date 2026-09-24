@@ -967,6 +967,11 @@ helm-test: $(HELM) ## Run helm test
 	@$(HELM) dependency build ./charts/kyverno
 	@$(HELM) test --namespace kyverno kyverno
 
+.PHONY: verify-legacy-crd-retention
+verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five legacy policy CRDs keep their helm.sh/resource-policy annotation (no cluster needed)
+	@echo Verify legacy CRD retention... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
+
 .PHONY: verify-legacy-policy-gate
 verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
 	@echo Verify legacy policy gate... >&2
@@ -976,6 +981,11 @@ verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-pol
 verify-legacy-policy-hook: helm-setup-dependency-charts ## Verify the legacy-policy pre-install/pre-upgrade hook Job blocks and passes correctly (needs Kyverno already installed with the local CLI image loaded, e.g. via kind-install-kyverno)
 	@echo Verify legacy policy hook... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) LOCAL_REGISTRY=$(LOCAL_REGISTRY) LOCAL_CLI_REPO=$(LOCAL_CLI_REPO) GIT_SHA=$(GIT_SHA) ./scripts/verify-legacy-policy-hook.sh
+
+.PHONY: verify-legacy-policy-migration
+verify-legacy-policy-migration: helm-setup-dependency-charts ## Verify the 1.19->1.20 legacy-policy migration grace window is non-destructive: opt-out upgrade, rollback, blocked upgrade, migrate-to-CEL (needs a reachable kind cluster as the current kube context, with local images already loaded, e.g. via kind-load-all)
+	@echo Verify legacy policy migration... >&2
+	@HELM=$(HELM) ./scripts/verify-legacy-policy-migration.sh
 
 #################
 # RELEASE NOTES #
