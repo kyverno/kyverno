@@ -191,6 +191,46 @@ func Test_Attestors(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "kms expression clears stale inline key data",
+			attestors: []v1beta1.Attestor{
+				{
+					Name: "cosign-keyed-kms-clears-data",
+					Cosign: &v1beta1.Cosign{
+						Key: &v1beta1.Key{
+							// A statically configured inline key that must not
+							// survive once the expression resolves to a KMS ref,
+							// since the verifier checks Data before KMS.
+							Data:       "-----BEGIN PUBLIC KEY-----\nstale\n-----END PUBLIC KEY-----",
+							Expression: `"hashivault://" + data.foo[0]`,
+						},
+					},
+				},
+			},
+			data: map[string]any{
+				"data": map[string][]string{
+					"foo": {
+						"bar",
+						"baz",
+					},
+				},
+			},
+			celOpts: []cel.EnvOption{
+				cel.Variable("data", cel.MapType(cel.StringType, cel.ListType(cel.StringType))),
+			},
+			wantResult: []v1beta1.Attestor{
+				{
+					Name: "cosign-keyed-kms-clears-data",
+					Cosign: &v1beta1.Cosign{
+						Key: &v1beta1.Key{
+							KMS:        "hashivault://bar",
+							Expression: `"hashivault://" + data.foo[0]`,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 
 	for _, tt := range tests {

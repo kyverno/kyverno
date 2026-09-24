@@ -140,9 +140,17 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 		// "hashivault://..." reference). Route KMS references to Key.KMS so
 		// cosign resolves them through the KMS provider instead of trying to
 		// parse them as inline PEM data.
+		//
+		// The two fields are mutually exclusive: the cosign verifier checks
+		// Key.Data before Key.KMS, so any statically-configured value on the
+		// field we are not using must be cleared. Otherwise a stale inline key
+		// would take precedence over the dynamically-resolved KMS reference
+		// (and vice versa), verifying signatures against the wrong key.
 		if isKMSKeyRef(result) {
+			value.Cosign.Key.Data = ""
 			value.Cosign.Key.KMS = result
 		} else {
+			value.Cosign.Key.KMS = ""
 			value.Cosign.Key.Data = result
 		}
 	}
