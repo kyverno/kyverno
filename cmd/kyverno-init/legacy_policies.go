@@ -63,7 +63,7 @@ func checkLegacyPolicies(ctx context.Context, setup internal.SetupResult) {
 	// The Event Note has its own, much shorter, size limit than a log message, so it
 	// gets its own terse summary rather than reusing the verbose L0 log message.
 	if note, ok := deprecations.LegacyPolicyEventNote(counts); ok {
-		emitLegacyPolicyEvent(ctx, logger, setup, note)
+		emitDeprecationEvent(ctx, logger, setup, event.LegacyPolicyPresent, note)
 	}
 }
 
@@ -142,12 +142,13 @@ func countLegacyPolicies(ctx context.Context, setup internal.SetupResult) (map[s
 	return deprecations.CountLegacyPolicies(counters)
 }
 
-// emitLegacyPolicyEvent creates a single aggregate Warning Event listing the
-// legacy kinds still present, attached to the admission-controller
-// Deployment. kyverno-init does not run the event generator/queue used by
-// the long-running controllers, so the Event is created directly through the
-// events client.
-func emitLegacyPolicyEvent(ctx context.Context, logger logr.Logger, setup internal.SetupResult, note string) {
+// emitDeprecationEvent creates a single Warning Event of the given reason, with the given note,
+// attached to the admission-controller Deployment. Shared by every kyverno-init startup
+// diagnostic that needs to surface an observational-only finding as a Kubernetes Event (legacy
+// policy custom resources, orphaned webhook configurations, ...) -- kyverno-init does not run
+// the event generator/queue used by the long-running controllers, so the Event is created
+// directly through the events client.
+func emitDeprecationEvent(ctx context.Context, logger logr.Logger, setup internal.SetupResult, reason event.Reason, note string) {
 	if setup.EventsClient == nil {
 		return
 	}
@@ -157,10 +158,10 @@ func emitLegacyPolicyEvent(ctx context.Context, logger logr.Logger, setup intern
 	deployment, err := setup.KubeClient.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			logger.Error(err, "admission-controller Deployment not found, skipping legacy policy event", "namespace", namespace, "name", deploymentName)
+			logger.Error(err, "admission-controller Deployment not found, skipping event", "namespace", namespace, "name", deploymentName, "reason", reason)
 			return
 		}
-		logger.Error(err, "failed to get admission-controller Deployment, skipping legacy policy event", "namespace", namespace, "name", deploymentName)
+		logger.Error(err, "failed to get admission-controller Deployment, skipping event", "namespace", namespace, "name", deploymentName, "reason", reason)
 		return
 	}
 
@@ -168,8 +169,8 @@ func emitLegacyPolicyEvent(ctx context.Context, logger logr.Logger, setup intern
 	reportingController := string(event.KyvernoInit)
 	now := time.Now()
 
-	// defensive: matches the Note truncation in pkg/event/controller.go's emitEvent,
-	// in case a future kind is added without updating deprecations.LegacyPolicyEventNote
+	// defensive: matches the Note truncation in pkg/event/controller.go's emitEvent, in case a
+	// future caller passes a note without going through its own already-bounded builder.
 	if len(note) > 1024 {
 		note = note[0:1021] + "..."
 	}
@@ -183,7 +184,7 @@ func emitLegacyPolicyEvent(ctx context.Context, logger logr.Logger, setup intern
 		ReportingController: reportingController,
 		ReportingInstance:   reportingController + "-" + hostname,
 		Action:              string(event.None),
-		Reason:              string(event.LegacyPolicyPresent),
+		Reason:              string(reason),
 		Regarding: corev1.ObjectReference{
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
@@ -196,6 +197,6 @@ func emitLegacyPolicyEvent(ctx context.Context, logger logr.Logger, setup intern
 	}
 
 	if _, err := setup.EventsClient.Events(namespace).Create(ctx, ev, metav1.CreateOptions{}); err != nil {
-		logger.Error(err, "failed to create legacy policy event")
+		logger.Error(err, "failed to create event", "reason", reason)
 	}
 }

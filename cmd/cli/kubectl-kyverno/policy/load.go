@@ -115,7 +115,7 @@ type LoaderResults struct {
 	Warnings                []LoaderWarning
 }
 
-func (l *LoaderResults) merge(results *LoaderResults) {
+func (l *LoaderResults) Merge(results *LoaderResults) {
 	if results == nil {
 		return
 	}
@@ -181,7 +181,7 @@ func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLeg
 		if err != nil {
 			return nil, err
 		}
-		aggregateResults.merge(results)
+		aggregateResults.Merge(results)
 	}
 	// It's hard to use apply with the fake client, so disable all server side
 	// https://github.com/kubernetes/kubernetes/issues/99953
@@ -496,7 +496,7 @@ func fsLoad(loader loader, path string) (*LoaderResults, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to load %s", path)
 			}
-			aggregateResults.merge(results)
+			aggregateResults.Merge(results)
 		}
 	} else if git.IsYaml(fi) {
 		fileBytes, err := os.ReadFile(filepath.Clean(path))
@@ -507,7 +507,7 @@ func fsLoad(loader loader, path string) (*LoaderResults, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to load file %s", path)
 		}
-		aggregateResults.merge(results)
+		aggregateResults.Merge(results)
 	}
 	return aggregateResults, nil
 }

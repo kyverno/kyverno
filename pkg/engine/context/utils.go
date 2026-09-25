@@ -1,16 +1,33 @@
 package context
 
 import (
+	"errors"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// AddJSONObject merges json data
-func AddJSONObject(ctx Interface, data map[string]interface{}) error {
-	return ctx.addJSON(data, false)
+type jsonAdder interface {
+	addJSON(dataMap map[string]interface{}, overwriteMaps bool) error
 }
 
+// JSONAdder represents an optional capability for context implementations that support merging raw JSON data.
+type JSONAdder interface {
+	AddJSON(dataMap map[string]interface{}, overwriteMaps bool) error
+}
+
+// AddJSONObject merges json data into the context if supported, or returns an error if unsupported.
+func AddJSONObject(ctx Interface, data map[string]interface{}) error {
+	if ja, ok := ctx.(jsonAdder); ok {
+		return ja.addJSON(data, false)
+	}
+	if ja, ok := ctx.(JSONAdder); ok {
+		return ja.AddJSON(data, false)
+	}
+	return errors.New("context does not support JSON insertion")
+}
+
+// AddResource unmarshals and adds a resource to the context.
 func AddResource(ctx Interface, dataRaw []byte) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
@@ -20,6 +37,7 @@ func AddResource(ctx Interface, dataRaw []byte) error {
 	return ctx.AddResource(data)
 }
 
+// AddOldResource unmarshals and adds an old resource to the context.
 func AddOldResource(ctx Interface, dataRaw []byte) error {
 	var data map[string]interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
