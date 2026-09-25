@@ -3,6 +3,12 @@ package utils
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
+	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	"k8s.io/client-go/tools/cache"
+
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,10 +19,9 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -370,269 +375,63 @@ func TestRemoveNonBackgroundPolicies(t *testing.T) {
 	}
 }
 
-type fakeValidatingAdmissionPolicyLister struct {
-	policies []*admissionregistrationv1.ValidatingAdmissionPolicy
-}
-
-func (f *fakeValidatingAdmissionPolicyLister) List(selector labels.Selector) ([]*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
-	var result []*admissionregistrationv1.ValidatingAdmissionPolicy
-	for _, pol := range f.policies {
-		if selector.Matches(labels.Set(pol.Labels)) {
-			result = append(result, pol)
-		}
+func TestFetchAdmissionPoliciesReportingOptIn(t *testing.T) {
+	t.Parallel()
+	fixtures := []metav1.ObjectMeta{
+		{Name: "unlabeled"},
+		{Name: "enabled", Labels: map[string]string{kyverno.LabelEnableVAPReporting: "true"}},
+		{Name: "false", Labels: map[string]string{kyverno.LabelEnableVAPReporting: "false"}},
+		{Name: "managed", Labels: map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp}},
+		{Name: "managed-enabled", Labels: map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp, kyverno.LabelEnableVAPReporting: "true"}},
+		{Name: "disabled", Labels: map[string]string{kyverno.LabelEnableVAPReporting: "true", kyverno.LabelExcludeReporting: "false"}},
+		{Name: "managed-disabled", Labels: map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp, kyverno.LabelEnableVAPReporting: "true", kyverno.LabelExcludeReporting: ""}},
 	}
-	return result, nil
-}
-
-func (f *fakeValidatingAdmissionPolicyLister) Get(name string) (*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
-	for _, pol := range f.policies {
-		if pol.Name == name {
-			return pol, nil
-		}
+	for _, version := range []string{"vap", "map-v1", "map-beta", "map-alpha"} {
+		t.Run(version, func(t *testing.T) {
+			t.Parallel()
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			for _, meta := range fixtures {
+				var obj metav1.Object
+				switch version {
+				case "vap":
+					obj = &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: meta}
+				case "map-v1":
+					obj = &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: meta}
+				case "map-beta":
+					obj = &admissionregistrationv1beta1.MutatingAdmissionPolicy{ObjectMeta: meta}
+				case "map-alpha":
+					obj = &admissionregistrationv1alpha1.MutatingAdmissionPolicy{ObjectMeta: meta}
+				}
+				require.NoError(t, indexer.Add(obj))
+			}
+			var names []string
+			switch version {
+			case "vap":
+				policies, err := FetchValidatingAdmissionPolicies(admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(indexer))
+				require.NoError(t, err)
+				for _, p := range policies {
+					names = append(names, p.Name)
+				}
+			case "map-v1":
+				policies, err := FetchMutatingAdmissionPoliciesV1(admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(indexer))
+				require.NoError(t, err)
+				for _, p := range policies {
+					names = append(names, p.Name)
+				}
+			case "map-beta":
+				policies, err := FetchMutatingAdmissionPolicies(admissionregistrationv1beta1listers.NewMutatingAdmissionPolicyLister(indexer))
+				require.NoError(t, err)
+				for _, p := range policies {
+					names = append(names, p.Name)
+				}
+			case "map-alpha":
+				policies, err := FetchMutatingAdmissionPoliciesAlpha(admissionregistrationv1alpha1listers.NewMutatingAdmissionPolicyLister(indexer))
+				require.NoError(t, err)
+				for _, p := range policies {
+					names = append(names, p.Name)
+				}
+			}
+			assert.ElementsMatch(t, []string{"enabled", "managed-enabled"}, names)
+		})
 	}
-	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "admissionregistration.k8s.io", Resource: "validatingadmissionpolicies"}, name)
-}
-
-func TestFetchValidatingAdmissionPolicies(t *testing.T) {
-	enabledOnly := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "enabled-only",
-			Labels: map[string]string{kyverno.LabelEnableVAPReporting: "true"},
-		},
-	}
-	managedOnly := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "managed-only",
-			Labels: map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp},
-		},
-	}
-	managedAndDisabled := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "managed-disabled",
-			Labels: map[string]string{
-				kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-				kyverno.LabelExcludeReporting: "true",
-			},
-		},
-	}
-	unlabeled := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "unlabeled"},
-	}
-	managedAndEnabled := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "managed-enabled",
-			Labels: map[string]string{
-				kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
-				kyverno.LabelEnableVAPReporting: "true",
-			},
-		},
-	}
-	enabledAndDisabled := &admissionregistrationv1.ValidatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "enabled-and-disabled",
-			Labels: map[string]string{
-				kyverno.LabelEnableVAPReporting: "true",
-				kyverno.LabelExcludeReporting:   "true",
-			},
-		},
-	}
-
-	lister := &fakeValidatingAdmissionPolicyLister{
-		policies: []*admissionregistrationv1.ValidatingAdmissionPolicy{
-			enabledOnly,
-			managedOnly,
-			managedAndDisabled,
-			unlabeled,
-			managedAndEnabled,
-			enabledAndDisabled,
-		},
-	}
-
-	policies, err := FetchValidatingAdmissionPolicies(lister)
-	assert.NoError(t, err)
-
-	names := make([]string, 0, len(policies))
-	for _, pol := range policies {
-		names = append(names, pol.Name)
-	}
-	assert.ElementsMatch(t, []string{"enabled-only", "managed-only", "managed-enabled"}, names)
-	assert.Len(t, policies, 3)
-}
-
-type fakeMutatingAdmissionPolicyLister struct {
-	policies []*admissionregistrationv1beta1.MutatingAdmissionPolicy
-}
-
-func (f *fakeMutatingAdmissionPolicyLister) List(selector labels.Selector) ([]*admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
-	var result []*admissionregistrationv1beta1.MutatingAdmissionPolicy
-	for _, pol := range f.policies {
-		if selector.Matches(labels.Set(pol.Labels)) {
-			result = append(result, pol)
-		}
-	}
-	return result, nil
-}
-
-func (f *fakeMutatingAdmissionPolicyLister) Get(name string) (*admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
-	for _, pol := range f.policies {
-		if pol.Name == name {
-			return pol, nil
-		}
-	}
-	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "admissionregistration.k8s.io", Resource: "mutatingadmissionpolicies"}, name)
-}
-
-type fakeMutatingAdmissionPolicyListerAlpha struct {
-	policies []*admissionregistrationv1alpha1.MutatingAdmissionPolicy
-}
-
-func (f *fakeMutatingAdmissionPolicyListerAlpha) List(selector labels.Selector) ([]*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
-	var result []*admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	for _, pol := range f.policies {
-		if selector.Matches(labels.Set(pol.Labels)) {
-			result = append(result, pol)
-		}
-	}
-	return result, nil
-}
-
-func (f *fakeMutatingAdmissionPolicyListerAlpha) Get(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
-	for _, pol := range f.policies {
-		if pol.Name == name {
-			return pol, nil
-		}
-	}
-	return nil, apierrors.NewNotFound(schema.GroupResource{Group: "admissionregistration.k8s.io", Resource: "mutatingadmissionpolicies"}, name)
-}
-
-func TestFetchMutatingAdmissionPolicies(t *testing.T) {
-	enabledOnly := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "enabled-only",
-			Labels: map[string]string{kyverno.LabelEnableVAPReporting: "true"},
-		},
-	}
-	managedOnly := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "managed-only",
-			Labels: map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp},
-		},
-	}
-	managedAndDisabled := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "managed-disabled",
-			Labels: map[string]string{
-				kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-				kyverno.LabelExcludeReporting: "true",
-			},
-		},
-	}
-	unlabeled := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "unlabeled"},
-	}
-	managedAndEnabled := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "managed-enabled",
-			Labels: map[string]string{
-				kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
-				kyverno.LabelEnableVAPReporting: "true",
-			},
-		},
-	}
-	enabledAndDisabled := &admissionregistrationv1beta1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "enabled-and-disabled",
-			Labels: map[string]string{
-				kyverno.LabelEnableVAPReporting: "true",
-				kyverno.LabelExcludeReporting:   "true",
-			},
-		},
-	}
-
-	lister := &fakeMutatingAdmissionPolicyLister{
-		policies: []*admissionregistrationv1beta1.MutatingAdmissionPolicy{
-			enabledOnly,
-			managedOnly,
-			managedAndDisabled,
-			unlabeled,
-			managedAndEnabled,
-			enabledAndDisabled,
-		},
-	}
-
-	policies, err := FetchMutatingAdmissionPolicies(lister)
-	assert.NoError(t, err)
-
-	names := make([]string, 0, len(policies))
-	for _, pol := range policies {
-		names = append(names, pol.Name)
-	}
-	assert.ElementsMatch(t, []string{"enabled-only", "managed-only", "managed-enabled"}, names)
-	assert.Len(t, policies, 3)
-}
-
-func TestFetchMutatingAdmissionPoliciesAlpha(t *testing.T) {
-	enabledOnly := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "enabled-only",
-			Labels: map[string]string{kyverno.LabelEnableVAPReporting: "true"},
-		},
-	}
-	managedOnly := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "managed-only",
-			Labels: map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp},
-		},
-	}
-	managedAndDisabled := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "managed-disabled",
-			Labels: map[string]string{
-				kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
-				kyverno.LabelExcludeReporting: "true",
-			},
-		},
-	}
-	unlabeled := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "unlabeled"},
-	}
-	managedAndEnabled := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "managed-enabled",
-			Labels: map[string]string{
-				kyverno.LabelAppManagedBy:       kyverno.ValueKyvernoApp,
-				kyverno.LabelEnableVAPReporting: "true",
-			},
-		},
-	}
-	enabledAndDisabled := &admissionregistrationv1alpha1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "enabled-and-disabled",
-			Labels: map[string]string{
-				kyverno.LabelEnableVAPReporting: "true",
-				kyverno.LabelExcludeReporting:   "true",
-			},
-		},
-	}
-
-	lister := &fakeMutatingAdmissionPolicyListerAlpha{
-		policies: []*admissionregistrationv1alpha1.MutatingAdmissionPolicy{
-			enabledOnly,
-			managedOnly,
-			managedAndDisabled,
-			unlabeled,
-			managedAndEnabled,
-			enabledAndDisabled,
-		},
-	}
-
-	policies, err := FetchMutatingAdmissionPoliciesAlpha(lister)
-	assert.NoError(t, err)
-
-	names := make([]string, 0, len(policies))
-	for _, pol := range policies {
-		names = append(names, pol.Name)
-	}
-	assert.ElementsMatch(t, []string{"enabled-only", "managed-only", "managed-enabled"}, names)
-	assert.Len(t, policies, 3)
 }

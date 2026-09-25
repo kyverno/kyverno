@@ -14,7 +14,7 @@ func (c *controller) addPolicy(obj kyvernov1.PolicyInterface) {
 }
 
 func (c *controller) updatePolicy(old, obj kyvernov1.PolicyInterface) {
-	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
+	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) && !reportingLabelsChanged(old.GetLabels(), obj.GetLabels()) {
 		return
 	}
 	logger.V(2).Info("policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())

@@ -155,49 +155,28 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 }
 
 func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
-	seen := sets.New[string]()
 	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
-
-	appendPolicies := func(pols []*admissionregistrationv1beta1.MutatingAdmissionPolicy) {
+	selector, err := includeReportingSelector()
+	if err != nil {
+		return nil, err
+	}
+	if pols, err := mapLister.List(selector); err != nil {
+		return nil, err
+	} else {
 		for _, pol := range pols {
-			if seen.Has(pol.Name) {
-				continue
-			}
-			seen.Insert(pol.Name)
 			policies = append(policies, *pol)
 		}
 	}
-
-	selInclude, err := includeReportingSelector()
-	if err != nil {
-		return nil, err
-	}
-	if pols, err := mapLister.List(selInclude); err != nil {
-		return nil, err
-	} else {
-		appendPolicies(pols)
-	}
-
-	selManaged, err := kyvernoManagedReportingSelector()
-	if err != nil {
-		return nil, err
-	}
-	if pols, err := mapLister.List(selManaged); err != nil {
-		return nil, err
-	} else {
-		appendPolicies(pols)
-	}
-
 	return policies, nil
 }
 
 func FetchMutatingAdmissionPoliciesV1(mapLister admissionregistrationv1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
-	r, err := getIncludeReportingLabelRequirement()
+	selector, err := includeReportingSelector()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
+	if pols, err := mapLister.List(selector); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -208,39 +187,18 @@ func FetchMutatingAdmissionPoliciesV1(mapLister admissionregistrationv1listers.M
 }
 
 func FetchMutatingAdmissionPoliciesAlpha(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
-	seen := sets.New[string]()
 	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-
-	appendPolicies := func(pols []*admissionregistrationv1alpha1.MutatingAdmissionPolicy) {
+	selector, err := includeReportingSelector()
+	if err != nil {
+		return nil, err
+	}
+	if pols, err := mapLister.List(selector); err != nil {
+		return nil, err
+	} else {
 		for _, pol := range pols {
-			if seen.Has(pol.Name) {
-				continue
-			}
-			seen.Insert(pol.Name)
 			policies = append(policies, *pol)
 		}
 	}
-
-	selInclude, err := includeReportingSelector()
-	if err != nil {
-		return nil, err
-	}
-	if pols, err := mapLister.List(selInclude); err != nil {
-		return nil, err
-	} else {
-		appendPolicies(pols)
-	}
-
-	selManaged, err := kyvernoManagedReportingSelector()
-	if err != nil {
-		return nil, err
-	}
-	if pols, err := mapLister.List(selManaged); err != nil {
-		return nil, err
-	} else {
-		appendPolicies(pols)
-	}
-
 	return policies, nil
 }
 
@@ -281,39 +239,18 @@ func FetchMutatingAdmissionPolicyBindingsAlpha(mapBindingLister admissionregistr
 }
 
 func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1.ValidatingAdmissionPolicy, error) {
-	seen := sets.New[string]()
 	var policies []admissionregistrationv1.ValidatingAdmissionPolicy
-
-	appendPolicies := func(pols []*admissionregistrationv1.ValidatingAdmissionPolicy) {
+	selector, err := includeReportingSelector()
+	if err != nil {
+		return nil, err
+	}
+	if pols, err := vapLister.List(selector); err != nil {
+		return nil, err
+	} else {
 		for _, pol := range pols {
-			if seen.Has(pol.Name) {
-				continue
-			}
-			seen.Insert(pol.Name)
 			policies = append(policies, *pol)
 		}
 	}
-
-	selInclude, err := includeReportingSelector()
-	if err != nil {
-		return nil, err
-	}
-	if pols, err := vapLister.List(selInclude); err != nil {
-		return nil, err
-	} else {
-		appendPolicies(pols)
-	}
-
-	selManaged, err := kyvernoManagedReportingSelector()
-	if err != nil {
-		return nil, err
-	}
-	if pols, err := vapLister.List(selManaged); err != nil {
-		return nil, err
-	} else {
-		appendPolicies(pols)
-	}
-
 	return policies, nil
 }
 
@@ -500,22 +437,6 @@ func includeReportingSelector() (labels.Selector, error) {
 		return nil, err
 	}
 	return labels.NewSelector().Add(*rInclude).Add(*rNotDisabled), nil
-}
-
-func kyvernoManagedReportingSelector() (labels.Selector, error) {
-	rManagedBy, err := labels.NewRequirement(
-		kyverno.LabelAppManagedBy,
-		selection.Equals,
-		[]string{kyverno.ValueKyvernoApp},
-	)
-	if err != nil {
-		return nil, err
-	}
-	rNotDisabled, err := getExcludeReportingLabelRequirement()
-	if err != nil {
-		return nil, err
-	}
-	return labels.NewSelector().Add(*rManagedBy).Add(*rNotDisabled), nil
 }
 
 func getExcludeReportingLabelRequirement() (*labels.Requirement, error) {

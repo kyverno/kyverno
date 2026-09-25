@@ -1,6 +1,8 @@
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
+  labels:
+    reports.kyverno.io/enabled: "true"
   name: check-deployment-labels
 spec:
   autogen:

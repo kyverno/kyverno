@@ -364,10 +364,7 @@ func BuildMutatingAdmissionPolicyV1(
 		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapol)
-	policyLabels := mp.GetLabels()
-	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
-		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
-	}
+	setGeneratedAdmissionPolicyReportingLabels(mapol, mp.GetLabels())
 }
 
 // BuildMutatingAdmissionPolicyBindingV1 is used to build a Kubernetes MutatingAdmissionPolicyBinding (v1) from a MutatingPolicy.
@@ -616,7 +613,11 @@ func setGeneratedAdmissionPolicyReportingLabels(obj metav1.Object, policyLabels 
 		labels[kyverno.LabelExcludeReporting] = "true"
 	} else {
 		delete(labels, kyverno.LabelExcludeReporting)
-		labels[kyverno.LabelEnableVAPReporting] = "true"
+		if policyLabels[kyverno.LabelEnableVAPReporting] == "true" {
+			labels[kyverno.LabelEnableVAPReporting] = "true"
+		} else {
+			delete(labels, kyverno.LabelEnableVAPReporting)
+		}
 	}
 	obj.SetLabels(labels)
 }

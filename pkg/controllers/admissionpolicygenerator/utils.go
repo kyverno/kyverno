@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -148,4 +149,16 @@ func (c *controller) getCELExceptions(policyName string) ([]policiesv1beta1.Poli
 
 func constructBindingName(polName string) string {
 	return polName + "-binding"
+}
+
+// reportingLabelsChanged detects metadata updates that affect generated reports.
+func reportingLabelsChanged(old, updated map[string]string) bool {
+	for _, key := range []string{kyverno.LabelEnableVAPReporting, kyverno.LabelExcludeReporting} {
+		oldValue, oldPresent := old[key]
+		newValue, newPresent := updated[key]
+		if oldPresent != newPresent || oldValue != newValue {
+			return true
+		}
+	}
+	return false
 }

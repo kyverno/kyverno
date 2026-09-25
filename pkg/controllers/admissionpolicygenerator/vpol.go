@@ -14,7 +14,7 @@ func (c *controller) addVP(obj *policiesv1beta1.ValidatingPolicy) {
 }
 
 func (c *controller) updateVP(old, obj *policiesv1beta1.ValidatingPolicy) {
-	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
+	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) && !reportingLabelsChanged(old.GetLabels(), obj.GetLabels()) {
 		return
 	}
 	logger.V(2).Info("validating policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())

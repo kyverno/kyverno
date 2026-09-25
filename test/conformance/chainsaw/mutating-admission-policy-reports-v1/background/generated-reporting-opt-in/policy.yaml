@@ -1,0 +1,31 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: reporting-opt-in-map-v1
+spec:
+  autogen:
+    mutatingAdmissionPolicy:
+      enabled: true
+  matchConstraints:
+    objectSelector:
+      matchLabels:
+        reporting-test: reporting-opt-in-map-v1
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - configmaps
+      - namespaces
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: 'Object{metadata: Object.metadata{labels: {"env": "prod"}}}'
+  matchConditions:
+  - name: test-resources
+    expression: has(object.metadata.labels) && 'reporting-test' in object.metadata.labels
+      && object.metadata.labels['reporting-test'] == 'reporting-opt-in-map-v1'
