@@ -717,6 +717,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				for _, res := range engineResponse.Policies {
 					if res.Result == nil {
+						generateResponse := engineapi.EngineResponse{
+							Resource: *engineResponse.Trigger,
+						}
+						generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
+						p.Rc.addGenerateResponse(generateResponse)
+						responses = append(responses, generateResponse)
 						continue
 					}
 					generateResponse := engineapi.EngineResponse{

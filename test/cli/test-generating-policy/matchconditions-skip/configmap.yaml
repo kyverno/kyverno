@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: generated-config
+  namespace: workload-namespace
+data:
+  foo: bar
