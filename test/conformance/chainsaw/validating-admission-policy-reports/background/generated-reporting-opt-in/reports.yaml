@@ -1,0 +1,27 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+scope:
+  kind: ConfigMap
+  name: reporting-opt-in-vap-configmap-pass
+(length(results[?policy == 'vpol-reporting-opt-in-vap' && source == 'ValidatingAdmissionPolicy' && result == 'pass'])): 1
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+scope:
+  kind: ConfigMap
+  name: reporting-opt-in-vap-configmap-fail
+(length(results[?policy == 'vpol-reporting-opt-in-vap' && source == 'ValidatingAdmissionPolicy' && result == 'fail'])): 1
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+scope:
+  kind: Namespace
+  name: reporting-opt-in-vap-namespace-pass
+(length(results[?policy == 'vpol-reporting-opt-in-vap' && source == 'ValidatingAdmissionPolicy' && result == 'pass'])): 1
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+scope:
+  kind: Namespace
+  name: reporting-opt-in-vap-namespace-fail
+(length(results[?policy == 'vpol-reporting-opt-in-vap' && source == 'ValidatingAdmissionPolicy' && result == 'fail'])): 1

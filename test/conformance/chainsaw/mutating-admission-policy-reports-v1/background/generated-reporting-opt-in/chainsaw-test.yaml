@@ -1,0 +1,105 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generated-reporting-opt-in-map-v1
+spec:
+  concurrent: false
+  steps:
+  - name: default-no-reports
+    try:
+    - apply:
+        file: resources.yaml
+    - apply:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+    - assert:
+        file: generated-absent.yaml
+    - sleep:
+        duration: 35s
+    - error:
+        file: no-reports.yaml
+  - name: opt-in
+    try:
+    - patch:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: reporting-opt-in-map-v1
+            labels:
+              reports.kyverno.io/enabled: 'true'
+    - assert:
+        file: generated-enabled.yaml
+    - assert:
+        file: reports.yaml
+  - name: remove-opt-in
+    try:
+    - patch:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: reporting-opt-in-map-v1
+            labels:
+              reports.kyverno.io/enabled: null
+    - assert:
+        file: generated-absent.yaml
+    - error:
+        file: no-reports.yaml
+  - name: re-enable
+    try:
+    - patch:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: reporting-opt-in-map-v1
+            labels:
+              reports.kyverno.io/enabled: 'true'
+    - assert:
+        file: generated-enabled.yaml
+    - assert:
+        file: reports.yaml
+  - name: disabled-wins
+    try:
+    - patch:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: reporting-opt-in-map-v1
+            labels:
+              reports.kyverno.io/disabled: 'false'
+    - assert:
+        file: generated-disabled.yaml
+    - error:
+        file: no-reports.yaml
+  - name: remove-disabled
+    try:
+    - patch:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: reporting-opt-in-map-v1
+            labels:
+              reports.kyverno.io/disabled: null
+    - assert:
+        file: generated-enabled.yaml
+    - assert:
+        file: reports.yaml
+  - name: false-is-not-opt-in
+    try:
+    - patch:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: reporting-opt-in-map-v1
+            labels:
+              reports.kyverno.io/enabled: 'false'
+    - assert:
+        file: generated-absent.yaml
+    - error:
+        file: no-reports.yaml

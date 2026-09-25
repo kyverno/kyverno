@@ -1,0 +1,7 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: vpol-reporting-opt-in-vap
+  labels:
+    (contains(keys(@), 'reports.kyverno.io/enabled')): false
+    (contains(keys(@), 'reports.kyverno.io/disabled')): false
