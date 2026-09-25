@@ -569,6 +569,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	if err != nil {
 		return err
 	}
+	defaultValidatingWebhooks(desired.Webhooks)
 	observed, err := c.vwcLister.Get(desired.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -599,6 +600,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	if err != nil {
 		return err
 	}
+	defaultMutatingWebhooks(desired.Webhooks)
 	observed, err := c.mwcLister.Get(desired.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
