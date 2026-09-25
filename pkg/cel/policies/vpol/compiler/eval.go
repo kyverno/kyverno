@@ -6,6 +6,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -22,6 +23,12 @@ type EvaluationResult struct {
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
 	PatchedResource  unstructured.Unstructured
+	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
+	// with tracing on, so callers must nil-check it. Only Match, Variables and Verdict are
+	// filled here; the policy/resource header and Scope are unknown at this level and are left
+	// for the caller to fill in. It is also nil when the policy was skipped because a match
+	// condition returned false, since that case returns a nil result altogether.
+	Trace *trace.Decision
 }
 
 type evaluationData struct {

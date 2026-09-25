@@ -74,6 +74,12 @@ type ScopeTrace struct {
 	Reason  string
 }
 
+const (
+	VerdictPass  = "PASS"
+	VerdictFail  = "FAIL"
+	VerdictError = "ERROR"
+)
+
 type VerdictTrace struct {
 	Status string
 	ExpressionTrace

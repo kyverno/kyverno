@@ -11,6 +11,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -29,6 +30,14 @@ type Policy struct {
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+
+	// trace is set when the policy was compiled with tracing on. Only then are the traced
+	// match conditions and variables populated (they hold the ASTs trace.Build needs), and
+	// only then does evaluation attach a trace to its result. With tracing off all three are
+	// zero values and evaluation takes exactly the same path as before.
+	trace                 bool
+	tracedMatchConditions []compiler.TracedProgram
+	tracedVariables       map[string]compiler.TracedProgram
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
@@ -95,7 +104,7 @@ func (p *Policy) evaluateWithData(
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, dataNew, polex.MatchConditions)
+			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
 					// exception already granted; a broken later exception must not negate it
@@ -122,7 +131,21 @@ func (p *Policy) evaluateWithData(
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}
-	match, err := p.match(ctx, dataNew, p.matchConditions)
+	var matchTraces, variableTraces []trace.NamedExpressionTrace
+	var recordMatch func(int, ref.Val, *cel.EvalDetails, error)
+	if p.trace {
+		recordMatch = func(i int, out ref.Val, details *cel.EvalDetails, err error) {
+			if i >= len(p.tracedMatchConditions) {
+				return
+			}
+			t := p.tracedMatchConditions[i]
+			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
+				Name:            t.Name,
+				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+			})
+		}
+	}
+	match, err := p.match(ctx, dataNew, p.matchConditions, recordMatch)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +156,16 @@ func (p *Policy) evaluateWithData(
 	dataNew[compiler.VariablesKey] = vars
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, _, err := variable.ContextEval(ctx, dataNew)
+			out, details, err := variable.ContextEval(ctx, dataNew)
+			if p.trace {
+				if t, ok := p.tracedVariables[name]; ok {
+					// variables are lazy, so this records them in the order they are first read
+					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
+						Name:            name,
+						ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+					})
+				}
+			}
 			if out != nil {
 				return out
 			}
@@ -143,10 +175,26 @@ func (p *Policy) evaluateWithData(
 			return nil
 		})
 	}
+	// verdict tracks the validation that decides the outcome: the one that failed or errored, or
+	// the last one evaluated when everything passes. It is only ever read when tracing is on.
+	verdict := trace.VerdictTrace{Status: trace.VerdictPass}
+	decision := func() *trace.Decision {
+		if !p.trace {
+			return nil
+		}
+		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Verdict: verdict}
+	}
 	for index, validation := range p.validations {
-		out, _, err := validation.Program.ContextEval(ctx, dataNew)
+		out, details, err := validation.Program.ContextEval(ctx, dataNew)
+		if p.trace {
+			verdict = trace.VerdictTrace{
+				Status:          trace.VerdictPass,
+				ExpressionTrace: buildExpressionTrace(validation.AST, out, details, err),
+			}
+		}
 		if err != nil {
-			return &EvaluationResult{Error: err, Index: index}, nil
+			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			message := validation.Message
@@ -163,25 +211,43 @@ func (p *Policy) evaluateWithData(
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", index)
 			}
+			verdict.Status, verdict.Message = trace.VerdictFail, message
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
-				return &EvaluationResult{Error: err, Index: index}, nil
+				verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+				return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 			}
 			return &EvaluationResult{
 				Result:           outcome,
 				Message:          message,
 				Index:            index,
 				AuditAnnotations: auditAnnotations,
+				Trace:            decision(),
 			}, nil
 		} else if err != nil {
-			return &EvaluationResult{Error: err, Index: index}, nil
+			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 	if err != nil {
 		return nil, err
 	}
-	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, Trace: decision()}, nil
+}
+
+// buildExpressionTrace turns one traced evaluation into an ExpressionTrace. The source text is
+// read back from the retained AST. When the evaluation failed outright and produced no value,
+// the error itself becomes the result so the trace shows why.
+func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
+	if out == nil && err != nil {
+		out = types.WrapErr(err)
+	}
+	source := ""
+	if ast != nil {
+		source = ast.Source().Content()
+	}
+	return trace.Build(source, ast, out, details)
 }
 
 func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
@@ -200,15 +266,21 @@ func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]a
 	return auditAnnotations, nil
 }
 
+// match evaluates the conditions in order. record, when non-nil, is called after each condition
+// is evaluated (including one that errors or comes back false) so a trace can be captured.
 func (p *Policy) match(
 	ctx context.Context,
 	data map[string]any,
 	matchConditions []cel.Program,
+	record func(index int, out ref.Val, details *cel.EvalDetails, err error),
 ) (bool, error) {
 	var errs []error
-	for _, matchCondition := range matchConditions {
+	for i, matchCondition := range matchConditions {
 		// evaluate the condition
-		out, _, err := matchCondition.ContextEval(ctx, data)
+		out, details, err := matchCondition.ContextEval(ctx, data)
+		if record != nil {
+			record(i, out, details, err)
+		}
 		// check error
 		if err != nil {
 			errs = append(errs, err)
