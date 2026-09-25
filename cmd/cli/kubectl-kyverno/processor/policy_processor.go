@@ -499,7 +499,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
-		compiler := vpolcompiler.NewCompiler()
+		// TODO(--explain): pass trace=true here once the CLI's explain flag is wired up
+		compiler := vpolcompiler.NewCompiler(false)
 		// Separate policies by evaluation mode to route them correctly.
 		// JSON-mode policies evaluate against raw JSON and must not go through the
 		// Kubernetes admission path (which requires GVK/GVR and admission attributes).
