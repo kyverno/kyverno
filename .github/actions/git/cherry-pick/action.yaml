@@ -18,7 +18,7 @@ inputs:
     required: true
 outputs:
   success:
-    description: 'Boolean indicating if all cherry-picks succeeded'
+    description: "The string 'true' if every cherry-pick succeeded, 'false' otherwise"
     value: ${{ steps.cherry-pick.outputs.success }}
   git-logs:
     description: 'Git logs in case of failure'
@@ -63,7 +63,9 @@ runs:
         # otherwise `continue-on-error: true` leaves `success` unset.
         write_outputs() {
           echo "success=${success:-false}" >> "$GITHUB_OUTPUT"
-          delimiter="GITLOGS_EOF_${RANDOM}_$(date +%s)"
+          # git_logs can contain repository content (conflicting paths, commit
+          # subjects), so the heredoc delimiter must not be guessable.
+          delimiter="GITLOGS_EOF_$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"
           echo "git-logs<<${delimiter}" >> "$GITHUB_OUTPUT"
           printf '%s\n' "${git_logs:-}" >> "$GITHUB_OUTPUT"
           echo "${delimiter}" >> "$GITHUB_OUTPUT"
@@ -101,7 +103,8 @@ runs:
           if [ -z "$target_branch" ]; then
             continue
           fi
-          if ! git check-ref-format --branch "$target_branch"; then
+          # check-ref-format prints the name on success; keep the log clean.
+          if ! git check-ref-format --branch "$target_branch" >/dev/null; then
             echo "::error::Invalid target branch name: $target_branch" >&2
             success=false
             continue
@@ -109,7 +112,7 @@ runs:
           echo "🔄 Cherry-picking to $target_branch..."
 
           pr_branch_name="cherry-pick-${SOURCE_PR}-${target_branch}"
-          if ! git check-ref-format --branch "$pr_branch_name"; then
+          if ! git check-ref-format --branch "$pr_branch_name" >/dev/null; then
             echo "::error::Invalid cherry-pick branch name: $pr_branch_name" >&2
             success=false
             continue
@@ -133,9 +136,11 @@ runs:
               continue
             fi
 
+            # Read stdout only. A gh warning on stderr would otherwise look like
+            # an existing PR number and skip `gh pr create` while reporting success.
             existing=""
-            if ! existing=$(gh pr list --base "$target_branch" --head "$pr_branch_name" --state open --json number --jq '.[0].number' 2>&1); then
-              echo "::error::Failed to list existing PRs for $pr_branch_name: $existing" >&2
+            if ! existing=$(gh pr list --base "$target_branch" --head "$pr_branch_name" --state open --json number --jq '.[0].number'); then
+              echo "::error::Failed to list existing PRs for $pr_branch_name" >&2
               success=false
               continue
             fi
