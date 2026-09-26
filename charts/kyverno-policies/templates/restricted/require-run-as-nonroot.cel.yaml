@@ -52,7 +52,8 @@ spec:
         must be unset or set to `true`, and the fields
         spec.containers[*].securityContext.runAsNonRoot,
         spec.initContainers[*].securityContext.runAsNonRoot, and
-        spec.ephemeralContainers[*].securityContext.runAsNonRoot must not be set to `false`.{{ if .Values.podSecurityUserNamespaces }}
+        spec.ephemeralContainers[*].securityContext.runAsNonRoot must be set to `true` when
+        spec.securityContext.runAsNonRoot is unset.{{ if .Values.podSecurityUserNamespaces }}
         This policy does not apply to Pods that set spec.hostUsers to `false`.{{ end }}
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
