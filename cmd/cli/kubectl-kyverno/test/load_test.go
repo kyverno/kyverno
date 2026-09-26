@@ -492,3 +492,43 @@ func TestCleanTest(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadTestWithCELChecks(t *testing.T) {
+	fs := memfs.New()
+
+	file, err := fs.Create("kyverno-test.yaml")
+	assert.NilError(t, err)
+
+	_, err = file.Write([]byte(`
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: checks-test
+checks:
+  - match:
+      resource:
+        name: no-team-label
+      policy:
+        name: require-team-label
+      rule:
+        name: check-label
+    assert:
+      cel:
+        expressions:
+          - expression: "result.status == 'fail'"
+            message: "Expected validation failure."
+`))
+	assert.NilError(t, err)
+	assert.NilError(t, file.Close())
+
+	testCases := LoadTest(fs, "kyverno-test.yaml")
+
+	assert.Equal(t, len(testCases), 1)
+	assert.Assert(t, testCases[0].Err == nil)
+	assert.Assert(t, testCases[0].Test != nil)
+	assert.Equal(t, len(testCases[0].Test.Checks), 1)
+	assert.Equal(t, testCases[0].Test.Checks[0].Match.Resource.Value.(map[string]interface{})["name"], "no-team-label")
+	assert.Equal(t, testCases[0].Test.Checks[0].Match.Policy.Value.(map[string]interface{})["name"], "require-team-label")
+	assert.Equal(t, testCases[0].Test.Checks[0].Match.Rule.Value.(map[string]interface{})["name"], "check-label")
+	assert.Equal(t, testCases[0].Test.Checks[0].Assert.CEL.Expressions[0].Expression, "result.status == 'fail'")
+}

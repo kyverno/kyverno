@@ -2,7 +2,9 @@ package v1alpha1
 
 import (
 	"encoding/json"
+
 	"fmt"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"net/url"
 	"path/filepath"
 	"strings"
@@ -57,6 +59,9 @@ type Test struct {
 
 	// Results are the results to be checked in the test
 	Results []TestResult `json:"results,omitempty"`
+
+	// Checks are the verifications to be checked in the test.
+	Checks []CheckResult `json:"checks,omitempty"`
 
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
@@ -151,7 +156,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
 			return err
 		}
-		// Detect duplicate lookup keys — last-write-wins in buildHTTPMockIndex would
+		// Detect duplicate lookup keys - last-write-wins in buildHTTPMockIndex would
 		// silently discard earlier entries, so we surface it as a validation error.
 		resolvedURL := entries[i].ResolvedURL()
 		method := strings.ToUpper(strings.TrimSpace(entries[i].Method))
@@ -160,7 +165,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 			key = method + ":" + resolvedURL
 		}
 		if _, dup := seen[key]; dup {
-			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) — each method+url combination must be unique", resolvedURL, key)
+			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) - each method+url combination must be unique", resolvedURL, key)
 		}
 		seen[key] = struct{}{}
 	}
@@ -322,6 +327,47 @@ func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+type CheckResult struct {
+	// Match tells how to match relevant rule responses.
+	Match CheckMatch `json:"match,omitempty"`
+
+	// Assert contains positive CEL assertions to be performed on relevant rule responses.
+	Assert *CheckAssertions `json:"assert,omitempty"`
+
+	// Error contains negative CEL assertions to be performed on relevant rule responses.
+	Error *CheckAssertions `json:"error,omitempty"`
+}
+
+type CheckMatch struct {
+	// Resource filters engine responses.
+	Resource *kyvernov1.Any `json:"resource,omitempty"`
+
+	// Policy filters engine responses.
+	Policy *kyvernov1.Any `json:"policy,omitempty"`
+
+	// Rule filters rule responses.
+	Rule *kyvernov1.Any `json:"rule,omitempty"`
+}
+
+type CheckAssertions struct {
+	// CEL contains CEL expressions used for assertions.
+	CEL *CheckCEL `json:"cel,omitempty"`
+}
+
+type CheckCEL struct {
+	// Expressions are CEL expressions which must satisfy the assertion.
+	// +kubebuilder:validation:MinItems=1
+	Expressions []CheckExpression `json:"expressions"`
+}
+
+type CheckExpression struct {
+	// Expression is the CEL expression to evaluate.
+	Expression string `json:"expression"`
+
+	// Message is the message displayed when the expression assertion fails.
+	Message string `json:"message,omitempty"`
 }
 
 type TestResourceSpec struct {
