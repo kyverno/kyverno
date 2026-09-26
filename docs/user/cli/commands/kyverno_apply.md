@@ -54,6 +54,7 @@ kyverno apply [flags]
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
       --exceptions-within-policies         Evaluate policy exceptions from the policies path
       --exceptions-within-resources        Evaluate policy exceptions from the resources path
+      --explain                            Print how each validating policy reached its result: whether it applied, its match conditions, variables and the validation that decided it
       --generate-exceptions                Generate policy exceptions for each violation
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
