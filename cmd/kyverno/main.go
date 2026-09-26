@@ -36,6 +36,7 @@ import (
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	policyexceptionmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policyexception"
 	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
@@ -572,6 +573,10 @@ func main() {
 		)
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
+		)
+		policyexceptionmetricscontroller.NewController(
+			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
+			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
 		)
 		// kyverno_legacy_policies_total gauge: only the legacy kinds natively watched
 		// by the admission controller through synced listers -- ClusterPolicy, Policy,
