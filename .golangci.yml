@@ -89,3 +89,4 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+      - Makefile$
