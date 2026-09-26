@@ -727,6 +727,56 @@ func TestGeneratingPolicyContextResourceLookup(t *testing.T) {
 	})
 }
 
+// TestRunTest_NamespacedGeneratingPolicy is a regression test for
+// kyverno/kyverno#17583. Running `kyverno test` against a NamespacedGeneratingPolicy
+// used to panic in ApplyPoliciesOnResource because the CLI forced every generating
+// policy through engineapi.NewGeneratingPolicyFromLike(pol).AsGeneratingPolicy(),
+// which returns a typed-nil *GeneratingPolicy for a NamespacedGeneratingPolicy.
+// That typed-nil bypassed the `policy.Policy == nil` guard in the gpol engine and
+// blew up when the engine called GetSpec() on it. This test loads a real
+// NamespacedGeneratingPolicy fixture end-to-end and asserts we get a normal engine
+// response instead of a panic.
+func TestRunTest_NamespacedGeneratingPolicy(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-context-configmap-ngpol")
+
+	_, err = os.Stat(testDir)
+	if os.IsNotExist(err) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(out, testCase, false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	t.Run("NamespacedGeneratingPolicy produces engine response without panicking", func(t *testing.T) {
+		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for NamespacedGeneratingPolicy")
+		var found bool
+		for _, responses := range testResponse.Trigger {
+			for _, r := range responses {
+				if r.Policy().GetName() == "generate-env-config" {
+					found = true
+					require.NotEmpty(t, r.PolicyResponse.Rules, "expected rules in policy response")
+					for _, rule := range r.PolicyResponse.Rules {
+						assert.Equal(t, engineapi.RuleStatusPass, rule.Status(), "expected rule to pass")
+					}
+					break
+				}
+			}
+		}
+		assert.True(t, found, "expected engine response for policy generate-env-config")
+	})
+}
+
 func TestIsRulelessPolicyKind(t *testing.T) {
 	rulelessKinds := []string{
 		// cluster-scoped CEL kinds
