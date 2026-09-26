@@ -18,7 +18,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Limit open pull requests per user
-        uses: Homebrew/actions/limit-pull-requests@f8d4222eb633e65c2a0157383cf80861fc7fae7f # 2026.09.07.1
+        uses: Homebrew/actions/limit-pull-requests@848c272c7bfe984a197bd4d16383f4c106ec61e6 # 2026.09.21.1
         with:
           except-author-associations: "MEMBER,OWNER"
           except-users: "dependabot[bot],app/dependabot"
