@@ -9,6 +9,8 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	"go.yaml.in/yaml/v3"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func getAction(hasViolations bool, i int) string {
@@ -32,6 +34,21 @@ func BlockRequest(engineResponses []engineapi.EngineResponse, failurePolicy kyve
 		}
 	}
 	log.V(4).Info("allowing admission request")
+	return false
+}
+
+// BlockRequestByValidationActions returns true when a Deny action applies to a
+// failed or errored rule.
+func BlockRequestByValidationActions(actions sets.Set[admissionregistrationv1.ValidationAction], rules ...engineapi.RuleResponse) bool {
+	if !actions.Has(admissionregistrationv1.Deny) {
+		return false
+	}
+	for _, rule := range rules {
+		switch rule.Status() {
+		case engineapi.RuleStatusFail, engineapi.RuleStatusError:
+			return true
+		}
+	}
 	return false
 }
 
