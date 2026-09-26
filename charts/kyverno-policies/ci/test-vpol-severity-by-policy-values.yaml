@@ -11,5 +11,6 @@ podSecuritySeverityByPolicy:
   disallow-host-path: high
   disallow-privileged-containers: critical
   require-run-as-nonroot: 1
+  disallow-proc-mount-strict: high
   # Empty string: suppresses severity annotation entirely for this policy
   disallow-host-namespaces: ""
