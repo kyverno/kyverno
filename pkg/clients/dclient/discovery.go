@@ -242,7 +242,7 @@ func (c *serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema
 // findResourceFromResourceName returns the GVK for the a particular resourceName and groupVersion
 func (c *serverResources) findResourceFromResourceName(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
-	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
+	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err)
 		} else if isServerCurrentlyUnableToHandleRequest(err) {
@@ -305,7 +305,7 @@ func (c *serverResources) FindResources(group, version, kind, subresource string
 
 func (c *serverResources) findResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
-	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
+	if err != nil {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err)
 		} else if isServerCurrentlyUnableToHandleRequest(err) {
@@ -381,7 +381,7 @@ func (c *serverResources) findResource(groupVersion string, kind string) (apiRes
 ) {
 	serverPreferredResources, _ := c.cachedClient.ServerPreferredResources()
 	_, serverGroupsAndResources, err := c.cachedClient.ServerGroupsAndResources()
-	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
+	if err != nil {
 		if _, err := schema.ParseGroupVersion(groupVersion); err != nil {
 			logger.Error(err, "failed to parse group/version", "groupVersion", groupVersion)
 			return nil, nil, schema.GroupVersionResource{}, err
