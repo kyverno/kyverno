@@ -199,7 +199,7 @@ Authenticating to the remote registry is done automatically in the `Makefile` wi
 
 To allow authentication, you will need to set `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` environment variables before invoking targets responsible for pushing images.
 
-> **Note**: You can push all images at once by running `make ko-publish-all` or `make ko-publish-all-dev`.
+> **Note**: You can push all images at once by running `make ko-publish-all`.
 
 #### Pushing kyvernopre image
 
@@ -208,13 +208,6 @@ To push `kyvernopre` image on a remote registry, run:
 ```console
 # push stable image
 make ko-publish-kyverno-init
-```
-
-or
-
-```console
-# push dev image
-make ko-publish-kyverno-init-dev
 ```
 
 The resulting image should be available remotely, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
@@ -228,13 +221,6 @@ To push `kyverno` image on a remote registry, run:
 make ko-publish-kyverno
 ```
 
-or
-
-```console
-# push dev image
-make ko-publish-kyverno-dev
-```
-
 The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno` (by default, if `REGISTRY` environment variable was not set).
 
 #### Pushing cli image
@@ -244,13 +230,6 @@ To push `cli` image on a remote registry, run:
 ```console
 # push stable image
 make ko-publish-cli
-```
-
-or
-
-```console
-# push dev image
-make ko-publish-cli-dev
 ```
 
 The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno-cli` (by default, if `REGISTRY` environment variable was not set).
