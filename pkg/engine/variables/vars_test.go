@@ -588,6 +588,45 @@ func Test_SubstituteShallow(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to resolve variableWithVariables bar bar2")
 }
 
+// Test_SubstituteShallow_NonString is a regression test: shallow substitution
+// (`{{- var }}`) on a non-string value must not panic. Only strings can carry
+// nested `{{ }}` that need escaping, so numbers, bools and maps should pass
+// through substituteVarInPattern's JSON marshalling untouched.
+func Test_SubstituteShallow_NonString(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"myNumber": 3,
+		"myBool":   true,
+		"myObject": map[string]interface{}{"a": "b"},
+	}
+
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	tests := []struct {
+		name     string
+		pattern  string
+		expected string
+	}{
+		{"number", `"prefix-{{- myNumber }}"`, `"prefix-3"`},
+		{"bool", `"prefix-{{- myBool }}"`, `"prefix-true"`},
+		{"object", `"prefix-{{- myObject }}"`, `"prefix-{"a":"b"}"`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+			results, err := action(&ju.ActionData{
+				Document: nil,
+				Element:  tc.pattern,
+				Path:     "/",
+			})
+
+			assert.NilError(t, err)
+			assert.Equal(t, results.(string), tc.expected)
+		})
+	}
+}
+
 // TODO: this test fails, not sure how we could merge this !
 // func Test_subVars_withShallowReplaceAll(t *testing.T) {
 // 	patternMap := []byte(`{
