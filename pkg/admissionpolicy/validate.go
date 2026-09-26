@@ -274,14 +274,18 @@ func processVAPWithClient(policy *admissionregistrationv1.ValidatingAdmissionPol
 				vapLogger.Error(err, "failed to validate resource with params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			er = engineResponse
+			if er.IsSuccessful() {
+				er = engineResponse
+			}
 		} else {
 			engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
 			if err != nil {
 				vapLogger.Error(err, "failed to validate resource for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			er = engineResponse
+			if er.IsSuccessful() {
+				er = engineResponse
+			}
 		}
 	}
 	return er, nil
@@ -327,14 +331,18 @@ func processVAPWithoutClient(policy *admissionregistrationv1.ValidatingAdmission
 				vapLogger.Error(err, "failed to validate resource with params for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			er = engineResponse
+			if er.IsSuccessful() {
+				er = engineResponse
+			}
 		} else {
 			engineResponse, err := validateResource(policy, &bindings[i], resource, nil, namespace, a)
 			if err != nil {
 				vapLogger.Error(err, "failed to validate resource for validatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 				continue
 			}
-			er = engineResponse
+			if er.IsSuccessful() {
+				er = engineResponse
+			}
 		}
 	}
 	return er, nil

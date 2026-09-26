@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -11,6 +12,8 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -289,4 +292,95 @@ func Test_ValidateResourceNilMatchConstraints(t *testing.T) {
 	response, err := validateResource(policy, nil, *resource, nil, ns, a)
 	assert.NilError(t, err)
 	assert.Equal(t, len(response.PolicyResponse.Rules), 1)
+}
+
+func Test_ValidateMultipleBindingsDenyIsNotOverwritten(t *testing.T) {
+	resource, err := kubeutils.BytesToUnstructured([]byte(`{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {"name": "payments", "namespace": "default", "labels": {"tier": "critical"}},
+		"spec": {"replicas": 5}
+	}`))
+	assert.NilError(t, err)
+
+	policy := admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "max-replicas"},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			ParamKind: &admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"apps"},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"deployments"},
+						},
+					},
+				}},
+			},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "object.spec.replicas <= int(params.data.maxReplicas)",
+			}},
+		},
+	}
+
+	binding := func(name, param string, selector *metav1.LabelSelector) admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+		b := admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+				PolicyName:        policy.Name,
+				ValidationActions: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
+				ParamRef:          &admissionregistrationv1.ParamRef{Name: param, Namespace: "default"},
+			},
+		}
+		if selector != nil {
+			b.Spec.MatchResources = &admissionregistrationv1.MatchResources{ObjectSelector: selector}
+		}
+		return b
+	}
+	critical := binding("max-replicas-critical", "critical-limits", &metav1.LabelSelector{MatchLabels: map[string]string{"tier": "critical"}})
+	baseline := binding("max-replicas-baseline", "baseline-limits", nil)
+
+	param := func(name, max string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": name, "namespace": "default"},
+			"data":       map[string]any{"maxReplicas": max},
+		}}
+	}
+
+	gvk := resource.GroupVersionKind()
+	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+	for _, tc := range []struct {
+		name     string
+		bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+	}{
+		{name: "denying binding first", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{critical, baseline}},
+		{name: "denying binding last", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{baseline, critical}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := engineapi.NewValidatingAdmissionPolicyData(policy.DeepCopy())
+			for _, b := range tc.bindings {
+				data.AddBinding(b)
+			}
+			data.AddParam(param("critical-limits", "3"))
+			data.AddParam(param("baseline-limits", "10"))
+
+			response, err := Validate(data, *resource, gvk, gvr, nil, nil, nil, true)
+			assert.NilError(t, err)
+
+			var statuses []engineapi.RuleStatus
+			denied := false
+			for _, rule := range response.PolicyResponse.Rules {
+				statuses = append(statuses, rule.Status())
+				if rule.Status() == engineapi.RuleStatusFail {
+					denied = true
+				}
+			}
+			assert.Assert(t, denied, "expected a Fail from binding max-replicas-critical, got rule statuses %v", statuses)
+		})
+	}
 }
