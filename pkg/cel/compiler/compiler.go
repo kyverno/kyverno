@@ -52,10 +52,26 @@ func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admiss
 	}
 }
 
-// CompileMatchConditionsTraced is CompileMatchConditions with state tracking on: each returned
-// program yields non-nil EvalDetails, and its AST is retained for trace.Build. It exists as a
-// separate function so the many non-vpol callers of CompileMatchConditions stay untouched.
-func CompileMatchConditionsTraced(path *field.Path, env *cel.Env, matchConditions ...admissionregistrationv1.MatchCondition) (result []TracedProgram, allErrs field.ErrorList) {
+// CompileMatchConditionsWithTrace is the tracing-aware entry point for match conditions. With
+// trace false it is exactly CompileMatchConditions and the traced result is nil. With trace true
+// every program is built with state tracking on, so its evaluation yields non-nil EvalDetails,
+// and the retained ASTs come back index-aligned in the traced result for trace.Build. Policy
+// kinds that support tracing should call this with their own trace flag; callers that don't
+// trace keep using CompileMatchConditions.
+func CompileMatchConditionsWithTrace(path *field.Path, env *cel.Env, trace bool, matchConditions ...admissionregistrationv1.MatchCondition) ([]cel.Program, []TracedProgram, field.ErrorList) {
+	if !trace {
+		programs, errs := CompileMatchConditions(path, env, matchConditions...)
+		return programs, nil, errs
+	}
+	traced, errs := compileMatchConditionsTraced(path, env, matchConditions...)
+	programs := make([]cel.Program, 0, len(traced))
+	for _, t := range traced {
+		programs = append(programs, t.Program)
+	}
+	return programs, traced, errs
+}
+
+func compileMatchConditionsTraced(path *field.Path, env *cel.Env, matchConditions ...admissionregistrationv1.MatchCondition) (result []TracedProgram, allErrs field.ErrorList) {
 	if len(matchConditions) == 0 {
 		return nil, nil
 	}
@@ -105,9 +121,23 @@ func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *Variable
 	}
 }
 
-// CompileVariablesTraced is CompileVariables with state tracking on, keyed by variable name.
-// Same rationale as CompileMatchConditionsTraced: a separate function, existing callers untouched.
-func CompileVariablesTraced(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variables ...admissionregistrationv1.Variable) (result map[string]TracedProgram, allErrs field.ErrorList) {
+// CompileVariablesWithTrace is the variable equivalent of CompileMatchConditionsWithTrace: with
+// trace false it is exactly CompileVariables; with trace true the traced result holds each
+// variable's program and retained AST, keyed by name.
+func CompileVariablesWithTrace(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, trace bool, variables ...admissionregistrationv1.Variable) (map[string]cel.Program, map[string]TracedProgram, field.ErrorList) {
+	if !trace {
+		programs, errs := CompileVariables(path, env, VariablesProvider, variables...)
+		return programs, nil, errs
+	}
+	traced, errs := compileVariablesTraced(path, env, VariablesProvider, variables...)
+	programs := make(map[string]cel.Program, len(traced))
+	for name, t := range traced {
+		programs[name] = t.Program
+	}
+	return programs, traced, errs
+}
+
+func compileVariablesTraced(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variables ...admissionregistrationv1.Variable) (result map[string]TracedProgram, allErrs field.ErrorList) {
 	if len(variables) == 0 {
 		return nil, nil
 	}
