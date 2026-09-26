@@ -68,7 +68,7 @@ func (a *apiCall) FetchAndLoad(ctx context.Context) ([]byte, error) {
 func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	call, err := variables.SubstituteAllInType(a.logger, a.jsonCtx, a.entry.APICall)
 	if err != nil {
-		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %w", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
 	// Decode percent-encoded characters (e.g., %2e%2e -> ..) before normalizing

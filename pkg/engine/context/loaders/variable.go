@@ -51,12 +51,12 @@ func (vl *variableLoader) loadVariable() (err error) {
 	if entry.Variable.JMESPath != "" {
 		jp, err := variables.SubstituteAll(logger, ctx, entry.Variable.JMESPath)
 		if err != nil {
-			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %w", entry.Name, entry.Variable.JMESPath, err)
 		}
 		var ok bool
 		path, ok = jp.(string)
 		if !ok {
-			return fmt.Errorf("jmespath value must be a string %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
+			return fmt.Errorf("jmespath value must be a string %s %s (got %T)", entry.Name, entry.Variable.JMESPath, jp)
 		}
 		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
@@ -69,7 +69,7 @@ func (vl *variableLoader) loadVariable() (err error) {
 		}
 		defaultValue, err = variables.SubstituteAll(logger, ctx, value)
 		if err != nil {
-			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.GetDefault(), err)
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %w", entry.Name, entry.Variable.GetDefault(), err)
 		}
 		logger.V(4).Info("evaluated default value", "variable name", entry.Name, "jmespath", defaultValue)
 	}
@@ -79,14 +79,14 @@ func (vl *variableLoader) loadVariable() (err error) {
 		value, _ := jsonutils.DocumentToUntyped(entry.Variable.GetValue())
 		variable, err := variables.SubstituteAll(logger, ctx, value)
 		if err != nil {
-			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.GetValue(), err)
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %w", entry.Name, entry.Variable.GetValue(), err)
 		}
 		if path != "" {
 			variable, err := applyJMESPath(vl.jp, path, variable)
 			if err == nil {
 				output = variable
 			} else if defaultValue == nil {
-				return fmt.Errorf("failed to apply jmespath %s to variable %v: %v", path, variable, err)
+				return fmt.Errorf("failed to apply jmespath %s to variable %v: %w", path, variable, err)
 			}
 		} else {
 			output = variable
@@ -98,7 +98,7 @@ func (vl *variableLoader) loadVariable() (err error) {
 					output = variable
 				}
 			} else if defaultValue == nil {
-				return fmt.Errorf("failed to apply jmespath %s to variable %v: %v", path, variable, err)
+				return fmt.Errorf("failed to apply jmespath %s to variable %v: %w", path, variable, err)
 			}
 		}
 	}
@@ -110,7 +110,7 @@ func (vl *variableLoader) loadVariable() (err error) {
 
 	vl.data, err = json.Marshal(output)
 	if err != nil {
-		return fmt.Errorf("failed to add context entry for variable %s: %v", entry.Name, err)
+		return fmt.Errorf("failed to add context entry for variable %s: %w", entry.Name, err)
 	}
 
 	return ctx.ReplaceContextEntry(entry.Name, vl.data)
@@ -119,7 +119,7 @@ func (vl *variableLoader) loadVariable() (err error) {
 func applyJMESPath(jp jmespath.Interface, query string, data interface{}) (interface{}, error) {
 	q, err := jp.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
+		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %w", query, err)
 	}
 	return q.Search(data)
 }

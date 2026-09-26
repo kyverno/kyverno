@@ -105,7 +105,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		}
 		celexceptions, err := c.getCELExceptions(policy.GetName())
 		if err != nil {
-			return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
+			return fmt.Errorf("failed to get celexceptions by name %s: %w", policy.GetName(), err)
 		}
 		for _, exception := range celexceptions {
 			genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
@@ -114,7 +114,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 
 	if vapErr != nil {
 		if !apierrors.IsNotFound(vapErr) {
-			return fmt.Errorf("failed to get validatingadmissionpolicy %s: %v", vapName, vapErr)
+			return fmt.Errorf("failed to get validatingadmissionpolicy %s: %w", vapName, vapErr)
 		}
 		observedVAP = &admissionregistrationv1.ValidatingAdmissionPolicy{
 			ObjectMeta: metav1.ObjectMeta{
@@ -124,7 +124,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 	}
 	if vapBindingErr != nil {
 		if !apierrors.IsNotFound(vapBindingErr) {
-			return fmt.Errorf("failed to get validatingadmissionpolicybinding %s: %v", vapBindingName, vapBindingErr)
+			return fmt.Errorf("failed to get validatingadmissionpolicybinding %s: %w", vapBindingName, vapBindingErr)
 		}
 		observedVAPbinding = &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{
@@ -136,11 +136,11 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 	if observedVAP.ResourceVersion == "" {
 		err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, policy, genericExceptions)
 		if err != nil {
-			return fmt.Errorf("failed to build validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
+			return fmt.Errorf("failed to build validatingadmissionpolicy %s: %w", observedVAP.GetName(), err)
 		}
 		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
+			return fmt.Errorf("failed to create validatingadmissionpolicy %s: %w", observedVAP.GetName(), err)
 		}
 	} else {
 		_, err := controllerutils.Update(
@@ -151,18 +151,18 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 				return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, policy, genericExceptions)
 			})
 		if err != nil {
-			return fmt.Errorf("failed to update validatingadmissionpolicy %s: %v", observedVAP.GetName(), err)
+			return fmt.Errorf("failed to update validatingadmissionpolicy %s: %w", observedVAP.GetName(), err)
 		}
 	}
 
 	if observedVAPbinding.ResourceVersion == "" {
 		err := admissionpolicy.BuildValidatingAdmissionPolicyBinding(observedVAPbinding, policy)
 		if err != nil {
-			return fmt.Errorf("failed to build validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
+			return fmt.Errorf("failed to build validatingadmissionpolicybinding %s: %w", observedVAPbinding.GetName(), err)
 		}
 		_, err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Create(ctx, observedVAPbinding, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
+			return fmt.Errorf("failed to create validatingadmissionpolicybinding %s: %w", observedVAPbinding.GetName(), err)
 		}
 	} else {
 		_, err := controllerutils.Update(
@@ -173,7 +173,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 				return admissionpolicy.BuildValidatingAdmissionPolicyBinding(observed, policy)
 			})
 		if err != nil {
-			return fmt.Errorf("failed to update validatingadmissionpolicybinding %s: %v", observedVAPbinding.GetName(), err)
+			return fmt.Errorf("failed to update validatingadmissionpolicybinding %s: %w", observedVAPbinding.GetName(), err)
 		}
 	}
 

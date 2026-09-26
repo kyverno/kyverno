@@ -273,7 +273,7 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 			},
 			)
 			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to list old targets: %v", err))
+				utilruntime.HandleError(fmt.Errorf("failed to list old targets: %w", err))
 				continue
 			}
 
@@ -285,7 +285,7 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 				obj.SetLabels(labels)
 				_, err = pc.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
 				if err != nil {
-					utilruntime.HandleError(fmt.Errorf("failed to un-label old targets %s/%s/%s/%s: %v", obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName(), err))
+					utilruntime.HandleError(fmt.Errorf("failed to un-label old targets %s/%s/%s/%s: %w", obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName(), err))
 					continue
 				}
 			}

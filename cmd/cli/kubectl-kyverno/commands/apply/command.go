@@ -392,14 +392,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if c.exceptionsWithinResources || c.inlineExceptions {
 		results, err := exception.SelectFrom(resources, false)
 		if err != nil {
-			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%w)", err)
 		}
 		exceptions = results.Exceptions
 		celExceptions = results.CELExceptions
 	} else {
 		results, err := exception.Load(false, c.Exception...)
 		if err != nil {
-			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%w)", err)
 		}
 		if results != nil {
 			for _, warning := range results.Warnings {
@@ -743,7 +743,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			if c.ContinueOnFail {
 				continue
 			}
-			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
+			return responses, fmt.Errorf("failed to map gvk to gvr %s (%w)\n", gvk, err)
 		}
 		gvr := mapping.Resource
 		var user authenticationv1.UserInfo

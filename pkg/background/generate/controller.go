@@ -97,15 +97,20 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	var failures []error
 	policy, err := c.getPolicyObject(*ur)
 	if err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("error in fetching policy: %v", err)
+		return fmt.Errorf("error in fetching policy: %w", err)
 	}
 
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
-		if err != nil || trigger == nil {
+		if err != nil {
 			logger.V(4).Info("the trigger resource does not exist or is pending creation")
-			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
+			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %w", rule.Rule, err))
+			continue
+		}
+		if trigger == nil {
+			logger.V(4).Info("the trigger resource does not exist or is pending creation")
+			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: not found", rule.Rule))
 			continue
 		}
 
@@ -116,7 +121,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			}
 
 			// Track the error so UpdateRequest is marked as Failed
-			failures = append(failures, fmt.Errorf("rule %s failed: %v", rule.Rule, err))
+			failures = append(failures, fmt.Errorf("rule %s failed: %w", rule.Rule, err))
 
 			// Only create policy-referenced event if policy is non-nil to avoid nil pointer panic
 			if policy != nil {
@@ -265,7 +270,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		if rule.Generation.Synchronize {
 			ruleRaw, err := json.Marshal(rule.DeepCopy())
 			if err != nil {
-				return nil, fmt.Errorf("failed to serialize the policy: %v", err)
+				return nil, fmt.Errorf("failed to serialize the policy: %w", err)
 			}
 			vars := regex.RegexVariables.FindAllStringSubmatch(string(ruleRaw), -1)
 
@@ -291,7 +296,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 			} else {
 				logger.Error(err, "failed to load rule level context")
 			}
-			return nil, fmt.Errorf("failed to load rule level context: %v", err)
+			return nil, fmt.Errorf("failed to load rule level context: %w", err)
 		}
 
 		if rule.Generation.ForEachGeneration != nil {

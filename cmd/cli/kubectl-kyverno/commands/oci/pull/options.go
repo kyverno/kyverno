@@ -58,26 +58,26 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 	}
 	ref, err := name.ParseReference(o.imageRef)
 	if err != nil {
-		return fmt.Errorf("parsing image reference: %v", err)
+		return fmt.Errorf("parsing image reference: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "Downloading policies from an image [%s]...\n", ref.Name())
 	rmt, err := remote.Get(ref, remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain))
 	if err != nil {
-		return fmt.Errorf("fetching remote image: %v", err)
+		return fmt.Errorf("fetching remote image: %w", err)
 	}
 	img, err := rmt.Image()
 	if err != nil {
-		return fmt.Errorf("loading image from manifest: %v", err)
+		return fmt.Errorf("loading image from manifest: %w", err)
 	}
 	l, err := img.Layers()
 	if err != nil {
-		return fmt.Errorf("getting image layers: %v", err)
+		return fmt.Errorf("getting image layers: %w", err)
 	}
 	seen := make(map[string]bool)
 	for _, layer := range l {
 		lmt, err := layer.MediaType()
 		if err != nil {
-			return fmt.Errorf("getting layer media type: %v", err)
+			return fmt.Errorf("getting layer media type: %w", err)
 		}
 		if lmt == internal.PolicyLayerMediaType {
 			if err := extractAndSavePolicies(layer, dir, seen); err != nil {
@@ -92,18 +92,18 @@ func (o options) execute(ctx context.Context, dir string, keychain authn.Keychai
 func extractAndSavePolicies(layer v1.Layer, dir string, seen map[string]bool) error {
 	blob, err := layer.Compressed()
 	if err != nil {
-		return fmt.Errorf("getting layer blob: %v", err)
+		return fmt.Errorf("getting layer blob: %w", err)
 	}
 	defer blob.Close()
 
 	layerBytes, err := io.ReadAll(blob)
 	if err != nil {
-		return fmt.Errorf("reading layer blob: %v", err)
+		return fmt.Errorf("reading layer blob: %w", err)
 	}
 
 	documents, err := extyaml.SplitDocuments(layerBytes)
 	if err != nil {
-		return fmt.Errorf("splitting YAML documents: %v", err)
+		return fmt.Errorf("splitting YAML documents: %w", err)
 	}
 
 	for _, doc := range documents {
@@ -113,11 +113,11 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen map[string]bool) er
 
 		jsonBytes, err := k8syaml.ToJSON(doc)
 		if err != nil {
-			return fmt.Errorf("converting document to JSON: %v", err)
+			return fmt.Errorf("converting document to JSON: %w", err)
 		}
 		var us unstructured.Unstructured
 		if err := us.UnmarshalJSON(jsonBytes); err != nil {
-			return fmt.Errorf("unmarshaling document: %v", err)
+			return fmt.Errorf("unmarshaling document: %w", err)
 		}
 
 		kind := us.GetKind()
@@ -147,12 +147,12 @@ func extractAndSavePolicies(layer v1.Layer, dir string, seen map[string]bool) er
 		}
 		pp, err := securejoin.SecureJoin(dir, filename)
 		if err != nil {
-			return fmt.Errorf("constructing output path for %s %q: %v", kind, objName, err)
+			return fmt.Errorf("constructing output path for %s %q: %w", kind, objName, err)
 		}
 
 		fmt.Fprintf(os.Stderr, "Saving %s [%s] to disk [%s]...\n", kind, objName, pp)
 		if err := os.WriteFile(pp, doc, 0o600); err != nil {
-			return fmt.Errorf("creating file %s: %v", pp, err)
+			return fmt.Errorf("creating file %s: %w", pp, err)
 		}
 	}
 	return nil

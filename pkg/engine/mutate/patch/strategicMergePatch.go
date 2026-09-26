@@ -37,7 +37,7 @@ func strategicMergePatch(logger logr.Logger, base, overlay string) ([]byte, erro
 				return []byte{}, err
 			}
 		} else {
-			return []byte{}, fmt.Errorf("failed to preProcess rule: %+v", err)
+			return []byte{}, fmt.Errorf("failed to preProcess rule: %+w", err)
 		}
 	}
 

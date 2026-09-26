@@ -466,14 +466,14 @@ func findResource(groupVersion string, kind string, serverPreferredResources, se
 		logger.V(6).Info("gv with resource", "gvWithResource", groupVersionResource)
 		gv, err := schema.ParseGroupVersion(apiResourceWithListGV.listGV)
 		if err != nil {
-			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to parse group version %s: %v", apiResourceWithListGV.listGV, err)
+			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to parse group version %s: %w", apiResourceWithListGV.listGV, err)
 		}
 		parentAPIResource, err := findResourceFromResourceName(
 			gv.WithResource(strings.Split(matchingServerResource.Name, "/")[0]),
 			serverPreferredResources,
 		)
 		if err != nil {
-			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to find parent resource for subresource %s: %v", matchingServerResource.Name, err)
+			return nil, nil, schema.GroupVersionResource{}, fmt.Errorf("failed to find parent resource for subresource %s: %w", matchingServerResource.Name, err)
 		}
 		logger.V(6).Info("parent API resource", "parentAPIResource", parentAPIResource)
 

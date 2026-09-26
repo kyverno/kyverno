@@ -105,7 +105,7 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 		}
 		if requiresValue {
 			if _, err := operation.ValueInterface(); err != nil {
-				return fmt.Errorf("invalid value: spec.rules[%d]: %s", ruleIdx, err)
+				return fmt.Errorf("invalid value: spec.rules[%d]: %w", ruleIdx, err)
 			}
 		}
 	}
@@ -240,7 +240,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				warnings = append(warnings, warning)
 				return warnings, nil
 			} else if err != nil {
-				return warnings, fmt.Errorf("path: spec.rules[%d].match.any[%d].kinds: %v", i, j, err)
+				return warnings, fmt.Errorf("path: spec.rules[%d].match.any[%d].kinds: %w", i, j, err)
 			}
 		}
 		for j, value := range match.All {
@@ -248,14 +248,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 				warnings = append(warnings, warning)
 				return warnings, nil
 			} else if err != nil {
-				return warnings, fmt.Errorf("path: spec.rules[%d].match.all[%d].kinds: %v", i, j, err)
+				return warnings, fmt.Errorf("path: spec.rules[%d].match.all[%d].kinds: %w", i, j, err)
 			}
 		}
 		if warning, err := validateKinds(rule.MatchResources.Kinds, rule, mock, background, client); warning != "" {
 			warnings = append(warnings, warning)
 			return warnings, nil
 		} else if err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d].match.kinds: %v", i, err)
+			return warnings, fmt.Errorf("path: spec.rules[%d].match.kinds: %w", i, err)
 		}
 		if exclude := rule.ExcludeResources; exclude != nil {
 			for j, value := range exclude.Any {
@@ -263,7 +263,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 					warnings = append(warnings, warning)
 					return warnings, nil
 				} else if err != nil {
-					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.any[%d].kinds: %v", i, j, err)
+					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.any[%d].kinds: %w", i, j, err)
 				}
 			}
 			for j, value := range exclude.All {
@@ -271,14 +271,14 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 					warnings = append(warnings, warning)
 					return warnings, nil
 				} else if err != nil {
-					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.all[%d].kinds: %v", i, j, err)
+					return warnings, fmt.Errorf("path: spec.rules[%d].exclude.all[%d].kinds: %w", i, j, err)
 				}
 			}
 			if warning, err := validateKinds(exclude.Kinds, rule, mock, background, client); warning != "" {
 				warnings = append(warnings, warning)
 				return warnings, nil
 			} else if err != nil {
-				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %v", i, err)
+				return warnings, fmt.Errorf("path: spec.rules[%d].exclude.kinds: %w", i, err)
 			}
 		}
 	}
@@ -288,10 +288,10 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		if rule.Mutation != nil {
 			// check for forward slash
 			if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
-				return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
+				return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %w", i, err)
 			}
 			if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
-				return warnings, fmt.Errorf("%s", err)
+				return warnings, fmt.Errorf("%w", err)
 			}
 		}
 
@@ -304,7 +304,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 
 		// validate resource description
 		if path, err := validateResources(rulePath, rule); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
+			return warnings, fmt.Errorf("path: spec.rules[%d].%s: %w", i, path, err)
 		}
 
 		err := validateElementInForEach(rule)
@@ -313,11 +313,11 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 
 		if err := validateRuleContext(rule, policy.IsNamespaced()); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %w", i, err)
 		}
 
 		if err := validateRuleImageExtractorsJMESPath(rule); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %w", i, err)
 		}
 
 		// If a rule's match block does not match any kind,
@@ -532,7 +532,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	}
 	if backgroundMode {
 		if err := containsUserVariables(p, vars); err != nil {
-			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
+			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %w ", err)
 		}
 	}
 	if err := hasInvalidVariables(p, backgroundMode); err != nil {
@@ -593,7 +593,7 @@ func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) er
 	}
 
 	if err := containsUserVariables(p, vars); err != nil {
-		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
+		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: %w ", err)
 	}
 
 	return nil
@@ -632,7 +632,7 @@ func hasVariables(policy kyvernov1.PolicyInterface) ([][]string, error) {
 	polCopy := cleanup(policy.CreateDeepCopy())
 	policyRaw, err := json.Marshal(polCopy)
 	if err != nil {
-		return nil, fmt.Errorf("failed to serialize the policy: %v", err)
+		return nil, fmt.Errorf("failed to serialize the policy: %w", err)
 	}
 	matches := regex.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches, nil
@@ -1370,7 +1370,7 @@ func validateVariable(entry kyvernov1.ContextEntry) error {
 	jmesPath := variables.ReplaceAllVars(entry.Variable.JMESPath, func(s string) string { return "kyvernojmespathvariable" })
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.Variable.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.Variable.JMESPath); err != nil {
-			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.Variable.JMESPath, err)
+			return fmt.Errorf("failed to parse JMESPath %s: %w", entry.Variable.JMESPath, err)
 		}
 	}
 	if entry.Variable.GetValue() == nil && jmesPath == "" {
@@ -1413,7 +1413,7 @@ func validateAPICall(entry kyvernov1.ContextEntry) error {
 
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.APICall.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.APICall.JMESPath); err != nil {
-			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.APICall.JMESPath, err)
+			return fmt.Errorf("failed to parse JMESPath %s: %w", entry.APICall.JMESPath, err)
 		}
 	}
 
@@ -1437,7 +1437,7 @@ func validateGlobalReference(entry kyvernov1.ContextEntry) error {
 
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.GlobalReference.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.GlobalReference.JMESPath); err != nil {
-			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.GlobalReference.JMESPath, err)
+			return fmt.Errorf("failed to parse JMESPath %s: %w", entry.GlobalReference.JMESPath, err)
 		}
 	}
 
@@ -1466,7 +1466,7 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.ImageRegistry.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.ImageRegistry.JMESPath); err != nil {
-			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.ImageRegistry.JMESPath, err)
+			return fmt.Errorf("failed to parse JMESPath %s: %w", entry.ImageRegistry.JMESPath, err)
 		}
 	}
 

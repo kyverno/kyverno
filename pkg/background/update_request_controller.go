@@ -210,7 +210,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 
 	if ur.Status.State == kyvernov2.Pending {
 		if err := c.processUR(ur); err != nil {
-			return fmt.Errorf("failed to process UR %s: %v", key, err)
+			return fmt.Errorf("failed to process UR %s: %w", key, err)
 		}
 	}
 

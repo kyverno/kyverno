@@ -69,9 +69,9 @@ func (a *executor) executeK8sAPICall(ctx context.Context, path string, method ky
 		if apierrors.IsForbidden(err) || apierrors.IsUnauthorized(err) {
 			// StatusError contains detailed message about the permission issue
 			// This surfaces RBAC errors that would otherwise only appear in debug logs
-			return nil, fmt.Errorf("failed to %v resource with raw url: %s: permission denied: %v", method, path, err)
+			return nil, fmt.Errorf("failed to %v resource with raw url: %s: permission denied: %w", method, path, err)
 		}
-		return nil, fmt.Errorf("failed to %v resource with raw url: %s: %v", method, path, err)
+		return nil, fmt.Errorf("failed to %v resource with raw url: %s: %w", method, path, err)
 	}
 	a.logger.V(4).Info("executed APICall", "name", a.name, "path", path, "method", method, "len", len(jsonData))
 	return jsonData, nil

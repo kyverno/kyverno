@@ -62,7 +62,7 @@ func loadTest(path string, fileName string, gitBranch string) (test.TestCases, e
 			}
 			var auth http.BasicAuth
 			if _, err := gitutils.Clone(repoURL, fs, gitBranch, auth); err != nil {
-				return nil, fmt.Errorf("error: failed to clone repository \nCause: %s", err)
+				return nil, fmt.Errorf("error: failed to clone repository \nCause: %w", err)
 			}
 			yamlFiles, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {

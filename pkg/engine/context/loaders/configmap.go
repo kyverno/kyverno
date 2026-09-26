@@ -52,14 +52,14 @@ func (cml *configMapLoader) LoadData() error {
 	if cml.data == nil {
 		data, err := cml.fetchConfigMap()
 		if err != nil {
-			return fmt.Errorf("failed to retrieve config map for context entry %s: %v", cml.entry.Name, err)
+			return fmt.Errorf("failed to retrieve config map for context entry %s: %w", cml.entry.Name, err)
 		}
 
 		cml.data = data
 	}
 
 	if err := cml.enginectx.AddContextEntry(cml.entry.Name, cml.data); err != nil {
-		return fmt.Errorf("failed to add config map for context entry %s: %v", cml.entry.Name, err)
+		return fmt.Errorf("failed to add config map for context entry %s: %w", cml.entry.Name, err)
 	}
 
 	return nil
@@ -74,7 +74,7 @@ func (cml *configMapLoader) fetchConfigMap() ([]byte, error) {
 	contextData := make(map[string]interface{})
 	name, err := variables.SubstituteAll(logger, cml.enginectx, cml.entry.ConfigMap.Name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %v", entryName, cmName, err)
+		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %w", entryName, cmName, err)
 	}
 	nameStr, ok := name.(string)
 	if !ok {
@@ -82,7 +82,7 @@ func (cml *configMapLoader) fetchConfigMap() ([]byte, error) {
 	}
 	namespace, err := variables.SubstituteAll(logger, cml.enginectx, cml.entry.ConfigMap.Namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %v", entryName, cmNamespace, err)
+		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %w", entryName, cmNamespace, err)
 	}
 	namespaceStr, ok := namespace.(string)
 	if !ok {
@@ -104,14 +104,14 @@ func (cml *configMapLoader) fetchConfigMap() ([]byte, error) {
 	}
 	obj, err := cml.resolver.Get(cml.ctx, namespaceStr, nameStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespaceStr, nameStr, err)
+		return nil, fmt.Errorf("failed to get configmap %s/%s : %w", namespaceStr, nameStr, err)
 	}
 	// extract configmap data
 	contextData["data"] = obj.Data
 	contextData["metadata"] = obj.ObjectMeta
 	data, err := json.Marshal(contextData)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespaceStr, nameStr, err)
+		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %w", namespaceStr, nameStr, err)
 	}
 	return data, nil
 }
