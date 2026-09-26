@@ -1,0 +1,72 @@
+# hostUsers is absent: Kubernetes PSA enforces, so the policy must fail the Pod.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unmasked-host-users-absent
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+# hostUsers is true: the Pod shares the host user namespace, so no relaxation.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unmasked-host-users-true
+spec:
+  hostUsers: true
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+# hostUsers is explicitly false: the Baseline procMount check relaxes.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unmasked-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Unmasked
+---
+# An init container with an unmasked /proc still fails when hostUsers is absent.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unmasked-init-container
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      procMount: Unmasked
+  containers:
+  - name: app
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: default-proc-mount
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      procMount: Default
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unset-proc-mount
+spec:
+  containers:
+  - name: app
+    image: nginx
