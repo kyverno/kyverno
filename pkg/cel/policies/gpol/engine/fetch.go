@@ -7,8 +7,10 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -82,8 +84,41 @@ func (fp *fetchProvider) Get(ctx context.Context, name string) (Policy, error) {
 	}
 
 	return Policy{
-		Policy:         policy,
-		Exceptions:     matchedExceptions,
-		CompiledPolicy: compiled,
+		Policy:               policy,
+		Exceptions:           matchedExceptions,
+		CompiledPolicy:       compiled,
+		LegacyOwnerConflicts: fp.legacyOwnerConflicts(policy),
 	}, nil
+}
+
+// legacyOwnerConflicts returns the namespaces in which a downstream resource
+// generated before the policy namespace label existed has an unknown owner,
+// because a same-named policy of the other scope could have generated it. A
+// namespaced policy only generates into its own namespace, so it shadows a
+// cluster-scoped policy of the same name in exactly that namespace, and a
+// cluster-scoped policy shadows a namespaced one in the namespaced policy's
+// namespace. Cluster-scoped downstreams are never contested, because a
+// namespaced policy cannot generate them. Lookup failures contest every
+// namespace so ownership is never established from incomplete information.
+func (fp *fetchProvider) legacyOwnerConflicts(policy policiesv1beta1.GeneratingPolicyLike) map[string]bool {
+	if policy.GetNamespace() != "" {
+		if _, err := fp.gpolLister.Get(policy.GetName()); err == nil || !apierrors.IsNotFound(err) {
+			return map[string]bool{policy.GetNamespace(): true}
+		}
+		return nil
+	}
+	namespacedPolicies, err := fp.ngpolLister.List(labels.Everything())
+	if err != nil {
+		return map[string]bool{libs.LegacyOwnerAnyNamespace: true}
+	}
+	conflicts := map[string]bool{}
+	for _, namespacedPolicy := range namespacedPolicies {
+		if namespacedPolicy.GetName() == policy.GetName() {
+			conflicts[namespacedPolicy.GetNamespace()] = true
+		}
+	}
+	if len(conflicts) == 0 {
+		return nil
+	}
+	return conflicts
 }
