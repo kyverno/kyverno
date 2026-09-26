@@ -2,6 +2,7 @@ package trace
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
@@ -37,6 +38,15 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 	sourceInfo := native.SourceInfo()
 
 	celast.PreOrderVisit(native.Expr(), celast.NewExprVisitor(func(e celast.Expr) {
+		if e.Kind() == celast.LiteralKind {
+			// a literal's value is its own text, so tracing it only adds noise
+			return
+		}
+		if referencesMacroInternal(e) {
+			// all()/exists() and friends expand into helper nodes such as @result and
+			// @not_strictly_false(@result); they are noise to a reader
+			return
+		}
 		val, ok := state.Value(e.ID())
 		if !ok {
 			// this node never evaluated (e.g. short-circuited by &&/||), nothing to trace
@@ -55,6 +65,19 @@ func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails
 		et.Nodes = append(et.Nodes, nt)
 	}))
 	return et
+}
+
+// referencesMacroInternal reports whether e mentions one of the synthetic identifiers (prefixed
+// with @) that macro expansion introduces. It checks for the identifier itself rather than a bare
+// "@" in the rendered text, so a node that merely contains an @ inside a string literal is kept.
+func referencesMacroInternal(e celast.Expr) bool {
+	found := false
+	celast.PreOrderVisit(e, celast.NewExprVisitor(func(n celast.Expr) {
+		if n.Kind() == celast.IdentKind && strings.HasPrefix(n.AsIdent(), "@") {
+			found = true
+		}
+	}))
+	return found
 }
 
 func stringify(v ref.Val) string {
