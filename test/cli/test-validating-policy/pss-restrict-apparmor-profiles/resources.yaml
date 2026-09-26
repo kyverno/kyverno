@@ -1,0 +1,147 @@
+# Annotation value unconfined: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-unconfined
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/app: unconfined
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# An arbitrary annotation value that is not a localhost profile: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-bogus
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/app: my-profile
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# Pod-level appArmorProfile.type Unconfined: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-profile-unconfined
+spec:
+  securityContext:
+    appArmorProfile:
+      type: Unconfined
+  containers:
+  - name: app
+    image: nginx
+---
+# Container-level appArmorProfile.type Unconfined: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: container-profile-unconfined
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      appArmorProfile:
+        type: Unconfined
+---
+# Init container appArmorProfile.type Unconfined: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: init-profile-unconfined
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      appArmorProfile:
+        type: Unconfined
+  containers:
+  - name: app
+    image: nginx
+---
+# Localhost profile through the deprecated annotation: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-localhost
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/app: localhost/my-profile
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# runtime/default through the deprecated annotation: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-runtime-default
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/app: runtime/default
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# Empty annotation value: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-empty
+  annotations:
+    container.apparmor.security.beta.kubernetes.io/app: ""
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# An unrelated annotation must be ignored: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-unrelated
+  annotations:
+    example.com/owner: unconfined
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# appArmorProfile.type Localhost on pod and containers: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: profile-localhost
+spec:
+  securityContext:
+    appArmorProfile:
+      type: Localhost
+      localhostProfile: my-profile
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      appArmorProfile:
+        type: RuntimeDefault
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      appArmorProfile:
+        type: Localhost
+        localhostProfile: my-profile
+---
+# Nothing set at all: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-apparmor
+spec:
+  containers:
+  - name: app
+    image: nginx
