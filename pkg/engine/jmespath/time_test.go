@@ -532,3 +532,14 @@ func Test_jpTimeBetween(t *testing.T) {
 		})
 	}
 }
+
+func Test_jpTimeAdd_ValidationErrors(t *testing.T) {
+	t.Run("invalid timestamp", func(t *testing.T) {
+		_, err := jpTimeAdd([]interface{}{123, "3h"})
+		assert.ErrorContains(t, err, "JMESPath function 'time_add': argument #1 is not of type string")
+	})
+	t.Run("invalid duration", func(t *testing.T) {
+		_, err := jpTimeAdd([]interface{}{"2021-01-02T15:04:05-07:00", 123})
+		assert.ErrorContains(t, err, "JMESPath function 'time_add': argument #2 is not of type string")
+	})
+}
