@@ -4,17 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // resourceInfo contains the Unstructured resource, and if the resource is a subresource, it contains its name and its
@@ -94,7 +95,12 @@ func getTargets(ctx context.Context, client engineapi.Client, target kyvernov1.R
 	if policy.IsNamespaced() {
 		namespace = policy.GetNamespace()
 	}
-	group, version, kind, subresource := kubeutils.ParseKindSelector(target.APIVersion + "/" + target.Kind)
+	gv, _ := schema.ParseGroupVersion(target.APIVersion)
+	group, version, kind, subresource := gv.Group, gv.Version, target.Kind, ""
+	if strings.Contains(target.Kind, "/") {
+		parts := strings.SplitN(target.Kind, "/", 2)
+		kind, subresource = parts[0], parts[1]
+	}
 	resources, err := client.GetResources(ctx, group, version, kind, subresource, namespace, name, lselector)
 	if err != nil {
 		return nil, err
