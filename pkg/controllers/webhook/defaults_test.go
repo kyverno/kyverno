@@ -64,7 +64,23 @@ func webhookDefaultFixtures(t *testing.T) ([]admissionregistrationv1.ValidatingW
 	storedURL := *stored.DeepCopy()
 	storedURL.Name = url.Name
 	storedURL.ClientConfig = url.ClientConfig
-	desired, observed := []admissionregistrationv1.ValidatingWebhook{minimal, explicit, url}, []admissionregistrationv1.ValidatingWebhook{stored, explicit, storedURL}
+	// A single selector can pass through mergeLabelSelectors unchanged. Empty
+	// maps and slices are omitted by JSON serialization on the API server.
+	emptyFields := *minimal.DeepCopy()
+	emptyFields.Name = "empty-selector-fields.kyverno.svc"
+	emptyFields.NamespaceSelector = &metav1.LabelSelector{
+		MatchLabels:      map[string]string{},
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
+	}
+	emptyFields.ObjectSelector = &metav1.LabelSelector{
+		MatchLabels:      map[string]string{"app": "test"},
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
+	}
+	storedEmptyFields := *stored.DeepCopy()
+	storedEmptyFields.Name = emptyFields.Name
+	storedEmptyFields.NamespaceSelector = &metav1.LabelSelector{}
+	storedEmptyFields.ObjectSelector = &metav1.LabelSelector{MatchLabels: map[string]string{"app": "test"}}
+	desired, observed := []admissionregistrationv1.ValidatingWebhook{minimal, explicit, url, emptyFields}, []admissionregistrationv1.ValidatingWebhook{stored, explicit, storedURL, storedEmptyFields}
 
 	// Exercise the real CEL builder with the policy kinds reported in #17735.
 	match := &admissionregistrationv1.MatchResources{ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{RuleWithOperations: rules[0]}}}
@@ -118,6 +134,19 @@ func mutatingDefaultFixture(webhooks []admissionregistrationv1.ValidatingWebhook
 		result = append(result, m)
 	}
 	return result
+}
+
+func TestDefaultWebhookSelectorDoesNotMutateSource(t *testing.T) {
+	t.Parallel()
+	selector := &metav1.LabelSelector{
+		MatchLabels:      map[string]string{},
+		MatchExpressions: []metav1.LabelSelectorRequirement{},
+	}
+	webhooks := []admissionregistrationv1.ValidatingWebhook{{NamespaceSelector: selector}}
+	defaultValidatingWebhooks(webhooks)
+	require.Equal(t, &metav1.LabelSelector{}, webhooks[0].NamespaceSelector)
+	require.NotNil(t, selector.MatchLabels)
+	require.NotNil(t, selector.MatchExpressions)
 }
 
 func TestReconcileWebhookConfigurationDefaults(t *testing.T) {

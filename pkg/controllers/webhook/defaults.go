@@ -18,12 +18,8 @@ func defaultValidatingWebhooks(webhooks []admissionregistrationv1.ValidatingWebh
 		if w.MatchPolicy == nil {
 			w.MatchPolicy = ptr.To(admissionregistrationv1.Equivalent)
 		}
-		if w.NamespaceSelector == nil {
-			w.NamespaceSelector = &metav1.LabelSelector{}
-		}
-		if w.ObjectSelector == nil {
-			w.ObjectSelector = &metav1.LabelSelector{}
-		}
+		w.NamespaceSelector = defaultWebhookSelector(w.NamespaceSelector)
+		w.ObjectSelector = defaultWebhookSelector(w.ObjectSelector)
 		if w.TimeoutSeconds == nil {
 			w.TimeoutSeconds = ptr.To[int32](10)
 		}
@@ -40,12 +36,8 @@ func defaultMutatingWebhooks(webhooks []admissionregistrationv1.MutatingWebhook)
 		if w.MatchPolicy == nil {
 			w.MatchPolicy = ptr.To(admissionregistrationv1.Equivalent)
 		}
-		if w.NamespaceSelector == nil {
-			w.NamespaceSelector = &metav1.LabelSelector{}
-		}
-		if w.ObjectSelector == nil {
-			w.ObjectSelector = &metav1.LabelSelector{}
-		}
+		w.NamespaceSelector = defaultWebhookSelector(w.NamespaceSelector)
+		w.ObjectSelector = defaultWebhookSelector(w.ObjectSelector)
 		if w.TimeoutSeconds == nil {
 			w.TimeoutSeconds = ptr.To[int32](10)
 		}
@@ -54,6 +46,26 @@ func defaultMutatingWebhooks(webhooks []admissionregistrationv1.MutatingWebhook)
 		}
 		defaultWebhookRulesAndService(w.Rules, w.ClientConfig.Service)
 	}
+}
+
+// Empty selector fields are omitted by the API server's JSON round trip. Copy
+// before clearing them: a built webhook may share its selector with an informer
+// policy or the runtime configuration.
+func defaultWebhookSelector(selector *metav1.LabelSelector) *metav1.LabelSelector {
+	if selector == nil {
+		return &metav1.LabelSelector{}
+	}
+	if selector.MatchLabels != nil && len(selector.MatchLabels) == 0 ||
+		selector.MatchExpressions != nil && len(selector.MatchExpressions) == 0 {
+		selector = selector.DeepCopy()
+		if len(selector.MatchLabels) == 0 {
+			selector.MatchLabels = nil
+		}
+		if len(selector.MatchExpressions) == 0 {
+			selector.MatchExpressions = nil
+		}
+	}
+	return selector
 }
 
 func defaultWebhookRulesAndService(rules []admissionregistrationv1.RuleWithOperations, service *admissionregistrationv1.ServiceReference) {
