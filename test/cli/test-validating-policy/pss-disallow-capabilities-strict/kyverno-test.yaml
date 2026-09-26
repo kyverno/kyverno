@@ -1,0 +1,28 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-disallow-capabilities-strict
+policies:
+- policy.yaml
+resources:
+- pods.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-capabilities-strict
+  resources:
+  - no-security-context
+  - capabilities-no-drop
+  - drop-net-raw
+  - drop-all-add-sys-admin
+  - init-container-no-security-context
+  - ephemeral-container-drop-net-raw
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-capabilities-strict
+  resources:
+  - drop-all
+  - drop-all-add-net-bind-service
+  - all-scopes-drop-all
+  result: pass
