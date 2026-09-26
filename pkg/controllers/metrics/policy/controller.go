@@ -52,6 +52,9 @@ func NewController(
 }
 
 func (c *controller) report(ctx context.Context, observer metric.Observer) error {
+	if c.ruleInfo == nil {
+		return nil
+	}
 	pols, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list policies")
