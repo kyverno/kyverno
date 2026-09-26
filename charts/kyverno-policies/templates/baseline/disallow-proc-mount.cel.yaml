@@ -1,4 +1,7 @@
 {{- $name := "disallow-proc-mount" }}
+{{/* PSA's Restricted procMount check overrides the Baseline one, so the user
+     namespace relaxation must not apply once the strict policy is installed. */}}
+{{- $relax := and .Values.podSecurityUserNamespaces (ne (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" "disallow-proc-mount-strict") .)) "true") }}
 {{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
@@ -35,23 +38,25 @@ spec:
   {{ end }}
   validations:
     - expression: >-
-        (!has(object.spec.containers) || object.spec.containers.all(c, 
-          !has(c.securityContext) || 
-          !has(c.securityContext.procMount) || 
+        {{- if $relax }}{{ include "kyverno-policies.userNamespaceRelaxation" . | nindent 8 }}{{ end }}
+        (!has(object.spec.containers) || object.spec.containers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.procMount) ||
           c.securityContext.procMount == 'Default')) &&
-        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
-          !has(c.securityContext) || 
-          !has(c.securityContext.procMount) || 
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.procMount) ||
           c.securityContext.procMount == 'Default')) &&
-        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
-          !has(c.securityContext) || 
-          !has(c.securityContext.procMount) || 
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.procMount) ||
           c.securityContext.procMount == 'Default'))
       message: >-
         The default /proc masks are set up to reduce attack surface. The fields
         spec.containers[*].securityContext.procMount,
         spec.initContainers[*].securityContext.procMount, and
-        spec.ephemeralContainers[*].securityContext.procMount must be unset or set to `Default`.
+        spec.ephemeralContainers[*].securityContext.procMount must be unset or set to `Default`{{ if $relax }},
+        unless the Pod sets spec.hostUsers to `false`{{ end }}.
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}

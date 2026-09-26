@@ -6,6 +6,7 @@ policies:
 - policy.yaml
 resources:
 - pods.yaml
+- resources.yaml
 results:
 - isValidatingPolicy: true
   kind: Pod
@@ -17,6 +18,9 @@ results:
   - pod-true-container-false
   - pod-true-init-container-false
   - pod-unset-ephemeral-unset
+  - nonroot-unset-host-users-absent
+  - nonroot-unset-host-users-true
+  - nonroot-container-false-host-users-absent
   result: fail
 - isValidatingPolicy: true
   kind: Pod
@@ -25,4 +29,8 @@ results:
   - pod-unset-containers-true
   - pod-true-containers-unset
   - pod-true-all-scopes-unset
+  - nonroot-unset-host-users-false
+  - nonroot-container-false-host-users-false
+  - nonroot-pod-true
+  - nonroot-containers-true
   result: pass

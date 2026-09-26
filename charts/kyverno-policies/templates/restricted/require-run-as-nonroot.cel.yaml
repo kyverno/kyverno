@@ -41,7 +41,8 @@ spec:
         object.spec.?initContainers.orValue([]) +
         object.spec.?ephemeralContainers.orValue([])
   validations:
-    - expression: >-
+    - expression: |-
+        {{- with (include "kyverno-policies.userNamespaceRelaxation" .) }}{{ . | nindent 8 }}{{- end }}
         object.spec.?securityContext.?runAsNonRoot.orValue(true) == true &&
         variables.ctnrs.all(c,
           c.?securityContext.?runAsNonRoot.orValue(
@@ -51,7 +52,8 @@ spec:
         must be unset or set to `true`, and the fields
         spec.containers[*].securityContext.runAsNonRoot,
         spec.initContainers[*].securityContext.runAsNonRoot, and
-        spec.ephemeralContainers[*].securityContext.runAsNonRoot must not be set to `false`.
+        spec.ephemeralContainers[*].securityContext.runAsNonRoot must not be set to `false`.{{ if .Values.podSecurityUserNamespaces }}
+        This policy does not apply to Pods that set spec.hostUsers to `false`.{{ end }}
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}

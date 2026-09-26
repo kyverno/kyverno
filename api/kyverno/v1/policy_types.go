@@ -26,6 +26,7 @@ import (
 // +kubebuilder:resource:shortName=pol,categories=kyverno
 // +kubebuilder:storageversion
 // +kubebuilder:deprecatedversion:warning="kyverno.io/v1 Policy is deprecated and will be removed in a future release; migrate to NamespacedValidatingPolicy and the other namespaced policy types (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/"
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
 // See: https://kyverno.io/docs/writing-policies/ for more information.

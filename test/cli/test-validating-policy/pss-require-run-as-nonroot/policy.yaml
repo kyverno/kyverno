@@ -17,14 +17,16 @@ spec:
         object.spec.?initContainers.orValue([]) +
         object.spec.?ephemeralContainers.orValue([])
   validations:
-    - expression: >-
-        object.spec.?securityContext.?runAsNonRoot.orValue(true) == true &&
+    - expression: |-
+        object.spec.?hostUsers.orValue(true) == false ||
+        (object.spec.?securityContext.?runAsNonRoot.orValue(true) == true &&
         variables.ctnrs.all(c,
           c.?securityContext.?runAsNonRoot.orValue(
-            object.spec.?securityContext.?runAsNonRoot.orValue(false)) == true)
+            object.spec.?securityContext.?runAsNonRoot.orValue(false)) == true))
       message: >-
         Running as root is not allowed. The field spec.securityContext.runAsNonRoot
         must be unset or set to `true`, and the fields
         spec.containers[*].securityContext.runAsNonRoot,
         spec.initContainers[*].securityContext.runAsNonRoot, and
         spec.ephemeralContainers[*].securityContext.runAsNonRoot must not be set to `false`.
+        This policy does not apply to Pods that set spec.hostUsers to `false`.
