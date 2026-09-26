@@ -94,7 +94,11 @@ func allCertificatesExpired(now time.Time, certs ...*x509.Certificate) bool {
 	return true
 }
 
-func validateCert(now time.Time, cert *x509.Certificate, caCerts ...*x509.Certificate) bool {
+func validateCert(now time.Time, certs []*x509.Certificate, caCerts ...*x509.Certificate) bool {
+	if len(certs) == 0 {
+		return false
+	}
+	cert := certs[0]
 	if cert == nil || len(cert.Raw) == 0 {
 		return false
 	}
@@ -109,7 +113,17 @@ func validateCert(now time.Time, cert *x509.Certificate, caCerts ...*x509.Certif
 	if !added {
 		return false
 	}
-	_, err := cert.Verify(x509.VerifyOptions{Roots: pool, CurrentTime: now})
+	intermediates := x509.NewCertPool()
+	for _, intermediate := range certs[1:] {
+		if intermediate != nil && len(intermediate.Raw) != 0 {
+			intermediates.AddCert(intermediate)
+		}
+	}
+	_, err := cert.Verify(x509.VerifyOptions{
+		Roots:         pool,
+		Intermediates: intermediates,
+		CurrentTime:   now,
+	})
 	return err == nil
 }
 
