@@ -28,6 +28,16 @@ podSecuritySeverityByPolicy: {}
 # -- Policies to include when `podSecurityStandard` is `custom`.
 podSecurityPolicies: []
 
+# -- Enable the Kubernetes Pod Security Admission relaxation for user namespace pods
+# for ValidatingPolicy templates only.
+# When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and
+# `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly
+# set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is
+# always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never
+# relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed.
+# This setting has no effect on legacy `ClusterPolicy` templates.
+podSecurityUserNamespaces: false
+
 # -- Additional policies to include from `other`.
 includeOtherPolicies: []
 # - require-non-root-groups
