@@ -44,6 +44,12 @@ func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 	return p.matchConstraints
 }
 
+// Tracing reports whether the policy was compiled with tracing on, i.e. whether its evaluation
+// results carry a Trace.
+func (p *Policy) Tracing() bool {
+	return p.trace
+}
+
 func (p *Policy) Evaluate(
 	ctx context.Context,
 	json any,
@@ -150,7 +156,13 @@ func (p *Policy) evaluateWithData(
 		return nil, err
 	}
 	if !match {
-		return nil, nil
+		if !p.trace {
+			return nil, nil
+		}
+		return &EvaluationResult{Skipped: true, Trace: &trace.Decision{
+			Match:   matchTraces,
+			Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(matchTraces)},
+		}}, nil
 	}
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew[compiler.VariablesKey] = vars
@@ -234,6 +246,19 @@ func (p *Policy) evaluateWithData(
 		return nil, err
 	}
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, Trace: decision()}, nil
+}
+
+// skipMessage names the match condition that excluded the resource. The last one recorded is the
+// one that stopped evaluation, since match returns as soon as a condition is false.
+func skipMessage(matchTraces []trace.NamedExpressionTrace) string {
+	if len(matchTraces) == 0 {
+		return "a match condition excluded this resource"
+	}
+	last := matchTraces[len(matchTraces)-1]
+	if last.Name != "" {
+		return fmt.Sprintf("match condition %q did not pass, so the policy was skipped", last.Name)
+	}
+	return "a match condition did not pass, so the policy was skipped"
 }
 
 // buildExpressionTrace turns one traced evaluation into an ExpressionTrace. The source text is

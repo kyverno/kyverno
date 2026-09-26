@@ -153,11 +153,23 @@ func TestEvaluate_TracingOn_ErrorIsCapturedOnNode(t *testing.T) {
 
 func TestEvaluate_TracingOn_MatchConditionFalseSkipsPolicy(t *testing.T) {
 	policy := buildTracePolicy(threeValidations()...)
-	result := compileAndEvaluate(t, true, policy, podObject("kube-system", map[string]any{"team": "a"}))
+	object := podObject("kube-system", map[string]any{"team": "a"})
 
-	// a skipped policy returns a nil result, so there is nothing to hang a trace on; this pins
-	// the current behavior so a future change to it is deliberate
-	assert.Nil(t, result)
+	// with tracing on, a skip is a non-nil result so the match trace is not lost; it is flagged
+	// Skipped and is not a failure
+	traced := compileAndEvaluate(t, true, policy, object)
+	require.NotNil(t, traced)
+	assert.True(t, traced.Skipped)
+	assert.False(t, traced.Result)
+	require.NotNil(t, traced.Trace)
+	assert.Equal(t, trace.VerdictSkip, traced.Trace.Verdict.Status)
+	assert.Contains(t, traced.Trace.Verdict.Message, "not-kube-system")
+	require.Len(t, traced.Trace.Match, 1)
+	assert.Equal(t, "false", traced.Trace.Match[0].Result)
+	assert.Empty(t, traced.Trace.Variables, "no variable is read once a match condition excludes the resource")
+
+	// with tracing off the behavior is unchanged: a skip is a nil result
+	assert.Nil(t, compileAndEvaluate(t, false, policy, object))
 }
 
 func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
@@ -173,7 +185,8 @@ func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
 		off := compileAndEvaluate(t, false, policy, object)
 		on := compileAndEvaluate(t, true, policy, object)
 		if off == nil {
-			assert.Nil(t, on)
+			require.NotNil(t, on)
+			assert.True(t, on.Skipped, "a policy skipped without tracing must be reported as skipped with it")
 			continue
 		}
 		require.NotNil(t, on)

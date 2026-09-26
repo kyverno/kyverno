@@ -26,9 +26,12 @@ type EvaluationResult struct {
 	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
 	// with tracing on, so callers must nil-check it. Only Match, Variables and Verdict are
 	// filled here; the policy/resource header and Scope are unknown at this level and are left
-	// for the caller to fill in. It is also nil when the policy was skipped because a match
-	// condition returned false, since that case returns a nil result altogether.
+	// for the caller to fill in.
 	Trace *trace.Decision
+	// Skipped is set when a match condition excluded the resource. Without tracing that case
+	// returns a nil result, and it still does; a non-nil skipped result is only returned when
+	// tracing is on, so the match traces are not lost. Consumers must treat it exactly like nil.
+	Skipped bool
 }
 
 type evaluationData struct {

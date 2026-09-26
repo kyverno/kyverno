@@ -28,7 +28,6 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/user"
 	"github.com/kyverno/sdk/extensions/cel/libs/x509"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -58,35 +57,6 @@ func NewCompiler(trace bool) Compiler {
 }
 
 type compilerImpl struct{ trace bool }
-
-// compileMatchConditions returns the match condition programs, plus their traced counterparts
-// (with retained ASTs) when tracing is on. With tracing off it is exactly CompileMatchConditions.
-func (c *compilerImpl) compileMatchConditions(path *field.Path, env *cel.Env, matchConditions []admissionregistrationv1.MatchCondition) ([]cel.Program, []compiler.TracedProgram, field.ErrorList) {
-	if !c.trace {
-		programs, errs := compiler.CompileMatchConditions(path, env, matchConditions...)
-		return programs, nil, errs
-	}
-	traced, errs := compiler.CompileMatchConditionsTraced(path, env, matchConditions...)
-	programs := make([]cel.Program, 0, len(traced))
-	for _, t := range traced {
-		programs = append(programs, t.Program)
-	}
-	return programs, traced, errs
-}
-
-// compileVariables is the variable equivalent of compileMatchConditions.
-func (c *compilerImpl) compileVariables(path *field.Path, env *cel.Env, provider *compiler.VariablesProvider, variables []admissionregistrationv1.Variable) (map[string]cel.Program, map[string]compiler.TracedProgram, field.ErrorList) {
-	if !c.trace {
-		programs, errs := compiler.CompileVariables(path, env, provider, variables...)
-		return programs, nil, errs
-	}
-	traced, errs := compiler.CompileVariablesTraced(path, env, provider, variables...)
-	programs := make(map[string]cel.Program, len(traced))
-	for name, t := range traced {
-		programs[name] = t.Program
-	}
-	return programs, traced, errs
-}
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
@@ -118,7 +88,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := c.compileMatchConditions(path, env, spec.MatchConditions)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -126,7 +96,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		tracedMatchConditions = traced
 	}
 
-	variables, tracedVariables, errs := c.compileVariables(path.Child("variables"), env, variablesProvider, spec.Variables)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -193,7 +163,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, traced, errs := c.compileMatchConditions(path, env, spec.MatchConditions)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
@@ -208,7 +178,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	variables, tracedVariables, errs := c.compileVariables(path.Child("variables"), env, variablesProvider, spec.Variables)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
