@@ -138,13 +138,21 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 				opts.Offline = true
 			}
 		}
-
-		trustedMaterial, err := resolveTrustedMaterial(att, trust.trustedRoot)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
-		}
-		opts.TrustedMaterial = trustedMaterial
 	}
+
+	// An inline trustedRoot carries its own Sigstore trust material, so it is
+	// resolved on both paths: the fast path skips TUF but still has to honor it,
+	// with no TUF-derived root to fall back to. Resolving before the TSA block
+	// below also lets a timestamping authority wrap an inline root.
+	var tufTrustedRoot *root.TrustedRoot
+	if trust != nil {
+		tufTrustedRoot = trust.trustedRoot
+	}
+	trustedMaterial, err := resolveTrustedMaterial(att, tufTrustedRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
+	}
+	opts.TrustedMaterial = trustedMaterial
 
 	if att.CTLog != nil {
 		opts.IgnoreSCT = att.CTLog.InsecureIgnoreSCT
@@ -636,6 +644,11 @@ func resolveTrustedMaterial(att *v1beta1.Cosign, defaultTrustedRoot *root.Truste
 			return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)
 		}
 		return tr, nil
+	}
+	if defaultTrustedRoot == nil {
+		// returning the typed nil pointer would yield a non-nil interface,
+		// making callers that check TrustedMaterial != nil take the wrong branch
+		return nil, nil
 	}
 	return defaultTrustedRoot, nil
 }
