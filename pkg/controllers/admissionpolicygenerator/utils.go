@@ -30,6 +30,18 @@ func (c *controller) getValidatingPolicy(name string) (*policiesv1beta1.Validati
 	return vpol, nil
 }
 
+// getNamespacedValidatingPolicy gets the Kyverno NamespacedValidatingPolicy
+func (c *controller) getNamespacedValidatingPolicy(namespace, name string) (*policiesv1beta1.NamespacedValidatingPolicy, error) {
+	if c.nvpolLister == nil {
+		return nil, fmt.Errorf("NamespacedValidatingPolicy lister is nil")
+	}
+	nvpol, err := c.nvpolLister.NamespacedValidatingPolicies(namespace).Get(name)
+	if err != nil {
+		return nil, err
+	}
+	return nvpol, nil
+}
+
 // getMutatingPolicy gets the Kyverno MutatingPolicy
 func (c *controller) getMutatingPolicy(name string) (*policiesv1beta1.MutatingPolicy, error) {
 	mpol, err := c.mpolLister.Get(name)
