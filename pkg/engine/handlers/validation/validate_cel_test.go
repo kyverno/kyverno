@@ -498,6 +498,144 @@ func TestValidateCELHandler_UpdateRequestSetsOldObject(t *testing.T) {
 	assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
 }
 
+var celPolicyDenyNoAllowExisting = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": { "name": "cel-deny-no-allow-existing" },
+	"spec": {
+		"validationFailureAction": "Enforce",
+		"rules": [{
+			"name": "check-labels",
+			"match": {
+				"any": [{ "resources": { "kinds": ["Pod"] } }]
+			},
+			"validate": {
+				"allowExistingViolations": false,
+				"cel": {
+					"expressions": [{
+						"expression": "object.metadata.name == 'must-not-exist'",
+						"message": "name must be must-not-exist"
+					}]
+				}
+			}
+		}]
+	}
+}`
+
+var celCompliantPod = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "must-not-exist",
+		"namespace": "test-ns",
+		"labels": { "app": "test" }
+	},
+	"spec": {
+		"containers": [{
+			"name": "nginx",
+			"image": "nginx:latest"
+		}]
+	}
+}`
+
+func TestValidateCELHandler_AllowExistingViolations_UpdateBothFail(t *testing.T) {
+	handler, err := NewValidateCELHandler(nil, false)
+	require.NoError(t, err)
+
+	updatedPod := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "test-ns",
+			"labels": { "app": "updated" }
+		},
+		"spec": {
+			"containers": [{
+				"name": "nginx",
+				"image": "nginx:1.25"
+			}]
+		}
+	}`
+
+	pc := buildCELContext(t, kyvernov1.Update, celPolicyDeny, updatedPod, celPodResource)
+	rule := pc.Policy().GetSpec().Rules[0]
+	resource := pc.NewResource()
+
+	_, responses := handler.Process(context.TODO(), logr.Discard(), pc, resource, rule, noopContextLoader, nil)
+	require.Len(t, responses, 1)
+	assert.Equal(t, engineapi.RuleStatusSkip, responses[0].Status())
+	assert.Contains(t, responses[0].Message(), "pre-existing violations are allowed")
+}
+
+func TestValidateCELHandler_AllowExistingViolations_UpdateNewViolation(t *testing.T) {
+	handler, err := NewValidateCELHandler(nil, false)
+	require.NoError(t, err)
+
+	pc := buildCELContext(t, kyvernov1.Update, celPolicyDeny, celPodResource, celCompliantPod)
+	rule := pc.Policy().GetSpec().Rules[0]
+	resource := pc.NewResource()
+
+	_, responses := handler.Process(context.TODO(), logr.Discard(), pc, resource, rule, noopContextLoader, nil)
+	require.Len(t, responses, 1)
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+}
+
+func TestValidateCELHandler_AllowExistingViolations_UpdateOldFailNewPass(t *testing.T) {
+	handler, err := NewValidateCELHandler(nil, false)
+	require.NoError(t, err)
+
+	pc := buildCELContext(t, kyvernov1.Update, celPolicyDeny, celCompliantPod, celPodResource)
+	rule := pc.Policy().GetSpec().Rules[0]
+	resource := pc.NewResource()
+
+	_, responses := handler.Process(context.TODO(), logr.Discard(), pc, resource, rule, noopContextLoader, nil)
+	require.Len(t, responses, 1)
+	assert.Equal(t, engineapi.RuleStatusPass, responses[0].Status())
+}
+
+func TestValidateCELHandler_AllowExistingViolations_Disabled(t *testing.T) {
+	handler, err := NewValidateCELHandler(nil, false)
+	require.NoError(t, err)
+
+	updatedPod := `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "test-ns",
+			"labels": { "app": "updated" }
+		},
+		"spec": {
+			"containers": [{
+				"name": "nginx",
+				"image": "nginx:1.25"
+			}]
+		}
+	}`
+
+	pc := buildCELContext(t, kyvernov1.Update, celPolicyDenyNoAllowExisting, updatedPod, celPodResource)
+	rule := pc.Policy().GetSpec().Rules[0]
+	resource := pc.NewResource()
+
+	_, responses := handler.Process(context.TODO(), logr.Discard(), pc, resource, rule, noopContextLoader, nil)
+	require.Len(t, responses, 1)
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+}
+
+func TestValidateCELHandler_AllowExistingViolations_CreateUnchanged(t *testing.T) {
+	handler, err := NewValidateCELHandler(nil, false)
+	require.NoError(t, err)
+
+	pc := buildCELContext(t, kyvernov1.Create, celPolicyDeny, celPodResource, "")
+	rule := pc.Policy().GetSpec().Rules[0]
+	resource := pc.NewResource()
+
+	_, responses := handler.Process(context.TODO(), logr.Discard(), pc, resource, rule, noopContextLoader, nil)
+	require.Len(t, responses, 1)
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+}
+
 func TestValidateCELHandler_EmptyMessageFallback(t *testing.T) {
 	// When a CEL expression has an empty message, it should fall back
 	// to rule.Validation.Message.
