@@ -61,6 +61,7 @@ test/                 # Tests
   policy/             #   Policy test fixtures
 docs/                 # Internal developer documentation
   dev/                #   API design, controllers, logging, feature flags, reports
+    proposals/        #   Kyverno Design Proposals and proposal lifecycle
 scripts/              # Build and CI scripts
 hack/                 # Code generation helpers
 ```
@@ -189,6 +190,19 @@ versioned packages. **`policies.kyverno.io` (the CEL-based types) does not** —
 `github.com/kyverno/api` module; see `api/AGENTS.md`. For versioning/stability/deprecation rules, see
 [docs/context/shared/api-versioning.md](./docs/context/shared/api-versioning.md) — the single canonical copy;
 don't restate rules here.
+
+## Design Proposals
+
+After the KDP handoff, new Kyverno Design Proposals (KDPs) live in
+`docs/dev/proposals/`. Until then, submit new proposals and substantive
+revisions to the separate `kyverno/KDP` repository. Start from
+`docs/dev/proposals/template.md` after the handoff and follow the lifecycle
+documented in `docs/dev/proposals/README.md`.
+
+Proposals guide design review and implementation. They are historical design
+records, not canonical post-release documentation, and may not be maintained
+after implementation. Once a feature ships, rely on the implementation, API
+documentation, tests, and user documentation for current behavior.
 
 ## Coding Conventions
 

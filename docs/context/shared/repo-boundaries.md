@@ -2,11 +2,13 @@
 
 The `kyverno` GitHub org has ~48 repos. This is the subset that actually matters when working in
 `kyverno/kyverno`, and why each one is separate rather than a folder in this repo.
+The in-repo design-proposal process is documented in
+[`docs/dev/proposals/`](../../dev/proposals/README.md); it is not a separate
+repository and is therefore not listed in the table.
 
 | Repo | What it holds | Why it's separate |
 |---|---|---|
 | [`kyverno/api`](https://github.com/kyverno/api) | The `policies.kyverno.io` CEL-policy CRD Go types (ValidatingPolicy, MutatingPolicy, GeneratingPolicy, DeletingPolicy, ImageValidatingPolicy, PolicyException) | Deliberate: lets external Go projects import Kyverno's API types without pulling in the full controller codebase and its dependency tree. No backfilled ADR exists yet for this decision. |
-| [`kyverno/KDP`](https://github.com/kyverno/KDP) | Kyverno Design Proposals | The project's actual design-proposal process. **Any substantial design work belongs there, not in a new in-repo process** — `docs/designs/` in this repo is explicitly scoped to notes too small for KDP, see its README. |
 | [`kyverno/website`](https://github.com/kyverno/website) | User-facing documentation (kyverno.io) | User docs have their own build/publish pipeline and audience; `README.md`/`CONTRIBUTING.md` already point PRs with doc impact there. |
 | [`kyverno/community`](https://github.com/kyverno/community) | Governance, Code of Conduct, Security policy, Maintainers/Contributors lists, `AI_USAGE_POLICY.md` | Org-wide policy shared across all `kyverno/*` repos, not specific to this codebase. `GOVERNANCE.md`, `SECURITY.md`, `MAINTAINERS.md`, `CONTRIBUTORS.md`, `CODE_OF_CONDUCT.md` in this repo are intentionally thin redirects here. |
 | [`kyverno/chainsaw`](https://github.com/kyverno/chainsaw) | The declarative e2e test tool | `test/conformance/chainsaw/` depends on it as a tool, but chainsaw itself is a general-purpose Kubernetes testing project with its own users beyond Kyverno. |

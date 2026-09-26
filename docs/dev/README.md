@@ -4,7 +4,13 @@ This folder contains developer documentation.
 
 To get started see: [DEVELOPMENT.md](../../DEVELOPMENT.md).
 
-When you are ready to contribute, you can select issue at [Good First Issues](https://github.com/orgs/kyverno/projects/10). 
+When you are ready to contribute, you can select an issue from
+[Good First Issues](https://github.com/orgs/kyverno/projects/10).
+
+For substantial design changes, submit proposals to
+[kyverno/KDP](https://github.com/kyverno/KDP) until the handoff is complete;
+after the handoff, use the in-repo
+[Kyverno Design Proposals](proposals/README.md) process.
 
 For release instructions, see: [create-a-release.md](releases/create-a-release.md).
 
