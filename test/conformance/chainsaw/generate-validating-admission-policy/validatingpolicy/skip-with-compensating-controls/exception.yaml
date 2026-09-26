@@ -1,0 +1,16 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: check-deployment-name
+spec:
+  policyRefs:
+  - name: "check-deployment-labels"
+    kind: ValidatingPolicy
+  matchConditions:
+    - name: "check-name"
+      expression: "object.metadata.name == 'skipped-deployment'"
+  # a generated VAP cannot report a control's message or admit a resource the policy passes,
+  # so the presence of this field must stop VAP generation entirely
+  validations:
+    - expression: "'security.company.com/ticket-id' in object.metadata.?annotations.orValue({})"
+      message: "exception requires a security ticket annotation"

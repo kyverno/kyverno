@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: other-app
+spec:
+  containers:
+  - name: app
+    image: public.ecr.aws/docker/library/busybox:latest
