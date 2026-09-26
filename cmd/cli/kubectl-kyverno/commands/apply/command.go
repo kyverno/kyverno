@@ -97,6 +97,7 @@ type ApplyCommandConfig struct {
 	Stdin                     bool
 	RegistryAccess            bool
 	AuditWarn                 bool
+	Explain                   bool
 	ResourcePaths             []string
 	PolicyPaths               []string
 	TargetResourcePaths       []string
@@ -240,6 +241,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each validating policy reached its result: whether it applied, its match conditions, variables and the validation that decided it")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -616,6 +618,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -657,6 +660,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
