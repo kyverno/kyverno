@@ -942,7 +942,7 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 			wantCacheSize: 0,
 		},
 		{
-			name: "skip delete when GenerateSourceUIDLabel present",
+			name: "delete clone downstream when deleteDownstream = true",
 			fields: fields{
 				client: &MockClient{},
 				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
@@ -967,6 +967,35 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
 			},
 			args:          args{"pol1", true},
+			wantDeleted:   []string{"Pod/isolated-ns/res-test"},
+			wantCacheSize: 0,
+		},
+		{
+			name: "keep clone downstream when deleteDownstream = false",
+			fields: fields{
+				client: &MockClient{},
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {
+						metadataCache: map[types.UID]Resource{
+							"uid1": {
+								Name:      "res-test",
+								Namespace: "isolated-ns",
+								Labels: map[string]string{
+									common.GeneratePolicyLabel:    "pol1",
+									common.GenerateSourceUIDLabel: "src-uid",
+								},
+								Data: makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", nil),
+							},
+						},
+						watcher: watch.MockWatcher{
+							StopFunc: func() {},
+						},
+					},
+				},
+				policyRefs: map[string][]schema.GroupVersionResource{"pol1": {gvr}},
+				refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+			},
+			args:          args{"pol1", false},
 			wantDeleted:   nil,
 			wantCacheSize: 0,
 		},
@@ -1608,4 +1637,60 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	_, hasSecond := restarted.metadataCache["uid2"]
 	assert.True(t, hasFirst)
 	assert.True(t, hasSecond)
+}
+
+// TestRemoveWatchersForPolicy_CloneDownstreamsAreNotOrphaned is the regression test for
+// https://github.com/kyverno/kyverno/issues/17596. A GeneratingPolicy with
+// orphanDownstreamOnPolicyDelete disabled used to leave clone downstreams behind on policy
+// deletion, because they carry the source UID label. The same pass also drops them from the
+// metadata cache and stops the watcher, and the source-deletion handler skips anything that is
+// not in that cache, so deleting the source afterwards did not clean them up either. The clone
+// was orphaned for good.
+func TestRemoveWatchersForPolicy_CloneDownstreamsAreNotOrphaned(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	client := &MockClient{}
+	stopped := false
+
+	clone := Resource{
+		Name:      "cloned-secret",
+		Namespace: "team-a",
+		Labels: map[string]string{
+			common.GeneratePolicyLabel:    "sync-secret",
+			common.GenerateSourceUIDLabel: "source-uid",
+		},
+		Data: makeUnstructured("1", "", "v1", "Secret", "cloned-secret", "team-a", "downstream-uid", nil),
+	}
+	generated := Resource{
+		Name:      "generated-secret",
+		Namespace: "team-b",
+		Labels:    map[string]string{common.GeneratePolicyLabel: "sync-secret"},
+		Data:      makeUnstructured("1", "", "v1", "Secret", "generated-secret", "team-b", "generated-uid", nil),
+	}
+
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: client,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {
+				metadataCache: map[types.UID]Resource{
+					"downstream-uid": clone,
+					"generated-uid":  generated,
+				},
+				watcher: watch.MockWatcher{StopFunc: func() { stopped = true }},
+			},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{"sync-secret": {gvr}},
+		refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+	}
+
+	// orphanDownstreamOnPolicyDelete is disabled, so deleteDownstream is true.
+	wm.RemoveWatchersForPolicy("sync-secret", true)
+
+	assert.ElementsMatch(t,
+		[]string{"Secret/team-a/cloned-secret", "Secret/team-b/generated-secret"},
+		client.deleted,
+		"both the cloned and the generated downstream should be deleted",
+	)
+	assert.True(t, stopped, "the watcher should be stopped once the policy is gone")
+	assert.NotContains(t, wm.policyRefs, "sync-secret")
 }

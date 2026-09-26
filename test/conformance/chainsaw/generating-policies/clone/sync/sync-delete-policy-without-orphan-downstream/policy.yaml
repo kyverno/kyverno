@@ -1,0 +1,23 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: clone-sync-delete-policy-without-orphan-downstream
+spec:
+  evaluation:
+    synchronize:
+      enabled: true
+    orphanDownstreamOnPolicyDelete:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["namespaces"]
+  variables:
+    - name: nsName
+      expression: "object.metadata.name"
+    - name: source
+      expression: resource.get("v1", "secrets", "default", "clone-sync-delete-policy-without-orphan-downstream")
+  generate:
+    - expression: generator.apply(variables.nsName, [variables.source])
