@@ -642,11 +642,6 @@ codegen-cli-crds: codegen-crds-policies
 codegen-cli-crds: codegen-crds-cli
 	@echo Copy generated CRDs to embed in the CLI... >&2
 	@rm -rf cmd/cli/kubectl-kyverno/data/crds && mkdir -p cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_clusterpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_policies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_cleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
-	@cp config/crds/kyverno/kyverno.io_clustercleanuppolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_policyexceptions.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_validatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
 	@cp config/crds/policies.kyverno.io/policies.kyverno.io_namespacedvalidatingpolicies.yaml cmd/cli/kubectl-kyverno/data/crds
@@ -717,12 +712,7 @@ codegen-helm-crds: codegen-crds-all
 	@rm -rf ./charts/kyverno/charts/crds/templates/kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/reports.kyverno.io && mkdir -p ./charts/kyverno/charts/crds/templates/reports.kyverno.io
 	@rm -rf ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io && mkdir -p ./charts/kyverno/charts/crds/templates/wgpolicyk8s.io
-	$(call generate_crd,kyverno.io_cleanuppolicies.yaml,kyverno,kyverno.io,kyverno,cleanuppolicies)
-	$(call generate_crd,kyverno.io_clustercleanuppolicies.yaml,kyverno,kyverno.io,kyverno,clustercleanuppolicies)
-	$(call generate_crd,kyverno.io_clusterpolicies.yaml,kyverno,kyverno.io,kyverno,clusterpolicies)
 	$(call generate_crd,kyverno.io_globalcontextentries.yaml,kyverno,kyverno.io,kyverno,globalcontextentries)
-	$(call generate_crd,kyverno.io_policies.yaml,kyverno,kyverno.io,kyverno,policies)
-	$(call generate_crd,kyverno.io_policyexceptions.yaml,kyverno,kyverno.io,kyverno,policyexceptions)
 	$(call generate_crd,kyverno.io_updaterequests.yaml,kyverno,kyverno.io,kyverno,updaterequests)
 	$(call generate_crd,reports.kyverno.io_clusterephemeralreports.yaml,reports,reports.kyverno.io,reports,clusterephemeralreports,true)
 	$(call generate_crd,reports.kyverno.io_ephemeralreports.yaml,reports,reports.kyverno.io,reports,ephemeralreports,true)
