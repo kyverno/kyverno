@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -1141,28 +1139,16 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 		}
 		isGit := source.IsGit(path)
 		if isGit {
-			gitSourceURL, err := url.Parse(path)
-			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
-			}
-			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
-			if len(pathElems) <= 1 {
-				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
-			}
-			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-			repoURL := gitSourceURL.String()
-			var gitPathToYamls string
-			c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, path)
-			fs := memfs.New()
-			auth := &http.BasicAuth{
+			auth := http.BasicAuth{
 				Username: c.GitUsername,
 				Password: c.GitPassword,
 			}
-			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
-				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
+			fs, gitPathToYamls, resolvedBranch, err := common.ResolveGitSource(path, c.GitBranch, c.cloneRepo, auth)
+			if err != nil {
+				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository for %v", path), "error", err)
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
+			c.GitBranch = resolvedBranch
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
