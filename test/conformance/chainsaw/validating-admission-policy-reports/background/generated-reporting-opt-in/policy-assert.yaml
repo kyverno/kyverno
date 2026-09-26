@@ -1,0 +1,7 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: reporting-opt-in-vap
+status:
+  conditionStatus:
+    ready: true

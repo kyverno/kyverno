@@ -14,7 +14,7 @@ func (c *controller) addMP(obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) updateMP(old, obj policiesv1beta1.MutatingPolicyLike) {
-	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
+	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) && !reportingLabelsChanged(old.GetLabels(), obj.GetLabels()) {
 		return
 	}
 	logger.V(2).Info("mutating policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
