@@ -90,6 +90,7 @@ jobs:
         uses: ./.github/actions/go/setup
         with:
           gobuild-cache-prefix: gobuild-unit-tests
+          gobuild-cache-include-run-id: 'true'
       - name: Check performance regression
         run: make check-perf
 
