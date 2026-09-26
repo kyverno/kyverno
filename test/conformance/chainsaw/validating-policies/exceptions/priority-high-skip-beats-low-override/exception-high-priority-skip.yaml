@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: high-priority-skip
+  labels:
+    polex.kyverno.io/priority: "10"
+spec:
+  policyRefs:
+    - name: require-team-label
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: match-pod
+      expression: "object.metadata.name == 'test-pod'"

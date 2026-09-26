@@ -1,0 +1,11 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: full-exemption
+spec:
+  policyRefs:
+    - name: restrict-images
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: match-pod
+      expression: "object.metadata.name == 'test-pod'"
