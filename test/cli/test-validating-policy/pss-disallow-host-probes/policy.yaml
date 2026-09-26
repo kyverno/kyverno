@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-host-probes
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  variables:
+    - name: allContainers
+      expression: >-
+        object.spec.containers
+        + object.spec.?initContainers.orValue([])
+  validations:
+    - expression: >-
+        variables.allContainers.all(c,
+          [
+            c.?livenessProbe.orValue({}),
+            c.?readinessProbe.orValue({}),
+            c.?startupProbe.orValue({}),
+            c.?lifecycle.?postStart.orValue({}),
+            c.?lifecycle.?preStop.orValue({})
+          ].all(h,
+            h.?httpGet.?host.orValue('') == '' &&
+            h.?tcpSocket.?host.orValue('') == ''))
+      message: >-
+        Probes and lifecycle handlers must not target a specific host. The fields
+        livenessProbe, readinessProbe, startupProbe, lifecycle.postStart, and
+        lifecycle.preStop must leave httpGet.host and tcpSocket.host unset or empty
+        in spec.containers[*], spec.initContainers[*].
