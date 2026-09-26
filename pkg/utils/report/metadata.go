@@ -225,13 +225,10 @@ func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
 	group := controllerutils.GetLabel(report, LabelResourceGroup)
 	version := controllerutils.GetLabel(report, LabelResourceVersion)
 	resource := controllerutils.GetLabel(report, AnnotationResourceName)
-	GVRstring := group + version + resource
 
 	// If all three parts exist, return the GVR
 	if group != "" && version != "" && resource != "" {
-		if len(GVRstring) > 63 {
-			return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-		}
+		return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
 	}
 
 	// Fallback to the old combined label
