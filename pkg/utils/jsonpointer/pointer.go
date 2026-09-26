@@ -180,7 +180,7 @@ func (p Pointer) JMESPath() string {
 				continue
 			}
 
-			// All other characters must be written as unicode escape sequences ay 16 bits a piece.
+			// All other characters must be written as unicode escape sequences at 16 bits a piece.
 			if i := utf8.RuneLen(r); i <= 2 {
 				// Rune is 1 or 2 bytes.
 				_, _ = fmt.Fprintf(&sb, "\\u%04x", r&0xffff)
