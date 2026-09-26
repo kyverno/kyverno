@@ -30,7 +30,7 @@ func (h *validationHandlers) Validate(ctx context.Context, logger logr.Logger, r
 		logger.Error(err, "failed to unmarshal metadatas from admission request")
 		return admissionutils.ResponseSuccess(request.UID, err.Error())
 	}
-	if !manager.HasResourcePermissions(logger, schema.GroupVersionResource(request.AdmissionRequest.Resource), h.checker) {
+	if !manager.HasResourcePermissions(ctx, logger, schema.GroupVersionResource(request.AdmissionRequest.Resource), h.checker) {
 		logger.Info("doesn't have required permissions for deletion", "gvr", request.AdmissionRequest.Resource.String())
 	}
 	if err := validation.ValidateTtlLabel(ctx, metadata); err != nil {

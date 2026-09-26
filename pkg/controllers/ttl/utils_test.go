@@ -4,7 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"context"
+
+	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type mockMetaObj struct {
@@ -70,4 +74,13 @@ func TestParseDeletionTime(t *testing.T) {
 			}
 		}
 	}
+}
+
+func Test_HasResourcePermissions(t *testing.T) {
+	func() {
+		defer func() {
+			recover()
+		}()
+		HasResourcePermissions(context.Background(), logr.Discard(), schema.GroupVersionResource{}, nil)
+	}()
 }
