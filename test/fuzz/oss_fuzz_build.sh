@@ -8,6 +8,7 @@ printf "package engine\nimport _ \"github.com/AdamKorcz/go-118-fuzz-build/testin
 go mod tidy
 
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/utils/api FuzzJmespath FuzzJmespath
+compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/utils/wildcard FuzzMatch FuzzMatch
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/variables FuzzEvaluate FuzzEvaluate
 compile_native_go_fuzzer github.com/kyverno/kyverno/api/kyverno/v2beta1 FuzzV2beta1PolicyValidate FuzzV2beta1PolicyValidate
 compile_native_go_fuzzer github.com/kyverno/kyverno/api/kyverno/v2beta1 FuzzV2beta1ImageVerification FuzzV2beta1ImageVerification

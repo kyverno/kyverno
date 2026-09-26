@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -29,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1634,7 +1634,7 @@ func validateNamespaces(validationFailureActionOverrides []kyvernov1.ValidationF
 		if !vfa.Action.IsValid() {
 			return fmt.Errorf("invalid action")
 		}
-		patternList, nsList := wildcard.SeperateWildcards(vfa.Namespaces)
+		patternList, nsList := wildcard.SeparateWildcards(vfa.Namespaces)
 
 		if vfa.Action.Audit() {
 			if action["enforce"].HasAny(nsList...) {
