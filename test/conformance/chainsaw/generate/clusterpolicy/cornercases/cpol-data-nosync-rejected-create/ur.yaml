@@ -7,6 +7,7 @@ spec:
   policy: cpol-rejected-create
   rule: generate-configmap
   requestType: generate
+  deleteDownstream: false
   resource:
     apiVersion: v1
     kind: Namespace
@@ -14,6 +15,7 @@ spec:
     uid: live-uid-999
   ruleContext:
   - rule: generate-configmap
+    deleteDownstream: false
     synchronize: false
     trigger:
       apiVersion: v1
