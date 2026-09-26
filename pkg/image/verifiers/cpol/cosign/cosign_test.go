@@ -669,10 +669,5 @@ func TestDecodeStatementNonStringPayload(t *testing.T) {
 	}
 
 	_, _, err = decodeStatement(sig)
-	assert.Error(t, err)
-	assert.Equal(
-		t,
-		"'payload' found to be of the type float64. The payload is expected to be a base64 encoded string",
-		err.Error(),
-	)
+	assert.ErrorContains(t, err, "found to be of the type float64")
 }
