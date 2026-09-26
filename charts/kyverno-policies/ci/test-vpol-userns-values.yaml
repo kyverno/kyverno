@@ -1,0 +1,9 @@
+policyType: ValidatingPolicy
+podSecurityStandard: restricted
+
+# Enable the Kubernetes PSA relaxation for user namespace pods.
+# Only disallow-proc-mount (Baseline), require-run-as-nonroot and
+# require-run-as-non-root-user (Restricted) may relax. Under the Restricted
+# profile disallow-proc-mount-strict is installed, so the Baseline procMount
+# policy stays strict too.
+podSecurityUserNamespaces: true
