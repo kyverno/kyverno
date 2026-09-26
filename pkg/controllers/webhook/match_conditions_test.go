@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -140,6 +141,7 @@ func TestBuildWebhookRules_NamespaceObjectMatchConditionsNotOffloaded(t *testing
 			expressionCache := NewExpressionCache()
 			expressionCache.AddPolicyExpressions(vpol.GetMatchConditions())
 			webhooks := buildWebhookRules(
+				context.Background(),
 				config.NewDefaultConfiguration(false),
 				"",
 				config.ValidatingPolicyWebhookName,

@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
@@ -13,6 +14,6 @@ func FuzzValidatePolicy(f *testing.F) {
 		p := &kyverno.ClusterPolicy{}
 		ff.GenerateStruct(p)
 
-		Validate(p, nil, nil, true, "admin", "admin")
+		Validate(context.Background(), p, nil, nil, true, "admin", "admin")
 	})
 }

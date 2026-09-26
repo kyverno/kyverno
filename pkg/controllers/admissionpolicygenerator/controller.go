@@ -221,7 +221,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ClusterPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
+		generateValidatingAdmissionPolicy := toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy()
 		if !generateValidatingAdmissionPolicy {
 			return nil
 		}
@@ -243,7 +243,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 	} else if polType == "ValidatingPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
+		generateValidatingAdmissionPolicy := toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy()
 		if !generateValidatingAdmissionPolicy {
 			return nil
 		}
@@ -269,7 +269,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
 		}
-		generateMutatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateMutatingAdmissionPolicy()
+		generateMutatingAdmissionPolicy := toggle.FromContext(ctx).GenerateMutatingAdmissionPolicy()
 		if !generateMutatingAdmissionPolicy {
 			if !mpol.Spec.GenerateMutatingAdmissionPolicyEnabled() {
 				return nil
