@@ -8,6 +8,22 @@ policies:
 resources:
 - resource.yaml
 results:
+- cloneSourceResource: cloneSourceResources-a.yaml
+  generatedResource: generatedResource-a.yaml
+  kind: Namespace
+  policy: clone-list-secrets-a
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: clone-list-labelled-secrets
+- cloneSourceResource: cloneSourceResources-b.yaml
+  generatedResource: generatedResource-b.yaml
+  kind: Namespace
+  policy: clone-list-secrets-b
+  resources:
+  - hello-world-namespace
+  result: pass
+  rule: clone-list-labelled-secrets
 - cloneSourceResource: clone-source-a.yaml
   generatedResource: generated-a.yaml
   kind: Namespace

@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]map[string]string) ([]engineapi.RuleResponse, error) {
 func PolicyRuleKey(policy kyvernov1.PolicyInterface, ruleName string) string {
 	return fmt.Sprintf("%s/%s/%s/%s", policy.GetKind(), policy.GetNamespace(), policy.GetName(), ruleName)
 }
@@ -31,7 +32,11 @@ func PolicyRuleKey(policy kyvernov1.PolicyInterface, ruleName string) string {
 func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *engineapi.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]engineapi.RuleResponse, error) {
 	newResource := policyContext.NewResource()
 	objects := []runtime.Object{&newResource}
+	policyName := policyContext.Policy().GetName()
 	for _, rule := range generateResponse.PolicyResponse.Rules {
+		if paths, ok := ruleToCloneSourceResource[policyName]; ok {
+			if path, ok := paths[rule.Name()]; ok {
+				resourceBytes, err := resource.GetFileBytes(path)
 		if path, ok := ruleToCloneSourceResource[PolicyRuleKey(policyContext.Policy(), rule.Name())]; ok {
 			resourceBytes, err := resource.GetFileBytes(path)
 			if err != nil {
@@ -39,10 +44,15 @@ func handleGeneratePolicy(out io.Writer, store *store.Store, generateResponse *e
 			} else {
 				r, err := resource.GetUnstructuredResources(resourceBytes)
 				if err != nil {
-					fmt.Fprintf(out, "failed to convert resource bytes to unstructured format\n")
-				}
-				for _, res := range r {
-					objects = append(objects, res)
+					fmt.Fprintf(out, "failed to get resource bytes\n")
+				} else {
+					r, err := resource.GetUnstructuredResources(resourceBytes)
+					if err != nil {
+						fmt.Fprintf(out, "failed to convert resource bytes to unstructured format\n")
+					}
+					for _, res := range r {
+						objects = append(objects, res)
+					}
 				}
 			}
 		}
