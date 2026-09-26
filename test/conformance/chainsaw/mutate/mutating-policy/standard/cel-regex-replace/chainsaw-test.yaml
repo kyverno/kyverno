@@ -10,6 +10,18 @@ spec:
     try:
     - apply:
         file: policy.yaml
+  - name: wait-for-webhook
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: rewrite-image-registry
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - status: "True"
   - name: create-pod
     try:
     - apply:

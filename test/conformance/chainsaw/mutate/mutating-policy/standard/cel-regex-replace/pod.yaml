@@ -3,6 +3,9 @@ kind: Pod
 metadata:
   name: test-pod
 spec:
+  # The rewritten image points at a registry that cannot be pulled; delete the pod
+  # immediately on cleanup instead of waiting out the default grace period.
+  terminationGracePeriodSeconds: 0
   containers:
   - name: nginx
     image: docker.io/nginx:latest
