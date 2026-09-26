@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
@@ -13,8 +14,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
+	dynamicfake "k8s.io/client-go/dynamic/fake"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
 func TestGetKinds(t *testing.T) {
@@ -331,7 +335,7 @@ func Test_ValidateMultipleBindingsDenyIsNotOverwritten(t *testing.T) {
 			Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
 				PolicyName:        policy.Name,
 				ValidationActions: []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny},
-				ParamRef:          &admissionregistrationv1.ParamRef{Name: param, Namespace: "default"},
+				ParamRef:          &admissionregistrationv1.ParamRef{Name: param},
 			},
 		}
 		if selector != nil {
@@ -346,20 +350,28 @@ func Test_ValidateMultipleBindingsDenyIsNotOverwritten(t *testing.T) {
 		return &unstructured.Unstructured{Object: map[string]any{
 			"apiVersion": "v1",
 			"kind":       "ConfigMap",
-			"metadata":   map[string]any{"name": name, "namespace": "default"},
+			"metadata":   map[string]any{"name": name},
 			"data":       map[string]any{"maxReplicas": max},
 		}}
 	}
 
 	gvk := resource.GroupVersionKind()
 	gvr := schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+	client := dclient.NewFakeClientWithDisco(
+		dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), param("critical-limits", "3"), param("baseline-limits", "10")),
+		kubefake.NewSimpleClientset(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}),
+		dclient.NewFakeDiscoveryClient(nil),
+	)
 
 	for _, tc := range []struct {
 		name     string
 		bindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
+		isFake   bool
 	}{
-		{name: "denying binding first", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{critical, baseline}},
-		{name: "denying binding last", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{baseline, critical}},
+		{name: "denying binding first", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{critical, baseline}, isFake: true},
+		{name: "denying binding last", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{baseline, critical}, isFake: true},
+		{name: "denying binding first with client", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{critical, baseline}, isFake: false},
+		{name: "denying binding last with client", bindings: []admissionregistrationv1.ValidatingAdmissionPolicyBinding{baseline, critical}, isFake: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			data := engineapi.NewValidatingAdmissionPolicyData(policy.DeepCopy())
@@ -369,7 +381,7 @@ func Test_ValidateMultipleBindingsDenyIsNotOverwritten(t *testing.T) {
 			data.AddParam(param("critical-limits", "3"))
 			data.AddParam(param("baseline-limits", "10"))
 
-			response, err := Validate(data, *resource, gvk, gvr, nil, nil, nil, true)
+			response, err := Validate(data, *resource, gvk, gvr, nil, client, nil, tc.isFake)
 			assert.NilError(t, err)
 
 			var statuses []engineapi.RuleStatus
