@@ -33,7 +33,8 @@ spec:
         {{- tpl (toYaml .) $ | nindent 8 }}
         {{- end }}
       {{- with .Values.cleanupController.podAnnotations }}
-      annotations: {{ tpl (toYaml .) $ | nindent 8 }}
+      annotations:
+        {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
     spec:
       {{- with .Values.cleanupController.imagePullSecrets | default .Values.global.imagePullSecrets }}
