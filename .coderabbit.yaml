@@ -1,0 +1,276 @@
+# yaml-language-server: $schema=https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+#
+# CodeRabbit already reviews every PR on this repo off dashboard defaults (Team-tier features via the OSS plan) —
+# this file makes that config explicit, repo-owned, and reviewable, instead of living only in the dashboard.
+# Schema verified against https://docs.coderabbit.ai/reference/yaml-template at the time this was written; a few
+# keys below (tools.*, ast-grep, finishing_touches, auto_review.ignore_usernames) are nested differently than
+# older examples floating around — this file uses the current schema.
+#
+# Rate-limit note (OSS plan): 1-10 reviews/developer/hour, rolling window, 100-300 files/review. Dependabot is one
+# identity and opens ~10-15 PRs/week — excluded below via auto_review.ignore_usernames so it can't exhaust the
+# shared allowance.
+
+language: en-US
+
+reviews:
+  profile: assertive
+  high_level_summary: true
+  sequence_diagrams: true
+  collapse_walkthrough: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  estimate_code_review_effort: true
+  suggested_labels: true
+  # Scoped, not a blanket "label everything": pr-labelling.yaml (actions/labeler, driven by .github/labels.yml's
+  # `rules:` glob matchers) already applies area/* and most kind/* labels from changed files on every PR. Letting
+  # CodeRabbit re-suggest those would just be noise. auto_apply_labels here is for what path-globbing structurally
+  # can't produce — content-based labels like kind/security (PR description mentions a CVE) or ai-generated (see
+  # slop_detection below).
+  labeling_instructions:
+    - label: "kind/security"
+      instructions: Apply only when the PR description identifies a security fix or vulnerability.
+  auto_apply_labels: true
+  suggested_reviewers: true
+  auto_assign_reviewers: true
+  poem: false
+  # Stops CodeRabbit from continuing to spend review budget on a PR that's already been closed or merged out from
+  # under it mid-review — matches this repo's OSS rate limit being worth conserving.
+  abort_on_close: true
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+
+  auto_review:
+    enabled: true
+    ignore_usernames:
+      - "dependabot[bot]"
+
+  path_filters:
+    # Confirmed generated/no-edit zones (ARCHITECTURE.md's table, verified via `DO NOT EDIT` headers and Makefile
+    # targets) — deprioritized so large codegen diffs don't burn the 100-300 file review budget on files nobody
+    # hand-edits.
+    - "!pkg/client/**"
+    - "!api/**/zz_generated.*.go"
+    - "!config/crds/**/*.yaml"
+    - "!cmd/cli/kubectl-kyverno/config/crds/**"
+    - "!cmd/cli/kubectl-kyverno/data/crds/**"
+    - "!charts/kyverno/charts/crds/templates/**"
+    - "!config/install-latest-testing.yaml"
+    - "!docs/user/crd/**"
+    # Double-star, not single: helm-docs generates 4 README.md files, 2 top-level plus 2 nested
+    # (charts/kyverno/charts/{crds,grafana}/README.md) — a single-star glob only matched the top-level pair.
+    - "!charts/**/README.md"
+    - "!pkg/clients/**/*.generated.go"
+    - "!pkg/clients/**/interface.generated.go"
+    - "!pkg/config/mocks/mock_config.go"
+
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Before reviewing, read the root AGENTS.md, REVIEW.md (the project's own review checklist — DCO, codegen
+        freshness, generated-file boundaries, feature-flag registration, what CI does and doesn't run
+        automatically), and ARCHITECTURE.md (domain layering between the legacy pkg/engine and the CEL pkg/cel
+        stack, and its Generated/no-edit-zones table). If the PR touches a package with its own AGENTS.md
+        (pkg/engine/, pkg/webhooks/, pkg/cel/, pkg/clients/, pkg/toggle/, pkg/controllers/, pkg/background/,
+        pkg/image/, api/), read that too — these document non-obvious, already-verified behavior a diff alone
+        won't show. Don't restate any of their content in a comment; use them to judge whether the diff is
+        correct, not as something to summarize.
+
+        This PR is also reviewed by GitHub Copilot. Stay in your lane to avoid duplicate, conflicting comments:
+        focus on security vulnerabilities, linting/static-analysis violations (only what the enabled `tools.*`
+        actually flagged, don't freelance style opinions), missing tests, and CI/CD or GitHub Actions issues.
+        Copilot is reviewing the same diff for logic bugs and cross-file/architectural concerns — don't duplicate
+        those, and don't re-flag something Copilot already commented on in this same review round.
+
+    - path: "pkg/engine/**"
+      instructions: |
+        Read pkg/engine/AGENTS.md in full before reviewing — it documents behavior that isn't visible from a diff
+        alone: handler dispatch is an if/else chain per rule in validation.go/mutation.go, not a registry;
+        ApplyRules == ApplyOne short-circuits after the first rule with a non-zero applied count; rules within the
+        same policy see each other's patches (engine.go's invokeRuleHandler checkpoints/restores the JSON context
+        between rules). Flag anything in the diff that contradicts these documented behaviors, and flag any new
+        rule-type handler or evaluation path that doesn't fit the existing dispatch pattern without explanation.
+        CodeRabbit's native Code Graph Analysis already tracks cross-file callers/implementors — use it for any
+        cross-package concern here; cite exact file:line, don't guess.
+
+    - path: "pkg/webhooks/**"
+      instructions: |
+        Read pkg/webhooks/AGENTS.md in full before reviewing — it documents that it's rule *type*, not
+        enforce/audit mode, that decides sync vs. queued: generate/mutateExisting rules route to
+        handleBackgroundApplies (skipped entirely for dry-run admission requests), while plain validate rules run
+        inline, and enforce-mode/audit-with-emitWarning validate runs synchronously in the same wait.Group that
+        produces the admission decision (a resource can be Allowed: true and still carry a Warning). This is the
+        latency-critical admission path — flag any new synchronous blocking call without a timeout, any missing
+        panic recovery, and anything that could block admission incorrectly. CodeRabbit's native Code Graph
+        Analysis already tracks cross-file callers/implementors — use it before flagging cross-package impact
+        here; cite exact file:line.
+
+    - path: "pkg/cel/**"
+      instructions: |
+        Read pkg/cel/AGENTS.md in full before reviewing — the five policy kinds (vpol/mpol/gpol/dpol/ivpol) do not
+        share one structural template (confirmed: gpol and dpol have no autogen/, gpol has a custom template/
+        placeholder scanner); don't assume a change to one kind's compiler/engine pattern generalizes to the
+        others. Flag any CEL expression evaluation path that doesn't handle nil/absent values gracefully.
+        CodeRabbit's native Code Graph Analysis already tracks cross-file callers/implementors — use it before
+        flagging cross-package impact; cite exact file:line.
+
+    - path: "api/**"
+      instructions: |
+        Read api/AGENTS.md and docs/context/shared/api-versioning.md before reviewing. api/ holds this
+        repository's own local API types — kyverno.io, wgpolicyk8s.io (as policyreport), and reports.kyverno.io.
+        (The CEL-policy types under policies.kyverno.io are the ones that live in the separate
+        github.com/kyverno/api module — that boundary applies there, not to this directory.) New kyverno.io types
+        must land in v2alpha1, never directly in v1/v2, and fields are additive-only within a version (never
+        removed/modified in place — deprecate and remove after the notice period). If this PR adds or modifies a
+        type definition under api/**/*_types.go, verify the applicable generated file was also updated — see
+        ARCHITECTURE.md's Generated/no-edit-zones table for the full fan-out (a CRD schema change also touches
+        config/crds/**, the CLI's offline copy under cmd/cli/kubectl-kyverno/{config,data}/crds/, and
+        charts/kyverno/charts/crds/templates/). CodeRabbit's native Code Graph Analysis already tracks cross-file
+        callers/implementors — use it before flagging a breaking-change concern; cite exact file:line.
+
+    - path: "pkg/clients/**"
+      instructions: |
+        Read pkg/clients/AGENTS.md and docs/context/shared/client-access.md before reviewing. New code should use
+        dclient.Interface for generic resource access, or a typed pkg/clients/* wrapper when the type is known —
+        never construct a raw pkg/client/k8s.io/client-go client directly (accepting one of those interface types
+        as a parameter is fine). Flag any new code that bypasses this.
+
+    - path: "charts/**"
+      instructions: |
+        Helm chart changes. Check RBAC for least-privilege. Verify new values have documentation in values.yaml
+        comments. charts/*/README.md is generated by `make codegen-helm-all` (helm-docs) — flag a hand-edit to it
+        as a codegen-freshness issue, not a content issue.
+
+    - path: "**/*_test.go"
+      instructions: |
+        Check that tests cover the failure path, not just the happy path. Verify table-driven test format for
+        policy evaluation tests, consistent with the rest of the package.
+
+  tools:
+    golangci-lint:
+      enabled: true
+      config_file: .golangci.yml
+    actionlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    checkov:
+      enabled: true
+    trivy:
+      enabled: true
+    zizmor:
+      enabled: true
+    shellcheck:
+      enabled: true
+    ast-grep:
+      rule_dirs:
+        - .coderabbit/ast-grep-rules
+      essential_rules: true
+
+  slop_detection:
+    enabled: true
+    include_all_authors: false
+    label: "ai-generated"
+
+  request_changes_workflow: true
+
+  pre_merge_checks:
+    override_requested_reviewers_only: true
+    title:
+      mode: warning
+      requirements: |
+        Should follow conventional commits: feat/fix/docs/chore/refactor/test(<scope>): short description.
+        Scope should be the Kyverno component touched: engine, webhook, cli, api, cel, image, background, etc.
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+    custom_checks:
+      - name: "Codegen gate"
+        mode: error
+        instructions: |
+          If this PR adds or modifies a type definition under api/**/*_types.go — not api/**/zz_generated.*.go,
+          which is itself generated, and not a *_types.go file outside api/ like pkg/metrics/common_types.go,
+          which isn't a codegen input — verify that the applicable generated file was also updated: deepcopy.go
+          for a struct/field change, register.go only if a new type was registered. Fail only when a real
+          generator input changed with no corresponding generated-file update at all; don't require both files
+          for every edit, and don't fail for non-type changes elsewhere under api/ (docs, AGENTS.md, non-generated
+          helpers). This mirrors the `make codegen-all-code` / `make verify-codegen` CI gate, applied at review
+          time instead of only at merge time.
+      - name: "Breaking change documentation"
+        mode: warning
+        instructions: |
+          If this PR changes an existing API field name, removes a field, changes validation rules, or modifies
+          webhook behavior in a non-backward-compatible way, check that the PR description has a section
+          explaining the breaking change and its impact. Warn if missing.
+      - name: "Test coverage gate"
+        mode: warning
+        instructions: |
+          If this PR adds a new policy evaluation path, admission webhook handler, or CEL expression evaluator,
+          check that a corresponding *_test.go file is also modified or created. Warn if new production code has
+          no test coverage.
+      - name: "Security label gate"
+        mode: warning
+        instructions: |
+          If the PR description mentions CVE, vulnerability, security fix, or privilege escalation, verify the PR
+          has the `kind/security` label (the real label in .github/labels.yml). Warn if missing.
+      - name: "Documentation staleness gate"
+        mode: warning
+        instructions: |
+          If this PR changes behavior that a touched package's AGENTS.md (or REVIEW.md/ARCHITECTURE.md) currently
+          describes differently, quote the stale passage and suggest the correction. Advisory only.
+
+  post_merge_actions:
+    - name: "Update CHANGELOG"
+      enabled: true
+      prompt: |
+        If this PR contains a user-facing change (new feature, bug fix, behavioral change, API change,
+        deprecation), append an entry under a `## Unreleased` section at the very top of CHANGELOG.md (create that
+        section if it doesn't exist yet — CHANGELOG.md today is organized as committed `## vX.Y.Z` sections only),
+        formatted as: `- <type>(<scope>): <description> (#<PR number>)`. Skip dependency bumps, test-only changes,
+        and CI-only changes. Do not modify anything else in the file.
+    - name: "Doc drift detector"
+      enabled: true
+      prompt: |
+        Check the PR diff for behavioral changes: new policy fields, changed admission webhook behavior, new CEL
+        functions, changed CLI flags, or modified API types under pkg/engine/, pkg/webhooks/, pkg/cel/, or api/.
+        If behavioral changes exist without corresponding changes to docs/ or a companion PR to kyverno/website,
+        open a follow-up PR creating a stub documentation file at the appropriate path with a TODO comment and the
+        original PR number for context.
+
+        Separately, check whether the changed package's AGENTS.md (or REVIEW.md/ARCHITECTURE.md, if relevant) now
+        describes the *old* behavior inaccurately — these are read as ground truth by both CodeRabbit and Copilot
+        during review, so a stale passage misleads future reviews, not just future readers. If one is now wrong,
+        open a follow-up PR correcting the specific stale passage, quoting the file and exact text being replaced.
+    - name: "Release notes draft"
+      enabled: true
+      prompt: |
+        If this PR was merged into a release branch (release-1.x, release-v1.x), draft a release note entry for
+        this change and post it as a comment on the merged PR. One plain-English paragraph: what changed and why
+        it matters for Kyverno users. Include the PR number and any associated CVE if present.
+
+knowledge_base:
+  opt_out: false
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "AGENTS.md"
+      - "**/AGENTS.md"
+      - "ARCHITECTURE.md"
+      - "REVIEW.md"
+  learnings:
+    scope: auto
+  linked_repositories:
+    - repository: "kyverno/api"
+
+chat:
+  # Matches the platform default (true) — pinned explicitly so it's visible here rather than only in the
+  # dashboard. Lets CodeRabbit reply in a PR conversation without requiring an explicit @coderabbitai mention,
+  # in addition to always responding when it is mentioned.
+  auto_reply: true
