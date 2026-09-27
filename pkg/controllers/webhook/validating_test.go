@@ -324,9 +324,11 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				vpols,
-				expressionCache, 10)
+				expressionCache, 15)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
+				assert.NotNil(t, webhooks[i].TimeoutSeconds)
+				assert.Equal(t, int32(15), *webhooks[i].TimeoutSeconds)
 				assert.Equal(t, expect.Name, webhooks[i].Name)
 				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
 				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules))
@@ -1260,8 +1262,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T)
 		config.NewDefaultConfiguration(false),
 		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
 		[]engineapi.GenericPolicy{teamA, teamB},
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	assert.Len(t, webhooks, 2, "each namespaced policy needs its own webhook")
 	pinned := map[string]bool{}
@@ -1320,8 +1321,7 @@ func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	assert.Len(t, webhooks, 2, "policies with different selectors need their own webhook")
 	environments := make([]string, 0, len(webhooks))
@@ -1379,8 +1379,7 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	// three distinct selectors (none, production, payments) means three webhooks, not six.
 	assert.Len(t, webhooks, 3, "policies sharing a selector should share a webhook")
@@ -1430,8 +1429,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	// two namespaces means two webhooks, not three
 	assert.Len(t, webhooks, 2, "policies in the same namespace should share a webhook")
