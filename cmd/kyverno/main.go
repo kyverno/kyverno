@@ -564,11 +564,9 @@ func main() {
 			eventGenerator,
 			event.Workers,
 		)
-		// this controller only subscribe to events, nothing is returned...
-		policymetricscontroller.NewController(
+		metricsController := policymetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Kyverno().V1().Policies(),
-			&wg,
 		)
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
@@ -637,6 +635,7 @@ func main() {
 			setup.KyvernoDynamicClient,
 			policyCache,
 		)
+		nonLeaderControllers = append(nonLeaderControllers, internal.NewController(policymetricscontroller.ControllerName, metricsController, policymetricscontroller.Workers))
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
