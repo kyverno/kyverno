@@ -29,6 +29,7 @@ func SubstituteImageVerifyVariables(rule kyvernov1.Rule, ctx enginecontext.EvalI
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 		}
 		if hasValidateImageVerification {
+			ruleCopy.VerifyImages[i].Validation.Message = ""
 			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = nil
 		}
 	}
@@ -44,6 +45,7 @@ func SubstituteImageVerifyVariables(rule kyvernov1.Rule, ctx enginecontext.EvalI
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
 		}
 		if hasValidateImageVerification {
+			ruleCopy.VerifyImages[i].Validation.Message = rule.VerifyImages[i].Validation.Message
 			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = rule.VerifyImages[i].Validation.Deny.RawAnyAllConditions
 		}
 	}
