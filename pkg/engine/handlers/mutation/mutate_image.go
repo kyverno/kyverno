@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,6 +27,7 @@ type mutateImageHandler struct {
 	rclientFactory engineapi.RegistryClientFactory
 	ivCache        imageverifycache.Client
 	ivm            *engineapi.ImageVerificationMetadata
+	images         []apiutils.ImageInfo
 	client         engineapi.Client
 	isCluster      bool
 }
@@ -44,8 +46,10 @@ func NewMutateImageHandler(
 	if len(rule.VerifyImages) == 0 {
 		return nil, nil
 	}
+	var ruleImages []apiutils.ImageInfo
 	if !internal.ImageReferencesHasVariables(rule) {
-		ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+		var err error
+		ruleImages, _, err = engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
 		if err != nil {
 			return nil, err
 		}
@@ -58,6 +62,7 @@ func NewMutateImageHandler(
 		rclientFactory: rclientFactory,
 		ivm:            ivm,
 		ivCache:        ivCache,
+		images:         ruleImages,
 		client:         client,
 		isCluster:      isCluster,
 	}, nil
@@ -100,14 +105,20 @@ func (h mutateImageHandler) Process(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
 		)
 	}
-	matchingImages, _, err := engineutils.ExtractMatchingImages(resource, jsonContext, *ruleCopy, h.configuration)
-	if err != nil {
-		return resource, handlers.WithResponses(
-			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to extract matching images", err, rule.ReportProperties),
-		)
-	}
-	if len(matchingImages) == 0 {
-		return resource, nil
+	var matchingImages []apiutils.ImageInfo
+	if internal.ImageReferencesHasVariables(rule) {
+		extracted, _, err := engineutils.ExtractMatchingImages(resource, jsonContext, *ruleCopy, h.configuration)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to extract matching images", err, rule.ReportProperties),
+			)
+		}
+		if len(extracted) == 0 {
+			return resource, nil
+		}
+		matchingImages = extracted
+	} else {
+		matchingImages = h.images
 	}
 	newResource := policyContext.NewResource()
 	resourceNamespace := newResource.GetNamespace()

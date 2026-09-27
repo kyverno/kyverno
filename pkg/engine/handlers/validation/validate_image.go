@@ -89,12 +89,14 @@ func (h validateImageHandler) Process(
 		)
 	}
 
-	matchingImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), *ruleCopy, h.configuration)
-	if err != nil {
-		return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract matching images", err)
-	}
-	if len(matchingImages) == 0 {
-		return resource, nil
+	if internal.ImageReferencesHasVariables(rule) {
+		matchingImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), *ruleCopy, h.configuration)
+		if err != nil {
+			return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract matching images", err)
+		}
+		if len(matchingImages) == 0 {
+			return resource, nil
+		}
 	}
 
 	skippedImages := make([]string, 0)
