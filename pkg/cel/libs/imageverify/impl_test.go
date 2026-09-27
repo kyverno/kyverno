@@ -696,3 +696,37 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	assert.False(t, types.IsError(payload), "extractPayload should succeed after fallback re-verification: %v", payload)
 	assert.NotNil(t, payload.Value())
 }
+
+// Test_impl_getImageData reproduces the getImageData() CEL function -- used
+// by ImageValidatingPolicy expressions such as
+// `getImageData(image).manifest.config.digest` -- against a real registry
+// pull, the same test image the other tests in this file already trust. It
+// documents a second cel-go v0.31.0 (#17067) casualty alongside
+// GetGlobalReference: get_image_data_string hands NativeToValue a bare,
+// unregistered imagedataloader.ImageData value (impl.go's ivfuncs only
+// registers the Runtime type), so a real ivpol calling getImageData() fails
+// at evaluation time with "unsupported conversion to ref.Val". The existing
+// TestReusableProgramsIsolateRuntime only drives getImageData() down its
+// error path (a synthetic Get() error), so it never exercised this.
+func Test_impl_getImageData(t *testing.T) {
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	env, err := cel.NewEnv(Lib())
+	assert.NoError(t, err)
+	ast, issues := env.Compile(`getImageData("ghcr.io/kyverno/test-verify-image:signed")`)
+	assert.Nil(t, issues.Err())
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+
+	runtime := NewFactory(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil).
+		Bind(&Runtime{ImageContext: imgCtx, Results: NewImageVerificationResults()})
+
+	out, _, err := prog.Eval(map[string]any{RuntimeKey: runtime})
+	assert.NoError(t, err, "getImageData on a real image must not fail at evaluation time")
+	if err == nil {
+		asMap, ok := out.Value().(map[string]any)
+		assert.True(t, ok, "getImageData result must convert to a CEL map, got %T", out.Value())
+		assert.Equal(t, "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", asMap["digest"])
+	}
+}
