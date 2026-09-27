@@ -103,3 +103,49 @@ func TestExplain_ClusterScoped(t *testing.T) {
 	attr := podAttrs("", admission.Create)
 	assert.Contains(t, Explain(&admissionregistrationv1.MatchResources{}, attr, nil, true), "cluster-scoped")
 }
+
+// TestDescribeRules checks that a rejected rule's description names the specific constraints
+// that could have caused the rejection -- resourceNames, apiVersions and scope, not just
+// apiGroups/resources/operations -- since a request can be rejected by any of them.
+func TestDescribeRules(t *testing.T) {
+	namespaced := admissionregistrationv1.NamespacedScope
+	rules := []admissionregistrationv1.NamedRuleWithOperations{
+		{
+			ResourceNames: []string{"safe-pod"},
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods"},
+					Scope:       &namespaced,
+				},
+			},
+		},
+	}
+
+	got := describeRules(rules)
+
+	assert.Contains(t, got, `resourceNames=["safe-pod"]`, "a name-restricted rule must show which names it allows")
+	assert.Contains(t, got, `apiVersions=["v1"]`)
+	assert.Contains(t, got, "scope=Namespaced")
+}
+
+// TestDescribeRules_NoResourceNamesOmitsField keeps the common case (no name restriction)
+// readable instead of always printing an empty resourceNames=[].
+func TestDescribeRules_NoResourceNamesOmitsField(t *testing.T) {
+	rules := []admissionregistrationv1.NamedRuleWithOperations{{
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups: []string{""},
+				Resources: []string{"pods"},
+			},
+		},
+	}}
+
+	got := describeRules(rules)
+
+	assert.NotContains(t, got, "resourceNames=")
+	assert.Contains(t, got, "scope=*", "an unset Scope defaults to *, per the Rule type's own doc comment")
+}

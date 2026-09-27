@@ -3,8 +3,10 @@ package trace
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRender_NilWritesNothing(t *testing.T) {
@@ -108,4 +110,17 @@ func TestRender_LongValuesAreClipped(t *testing.T) {
 	Render(&sb, d)
 	assert.Less(t, len(sb.String()), 300)
 	assert.Contains(t, sb.String(), "...")
+}
+
+// TestClip_DoesNotSplitAMultiByteRune builds a string where a multi-byte UTF-8 character (a
+// 3-byte "€") straddles the maxValueLen byte offset, and checks clip backs up to a full
+// character instead of cutting through the middle of one, which would produce invalid UTF-8.
+func TestClip_DoesNotSplitAMultiByteRune(t *testing.T) {
+	s := strings.Repeat("x", maxValueLen-1) + "€€€€€"
+	require.Greater(t, len(s), maxValueLen, "the € characters must push the string past the clip point")
+
+	got := clip(s)
+
+	assert.True(t, utf8.ValidString(got), "clip produced invalid UTF-8: %q", got)
+	assert.True(t, strings.HasSuffix(got, "..."), "clip should still append the ellipsis")
 }
