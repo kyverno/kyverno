@@ -42,8 +42,8 @@ func discoverResources(logger logr.Logger, discoveryClient discovery.DiscoveryIn
 	return resources, nil
 }
 
-func HasResourcePermissions(logger logr.Logger, resource schema.GroupVersionResource, s checker.AuthChecker) bool {
-	can, err := checker.Check(context.TODO(), s, resource.Group, resource.Version, resource.Resource, "", "", "watch", "list", "delete")
+func HasResourcePermissions(ctx context.Context, logger logr.Logger, resource schema.GroupVersionResource, s checker.AuthChecker) bool {
+	can, err := checker.Check(ctx, s, resource.Group, resource.Version, resource.Resource, "", "", "watch", "list", "delete")
 	if err != nil {
 		logger.Error(err, "failed to check permissions")
 		return false
