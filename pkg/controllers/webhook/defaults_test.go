@@ -20,8 +20,8 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// Use explicit API-server defaults for the observed fixtures, independently of
-// the production defaulting helpers. The fake client does not apply defaults.
+// webhookDefaultFixtures builds desired and API-defaulted observed webhooks
+// independently of production helpers; the fake client does not apply defaults.
 func webhookDefaultFixtures(t *testing.T) ([]admissionregistrationv1.ValidatingWebhook, []admissionregistrationv1.ValidatingWebhook) {
 	t.Helper()
 	rules := []admissionregistrationv1.RuleWithOperations{{
@@ -115,6 +115,8 @@ func webhookDefaultFixtures(t *testing.T) ([]admissionregistrationv1.ValidatingW
 	return desired, observed
 }
 
+// mutatingDefaultFixture converts the shared fixtures and sets the API-server
+// reinvocation default only on the stored variant.
 func mutatingDefaultFixture(webhooks []admissionregistrationv1.ValidatingWebhook, stored bool) []admissionregistrationv1.MutatingWebhook {
 	result := make([]admissionregistrationv1.MutatingWebhook, 0, len(webhooks))
 	for i, w := range webhooks {
@@ -136,6 +138,8 @@ func mutatingDefaultFixture(webhooks []admissionregistrationv1.ValidatingWebhook
 	return result
 }
 
+// TestDefaultWebhookSelectorDoesNotMutateSource checks that normalization does
+// not change a selector shared with a policy or configuration.
 func TestDefaultWebhookSelectorDoesNotMutateSource(t *testing.T) {
 	t.Parallel()
 	selector := &metav1.LabelSelector{
@@ -149,6 +153,8 @@ func TestDefaultWebhookSelectorDoesNotMutateSource(t *testing.T) {
 	require.NotNil(t, selector.MatchExpressions)
 }
 
+// TestReconcileWebhookConfigurationDefaults verifies that defaulted webhooks
+// avoid repeated writes while creation and real changes still persist.
 func TestReconcileWebhookConfigurationDefaults(t *testing.T) {
 	t.Parallel()
 	for _, kind := range []string{"validating", "mutating"} {

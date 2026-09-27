@@ -6,9 +6,8 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// Match the API server's admissionregistration/v1 defaults before comparing the
-// desired webhooks with the informer copy. Otherwise, each watchdog tick sends
-// an update even when the webhook configuration has not changed.
+// defaultValidatingWebhooks applies API-server defaults to desired webhooks so
+// they compare equal to unchanged configurations read from the informer.
 func defaultValidatingWebhooks(webhooks []admissionregistrationv1.ValidatingWebhook) {
 	for i := range webhooks {
 		w := &webhooks[i]
@@ -27,6 +26,8 @@ func defaultValidatingWebhooks(webhooks []admissionregistrationv1.ValidatingWebh
 	}
 }
 
+// defaultMutatingWebhooks applies the same defaults as the validating path,
+// plus the mutating webhook's Never reinvocation policy.
 func defaultMutatingWebhooks(webhooks []admissionregistrationv1.MutatingWebhook) {
 	for i := range webhooks {
 		w := &webhooks[i]
@@ -48,9 +49,9 @@ func defaultMutatingWebhooks(webhooks []admissionregistrationv1.MutatingWebhook)
 	}
 }
 
-// Empty selector fields are omitted by the API server's JSON round trip. Copy
-// before clearing them: a built webhook may share its selector with an informer
-// policy or the runtime configuration.
+// defaultWebhookSelector canonicalizes fields omitted by the API server's JSON
+// round trip. It copies before clearing them because a built webhook may share
+// its selector with an informer policy or the runtime configuration.
 func defaultWebhookSelector(selector *metav1.LabelSelector) *metav1.LabelSelector {
 	if selector == nil {
 		return &metav1.LabelSelector{}
@@ -68,6 +69,8 @@ func defaultWebhookSelector(selector *metav1.LabelSelector) *metav1.LabelSelecto
 	return selector
 }
 
+// defaultWebhookRulesAndService fills the API-server defaults for rule scope
+// and service port while leaving explicitly configured values unchanged.
 func defaultWebhookRulesAndService(rules []admissionregistrationv1.RuleWithOperations, service *admissionregistrationv1.ServiceReference) {
 	for i := range rules {
 		if rules[i].Scope == nil {
