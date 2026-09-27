@@ -44,6 +44,11 @@ spec:
           version: v1
           resource: namespaces
         operation: CREATE
+        userInfo:
+          username: kubernetes-admin
+          groups:
+          - system:masters
+          - system:authenticated
         object:
           apiVersion: v1
           kind: Namespace
