@@ -129,14 +129,8 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 			return nil, err
 		}
 		if out != nil {
-			// Return the map form, not the bare unstructured.Unstructured struct:
-			// since the cel-go v0.31.0 bump (#17067), NativeToValue (called by the
-			// sdk globalcontext lib on whatever GetGlobalReference returns) only
-			// converts native Go types that were explicitly registered with the CEL
-			// env; only Context is registered here, so a struct value fails with
-			// "unsupported conversion to ref.Val". A map converts natively, same as
-			// every other resource-shaped return in this file (see ListResources /
-			// GetResource / PostResource, which return list.UnstructuredContent()).
+			// Return the map form: since cel-go v0.31 (#17067) NativeToValue only converts
+			// registered native types, and unstructured.Unstructured is not one.
 			return out.UnstructuredContent(), nil
 		} else {
 			return nil, errors.New("failed to convert to Unstructured")

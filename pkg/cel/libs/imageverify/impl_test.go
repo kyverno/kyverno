@@ -697,17 +697,8 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	assert.NotNil(t, payload.Value())
 }
 
-// Test_impl_getImageData reproduces the getImageData() CEL function -- used
-// by ImageValidatingPolicy expressions such as
-// `getImageData(image).manifest.config.digest` -- against a real registry
-// pull, the same test image the other tests in this file already trust. It
-// documents a second cel-go v0.31.0 (#17067) casualty alongside
-// GetGlobalReference: get_image_data_string hands NativeToValue a bare,
-// unregistered imagedataloader.ImageData value (impl.go's ivfuncs only
-// registers the Runtime type), so a real ivpol calling getImageData() fails
-// at evaluation time with "unsupported conversion to ref.Val". The existing
-// TestReusableProgramsIsolateRuntime only drives getImageData() down its
-// error path (a synthetic Get() error), so it never exercised this.
+// Test_impl_getImageData evaluates getImageData() against a real registry image, which failed
+// to convert to a CEL value after cel-go v0.31.
 func Test_impl_getImageData(t *testing.T) {
 	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)

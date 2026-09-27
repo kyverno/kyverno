@@ -13,11 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// gvrStubContext wraps a real FakeContextProvider (used by the CLI and by
-// every other in-repo CEL unit test) and only overrides ToGVR, mirroring what
-// pkg/cel/libs/context.go's production contextProvider.ToGVR actually returns
-// for a real restMapper.RESTMapping lookup on core/v1 Pod: a
-// *schema.GroupVersionResource{Version:"v1", Resource:"pods"}.
+// gvrStubContext returns the GVR a real RESTMapper returns for core/v1 Pod.
 type gvrStubContext struct {
 	*libs.FakeContextProvider
 }
@@ -26,42 +22,13 @@ func (s gvrStubContext) ToGVR(apiVersion, kind string) (*schema.GroupVersionReso
 	return &schema.GroupVersionResource{Version: "v1", Resource: "pods"}, nil
 }
 
-// TestResourceToGVR_RealVpolEnv reproduces kyverno/kyverno#17744 through
-// Kyverno's real ValidatingPolicy compiler pipeline (createBaseVpolEnv's
-// resource.Lib(...) wiring -- the exact env production admission uses), not
-// just the sdk lib in isolation. The policy is a byte-for-byte match of the
-// real, already-in-repo conformance fixture
-// test/conformance/chainsaw/validating-policies/context/resource/get/policy.yaml
-// (`variables.gvr = resource.ToGVR("v1", "Pod")`), the deterministic
-// always-failing "vpol context/resource/get" conformance job named in
-// ci_e2e_gate_tests_red_2026_09 / issue #17744 (Dreamstick9).
-//
-// Since the cel-go v0.30.0 -> v0.31.0 bump (#17067), NativeToValue only
-// converts native Go types explicitly registered with the CEL env via
-// ext.NativeTypes(...); resource.Lib's CompileOptions
-// (~/go/pkg/mod/.../sdk/extensions/cel/libs/resource/lib.go) registers only
-// the `Context` interface type, never schema.GroupVersionResource, so
-// resource.impl.go's `convert_to_gvr_string_string` handing NativeToValue a
-// bare *schema.GroupVersionResource fails at evaluation time.
-//
-// This is entirely inside the external kyverno/sdk module (impl.go's
-// NativeToValue call, lib.go's CompileOptions) -- Kyverno's own code never
-// touches the value between ToGVR() returning it and NativeToValue rejecting
-// it, so there is no in-repo fix available; it must be fixed in kyverno/sdk
-// (e.g. registering schema.GroupVersionResource via ext.NativeTypes) and
-// consumed here via a kyverno/sdk version bump. Coordinate with Dreamstick9
-// (#17744), don't duplicate their fix.
+// TestResourceToGVR_RealVpolEnv reproduces #17744 through the real ValidatingPolicy
+// compiler, with the same variables as the vpol context/resource/get conformance test.
+// Since cel-go v0.31.0 (#17067) NativeToValue only converts registered native types,
+// and the kyverno/sdk resource lib hands it a bare *schema.GroupVersionResource.
 func TestResourceToGVR_RealVpolEnv(t *testing.T) {
-	// Skipped, not deleted: this reproduces an upstream kyverno/sdk bug
-	// (verified 2026-09-27, error "unsupported conversion to ref.Val:
-	// (*schema.GroupVersionResource)/v1, Resource=pods"), not a kyverno/kyverno
-	// one -- the broken NativeToValue call is entirely inside
-	// extensions/cel/libs/resource/impl.go's convert_to_gvr_string_string, which
-	// this repo cannot reach or patch around. Tracked upstream as #17744
-	// (Dreamstick9, OPEN). Remove this Skip once kyverno/sdk registers
-	// schema.GroupVersionResource as a native CEL type and this repo's go.mod
-	// picks up that version; at that point this test should go green unmodified.
-	t.Skip("kyverno/kyverno#17744: resource.ToGVR() fails until kyverno/sdk registers schema.GroupVersionResource as a native CEL type (fix owned upstream)")
+	// The fix belongs in kyverno/sdk; drop this skip once go.mod picks it up.
+	t.Skip("#17744: resource.ToGVR fails until kyverno/sdk returns a CEL-convertible GVR")
 
 	fake := libs.NewFakeContextProvider()
 	pod := &corev1.Pod{

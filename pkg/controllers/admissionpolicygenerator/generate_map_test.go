@@ -94,10 +94,7 @@ func mapGenEnabled() *policiesv1beta1.MutatingPolicyAutogenConfiguration {
 	}
 }
 
-// podsMatchConstraints mirrors the real conformance fixture at
-// test/conformance/chainsaw/generate-mutating-admission-policy/autogen-enabled/policy.yaml:
-// a pods-only CREATE match, which is what makes pod-controller autogen eligible
-// (pkg/cel/autogen/support.go's CanAutoGen requires exactly this shape).
+// podsMatchConstraints is a pods-only CREATE match, which makes pod-controller autogen eligible.
 func podsMatchConstraints() *admissionregistrationv1.MatchResources {
 	return &admissionregistrationv1.MatchResources{
 		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
@@ -165,10 +162,7 @@ func TestMapGenerationSkipReason(t *testing.T) {
 			wantReason: "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects.",
 		},
 		{
-			// mirrors test/conformance/chainsaw/generate-mutating-admission-policy/autogen-enabled/policy.yaml:
-			// a pods-only MutatingPolicy with pod-controller autogen AND MAP
-			// generation both enabled, and status.autogen.configs already
-			// populated by a prior policystatus reconcile (the non-racy case).
+			// autogen and MAP generation enabled, status.autogen already populated
 			name: "generation enabled with pod controllers autogen, status already populated",
 			policy: &policiesv1beta1.MutatingPolicy{
 				Spec: policiesv1beta1.MutatingPolicySpec{
@@ -185,12 +179,7 @@ func TestMapGenerationSkipReason(t *testing.T) {
 			wantReason: "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled.",
 		},
 		{
-			// TestHandleMAPGeneration_AutogenStatusRace's mapGenerationSkipReason-level
-			// equivalent: same spec as above, but status.autogen.configs is EMPTY - the
-			// state a lister cache holds the instant a MutatingPolicy is created, before
-			// the separate policystatus controller has reconciled it. Before the fix,
-			// reading status.Autogen.Configs here would wrongly return wantSkip=false
-			// (generate a MAP) purely because of reconcile ordering.
+			// same spec, but status.autogen is still empty (policystatus has not reconciled yet)
 			name: "generation enabled with pod controllers autogen, status NOT yet populated (race window)",
 			policy: &policiesv1beta1.MutatingPolicy{
 				Spec: policiesv1beta1.MutatingPolicySpec{

@@ -398,13 +398,8 @@ func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
-		// Convert through the same JSON round-trip as pkg/cel/libs/context.go's
-		// GetImageData, not a bare NativeToValue(*img): since the cel-go v0.31.0
-		// bump (#17067), NativeToValue only converts native Go types explicitly
-		// registered with the CEL env (here only Runtime is, via CompileOptions),
-		// so the unregistered imagedataloader.ImageData struct fails with
-		// "unsupported conversion to ref.Val". img.Data() (an exported,
-		// JSON-tagged ImageDescriptor) round-trips to a map like everywhere else.
+		// Convert through JSON: since cel-go v0.31 (#17067) NativeToValue only converts
+		// registered native types, and imagedataloader.ImageData is not one.
 		data, err := utils.GetValue(img.Data())
 		if err != nil {
 			return types.NewErr("failed to convert imagedata: %v", err)

@@ -22,29 +22,20 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// permissiveAuthChecker always reports the caller as allowed to manage native
-// admission policies/bindings, so handleVAPGeneration/handleMAPGeneration reach the
-// generation decision under test instead of short-circuiting on RBAC.
+// permissiveAuthChecker allows managing native admission policies and bindings.
 type permissiveAuthChecker struct{}
 
 func (permissiveAuthChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
 	return &checker.AuthResult{Allowed: true}, nil
 }
 
-// newVAPTestController builds a controller wired with fakes sufficient to exercise
-// handleVAPGeneration end to end: a real fake kube clientset (so Create/Get on the
-// generated VAP/binding are observable), a real fake kyverno clientset seeded with the
-// policy (so updatePolicyStatus's UpdateStatus call has something to update), an empty
-// (but non-nil, matching the "no exceptions configured" real-world default) CEL
-// PolicyException lister, and a permissive auth checker.
+// newVAPTestController builds a controller backed by fake clientsets and empty listers.
 func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy) (*controller, *kubefake.Clientset, *versionedfake.Clientset) {
 	t.Helper()
 	kubeClient := kubefake.NewSimpleClientset()
 	kyvernoClient := versionedfake.NewSimpleClientset(vpol)
 	celpolexIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	// vapLister/vapbindingLister mirror what NewController wires from a started,
-	// synced informer factory (controller.go:152) - here backed by empty indexers
-	// (no VAP/binding pre-exists), same as a fresh cluster.
+	// no VAP or binding exists yet
 	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	vapBindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	c := &controller{
@@ -60,10 +51,8 @@ func newVAPTestController(t *testing.T, vpol *policiesv1beta1.ValidatingPolicy) 
 	return c, kubeClient, kyvernoClient
 }
 
-// disallowPrivilegeEscalationVpol mirrors the real conformance fixture at
-// test/conformance/chainsaw/generate-validating-admission-policy/validatingpolicy/autogen-enabled/policy.yaml:
-// pod-controller autogen (deployments, cronjobs) + VAP generation both enabled on a
-// pods-only ValidatingPolicy.
+// disallowPrivilegeEscalationVpol is a pods-only ValidatingPolicy with pod-controller autogen
+// and VAP generation enabled.
 func disallowPrivilegeEscalationVpol(statusAutogenConfigs map[string]policiesv1beta1.ValidatingPolicyAutogen) *policiesv1beta1.ValidatingPolicy {
 	return &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -114,24 +103,12 @@ func disallowPrivilegeEscalationVpol(statusAutogenConfigs map[string]policiesv1b
 	}
 }
 
-// TestHandleVAPGeneration_AutogenStatusRace reproduces the intermittent conformance
-// failure at generate-validating-admission-policy/validatingpolicy/autogen-enabled
-// (status.generated: true, expected false).
-//
-// The admissionpolicygenerator controller decides whether pod-controller autogen is in
-// effect by reading status.autogen.configs from its lister cache (generate-vap.go), but
-// that field is written asynchronously by the SEPARATE policystatus controller. If the
-// admissionpolicygenerator reconciles a ValidatingPolicy whose spec already has autogen
-// configured but whose status has not been populated yet, it wrongly concludes autogen is
-// NOT in effect and generates a ValidatingAdmissionPolicy it should have skipped -
-// dropping pod-controller enforcement entirely once status.generated flips to true
-// (a generated policy is removed from Kyverno's own engine).
+// TestHandleVAPGeneration_AutogenStatusRace covers a new policy whose status.autogen is not
+// written yet: generation must still be skipped because autogen is set in the spec.
 func TestHandleVAPGeneration_AutogenStatusRace(t *testing.T) {
 	ctx := context.Background()
 
-	// Status.Autogen.Configs is empty here - the exact state a lister cache holds the
-	// instant a ValidatingPolicy is created, before the policystatus controller's own
-	// reconcile has had a chance to run and populate it.
+	// status.autogen is empty, as it is right after the policy is created
 	vpol := disallowPrivilegeEscalationVpol(nil)
 	c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
 
@@ -151,10 +128,7 @@ func TestHandleVAPGeneration_AutogenStatusRace(t *testing.T) {
 	assert.False(t, updated.Status.Generated, "status.generated must stay false when autogen is configured in spec")
 }
 
-// TestHandleVAPGeneration_AutogenStatusPopulated is the non-racy control: once
-// status.autogen.configs IS populated (the policystatus controller won the race, or ran
-// first), generation must still correctly be skipped. Guards against a fix that only
-// works by accident of the empty-map case.
+// TestHandleVAPGeneration_AutogenStatusPopulated checks generation is skipped once status.autogen is set.
 func TestHandleVAPGeneration_AutogenStatusPopulated(t *testing.T) {
 	ctx := context.Background()
 
@@ -170,18 +144,8 @@ func TestHandleVAPGeneration_AutogenStatusPopulated(t *testing.T) {
 	assert.True(t, apierrors.IsNotFound(vapErr), "no ValidatingAdmissionPolicy expected: got err=%v", vapErr)
 }
 
-// TestHandleVAPGeneration_NoAutogen is the regression guard: a policy with VAP
-// generation enabled and NO pod-controller autogen must still get a generated VAP.
-//
-// Pod-controller autogen is opt-OUT, not opt-in: vpolautogen.Autogen (which both
-// policystatus and this fix call) defaults to autogen for ALL pod-controller kinds
-// whenever spec.AutogenConfiguration.PodControllers.Controllers is nil - it is gated
-// only on the policy's MatchConstraints being pod-shaped (autogen/support.go
-// CanAutoGen), not on whether PodControllers is set. The real, documented way to
-// disable it is an explicit empty list, exactly as issue #17088's own repro does:
-// "autogen.podControllers.controllers: [] set in the values". A nil PodControllers
-// (this test's original setup) is therefore NOT "no autogen" - it still triggers the
-// skip and would have made this a false positive for the fix's coverage.
+// TestHandleVAPGeneration_NoAutogen checks a VAP is still generated when autogen is turned off.
+// Autogen is on by default for pod-shaped policies, so it is disabled with an empty controllers list.
 func TestHandleVAPGeneration_NoAutogen(t *testing.T) {
 	ctx := context.Background()
 

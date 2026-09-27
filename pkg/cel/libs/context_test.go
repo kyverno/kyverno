@@ -10,9 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/version"
 )
 
-// staticEntry is a minimal store.Entry that always returns the same
-// projection-agnostic value, mirroring what a GlobalContextEntry apiCall
-// backend stores after fetching a Kubernetes list response.
+// staticEntry is a store.Entry that always returns the same value.
 type staticEntry struct {
 	data any
 }
@@ -23,22 +21,11 @@ func (e *staticEntry) Get(projection string) (any, error) {
 
 func (e *staticEntry) Stop() {}
 
-// TestContextProvider_GetGlobalReference_KubernetesShapedEntry reproduces the
-// deterministic conformance failure at
-// test/conformance/chainsaw/deleting-policies/cel-lib/globalcontext-lib: a
-// DeletingPolicy condition calling globalContext.get(entry, "") against a
-// GlobalContextEntry whose apiCall response is a Kubernetes list (has
-// apiVersion+kind, so contextProvider.GetGlobalReference treats it as a
-// Kubernetes object and converts it via kubeutils.ObjToUnstructured) fails at
-// CEL evaluation time since the cel-go v0.30.0 -> v0.31.0 bump (#17067):
-// GetGlobalReference (context.go) hands the sdk globalcontext lib's
-// NativeToValue a bare, unregistered unstructured.Unstructured value, and
-// v0.31.0 (unlike v0.30.0) requires native struct types to be explicitly
-// registered before NativeToValue can convert them.
+// TestContextProvider_GetGlobalReference_KubernetesShapedEntry covers globalContext.get on an
+// entry holding a Kubernetes list, which failed to convert to a CEL value after cel-go v0.31.
 func TestContextProvider_GetGlobalReference_KubernetesShapedEntry(t *testing.T) {
 	gctxStore := store.New(0)
-	// Mirrors the real fixture's GlobalContextEntry apiCall response: a
-	// DeploymentList (has apiVersion+kind -> isLikelyKubernetesObject == true).
+	// Same shape as the deleting-policies/cel-lib/globalcontext-lib conformance fixture.
 	require.NoError(t, gctxStore.Set("gctxentry-apicall-correct", &staticEntry{
 		data: map[string]any{
 			"apiVersion": "apps/v1",
@@ -58,9 +45,7 @@ func TestContextProvider_GetGlobalReference_KubernetesShapedEntry(t *testing.T) 
 
 	cp := &contextProvider{gctxStore: gctxStore}
 
-	// Build the same kind of CEL env the dpol/vpol/mpol/gpol/ivpol compilers
-	// build when they register the globalcontext library (see e.g.
-	// pkg/cel/policies/dpol/compiler/compiler.go createBaseDpolEnv).
+	// Same env the policy compilers build for the globalcontext library.
 	env, err := cel.NewEnv(
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: cp},
