@@ -183,7 +183,7 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 	}
 
 	cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
-	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
+	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, "", true)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
@@ -244,7 +244,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	assert.Less(t, count, int64(len(attestors)))
 
 	cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
-	found, err := ivCache.Get(context.TODO(), pol, cacheRule, image, true)
+	found, err := ivCache.Get(context.TODO(), pol, cacheRule, image, "", true)
 	assert.NoError(t, err)
 	assert.False(t, found, "a partial or failed verification must never be cached")
 }
@@ -559,7 +559,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 	customPayloadBytes, err := json.Marshal(customPayloadObj)
 	assert.NoError(t, err)
 	customRule := attestorCacheRule(attestationCacheRule, customName, attestorsCustom)
-	stored, err := ivCache.SetWithPayload(context.TODO(), pol, customRule, image, true, map[string][]byte{
+	stored, err := ivCache.SetWithPayload(context.TODO(), pol, customRule, image, "", true, map[string][]byte{
 		customType: customPayloadBytes,
 	})
 	assert.NoError(t, err)
@@ -675,7 +675,7 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	// failed payload capture used to leave behind before the write-side fix.
 	// This exercises the READ-side fallback independent of the write-side skip.
 	cacheRule := attestorCacheRule(attestationCacheRule, attestationName, attestors)
-	stored, err := ivCache.SetWithPayload(context.TODO(), pol, cacheRule, image, true, nil)
+	stored, err := ivCache.SetWithPayload(context.TODO(), pol, cacheRule, image, "", true, nil)
 	assert.NoError(t, err)
 	assert.True(t, stored, "degraded presence-only entry must still be cacheable, matching pre-fix Set() behavior")
 

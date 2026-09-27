@@ -2,6 +2,9 @@ package internal
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -82,7 +85,7 @@ func (iv *imageVerifier) Verify(
 
 		isInCache := false
 		if iv.ivCache != nil {
-			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
+			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, resolvedConfigFingerprint(imageVerify), imageVerify.UseCache)
 			if err != nil {
 				iv.logger.Error(err, "error occurred during cache get", "image", image)
 			} else {
@@ -101,7 +104,7 @@ func (iv *imageVerifier) Verify(
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				if iv.ivCache != nil {
-					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
+					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, resolvedConfigFingerprint(imageVerify), imageVerify.UseCache)
 					if err != nil {
 						iv.logger.Error(err, "error occurred during cache set", "image", image)
 					} else {
@@ -141,6 +144,25 @@ func (iv *imageVerifier) isPreviouslyVerified(image string) bool {
 	policy := iv.policyContext.Policy()
 	status, err := engineutils.IsImageVerifiedForPolicy(iv.policyContext.OldResource(), policy.GetNamespace(), policy.GetName(), iv.rule.Name, image, iv.logger)
 	return err == nil && (status == engineapi.ImageVerificationPass || status == engineapi.ImageVerificationSkip)
+}
+
+// resolvedConfigFingerprint hashes the trust-relevant parts of the verification
+// entry as resolved for this request (attestor keys are commonly substituted from
+// ConfigMaps). Without it, rotating a ConfigMap-backed key keeps serving cached
+// results produced under the old key until the entry expires (the policy UID,
+// resourceVersion, rule name and image ref in the cache key don't change).
+// Attestation conditions are excluded on purpose: substitution is skipped for
+// them (see substituteVariables), so they can't carry resolved key material.
+func resolvedConfigFingerprint(imageVerify kyvernov1.ImageVerification) string {
+	data, err := json.Marshal(struct {
+		Attestors    []kyvernov1.AttestorSet `json:"attestors,omitempty"`
+		Attestations []kyvernov1.Attestation `json:"attestations,omitempty"`
+	}{imageVerify.Attestors, imageVerify.Attestations})
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func (iv *imageVerifier) addImageVerificationMetadata(image string, status engineapi.ImageVerificationMetadataStatus) {

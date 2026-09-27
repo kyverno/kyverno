@@ -9,20 +9,23 @@ import (
 type Client interface {
 	// Set Adds an image to the cache. The image is considered to be verified for the given rule in the policy
 	// The entry outomatically expires after sometime
+	// configFingerprint identifies the fully-resolved verification configuration the result
+	// was produced with (after variable substitution). Callers whose configuration cannot
+	// change independently of the policy may pass an empty string.
 	// Returns true when the cache entry is added
-	Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error)
+	Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, configFingerprint string, useCache bool) (bool, error)
 
 	// Get Searches for the image verified using the rule in the policy in the cache
 	// Returns true when the cache entry is found
-	Get(ctx context.Context, policy metav1.Object, ruleName string, imagerRef string, useCache bool) (bool, error)
+	Get(ctx context.Context, policy metav1.Object, ruleName string, imagerRef string, configFingerprint string, useCache bool) (bool, error)
 
 	// SetWithPayload is like Set, but also stores verified intoto attestation payloads
 	// keyed by predicate type (matching imagedataloader.ImageData.verifiedIntotoPayloads).
 	// Callers that only need a presence marker can keep using Set.
-	SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error)
+	SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, configFingerprint string, useCache bool, payloads map[string][]byte) (bool, error)
 
 	// GetWithPayload is like Get, but also returns any cached intoto payloads.
 	// found is true when the verification cache entry exists; payloads may be nil/empty
 	// when the entry was written with Set (presence-only).
-	GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (found bool, payloads map[string][]byte, err error)
+	GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, configFingerprint string, useCache bool) (found bool, payloads map[string][]byte, err error)
 }

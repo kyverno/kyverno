@@ -29,11 +29,11 @@ func Test_SetWithPayload_presence_only_entry_costs_flat_one(t *testing.T) {
 
 	pol := &metav1.ObjectMeta{Name: "cost-test-policy", UID: "cost-test-uid", ResourceVersion: "1"}
 
-	stored, err := c.Set(context.TODO(), pol, "signature-rule", "image-a", true)
+	stored, err := c.Set(context.TODO(), pol, "signature-rule", "image-a", "", true)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
-	found, err := c.Get(context.TODO(), pol, "signature-rule", "image-a", true)
+	found, err := c.Get(context.TODO(), pol, "signature-rule", "image-a", "", true)
 	assert.NoError(t, err)
 	assert.True(t, found)
 }
@@ -53,12 +53,87 @@ func Test_SetWithPayload_round_trips_real_payload_size(t *testing.T) {
 	pol := &metav1.ObjectMeta{Name: "cost-test-policy", UID: "cost-test-uid", ResourceVersion: "1"}
 	largePayload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 4096)}
 
-	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", "image-b", true, largePayload)
+	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", "image-b", "", true, largePayload)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
-	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "image-b", true)
+	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "image-b", "", true)
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, largePayload, got)
+}
+
+// Test_configFingerprint_partitions_entries reproduces the stale-verification
+// scenario from #17753 at the key level: a cached entry written under one
+// resolved attestor configuration must not be returned when the configuration
+// fingerprint changes, even though policy UID, resourceVersion, rule name and
+// image ref are all identical.
+func Test_configFingerprint_partitions_entries(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+	assert.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "key-rotation-policy", UID: "rotation-uid", ResourceVersion: "1"}
+
+	stored, err := c.Set(context.TODO(), pol, "verify-rule", "image-c", "fingerprint-key-a", true)
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	// same fingerprint -> hit
+	found, err := c.Get(context.TODO(), pol, "verify-rule", "image-c", "fingerprint-key-a", true)
+	assert.NoError(t, err)
+	assert.True(t, found)
+
+	// rotated config (different resolved key material) -> miss, re-verifies
+	found, err = c.Get(context.TODO(), pol, "verify-rule", "image-c", "fingerprint-key-b", true)
+	assert.NoError(t, err)
+	assert.False(t, found)
+
+	// and the old entry must still be there under its own fingerprint
+	found, err = c.Get(context.TODO(), pol, "verify-rule", "image-c", "fingerprint-key-a", true)
+	assert.NoError(t, err)
+	assert.True(t, found)
+}
+
+// Test_configFingerprint_payload_path_partitions_entries covers the payload
+// variant of the key so attestation caches get the same invalidation
+// semantics, not just the presence-only path.
+func Test_configFingerprint_payload_path_partitions_entries(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(1_000_000), WithTTLDuration(0))
+	assert.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "key-rotation-policy", UID: "rotation-uid", ResourceVersion: "1"}
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": []byte("payload")}
+
+	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", "image-d", "fp-1", true, payload)
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	found, _, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "image-d", "fp-2", true)
+	assert.NoError(t, err)
+	assert.False(t, found)
+
+	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "image-d", "fp-1", true)
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, payload, got)
+}
+
+// Test_empty_configFingerprint_keeps_legacy_key confirms callers that pass an
+// empty fingerprint (the ivpol path, whose attestor config lives in the policy
+// spec and is already covered by the resourceVersion key part) keep the exact
+// pre-change cache behavior: entries are keyed without any config component.
+func Test_empty_configFingerprint_keeps_legacy_key(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+	assert.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "p", UID: "u", ResourceVersion: "7"}
+	key := generateKey(pol, "r", "img", "")
+	assert.Equal(t, "u;7;r;img;", key)
+
+	stored, err := c.Set(context.TODO(), pol, "r", "img", "", true)
+	assert.NoError(t, err)
+	assert.True(t, stored)
+	found, err := c.Get(context.TODO(), pol, "r", "img", "", true)
+	assert.NoError(t, err)
+	assert.True(t, found)
 }
