@@ -313,6 +313,10 @@ func (l *ImageInfoLoader) HasLoaded() bool {
 }
 
 func (l *ImageInfoLoader) LoadData() error {
+	l.hasLoaded = true
+	if len(l.eCtx.images) > 0 {
+		return nil
+	}
 	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
 	if err != nil {
 		return err
@@ -383,6 +387,11 @@ func (ctx *context) copyImages(in map[string]map[string]apiutils.ImageInfo) map[
 	for k, v := range in {
 		inner := make(map[string]apiutils.ImageInfo, len(v))
 		for k2, v2 := range v {
+			if v2.ImagePullSecrets != nil {
+				secrets := make([]string, len(v2.ImagePullSecrets))
+				copy(secrets, v2.ImagePullSecrets)
+				v2.ImagePullSecrets = secrets
+			}
 			inner[k2] = v2
 		}
 		out[k] = inner
