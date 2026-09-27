@@ -22,11 +22,12 @@ spec:
             conditionStatus:
               (conditions[?type == 'WebhookConfigured']):
               - status: "True"
-  - name: create-pod
-    try:
-    - apply:
-        file: pod.yaml
   - name: verify-image-rewritten
     try:
-    - assert:
-        file: assert.yaml
+    # A server-side dry run still goes through the mutating webhook, so the rewrite is
+    # checked without creating a pod whose rewritten image can never be pulled.
+    - script:
+        content: kubectl create -n $NAMESPACE -f pod.yaml --dry-run=server -o jsonpath='{.spec.containers[0].image}'
+        check:
+          ($error == null): true
+          ($stdout): myregistry.io/nginx:latest
