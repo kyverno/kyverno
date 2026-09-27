@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode/utf8"
 )
 
 // maxValueLen caps how much of a resolved value is printed on one line, so a node that resolved
@@ -103,7 +104,13 @@ func resourceLabel(d *Decision) string {
 func clip(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	if len(s) > maxValueLen {
-		return s[:maxValueLen] + "..."
+		// maxValueLen is a byte offset; back up to a rune boundary so a multi-byte character
+		// (e.g. in a label value) isn't split, which would leave invalid UTF-8 before the "...".
+		cut := maxValueLen
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		return s[:cut] + "..."
 	}
 	return s
 }

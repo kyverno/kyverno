@@ -58,7 +58,16 @@ func describeRequest(attr admission.Attributes) string {
 func describeRules(rules []admissionregistrationv1.NamedRuleWithOperations) string {
 	described := make([]string, 0, len(rules))
 	for _, r := range rules {
-		described = append(described, fmt.Sprintf("apiGroups=%q resources=%q operations=%v", r.APIGroups, r.Resources, r.Operations))
+		scope := "*"
+		if r.Scope != nil {
+			scope = string(*r.Scope)
+		}
+		rule := fmt.Sprintf("apiGroups=%q apiVersions=%q resources=%q operations=%v scope=%s",
+			r.APIGroups, r.APIVersions, r.Resources, r.Operations, scope)
+		if len(r.ResourceNames) > 0 {
+			rule += fmt.Sprintf(" resourceNames=%q", r.ResourceNames)
+		}
+		described = append(described, rule)
 	}
 	return strings.Join(described, "; ")
 }
