@@ -184,6 +184,12 @@ func TestProcessUR_FilteredTriggerSkipsEngine(t *testing.T) {
 
 func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstream(t *testing.T) {
 	policyName := "test-gpol"
+	// The trigger is now resolved by name through triggerClient.GetResource, so
+	// ProcessUR runs the engine and reaches needsReports, which dereferences the
+	// global reporting configuration. Set it for this test and restore it after.
+	prevReportingCfg := reportutils.ReportingCfg
+	reportutils.ReportingCfg = reportutils.NewReportingConfig(nil)
+	t.Cleanup(func() { reportutils.ReportingCfg = prevReportingCfg })
 	trigger := makeUnstructured("", "example.io", "v1", "TestTrigger", "existing-trigger", "tenant-a", "trigger-uid", nil)
 	downstream := makeUnstructured("", "", "v1", "ConfigMap", "test-cm", "tenant-a", "downstream-uid", map[string]string{
 		common.GeneratePolicyLabel:     policyName,
