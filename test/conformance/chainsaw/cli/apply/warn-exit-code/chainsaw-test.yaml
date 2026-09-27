@@ -8,13 +8,8 @@ spec:
   steps:
     - try:
       - script:
-          # KNOWN GAP (confirmed by a real CLI run, not inferred): --audit-warn/--warn-exit-code
-          # never produce a Warn result for a ValidatingPolicy today, so this asserts the CLI's
-          # actual current exit code (1, i.e. Fail) rather than the legacy ClusterPolicy behavior
-          # this fixture originally proved (exit 3). Root cause:
-          # cmd/cli/kubectl-kyverno/processor/result.go AddValidatingPolicyResponse has no Warn
-          # case, and pkg/cel/policies/vpol/engine/engine.go always emits RuleFail, never RuleWarn,
-          # regardless of spec.validationActions. See fx-cli findings for the full trace.
+          # --audit-warn does not apply to ValidatingPolicy yet (#16485), so an audit failure
+          # still exits 1. Expect exit status 3 here once that is fixed.
           content: |
             kyverno apply policy.yaml --resource resource.yaml --audit-warn --warn-exit-code 3
           check:
