@@ -126,3 +126,41 @@ func ExtractImages(data map[string]any, extractors map[string]ImageExtractor) (m
 	}
 	return result, nil
 }
+
+// ImageExtractorProfiles contains the finite built-in extraction layouts plus
+// custom-only extraction. All maps and programs are immutable after compilation.
+type ImageExtractorProfiles [4]map[string]ImageExtractor
+
+func (p ImageExtractorProfiles) ForResource(gvr *metav1.GroupVersionResource) map[string]ImageExtractor {
+	if gvr != nil {
+		switch *gvr {
+		case pods:
+			return p[1]
+		case jobs, deployments, statefulsets, daemonsets, replicasets:
+			return p[2]
+		case cronjobs:
+			return p[3]
+		}
+	}
+	return p[0]
+}
+
+func CompileImageExtractorProfiles(path *field.Path, env *cel.Env, custom ...v1beta1.ImageExtractor) (ImageExtractorProfiles, field.ErrorList) {
+	var profiles ImageExtractorProfiles
+	compiledCustom, errs := CompileImageExtractors(path, env, nil, custom...)
+	if len(errs) != 0 {
+		return profiles, errs
+	}
+	profiles[0] = compiledCustom
+	for i, gvr := range []metav1.GroupVersionResource{pods, deployments, cronjobs} {
+		defaults, errs := CompileImageExtractors(path, env, &gvr)
+		if len(errs) != 0 {
+			return profiles, errs
+		}
+		for name, extractor := range compiledCustom {
+			defaults[name] = extractor
+		}
+		profiles[i+1] = defaults
+	}
+	return profiles, nil
+}

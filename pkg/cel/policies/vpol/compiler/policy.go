@@ -41,13 +41,14 @@ func (p *Policy) Evaluate(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (*EvaluationResult, error) {
 	switch p.mode {
 	case policieskyvernoio.EvaluationModeJSON:
 		return p.evaluateJson(ctx, json)
 	default:
-		return p.evaluateKubernetes(ctx, attr, request, namespace, context)
+		return p.evaluateKubernetes(ctx, attr, request, namespace, requestMapFn, context)
 	}
 }
 
@@ -67,9 +68,10 @@ func (p *Policy) evaluateKubernetes(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (*EvaluationResult, error) {
-	data, err := prepareK8sData(attr, request, namespace, context)
+	data, err := prepareK8sData(attr, request, namespace, requestMapFn, context)
 	if err != nil {
 		return nil, err
 	}

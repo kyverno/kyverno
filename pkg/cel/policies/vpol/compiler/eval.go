@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -32,10 +33,21 @@ type evaluationData struct {
 	Variables *lazy.MapValue
 }
 
+// prepareK8sData assembles the CEL activation data for a single evaluation.
+// requestMapFn lazily builds the `request` value: the caller (see
+// compiler.BuildRawRequestMap) wraps it once per admission request in a
+// memoizing func (for example sync.OnceValues) so it is built at most once
+// even though it is threaded into every policy's evaluation - but only if
+// some policy actually reaches this function, since matching happens before
+// prepareK8sData is ever called. A request matching zero policies therefore
+// never pays the request-map build cost. When requestMapFn is nil (raw
+// payload callers, or the synthetic-request carve-out for ExtractionMode),
+// the map is built locally from request instead.
 func prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (evaluationData, error) {
 	if attr == nil {
@@ -53,7 +65,12 @@ func prepareK8sData(
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
-	requestVal, err := utils.ConvertObjectToUnstructured(request)
+	var requestMap map[string]any
+	if requestMapFn != nil {
+		requestMap, err = requestMapFn()
+	} else {
+		requestMap, err = compiler.BuildRawRequestMap(request)
+	}
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
@@ -61,7 +78,7 @@ func prepareK8sData(
 		Namespace: namespaceVal,
 		Object:    objectVal,
 		OldObject: oldObjectVal,
-		Request:   requestVal.Object,
+		Request:   requestMap,
 		Context:   context,
 	}, nil
 }

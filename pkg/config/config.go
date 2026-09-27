@@ -71,6 +71,10 @@ const (
 	ImageValidatingPolicyValidateWebhookName = "ivpol.validate.kyverno.svc"
 	// ImageValidatingPolicyWebhookName defines default mutating webhook name for imagevalidatingpolicies
 	ImageValidatingPolicyMutateWebhookName = "ivpol.mutate.kyverno.svc"
+	// NamespacedImageValidatingPolicyValidateWebhookName defines default validating webhook name for namespacedimagevalidatingpolicies
+	NamespacedImageValidatingPolicyValidateWebhookName = "nivpol.validate.kyverno.svc"
+	// NamespacedImageValidatingPolicyMutateWebhookName defines default mutating webhook name for namespacedimagevalidatingpolicies
+	NamespacedImageValidatingPolicyMutateWebhookName = "nivpol.mutate.kyverno.svc"
 )
 
 // paths

@@ -522,3 +522,12 @@ spam:
 merge-conflicts:
   color: E65100
   description: PR has merge conflicts
+
+# ── E2E gate (.github/workflows/e2e-gate.yaml) ───────────────────────────────
+e2e-failure:
+  color: B60205
+  description: Post-merge tests are failing on a branch; the E2E gate blocks PRs to it
+
+e2e-gate-bypass:
+  color: FBCA04
+  description: Lets this PR through the E2E gate, e.g. the PR that fixes the branch
