@@ -91,7 +91,7 @@ func (h validateImageHandler) Process(
 
 	matchingImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), *ruleCopy, h.configuration)
 	if err != nil {
-		return resource, handlers.WithError(rule, engineapi.Validation, "failed to extract matching images", err)
+		return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract matching images", err)
 	}
 	if len(matchingImages) == 0 {
 		return resource, nil
@@ -102,19 +102,21 @@ func (h validateImageHandler) Process(
 	failedErrors := make([]string, 0)
 	for _, v := range ruleCopy.VerifyImages {
 		imageVerify := v.Convert()
-		for _, imageInfo := range matchingImages {
-			image := imageInfo.String()
-			if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
-				logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
-				continue
-			}
-			logger.V(4).Info("validating image", "image", image)
-			if v, err := validateImage(policyContext, rule.Name, imageVerify, imageInfo, logger); err != nil {
-				failedErrors = append(failedErrors, err.Error())
-			} else if v == engineapi.ImageVerificationSkip {
-				skippedImages = append(skippedImages, image)
-			} else if v == engineapi.ImageVerificationPass {
-				passedImages = append(passedImages, image)
+		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
+			for _, imageInfo := range infoMap {
+				image := imageInfo.String()
+				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
+					logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
+					continue
+				}
+				logger.V(4).Info("validating image", "image", image)
+				if v, err := validateImage(policyContext, rule.Name, imageVerify, imageInfo, logger); err != nil {
+					failedErrors = append(failedErrors, err.Error())
+				} else if v == engineapi.ImageVerificationSkip {
+					skippedImages = append(skippedImages, image)
+				} else if v == engineapi.ImageVerificationPass {
+					passedImages = append(passedImages, image)
+				}
 			}
 		}
 	}
