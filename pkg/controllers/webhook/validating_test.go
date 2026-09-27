@@ -327,8 +327,6 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				expressionCache, 15)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
-				assert.NotNil(t, webhooks[i].TimeoutSeconds)
-				assert.Equal(t, int32(15), *webhooks[i].TimeoutSeconds)
 				assert.Equal(t, expect.Name, webhooks[i].Name)
 				assert.Equal(t, expect.FailurePolicy, webhooks[i].FailurePolicy)
 				assert.Equal(t, len(expect.Rules), len(webhooks[i].Rules))
@@ -341,6 +339,9 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				}
 				if expect.TimeoutSeconds != nil {
 					assert.Equal(t, expect.TimeoutSeconds, webhooks[i].TimeoutSeconds)
+				} else {
+					assert.NotNil(t, webhooks[i].TimeoutSeconds)
+					assert.Equal(t, int32(15), *webhooks[i].TimeoutSeconds)
 				}
 				if expect.ClientConfig.Service != nil {
 					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
