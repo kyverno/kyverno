@@ -1,5 +1,5 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
 metadata:
   name: test-policy
   annotations:
@@ -8,21 +8,21 @@ metadata:
     policies.kyverno.io/severity: "high"
     policies.kyverno.io/subject: "Pod"
 spec:
-  background: true
-  failurePolicy: Fail
-  rules:
-    - name: restrict-lol-annotation
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-      validate:
-        message: >-
-          If "lol" annotation is present then
-          its value can be only one of "such lol", "much annotation".
-        pattern:
-          # syntax refdoc: https://kyverno.io/docs/policy-types/cluster-policy/validate/#anchors
-          =(metadata):
-            =(annotations):
-              =(lol): such lol | much annotation
+  # Audit is the closest CEL equivalent of the legacy rule this replaces, which left
+  # `validate.failureAction` unset (legacy engine treats that as Audit for the purposes of
+  # GetValidationFailureAction().Audit(), see api/kyverno/v1/spec_types.go).
+  validationActions: [Audit]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [apps]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [deployments]
+  validations:
+    - expression: >-
+        !has(object.spec.template.metadata.annotations) ||
+        !('lol' in object.spec.template.metadata.annotations) ||
+        object.spec.template.metadata.annotations['lol'] in ['such lol', 'much annotation']
+      message: >-
+        If "lol" annotation is present then its value can only be one of
+        "such lol", "much annotation".
