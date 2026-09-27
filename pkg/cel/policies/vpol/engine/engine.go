@@ -332,6 +332,7 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 	}
 	var (
 		last          *compiler.EvaluationResult
+		lastSkipped   *compiler.EvaluationResult
 		allExceptions []*policiesv1beta1.PolicyException
 	)
 	for _, tpl := range templates {
@@ -357,6 +358,11 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
 		if result == nil || result.Skipped {
+			// with tracing on, a skipped template still carries its match-condition trace;
+			// keep the most recent one so it is not lost if every template ends up skipped.
+			if result != nil && result.Trace != nil {
+				lastSkipped = result
+			}
 			continue
 		}
 		// A policy-exception match is a per-template skip, not a failure - it
@@ -388,6 +394,9 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 	}
 	if last == nil && len(allExceptions) > 0 {
 		return &compiler.EvaluationResult{Exceptions: allExceptions}, nil
+	}
+	if last == nil && lastSkipped != nil {
+		return lastSkipped, nil
 	}
 	return last, nil
 }

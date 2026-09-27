@@ -50,7 +50,12 @@ func Render(w io.Writer, d *Decision) {
 	if v.Source != "" {
 		row(w, "VERDICT", v.Status, expressionLine(v.ExpressionTrace))
 	} else {
-		row(w, "VERDICT", v.Status, v.Message)
+		message := v.Message
+		if message == "" && v.Status == VerdictPass {
+			// no validations ran to produce a verdict -- most likely the policy declares none
+			message = "no validations to evaluate; the policy passes by default"
+		}
+		row(w, "VERDICT", v.Status, message)
 		return
 	}
 	if v.Message != "" && v.Status != VerdictPass {
