@@ -147,8 +147,7 @@ func TestBuildWebhookRules_NamespaceObjectMatchConditionsNotOffloaded(t *testing
 				0,
 				nil,
 				[]engineapi.GenericPolicy{engineapi.NewValidatingPolicy(vpol)},
-				expressionCache,
-			)
+				expressionCache, 10)
 			// the policy must stay fine-grained: it keeps its own webhook, only the
 			// namespaceObject match conditions are left to the Kyverno engine
 			assert.Len(t, webhooks, 1)
