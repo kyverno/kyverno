@@ -78,9 +78,24 @@ func (iv *imageVerifier) Verify(
 		pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
 		changed, err := iv.policyContext.JSONContext().HasChanged(pointer)
 		if err == nil && !changed && iv.isPreviouslyVerified(image) {
-			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
-			iv.addImageVerificationMetadata(image, engineapi.ImageVerificationPass)
-			continue
+			// Even when the image is unchanged, a ConfigMap rotation can change
+			// the resolved verifier configuration. Check the cache with the
+			// current fingerprint; a miss means the config changed and we must
+			// re-verify.
+			fingerprint := resolvedConfigFingerprint(imageVerify)
+			if iv.ivCache != nil {
+				found, cacheErr := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, fingerprint, imageVerify.UseCache)
+				if cacheErr == nil && found {
+					iv.logger.V(4).Info("no change in image, skipping check", "image", image)
+					iv.addImageVerificationMetadata(image, engineapi.ImageVerificationPass)
+					continue
+				}
+				// Cache miss or error: fall through to re-verify
+			} else {
+				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
+				iv.addImageVerificationMetadata(image, engineapi.ImageVerificationPass)
+				continue
+			}
 		}
 
 		isInCache := false
@@ -155,9 +170,22 @@ func (iv *imageVerifier) isPreviouslyVerified(image string) bool {
 // them (see substituteVariables), so they can't carry resolved key material.
 func resolvedConfigFingerprint(imageVerify kyvernov1.ImageVerification) string {
 	data, err := json.Marshal(struct {
-		Attestors    []kyvernov1.AttestorSet `json:"attestors,omitempty"`
-		Attestations []kyvernov1.Attestation `json:"attestations,omitempty"`
-	}{imageVerify.Attestors, imageVerify.Attestations})
+		Type         kyvernov1.ImageVerificationType `json:"type,omitempty"`
+		Roots        string                          `json:"roots,omitempty"`
+		Repository   string                          `json:"repository,omitempty"`
+		CosignOCI11  bool                            `json:"cosignOCI11,omitempty"`
+		Annotations  map[string]string               `json:"annotations,omitempty"`
+		Attestors    []kyvernov1.AttestorSet         `json:"attestors,omitempty"`
+		Attestations []kyvernov1.Attestation         `json:"attestations,omitempty"`
+	}{
+		imageVerify.Type,
+		imageVerify.Roots,
+		imageVerify.Repository,
+		imageVerify.CosignOCI11,
+		imageVerify.Annotations,
+		imageVerify.Attestors,
+		imageVerify.Attestations,
+	})
 	if err != nil {
 		return ""
 	}
