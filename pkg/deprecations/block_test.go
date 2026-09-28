@@ -41,6 +41,7 @@ func TestDenyLegacyWriteCore(t *testing.T) {
 		escapeHatch        func() bool
 		subresourceAllowed func(string) bool
 		wantDeny           bool
+		wantRecovery       bool
 	}{
 		{name: "create ClusterPolicy denied", kind: clusterPolicyKind, operation: admissionv1.Create, wantDeny: true},
 		{name: "create Policy denied", kind: policyKind, operation: admissionv1.Create, wantDeny: true},
@@ -62,7 +63,7 @@ func TestDenyLegacyWriteCore(t *testing.T) {
 		{name: "scale update denied even when status registered", kind: clusterPolicyKind, operation: admissionv1.Update,
 			subResource: "scale", subresourceAllowed: allowStatus, wantDeny: true},
 		{name: "finalizer removal on terminating object allowed", kind: clusterPolicyKind, operation: admissionv1.Update,
-			oldObject: terminatingRaw(`["a"]`), object: terminatingRaw(`[]`), wantDeny: false},
+			oldObject: terminatingRaw(`["a"]`), object: terminatingRaw(`[]`), wantDeny: false, wantRecovery: true},
 		{name: "finalizer removal plus label change denied", kind: clusterPolicyKind, operation: admissionv1.Update,
 			oldObject: []byte(`{"metadata":{"deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":["a"],"labels":{"a":"b"}}}`),
 			object:    []byte(`{"metadata":{"deletionTimestamp":"2024-01-01T00:00:00Z","finalizers":[],"labels":{"a":"c"}}}`),
@@ -100,8 +101,11 @@ func TestDenyLegacyWriteCore(t *testing.T) {
 			if subresourceAllowed == nil {
 				subresourceAllowed = denyNothing
 			}
-			err, blocked := denyLegacyWrite(request, tt.escapeHatch, subresourceAllowed)
-			assert.Equal(t, tt.wantDeny, blocked)
+			decision, err := decideLegacyWrite(request, tt.escapeHatch, subresourceAllowed)
+			assert.Equal(t, tt.wantDeny, decision == Deny)
+			if tt.wantRecovery {
+				assert.Equal(t, AllowRecovery, decision, "finalizer recovery must short-circuit, not delegate")
+			}
 			if tt.wantDeny {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "removed execution")
@@ -125,12 +129,12 @@ func TestDenyLegacyWriteNoRegistrants(t *testing.T) {
 
 	clusterPolicyKind := metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}
 
-	err, blocked := DenyLegacyWrite(admissionv1.AdmissionRequest{Kind: clusterPolicyKind, Operation: admissionv1.Create})
-	assert.True(t, blocked)
+	decision, err := DecideLegacyWrite(admissionv1.AdmissionRequest{Kind: clusterPolicyKind, Operation: admissionv1.Create})
+	assert.Equal(t, Deny, decision)
 	require.Error(t, err)
 
-	err, blocked = DenyLegacyWrite(admissionv1.AdmissionRequest{Kind: clusterPolicyKind, Operation: admissionv1.Update, SubResource: "status"})
-	assert.True(t, blocked)
+	decision, err = DecideLegacyWrite(admissionv1.AdmissionRequest{Kind: clusterPolicyKind, Operation: admissionv1.Update, SubResource: "status"})
+	assert.Equal(t, Deny, decision)
 	require.Error(t, err)
 }
 

@@ -52,3 +52,34 @@ func TestPolicyFieldWarnings(t *testing.T) {
 // TestWarningLength ensures kind deprecation messages stay within the 256
 // character limit Kubernetes enforces for CRD .spec.versions[].deprecationWarning,
 // so the same wording can be reused in kubebuilder deprecatedversion markers.
+
+// TestPolicyFieldWarningsValidActions is the negative half of the table: the canonical Enforce
+// and Audit values must produce no warnings. Without it the suite would pass even if valid
+// actions were also flagged as deprecated.
+func TestPolicyFieldWarningsValidActions(t *testing.T) {
+	t.Parallel()
+	policy := &kyvernov1.ClusterPolicy{
+		TypeMeta: metav1.TypeMeta{APIVersion: "kyverno.io/v1", Kind: "ClusterPolicy"},
+		Spec: kyvernov1.Spec{
+			ValidationFailureAction: "Enforce",
+			ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{
+				{Action: "Audit"},
+			},
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "check",
+					Validation: &kyvernov1.Validation{
+						FailureAction: ptr.To(kyvernov1.ValidationFailureAction("Enforce")),
+						FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{
+							{Action: "Audit"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if warnings := PolicyFieldWarnings(policy); len(warnings) != 0 {
+		t.Fatalf("expected no warnings for Enforce/Audit, got %d: %#v", len(warnings), warnings)
+	}
+}

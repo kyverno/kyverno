@@ -47,8 +47,8 @@ func TestNewControllerRegistersLegacyExecutionEscapeHatch(t *testing.T) {
 
 	// Before NewController runs, a legacy create must still be denied even with the toggle
 	// disabled: nothing in this binary has registered the hatch yet.
-	err, blocked := deprecations.DenyLegacyWrite(legacyCleanupCreateRequest())
-	assert.True(t, blocked, "the hatch must not be registered before cleanup.NewController runs")
+	decision, err := deprecations.DecideLegacyWrite(legacyCleanupCreateRequest())
+	assert.Equal(t, deprecations.Deny, decision, "the hatch must not be registered before cleanup.NewController runs")
 	require.Error(t, err)
 
 	ctx := context.Background()
@@ -78,7 +78,7 @@ func TestNewControllerRegistersLegacyExecutionEscapeHatch(t *testing.T) {
 
 	// After construction, the same create must be let through: NewController registered the
 	// hatch and the toggle is disabled.
-	err, blocked = deprecations.DenyLegacyWrite(legacyCleanupCreateRequest())
-	assert.False(t, blocked, "cleanup.NewController must register the escape hatch")
+	decision, err = deprecations.DecideLegacyWrite(legacyCleanupCreateRequest())
+	assert.NotEqual(t, deprecations.Deny, decision, "cleanup.NewController must register the escape hatch")
 	assert.NoError(t, err)
 }

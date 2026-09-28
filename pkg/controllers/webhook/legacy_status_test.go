@@ -19,16 +19,16 @@ import (
 func TestLegacyStatusWriterAllowsStatusSubresource(t *testing.T) {
 	kind := metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}
 
-	err, blocked := deprecations.DenyLegacyWrite(admissionv1.AdmissionRequest{
+	decision, err := deprecations.DecideLegacyWrite(admissionv1.AdmissionRequest{
 		Kind: kind, Operation: admissionv1.Update, SubResource: "status",
 	})
-	assert.False(t, blocked, "legacy_status.go's init() must have registered status as allowed")
+	assert.NotEqual(t, deprecations.Deny, decision, "legacy_status.go's init() must have registered status as allowed")
 	assert.NoError(t, err)
 
 	// Not a blanket subresource bypass: an unregistered subresource stays denied.
-	err, blocked = deprecations.DenyLegacyWrite(admissionv1.AdmissionRequest{
+	decision, err = deprecations.DecideLegacyWrite(admissionv1.AdmissionRequest{
 		Kind: kind, Operation: admissionv1.Update, SubResource: "scale",
 	})
-	assert.True(t, blocked, "only status is registered; scale must still be denied")
+	assert.Equal(t, deprecations.Deny, decision, "only status is registered; scale must still be denied")
 	require.Error(t, err)
 }

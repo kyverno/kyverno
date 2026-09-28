@@ -121,14 +121,14 @@ func TestNewHandlersRegistersLegacyExecutionEscapeHatch(t *testing.T) {
 	// A nil cache means this binary constructed no legacy execution; the hatch must not be
 	// registered, so a legacy create stays denied even with the toggle disabled.
 	newRealHandlersForHatchTest(t, nil)
-	err, blocked := deprecations.DenyLegacyWrite(legacyCreateRequest())
-	assert.True(t, blocked, "a nil policy cache must not register the escape hatch")
+	decision, err := deprecations.DecideLegacyWrite(legacyCreateRequest())
+	assert.Equal(t, deprecations.Deny, decision, "a nil policy cache must not register the escape hatch")
 	require.Error(t, err)
 
 	// A real cache means this binary can execute legacy policies; NewHandlers must register the
 	// hatch, so the same create is now let through by the disabled toggle.
 	newRealHandlersForHatchTest(t, policycache.NewCache())
-	err, blocked = deprecations.DenyLegacyWrite(legacyCreateRequest())
-	assert.False(t, blocked, "constructing NewHandlers with a real policy cache must register the escape hatch")
+	decision, err = deprecations.DecideLegacyWrite(legacyCreateRequest())
+	assert.NotEqual(t, deprecations.Deny, decision, "constructing NewHandlers with a real policy cache must register the escape hatch")
 	assert.NoError(t, err)
 }

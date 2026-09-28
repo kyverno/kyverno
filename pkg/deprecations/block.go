@@ -52,44 +52,60 @@ func subresourceAllowed(subresource string) bool {
 	return transitionalSubresources.Has(subresource)
 }
 
+// Decision is the outcome of the legacy write gate for one admission request.
+type Decision int
+
+const (
+	// Delegate means the gate has no opinion: the inner handler decides.
+	Delegate Decision = iota
+	// Deny means the request is a legacy policy write and must be refused.
+	Deny
+	// AllowRecovery means the request is the narrow finalizer-removal recovery update. The
+	// caller must answer success directly and must not delegate: the inner handler is the
+	// typed legacy validator, which would re-validate the unchanged spec and can refuse a
+	// policy that no longer passes current validation, blocking recovery for exactly the
+	// stale objects most likely to be stuck. It also disappears with the legacy types.
+	AllowRecovery
+)
+
 // DenyLegacyWrite decides whether an admission request for a legacy kyverno.io policy kind must
 // be hard-denied under the 1.20 write-time block on legacy policy APIs (see
 // https://github.com/kyverno/kyverno/issues/17708). It reads only request metadata and, for the
 // finalizer-removal carve-out, the raw object JSON -- no typed policy dependency. It returns
 // (err, true) when the request is denied, and (nil, false) when it is allowed.
-func DenyLegacyWrite(request admissionv1.AdmissionRequest) (error, bool) {
+func DecideLegacyWrite(request admissionv1.AdmissionRequest) (Decision, error) {
 	hatch := executionEscapeHatch.Load()
 	var escapeHatch func() bool
 	if hatch != nil {
 		escapeHatch = *hatch
 	}
-	return denyLegacyWrite(request, escapeHatch, subresourceAllowed)
+	return decideLegacyWrite(request, escapeHatch, subresourceAllowed)
 }
 
 // denyLegacyWrite is the pure decision core: given an admission request and its two collaborators
 // as explicit inputs, it has no package-level state and is exercised directly by table tests
 // without touching the add-only registries.
-func denyLegacyWrite(request admissionv1.AdmissionRequest, escapeHatch func() bool, subresourceAllowed func(string) bool) (error, bool) {
+func decideLegacyWrite(request admissionv1.AdmissionRequest, escapeHatch func() bool, subresourceAllowed func(string) bool) (Decision, error) {
 	if escapeHatch != nil && escapeHatch() {
-		return nil, false
+		return Delegate, nil
 	}
 	if !IsLegacyPolicyKind(request.Kind.Group, request.Kind.Kind) {
-		return nil, false
+		return Delegate, nil
 	}
 	switch request.Operation {
 	case admissionv1.Delete, admissionv1.Connect:
-		return nil, false
+		return Delegate, nil
 	case admissionv1.Create:
 		// fall through to the deny below
 	case admissionv1.Update:
 		if request.SubResource != "" {
 			if subresourceAllowed != nil && subresourceAllowed(request.SubResource) {
-				return nil, false
+				return Delegate, nil
 			}
 			return deny(request)
 		}
 		if allowed, err := admissionutils.IsFinalizerRemovalOnTerminatingObject(request); err == nil && allowed {
-			return nil, false
+			return AllowRecovery, nil
 		}
 		// A decode error from IsFinalizerRemovalOnTerminatingObject is deliberately not
 		// surfaced as its own error: it falls through to the same standard deny message,
@@ -102,7 +118,7 @@ func denyLegacyWrite(request admissionv1.AdmissionRequest, escapeHatch func() bo
 	return deny(request)
 }
 
-func deny(request admissionv1.AdmissionRequest) (error, bool) {
+func deny(request admissionv1.AdmissionRequest) (Decision, error) {
 	err, _ := BuildKindError(request.Kind.Group, request.Kind.Version, request.Kind.Kind)
-	return err, true
+	return Deny, err
 }
