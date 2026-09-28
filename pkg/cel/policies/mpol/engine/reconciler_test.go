@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sync"
 	"testing"
 
@@ -17,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -83,6 +85,48 @@ func TestReconcile(t *testing.T) {
 		res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: name})
 		assert.NoError(t, err)
 		assert.Equal(t, reconcile.Result{}, res)
+	})
+
+	t.Run("compilation failure removes policy from cache", func(t *testing.T) {
+		mp := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					}},
+				},
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "bad",
+					Expression: "1 + 'a'", // Invalid CEL expression
+				}},
+			},
+		}
+
+		rec := newReconciler(
+			&fakeClient{policy: mp},
+			compiler.NewCompiler(),
+			nil, false,
+		)
+
+		name := types.NamespacedName{Name: "test-policy"}
+		// Pre-populate the cache as if it was successfully compiled before
+		rec.policies[name.String()] = []Policy{{}}
+
+		// Reconcile - it should fail compilation and remove it from the cache
+		res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: name})
+		assert.NoError(t, err)
+		assert.Equal(t, reconcile.Result{}, res)
+
+		// Ensure cache is cleared
+		_, exists := rec.policies[name.String()]
+		assert.False(t, exists)
 	})
 }
 
@@ -156,6 +200,41 @@ func TestReconcile_ExtractionMode(t *testing.T) {
 	}
 	assert.True(t, sawDeploymentVariant, "expected a deployments autogen variant")
 	assert.True(t, sawJobSetVariant, "expected a jobsets autogen variant")
+}
+
+// failJobSetVariant compiles policies with the real compiler but fails the autogen variant that
+// targets jobsets, standing in for a variant whose rewritten expressions no longer compile.
+type failJobSetVariant struct {
+	compiler.Compiler
+}
+
+func (c failJobSetVariant) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*compiler.Policy, field.ErrorList) {
+	if mc := policy.GetSpec().MatchConstraints; mc != nil && len(mc.ResourceRules) > 0 && slices.Contains(mc.ResourceRules[0].Resources, "jobsets") {
+		return nil, field.ErrorList{field.Invalid(field.NewPath("spec"), "jobsets", "variant does not compile")}
+	}
+	return c.Compiler.Compile(policy, exceptions)
+}
+
+// An autogen variant that fails to compile is skipped instead of failing the whole reconcile, so the
+// base policy and the variants that do compile stay cached and enforced.
+func TestReconcile_AutogenVariantCompileFailure(t *testing.T) {
+	ctx := context.Background()
+	rec := newReconciler(
+		&fakeClient{policy: disallowLatestTagMutatingPolicy()},
+		failJobSetVariant{compiler.NewCompiler()},
+		nil, false,
+	)
+
+	res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "add-team-label"}})
+	require.NoError(t, err)
+	assert.Equal(t, reconcile.Result{}, res)
+
+	fetched := rec.Fetch(ctx, false)
+	require.Len(t, fetched, 2, "the base policy and the deployments variant must stay cached")
+	for _, p := range fetched {
+		assert.NotContains(t, p.Policy.GetSpec().MatchConstraints.ResourceRules[0].Resources, "jobsets",
+			"the variant that failed to compile must not be cached")
+	}
 }
 
 func TestFetch(t *testing.T) {
