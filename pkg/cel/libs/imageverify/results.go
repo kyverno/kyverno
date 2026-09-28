@@ -10,10 +10,9 @@ import "sync"
 // exists to distrust) so verification functions record the real outcome here
 // instead, for EnforceRequired to read back.
 //
-// One instance is shared by every policy compiled for the same admission request,
-// so a wildcard required policy can see verifications done by other policies in
-// that request. It's bound into the CEL environment at compile time, so a compiled
-// policy belongs to that request and must not be cached/reused across requests.
+// One instance is shared by every policy evaluated for the same admission
+// request, so a wildcard required policy can see other policies' verifications.
+// It is passed through the activation, never retained by compiled programs.
 //
 // Only verification functions write to it (not exposed to CEL), and Record is
 // monotonic so a later no-op check can't clear an earlier genuine verification.

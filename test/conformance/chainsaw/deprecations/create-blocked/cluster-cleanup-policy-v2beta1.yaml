@@ -1,0 +1,13 @@
+apiVersion: kyverno.io/v2beta1
+kind: ClusterCleanupPolicy
+metadata:
+  name: deprecations-cluster-cleanup-v2beta1
+spec:
+  schedule: "0 0 * * *"
+  match:
+    any:
+    - resources:
+        kinds:
+        - Namespace
+        names:
+        - deprecations-does-not-exist

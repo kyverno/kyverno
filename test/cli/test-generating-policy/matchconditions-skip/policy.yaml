@@ -1,0 +1,32 @@
+apiVersion: policies.kyverno.io/v1
+kind: GeneratingPolicy
+metadata:
+  name: generate-configmap-for-workloads
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["namespaces"]
+  matchConditions:
+    - name: workload-namespaces-only
+      expression: 'object.metadata.?labels["example.com/type"].orValue("") == "workload"'
+  variables:
+    - name: downstream
+      expression: >-
+        [
+          {
+            "apiVersion": dyn("v1"),
+            "kind": dyn("ConfigMap"),
+            "metadata": dyn({
+              "name": dyn("generated-config"),
+              "namespace": dyn(string(object.metadata.name))
+            }),
+            "data": dyn({
+              "foo": dyn("bar")
+            })
+          }
+        ]
+  generate:
+    - expression: generator.Apply(object.metadata.name, variables.downstream)

@@ -56,7 +56,7 @@ func TestNewCELMutateURForTrigger(t *testing.T) {
 		},
 	}}
 
-	ur, err := controller.newCELMutateURForTrigger("resize-policy", trigger)
+	ur, err := controller.newCELMutateURForTrigger("resize-policy", trigger, "status")
 
 	assert.NoError(t, err)
 	assert.Equal(t, kyvernov2.CELMutate, ur.Spec.Type)
@@ -64,6 +64,7 @@ func TestNewCELMutateURForTrigger(t *testing.T) {
 	request := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	assert.NotNil(t, request)
 	assert.Equal(t, "pods", request.Resource.Resource)
+	assert.Equal(t, "status", request.SubResource)
 	assert.Equal(t, "default", request.Namespace)
 	assert.Equal(t, "trigger-pod", request.Name)
 	var object map[string]interface{}

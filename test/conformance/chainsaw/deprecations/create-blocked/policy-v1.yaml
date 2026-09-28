@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: deprecations-policy-v1
+  namespace: ($namespace)
+spec:
+  rules:
+  - name: check-labels
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "label app is required"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"

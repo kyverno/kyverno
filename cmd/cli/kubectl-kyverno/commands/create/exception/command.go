@@ -1,6 +1,7 @@
 package exception
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/create/templates"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +57,12 @@ func Command() *cobra.Command {
 				if result != nil {
 					options.Match.All = append(options.Match.All, *result)
 				}
+			}
+			// This command's only template scaffolds a legacy kyverno.io/v2 PolicyException; warn
+			// (don't hard-block) so authoring one still works, but nudges toward the CEL
+			// replacement -- matching the 1.19-style warning used everywhere else in the CLI.
+			if warning, ok := pkgdeprecations.BuildKindWarning("kyverno.io", "v2", "PolicyException"); ok {
+				fmt.Fprintln(cmd.ErrOrStderr(), "Warning:", warning.Message)
 			}
 			output := cmd.OutOrStdout()
 			if path != "" {

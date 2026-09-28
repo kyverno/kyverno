@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -95,7 +96,7 @@ func TestReconcile_TwoPolicies_DoNotClobberAutogenVariants(t *testing.T) {
 	alpha := autogennablePolicy("alpha")
 	beta := autogennablePolicy("beta")
 
-	rec := newReconciler(
+	rec := newReconciler(iveval.NewCompiler(nil),
 		&fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
 			"alpha": alpha,
 			"beta":  beta,
@@ -136,7 +137,7 @@ func autogennablePolicyWithJobSet(name string) *policiesv1beta1.ImageValidatingP
 // the custom-CRD target directly against the real object instead of extracting its pod template.
 func TestReconcile_ExtractionMode(t *testing.T) {
 	ctx := context.Background()
-	rec := newReconciler(
+	rec := newReconciler(iveval.NewCompiler(nil),
 		&fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
 			"alpha": autogennablePolicyWithJobSet("alpha"),
 		}},
@@ -177,7 +178,7 @@ func TestReconcile_DeleteRemovesAllVariants(t *testing.T) {
 	fc := &fakeClient{policies: map[string]*policiesv1beta1.ImageValidatingPolicy{
 		"alpha": autogennablePolicy("alpha"),
 	}}
-	rec := newReconciler(fc, nil, false)
+	rec := newReconciler(iveval.NewCompiler(nil), fc, nil, false)
 
 	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: "alpha"}})
 	require.NoError(t, err)

@@ -22,6 +22,11 @@ type options struct {
 	save bool
 }
 
+// allowLegacyPoliciesForFix is out of #17485's scope (apply/test/create): reformatting an
+// existing manifest isn't a write path the 1.20 legacy-policy block covers, so legacy kinds
+// pass through unchanged here.
+const allowLegacyPoliciesForFix = true
+
 func (o options) validate(dirs ...string) error {
 	if len(dirs) == 0 {
 		return errors.New("at least one directory is required")
@@ -61,7 +66,7 @@ func (o options) execute(out io.Writer, dirs ...string) error {
 }
 
 func (o options) processFile(out io.Writer, path string) {
-	results, err := policy.LoadWithLoader(nil, nil, "", path)
+	results, err := policy.LoadWithLoader(nil, nil, "", allowLegacyPoliciesForFix, path)
 	if err != nil {
 		return
 	}
