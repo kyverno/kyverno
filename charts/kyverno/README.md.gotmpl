@@ -267,7 +267,7 @@ helm upgrade --install kyverno --namespace kyverno kyverno/kyverno --set upgrade
 
 `upgrade.acknowledgeLegacyPoliciesNotEnforced=true` disables both layers. It does not restore enforcement for the legacy policies found on the cluster; it only acknowledges that they are not enforced and lets the release proceed. `upgrade.legacyPolicyCheck.enabled=false` disables only the hook Job.
 
-A stale `upgrade.allowLegacyPolicies` value from a pre-1.20 chart fails the render rather than being silently ignored: `upgrade.allowLegacyPolicies` was renamed to `upgrade.acknowledgeLegacyPoliciesNotEnforced` in 1.20, because setting it to `true` no longer allows legacy policies to run; it only accepts that they are not enforced.
+`upgrade.allowLegacyPolicies` was renamed to `upgrade.acknowledgeLegacyPoliciesNotEnforced` in 1.20, because setting it to `true` no longer allows legacy policies to run; it only accepts that they are not enforced. A stale `upgrade.allowLegacyPolicies: true` from a pre-1.20 values file fails the render rather than being silently ignored. A stale `upgrade.allowLegacyPolicies: false` is not consent either way, so it is ignored, the same as if the key were absent.
 
 **Known bypasses.** Both layers rely on Helm evaluating against a live cluster, so the following paths are not covered:
 

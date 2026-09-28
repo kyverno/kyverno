@@ -83,6 +83,22 @@ func findStatusRule(rules []admissionregistrationv1.RuleWithOperations) (admissi
 	return admissionregistrationv1.RuleWithOperations{}, false
 }
 
+// matchConditionsOverride wraps a real config.Configuration and forces GetMatchConditions() to
+// return a non-empty value, so a test built against it can actually observe whether a builder
+// applies the ConfigMap's match conditions. config.NewDefaultConfiguration(false)'s
+// GetMatchConditions() already returns nil, so using it directly would let
+// TestPolicyValidatingWebhookRegistrationInvariants's MatchConditions assertion pass whether or
+// not buildPolicyValidatingWebhookConfiguration ever adds MatchConditions: cfg.GetMatchConditions()
+// -- the assertion would guard nothing.
+type matchConditionsOverride struct {
+	config.Configuration
+	matchConditions []admissionregistrationv1.MatchCondition
+}
+
+func (m matchConditionsOverride) GetMatchConditions() []admissionregistrationv1.MatchCondition {
+	return m.matchConditions
+}
+
 // TestPolicyValidatingWebhookRegistrationInvariants pins decision 1 of the #17708 design: the
 // legacy denial configuration this controller builds has no ConfigMap matchConditions, no
 // selectors, fails closed, and includes the /status rule with Update only.
@@ -93,12 +109,18 @@ func TestPolicyValidatingWebhookRegistrationInvariants(t *testing.T) {
 		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
 	}
 
-	vwc, err := c.buildPolicyValidatingWebhookConfiguration(context.TODO(), config.NewDefaultConfiguration(false), nil)
+	cfg := matchConditionsOverride{
+		Configuration: config.NewDefaultConfiguration(false),
+		matchConditions: []admissionregistrationv1.MatchCondition{
+			{Name: "exempt-principal", Expression: "true"},
+		},
+	}
+	vwc, err := c.buildPolicyValidatingWebhookConfiguration(context.TODO(), cfg, nil)
 	require.NoError(t, err)
 	require.Len(t, vwc.Webhooks, 1)
 	webhook := vwc.Webhooks[0]
 
-	assert.Nil(t, webhook.MatchConditions)
+	assert.Nil(t, webhook.MatchConditions, "the ConfigMap match condition set on cfg must not reach this webhook")
 	assert.Nil(t, webhook.NamespaceSelector)
 	assert.Nil(t, webhook.ObjectSelector)
 	require.NotNil(t, webhook.FailurePolicy)

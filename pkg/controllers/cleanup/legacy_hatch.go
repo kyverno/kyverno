@@ -16,7 +16,11 @@ import (
 // callback in cmd/cleanup-controller/main.go, after the webhook server has already started. This
 // registration is therefore leader-scoped and post-election: a non-leader replica, and a leader
 // before its first election completes, deny legacy cleanup-policy writes even with the toggle
-// disabled. That is fail-closed and intentional, not a gap to close here.
+// disabled. That is fail-closed and intentional, not a gap to close here. Precondition this
+// implies for anyone relying on the toggle staying honoured everywhere (for example, the design's
+// expectation that the legacy conformance suites stay green): it only holds with
+// cleanupController.replicas=1, since with more replicas some fraction of requests land on a
+// non-leader pod that has never registered the hatch.
 func registerLegacyExecutionEscapeHatch() {
 	deprecations.RegisterLegacyExecutionEscapeHatch(func() bool {
 		return !toggle.BlockLegacyPolicyAPIs.Enabled()
