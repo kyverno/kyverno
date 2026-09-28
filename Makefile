@@ -905,24 +905,11 @@ bench-baseline: ## Regenerate scripts/bench/thresholds.txt ceilings from a fresh
 # CLI TESTS #
 #############
 
-TEST_GIT_BRANCH ?= main
-TEST_GIT_REPO   ?= https://github.com/kyverno/policies
-
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local ## Run all CLI tests
-
-.PHONY: test-cli-policies
-test-cli-policies: $(CLI_BIN) ## Run CLI tests against the policies repository
-	@echo Running cli tests against $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)... >&2
-	@$(CLI_BIN) test $(TEST_GIT_REPO)/$(TEST_GIT_BRANCH)
+test-cli: test-cli-local ## Run all CLI tests
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-validate test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-mutate test-cli-local-generate test-cli-local-exceptions test-cli-local-registry test-cli-local-scenarios test-cli-local-selector test-cli-local-ruleless ## Run local CLI tests
-
-.PHONY: test-cli-local-validate
-test-cli-local-validate: $(CLI_BIN) ## Run local CLI validation tests
-	@echo Running local cli validation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test
+test-cli-local: test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-ruleless ## Run local CLI tests
 
 .PHONY: test-cli-local-ruleless
 test-cli-local-ruleless: $(CLI_BIN) ## Run local CLI ruleless policy tests
@@ -970,36 +957,6 @@ test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 	@echo Running local cli MAP tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutating-admission-policy
 
-.PHONY: test-cli-local-mutate
-test-cli-local-mutate: $(CLI_BIN) ## Run local CLI mutation tests
-	@echo Running local cli mutation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-mutate
-
-.PHONY: test-cli-local-generate
-test-cli-local-generate: $(CLI_BIN) ## Run local CLI generation tests
-	@echo Running local cli generation tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-generate
-
-.PHONY: test-cli-local-exceptions
-test-cli-local-exceptions: $(CLI_BIN) ## Run local CLI exception tests
-	@echo Running local cli exception tests... >&2
-	@$(CLI_BIN) test ./test/cli/test-exceptions
-
-.PHONY: test-cli-local-selector
-test-cli-local-selector: $(CLI_BIN) ## Run local CLI tests (with test case selector)
-	@echo Running local cli selector tests... >&2
-	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
-
-.PHONY: test-cli-local-registry
-test-cli-local-registry: $(CLI_BIN) ## Run local CLI registry tests
-	@echo Running local cli registry tests... >&2
-	@$(CLI_BIN) test ./test/cli/registry --registry
-
-.PHONY: test-cli-local-scenarios
-test-cli-local-scenarios: $(CLI_BIN) ## Run local CLI scenarios tests
-	@echo Running local cli scenarios tests... >&2
-	@$(CLI_BIN) test ./test/cli/scenarios_to_cli --registry
-
 #############
 # HELM TEST #
 #############
@@ -1010,6 +967,11 @@ helm-test: $(HELM) ## Run helm test
 	@$(HELM) dependency build ./charts/kyverno
 	@$(HELM) test --namespace kyverno kyverno
 
+.PHONY: verify-legacy-crd-retention
+verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five legacy policy CRDs keep their helm.sh/resource-policy annotation (no cluster needed)
+	@echo Verify legacy CRD retention... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
+
 .PHONY: verify-legacy-policy-gate
 verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
 	@echo Verify legacy policy gate... >&2
@@ -1019,6 +981,11 @@ verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-pol
 verify-legacy-policy-hook: helm-setup-dependency-charts ## Verify the legacy-policy pre-install/pre-upgrade hook Job blocks and passes correctly (needs Kyverno already installed with the local CLI image loaded, e.g. via kind-install-kyverno)
 	@echo Verify legacy policy hook... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) LOCAL_REGISTRY=$(LOCAL_REGISTRY) LOCAL_CLI_REPO=$(LOCAL_CLI_REPO) GIT_SHA=$(GIT_SHA) ./scripts/verify-legacy-policy-hook.sh
+
+.PHONY: verify-legacy-policy-migration
+verify-legacy-policy-migration: helm-setup-dependency-charts ## Verify the 1.19->1.20 legacy-policy migration grace window is non-destructive: opt-out upgrade, rollback, blocked upgrade, migrate-to-CEL (needs a reachable kind cluster as the current kube context, with local images already loaded, e.g. via kind-load-all)
+	@echo Verify legacy policy migration... >&2
+	@HELM=$(HELM) ./scripts/verify-legacy-policy-migration.sh
 
 #################
 # RELEASE NOTES #

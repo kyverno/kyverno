@@ -1,0 +1,29 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: require-run-as-nonroot
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  variables:
+    - name: ctnrs
+      expression: >-
+        object.spec.containers +
+        object.spec.?initContainers.orValue([]) +
+        object.spec.?ephemeralContainers.orValue([])
+  validations:
+    - expression: |-
+        object.spec.?hostUsers.orValue(true) == false ||
+        (object.spec.?securityContext.?runAsNonRoot.orValue(false) == true
+        && variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(true) == true))
+        || variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(false) == true)
+      message: >-
+        Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
+        must be set to `true`, or the fields spec.containers[*].securityContext.runAsNonRoot,
+        spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
+        must be set to `true`.
+        This policy does not apply to Pods that set spec.hostUsers to `false`.
