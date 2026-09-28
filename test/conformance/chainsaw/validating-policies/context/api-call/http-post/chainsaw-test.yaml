@@ -12,8 +12,17 @@ spec:
         file: http-pod.yaml
     - apply:
         file: service.yaml
-    - sleep:
-        duration: 8s
+    - assert:
+        timeout: 120s
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: test-api
+            namespace: default
+          status:
+            (conditions[?type == 'Ready']):
+            - status: "True"
   - name: create policy
     use:
       template: ../../../../_step-templates/create-policy.yaml
