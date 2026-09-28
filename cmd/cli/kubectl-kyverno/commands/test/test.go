@@ -404,13 +404,20 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 
 	// TODO document the code below
-	ruleToCloneSourceResource := map[string]string{}
+	ruleToCloneSourceResource := map[string]map[string]string{}
 	for _, policy := range results.Policies {
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
+
+				if policy.GetName() == res.Policy && rule.Name == res.Rule {
+					policyCloneSources := ruleToCloneSourceResource[policy.GetName()]
+					if policyCloneSources == nil {
+						policyCloneSources = map[string]string{}
+						ruleToCloneSourceResource[policy.GetName()] = policyCloneSources
+					}
 				resPolicyNamespace, resPolicyName := "", res.Policy
 				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
 					resPolicyNamespace, resPolicyName = ns, name
@@ -428,6 +435,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
 							// We cannot cast this to an unstructured object because it doesn't have a kind.
 							if isGit {
+								policyCloneSources[rule.Name] = res.CloneSourceResource
+							} else {
+								policyCloneSources[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
 							} else {
 								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
@@ -445,6 +455,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 							}
 							if len(genClone) != 0 {
 								if isGit {
+									policyCloneSources[rule.Name] = res.CloneSourceResource
+								} else {
+									policyCloneSources[rule.Name] = path.GetFullPath(res.CloneSourceResource, testDir)
 									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
 								} else {
 									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
