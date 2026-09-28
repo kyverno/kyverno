@@ -19,6 +19,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils"
 	"github.com/kyverno/kyverno/ext/resource/convert"
@@ -69,9 +70,6 @@ var (
 	ccpV2beta1         = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("ClusterCleanupPolicy")
 	ccpV2              = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("ClusterCleanupPolicy")
 	mpV1alpha1         = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("MutatingPolicy")
-	polexv2            = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("PolicyException")
-	polexv1beta1       = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("PolicyException")
-	polexcelv1beta1    = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("PolicyException")
 	mpV1beta1          = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("MutatingPolicy")
 	mpV1               = schema.GroupVersion(policiesv1.GroupVersion).WithKind("MutatingPolicy")
 	nmpV1beta1         = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("NamespacedMutatingPolicy")
@@ -97,7 +95,6 @@ type LoaderWarning struct {
 type LoaderResults struct {
 	Policies                []kyvernov1.PolicyInterface
 	PolicyExceptions        []*kyvernov2.PolicyException
-	PolicyCELExceptions     []*policiesv1beta1.PolicyException
 	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
 	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MAPs                    []admissionregistrationv1beta1.MutatingAdmissionPolicy
@@ -355,18 +352,18 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 			return err
 		}
 		results.VAPBindings = append(results.VAPBindings, *typed)
-	case polexv2, polexv1beta1:
-		typed, err := convert.To[*kyvernov2.PolicyException](*untyped)
+	case exception.ExceptionV2, exception.ExceptionV2beta1:
+		typed, err := convert.To[kyvernov2.PolicyException](*untyped)
 		if err != nil {
 			return err
 		}
-		results.PolicyExceptions = append(results.PolicyExceptions, *typed)
-	case polexcelv1beta1:
-		typed, err := convert.To[*policiesv1beta1.PolicyException](*untyped)
+		results.PolicyExceptions = append(results.PolicyExceptions, typed)
+	case exception.CELExceptionV1alpha1, exception.CELExceptionV1beta1, exception.CELExceptionV1:
+		typed, err := convert.To[policiesv1beta1.PolicyException](*untyped)
 		if err != nil {
 			return err
 		}
-		results.PolicyCelExceptions = append(results.PolicyCelExceptions, *typed)
+		results.PolicyCelExceptions = append(results.PolicyCelExceptions, typed)
 	case vpV1alpha1, vpV1beta1, vpV1:
 		typed, err := convert.To[policiesv1beta1.ValidatingPolicy](*untyped)
 		if err != nil {
