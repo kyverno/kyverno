@@ -122,6 +122,36 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			want:   "object.metadata[\"namespace\"] == 'kube-system'",
 		},
 		{
+			name:   "bracket access with double quotes is preserved in JSON-marshaled bytes",
+			expr:   "object.metadata[\\\"namespace\\\"] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[\\\"namespace\\\"] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with triple single quotes is preserved",
+			expr:   "object.metadata['''namespace'''] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata['''namespace'''] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with triple double quotes is preserved in JSON-marshaled bytes",
+			expr:   "object.metadata[\\\"\\\"\\\"namespace\\\"\\\"\\\"] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[\\\"\\\"\\\"namespace\\\"\\\"\\\"] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with a raw string is preserved",
+			expr:   "object.metadata[r'namespace'] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[r'namespace'] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with a raw double-quoted string is preserved in JSON-marshaled bytes",
+			expr:   "object.metadata[r\\\"namespace\\\"] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[r\\\"namespace\\\"] == 'kube-system'",
+		},
+		{
 			name:   "optional select of a longer identifier is still rewritten",
 			expr:   "object.metadata.?namespaceFoo",
 			config: "deployments",
