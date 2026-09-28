@@ -16,6 +16,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
@@ -25,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -71,7 +73,7 @@ type TestResponse struct {
 }
 
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
-func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
+func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registryAccess bool, warningsAsErrors ...bool) (*TestResponse, error) {
 	failOnWarnings := len(warningsAsErrors) > 0 && warningsAsErrors[0]
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
@@ -109,10 +111,35 @@ func runTest(out io.Writer, testCase test.TestCase, registryAccess bool, warning
 	}
 
 	fmt.Fprintln(out, "  Loading policies", "...")
-	policyFullPath := path.GetFullPaths(testCase.Test.Policies, testDir, isGit)
+	var ociPolicies []string
+	var regularPolicies []string
+	for _, p := range testCase.Test.Policies {
+		if source.IsOCI(p) {
+			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(p), pull.NewKeychain())
+			if err != nil {
+				return nil, fmt.Errorf("failed to pull OCI policy %s (%w)", p, err)
+			}
+			defer cleanup()
+			ociPolicies = append(ociPolicies, tmpDir)
+		} else {
+			regularPolicies = append(regularPolicies, p)
+		}
+	}
+	policyFullPath := path.GetFullPaths(regularPolicies, testDir, isGit)
 	results, err := policy.Load(testCase.Fs, testDir, false, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
+	}
+	if len(ociPolicies) > 0 {
+		ociResults, err := policy.Load(nil, "", false, ociPolicies...)
+		if err != nil {
+			return nil, fmt.Errorf("error: failed to load OCI policies (%s)", err)
+		}
+		if results == nil {
+			results = ociResults
+		} else {
+			results.Merge(ociResults)
+		}
 	}
 	if results != nil && results.NonFatalErrors != nil {
 		for _, e := range results.NonFatalErrors {

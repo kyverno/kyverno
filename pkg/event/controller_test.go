@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -382,5 +383,37 @@ func TestEventNameSanitization(t *testing.T) {
 	if event != nil && !strings.HasPrefix(event.Name, sanitizedResourceName) {
 		t.Errorf("Expected name to start with '%s', got: %s",
 			sanitizedResourceName, event.Name)
+	}
+}
+
+func TestEmitEventTruncatesMessageOnRuneBoundary(t *testing.T) {
+	for _, prefix := range []int{1019, 1020, 1021} {
+		mockController := &controller{
+			logger: logging.WithName("mock-controller"),
+			queue: workqueue.NewTypedRateLimitingQueueWithConfig(
+				workqueue.DefaultTypedControllerRateLimiter[any](),
+				workqueue.TypedRateLimitingQueueConfig[any]{Name: "test-queue"},
+			),
+			clock:    clock.RealClock{},
+			hostname: "test-host",
+		}
+		mockController.emitEvent(Info{
+			Regarding: corev1.ObjectReference{Kind: "Pod", Name: "test", Namespace: "default"},
+			Reason:    PolicyViolation,
+			Message:   strings.Repeat("a", prefix) + strings.Repeat("中", 100),
+			Action:    ResourceBlocked,
+			Source:    AdmissionController,
+		})
+		queueItem, _ := mockController.queue.Get()
+		event := queueItem.(*eventsv1.Event)
+		if !utf8.ValidString(event.Note) {
+			t.Errorf("prefix %d: note is not valid UTF-8", prefix)
+		}
+		if len(event.Note) > 1024 {
+			t.Errorf("prefix %d: note is %d bytes, want at most 1024", prefix, len(event.Note))
+		}
+		if !strings.HasSuffix(event.Note, "...") {
+			t.Errorf("prefix %d: note does not end with ...", prefix)
+		}
 	}
 }

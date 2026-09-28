@@ -31,6 +31,11 @@ jobs:
           python-version: 3.13.1
       - name: Set up chart-testing
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+      # Exports HELM=<path>, which the Makefile's `HELM ?=` picks up, so the
+      # retention check below reuses this helm instead of building one from
+      # source into .tools/.
+      - name: Install helm
+        uses: ./.github/actions/tools/helm
       - name: Add Helm repos and build dependencies
         run: |
           helm repo add openreports https://openreports.github.io/reports-api
@@ -39,6 +44,16 @@ jobs:
           helm repo update
       - name: Run chart-testing (lint)
         run: ct lint --all --check-version-increment=false --validate-maintainers=false
+      - name: Verify legacy CRD retention
+        # Asserts the five legacy policy CRDs still carry
+        # helm.sh/resource-policy: keep (#17489). The annotation reaches the
+        # chart through codegen from a kubebuilder marker, so nothing in the
+        # chart pins it; this renders the chart and checks. It needs no
+        # cluster, which is why it lives here rather than in the conformance
+        # helm-tests job.
+        run: |
+          set -e
+          make verify-legacy-crd-retention
 
   sync-issue:
     if: always() && github.event_name == 'push'
