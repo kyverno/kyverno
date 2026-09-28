@@ -20,7 +20,7 @@ always pass. There are exactly two exceptions, both narrow:
 - Subresources registered through `AllowSubresourceForLegacyStatusWriter`, currently only `status`.
 
 Do not widen either. The blanket "any subresource passes" bypass this replaced is the exact hole
-#17708 set out to close.
+issue #17708 set out to close.
 
 ## The two registries are add-only, on purpose
 
@@ -45,6 +45,17 @@ That is the forbidden state.
 
 When #17710 removes legacy execution, verify the registrations disappear with it rather than
 deleting these functions outright.
+
+## Keep this package's own source type-free
+
+`deprecations.go` must not import a Kyverno policy type. The field-level warning helpers that do
+live in the `policywarnings` subpackage, precisely so importing `pkg/deprecations` does not pull
+the legacy API in.
+
+One transitive path remains: `block.go` imports `pkg/utils/admission` for the finalizer check, and
+that package still carries typed helpers such as `policy.go`. Those are consumed only by the legacy
+handlers, so #17710 deletes them with their callers before #17713 deletes the types. If that ordering
+ever changes, split the type-free helpers out rather than reintroducing typed code here.
 
 ## Webhook rules
 

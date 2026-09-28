@@ -13,6 +13,7 @@ import (
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/deprecations"
+	"github.com/kyverno/kyverno/pkg/deprecations/policywarnings"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -116,7 +117,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 				deprecatedMetric.Record(ctx, request.Namespace, warning.Group, warning.Version, warning.Kind, "")
 			}
 		}
-		for _, warning := range deprecations.PolicyFieldWarnings(pol) {
+		for _, warning := range policywarnings.PolicyFieldWarnings(pol) {
 			logger.V(2).Info(warning.Message, "field", warning.Field, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
 			warnings = append(warnings, warning.Message)
 			if deprecatedMetric != nil {

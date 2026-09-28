@@ -37,7 +37,7 @@ spec:
                      kyverno-exception-validating-webhook-cfg \
                      kyverno-cleanup-validating-webhook-cfg; do
             found=$(kubectl get validatingwebhookconfiguration "$cfg" \
-              -o jsonpath='{.webhooks[*].matchConditions[*].name}' 2>/dev/null || true)
+              -o jsonpath='{.webhooks[*].matchConditions[*].name}')
             case " $found " in
               *" exempt-cluster-admin "*)
                 echo "FAIL: $cfg inherited config.matchConditions; legacy writes could bypass denial"

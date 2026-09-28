@@ -7,9 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var fieldIndexPattern = regexp.MustCompile(`\[\d+\]`)
@@ -125,59 +122,6 @@ func BuildKindError(group, version, kind string) (error, bool) {
 	)}, true
 }
 
-// PolicyFieldWarnings returns field-level deprecation warnings for legacy policy fields.
-func PolicyFieldWarnings(policy kyvernov1.PolicyInterface) []DeprecationWarning {
-	var warnings []DeprecationWarning
-	spec := policy.GetSpec()
-	seen := map[string]struct{}{}
-	add := func(fieldPath string) {
-		if _, ok := seen[fieldPath]; ok {
-			return
-		}
-		seen[fieldPath] = struct{}{}
-		warnings = append(warnings, DeprecationWarning{
-			Group:   "kyverno.io",
-			Version: policyVersion(policy),
-			Kind:    policy.GetKind(),
-			Field:   fieldPath,
-			Message: fmt.Sprintf("%s: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.", fieldPath),
-		})
-	}
-
-	if isDeprecatedValidationFailureAction(spec.ValidationFailureAction) {
-		add("spec.validationFailureAction")
-	}
-	for i, override := range spec.ValidationFailureActionOverrides {
-		if isDeprecatedValidationFailureAction(override.Action) {
-			add(fmt.Sprintf("spec.validationFailureActionOverrides[%d].action", i))
-		}
-	}
-	for i, rule := range spec.Rules {
-		if rule.Validation != nil && rule.Validation.FailureAction != nil && isDeprecatedValidationFailureAction(*rule.Validation.FailureAction) {
-			add(fmt.Sprintf("spec.rules[%d].validate.failureAction", i))
-		}
-		if rule.Validation != nil {
-			for j, override := range rule.Validation.FailureActionOverrides {
-				if isDeprecatedValidationFailureAction(override.Action) {
-					add(fmt.Sprintf("spec.rules[%d].validate.failureActionOverrides[%d].action", i, j))
-				}
-			}
-		}
-	}
-	return warnings
-}
-
-func isDeprecatedValidationFailureAction(action kyvernov1.ValidationFailureAction) bool {
-	return action == "enforce" || action == "audit"
-}
-
 func NormalizeFieldPath(field string) string {
 	return fieldIndexPattern.ReplaceAllString(field, "[]")
-}
-
-func policyVersion(policy kyvernov1.PolicyInterface) string {
-	if object, ok := policy.(interface{ GetObjectKind() schema.ObjectKind }); ok {
-		return object.GetObjectKind().GroupVersionKind().Version
-	}
-	return ""
 }
