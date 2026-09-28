@@ -1,12 +1,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
-# Event-driven: for every open, non-draft, non-Dependabot PR, checks DCO, CI, conflicts, and unresolved review
-# threads. Clean -> `ready-for-review`; not -> `needs-author-action` + a comment. Reacts to the PR events that
-# actually change these (a push, a label, a review, an author reply), plus an hourly sweep of every open PR as
-# a safety net — including for CI settling, which has no per-PR event of its own to react to.
+# Checks DCO, CI, conflicts, and unresolved review threads for every open, non-draft, non-Dependabot PR.
+# Clean -> `ready-for-review`; not -> `needs-author-action` + a comment.
 #
-# `pull_request_target` only ever reads PR metadata via the API here — the checkout below never takes a `ref:`,
-# so it only ever checks out this trusted default branch, never the PR's own code.
+# Triggers: a push, a PR reopened/marked ready, a review, or the author replying to a thread — each checks just
+# that one PR. Plus an hourly sweep of every open PR, which also stamps `milestone-pr` on PRs closing an open
+# "Kyverno Release ..." issue.
 #
 # Checks live in .github/pr-readiness-checks.yml, not here.
 
@@ -25,8 +24,6 @@ on:
   pull_request_target:
     types:
       - synchronize
-      - labeled
-      - unlabeled
       - reopened
       - ready_for_review
   pull_request_review:
@@ -69,28 +66,12 @@ jobs:
         id: resolve
         env:
           EVENT_NAME: ${{ github.event_name }}
-          EVENT_ACTION: ${{ github.event.action }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          LABEL_NAME: ${{ github.event.label.name }}
         run: |
           set -euo pipefail
 
           case "$EVENT_NAME" in
-            pull_request_target)
-              if [[ "$EVENT_ACTION" == "labeled" || "$EVENT_ACTION" == "unlabeled" ]]; then
-                # Only merge-conflicts changing is worth a re-check — every other label change includes the
-                # ones this workflow itself just made (needs-author-action, ready-for-review, milestone-pr),
-                # so reacting to those would re-trigger itself in a loop.
-                if [[ "$LABEL_NAME" == "merge-conflicts" ]]; then
-                  echo "[$PR_NUMBER]" > qualifying-numbers.json
-                else
-                  echo '[]' > qualifying-numbers.json
-                fi
-              else
-                echo "[$PR_NUMBER]" > qualifying-numbers.json
-              fi
-              ;;
-            pull_request_review|pull_request_review_comment)
+            pull_request_target|pull_request_review|pull_request_review_comment)
               echo "[$PR_NUMBER]" > qualifying-numbers.json
               ;;
             schedule|workflow_dispatch)
