@@ -568,3 +568,30 @@ spec:
 		})
 	}
 }
+
+func TestLoad_CELExceptionUnknownField(t *testing.T) {
+	manifest := `
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: test-exception-unknown-field
+spec:
+  unknownField: invalid
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "exception.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(manifest), 0o600))
+
+	res, err := Load(nil, "", false, path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid value: value provided for unknown field")
+	if res != nil {
+		assert.Empty(t, res.PolicyCelExceptions)
+	}
+}
