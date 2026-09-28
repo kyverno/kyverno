@@ -27,6 +27,10 @@ on:
   workflow_run:
     types:
       - completed
+    # Restricted to Dependabot's own branches — without this, every CI completion on every PR in the repo
+    # fires this workflow, since workflow_run has no author filter of its own.
+    branches:
+      - "dependabot/**"
     workflows:
       - "Unit tests"
       - "CLI"
@@ -58,9 +62,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install yq
-        uses: ./.github/actions/tools/yq
 
       - name: Classify and label each Dependabot PR
         run: |

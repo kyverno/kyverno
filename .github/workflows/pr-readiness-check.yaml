@@ -31,9 +31,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install yq
-        uses: ./.github/actions/tools/yq
-
       - name: Build the readiness-check program from .github/pr-readiness-checks.yml
         run: |
           yq -o=json '.' .github/pr-readiness-checks.yml | jq -r '
