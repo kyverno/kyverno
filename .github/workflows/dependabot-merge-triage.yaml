@@ -1,0 +1,156 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+#
+# Classifies every open Dependabot PR and marks it — never merges. Major bump or unconfirmed semver level, CI not
+# clean, a conflict, or no Copilot approval → needs-review. Confirmed patch/minor + clean + approved →
+# ready-for-review. Merging is a separate, human-approved step elsewhere.
+#
+# Triggers on whichever of CI or Copilot's review settles last, plus a schedule backstop (e.g. a conflict from
+# main moving, not from anything happening on the PR itself).
+
+name: "Dependabot merge triage"
+
+permissions: {}
+
+# Several of the workflow_run triggers below can complete near-simultaneously for the same PR; without this, an
+# older run's stale read could overwrite a newer run's labels out of order.
+concurrency:
+  group: dependabot-merge-triage
+  cancel-in-progress: false
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 6,18 * * *"
+  pull_request_review:
+    types:
+      - submitted
+  workflow_run:
+    types:
+      - completed
+    workflows:
+      - "Unit tests"
+      - "CLI"
+      - "Go"
+      - "Go format"
+      - "Go vet"
+      - "Go imports"
+      - "Go packages"
+      - "Codegen"
+      - "Chart-testing"
+      - "Artifact Hub"
+      - "Actions"
+      - "Devcontainer"
+      - "framework tests (envtest)"
+
+jobs:
+  triage:
+    name: Classify every open Dependabot PR
+    if: >
+      github.event_name != 'pull_request_review' ||
+      github.event.review.user.login == 'copilot-pull-request-reviewer[bot]'
+    runs-on: ubuntu-slim
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install yq
+        uses: ./.github/actions/tools/yq
+
+      - name: Classify and label each Dependabot PR
+        run: |
+          set -euo pipefail
+
+          numbers=$(gh pr list --repo "${GITHUB_REPOSITORY}" \
+            --search "is:pr is:open author:app/dependabot" \
+            --json number --jq '.[].number' --limit 1000)
+
+          for pr in $numbers; do
+            echo "=== PR #$pr ==="
+
+            # Every commit's body, not just the last — a rebase can leave the update-type trailer off the tip.
+            gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json commits \
+              --jq '[.commits[].messageBody] | join("\n")' > commit-messages.txt
+
+            # Each Dependabot-authored commit carries a "---\nupdated-dependencies:\n...\n...\n" YAML doc; pull
+            # every dependency entry out of every such block (usually just one) instead of substring-matching.
+            # Cleared before use, not just after — a prior iteration's leftover block-*.yml must never leak in.
+            : > deps.json
+            rm -f block-*.yml block-deps.json deps.jsonl
+            awk '/^---$/ { n++; capturing=1; next } /^\.\.\.$/ { capturing=0; next } capturing { print > ("block-" n ".yml") }' commit-messages.txt
+            if ls block-*.yml > /dev/null 2>&1; then
+              : > deps.jsonl
+              for f in block-*.yml; do
+                # A block that fails to parse (e.g. a human's commit containing a bare "---" with no matching
+                # "...") counts as one dependency with no update-type, so the PR falls to "unknown" below
+                # instead of a bad block crashing the whole sweep.
+                if yq -o=json '.["updated-dependencies"] // []' "$f" > block-deps.json 2>/dev/null \
+                  && jq -e 'type == "array"' block-deps.json > /dev/null 2>&1; then
+                  cat block-deps.json >> deps.jsonl
+                else
+                  echo '[{"update-type": null}]' >> deps.jsonl
+                fi
+              done
+              jq -s 'add' deps.jsonl > deps.json
+              jq -e 'type == "array"' deps.json > /dev/null 2>&1 || echo '[]' > deps.json
+              rm -f block-*.yml block-deps.json deps.jsonl
+            else
+              echo '[]' > deps.json
+            fi
+
+            # Unknown unless every listed dependency has a recognized semver level — a mix of a semver dep and a
+            # non-semver one (e.g. CalVer) must not silently inherit the semver dep's level. Otherwise, the
+            # highest level across all deps wins.
+            total=$(jq 'length' deps.json)
+            known=$(jq '[.[] | select(.["update-type"] // "" | test("^version-update:semver-(major|minor|patch)$"))] | length' deps.json)
+            level=unknown
+            if [[ "$total" -gt 0 && "$known" -eq "$total" ]]; then
+              if jq -e 'any(.["update-type"] == "version-update:semver-major")' deps.json > /dev/null; then
+                level=major
+              elif jq -e 'any(.["update-type"] == "version-update:semver-minor")' deps.json > /dev/null; then
+                level=minor
+              else
+                level=patch
+              fi
+            fi
+
+            verdict=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/$pr/reviews" --paginate \
+              | jq -rs '[.[][] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | .body // ""')
+            copilot_approved=false
+            grep -qF "Approval recommended" <<< "$verdict" && copilot_approved=true
+
+            # gh pr checks exits non-zero on a failing/pending check — don't let set -e kill the loop over it.
+            not_green=$(gh pr checks "$pr" --repo "${GITHUB_REPOSITORY}" --json bucket \
+              --jq '[.[] | select(.bucket == "fail" or .bucket == "pending" or .bucket == "cancel")] | length') || true
+
+            mergeable_state=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json mergeStateStatus --jq '.mergeStateStatus')
+            has_conflict=false
+            [[ "$mergeable_state" == "DIRTY" ]] && has_conflict=true
+
+            current_labels=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json labels --jq '[.labels[].name]')
+            has_review_label=$(jq 'any(. == "needs-review")' <<< "$current_labels")
+            has_ready_label=$(jq 'any(. == "ready-for-review")' <<< "$current_labels")
+
+            if [[ "$level" == "major" ]]; then
+              echo "Major bump — needs-review + major-bump."
+              [[ "$has_ready_label" == "true" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
+              gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --add-label "major-bump,needs-review"
+            elif [[ "$level" == "unknown" ]]; then
+              echo "No semver update-type trailer — can't confirm blast radius, needs-review."
+              [[ "$has_ready_label" == "true" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
+              gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --add-label "needs-review"
+            elif [[ "$not_green" != "0" || "$has_conflict" == "true" || "$copilot_approved" == "false" ]]; then
+              echo "Not clean/approved yet — needs-review."
+              [[ "$has_ready_label" == "true" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
+              gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --add-label "needs-review"
+            else
+              echo "Patch/minor, clean, Copilot approval recommended — ready-for-review."
+              [[ "$has_review_label" == "true" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-review"
+              [[ "$has_ready_label" == "false" ]] && gh pr edit "$pr" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
+            fi
+          done
