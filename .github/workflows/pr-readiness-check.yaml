@@ -329,7 +329,7 @@ jobs:
             [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
             [[ "$already_reported" == "true" ]] && continue
 
-            items=$(jq -r '.[] | "- " + .message' <<< "$findings")
+            items=$(jq -r '.[] | "- " + .message' <<< "$blocking")
             body=$(printf '%s\n\n@%s this PR needs a bit more before it can be reviewed:\n%s' "$marker" "$author" "$items")
 
             gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$body"
