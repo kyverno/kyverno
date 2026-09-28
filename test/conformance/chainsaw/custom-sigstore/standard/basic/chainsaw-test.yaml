@@ -22,7 +22,10 @@ spec:
         - name: name
           value: basic-sigstore-test-policy
   - try:
+    # Signature verification against the test sigstore stack can take longer than the
+    # default 5s exec timeout; allow as long as the policy's 30s webhook timeout.
     - script:
+        timeout: 40s
         content: kubectl run -n $NAMESPACE test-sigstore --image=$TEST_IMAGE_URL
     - assert:
         file: pod-assert.yaml
