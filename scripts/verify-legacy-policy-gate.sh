@@ -215,7 +215,7 @@ trap cleanup EXIT
 # CRDs themselves are extracted from a plain `helm template` render, so this
 # does not depend on a packaged/published subchart being available).
 log "extracting the five legacy CRDs from a chart render"
-"${HELM}" template "${RELEASE_NAME}" "${CHART_DIR}" --kube-version "${KUBE_VERSION}" --set upgrade.allowLegacyPolicies=true > "${WORK_DIR}/full-render.yaml"
+"${HELM}" template "${RELEASE_NAME}" "${CHART_DIR}" --kube-version "${KUBE_VERSION}" --set upgrade.acknowledgeLegacyPoliciesNotEnforced=true > "${WORK_DIR}/full-render.yaml"
 for name in "${CRD_NAMES[@]}"; do
   awk -v n="name: ${name}" 'BEGIN{RS="---\n"} $0 ~ n {print; exit}' "${WORK_DIR}/full-render.yaml" > "${WORK_DIR}/${name}.yaml"
   if [ ! -s "${WORK_DIR}/${name}.yaml" ]; then
@@ -363,12 +363,12 @@ assert_kind_reported "ClusterCleanupPolicy" "${CLUSTERCLEANUPPOLICY_NAME}"
 assert_kind_reported "PolicyException" "${FIXTURE_NAMESPACE}/${POLICYEXCEPTION_NAME}"
 grep -q "https://kyverno.io/docs/guides/migration-to-cel/" "${WORK_DIR}/scenario3.log" \
   || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the migration guidance"; }
-grep -q "upgrade.allowLegacyPolicies=true" "${WORK_DIR}/scenario3.log" \
+grep -q "upgrade.acknowledgeLegacyPoliciesNotEnforced=true" "${WORK_DIR}/scenario3.log" \
   || { cat "${WORK_DIR}/scenario3.log" >&2; fail "scenario 3 error output is missing the opt-out hint"; }
 log "PASS: scenario 3"
 
 log "scenario 4: same five legacy instances still present, opt-out set, expect PASS"
-if ! install --set upgrade.allowLegacyPolicies=true >"${WORK_DIR}/scenario4.log" 2>&1; then
+if ! install --set upgrade.acknowledgeLegacyPoliciesNotEnforced=true >"${WORK_DIR}/scenario4.log" 2>&1; then
   cat "${WORK_DIR}/scenario4.log" >&2
   fail "scenario 4 (opt-out) was expected to pass"
 fi

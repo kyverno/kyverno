@@ -212,15 +212,7 @@ func createrLeaderControllers(
 		servicePort,
 		nil,
 		[]admissionregistrationv1.RuleWithOperations{{
-			Rule: admissionregistrationv1.Rule{
-				APIGroups: []string{"kyverno.io"},
-				// v2 is the storage version for policyexceptions.kyverno.io; v2alpha1 is kept
-				// here for backwards compatibility even though no v2alpha1 PolicyException type
-				// has ever existed. Without v2, a "kyverno.io/v2" PolicyException (the version
-				// most manifests actually use) never reaches this webhook at all.
-				APIVersions: []string{"v2", "v2alpha1", "v2beta1"},
-				Resources:   []string{"policyexceptions"},
-			},
+			Rule: deprecations.LegacyExceptionRule,
 			Operations: []admissionregistrationv1.OperationType{
 				admissionregistrationv1.Create,
 				admissionregistrationv1.Update,
@@ -230,6 +222,10 @@ func createrLeaderControllers(
 		genericwebhookcontroller.None,
 		configuration,
 		caSecretName,
+		// This is one of the two legacy denial configurations pinned by decision 1 of the
+		// #17708 design: no ConfigMap matchConditions, so a documented "skip this principal"
+		// value cannot exempt anyone from the 1.20 legacy-write denial.
+		genericwebhookcontroller.WithoutConfigMatchConditions(),
 	)
 	celExceptionWebhookController := genericwebhookcontroller.NewController(
 		celExceptionWebhookControllerName,

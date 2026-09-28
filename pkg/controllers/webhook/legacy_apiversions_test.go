@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -69,4 +70,59 @@ func TestPolicyMutatingWebhookPreservesLegacyAPIVersions(t *testing.T) {
 // package-level policyRule variable.
 func TestPolicyRuleAPIVersions(t *testing.T) {
 	assert.Equal(t, []string{"v1", "v2beta1"}, policyRule.APIVersions)
+}
+
+// findStatusRule locates the RuleWithOperations targeting the legacy /status subresources among
+// the given rules.
+func findStatusRule(rules []admissionregistrationv1.RuleWithOperations) (admissionregistrationv1.RuleWithOperations, bool) {
+	for _, r := range rules {
+		if len(r.Rule.Resources) == 2 && r.Rule.Resources[0] == "clusterpolicies/status" && r.Rule.Resources[1] == "policies/status" {
+			return r, true
+		}
+	}
+	return admissionregistrationv1.RuleWithOperations{}, false
+}
+
+// TestPolicyValidatingWebhookRegistrationInvariants pins decision 1 of the #17708 design: the
+// legacy denial configuration this controller builds has no ConfigMap matchConditions, no
+// selectors, fails closed, and includes the /status rule with Update only.
+func TestPolicyValidatingWebhookRegistrationInvariants(t *testing.T) {
+	c := &controller{
+		defaultTimeout:    10,
+		servicePort:       443,
+		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+	}
+
+	vwc, err := c.buildPolicyValidatingWebhookConfiguration(context.TODO(), config.NewDefaultConfiguration(false), nil)
+	require.NoError(t, err)
+	require.Len(t, vwc.Webhooks, 1)
+	webhook := vwc.Webhooks[0]
+
+	assert.Nil(t, webhook.MatchConditions)
+	assert.Nil(t, webhook.NamespaceSelector)
+	assert.Nil(t, webhook.ObjectSelector)
+	require.NotNil(t, webhook.FailurePolicy)
+	assert.Equal(t, admissionregistrationv1.Fail, *webhook.FailurePolicy)
+
+	statusRule, ok := findStatusRule(webhook.Rules)
+	require.True(t, ok, "policy validating webhook must carry the legacy /status rule")
+	assert.Equal(t, []admissionregistrationv1.OperationType{admissionregistrationv1.Update}, statusRule.Operations)
+	assert.Equal(t, deprecations.LegacyPolicyStatusRule, statusRule.Rule)
+}
+
+// TestPolicyMutatingWebhookHasNoStatusRule proves the /status rule is validating-only: the
+// mutating configuration keeps its existing shape.
+func TestPolicyMutatingWebhookHasNoStatusRule(t *testing.T) {
+	c := &controller{
+		defaultTimeout:    10,
+		servicePort:       443,
+		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+	}
+
+	mwc, err := c.buildPolicyMutatingWebhookConfiguration(context.TODO(), config.NewDefaultConfiguration(false), nil)
+	require.NoError(t, err)
+	require.Len(t, mwc.Webhooks, 1)
+
+	_, ok := findStatusRule(mwc.Webhooks[0].Rules)
+	assert.False(t, ok, "the mutating policy webhook must not carry the legacy /status rule")
 }
