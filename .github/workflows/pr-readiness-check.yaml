@@ -1,10 +1,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
-# Daily sweep: for every open PR closing an issue with an open "Kyverno Release ..." milestone, check DCO, CI,
-# conflicts, and unresolved review threads. Clean -> `ready-for-review`; not -> `needs-author-action` + a comment.
+# Event-driven: for every open, non-draft, non-Dependabot PR, checks DCO, CI, conflicts, and unresolved review
+# threads. Clean -> `ready-for-review`; not -> `needs-author-action` + a comment. Reacts to the PR events that
+# actually change these (a push, a label, a review, an author reply), plus a daily sweep as a safety net.
 #
-# PRs never carry the milestone themselves (assign-milestone.yaml assigns it retroactively, at release-tag time),
-# so discovery goes through each PR's closing issue instead.
+# `pull_request_target` only ever reads PR metadata via the API here — the checkout below never takes a `ref:`,
+# so it only ever checks out this trusted default branch, never the PR's own code.
 #
 # Checks live in .github/pr-readiness-checks.yml, not here.
 
@@ -12,13 +13,41 @@ name: "PR readiness check"
 
 permissions: {}
 
+concurrency:
+  group: pr-readiness-${{ github.event.pull_request.number || 'sweep' }}
+  cancel-in-progress: false
+
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      days_since_updated:
+        description: "Only process PRs updated in the last N days (0 = all qualifying PRs)"
+        default: "20"
+        required: false
   schedule:
-    - cron: "0 0,8,16 * * *"
+    - cron: "0 4 * * *"
+  pull_request_target:
+    types:
+      - synchronize
+      - labeled
+      - unlabeled
+      - reopened
+      - ready_for_review
+  pull_request_review:
+    types:
+      - submitted
+      - dismissed
+  pull_request_review_comment:
+    types:
+      - created
 
 jobs:
   check:
+    # A review comment only matters here when the PR's own author posted it — a reviewer or bot leaving one
+    # (or several, in one batch) never should re-trigger this.
+    if: >
+      github.event_name != 'pull_request_review_comment' ||
+      github.event.comment.user.login == github.event.pull_request.user.login
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -40,7 +69,48 @@ jobs:
             | ".author.login as $author\n| [\n" + . + "\n]"
           ' > readiness-checks.jq
 
-      - name: Discover which open PRs close a milestoned issue (cheap pass)
+      - name: Resolve which PR number(s) to process
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          LABEL_NAME: ${{ github.event.label.name }}
+        run: |
+          set -euo pipefail
+
+          case "$EVENT_NAME" in
+            pull_request_target)
+              if [[ "$EVENT_ACTION" == "labeled" || "$EVENT_ACTION" == "unlabeled" ]]; then
+                # Only merge-conflicts changing is worth a re-check — every other label change includes the
+                # ones this workflow itself just made (needs-author-action, ready-for-review, milestone-pr),
+                # so reacting to those would re-trigger itself in a loop.
+                if [[ "$LABEL_NAME" == "merge-conflicts" ]]; then
+                  echo "[$PR_NUMBER]" > qualifying-numbers.json
+                else
+                  echo '[]' > qualifying-numbers.json
+                fi
+              else
+                echo "[$PR_NUMBER]" > qualifying-numbers.json
+              fi
+              ;;
+            pull_request_review|pull_request_review_comment)
+              echo "[$PR_NUMBER]" > qualifying-numbers.json
+              ;;
+            schedule|workflow_dispatch)
+              echo 'sweep' > mode.txt
+              ;;
+          esac
+
+          if [[ -f mode.txt ]]; then
+            echo "mode=sweep" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=single" >> "$GITHUB_OUTPUT"
+            echo "Processing PR(s): $(cat qualifying-numbers.json)"
+          fi
+
+      - name: Discover open PRs and stamp milestone-pr (sweep mode only)
+        if: steps.resolve.outputs.mode == 'sweep'
         run: |
           set -euo pipefail
 
@@ -53,6 +123,7 @@ jobs:
                   ... on PullRequest {
                     number
                     isDraft
+                    updatedAt
                     closingIssuesReferences(first: 100) {
                       pageInfo { hasNextPage endCursor }
                       nodes { repository { nameWithOwner } milestone { title state } }
@@ -63,8 +134,8 @@ jobs:
             }'
           search="repo:${GITHUB_REPOSITORY} is:pr is:open draft:false -author:app/dependabot"
 
-          # Qualifies if it closes a same-repo issue with an open "Kyverno Release ..." milestone. Expects an
-          # object with .closingIssuesReferences.nodes, e.g. a PullRequest node or a detail-query response.
+          # milestone-pr: closes a same-repo issue with an open "Kyverno Release ..." milestone. Only gates
+          # that label — every open PR found above gets a readiness check, milestone or not.
           qualifies='
             [.closingIssuesReferences.nodes[]?
               | select(.repository.nameWithOwner == $repo
@@ -73,7 +144,17 @@ jobs:
                   and (.milestone.title | test("^Kyverno Release ")))]
             | length > 0'
 
+          # workflow_dispatch can narrow the sweep to recently-updated PRs; schedule always processes everything.
+          days="${{ inputs.days_since_updated || '0' }}"
+          cutoff=""
+          if [[ "$days" -gt 0 ]]; then
+            cutoff=$(date -u -d "-${days} days" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
+                     || date -u -v-"${days}"d +%Y-%m-%dT%H:%M:%SZ)
+            echo "Filtering to PRs updated after $cutoff"
+          fi
+
           echo '[]' > qualifying-numbers.json
+          echo '[]' > milestone-numbers.json
           after=""
           page=0
           while :; do
@@ -84,16 +165,26 @@ jobs:
               gh api graphql -f query="$query" -f search="$search" -f after="$after" > response.json
             fi
 
-            jq -c --arg repo "${GITHUB_REPOSITORY}" \
-              "[.data.search.nodes[] | select(.isDraft | not) | select($qualifies) | .number]" \
+            jq -c --arg cutoff "$cutoff" '
+              [.data.search.nodes[]
+                | select(.isDraft | not)
+                | select(if $cutoff == "" then true else .updatedAt >= $cutoff end)
+                | .number]' \
               response.json > page-numbers.json
-            jq -s 'add' qualifying-numbers.json page-numbers.json > numbers-next.json && mv numbers-next.json qualifying-numbers.json
+            jq -s 'add' qualifying-numbers.json page-numbers.json > numbers-next.json \
+              && mv numbers-next.json qualifying-numbers.json
+
+            jq -c --arg repo "${GITHUB_REPOSITORY}" --arg cutoff "$cutoff" \
+              "[.data.search.nodes[] | select(.isDraft | not) | select(if \$cutoff == \"\" then true else .updatedAt >= \$cutoff end) | select($qualifies) | .number]" \
+              response.json > page-milestone-numbers.json
+            jq -s 'add' milestone-numbers.json page-milestone-numbers.json > milestone-next.json \
+              && mv milestone-next.json milestone-numbers.json
 
             # A PR closing more than 100 issues isn't realistic, but flag it loudly rather than silently miss it.
             still_truncated=$(jq --arg repo "${GITHUB_REPOSITORY}" \
               "[.data.search.nodes[] | select(.isDraft | not) | select(.closingIssuesReferences.pageInfo.hasNextPage and ($qualifies | not)) | .number]" \
               response.json)
-            [[ "$still_truncated" != "[]" ]] && echo "::warning::PR(s) $still_truncated close more than 100 issues and may be wrongly excluded."
+            [[ "$still_truncated" != "[]" ]] && echo "::warning::PR(s) $still_truncated close more than 100 issues and may be wrongly excluded from milestone-pr."
 
             has_next=$(jq -r '.data.search.pageInfo.hasNextPage' response.json)
             [[ "$has_next" != "true" ]] && break
@@ -104,7 +195,15 @@ jobs:
               break
             fi
           done
-          echo "Found $(jq 'length' qualifying-numbers.json) PR(s) closing a milestoned issue."
+          echo "Found $(jq 'length' qualifying-numbers.json) open PR(s) to evaluate."
+          echo "Found $(jq 'length' milestone-numbers.json) milestone PR(s) to stamp."
+
+          # Stamp milestone-pr on qualifying PRs. Removing it from PRs that stop qualifying is a follow-up.
+          for number in $(jq -r '.[]' milestone-numbers.json); do
+            current_labels=$(gh pr view "$number" --repo "${GITHUB_REPOSITORY}" --json labels --jq '[.labels[].name]')
+            has_milestone_label=$(jq 'any(. == "milestone-pr")' <<< "$current_labels")
+            [[ "$has_milestone_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "milestone-pr"
+          done
 
       - name: Fetch full readiness data and check each qualifying PR (per-PR pass)
         run: |
