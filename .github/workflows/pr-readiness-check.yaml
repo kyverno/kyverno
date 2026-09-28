@@ -268,6 +268,10 @@ jobs:
             number=$(jq -r '.number' pr.json)
             author=$(jq -r '.author.login' pr.json)
             findings=$(jq -c -f readiness-checks.jq pr.json)
+            # e2e_gate is never something the author can fix from this PR — it's reported as an FYI comment
+            # below, not as a reason to withhold ready-for-review.
+            blocking=$(jq -c '[.[] | select(.id != "e2e_gate")]' <<< "$findings")
+            e2e_finding=$(jq -c '[.[] | select(.id == "e2e_gate")]' <<< "$findings")
             has_label=$(jq -r '[.labels.nodes[].name] | any(. == "needs-author-action")' pr.json)
             has_ready_label=$(jq -r '[.labels.nodes[].name] | any(. == "ready-for-review")' pr.json)
 
@@ -286,7 +290,7 @@ jobs:
                 | select((.status? and .status != "COMPLETED") or .state? == "PENDING" or .state? == "EXPECTED")]
                | length > 0)' pr.json)
 
-            if [[ "$findings" == "[]" ]]; then
+            if [[ "$blocking" == "[]" ]]; then
               if [[ "$truncated" == "true" ]]; then
                 # Still-truncated after pagination — drop a stale ready-for-review, leave needs-author-action.
                 [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
@@ -298,11 +302,20 @@ jobs:
               else
                 [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
                 [[ "$has_ready_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
+
+                if [[ "$e2e_finding" != "[]" ]]; then
+                  e2e_marker="<!-- pr-readiness-check-e2e -->"
+                  gh api "repos/${GITHUB_REPOSITORY}/issues/$number/comments" --paginate --jq '.[].body' > comments.txt
+                  if ! grep -qF -- "$e2e_marker" comments.txt; then
+                    gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$e2e_marker
+          Everything else here looks ready — the only red check is E2E Gate, which reflects a problem on the base branch, not this PR. No action needed on your end."
+                  fi
+                fi
               fi
               continue
             fi
 
-            ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$findings")
+            ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$blocking")
             marker="<!-- pr-readiness-check: $ids -->"
             # REST, fully paginated — a GraphQL comments(last: 100) cap could miss the marker on a busy PR.
             # Fetched to a file first, then searched — piping straight into `grep -q` would let grep close the
