@@ -18,7 +18,6 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	policyvalidate "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -101,17 +100,11 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 			old = oldPolicy.AsKyvernoPolicy()
 		}
 
+		// The legacy write denial (create/update of this kind) now happens one layer up, at
+		// the route-level handlers.WithLegacyPolicyDenial() decorator (see
+		// pkg/deprecations.DenyLegacyWrite), so this method only runs on requests it already
+		// allowed through.
 		deprecatedMetric := metrics.GetDeprecatedAPIRequestMetrics()
-		if err, blocked := deprecations.ShouldBlock(ctx, request.AdmissionRequest, func() bool {
-			return old != nil && apiequality.Semantic.DeepEqual(old.GetSpec(), pol.GetSpec())
-		}); blocked {
-			logger.Error(err, "legacy policy write blocked", "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
-			if deprecatedMetric != nil {
-				deprecatedMetric.Record(ctx, request.Namespace, request.Kind.Group, request.Kind.Version, request.Kind.Kind, "")
-			}
-			return admissionutils.Response(request.UID, err)
-		}
-
 		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 		if err != nil {
 			logger.Error(err, "policy validation errors")
