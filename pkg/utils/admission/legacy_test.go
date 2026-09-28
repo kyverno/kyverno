@@ -173,6 +173,8 @@ func TestIsFinalizerRemovalOnTerminatingObject(t *testing.T) {
 			assert.Equal(t, tt.wantAllow, allow)
 			if tt.wantErrSet {
 				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
