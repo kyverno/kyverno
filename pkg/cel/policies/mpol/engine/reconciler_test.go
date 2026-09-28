@@ -82,6 +82,56 @@ func TestReconcile(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, reconcile.Result{}, res)
 	})
+
+	t.Run("compilation failure removes policy from cache", func(t *testing.T) {
+		mp := &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				Rules: []policiesv1beta1.MutatingRule{
+					{
+						Name: "invalid-rule",
+						MatchConstraints: &policiesv1beta1.MatchResources{
+							Any: policiesv1beta1.ResourceFilters{
+								{
+									ResourceDescription: policiesv1beta1.ResourceDescription{
+										Kinds: []string{"Pod"},
+									},
+								},
+							},
+						},
+						CELPreconditions: []admissionregistrationv1.MatchCondition{
+							{
+								Name:       "bad",
+								Expression: "1 + 'a'", // Invalid CEL expression
+							},
+						},
+						Mutate: policiesv1beta1.Mutate{
+							PatchesJSON6902: "{}",
+						},
+					},
+				},
+			},
+		}
+
+		rec := newReconciler(
+			&fakeClient{policy: mp},
+			compiler.NewCompiler(),
+			nil, false,
+		)
+
+		name := types.NamespacedName{Name: "test-policy"}
+		// Pre-populate the cache as if it was successfully compiled before
+		rec.policies[name.String()] = []Policy{{}}
+
+		// Reconcile - it should fail compilation and remove it from the cache
+		res, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: name})
+		assert.NoError(t, err)
+		assert.Equal(t, reconcile.Result{}, res)
+
+		// Ensure cache is cleared
+		_, exists := rec.policies[name.String()]
+		assert.False(t, exists)
+	})
 }
 
 func TestFetch(t *testing.T) {
