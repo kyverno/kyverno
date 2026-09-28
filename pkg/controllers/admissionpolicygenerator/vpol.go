@@ -7,13 +7,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// this file contains the handler functions for ValidatingPolicy resources.
-func (c *controller) addVP(obj *policiesv1beta1.ValidatingPolicy) {
+// this file contains the handler functions for ValidatingPolicy and NamespacedValidatingPolicy resources.
+func (c *controller) addVP(obj policiesv1beta1.ValidatingPolicyLike) {
 	logger.V(2).Info("validating policy created", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
 	c.enqueueVP(obj)
 }
 
-func (c *controller) updateVP(old, obj *policiesv1beta1.ValidatingPolicy) {
+func (c *controller) updateVP(old, obj policiesv1beta1.ValidatingPolicyLike) {
 	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
 		return
 	}
@@ -21,18 +21,22 @@ func (c *controller) updateVP(old, obj *policiesv1beta1.ValidatingPolicy) {
 	c.enqueueVP(obj)
 }
 
-func (c *controller) deleteVP(obj *policiesv1beta1.ValidatingPolicy) {
-	vpol := kubeutils.GetObjectWithTombstone(obj).(*policiesv1beta1.ValidatingPolicy)
+func (c *controller) deleteVP(obj policiesv1beta1.ValidatingPolicyLike) {
+	vpol := kubeutils.GetObjectWithTombstone(obj).(policiesv1beta1.ValidatingPolicyLike)
 
 	logger.V(2).Info("validating policy deleted", "uid", vpol.GetUID(), "kind", vpol.GetKind(), "name", vpol.GetName())
 	c.enqueueVP(obj)
 }
 
-func (c *controller) enqueueVP(obj *policiesv1beta1.ValidatingPolicy) {
+func (c *controller) enqueueVP(obj policiesv1beta1.ValidatingPolicyLike) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		logger.Error(err, "failed to extract policy name")
 		return
 	}
-	c.queue.Add("ValidatingPolicy/" + key)
+	if obj.GetNamespace() != "" {
+		c.queue.Add("NamespacedValidatingPolicy/" + key)
+	} else {
+		c.queue.Add("ValidatingPolicy/" + key)
+	}
 }
