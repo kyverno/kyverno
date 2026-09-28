@@ -1,0 +1,46 @@
+# Checks pr-readiness-check.yaml reports on open PRs in the active release milestone. Each key becomes a possible
+# finding; `test` and `message` are both jq expressions evaluated against the PR object that workflow's GraphQL
+# query fetches (see its `query` variable for the exact shape), with `$author` bound to the PR author's login —
+# `message` can name specifics from the PR's own data, not just return a fixed string. To add a check: add an
+# entry here — pr-readiness-check.yaml itself never needs to change.
+
+# Every terminal-but-unsuccessful check conclusion GitHub defines — not just FAILURE/ERROR — so a timed-out or
+# cancelled check doesn't slip through as "ready." NEUTRAL and SKIPPED are excluded: GitHub treats those as
+# successful outcomes, not something the author owes a fix for.
+dco:
+  message: '"fix the DCO"'
+  test: |
+    [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.name // .context) == "DCO") | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
+
+# Excludes DCO — that gets its own message above, so a DCO failure doesn't also fire this one redundantly.
+ci:
+  message: |
+    "fix the failing check(s): " + (
+      [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+        | select((.name // .context) != "DCO")
+        | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
+        | (.name // .context)]
+      | join(", ")
+    )
+  test: |
+    [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.name // .context) != "DCO") | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
+
+conflicts:
+  message: '"fix the merge conflicts"'
+  test: |
+    [.labels.nodes[].name] | any(. == "merge-conflicts")
+
+# Per unresolved thread, not a global timestamp comparison: the author owes a response unless the LAST comment
+# in that specific thread is already theirs (a fix pushed without replying still counts as owing a response —
+# matches the real nudge this mirrors: "mark it resolved, or leave a response").
+threads:
+  message: '"resolve all review comments — mark each thread resolved, or leave a response if you are not sure what to do"'
+  test: |
+    [.reviewThreads.nodes[]
+      | select(.isResolved | not)
+      | select(.comments.nodes[0].author.login != $author)
+    ] | length > 0
