@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
+	"k8s.io/client-go/tools/cache"
 )
 
 type Policy struct {
@@ -91,6 +92,7 @@ func (p *Policy) evaluateWithData(
 		compiler.RequestKey:         data.Request,
 	}
 	// check if the resource matches an exception
+	var refused *RefusedException
 	if len(p.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
@@ -103,15 +105,25 @@ func (p *Policy) evaluateWithData(
 				}
 				return nil, err
 			}
-			if match {
-				matchedExceptions = append(matchedExceptions, polex.Exception)
-				if len(polex.Exception.Spec.Images) == 0 && len(polex.Exception.Spec.AllowedValues) == 0 {
-					fullExemptionFound = true
-				} else if !fullExemptionFound {
-					// partial scopes are irrelevant once a full exemption is granted
-					allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
-					allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
+			if !match {
+				continue
+			}
+			// controls gate the bypass, not the resource: one that fails grants nothing, another
+			// exception may still cover it, and if none does the policy runs as usual. Only the
+			// first refusal is kept, deterministic because exceptions are compiled sorted.
+			if refusal := p.evaluateExceptionValidations(ctx, dataNew, polex); refusal != nil {
+				if refused == nil {
+					refused = refusal
 				}
+				continue
+			}
+			matchedExceptions = append(matchedExceptions, polex.Exception)
+			if len(polex.Exception.Spec.Images) == 0 && len(polex.Exception.Spec.AllowedValues) == 0 {
+				fullExemptionFound = true
+			} else if !fullExemptionFound {
+				// partial scopes are irrelevant once a full exemption is granted
+				allowedImages = append(allowedImages, polex.Exception.Spec.Images...)
+				allowedValues = append(allowedValues, polex.Exception.Spec.AllowedValues...)
 			}
 		}
 		if fullExemptionFound {
@@ -149,20 +161,7 @@ func (p *Policy) evaluateWithData(
 			return &EvaluationResult{Error: err, Index: index}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
-			message := validation.Message
-			if validation.MessageExpression != nil {
-				if out, _, err := validation.MessageExpression.ContextEval(ctx, dataNew); err != nil {
-					message = fmt.Sprintf("failed to evaluate message expression: %s", err)
-				} else if msg, err := utils.ConvertToNative[string](out); err != nil {
-					message = fmt.Sprintf("failed to convert message expression to string: %s", err)
-				} else {
-					message = msg
-				}
-			}
-			// Add default message if empty
-			if message == "" {
-				message = fmt.Sprintf("CEL expression validation failed at index %d", index)
-			}
+			message := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
 				return &EvaluationResult{Error: err, Index: index}, nil
@@ -172,6 +171,7 @@ func (p *Policy) evaluateWithData(
 				Message:          message,
 				Index:            index,
 				AuditAnnotations: auditAnnotations,
+				RefusedException: refused,
 			}, nil
 		} else if err != nil {
 			return &EvaluationResult{Error: err, Index: index}, nil
@@ -182,6 +182,63 @@ func (p *Policy) evaluateWithData(
 		return nil, err
 	}
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+}
+
+// resolveMessage returns the message to report for a failed validation, preferring
+// messageExpression over the static message and falling back when neither yields anything.
+func (p *Policy) resolveMessage(
+	ctx context.Context,
+	data map[string]any,
+	validation compiler.Validation,
+	fallback string,
+) string {
+	message := validation.Message
+	if validation.MessageExpression != nil {
+		out, _, err := validation.MessageExpression.ContextEval(ctx, data)
+		if err != nil {
+			return fmt.Sprintf("failed to evaluate message expression: %s", err)
+		}
+		msg, err := utils.ConvertToNative[string](out)
+		if err != nil {
+			return fmt.Sprintf("failed to convert message expression to string: %s", err)
+		}
+		message = msg
+	}
+	if message == "" {
+		return fallback
+	}
+	return message
+}
+
+// evaluateExceptionValidations evaluates the compensating controls of an exception already known
+// to match. nil means every control passed and the bypass is granted; otherwise the refusal
+// carries the failing control's message, or its error when a control could not be evaluated.
+func (p *Policy) evaluateExceptionValidations(
+	ctx context.Context,
+	data map[string]any,
+	polex compiler.Exception,
+) *RefusedException {
+	for index, validation := range polex.Validations {
+		out, _, err := validation.Program.ContextEval(ctx, data)
+		if err != nil {
+			return &RefusedException{Exception: polex.Exception, Error: err}
+		}
+		outcome, err := utils.ConvertToNative[bool](out)
+		if err != nil {
+			return &RefusedException{Exception: polex.Exception, Error: err}
+		}
+		if !outcome {
+			fallback := fmt.Sprintf(
+				"compensating control at index %d failed for policy exception %s",
+				index, cache.MetaObjectToName(polex.Exception),
+			)
+			return &RefusedException{
+				Exception: polex.Exception,
+				Message:   p.resolveMessage(ctx, data, validation, fallback),
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]any) (map[string]string, error) {
