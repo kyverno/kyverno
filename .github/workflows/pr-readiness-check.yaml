@@ -15,7 +15,7 @@ name: "PR readiness check"
 permissions: {}
 
 concurrency:
-  group: pr-readiness-${{ github.event.pull_request.number || 'sweep' }}
+  group: pr-readiness
   cancel-in-progress: false
 
 on:
@@ -56,12 +56,19 @@ jobs:
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           set -euo pipefail
 
           case "$EVENT_NAME" in
             pull_request_target)
-              echo "[$PR_NUMBER]" > qualifying-numbers.json
+              # Same eligibility as the sweep: non-draft, not Dependabot's (dependabot-merge-triage.yaml owns those).
+              if [[ "$IS_DRAFT" == "true" || "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+                echo '[]' > qualifying-numbers.json
+              else
+                echo "[$PR_NUMBER]" > qualifying-numbers.json
+              fi
               ;;
             schedule|workflow_dispatch)
               echo 'sweep' > mode.txt
@@ -154,7 +161,9 @@ jobs:
           for number in $(jq -r '.[]' milestone-numbers.json); do
             current_labels=$(gh pr view "$number" --repo "${GITHUB_REPOSITORY}" --json labels --jq '[.labels[].name]')
             has_milestone_label=$(jq 'any(. == "milestone-pr")' <<< "$current_labels")
-            [[ "$has_milestone_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "milestone-pr"
+            if [[ "$has_milestone_label" == "false" ]]; then
+              gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "milestone-pr"
+            fi
           done
 
       - name: Fetch full readiness data and check each qualifying PR (per-PR pass)
