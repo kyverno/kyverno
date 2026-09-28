@@ -14,7 +14,12 @@ func (c *controller) addMP(obj policiesv1beta1.MutatingPolicyLike) {
 }
 
 func (c *controller) updateMP(old, obj policiesv1beta1.MutatingPolicyLike) {
-	if datautils.DeepEqual(old.GetSpec(), obj.GetSpec()) {
+	specChanged := !datautils.DeepEqual(old.GetSpec(), obj.GetSpec())
+	// See the identical comment in updateVP (vpol.go) - policystatus recomputes
+	// Autogen.Configs independently, often in a later reconcile than this one, so MAP
+	// fan-out needs a second chance to react once that status update lands.
+	autogenChanged := !datautils.DeepEqual(old.GetStatus().Autogen, obj.GetStatus().Autogen)
+	if !specChanged && !autogenChanged {
 		return
 	}
 	logger.V(2).Info("mutating policy updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
