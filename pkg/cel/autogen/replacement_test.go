@@ -86,6 +86,42 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			want:   "!(object.metadata.namespace in ['opencost', 'kube-system'])",
 		},
 		{
+			name:   "object metadata.?namespace (optional select) is preserved",
+			expr:   "object.metadata.?namespace.orValue('')",
+			config: "deployments",
+			want:   "object.metadata.?namespace.orValue('')",
+		},
+		{
+			name:   "cronjobs object metadata.?namespace (optional select) is preserved",
+			expr:   "object.metadata.?namespace.orValue('')",
+			config: "cronjobs",
+			want:   "object.metadata.?namespace.orValue('')",
+		},
+		{
+			name:   "oldObject metadata.?namespace (optional select) is preserved",
+			expr:   "oldObject.metadata.?namespace",
+			config: "deployments",
+			want:   "oldObject.metadata.?namespace",
+		},
+		{
+			name:   "namespace membership with optional select is preserved",
+			expr:   "!(object.metadata.?namespace.orValue('') in ['kube-system'])",
+			config: "deployments",
+			want:   "!(object.metadata.?namespace.orValue('') in ['kube-system'])",
+		},
+		{
+			name:   "bracket access metadata['namespace'] is preserved",
+			expr:   "object.metadata['namespace'] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata['namespace'] == 'kube-system'",
+		},
+		{
+			name:   "optional select of a longer identifier is still rewritten",
+			expr:   "object.metadata.?namespaceFoo",
+			config: "deployments",
+			want:   "object.spec.template.metadata.?namespaceFoo",
+		},
+		{
 			name:   "namespace preserved while sibling metadata fields are rewritten",
 			expr:   "object.metadata.namespace == 'foo' && object.metadata.labels['team'] == 'platform'",
 			config: "deployments",

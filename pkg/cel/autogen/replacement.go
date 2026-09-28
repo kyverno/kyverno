@@ -9,8 +9,12 @@ import (
 // template path. For example, `object.metadata.namespace` must stay as-is
 // because pod templates (e.g. on Deployments) usually do not carry a
 // `metadata.namespace` field, which would otherwise break match conditions.
+// The optional-select (`.?namespace`) and bracket (`['namespace']`) access
+// forms select the same field and need the same protection.
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
+	[]byte(".?namespace"),
+	[]byte("['namespace']"),
 }
 
 type Replacement struct {
