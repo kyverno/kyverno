@@ -531,3 +531,30 @@ e2e-failure:
 e2e-gate-bypass:
   color: FBCA04
   description: Lets this PR through the E2E gate, e.g. the PR that fixes the branch
+
+# Applied by .coderabbit.yaml's reviews.slop_detection.
+ai-generated:
+  color: 8B5CF6
+  description: Flagged by CodeRabbit's slop detection as likely low-quality AI-generated content
+
+# Applied and removed automatically by .github/workflows/pr-readiness-check.yaml.
+needs-author-action:
+  color: B60205
+  description: Failing DCO or CI, a merge conflict, or unresolved review threads on this PR
+
+# Applied and removed automatically by pr-readiness-check.yaml (human PRs in the active milestone) and
+# dependabot-merge-triage.yaml (Dependabot PRs).
+ready-for-review:
+  color: 0E8A16
+  description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
+
+# Applied and removed automatically by dependabot-merge-triage.yaml
+needs-review:
+  color: FBCA04
+  description: Not safe to auto-merge — failing CI, a conflict, or Copilot didn't recommend approval
+
+# Applied automatically by dependabot-merge-triage.yaml. Purely informational (a permanent fact about the bump,
+# never removed) — always paired with needs-review.
+major-bump:
+  color: 5319E7
+  description: A major-semver Dependabot bump — needs a human to check for breaking changes
