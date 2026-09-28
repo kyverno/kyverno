@@ -15,8 +15,9 @@ spec:
   - name: probe-condition-wiring
     description: >
       The legacy-denial-probe overlay sets config.matchConditions. Prove the probe is actually
-      live before trusting the denials above: a resource-facing webhook must carry the condition
-      (so the ConfigMap plumbing worked), and every legacy denial configuration must omit it (so
+      live before trusting the denials above: the TTL webhook must carry the condition
+      (it is built unconditionally with static rules, unlike the resource webhook, which has no
+      entries until a policy exists), and every legacy denial configuration must omit it (so
       WithoutConfigMatchConditions is doing its job). Without the first assertion a Helm or
       plumbing regression would silently disarm the probe and the error steps would pass for the
       ordinary reason, proving nothing.
@@ -26,7 +27,7 @@ spec:
           apiVersion: admissionregistration.k8s.io/v1
           kind: ValidatingWebhookConfiguration
           metadata:
-            name: kyverno-resource-validating-webhook-cfg
+            name: kyverno-ttl-validating-webhook-cfg
           webhooks:
           - (matchConditions[?name == 'exempt-cluster-admin'] | length(@)): 1
     - script:

@@ -76,7 +76,9 @@ func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
 }
 
 // IsLegacyPolicyKind reports whether kind (in the given group) is one of the legacy
-// kyverno.io policy kinds subject to the 1.20 write-time block on creates/spec-updates. It is an
+// kyverno.io policy kinds subject to the 1.20 write-time block on legacy policy writes, which
+// covers creates and every top-level update, including unchanged-spec and metadata-only ones,
+// with only the narrow finalizer-removal and transitional status-subresource exceptions. It is an
 // allow-list, not an exclusion list: GlobalContextEntry, UpdateRequest, every policies.kyverno.io
 // kind, and every native Kubernetes kind are excluded by construction because they are simply
 // never in the replacements table, not because of any special-case check.
