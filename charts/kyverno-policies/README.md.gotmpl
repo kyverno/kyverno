@@ -8,10 +8,10 @@
 
 **1.20 notice.** This chart's templates render `kyverno.io/v1` `ClusterPolicy` resources, the
 legacy policy type. Starting with Kyverno 1.20, Kyverno no longer executes legacy `kyverno.io`
-policies: installing or upgrading this chart against a 1.20 or later Kyverno cluster creates
-`ClusterPolicy` resources that Kyverno stores but does not enforce. Wait for this chart to migrate
-its templates to the `policies.kyverno.io` policy types before relying on it for enforcement on a
-1.20 cluster; track the migration at https://github.com/kyverno/kyverno.
+policies and rejects their create and update requests: installing or upgrading this chart against
+a 1.20 or later Kyverno cluster fails instead of storing unenforced `ClusterPolicy` objects. Wait
+for this chart to migrate its templates to the `policies.kyverno.io` policy types before relying
+on it for enforcement on a 1.20 cluster; track the migration at https://github.com/kyverno/kyverno.
 
 This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
 

@@ -188,3 +188,30 @@ func toJSONArray(values []string) string {
 	}
 	return out + "]"
 }
+
+// TestIsFinalizerRemovalOnTerminatingObjectNullPayload pins the nil guard: a JSON "null" body
+// decodes to a nil pointer with no error, so without the guard this panics in the admission path
+// instead of denying, contradicting the function's documented contract.
+func TestIsFinalizerRemovalOnTerminatingObjectNullPayload(t *testing.T) {
+	terminating := []byte(`{"metadata":{"deletionTimestamp":"2026-01-01T00:00:00Z","finalizers":["a"]}}`)
+	for _, tt := range []struct {
+		name      string
+		oldRaw    []byte
+		objectRaw []byte
+	}{
+		{"null old object", []byte(`null`), terminating},
+		{"null new object", terminating, []byte(`null`)},
+		{"both null", []byte(`null`), []byte(`null`)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			request := admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				OldObject: runtime.RawExtension{Raw: tt.oldRaw},
+				Object:    runtime.RawExtension{Raw: tt.objectRaw},
+			}
+			allowed, err := IsFinalizerRemovalOnTerminatingObject(request)
+			assert.NoError(t, err)
+			assert.False(t, allowed)
+		})
+	}
+}

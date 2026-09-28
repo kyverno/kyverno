@@ -28,6 +28,11 @@ func IsFinalizerRemovalOnTerminatingObject(request admissionv1.AdmissionRequest)
 	if err != nil {
 		return false, err
 	}
+	// A JSON "null" payload decodes to a nil pointer without an error, so guard before the
+	// dereferences below; an absent object is not a finalizer removal.
+	if old == nil || new == nil {
+		return false, nil
+	}
 
 	// Clients cannot set deletionTimestamp themselves; only a real DELETE produces it, so
 	// this precondition makes the carve-out unforgeable without first going through the
