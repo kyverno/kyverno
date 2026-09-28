@@ -3,9 +3,10 @@
 # Checks DCO, CI, conflicts, and unresolved review threads for every open, non-draft, non-Dependabot PR.
 # Clean -> `ready-for-review`; not -> `needs-author-action` + a comment.
 #
-# Triggers: a push, a PR reopened/marked ready, a review, or the author replying to a thread — each checks just
-# that one PR. Plus an hourly sweep of every open PR, which also stamps `milestone-pr` on PRs closing an open
-# "Kyverno Release ..." issue.
+# Triggers: a push, or a PR reopened/marked ready — each checks just that one PR. Plus an hourly sweep of every
+# open PR, which also stamps `milestone-pr` on PRs closing an open "Kyverno Release ..." issue. Reviews and
+# review comments aren't triggers: on a fork PR they only ever get a read-only GITHUB_TOKEN, so they couldn't
+# write labels anyway — the hourly sweep picks those up instead.
 #
 # Checks live in .github/pr-readiness-checks.yml, not here.
 
@@ -26,21 +27,9 @@ on:
       - synchronize
       - reopened
       - ready_for_review
-  pull_request_review:
-    types:
-      - submitted
-      - dismissed
-  pull_request_review_comment:
-    types:
-      - created
 
 jobs:
   check:
-    # A review comment only matters here when the PR's own author posted it — a reviewer or bot leaving one
-    # (or several, in one batch) never should re-trigger this.
-    if: >
-      github.event_name != 'pull_request_review_comment' ||
-      github.event.comment.user.login == github.event.pull_request.user.login
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -71,7 +60,7 @@ jobs:
           set -euo pipefail
 
           case "$EVENT_NAME" in
-            pull_request_target|pull_request_review|pull_request_review_comment)
+            pull_request_target)
               echo "[$PR_NUMBER]" > qualifying-numbers.json
               ;;
             schedule|workflow_dispatch)
