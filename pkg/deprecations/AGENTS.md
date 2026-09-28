@@ -48,9 +48,9 @@ deleting these functions outright.
 
 ## Keep this package's own source type-free
 
-`deprecations.go` must not import a Kyverno policy type. The field-level warning helpers that do
-live in the `policywarnings` subpackage, precisely so importing `pkg/deprecations` does not pull
-the legacy API in.
+`deprecations.go` must not import a Kyverno policy type. The field-level warning helpers live in
+the `policywarnings` subpackage, so that extraction removes their direct type dependency from
+`deprecations.go`.
 
 One transitive path remains: `block.go` imports `pkg/utils/admission` for the finalizer check, and
 that package still carries typed helpers such as `policy.go`. Those are consumed only by the legacy
