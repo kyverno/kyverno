@@ -89,6 +89,25 @@ func TestSetAtPath(t *testing.T) {
 			},
 		},
 		{
+			name: "escaped map key containing a literal dot and brackets",
+			root: map[string]any{
+				"spec": map[string]any{
+					"pytorchReplicaSpecs": map[string]any{
+						"worker.pool[0]": map[string]any{"template": map[string]any{"marker": "untouched"}},
+					},
+				},
+			},
+			path:  `spec.pytorchReplicaSpecs.worker\.pool\[0\].template`,
+			value: map[string]any{"marker": "replaced"},
+			want: map[string]any{
+				"spec": map[string]any{
+					"pytorchReplicaSpecs": map[string]any{
+						"worker.pool[0]": map[string]any{"template": map[string]any{"marker": "replaced"}},
+					},
+				},
+			},
+		},
+		{
 			name:    "empty path",
 			root:    map[string]any{},
 			path:    "",
@@ -189,4 +208,36 @@ func TestSetAtPath_RoundTripWithExtractPodTemplates(t *testing.T) {
 	assert.Equal(t, mutated, after[0].Template)
 	// the sibling template must be untouched
 	assert.Equal(t, before[1].Template, after[1].Template)
+}
+
+// TestSetAtPath_RoundTripWithDottedMapKey covers the map-of-templates shape
+// (e.g. PyTorchJob's replica-type-keyed spec) where the key itself, not an
+// index, addresses the template - and that key can contain '.' or '['. Without
+// escaping in joinPath/parsePath, ExtractPodTemplates would produce a Path
+// that SetAtPath then splits at the wrong points, either erroring or writing
+// into the wrong node.
+func TestSetAtPath_RoundTripWithDottedMapKey(t *testing.T) {
+	obj := map[string]any{
+		"apiVersion": "kubeflow.org/v1",
+		"kind":       "PyTorchJob",
+		"spec": map[string]any{
+			"pytorchReplicaSpecs": map[string]any{
+				"worker.pool[0]": map[string]any{
+					"template": map[string]any{"spec": map[string]any{"containers": []any{container("pytorch", "pytorch:2.0")}}},
+				},
+			},
+		},
+	}
+
+	before := ExtractPodTemplates(obj)
+	require.Len(t, before, 1)
+
+	mutated := map[string]any{
+		"spec": map[string]any{"containers": []any{container("pytorch", "pytorch:2.1")}},
+	}
+	require.NoError(t, SetAtPath(obj, before[0].Path, mutated))
+
+	after := ExtractPodTemplates(obj)
+	require.Len(t, after, 1)
+	assert.Equal(t, mutated, after[0].Template)
 }

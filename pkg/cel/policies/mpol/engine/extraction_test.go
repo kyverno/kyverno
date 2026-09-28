@@ -262,6 +262,51 @@ func TestHandle_ExtractionMode_JobSet_MatchConditionsSkipAllTemplates(t *testing
 	assert.Nil(t, resp.PatchedResource)
 }
 
+// TestSpliceTemplate_PreservesIntegerTypes guards against spliceTemplate's
+// JSON round trip silently widening untouched integer fields to float64 -
+// unstructured content is expected to carry int64, and a later policy
+// reading e.g. containerPort with NestedInt64 (or a CEL expression comparing
+// against an int) must not break just because an unrelated field elsewhere
+// in the same template was mutated.
+func TestSpliceTemplate_PreservesIntegerTypes(t *testing.T) {
+	podSpec := func() map[string]any {
+		return map[string]any{
+			"containers": []any{
+				map[string]any{
+					"name":  "worker",
+					"image": "bash:1.0",
+					"ports": []any{
+						map[string]any{"containerPort": int64(8080)},
+					},
+				},
+			},
+		}
+	}
+
+	original := map[string]any{"spec": podSpec()}
+	before := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"spec":       podSpec(),
+	}}
+	after := before.DeepCopy()
+	require.NoError(t, unstructured.SetNestedStringMap(after.Object, map[string]string{"injected": "true"}, "metadata", "labels"))
+
+	merged, err := spliceTemplate(original, before, after)
+	require.NoError(t, err)
+
+	labels, ok, err := unstructured.NestedStringMap(merged, "metadata", "labels")
+	require.NoError(t, err)
+	require.True(t, ok, "the actual mutation must still be applied")
+	assert.Equal(t, "true", labels["injected"])
+
+	containers := merged["spec"].(map[string]any)["containers"].([]any)
+	ports := containers[0].(map[string]any)["ports"].([]any)
+	port := ports[0].(map[string]any)["containerPort"]
+	assert.IsType(t, int64(0), port, "an untouched integer field must not be widened to float64 by the JSON round trip")
+	assert.EqualValues(t, 8080, port)
+}
+
 // TestEvaluateExtracted_NoObjectToMutate documents that ExtractionMode
 // mutation only ever applies to the object being admitted: a request with
 // no new object (e.g. a real DELETE, where the resource only lives in

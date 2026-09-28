@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	apijson "k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apiserver/pkg/admission"
 )
 
@@ -145,8 +146,13 @@ func spliceTemplate(original map[string]any, before, after *unstructured.Unstruc
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply mutation to pod template: %w", err)
 	}
+	// apimachinery's decoder (unlike encoding/json) decodes whole numbers as
+	// int64 instead of float64, matching what unstructured content expects -
+	// using encoding/json here would silently widen every untouched integer
+	// field (containerPort, runAsUser, terminationGracePeriodSeconds, ...) in
+	// this template, not just whatever the policy actually mutated.
 	var merged map[string]any
-	if err := json.Unmarshal(mergedJSON, &merged); err != nil {
+	if err := apijson.Unmarshal(mergedJSON, &merged); err != nil {
 		return nil, fmt.Errorf("failed to decode merged pod template: %w", err)
 	}
 	return merged, nil

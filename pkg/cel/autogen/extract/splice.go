@@ -9,7 +9,10 @@ import (
 // SetAtPath writes value into root at path, using the same dotted/bracket
 // grammar walk produces when building an Extracted.Path: map keys are
 // separated by ".", and a slice index is written as a "[N]" suffix appended
-// directly to the preceding key (e.g. "spec.replicatedJobs[0].template").
+// directly to the preceding key (e.g. "spec.replicatedJobs[0].template"). A
+// map key containing '.', '[', ']' or '\' is backslash-escaped by joinPath,
+// so parsePath always recovers the original key rather than misreading it as
+// additional path syntax.
 //
 // Every segment but the last must already exist in root and have the shape
 // (object or array) its token implies - SetAtPath never creates missing
@@ -96,16 +99,36 @@ func assign(current any, tok any, value map[string]any) error {
 // fmt.Sprintf("%s[%d]", ...) construction. For example
 // "spec.replicatedJobs[0].template" becomes ["spec", "replicatedJobs", 0,
 // "template"].
+//
+// A map key is escaped by joinPath (see escapePathSegment) whenever it
+// contains '.', '[', ']' or '\', so a backslash here always introduces a
+// literal character rather than starting new path syntax - without this,
+// a real key such as "worker.pool" would be indistinguishable from two
+// nested keys "worker" and "pool".
 func parsePath(path string) ([]any, error) {
 	var tokens []any
 	i := 0
 	for i < len(path) {
+		var tok strings.Builder
 		j := i
-		for j < len(path) && path[j] != '.' && path[j] != '[' {
+		for j < len(path) {
+			c := path[j]
+			if c == '\\' {
+				if j+1 >= len(path) {
+					return nil, fmt.Errorf("malformed path %q: trailing escape", path)
+				}
+				tok.WriteByte(path[j+1])
+				j += 2
+				continue
+			}
+			if c == '.' || c == '[' {
+				break
+			}
+			tok.WriteByte(c)
 			j++
 		}
-		if j > i {
-			tokens = append(tokens, path[i:j])
+		if tok.Len() > 0 {
+			tokens = append(tokens, tok.String())
 		}
 		switch {
 		case j == len(path):

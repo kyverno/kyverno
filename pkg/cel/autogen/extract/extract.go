@@ -1,6 +1,9 @@
 package extract
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Extracted is a single pod-template-shaped subtree found inside a custom
 // workload resource, together with the path it was found at (for
@@ -53,11 +56,32 @@ func walk(node any, path string, out *[]Extracted) {
 	}
 }
 
+// joinPath appends key to path, backslash-escaping any '.', '[', ']' or '\'
+// in key itself so parsePath can invert the result unambiguously - a map key
+// that legitimately contains one of those characters (e.g. a replica-type
+// name used as a map key, "worker.pool") would otherwise be indistinguishable
+// from a path separator or array-index syntax.
 func joinPath(path, key string) string {
+	escaped := escapePathSegment(key)
 	if path == "" {
+		return escaped
+	}
+	return path + "." + escaped
+}
+
+func escapePathSegment(key string) string {
+	if !strings.ContainsAny(key, `\.[]`) {
 		return key
 	}
-	return path + "." + key
+	var b strings.Builder
+	for _, r := range key {
+		switch r {
+		case '\\', '.', '[', ']':
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func isPodTemplateSpec(v map[string]any) bool {
