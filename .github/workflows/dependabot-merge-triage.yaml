@@ -4,15 +4,13 @@
 # clean, a conflict, or no Copilot approval → needs-review. Confirmed patch/minor + clean + approved →
 # ready-for-review. Merging is a separate, human-approved step elsewhere.
 #
-# Triggers on whichever of CI or Copilot's review settles last, plus a schedule backstop (e.g. a conflict from
-# main moving, not from anything happening on the PR itself).
+# Schedule-only: sweeps every open Dependabot PR three times a day, plus on manual dispatch. Each run re-reads
+# each PR's live check status itself, so it doesn't need to react to any individual PR event to stay accurate.
 
 name: "Dependabot merge triage"
 
 permissions: {}
 
-# Several of the workflow_run triggers below can complete near-simultaneously for the same PR; without this, an
-# older run's stale read could overwrite a newer run's labels out of order.
 concurrency:
   group: dependabot-merge-triage
   cancel-in-progress: false
@@ -20,38 +18,11 @@ concurrency:
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 6,18 * * *"
-  pull_request_review:
-    types:
-      - submitted
-  workflow_run:
-    types:
-      - completed
-    # Restricted to Dependabot's own branches — without this, every CI completion on every PR in the repo
-    # fires this workflow, since workflow_run has no author filter of its own.
-    branches:
-      - "dependabot/**"
-    workflows:
-      - "Unit tests"
-      - "CLI"
-      - "Go"
-      - "Go format"
-      - "Go vet"
-      - "Go imports"
-      - "Go packages"
-      - "Codegen"
-      - "Chart-testing"
-      - "Artifact Hub"
-      - "Actions"
-      - "Devcontainer"
-      - "framework tests (envtest)"
+    - cron: "0 0,8,16 * * *"
 
 jobs:
   triage:
     name: Classify every open Dependabot PR
-    if: >
-      github.event_name != 'pull_request_review' ||
-      github.event.review.user.login == 'copilot-pull-request-reviewer[bot]'
     runs-on: ubuntu-slim
     permissions:
       contents: read
