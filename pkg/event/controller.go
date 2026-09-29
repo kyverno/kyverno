@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -222,7 +223,11 @@ func (gen *controller) emitEvent(key Info) {
 	}
 	message := key.Message
 	if len(message) > 1024 {
-		message = message[0:1021] + "..."
+		cut := 1021
+		for cut > 0 && !utf8.RuneStart(message[cut]) {
+			cut--
+		}
+		message = message[:cut] + "..."
 	}
 
 	// Sanitize refRegarding.Name to comply with RFC 1123 subdomain naming requirements

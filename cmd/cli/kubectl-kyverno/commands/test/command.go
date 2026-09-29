@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -112,11 +113,11 @@ func testCommandExecute(
 	// fetch resource filters
 	resourceFilters := filter.ExtractResourceFilters(testCase)
 	// parse filter
-	filter, errors := filter.ParseFilter(testCase)
-	if len(errors) > 0 {
+	filter, filterErrs := filter.ParseFilter(testCase)
+	if len(filterErrs) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "Filter errors:")
-		for _, e := range errors {
+		for _, e := range filterErrs {
 			fmt.Fprintln(out, "  Error:", e)
 		}
 	}
@@ -145,12 +146,7 @@ func testCommandExecute(
 			return fmt.Errorf("no tests found")
 		}
 
-		if len(errors) == 0 {
-			return nil
-		} else {
-			// TODO aggregate errors
-			return errors[0]
-		}
+		return errors.Join(filterErrs...)
 	}
 	rc := &resultCounts{}
 	var fullTable table.Table

@@ -253,3 +253,16 @@ auditAnnotations:
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/* CEL clause that relaxes a check for user namespace pods.
+     Kubernetes Pod Security Admission relaxes only procMount (Baseline),
+     runAsNonRoot and runAsUser (Restricted) when spec.hostUsers is explicitly
+     false. An absent or true hostUsers must never relax, so the clause tests
+     for an explicit false. Emits nothing unless podSecurityUserNamespaces is
+     enabled, so call sites guard it with `with` and indent it themselves.
+     Do not use it in any other policy. */}}
+{{- define "kyverno-policies.userNamespaceRelaxation" -}}
+{{- if .Values.podSecurityUserNamespaces -}}
+{{- "object.spec.?hostUsers.orValue(true) == false ||" -}}
+{{- end -}}
+{{- end -}}
