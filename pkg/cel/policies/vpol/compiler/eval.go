@@ -22,6 +22,16 @@ type EvaluationResult struct {
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
 	PatchedResource  unstructured.Unstructured
+	RefusedException *RefusedException
+}
+
+// RefusedException records an exception that matched but whose compensating controls did not
+// hold. It rides alongside the policy's own outcome: a compliant resource needs no exception and
+// must not be denied by one, so this is only reported, as the message, once the policy failed.
+type RefusedException struct {
+	Exception *policiesv1beta1.PolicyException
+	Message   string
+	Error     error
 }
 
 type evaluationData struct {
