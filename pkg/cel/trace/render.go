@@ -61,8 +61,15 @@ func Render(w io.Writer, d *Decision) {
 	} else {
 		message := v.Message
 		if message == "" && v.Status == VerdictPass {
-			// no validations ran to produce a verdict -- most likely the policy declares none
-			message = "no validations to evaluate; the policy passes by default"
+			switch {
+			case len(d.Mutations) > 0:
+				// a mutating policy has no single expression that decides pass/fail -- see the
+				// MUTATIONS lines above for what actually ran
+				message = "completed; see MUTATIONS above for what ran"
+			default:
+				// no validations ran to produce a verdict -- most likely the policy declares none
+				message = "no validations to evaluate; the policy passes by default"
+			}
 		}
 		row(w, "VERDICT", v.Status, message)
 		return
