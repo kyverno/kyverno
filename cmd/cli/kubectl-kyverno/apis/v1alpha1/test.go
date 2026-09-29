@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -57,6 +58,9 @@ type Test struct {
 
 	// Results are the results to be checked in the test
 	Results []TestResult `json:"results,omitempty"`
+
+	// Checks are the verifications to be checked in the test.
+	Checks []CheckResult `json:"checks,omitempty"`
 
 	// Values are the values to be used in the test
 	Values *ValuesSpec `json:"values,omitempty"`
@@ -151,7 +155,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 		if err := validateAPICallResponseEntry(i, entries[i]); err != nil {
 			return err
 		}
-		// Detect duplicate lookup keys — last-write-wins in buildHTTPMockIndex would
+		// Detect duplicate lookup keys - last-write-wins in buildHTTPMockIndex would
 		// silently discard earlier entries, so we surface it as a validation error.
 		resolvedURL := entries[i].ResolvedURL()
 		method := strings.ToUpper(strings.TrimSpace(entries[i].Method))
@@ -160,7 +164,7 @@ func ValidateAPICallResponses(entries []APICallResponseEntry) error {
 			key = method + ":" + resolvedURL
 		}
 		if _, dup := seen[key]; dup {
-			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) — each method+url combination must be unique", resolvedURL, key)
+			return fmt.Errorf("apiCallResponses: duplicate entry for %q (key %q) - each method+url combination must be unique", resolvedURL, key)
 		}
 		seen[key] = struct{}{}
 	}
@@ -322,6 +326,85 @@ func RawExtensionToObject(raw runtime.RawExtension) (interface{}, error) {
 		return nil, err
 	}
 	return v, nil
+}
+
+type CheckResult struct {
+	// Match tells how to match relevant rule responses.
+	Match CheckMatch `json:"match,omitempty"`
+
+	// Assert contains an assertion to validate the relevant rule responses.
+	Assert *CheckAssertions `json:"assert,omitempty"`
+
+	// Error contains a negative assertion to validate the relevant rule responses.
+	Error *CheckAssertions `json:"error,omitempty"`
+}
+
+type CheckMatch struct {
+	// Resource filters engine responses.
+	Resource *kyvernov1.Any `json:"resource,omitempty"`
+
+	// Policy filters engine responses.
+	Policy *kyvernov1.Any `json:"policy,omitempty"`
+
+	// Rule filters rule responses.
+	Rule *kyvernov1.Any `json:"rule,omitempty"`
+}
+
+// +kubebuilder:pruning:PreserveUnknownFields
+type CheckAssertions struct {
+	// CEL contains structured CEL assertions.
+	CEL *CheckCEL `json:"cel,omitempty"`
+
+	// Legacy contains the original assertion-tree payload for backward compatibility.
+	Legacy any `json:"-"`
+}
+
+// UnmarshalJSON supports both structured CEL assertions and the original assertion tree.
+func (c *CheckAssertions) UnmarshalJSON(data []byte) error {
+	var decoded struct {
+		CEL *CheckCEL `json:"cel,omitempty"`
+	}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	c.CEL = decoded.CEL
+	if c.CEL == nil {
+		var legacy any
+		if err := json.Unmarshal(data, &legacy); err != nil {
+			return err
+		}
+		c.Legacy = legacy
+	} else {
+		c.Legacy = nil
+	}
+	return nil
+}
+
+// MarshalJSON preserves the representation used by the loaded test file.
+func (c CheckAssertions) MarshalJSON() ([]byte, error) {
+	if c.CEL != nil {
+		return json.Marshal(struct {
+			CEL *CheckCEL `json:"cel,omitempty"`
+		}{CEL: c.CEL})
+	}
+	if c.Legacy != nil {
+		return json.Marshal(c.Legacy)
+	}
+	return []byte("{}"), nil
+}
+
+type CheckCEL struct {
+	// Expressions are CEL expressions which must satisfy the assertion.
+	// +kubebuilder:validation:MinItems=1
+	Expressions []CheckExpression `json:"expressions"`
+}
+
+type CheckExpression struct {
+	// Expression is the CEL expression to evaluate.
+	Expression string `json:"expression"`
+
+	// Message is the message displayed when the expression assertion fails.
+	Message string `json:"message,omitempty"`
 }
 
 type TestResourceSpec struct {
