@@ -149,7 +149,7 @@ func buildGateMutateHandlerPolicy(b *testing.B) mpolengine.Provider {
 		},
 	}
 	provider, err := mpolengine.NewProvider(
-		mpolcompiler.NewCompiler(),
+		mpolcompiler.NewCompiler(false),
 		[]policiesv1beta1.MutatingPolicyLike{mpol},
 		nil,
 		libs.NewFakeContextProvider(),

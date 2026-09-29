@@ -89,7 +89,7 @@ func buildGateMutatePolicy(b *testing.B) Provider {
 	}
 
 	provider, err := NewProvider(
-		compiler.NewCompiler(),
+		compiler.NewCompiler(false),
 		[]policiesv1beta1.MutatingPolicyLike{mpol},
 		nil,
 		libs.NewFakeContextProvider(),

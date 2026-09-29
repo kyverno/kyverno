@@ -374,7 +374,7 @@ func main() {
 					os.Exit(1)
 				}
 
-				c := mpolcompiler.NewCompiler()
+				c := mpolcompiler.NewCompiler(false)
 				// The mpol reconciler registers its PolicyException watch on this manager's
 				// cache and caches compiled results between triggering events. Reading
 				// exceptions from the same manager cache (rather than the separately synced
