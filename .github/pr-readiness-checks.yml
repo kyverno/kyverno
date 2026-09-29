@@ -14,31 +14,30 @@ dco:
       | select((.name // .context) == "DCO") | (.conclusion // .state)]
     | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
-# Excludes DCO — that gets its own message above, so a DCO failure doesn't also fire this one redundantly.
-# Excludes E2E Gate — that's a base-branch problem, not this PR's; it gets its own non-blocking check below.
+# Excludes DCO (own message above) and E2E Gate + its sync job (base-branch/automation issue, not this PR's —
+# see the non-blocking check below).
 ci:
   message: |
     "fix the failing check(s): " + (
       [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-        | select((.name // .context) != "DCO" and (.name // .context) != "E2E Gate")
+        | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status"] | any(. == $n) | not)
         | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
         | (.name // .context)]
       | join(", ")
     )
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-      | select((.name // .context) != "DCO" and (.name // .context) != "E2E Gate") | (.conclusion // .state)]
+      | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status"] | any(. == $n) | not) | (.conclusion // .state)]
     | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
-# Non-blocking: reported by pr-readiness-check.yaml as an FYI, never as a reason for needs-author-action — the
-# author can't fix a base-branch problem from their own PR. e2e-gate.yaml already turns this green for the PR
-# that fixes it (the e2e-gate-bypass label), so no bypass check is needed here.
+# Non-blocking FYI, never needs-author-action — not something the author can fix. e2e-gate.yaml already turns
+# "E2E Gate" green for the PR that fixes it (e2e-gate-bypass label), so no bypass check is needed here.
 e2e_gate:
   message: '"the E2E gate is red — a base-branch problem, not this PR; no action needed here by author"'
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-      | select((.name // .context) == "E2E Gate") | (.conclusion // .state)]
-    | any(. == "FAILURE" or . == "ERROR")
+      | select((.name // .context) as $n | ["E2E Gate", "Sync E2E Gate status"] | any(. == $n)) | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
 conflicts:
   message: '"fix the merge conflicts"'
