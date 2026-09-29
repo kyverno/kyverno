@@ -349,8 +349,7 @@ type Attestation struct {
 // client certificate and private key for mTLS authentication with the registry.
 type TLSClientCert struct {
 	// SecretName is the name of the Kubernetes Secret holding the client certificate
-	// and private key. It can be specified as a name (resolved in the Kyverno namespace)
-	// or as namespace/name.
+	// and private key. This secret must reside in the Kyverno namespace.
 	SecretName string `json:"secretName"`
 
 	// CertKey is the key within the secret for the PEM-encoded client certificate.

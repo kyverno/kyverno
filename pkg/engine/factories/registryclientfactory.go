@@ -64,7 +64,10 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			registryclient.WithLogger(logging.GlobalLogger()),
 		}
 
-		if creds.TLSClientCert != nil && f.secretsLister != nil {
+		if creds.TLSClientCert != nil {
+			if f.secretsLister == nil {
+				return nil, fmt.Errorf("cannot load mTLS secret %q without a SecretLister", creds.TLSClientCert.SecretName)
+			}
 			certKey := creds.TLSClientCert.CertKey
 			if certKey == "" {
 				certKey = "tls.crt"
@@ -76,10 +79,6 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 
 			namespace := config.KyvernoNamespace()
 			name := creds.TLSClientCert.SecretName
-			if parts := strings.SplitN(name, "/", 2); len(parts) == 2 {
-				namespace = parts[0]
-				name = parts[1]
-			}
 
 			secret, err := f.secretsLister.Secrets(namespace).Get(name)
 			if err != nil {
