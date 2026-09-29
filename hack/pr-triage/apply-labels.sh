@@ -127,12 +127,30 @@ while IFS= read -r row; do
   cat=$(jq -r '.category' <<<"$row")
   label=$(jq -r '.proposed_label' <<<"$row")
 
-  if ! existing=$(gh pr view "$num" -R "$REPO" --json labels -q '.labels[].name' 2>/dev/null); then
-    echo "[$n/$count] #$num: failed to fetch live labels from GitHub — skipping" >&2
+  if ! live_pr=$(gh pr view "$num" -R "$REPO" --json labels,state,baseRefName,headRefOid,updatedAt 2>/dev/null); then
+    echo "[$n/$count] #$num: failed to fetch live PR state from GitHub — skipping" >&2
+    continue
+  fi
+
+  snapshot_head=$(jq -r '.head_sha // empty' <<<"$row")
+  snapshot_base=$(jq -r '.base_ref // empty' <<<"$row")
+  snapshot_updated=$(jq -r '.updated_at // empty' <<<"$row")
+  live_state=$(jq -r '.state // empty' <<<"$live_pr")
+  live_base=$(jq -r '.baseRefName // empty' <<<"$live_pr")
+  live_head=$(jq -r '.headRefOid // empty' <<<"$live_pr")
+  live_updated=$(jq -r '.updatedAt // empty' <<<"$live_pr")
+  if [[ -z "$snapshot_head" || -z "$snapshot_base" || -z "$snapshot_updated" ]]; then
+    echo "[$n/$count] #$num: report has no captured head SHA/base/update timestamp; regenerate the triage report — skipping" >&2
+    continue
+  fi
+  if [[ "$live_state" != "OPEN" || "$live_base" != "$snapshot_base" \
+    || "$live_head" != "$snapshot_head" || "$live_updated" != "$snapshot_updated" ]]; then
+    echo "[$n/$count] #$num: PR state/base/head/metadata changed since triage (live=$live_state/$live_base/$live_head/$live_updated, report=$snapshot_base/$snapshot_head/$snapshot_updated) — skipping" >&2
     continue
   fi
 
   # Identify any existing type_* labels currently attached to the PR.
+  existing=$(jq -r '.labels[]?.name' <<<"$live_pr")
   existing_type_labels=$(grep -o '^type_[a-z_]*' <<<"$existing" | sort -u || true)
 
   # Case 1: PR already has exactly the proposed label and no other type_* labels.
