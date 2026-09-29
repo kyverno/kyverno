@@ -542,11 +542,17 @@ needs-author-action:
   color: B60205
   description: Failing DCO or CI, a merge conflict, or unresolved review threads on this PR
 
-# Applied and removed automatically by pr-readiness-check.yaml (human PRs in the active milestone) and
-# dependabot-merge-triage.yaml (Dependabot PRs).
+# Applied and removed automatically by pr-readiness-check.yaml (human PRs) and dependabot-merge-triage.yaml
+# (Dependabot PRs).
 ready-for-review:
   color: 0E8A16
   description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
+
+# Applied automatically by pr-readiness-check.yaml during its sweep, never removed. Purely informational —
+# marks a PR as closing an open "Kyverno Release ..." milestone issue.
+milestone-pr:
+  color: "0075ca"
+  description: Closes an open Kyverno Release milestone issue
 
 # Applied and removed automatically by dependabot-merge-triage.yaml
 needs-review:
