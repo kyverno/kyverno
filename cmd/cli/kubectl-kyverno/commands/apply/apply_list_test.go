@@ -14,26 +14,20 @@ func TestApply_KindListResource(t *testing.T) {
 	tempDir := t.TempDir()
 
 	policyPath := filepath.Join(tempDir, "policy.yaml")
-	policyContent := `apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+	policyContent := `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
 metadata:
   name: require-labels
 spec:
-  validationFailureAction: Audit
-  background: true
-  rules:
-    - name: check-for-labels
-      match:
-        any:
-          - resources:
-              kinds:
-                - Service
-      validate:
-        message: The label is required.
-        pattern:
-          metadata:
-            labels:
-              testlabel: "?*"
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["services"]
+  validations:
+    - expression: "has(object.metadata.labels) && 'testlabel' in object.metadata.labels"
+      message: The label is required.
 `
 	require.NoError(t, os.WriteFile(policyPath, []byte(policyContent), 0o644))
 
@@ -77,7 +71,7 @@ items:
 	}
 
 	var out bytes.Buffer
-	rc, resources, skipped, _, err := c.applyCommandHelper(&out)
+	rc, resources, skipped, _, err := c.applyCommandHelper(t.Context(), &out)
 	require.NoError(t, err)
 	require.NotNil(t, rc)
 	assert.Empty(t, skipped.invalid)
