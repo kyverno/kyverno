@@ -33,10 +33,30 @@ type Policy struct {
 	auditAnnotations      map[string]cel.Program
 	exceptions            []compiler.Exception
 	matchConstraints      *admissionregistrationv1.MatchResources
+
+	// trace is set when the policy was compiled with tracing on. Only then are the traced
+	// fields below populated (they hold the ASTs trace.Build needs); with tracing off they are
+	// all zero values and evaluation takes exactly the same path as before. Mirrors vpol's
+	// Policy.trace (pkg/cel/policies/vpol/compiler/policy.go).
+	trace                       bool
+	tracedMatchConditions       []compiler.TracedProgram
+	tracedTargetMatchConditions []compiler.TracedProgram
+	tracedVariables             map[string]compiler.TracedProgram
+	// tracedMutations is index-aligned with patchers: tracedMutations[i] is the traced compile
+	// output for the expression patchers[i] was built from. Patcher itself only exposes
+	// Patch(...), not the underlying Program/AST, so this is kept alongside it rather than
+	// inside it.
+	tracedMutations []compiler.TracedProgram
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 	return p.matchConstraints
+}
+
+// Tracing reports whether the policy was compiled with tracing on, i.e. whether its evaluation
+// results will carry a trace. Mirrors vpol's Policy.Tracing().
+func (p *Policy) Tracing() bool {
+	return p.trace
 }
 
 func (p *Policy) match(ctx context.Context, data map[string]any, matchConditions []cel.Program) (bool, error) {
