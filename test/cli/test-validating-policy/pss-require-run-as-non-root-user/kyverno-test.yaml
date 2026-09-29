@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-require-run-as-non-root-user
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-non-root-user
+  resources:
+  - root-user-pod-host-users-absent
+  - root-user-container-host-users-true
+  - root-user-init-container-host-users-absent
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-run-as-non-root-user
+  resources:
+  - root-user-pod-host-users-false
+  - nonroot-user-pod
+  - unset-run-as-user
+  result: pass

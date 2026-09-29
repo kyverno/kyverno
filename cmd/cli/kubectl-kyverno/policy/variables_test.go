@@ -11,7 +11,7 @@ import (
 func TestExtractVariables(t *testing.T) {
 	loadPolicy := func(path string) kyvernov1.PolicyInterface {
 		t.Helper()
-		results, err := Load(nil, "", path)
+		results, err := Load(nil, "", true, path)
 		assert.NoError(t, err)
 		assert.Equal(t, len(results.Policies), 1)
 		return results.Policies[0]
