@@ -170,7 +170,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 
 		er, reports, applyErrs, conflictErr := c.mutateWithRetry(logger, rule.Name, policyContext)
 
-		if conflictErr == nil && c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
+		if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
 			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
@@ -198,6 +198,14 @@ func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName 
 		settled, settledErrs, toRetry, err := c.applyMutations(logger, ruleName, er, pending)
 		reports = append(reports, settled...)
 		errs = append(errs, settledErrs...)
+		// A conflicted target missing from the recomputed response would otherwise vanish; keep its conflict as terminal.
+		seen := targetKeys(append(settled[:len(settled):len(settled)], toRetry...))
+		for _, m := range conflicted {
+			if _, ok := seen[targetKey(m.target, m.subresource)]; !ok {
+				reports = append(reports, m)
+				errs = append(errs, m.err)
+			}
+		}
 		conflicted, pending = toRetry, targetKeys(toRetry)
 		return err
 	})
@@ -222,9 +230,11 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 		patched, parentGVR, patchedSubresource := r.PatchedTarget()
 		if only != nil {
 			if patched == nil {
-				continue
-			}
-			if _, ok := only[targetKey(patched, patchedSubresource)]; !ok {
+				// A retry that fails to load a conflicted target has no patched target; it is still a terminal failure.
+				if s := r.Status(); s != engineapi.RuleStatusFail && s != engineapi.RuleStatusError && s != engineapi.RuleStatusWarn {
+					continue
+				}
+			} else if _, ok := only[targetKey(patched, patchedSubresource)]; !ok {
 				continue
 			}
 		}
@@ -233,7 +243,7 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 			err := fmt.Errorf("failed to mutate existing resource, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
 			logger.Error(err, "")
 			errs = append(errs, err)
-			reports = append(reports, targetMutation{err: err, target: patched})
+			reports = append(reports, targetMutation{err: err, target: patched, subresource: patchedSubresource})
 
 		case engineapi.RuleStatusSkip:
 			err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
@@ -281,7 +291,7 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 			} else {
 				logger.WithName(ruleName).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
 			}
-			reports = append(reports, targetMutation{err: updateErr, target: patched})
+			reports = append(reports, targetMutation{err: updateErr, target: patched, subresource: patchedSubresource})
 		}
 	}
 	return reports, errs, conflicted, conflict
@@ -295,7 +305,9 @@ func targetKey(target *unstructured.Unstructured, subresource string) string {
 func targetKeys(mutations []targetMutation) map[string]struct{} {
 	keys := make(map[string]struct{}, len(mutations))
 	for _, m := range mutations {
-		keys[targetKey(m.target, m.subresource)] = struct{}{}
+		if m.target != nil {
+			keys[targetKey(m.target, m.subresource)] = struct{}{}
+		}
 	}
 	return keys
 }
