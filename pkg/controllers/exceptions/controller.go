@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
@@ -88,32 +89,63 @@ func (c *controller) Find(policyName string, ruleName string) ([]*kyvernov2.Poli
 }
 
 func (c *controller) addPolex(polex *kyvernov2.PolicyException) {
-	names := sets.New[string]()
-	for _, ex := range polex.Spec.Exceptions {
-		names.Insert(ex.PolicyName)
-	}
-	for name := range names {
-		c.queue.Add(name)
-	}
+	c.enqueuePoliciesForExceptions(polex.Spec.Exceptions)
 }
 
 func (c *controller) updatePolex(old *kyvernov2.PolicyException, new *kyvernov2.PolicyException) {
-	names := sets.New[string]()
-	for _, ex := range old.Spec.Exceptions {
-		names.Insert(ex.PolicyName)
-	}
-	for _, ex := range new.Spec.Exceptions {
-		names.Insert(ex.PolicyName)
-	}
-	for name := range names {
-		c.queue.Add(name)
-	}
+	c.enqueuePoliciesForExceptions(append(append([]kyvernov2.Exception(nil), old.Spec.Exceptions...), new.Spec.Exceptions...))
 }
 
 func (c *controller) deletePolex(polex *kyvernov2.PolicyException) {
+	c.enqueuePoliciesForExceptions(polex.Spec.Exceptions)
+}
+
+// enqueuePoliciesForExceptions resolves each Exception's PolicyName to one or
+// more concrete policy keys and enqueues them for reconcile. Literal names are
+// queued as-is (preserving the historical behavior); wildcard patterns are
+// expanded by listing existing cluster and namespaced policies and queuing
+// every key that matches the pattern, so wildcard exceptions are reflected in
+// the index immediately rather than only when policies are reconciled for some
+// other reason.
+func (c *controller) enqueuePoliciesForExceptions(exceptions []kyvernov2.Exception) {
 	names := sets.New[string]()
-	for _, ex := range polex.Spec.Exceptions {
-		names.Insert(ex.PolicyName)
+	// Lazy-loaded policy lists: fetched at most once per invocation to avoid
+	// repeated O(N) lister scans when multiple wildcard exceptions exist.
+	var cpols []*kyvernov1.ClusterPolicy
+	var pols []*kyvernov1.Policy
+	var cpolsLoaded, polsLoaded bool
+	for _, ex := range exceptions {
+		if !wildcard.ContainsWildcard(ex.PolicyName) {
+			names.Insert(ex.PolicyName)
+			continue
+		}
+		if !cpolsLoaded {
+			var err error
+			cpols, err = c.cpolLister.List(labels.Everything())
+			if err != nil {
+				logger.Error(err, "failed to list cluster policies for wildcard exception", "policyName", ex.PolicyName)
+			}
+			cpolsLoaded = true
+		}
+		for _, cpol := range cpols {
+			if wildcard.Match(ex.PolicyName, cpol.GetName()) {
+				names.Insert(cpol.GetName())
+			}
+		}
+		if !polsLoaded {
+			var err error
+			pols, err = c.polLister.List(labels.Everything())
+			if err != nil {
+				logger.Error(err, "failed to list policies for wildcard exception", "policyName", ex.PolicyName)
+			}
+			polsLoaded = true
+		}
+		for _, pol := range pols {
+			key := pol.GetNamespace() + "/" + pol.GetName()
+			if wildcard.Match(ex.PolicyName, key) {
+				names.Insert(key)
+			}
+		}
 	}
 	for name := range names {
 		c.queue.Add(name)
