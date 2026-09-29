@@ -28,27 +28,28 @@ func newApplyConfigPatcher(prog cel.Program, useServerSideApply bool) Patcher {
 	}
 }
 
-func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
-	out, _, err := a.prog.ContextEval(ctx, evalData)
+func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, *MutationEval, error) {
+	out, details, err := a.prog.ContextEval(ctx, evalData)
+	eval := &MutationEval{Result: out, Details: details}
 	if err != nil {
-		return nil, err
+		return nil, eval, err
 	}
 
 	// The compiler ensures that the return type is an ObjectVal with type name of "Object".
 	objVal, ok := out.(*dynamic.ObjectVal)
 	if !ok {
 		// Should not happen since the compiler type checks the return type.
-		return nil, fmt.Errorf("unsupported return type from ApplyConfiguration expression: %v", out.Type())
+		return nil, eval, fmt.Errorf("unsupported return type from ApplyConfiguration expression: %v", out.Type())
 	}
 
 	err = objVal.CheckTypeNamesMatchFieldPathNames()
 	if err != nil {
-		return nil, fmt.Errorf("type mismatch: %w", err)
+		return nil, eval, fmt.Errorf("type mismatch: %w", err)
 	}
 
 	value, ok := objVal.Value().(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid return type: %T", out)
+		return nil, eval, fmt.Errorf("invalid return type: %T", out)
 	}
 
 	patchObject := unstructured.Unstructured{Object: value}
@@ -60,8 +61,8 @@ func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any,
 	}
 	patched, err := mergeFn(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
 	if err != nil {
-		return nil, fmt.Errorf("error applying patch: %w", err)
+		return nil, eval, fmt.Errorf("error applying patch: %w", err)
 	}
 
-	return patched, nil
+	return patched, eval, nil
 }
