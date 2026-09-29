@@ -13,16 +13,18 @@ import (
 
 	securejoin "github.com/cyphar/filepath-securejoin"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 )
 
 // Read is the format 1.0 reader: it requires the exact manifest shape (bundle-spec.md section 4,
 // reader MUST 1), extracts the content layer under the archive path rules (reader MUST 2),
 // re-runs ValidateForRead over the extracted tree (reader MUST 3), and cross-checks every
-// extracted document against the config's resource index by path, documentIndex, and digest
-// (reader MUST 4). Any mismatch is a hard failure: the registry is writable by anyone with push
-// rights and by tools other than kyverno oci push, so a config that disagrees with the archive is
-// a tamper or tooling signal, not a nuisance to ignore.
+// extracted document against the config's resource index by path, documentIndex, digest,
+// apiVersion, kind, namespace, and name, and confirms every index entry's set names an entry in
+// the config's own sets[] (reader MUST 4). Any mismatch is a hard failure: the registry is
+// writable by anyone with push rights and by tools other than kyverno oci push, so a config that
+// disagrees with the archive is a tamper or tooling signal, not a nuisance to ignore.
 //
 // Extraction and validation both happen in a private staging directory, not dir, for two
 // reasons. First, dir may already hold unrelated files (a previous pull, a directory an author
@@ -111,7 +113,7 @@ func Read(img v1.Image, dir string) (*Bundle, error) {
 		return nil, err
 	}
 
-	if err := crossCheckIndex(b.Documents, cfg.Resources); err != nil {
+	if err := crossCheckIndex(b.Documents, cfg.Resources, cfg.Sets); err != nil {
 		return nil, err
 	}
 
@@ -146,15 +148,35 @@ func scrubPath(err error, paths ...string) error {
 const supportedFormatMajor = "1"
 
 // checkFormatVersion rejects a bundle whose major format version this reader doesn't support,
-// naming both versions (reader MUST 6). An empty or unparseable formatVersion is treated as
-// unsupported rather than assumed compatible: the config is the writer's own claim about the
-// format it used, and a reader that can't read that claim can't safely read the rest of it
-// either.
+// naming both versions (reader MUST 6). formatVersion must be a full semver string: exactly three
+// dot-separated, all-numeric components (major.minor.patch, for example "1.0.0"). Anything else —
+// empty, missing a component, a non-numeric component, or a trailing/leading empty component — is
+// malformed and rejected before the major-version comparison even runs: the config is the
+// writer's own claim about the format it used, and a reader that can't parse that claim can't
+// safely read the rest of it either. This deliberately rejects a semver pre-release or build
+// suffix (for example "1.0.0-rc.1"), matching bundle-spec.md section 8's "spec.formatVersion's pin
+// is a full semver string ... and MUST match, exactly, a version string in the writer's own list
+// of supported format versions" — this format's formatVersion values are plain major.minor.patch,
+// not general semver.
 func checkFormatVersion(formatVersion string) error {
-	major, _, ok := strings.Cut(formatVersion, ".")
-	if !ok || major == "" {
-		return fmt.Errorf("malformed bundle: config formatVersion %q is not a valid semver string", formatVersion)
+	malformed := fmt.Errorf("malformed bundle: config formatVersion %q is not a valid semver string", formatVersion)
+
+	parts := strings.Split(formatVersion, ".")
+	if len(parts) != 3 {
+		return malformed
 	}
+	for _, p := range parts {
+		if p == "" {
+			return malformed
+		}
+		for _, c := range p {
+			if c < '0' || c > '9' {
+				return malformed
+			}
+		}
+	}
+
+	major := parts[0]
 	if major != supportedFormatMajor {
 		return fmt.Errorf("unsupported bundle format major version %s (this reader supports major version %s)", major, supportedFormatMajor)
 	}
@@ -239,10 +261,15 @@ func checkPlacementPath(dir, rel string) error {
 	return nil
 }
 
-// checkManifestShape requires exactly one layer, at index 0, with the content media type, and a
-// config with the config media type (reader MUST 1). It detects a pre-1.20 image by its retired
-// media types and fails with an actionable "legacy image format" error instead of a confusing
-// downstream one (bundle-spec.md section 8).
+// checkManifestShape requires an OCI 1.0 image manifest (schemaVersion 2, mediaType
+// application/vnd.oci.image.manifest.v1+json) with exactly one layer, at index 0, with the
+// content media type, and a config with the config media type (reader MUST 1). It detects a
+// pre-1.20 image by its retired media types and fails with an actionable "legacy image format"
+// error instead of a confusing downstream one (bundle-spec.md section 8). The legacy-media-type
+// checks run first, and the schemaVersion/mediaType check last, so a pre-1.20 image — which never
+// carried either the current config or layer media type, but also never set the OCI manifest
+// media type this format now requires — still gets the actionable legacy message instead of a
+// generic manifest-shape error.
 func checkManifestShape(manifest *v1.Manifest) error {
 	if manifest.Config.MediaType == internal.LegacyConfigMediaType {
 		return fmt.Errorf("legacy image format: this image predates format 1.0 (config media type %s); republish it with a 1.20 or later kyverno CLI", manifest.Config.MediaType)
@@ -260,6 +287,10 @@ func checkManifestShape(manifest *v1.Manifest) error {
 	}
 	if string(layerMediaType) != internal.ContentMediaType {
 		return fmt.Errorf("malformed bundle: expected layer media type %s at index 0, got %s", internal.ContentMediaType, layerMediaType)
+	}
+
+	if manifest.SchemaVersion != 2 || manifest.MediaType != types.OCIManifestSchema1 {
+		return fmt.Errorf("malformed bundle: expected an OCI 1.0 image manifest (schemaVersion 2, mediaType %s), got schemaVersion %d, mediaType %q", types.OCIManifestSchema1, manifest.SchemaVersion, manifest.MediaType)
 	}
 
 	return nil
@@ -367,13 +398,26 @@ func extract(layer v1.Layer, dir string) error {
 // resolves to an archived document (reader MUST 4). Checking only the digest would let a config
 // index claim a different apiVersion, kind, namespace, or name than the archived document while
 // still passing, which would mislead any index consumer that trusts these fields (for example,
-// `kyverno oci inspect`) without re-parsing the archive itself.
-func crossCheckIndex(documents []Document, resources []ResourceEntry) error {
+// `kyverno oci inspect`) without re-parsing the archive itself. sets is the config's own sets[];
+// every resource-index entry's set MUST name one of them (bundle-spec.md section 6,
+// "Resource-index entry": "MUST name an entry in sets[]"), so an entry naming a set that doesn't
+// exist breaks the index contract for any consumer that trusts it, the same way a mismatched
+// identity field would. This is checked while building byKey, not while walking documents, so an
+// index entry with a bad set is rejected even for a set that matches no archived document at all.
+func crossCheckIndex(documents []Document, resources []ResourceEntry, sets []ConfigSet) error {
+	setNames := make(map[string]bool, len(sets))
+	for _, s := range sets {
+		setNames[s.Name] = true
+	}
+
 	byKey := make(map[string]ResourceEntry, len(resources))
 	for _, r := range resources {
 		key := fmt.Sprintf("%s#%d", r.Path, r.DocumentIndex)
 		if _, dup := byKey[key]; dup {
 			return fmt.Errorf("malformed bundle: config index has more than one entry for %s document %d", r.Path, r.DocumentIndex)
+		}
+		if r.Set == "" || !setNames[r.Set] {
+			return fmt.Errorf("malformed bundle: config index entry %s (document %d) names set %q, which is not in the config's sets[]", r.Path, r.DocumentIndex, r.Set)
 		}
 		byKey[key] = r
 	}

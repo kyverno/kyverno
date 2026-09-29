@@ -530,6 +530,39 @@ func TestReadRejectsUnsupportedFormatMajorVersion(t *testing.T) {
 	assert.Contains(t, err.Error(), "this reader supports major version 1")
 }
 
+// TestCheckFormatVersion pins the malformed-vs-unsupported-major distinction: checkFormatVersion
+// requires a full three-component numeric semver string before it ever compares the major
+// version, so a truncated or non-numeric formatVersion is rejected as malformed rather than
+// silently accepted as some major version prefix.
+func TestCheckFormatVersion(t *testing.T) {
+	tests := []struct {
+		name          string
+		formatVersion string
+		wantErr       string
+	}{
+		{name: "valid", formatVersion: "1.0.0", wantErr: ""},
+		{name: "unsupported major", formatVersion: "2.0.0", wantErr: "unsupported bundle format major version 2"},
+		{name: "truncated at first dot", formatVersion: "1.bad", wantErr: "not a valid semver string"},
+		{name: "trailing dot", formatVersion: "1.", wantErr: "not a valid semver string"},
+		{name: "two components", formatVersion: "1.0", wantErr: "not a valid semver string"},
+		{name: "one component", formatVersion: "1", wantErr: "not a valid semver string"},
+		{name: "empty", formatVersion: "", wantErr: "not a valid semver string"},
+		{name: "four components", formatVersion: "1.0.0.0", wantErr: "not a valid semver string"},
+		{name: "non-numeric", formatVersion: "a.b.c", wantErr: "not a valid semver string"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkFormatVersion(tc.formatVersion)
+			if tc.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
+		})
+	}
+}
+
 // TestPlaceFailsAllOrNothingWhenATargetIsBlocked is the regression test for the MINOR finding
 // that place left partial output behind on a mid-way failure: before the fix, a.yaml (processed
 // before the colliding b.yaml in map iteration order, on at least some runs) was left on disk
@@ -808,26 +841,54 @@ spec:
 	assert.NoError(t, err)
 }
 
+// defaultSets is a minimal, valid sets[] for tests that don't otherwise care about set
+// assignment: every ResourceEntry below names "policies", so this is what a call to
+// crossCheckIndex needs to pass the set-membership check and reach the check under test.
+var defaultSets = []ConfigSet{{Name: "policies", Type: "policies"}}
+
 func TestCrossCheckIndexRejectsMismatchedDigest(t *testing.T) {
 	documents := []Document{{Path: "a.yaml", Index: 0, Digest: "sha256:aaa"}}
-	resources := []ResourceEntry{{Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:bbb"}}
-	err := crossCheckIndex(documents, resources)
+	resources := []ResourceEntry{{Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:bbb", Set: "policies"}}
+	err := crossCheckIndex(documents, resources, defaultSets)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "does not match")
 }
 
 func TestCrossCheckIndexRejectsUnmatchedArchiveDocument(t *testing.T) {
 	documents := []Document{{Path: "a.yaml", Index: 0, Digest: "sha256:aaa"}}
-	err := crossCheckIndex(documents, nil)
+	err := crossCheckIndex(documents, nil, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no matching config index entry")
 }
 
 func TestCrossCheckIndexRejectsUnmatchedIndexEntry(t *testing.T) {
-	resources := []ResourceEntry{{Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:aaa"}}
-	err := crossCheckIndex(nil, resources)
+	resources := []ResourceEntry{{Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:aaa", Set: "policies"}}
+	err := crossCheckIndex(nil, resources, defaultSets)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no matching archived document")
+}
+
+// TestCrossCheckIndexRejectsUnknownSet pins the set-membership half of reader MUST 4: an index
+// entry naming a set that isn't in the config's own sets[] breaks the index contract just as
+// badly as a mismatched identity field would, even when its path, documentIndex, digest, and
+// identity all otherwise match an archived document.
+func TestCrossCheckIndexRejectsUnknownSet(t *testing.T) {
+	documents := []Document{{Path: "a.yaml", Index: 0, Digest: "sha256:aaa"}}
+
+	t.Run("unknown set", func(t *testing.T) {
+		resources := []ResourceEntry{{Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:aaa", Set: "ghost"}}
+		err := crossCheckIndex(documents, resources, defaultSets)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "ghost")
+		assert.Contains(t, err.Error(), "not in the config's sets[]")
+	})
+
+	t.Run("empty set", func(t *testing.T) {
+		resources := []ResourceEntry{{Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:aaa", Set: ""}}
+		err := crossCheckIndex(documents, resources, defaultSets)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "not in the config's sets[]")
+	})
 }
 
 // TestCrossCheckIndexRejectsMismatchedIdentity pins reader MUST 4's identity check: a config
@@ -842,7 +903,7 @@ func TestCrossCheckIndexRejectsMismatchedIdentity(t *testing.T) {
 		APIVersion: "policies.kyverno.io/v1beta1", Kind: "ValidatingPolicy", Namespace: "", Name: "require-labels",
 	}
 	baseEntry := ResourceEntry{
-		Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:aaa",
+		Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:aaa", Set: "policies",
 		APIVersion: "policies.kyverno.io/v1beta1", Kind: "ValidatingPolicy", Namespace: "", Name: "require-labels",
 	}
 
@@ -874,7 +935,7 @@ func TestCrossCheckIndexRejectsMismatchedIdentity(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := crossCheckIndex([]Document{base}, []ResourceEntry{tc.mutate(baseEntry)})
+			err := crossCheckIndex([]Document{base}, []ResourceEntry{tc.mutate(baseEntry)}, defaultSets)
 			assert.Error(t, err)
 			assert.Contains(t, err.Error(), tc.wantMsg)
 			assert.Contains(t, err.Error(), "does not match the archived document")
@@ -903,6 +964,31 @@ func TestCheckManifestShapeRejectsMultipleLayers(t *testing.T) {
 	err := checkManifestShape(manifest)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "exactly one layer")
+}
+
+func validManifest() *v1.Manifest {
+	return &v1.Manifest{
+		SchemaVersion: 2,
+		MediaType:     types.OCIManifestSchema1,
+		Config:        v1.Descriptor{MediaType: types.MediaType(internal.ConfigMediaType)},
+		Layers:        []v1.Descriptor{{MediaType: types.MediaType(internal.ContentMediaType)}},
+	}
+}
+
+func TestCheckManifestShapeAcceptsOCIManifest(t *testing.T) {
+	assert.NoError(t, checkManifestShape(validManifest()))
+}
+
+// TestCheckManifestShapeRejectsNonOCIManifest pins reader MUST 1's schemaVersion/mediaType check:
+// bundle-spec.md section 4 requires a plain OCI 1.0 image manifest, so a manifest carrying the
+// expected config and layer media types but a Docker schema-2 (or otherwise non-OCI) manifest
+// media type must still be rejected, not silently accepted.
+func TestCheckManifestShapeRejectsNonOCIManifest(t *testing.T) {
+	manifest := validManifest()
+	manifest.MediaType = types.DockerManifestSchema2
+	err := checkManifestShape(manifest)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "OCI 1.0 image manifest")
 }
 
 // TestExtractRejectsEntryOverMaxSize pins the per-entry decompression bound: a single entry

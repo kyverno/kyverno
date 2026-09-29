@@ -198,7 +198,7 @@ func assembleFile(abs, rel string, atRoot bool, b *Bundle) error {
 		return fmt.Errorf("reading %s: %w", rel, err)
 	}
 	if !info.Mode().IsRegular() {
-		return fmt.Errorf("%s is not a regular file (symlinks, hard links, and device entries are not allowed in a bundle)", rel)
+		return fmt.Errorf("%s is not a regular file (symlinks and non-regular entries such as device files are not allowed in a bundle)", rel)
 	}
 
 	content, err := os.ReadFile(abs)

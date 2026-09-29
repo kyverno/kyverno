@@ -164,27 +164,45 @@ records them as `ValidatingPolicy`.
 
 ### Accepted API versions
 
-A resource's `apiVersion` MUST be one this table lists for the running CLI's release, and its kind MUST be one of
-the 11 above.
+**This table states two different things, and they currently disagree: what the format permits a version to be,
+and what the 1.20 CLI's `kyverno oci` implementation actually accepts.** A resource's `apiVersion` MUST be one the
+format permits, and its kind MUST be one of the 11 above; separately, whether a given conformant CLI build accepts
+a permitted version yet is a statement about that build, not about the format.
 
-| Version | Status | Earliest release serving this version |
-|---|---|---|
-| `policies.kyverno.io/v1beta1` | Accepted (storage version) | 1.16 |
-| `policies.kyverno.io/v1` | Accepted (served, stable-named) | 1.17 |
-| `policies.kyverno.io/v1alpha1` | Rejected | 1.14 |
+| Version | Format status | 1.20 CLI accepts it? | Earliest release serving this version |
+|---|---|---|---|
+| `policies.kyverno.io/v1beta1` | Permitted (storage version) | **Yes** | 1.16 |
+| `policies.kyverno.io/v1` | Permitted (served, stable-named) | **No — see below** | 1.17 |
+| `policies.kyverno.io/v1alpha1` | Rejected | No | 1.14 |
 
-`v1beta1` and `v1` are type aliases of one another in `github.com/kyverno/api`, so a bundle can carry either, or
-both, without loss: a `v1` document stays `v1` in the archive and in the index; a writer MUST NOT rewrite
-`apiVersion`. `v1alpha1` is rejected because every `v1alpha1` type in `github.com/kyverno/api` carries
-`+kubebuilder:deprecatedversion`, and the alpha tier carries no compatibility guarantee (see the stability table in
-`docs/context/shared/api-versioning.md`).
+**The 1.20 CLI accepts only `policies.kyverno.io/v1beta1`.** `internal.SupportedAPIVersion` in
+`cmd/cli/kubectl-kyverno/commands/oci/internal` is pinned to `v1beta1`, and both of the checks that enforce it —
+`validateDocuments`' raw `apiVersion` comparison and `validateResults`' `checkResource` — reject every `v1`
+document today, even though this table's "Format status" column permits `v1`. A bundle whose only resources are
+`v1beta1` round-trips through the 1.20 CLI; a bundle containing a `v1` resource does not, regardless of what the
+format itself would allow. **Widening the 1.20 CLI to accept `v1` is issue `#17664`'s job, not this document's or
+this implementation's** — see that issue's design record for why the accepted-version *check* is scoped there
+rather than to the `Assemble`/`Validate`/`Write`/`Read` split this document describes. An author targeting today's
+`kyverno oci push`/`pull` implementation MUST use `v1beta1`; `v1` is a format-permitted version whose CLI support
+is not yet built.
 
-This accepted-version table is governed by the same rules as `docs/context/shared/api-versioning.md`, not by this
-document's own semver. A version is added to the table once it's served; a version is removed following its
-tier's deprecation window from that document (2 minor releases for beta, 3 for stable). When `v1` becomes the
-storage version, nothing in this format changes, and `v1beta1` stays accepted until its own deprecation window
-elapses. Bundle contents are stored byte-for-byte (see [5. Content layer](#5-content-layer)), so accepting a wider
-version set costs nothing beyond comparing more strings.
+`v1beta1` and `v1` are type aliases of one another in `github.com/kyverno/api`, so once a future CLI's accepted
+set includes both, a bundle can carry either, or both, without loss: a `v1` document stays `v1` in the archive
+and in the index, and a writer MUST NOT rewrite `apiVersion`. `v1alpha1` is rejected, by every CLI release, because
+every `v1alpha1` type in `github.com/kyverno/api` carries `+kubebuilder:deprecatedversion`, and the alpha tier
+carries no compatibility guarantee (see the stability table in `docs/context/shared/api-versioning.md`).
+
+This table's "Format status" column is governed by the same rules as `docs/context/shared/api-versioning.md`, not
+by this document's own semver: a version becomes format-permitted once it's served, and stops being
+format-permitted following its tier's deprecation window from that document (2 minor releases for beta, 3 for
+stable). A version becoming format-permitted is necessary, but not sufficient, for a given CLI release to accept
+it — the "1.20 CLI accepts it?" column, or its equivalent for a later release, is the one an author checks before
+relying on a version working. When `v1` becomes the storage version, nothing in this format's container changes,
+and `v1beta1` stays format-permitted until its own deprecation window elapses (see
+[8. Format versioning and compatibility](#8-format-versioning-and-compatibility) for the container/contents
+distinction this observation depends on). Bundle contents are stored byte-for-byte (see
+[5. Content layer](#5-content-layer)), so once a CLI's accepted set does include both, accepting the wider,
+format-permitted set costs that CLI nothing beyond comparing more strings.
 
 ### Explicit rejections
 
@@ -195,28 +213,35 @@ A writer and a reader both MUST reject:
 - `admissionregistration.k8s.io` kinds: `ValidatingAdmissionPolicy`, `ValidatingAdmissionPolicyBinding`,
   `MutatingAdmissionPolicy`, `MutatingAdmissionPolicyBinding`.
 - Any kind not in the table above.
-- Any `policies.kyverno.io` resource whose `apiVersion` is `v1alpha1`, or any other version not in the accepted
-  table for the running release.
+- Any `policies.kyverno.io` resource whose `apiVersion` the running release doesn't accept — for the 1.20 CLI,
+  anything other than `v1beta1` (see "Accepted API versions" above), which today includes `v1alpha1` permanently
+  and `v1` until `#17664` lands.
 
 ### Identity
 
-A resource's identity is `Kind/namespace/name`, with the API version deliberately excluded: a `v1` and a `v1beta1`
-document with the same kind, namespace, and name name the same cluster object, and a bundle carrying both is a
-duplicate, not two resources. `namespace` is the resource's `metadata.namespace` field taken exactly as written,
-not forced blank for a cluster-scoped kind: `ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`,
-`DeletingPolicy`, and `ImageValidatingPolicy` are cluster-scoped and conventionally carry no `metadata.namespace`,
-but if an author's manifest sets one anyway, that value is part of the resource's identity, matching the existing
-push implementation's identity check. A writer and a reader both MUST reject a bundle containing two resources
-with the same identity.
+A resource's identity is `Kind/namespace/name`, with the API version deliberately excluded: once a CLI accepts
+more than one version for the same kind, a `v1` and a `v1beta1` document with the same kind, namespace, and name
+would name the same cluster object, and a bundle carrying both would be a duplicate, not two resources. This is a
+format-level rule, stated for whatever set of versions a given CLI accepts; the 1.20 CLI's accepted set is just
+`v1beta1` (see "Accepted API versions" above), so this rule has no `v1`-vs-`v1beta1` case to actually apply until
+`#17664` widens it. `namespace` is the resource's `metadata.namespace` field taken exactly as written, not forced
+blank for a cluster-scoped kind: `ValidatingPolicy`, `MutatingPolicy`, `GeneratingPolicy`, `DeletingPolicy`, and
+`ImageValidatingPolicy` are cluster-scoped and conventionally carry no `metadata.namespace`, but if an author's
+manifest sets one anyway, that value is part of the resource's identity, matching the existing push
+implementation's identity check. A writer and a reader both MUST reject a bundle containing two resources with
+the same identity.
 
 ## 4. Artifact structure
 
-A format 1.0 bundle is a plain OCI 1.0 image manifest, `application/vnd.oci.image.manifest.v1+json`, with no
-`artifactType` and no `subject`. The config's media type is the artifact's identity, following the OCI 1.1 fallback
-rule that `config.mediaType` is the artifact type when `artifactType` is absent. This is the shape
-Helm and Flux both ship at scale today. A future minor version of this format may set `artifactType` once the
-CLI's OCI library supports writing it; a reader MUST NOT require `artifactType` to be present, and MUST accept a
-manifest whether or not it carries one.
+A format 1.0 bundle is a plain OCI 1.0 image manifest: `schemaVersion` `2`, `mediaType`
+`application/vnd.oci.image.manifest.v1+json`, no `artifactType`, and no `subject`. A reader MUST reject a manifest
+whose `schemaVersion` isn't `2` or whose `mediaType` isn't `application/vnd.oci.image.manifest.v1+json` — for
+example, a Docker schema-2 manifest (`application/vnd.docker.distribution.manifest.v2+json`) carrying the expected
+config and layer media types is not a conformant bundle. The config's media type is the artifact's identity,
+following the OCI 1.1 fallback rule that `config.mediaType` is the artifact type when `artifactType` is absent.
+This is the shape Helm and Flux both ship at scale today. A future minor version of this format may set
+`artifactType` once the CLI's OCI library supports writing it; a reader MUST NOT require `artifactType` to be
+present, and MUST accept a manifest whether or not it carries one.
 
 ### Layer
 
@@ -355,9 +380,46 @@ This is a `.yaml`/`.yml` file a writer rejects instead — the push fails, it is
 
 ### Archive rules
 
-A writer MUST reject: absolute paths, `..` path segments, symlinks, hard links, device entries, and duplicate
-paths. A reader restores each entry at its relative path under the target directory and MUST refuse any entry that
-would escape that directory.
+A writer MUST reject: absolute paths, `..` path segments, and duplicate paths. A reader restores each entry at
+its relative path under the target directory and MUST refuse any entry that would escape that directory.
+
+**A symlink is rejected only where it could stand in for archived content, or where following it would silently
+lose content; elsewhere it's excluded like any other path this format doesn't archive.** [What a writer
+excludes](#what-a-writer-excludes) already lists hidden paths and non-`.yaml`/`.yml` paths as silently skipped, not
+an error, and that rule doesn't carve out an exception for a path that happens to be a symlink: a symlinked
+`README.md`, or a hidden `.venv -> /opt/venv`, carries no bundle content either way, so rejecting it would be a
+new, gratuitous failure this format never asked for, and matches the pre-1.20 push, which read straight through
+both without rejecting either. Concretely, a writer MUST reject:
+
+- A non-hidden symlink whose own name has a `.yaml` or `.yml` extension: a real file at that path would be
+  archived content, so a symlink standing in for one is rejected under the same rule that governs the content it
+  would otherwise represent.
+- A non-hidden symlink that resolves to a directory, regardless of its own name's extension. This case is
+  rejected unconditionally, because it's the one a naive skip would lose silently: `fs.DirEntry.Type()` (and
+  equivalent APIs) report a symlink's own type bit, not the type of whatever it points at, so a symlinked
+  directory whose name carries no recognized extension — for example `common -> ../shared` — would otherwise fall
+  through both the directory branch (never descended into, since the entry isn't itself a directory) and the
+  extension branch (no recognized extension), and be silently dropped with no error, taking everything under it
+  with it. A writer MUST reject this case even though the symlink's own name isn't `.yaml`/`.yml`.
+- Any other non-regular entry that isn't a symlink at all, for example a device entry.
+
+A hidden symlink, and a non-hidden symlink that is neither of the two rejected shapes above (for example a
+symlink to a regular non-YAML file, or a broken symlink whose name isn't `.yaml`/`.yml`), is excluded the same way
+any other hidden or non-YAML path is: not archived, not an error. A symlink that is excluded for being hidden or
+non-YAML can't affect the artifact, because it's never read.
+
+This rule governs paths *within* the bundle root. The bundle root itself, if it's a symlink (or sits under a
+symlinked parent directory), is resolved to its real path before a writer applies any of the above — that's a
+convenience for locating the input tree, not an exception to the reject/exclude rules above, which still apply,
+unchanged, to every path found once the root is resolved.
+
+**A hard link is not rejected, and a writer MUST NOT be relied on to detect one.** Telling a hard-linked regular
+file apart from an ordinary one requires reading platform-specific stat data (`Nlink`) that a portable,
+`CGO_ENABLED=0` implementation can't reach uniformly across the platforms this format's writers build for.
+This costs nothing in practice: link structure isn't part of what this format preserves (see
+[Round-trip guarantee](#round-trip-guarantee)), and two paths that are hard-linked on disk archive as two
+ordinary, independent tar entries with identical content, which is a well-formed bundle either way — the artifact
+is byte-identical to one built from two unlinked files with the same content.
 
 **`v1 List` documents are rejected in format 1.x.** A writer identifies a `v1 List` document by the same raw
 `apiVersion`/`kind` inspection described in [What a writer archives](#what-a-writer-archives), before any loader
@@ -732,8 +794,11 @@ the requirement binds.
    `metadata.namespace` taken as written (3).
 7. Reject any `v1 List` document, identified by the same raw `apiVersion`/`kind` inspection as item 4, before
    loader unwrapping (5).
-8. Reject absolute paths, `..` segments, symlinks, hard links, device entries, and duplicate archive paths (5).
-   Reject an input tree that yields zero resources (5).
+8. Reject absolute paths, `..` segments, and duplicate archive paths; reject a symlink whose name would
+   otherwise be archived content (a non-hidden `.yaml`/`.yml` path) or that resolves to a directory, regardless
+   of its name; reject any other non-regular, non-symlink entry, such as a device entry — see
+   [Archive rules](#archive-rules) for the full symlink rule and why a hard link isn't rejected. Reject an input
+   tree that yields zero resources (5).
 9. Produce, for a single writer implementation and version run repeatedly against the same input tree, the same
    descriptor, and the same `SOURCE_DATE_EPOCH` setting, byte-identical content-layer, config, and manifest
    digests: sorted paths, regular files only, mode `0644`, uid and gid `0`, empty uname and gname, mtime Unix
@@ -760,9 +825,10 @@ the requirement binds.
 
 ### Reader MUST
 
-1. Require exactly one layer, at index 0, with the content media type, and a config with the config media type;
-   fail with the legacy-image error if either retired media type is present, or a malformed-bundle error
-   otherwise (4, 8).
+1. Require an OCI 1.0 image manifest (`schemaVersion` `2`, `mediaType`
+   `application/vnd.oci.image.manifest.v1+json`) with exactly one layer, at index 0, with the content media type,
+   and a config with the config media type; fail with the legacy-image error if either retired media type is
+   present, or a malformed-bundle error otherwise (4, 8).
 2. Extract the archive under the path rules in [5. Content layer](#5-content-layer), refusing any entry that would
    escape the target directory, and bounding extraction against a gzip decompression bomb: refuse any single
    entry whose decompressed size exceeds 10 MiB, refuse a content layer whose total decompressed size exceeds
@@ -779,6 +845,8 @@ the requirement binds.
    the same reference splitter a writer uses, per writer MUST 11), and every index entry resolves to an archived
    document. Any mismatch — including an index entry that names a different `apiVersion`, `kind`, `namespace`, or
    `name` than the archived document it otherwise matches by path and digest — is a hard failure, not a warning.
+   A reader MUST also reject an index entry whose `set` is empty or doesn't name an entry in the config's
+   `sets[]` (see [6. Config blob](#6-config-blob), "Resource-index entry").
 5. Treat the config as authoritative for bundle metadata (name, version, sets, compatibility) and the archive as
    authoritative for contents.
 6. Reject a bundle whose major format version the reader doesn't support, naming both versions in the error.
