@@ -170,6 +170,28 @@ func TestEvaluatePatchExpressionTypeNameMismatch(t *testing.T) {
 	}
 }
 
+// A CEL map can have keys of any type, but a JSON object key must be a string, so a map
+// with any other key is rejected rather than encoded, wherever it sits in the value.
+func TestEvaluatePatchExpressionNonStringMapKey(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+	}{{
+		name:  "map with an int key",
+		value: `{1: "x"}`,
+	}, {
+		name:  "map with an int key inside a list",
+		value: `[{1: "x"}]`,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := evalPatchValue(t, `[JSONPatch{op: "add", path: "/spec/x", value: `+tt.value+`}]`)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "only string keys can marshal to JSON")
+		})
+	}
+}
+
 // An operation without a value must not gain one, and "from" is carried through.
 func TestEvaluatePatchExpressionOperationMembers(t *testing.T) {
 	patcher := compileJSONPatcher(t, `[JSONPatch{op: "move", from: "/spec/a", path: "/spec/b"}]`)
