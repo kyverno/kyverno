@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/multierr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -185,15 +186,19 @@ func conflictErr(name string) error {
 }
 
 // mutatingEngine is an engine stub whose Mutate returns a fixed response and
-// counts how often it is called.
+// counts how often it is called; retryResponse, when set, is returned from the second call on.
 type mutatingEngine struct {
 	engineapi.Engine
-	response engineapi.EngineResponse
-	calls    int
+	response      engineapi.EngineResponse
+	retryResponse *engineapi.EngineResponse
+	calls         int
 }
 
 func (e *mutatingEngine) Mutate(context.Context, engineapi.PolicyContext) engineapi.EngineResponse {
 	e.calls++
+	if e.calls > 1 && e.retryResponse != nil {
+		return *e.retryResponse
+	}
 	return e.response
 }
 
@@ -336,4 +341,38 @@ func TestMutateWithRetry_ExhaustedRetriesAreReportable(t *testing.T) {
 	assert.Len(t, errs, 1)
 	assert.Len(t, reports, 1)
 	assert.True(t, apierrors.IsConflict(reports[0].err))
+}
+
+// A retry whose recompute fails to load the conflicted target must end as a terminal failure, not a silent success.
+func TestMutateWithRetry_TargetLoadErrorOnRetryIsTerminal(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, _ := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
+	var pr engineapi.PolicyResponse
+	pr.Add(engineapi.ExecutionStats{}, *engineapi.RuleError("register", engineapi.Mutation, "failed to load targets", errors.New("not found"), nil))
+	retryResponse := engineapi.EngineResponse{}.WithPolicyResponse(pr)
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(a), retryResponse: &retryResponse}}
+
+	_, _, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err, "the retry itself did not conflict")
+	assert.ErrorContains(t, multierr.Combine(errs...), "failed to load targets", "the target-load error must fail the update request")
+}
+
+// A conflicted target that drops out of the recomputed response keeps its conflict as a terminal failure.
+func TestMutateWithRetry_VanishedTargetKeepsItsConflict(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, _ := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
+	empty := engineapi.EngineResponse{}
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(a), retryResponse: &empty}}
+
+	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, errs, 1)
+	assert.True(t, apierrors.IsConflict(errs[0]))
+	assert.Len(t, reports, 1)
 }
