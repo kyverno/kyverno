@@ -345,6 +345,25 @@ type Attestation struct {
 	Conditions []AnyAllConditions `json:"conditions,omitempty"`
 }
 
+// TLSClientCert holds a reference to a Kubernetes Secret containing a TLS
+// client certificate and private key for mTLS authentication with the registry.
+type TLSClientCert struct {
+	// SecretName is the name of the Kubernetes Secret holding the client certificate
+	// and private key. It can be specified as a name (resolved in the Kyverno namespace)
+	// or as namespace/name.
+	SecretName string `json:"secretName"`
+
+	// CertKey is the key within the secret for the PEM-encoded client certificate.
+	// Defaults to tls.crt.
+	// +kubebuilder:validation:Optional
+	CertKey string `json:"certKey,omitempty"`
+
+	// KeyKey is the key within the secret for the PEM-encoded client private key.
+	// Defaults to tls.key.
+	// +kubebuilder:validation:Optional
+	KeyKey string `json:"keyKey,omitempty"`
+}
+
 type ImageRegistryCredentials struct {
 	// AllowInsecureRegistry allows insecure access to a registry.
 	// +kubebuilder:validation:Optional
@@ -360,6 +379,11 @@ type ImageRegistryCredentials struct {
 	// imagePullSecrets from the resource namespace are also used.
 	// +kubebuilder:validation:Optional
 	Secrets []string `json:"secrets,omitempty"`
+
+	// TLSClientCert specifies a Kubernetes Secret containing a TLS client certificate
+	// and private key for mTLS authentication with the registry.
+	// +kubebuilder:validation:Optional
+	TLSClientCert *TLSClientCert `json:"tlsClientCert,omitempty"`
 }
 
 // ValidateImageVerification checks conditions across multiple image

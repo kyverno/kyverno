@@ -323,6 +323,30 @@ spec:
                               items:
                                 type: string
                               type: array
+                            tlsClientCert:
+                              description: |-
+                                TLSClientCert specifies a Kubernetes Secret containing a TLS client certificate
+                                and private key for mTLS authentication with the registry.
+                              properties:
+                                certKey:
+                                  description: |-
+                                    CertKey is the key within the secret for the PEM-encoded client certificate.
+                                    Defaults to tls.crt.
+                                  type: string
+                                keyKey:
+                                  description: |-
+                                    KeyKey is the key within the secret for the PEM-encoded client private key.
+                                    Defaults to tls.key.
+                                  type: string
+                                secretName:
+                                  description: |-
+                                    SecretName is the name of the Kubernetes Secret holding the client certificate
+                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
+                                    or as namespace/name.
+                                  type: string
+                              required:
+                              - secretName
+                              type: object
                           type: object
                         jmesPath:
                           description: |-
@@ -1620,6 +1644,30 @@ spec:
                               items:
                                 type: string
                               type: array
+                            tlsClientCert:
+                              description: |-
+                                TLSClientCert specifies a Kubernetes Secret containing a TLS client certificate
+                                and private key for mTLS authentication with the registry.
+                              properties:
+                                certKey:
+                                  description: |-
+                                    CertKey is the key within the secret for the PEM-encoded client certificate.
+                                    Defaults to tls.crt.
+                                  type: string
+                                keyKey:
+                                  description: |-
+                                    KeyKey is the key within the secret for the PEM-encoded client private key.
+                                    Defaults to tls.key.
+                                  type: string
+                                secretName:
+                                  description: |-
+                                    SecretName is the name of the Kubernetes Secret holding the client certificate
+                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
+                                    or as namespace/name.
+                                  type: string
+                              required:
+                              - secretName
+                              type: object
                           type: object
                         jmesPath:
                           description: |-
