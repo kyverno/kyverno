@@ -1,0 +1,227 @@
+package compiler
+
+import (
+	"context"
+	"testing"
+
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/admission"
+	auditinternal "k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/apiserver/pkg/authentication/user"
+)
+
+// mutTraceAttrs is a parameterized admission.Attributes, unlike the fixed mockAttributes in
+// policy_test.go: these tests need a real *unstructured.Unstructured Pod (matching what the real
+// mutation-application pipeline -- ApplyStructuredMergeDiff -- actually produces, as verified
+// live via `kyverno apply`), with a namespace that varies per test case.
+type mutTraceAttrs struct {
+	obj *unstructured.Unstructured
+}
+
+func (m *mutTraceAttrs) GetName() string      { return m.obj.GetName() }
+func (m *mutTraceAttrs) GetNamespace() string { return m.obj.GetNamespace() }
+func (m *mutTraceAttrs) GetResource() schema.GroupVersionResource {
+	return schema.GroupVersionResource{Version: "v1", Resource: "pods"}
+}
+func (m *mutTraceAttrs) GetSubresource() string              { return "" }
+func (m *mutTraceAttrs) GetOperation() admission.Operation   { return admission.Create }
+func (m *mutTraceAttrs) GetOperationOptions() runtime.Object { return nil }
+func (m *mutTraceAttrs) IsDryRun() bool                      { return false }
+func (m *mutTraceAttrs) GetObject() runtime.Object           { return m.obj }
+func (m *mutTraceAttrs) GetOldObject() runtime.Object        { return nil }
+func (m *mutTraceAttrs) GetKind() schema.GroupVersionKind {
+	return schema.GroupVersionKind{Version: "v1", Kind: "Pod"}
+}
+func (m *mutTraceAttrs) GetUserInfo() user.Info                { return &user.DefaultInfo{} }
+func (m *mutTraceAttrs) AddAnnotation(key, value string) error { return nil }
+func (m *mutTraceAttrs) AddAnnotationWithLevel(key, value string, level auditinternal.Level) error {
+	return nil
+}
+func (m *mutTraceAttrs) GetReinvocationContext() admission.ReinvocationContext { return nil }
+
+// podObject builds a fresh Pod each call -- callers that compare a traced and an untraced run
+// against "the same" object must call this twice, not share one pointer, since the real merge
+// pipeline may not leave its input untouched.
+func podObject(namespace string, labels map[string]any) *unstructured.Unstructured {
+	metadata := map[string]any{"name": "nginx", "namespace": namespace}
+	if labels != nil {
+		metadata["labels"] = labels
+	}
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata":   metadata,
+		"spec": map[string]any{
+			"containers": []any{map[string]any{"name": "web", "image": "nginx"}},
+		},
+	}}
+}
+
+func applyConfigMutation(expr string) admissionregistrationv1alpha1.Mutation {
+	return admissionregistrationv1alpha1.Mutation{
+		PatchType:          admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+		ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{Expression: expr},
+	}
+}
+
+func buildMutationTracePolicy(mutations ...admissionregistrationv1alpha1.Mutation) *policiesv1beta1.MutatingPolicy {
+	return &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "trace-test"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods"},
+						},
+					},
+				}},
+			},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "not-kube-system",
+				Expression: "object.metadata.namespace != 'kube-system'",
+			}},
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "teamLabel",
+				Expression: "'platform'",
+			}},
+			Mutations: mutations,
+		},
+	}
+}
+
+func compileMutAndEvaluate(t *testing.T, traced bool, policy *policiesv1beta1.MutatingPolicy, obj *unstructured.Unstructured) *EvaluationResult {
+	t.Helper()
+	p, errs := NewCompiler(traced).Compile(policy, nil)
+	require.Empty(t, errs)
+	return p.Evaluate(context.Background(), &mutTraceAttrs{obj: obj}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
+}
+
+const addTeamLabelExpr = `Object{metadata: Object.metadata{labels: {"team": variables.teamLabel}}}`
+
+func TestEvaluate_TracingOff_NoTrace(t *testing.T) {
+	policy := buildMutationTracePolicy(applyConfigMutation(addTeamLabelExpr))
+
+	res := compileMutAndEvaluate(t, false, policy, podObject("prod", nil))
+	require.NotNil(t, res)
+	require.NoError(t, res.Error)
+	require.NotNil(t, res.PatchedResource)
+	assert.Nil(t, res.Trace, "no trace when the policy was compiled without tracing")
+}
+
+func TestEvaluate_TracingOn_Pass(t *testing.T) {
+	policy := buildMutationTracePolicy(applyConfigMutation(addTeamLabelExpr))
+
+	res := compileMutAndEvaluate(t, true, policy, podObject("prod", nil))
+	require.NotNil(t, res)
+	require.NoError(t, res.Error)
+	require.NotNil(t, res.Trace)
+
+	require.Len(t, res.Trace.Match, 1)
+	assert.Equal(t, "not-kube-system", res.Trace.Match[0].Name)
+	assert.Equal(t, "true", res.Trace.Match[0].Result)
+
+	require.Len(t, res.Trace.Variables, 1)
+	assert.Equal(t, "teamLabel", res.Trace.Variables[0].Name)
+	assert.Equal(t, "platform", res.Trace.Variables[0].Result)
+
+	require.Len(t, res.Trace.Mutations, 1)
+	assert.Equal(t, "mutations[0] (applyConfiguration)", res.Trace.Mutations[0].Name)
+	assert.Empty(t, res.Trace.Mutations[0].Error)
+	assert.Contains(t, res.Trace.Mutations[0].Result, "platform")
+
+	assert.Equal(t, trace.VerdictPass, res.Trace.Verdict.Status)
+
+	// tracing must not change the real outcome: the mutation actually applied
+	labels, _, err := unstructured.NestedStringMap(res.PatchedResource.Object, "metadata", "labels")
+	require.NoError(t, err)
+	assert.Equal(t, "platform", labels["team"])
+}
+
+func TestEvaluate_TracingOn_MatchConditionFalseSkipsPolicy(t *testing.T) {
+	policy := buildMutationTracePolicy(applyConfigMutation(addTeamLabelExpr))
+
+	traced := compileMutAndEvaluate(t, true, policy, podObject("kube-system", nil))
+	require.NotNil(t, traced)
+	assert.True(t, traced.Skipped)
+	assert.Nil(t, traced.PatchedResource)
+	require.NotNil(t, traced.Trace)
+	assert.Equal(t, trace.VerdictSkip, traced.Trace.Verdict.Status)
+	assert.Contains(t, traced.Trace.Verdict.Message, "not-kube-system")
+	require.Len(t, traced.Trace.Match, 1)
+	assert.Equal(t, "false", traced.Trace.Match[0].Result)
+	assert.Empty(t, traced.Trace.Variables, "no variable is read once a match condition excludes the resource")
+	assert.Empty(t, traced.Trace.Mutations, "no mutation runs once a match condition excludes the resource")
+
+	// with tracing off the behavior is unchanged: a skip is a nil result
+	assert.Nil(t, compileMutAndEvaluate(t, false, policy, podObject("kube-system", nil)))
+}
+
+func TestEvaluate_TracingOn_MutationErrorIsCapturedOnTheMutation(t *testing.T) {
+	// references a label that doesn't exist at all -- a genuine CEL runtime error, not a Go
+	// compile-time error, the same distinction TestBuild_ErrorNodesNeverCarryAValue exercises
+	// for validations in pkg/cel/trace.
+	policy := buildMutationTracePolicy(applyConfigMutation(
+		`Object{metadata: Object.metadata{labels: {"copied": object.metadata.labels.owner}}}`,
+	))
+
+	res := compileMutAndEvaluate(t, true, policy, podObject("prod", nil)) // no labels at all
+	require.NotNil(t, res)
+	require.Error(t, res.Error)
+	require.NotNil(t, res.Trace)
+	assert.Equal(t, trace.VerdictError, res.Trace.Verdict.Status)
+
+	require.Len(t, res.Trace.Mutations, 1)
+	mt := res.Trace.Mutations[0]
+	assert.NotEmpty(t, mt.Error, "the mutation-level Error must be set, not just buried in a node")
+	require.NotEmpty(t, mt.Nodes, "the failing mutation should carry its per-node breakdown")
+
+	var sawErrorNode bool
+	for _, n := range mt.Nodes {
+		if n.Error != "" {
+			sawErrorNode = true
+			assert.Empty(t, n.Value, "an errored node must not also carry a value")
+		}
+	}
+	assert.True(t, sawErrorNode, "expected at least one node with Error populated")
+}
+
+func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
+	policy := buildMutationTracePolicy(applyConfigMutation(addTeamLabelExpr))
+	namespaces := []string{"prod", "kube-system"}
+
+	for _, ns := range namespaces {
+		// separate podObject() calls per run: the real merge pipeline is not guaranteed to
+		// leave its input object untouched, so sharing one pointer between the traced and
+		// untraced run could make one run see the other's mutation.
+		off := compileMutAndEvaluate(t, false, policy, podObject(ns, nil))
+		on := compileMutAndEvaluate(t, true, policy, podObject(ns, nil))
+
+		if off == nil {
+			require.NotNil(t, on)
+			assert.True(t, on.Skipped, "a policy skipped without tracing must be reported as skipped with it")
+			continue
+		}
+		require.NotNil(t, on)
+		assert.Equal(t, off.Error != nil, on.Error != nil)
+		if off.PatchedResource != nil {
+			require.NotNil(t, on.PatchedResource)
+			assert.Equal(t, off.PatchedResource.Object, on.PatchedResource.Object)
+		}
+	}
+}
