@@ -293,6 +293,34 @@ spec:
 	assert.Contains(t, err.Error(), "unsupported resource")
 }
 
+// TestReadRejectsInvalidCELExpression exercises Read's own re-validation of CEL compilation
+// (reader MUST 3): a bundle containing a ValidatingPolicy with an invalid expression must never
+// reach a caller's directory, even though it can only exist as an image because it was written
+// via buildUnvalidatedImage (Assemble/Write alone don't compile CEL; only Validate does, and a
+// real push would have refused this bundle before it ever reached a registry).
+func TestReadRejectsInvalidCELExpression(t *testing.T) {
+	srcDir := writeTree(t, map[string]string{
+		"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-labels
+spec:
+  validations:
+  - expression: "invalid.syntax == ((("
+    message: "labels are required"
+`,
+	})
+	img := buildUnvalidatedImage(t, srcDir)
+	dstDir := t.TempDir()
+	_, err := bundle.Read(img, dstDir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validating CEL expression in ValidatingPolicy")
+
+	entries, err := os.ReadDir(dstDir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "a rejected bundle must leave the destination directory empty")
+}
+
 func TestReadPreservesNamespacedIdentityAcrossNamespaces(t *testing.T) {
 	// A namespaced CEL policy name is unique within its namespace: two namespaces each holding
 	// a policy of the same name are two distinct resources, not a duplicate.

@@ -2,8 +2,10 @@ package bundle
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -828,6 +830,58 @@ func TestCrossCheckIndexRejectsUnmatchedIndexEntry(t *testing.T) {
 	assert.Contains(t, err.Error(), "no matching archived document")
 }
 
+// TestCrossCheckIndexRejectsMismatchedIdentity pins reader MUST 4's identity check: a config
+// index entry that matches an archived document by path, documentIndex, and digest but disagrees
+// on apiVersion, kind, namespace, or name must still be rejected, naming the field that
+// disagreed. Checking only the digest would let an index entry lie about a document's identity
+// to any consumer that trusts the index (for example, `kyverno oci inspect`) without re-deriving
+// the fields from the archive itself.
+func TestCrossCheckIndexRejectsMismatchedIdentity(t *testing.T) {
+	base := Document{
+		Path: "a.yaml", Index: 0, Digest: "sha256:aaa",
+		APIVersion: "policies.kyverno.io/v1beta1", Kind: "ValidatingPolicy", Namespace: "", Name: "require-labels",
+	}
+	baseEntry := ResourceEntry{
+		Path: "a.yaml", DocumentIndex: 0, Digest: "sha256:aaa",
+		APIVersion: "policies.kyverno.io/v1beta1", Kind: "ValidatingPolicy", Namespace: "", Name: "require-labels",
+	}
+
+	tests := []struct {
+		name    string
+		mutate  func(e ResourceEntry) ResourceEntry
+		wantMsg string
+	}{
+		{
+			name:    "apiVersion",
+			mutate:  func(e ResourceEntry) ResourceEntry { e.APIVersion = "policies.kyverno.io/v2beta1"; return e },
+			wantMsg: "apiVersion",
+		},
+		{
+			name:    "kind",
+			mutate:  func(e ResourceEntry) ResourceEntry { e.Kind = "NamespacedValidatingPolicy"; return e },
+			wantMsg: "kind",
+		},
+		{
+			name:    "namespace",
+			mutate:  func(e ResourceEntry) ResourceEntry { e.Namespace = "team-a"; return e },
+			wantMsg: "namespace",
+		},
+		{
+			name:    "name",
+			mutate:  func(e ResourceEntry) ResourceEntry { e.Name = "other-name"; return e },
+			wantMsg: "name",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := crossCheckIndex([]Document{base}, []ResourceEntry{tc.mutate(baseEntry)})
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantMsg)
+			assert.Contains(t, err.Error(), "does not match the archived document")
+		})
+	}
+}
+
 func TestCheckManifestShapeDetectsLegacyImage(t *testing.T) {
 	manifest := &v1.Manifest{
 		Config: v1.Descriptor{MediaType: types.MediaType(internal.LegacyConfigMediaType)},
@@ -849,4 +903,53 @@ func TestCheckManifestShapeRejectsMultipleLayers(t *testing.T) {
 	err := checkManifestShape(manifest)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "exactly one layer")
+}
+
+// TestExtractRejectsEntryOverMaxSize pins the per-entry decompression bound: a single entry
+// whose declared tar size exceeds maxEntryBytes must be rejected before its content is read into
+// memory, naming the limit and the offending entry.
+func TestExtractRejectsEntryOverMaxSize(t *testing.T) {
+	oversized := bytes.Repeat([]byte("a"), maxEntryBytes+1)
+	layer, err := buildContentLayer(map[string][]byte{"big.yaml": oversized})
+	require.NoError(t, err)
+
+	err = extract(layer, t.TempDir())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("%d", maxEntryBytes))
+	assert.Contains(t, err.Error(), "big.yaml")
+}
+
+// TestExtractRejectsTotalOverMaxSize pins the whole-layer decompression bound: several entries
+// individually under maxEntryBytes but summing past maxTotalBytes must still be rejected, even
+// though no single entry trips the per-entry check.
+func TestExtractRejectsTotalOverMaxSize(t *testing.T) {
+	perEntry := maxEntryBytes // exactly at the per-entry limit, so only the running total trips.
+	files := make(map[string][]byte)
+	entriesNeeded := maxTotalBytes/perEntry + 1
+	for i := 0; i < entriesNeeded; i++ {
+		files[fmt.Sprintf("f%03d.yaml", i)] = bytes.Repeat([]byte("a"), perEntry)
+	}
+	layer, err := buildContentLayer(files)
+	require.NoError(t, err)
+
+	err = extract(layer, t.TempDir())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("%d", maxTotalBytes))
+	assert.Contains(t, err.Error(), "total decompressed size")
+}
+
+// TestExtractRejectsTooManyEntries pins the entry-count bound: a layer with more than maxEntries
+// entries must be rejected regardless of how small each entry is.
+func TestExtractRejectsTooManyEntries(t *testing.T) {
+	files := make(map[string][]byte, maxEntries+1)
+	for i := 0; i < maxEntries+1; i++ {
+		files[fmt.Sprintf("f%05d.yaml", i)] = []byte("x")
+	}
+	layer, err := buildContentLayer(files)
+	require.NoError(t, err)
+
+	err = extract(layer, t.TempDir())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("%d", maxEntries))
+	assert.Contains(t, err.Error(), "entries")
 }

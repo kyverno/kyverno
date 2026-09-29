@@ -265,8 +265,29 @@ func checkManifestShape(manifest *v1.Manifest) error {
 	return nil
 }
 
+// maxEntryBytes bounds a single content-layer entry's decompressed size (bundle-spec.md section
+// 5, "Archive rules"). A CEL policy bundle's largest legitimate entry is one YAML manifest; 10
+// MiB is generous headroom over any realistic policy or exception document while still bounding
+// a gzip decompression bomb, where the on-wire (compressed) size gives no guarantee about the
+// decompressed size.
+const maxEntryBytes = 10 << 20 // 10 MiB
+
+// maxTotalBytes bounds the content layer's total decompressed size across all entries
+// (bundle-spec.md section 5, "Archive rules"). 100 MiB comfortably fits a bundle of thousands of
+// policies while still bounding the layer as a whole against a compressed blob designed to
+// expand far beyond it.
+const maxTotalBytes = 100 << 20 // 100 MiB
+
+// maxEntries bounds the number of tar entries a content layer may contain, independent of their
+// size, so a flood of many small or empty entries can't exhaust memory or inodes either
+// (bundle-spec.md section 5, "Archive rules").
+const maxEntries = 10000
+
 // extract writes layer's tar+gzip content at their original relative paths under dir, refusing
-// any entry that would escape it (bundle-spec.md section 5, "Archive rules").
+// any entry that would escape it (bundle-spec.md section 5, "Archive rules"). It bounds
+// decompression against a gzip bomb: maxEntryBytes per entry, maxTotalBytes across the whole
+// layer, and maxEntries entries, all enforced with io.LimitReader before bytes are accumulated in
+// memory rather than after a full, unbounded read.
 func extract(layer v1.Layer, dir string) error {
 	blob, err := layer.Compressed()
 	if err != nil {
@@ -281,6 +302,8 @@ func extract(layer v1.Layer, dir string) error {
 	defer gz.Close()
 
 	tr := tar.NewReader(gz)
+	var totalBytes int64
+	var entryCount int
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -288,6 +311,10 @@ func extract(layer v1.Layer, dir string) error {
 		}
 		if err != nil {
 			return fmt.Errorf("reading content layer: %w", err)
+		}
+		entryCount++
+		if entryCount > maxEntries {
+			return fmt.Errorf("content layer exceeds the maximum of %d entries", maxEntries)
 		}
 		if hdr.Typeflag != tar.TypeReg {
 			return fmt.Errorf("content layer entry %q is not a regular file", hdr.Name)
@@ -301,6 +328,9 @@ func extract(layer v1.Layer, dir string) error {
 				return fmt.Errorf("content layer entry %q escapes the bundle root", hdr.Name)
 			}
 		}
+		if hdr.Size > maxEntryBytes {
+			return fmt.Errorf("content layer entry %q exceeds the maximum entry size of %d bytes", hdr.Name, maxEntryBytes)
+		}
 
 		target, err := securejoin.SecureJoin(dir, name)
 		if err != nil {
@@ -309,14 +339,21 @@ func extract(layer v1.Layer, dir string) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 			return fmt.Errorf("creating directory for %q: %w", hdr.Name, err)
 		}
-		// #nosec G110 -- accepted risk, unchanged from the previous reader: nothing here bounds
-		// an entry's decompressed size against a tampered registry (a malicious archive can
-		// still claim any size and content), and io.ReadAll is genuinely unbounded. A size cap
-		// is a real gap, not a false positive; this comment records that it's carried over from
-		// pull/options.go's io.ReadAll(blob) on main, not newly introduced or newly justified.
-		content, err := io.ReadAll(tr)
+		// #nosec G110 -- bounded below: content is read through io.LimitReader capped at
+		// maxEntryBytes+1 and rejected before being written or accumulated toward maxTotalBytes,
+		// so a tampered or malicious archive can no longer expand an entry (or the layer as a
+		// whole) without bound. This replaces the previous unbounded io.ReadAll(tr), carried over
+		// unchanged from pull/options.go's io.ReadAll(blob) on main.
+		content, err := io.ReadAll(io.LimitReader(tr, maxEntryBytes+1))
 		if err != nil {
 			return fmt.Errorf("reading content for %q: %w", hdr.Name, err)
+		}
+		if int64(len(content)) > maxEntryBytes {
+			return fmt.Errorf("content layer entry %q exceeds the maximum entry size of %d bytes", hdr.Name, maxEntryBytes)
+		}
+		totalBytes += int64(len(content))
+		if totalBytes > maxTotalBytes {
+			return fmt.Errorf("content layer exceeds the maximum total decompressed size of %d bytes at entry %q", maxTotalBytes, hdr.Name)
 		}
 		if err := os.WriteFile(target, content, 0o600); err != nil {
 			return fmt.Errorf("writing %q: %w", hdr.Name, err)
@@ -326,8 +363,11 @@ func extract(layer v1.Layer, dir string) error {
 }
 
 // crossCheckIndex verifies every archived document has exactly one index entry whose path,
-// documentIndex, and digest match, and every index entry resolves to an archived document
-// (reader MUST 4).
+// documentIndex, digest, apiVersion, kind, namespace, and name all match, and every index entry
+// resolves to an archived document (reader MUST 4). Checking only the digest would let a config
+// index claim a different apiVersion, kind, namespace, or name than the archived document while
+// still passing, which would mislead any index consumer that trusts these fields (for example,
+// `kyverno oci inspect`) without re-parsing the archive itself.
 func crossCheckIndex(documents []Document, resources []ResourceEntry) error {
 	byKey := make(map[string]ResourceEntry, len(resources))
 	for _, r := range resources {
@@ -347,6 +387,18 @@ func crossCheckIndex(documents []Document, resources []ResourceEntry) error {
 		}
 		if entry.Digest != doc.Digest {
 			return fmt.Errorf("malformed bundle: config index digest for %s (document %d) does not match the archived document", doc.Path, doc.Index)
+		}
+		if entry.APIVersion != doc.APIVersion {
+			return fmt.Errorf("malformed bundle: config index apiVersion for %s (document %d) does not match the archived document", doc.Path, doc.Index)
+		}
+		if entry.Kind != doc.Kind {
+			return fmt.Errorf("malformed bundle: config index kind for %s (document %d) does not match the archived document", doc.Path, doc.Index)
+		}
+		if entry.Namespace != doc.Namespace {
+			return fmt.Errorf("malformed bundle: config index namespace for %s (document %d) does not match the archived document", doc.Path, doc.Index)
+		}
+		if entry.Name != doc.Name {
+			return fmt.Errorf("malformed bundle: config index name for %s (document %d) does not match the archived document", doc.Path, doc.Index)
 		}
 		seen[key] = true
 	}

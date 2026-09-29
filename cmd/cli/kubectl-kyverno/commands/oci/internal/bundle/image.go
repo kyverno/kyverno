@@ -114,5 +114,12 @@ func (i *image) LayerByDigest(h v1.Hash) (v1.Layer, error) {
 }
 
 func (i *image) LayerByDiffID(h v1.Hash) (v1.Layer, error) {
-	return i.LayerByDigest(h)
+	d, err := i.layer.DiffID()
+	if err != nil {
+		return nil, err
+	}
+	if d == h {
+		return i.layer, nil
+	}
+	return nil, fmt.Errorf("layer not found: %s", h)
 }

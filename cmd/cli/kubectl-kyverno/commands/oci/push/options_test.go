@@ -375,3 +375,26 @@ func TestValidateRejectsInvalidExceptionCELExpression(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "validating CEL expression in policy exception")
 }
+
+func TestValidateRejectsInvalidValidatingPolicyCELExpression(t *testing.T) {
+	vp := &policiesv1beta1.ValidatingPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ValidatingPolicy",
+			APIVersion: "policies.kyverno.io/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "check-labels",
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "invalid.syntax == (((", Message: "labels are required"},
+			},
+		},
+	}
+	results := &policy.LoaderResults{
+		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vp},
+	}
+	err := validate(results)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validating CEL expression in ValidatingPolicy")
+}

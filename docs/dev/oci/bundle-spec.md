@@ -152,7 +152,7 @@ A conformant bundle carries only resources whose group is `policies.kyverno.io` 
 | `NamespacedImageValidatingPolicy` | Yes |
 | `PolicyException` | Yes |
 
-#17668 is expected to add a test that parses this table out of the Markdown and compares it against the
+Issue `#17668` is expected to add a test that parses this table out of the Markdown and compares it against the
 consolidated kind table in the CLI's loader (see `design.md` R5); no such test exists yet. Until it does, keep the
 table's shape stable so that test can be added without reshaping the table: one kind per row, no merged cells, no
 footnotes inside cells. Put anything else about a kind, such as the Envoy and HTTP note below, in prose outside the
@@ -369,10 +369,23 @@ index entry with one `path` and one `documentIndex`, see [6. Config blob](#6-con
 otherwise reject a 1.x bundle it should accept; a future format version that allows them is therefore a major
 version, not a minor one.
 
-There is no size or count limit on the content layer in format 1.0, except that a writer MUST reject an input
-tree that yields zero resources: an input holding only a `kyverno-bundle.yaml`, only files a writer excludes
-(see [What a writer excludes](#what-a-writer-excludes)), or nothing at all, doesn't produce a bundle. This is a
-deliberate departure from today's push, which happily emits a zero-layer image for empty input.
+There is no size or count limit a writer must observe on the content layer in format 1.0, except that a writer
+MUST reject an input tree that yields zero resources: an input holding only a `kyverno-bundle.yaml`, only files a
+writer excludes (see [What a writer excludes](#what-a-writer-excludes)), or nothing at all, doesn't produce a
+bundle. This is a deliberate departure from today's push, which happily emits a zero-layer image for empty input.
+
+**A conformant reader MUST bound extraction against a gzip decompression bomb.** A content layer's on-wire
+(compressed) size gives no guarantee about its decompressed size, and the registry is writable by anyone with
+push rights, so a reader that decompresses without a limit can be made to exhaust memory or disk from a small
+blob. A reader MUST refuse, before accumulating the rejected bytes in memory:
+
+- Any single entry whose decompressed size exceeds 10 MiB.
+- A content layer whose total decompressed size, summed across all entries, exceeds 100 MiB.
+- A content layer containing more than 10,000 entries.
+
+Each rejection MUST name the limit that was hit and the offending entry. These are reader-side safety bounds, not
+a writer-side format limit: a writer MAY emit a content layer within these bounds without needing to know they
+exist, and format 1.0 places no smaller limit on what a writer produces.
 
 ### Determinism
 
@@ -630,7 +643,7 @@ follows directly from the descriptor's shape: **today**, that loader returns a f
 `kyverno apply <bundle-root>` skips **every** policy in the directory, logging one "skipping invalid YAML file"
 entry for the directory as a whole, not one entry for the descriptor alone. A `kyverno-bundle.yaml` sitting in the
 source tree therefore already breaks `apply` on the whole tree today, which is a stronger argument for the
-#17663 loader-skip rule than a per-file skip would be, not a weaker one. That planned change (#17663) is expected
+loader-skip rule in issue `#17663` than a per-file skip would be, not a weaker one. That planned change (`#17663`) is expected
 to make the loader skip `cli.kyverno.io` documents outright when reading a source tree for `apply` or `test`, the
 same way it's expected to change how a `kyverno-test.yaml` sitting next to policies is handled today. That's CLI
 read-path behavior over the source tree, not a statement about bytes in the registry or about what makes a bundle
@@ -751,7 +764,10 @@ the requirement binds.
    fail with the legacy-image error if either retired media type is present, or a malformed-bundle error
    otherwise (4, 8).
 2. Extract the archive under the path rules in [5. Content layer](#5-content-layer), refusing any entry that would
-   escape the target directory.
+   escape the target directory, and bounding extraction against a gzip decompression bomb: refuse any single
+   entry whose decompressed size exceeds 10 MiB, refuse a content layer whose total decompressed size exceeds
+   100 MiB, and refuse a content layer with more than 10,000 entries, naming the limit and the offending entry in
+   the error (5).
 3. Re-run the same validation a writer runs over the extracted documents: the raw `apiVersion`/`kind` rejection
    of `cli.kyverno.io` documents and `v1 List` documents (writer MUST 4 and 7 — a reader that instead hands
    extracted documents straight to a general-purpose loader and checks only the loader's output kinds can be
@@ -759,8 +775,10 @@ the requirement binds.
    reader that will evaluate the policies (for example, `kyverno test oci://...` or `kyverno apply oci://...`),
    CEL compilation.
 4. Cross-check the index against the archive: every archived document has exactly one index entry whose `path`,
-   `documentIndex`, and `digest` match (computed with the same reference splitter a writer uses, per writer MUST
-   11), and every index entry resolves to an archived document. Any mismatch is a hard failure, not a warning.
+   `documentIndex`, `digest`, `apiVersion`, `kind`, `namespace`, and `name` all match (the digest computed with
+   the same reference splitter a writer uses, per writer MUST 11), and every index entry resolves to an archived
+   document. Any mismatch — including an index entry that names a different `apiVersion`, `kind`, `namespace`, or
+   `name` than the archived document it otherwise matches by path and digest — is a hard failure, not a warning.
 5. Treat the config as authoritative for bundle metadata (name, version, sets, compatibility) and the archive as
    authoritative for contents.
 6. Reject a bundle whose major format version the reader doesn't support, naming both versions in the error.
