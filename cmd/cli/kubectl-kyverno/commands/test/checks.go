@@ -89,7 +89,7 @@ func printCheckResult(
 				actual := activation["result"].(map[string]any)
 
 				if check.Assert != nil {
-					pass, message, err := evaluateCheck(check.Assert, actual, activation, false)
+					pass, message, err := evaluateCheck(check.Assert.Value, actual, activation, false)
 					if err != nil {
 						return fmt.Errorf("evaluate check assertion: %w", err)
 					}
@@ -107,7 +107,7 @@ func printCheckResult(
 				}
 
 				if check.Error != nil {
-					pass, message, err := evaluateCheck(check.Error, actual, activation, true)
+					pass, message, err := evaluateCheck(check.Error.Value, actual, activation, true)
 					if err != nil {
 						return fmt.Errorf("evaluate check error assertion: %w", err)
 					}
