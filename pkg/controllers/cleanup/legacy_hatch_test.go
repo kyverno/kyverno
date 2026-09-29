@@ -45,6 +45,11 @@ func TestNewControllerRegistersLegacyExecutionEscapeHatch(t *testing.T) {
 	})
 	require.NoError(t, toggle.BlockLegacyPolicyAPIs.Parse("false"))
 
+	// The hatch registry is add-only and process-global, so a previous iteration under
+	// `go test -count=N` would leave its callback registered and make the assertion below
+	// vacuous. Clearing only ever makes the gate stricter.
+	deprecations.ClearExecutionEscapeHatch()
+
 	// Before NewController runs, a legacy create must still be denied even with the toggle
 	// disabled: nothing in this binary has registered the hatch yet.
 	decision, err := deprecations.DecideLegacyWrite(legacyCleanupCreateRequest())

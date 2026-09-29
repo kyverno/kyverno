@@ -28,6 +28,12 @@ issue #17708 set out to close.
 API, and must not gain one. An unregister function is the lever that would let a caller widen the
 gate at runtime.
 
+`ClearExecutionEscapeHatch` is not that lever and must not grow into it. It drops the hatch, which
+makes the gate strictly more restrictive, and it exists because the registry is process-global:
+`go test -count=N` reuses one process, so a test asserting what registering the hatch changed needs
+a known starting point. It deliberately leaves the subresource allowances alone, since those are
+registered from `init()` and cannot be re-triggered within a process. Never add a selective remove.
+
 The registries are empty by default, so this package on its own denies unconditionally. Each
 allowance is registered *by the legacy code that justifies it*, so deleting that code deletes the
 allowance in the same commit:

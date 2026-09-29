@@ -118,6 +118,11 @@ func TestNewHandlersRegistersLegacyExecutionEscapeHatch(t *testing.T) {
 	})
 	require.NoError(t, toggle.BlockLegacyPolicyAPIs.Parse("false"))
 
+	// The hatch registry is add-only and process-global, so a previous iteration under
+	// `go test -count=N` would leave its callback registered and make the assertion below
+	// vacuous. Clearing only ever makes the gate stricter.
+	deprecations.ClearExecutionEscapeHatch()
+
 	// A nil cache means this binary constructed no legacy execution; the hatch must not be
 	// registered, so a legacy create stays denied even with the toggle disabled.
 	newRealHandlersForHatchTest(t, nil)
