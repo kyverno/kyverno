@@ -240,7 +240,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 		path := fmt.Sprintf(".attestations[%d]", i)
 
-		iv.logger.V(2).Info(fmt.Sprintf("attestation %+v", attestation))
+		iv.logger.V(2).Info("verifying attestation", "attestation", attestation)
 		if attestation.Type == "" && attestation.PredicateType == "" {
 			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, path+": missing type", iv.rule.ReportProperties), ""
 		}
