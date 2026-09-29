@@ -552,7 +552,7 @@ checks:
       policy:
         name: require-team-label
     assert:
-      message: "The label \`team\` is required."
+      message: "The label 'team' is required."
 `))
 	assert.NilError(t, err)
 	assert.NilError(t, file.Close())
@@ -564,5 +564,5 @@ checks:
 	assert.Assert(t, testCases[0].Test != nil)
 	assert.Equal(t, len(testCases[0].Test.Checks), 1)
 	assert.Equal(t, testCases[0].Test.Checks[0].Assert.CEL, (*v1alpha1.CheckCEL)(nil))
-	assert.Equal(t, testCases[0].Test.Checks[0].Assert.Legacy.(map[string]interface{})["message"], "The label \`team\` is required.")
+	assert.Equal(t, testCases[0].Test.Checks[0].Assert.Legacy.(map[string]interface{})["message"], "The label 'team' is required.")
 }
