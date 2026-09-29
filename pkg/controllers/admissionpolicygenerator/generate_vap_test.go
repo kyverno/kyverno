@@ -65,7 +65,7 @@ func TestHandleVAPGeneration_SentinelError(t *testing.T) {
 		client:         k8sfake.NewSimpleClientset(),
 		kyvernoClient:  fake.NewSimpleClientset(),
 		vapLister:      &mockVAPListerForError{err: errSentinel},
-		celpolexLister: &mockCelPolexListerForError{err: errSentinel},
+		celpolexLister: &mockCelPolexListerForSuccess{},
 		checker:        &mockAuthChecker{},
 	}
 
