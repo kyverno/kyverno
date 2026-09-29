@@ -149,13 +149,14 @@ Header summary, then one table per category (already produced in `pr-triage-repo
 - `Files (L/C/S)` = counts of legacy / CEL / shared files — lets a reviewer eyeball borderline cases.
 - `Proposed label` = the `type_*` category label described in §2.5, computed by `classify_pr()` but **not yet applied to any PR**.
 - MIXED section includes a `<details>` block listing the legacy vs CEL file sets per PR (splitting guide input).
-- Machine-readable JSON sidecar drives the execution phase, so **execution uses exactly the approved list**, not a re-classification.
+- The JSON sidecar records each PR's captured `base_ref` and `head_sha`. Before applying a label, the script checks that the PR is still open on that base and head; regenerate and re-approve the report if a PR changed.
+- Machine-readable JSON sidecar drives the execution phase, so **execution uses exactly the approved classification** and refuses stale or older reports without captured PR identity.
 
 ### 2.4 Dry-run approval gate
 
 1. Commit `pr-triage-report.md` to a tracking issue ("Legacy PR retargeting — batch 1").
-2. Maintainers annotate overrides directly in the JSON (`"override": "KEEP_MAIN" | "RETARGET" | "SPLIT"`), e.g. confirming the 5 REVIEW-MIGRATION PRs → `KEEP_MAIN`. If a maintainer sets `"override": "RETARGET"` on a `MIXED` or `REVIEW-MIGRATION` PR, re-running `--probe-rebase` will evaluate that PR and allow it to proceed through the gate.
-3. Only PRs with `(category=LEGACY_ONLY || override=RETARGET) && override!=KEEP_MAIN && probe=OK` proceed to automated execution; everything else is manual.
+2. Maintainers annotate overrides directly in the JSON (`"override": "KEEP_MAIN" | "RETARGET" | "SPLIT"`), e.g. confirming the 5 REVIEW-MIGRATION PRs → `KEEP_MAIN`. Overrides are preserved during reclassification. An explicit `"override": "RETARGET"` on a `MIXED` or `REVIEW-MIGRATION` PR is a human decision to bypass that category's default routing; re-running `--probe-rebase` probes the captured PR head before it can pass the gate.
+3. Only PRs with `(category=LEGACY_ONLY || override=RETARGET) && override!=KEEP_MAIN && probe=OK` and an unchanged captured head/base proceed to automated execution; everything else is manual.
 
 ### 2.5 Category labels — `type_legacy` / `type_cel` / `type_mixed` / `type_shared`
 
@@ -187,6 +188,7 @@ As part of the dry run, every classified PR is now tagged in the report/JSON wit
 
 Behavior:
 - Reads `proposed_label` per PR from the triage JSON (never re-derives it — keeps labeling consistent with whatever report was approved).
+- Before labeling, requires the live PR to remain open on the captured base and head SHA; stale reports and pre-identity snapshots are skipped and must be regenerated.
 - Skips PRs that already carry the correct `type_*` label (idempotent — safe to re-run).
 - If a PR carries a *different* stale `type_*` label (e.g. reclassified after a push), removes it and adds the new one so exactly one `type_*` label is present at a time.
 - **Default mode performs zero writes** — `--execute` is required to call `gh pr edit`. This satisfies the "dry run first, no changes yet" requirement: the labeling step itself is reviewed the same way as the retargeting step (§2.4).

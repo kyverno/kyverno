@@ -11,13 +11,11 @@ Classifies each PR by the files it touches into:
 
 Two tiers of classification:
   Tier 1 (always run): path-glob classification of changed files (RULES below).
-  Tier 2 (--diff-scan, only refines Tier-1 SHARED_ONLY rows): scans the added/
-    removed diff lines for legacy vs CEL identifiers (see classify_content()).
-    A shared file with CEL-only content is promoted to CEL_ONLY (safe — no
-    retargeting risk). A shared file with legacy-only or mixed content is
-    downgraded to MIXED for mandatory human review — it is NEVER auto-promoted
-    to LEGACY_ONLY from content alone, so it can never reach the automated
-    retarget gate without a human setting override=RETARGET.
+  Tier 2 (--diff-scan, refines Tier-1 SHARED_ONLY and LEGACY_ONLY rows): scans
+      added/removed diff lines for legacy vs CEL identifiers
+      (see classify_content()). A shared file with CEL-only content is promoted
+      to CEL_ONLY; legacy/mixed content is routed to MIXED. A LEGACY_ONLY row
+      with CEL or mixed content is also routed to MIXED for human review.
 
 A migration-grace heuristic (§1.5 of PR_REBASE_PLAN.md) flags PRs whose
 title/body reference legacy/migration/deprecation/1.20 AND that touch
@@ -48,10 +46,13 @@ Usage:
 import argparse
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 import threading
+import uuid
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -211,7 +212,7 @@ CEL_CONTENT_RE = re.compile(
 # gate/warn/block/migrate them belong on `main`, not release-1.19.
 # ---------------------------------------------------------------------------
 MIGRATION_TITLE_RE = re.compile(
-    r"(?i)\b(migrat|deprecat|1\.20|legacy[ -_]*(policy|policies|gate|optout|warn|signal|block|cr|crd|manifest))\b"
+    r"(?i)\b(migrat\w*|deprecat\w*|1\.20|legacy[ -_]*(policy|policies|gate|optout|warn|signal|block|cr|crd|manifest))\b"
 )
 MIGRATION_PATH_GLOBS = [
     "pkg/deprecations/**",
@@ -328,34 +329,58 @@ def refine_with_content(row, repo):
 
 def is_migration_pr(title, body, files):
     text = f"{title or ''}\n{body or ''}"
-    if not re.search(r"(?i)\b(migrat|deprecat|1\.20|legacy)\b", text):
+    if not MIGRATION_TITLE_RE.search(text):
         return False
     if not any(_glob_match(f, g) for f in files for g in MIGRATION_PATH_GLOBS):
         return False
     return True
 
 
-def probe_rebase(repo, number, base, target_base):
+def probe_rebase(repo, number, base, target_base, expected_head_sha=None):
     """Best-effort local rebase probe. Never pushes anything; always aborts
-    the rebase and removes the worktree/ref it creates. Returns (status, conflict_files).
+    the rebase and removes only the worktree/refs it creates. Returns
+    (status, conflict_files).
 
-    Uses explicit local refs (refs/triage/pr-<N>, refs/triage/base-<base>-<N>,
-    refs/triage/base-<target>-<N>) rather than FETCH_HEAD, and uses
-    --no-write-fetch-head to prevent .git/FETCH_HEAD lock contention during
-    concurrent probes.
+    Uses per-run refs and a unique temporary worktree rather than shared
+    names, and --no-write-fetch-head to prevent .git/FETCH_HEAD lock
+    contention during concurrent probes.
     """
-    pr_ref = f"refs/triage/pr-{number}"
-    base_ref = f"refs/triage/base-{base}-{number}"
-    target_ref = f"refs/triage/base-{target_base}-{number}"
-    wt = f".wt-{number}"
+    run_id = uuid.uuid4().hex
+    pr_ref = f"refs/triage/{run_id}/pr-{number}"
+    base_ref = f"refs/triage/{run_id}/base-{base}"
+    target_ref = f"refs/triage/{run_id}/base-{target_base}"
+    refs = (pr_ref, base_ref, target_ref)
+    temp_dir = tempfile.mkdtemp(prefix=f"kyverno-pr-triage-{number}-")
+    wt = os.path.join(temp_dir, "worktree")
+    worktree_added = False
+    refs_owned = False
     try:
+        if not expected_head_sha:
+            return "ERROR:missing-head-sha", []
+        for ref in refs:
+            existing = subprocess.run(
+                ["git", "show-ref", "--verify", "--quiet", ref],
+                capture_output=True, text=True, timeout=30,
+            )
+            if existing.returncode == 0:
+                return "ERROR:ref-collision", []
+            if existing.returncode != 1:
+                return f"ERROR:ref-check_exit_{existing.returncode}", []
+        refs_owned = True
         subprocess.run(
             ["git", "fetch", "--no-write-fetch-head", "-q", f"https://github.com/{repo}.git",
              f"pull/{number}/head:{pr_ref}", f"{base}:{base_ref}", f"{target_base}:{target_ref}"],
             check=True, capture_output=True, text=True, timeout=120,
         )
+        fetched_head = subprocess.run(
+            ["git", "rev-parse", pr_ref],
+            check=True, capture_output=True, text=True, timeout=30,
+        ).stdout.strip()
+        if fetched_head != expected_head_sha:
+            return "ERROR:head-sha-mismatch", []
         subprocess.run(["git", "worktree", "add", "-q", "-d", wt, pr_ref],
                         check=True, capture_output=True, text=True, timeout=60)
+        worktree_added = True
         merge_base = subprocess.run(
             ["git", "-C", wt, "merge-base", "HEAD", base_ref],
             capture_output=True, text=True, timeout=30,
@@ -380,9 +405,15 @@ def probe_rebase(repo, number, base, target_base):
     except Exception as e:  # noqa: BLE001
         return f"ERROR:{e}", []
     finally:
-        subprocess.run(["git", "worktree", "remove", "-f", wt], capture_output=True, text=True, timeout=30)
-        for ref in (pr_ref, base_ref, target_ref):
-            subprocess.run(["git", "update-ref", "-d", ref], capture_output=True, text=True, timeout=30)
+        if worktree_added:
+            subprocess.run(["git", "worktree", "remove", "-f", wt], capture_output=True, text=True, timeout=30)
+        if refs_owned:
+            for ref in refs:
+                subprocess.run(["git", "update-ref", "-d", ref], capture_output=True, text=True, timeout=30)
+        try:
+            os.rmdir(temp_dir)
+        except OSError:
+            pass
 
 
 ACTION = {
@@ -430,7 +461,7 @@ def finalize_row(row, a):
     row["migration_flag"] = is_migration_pr(row.get("title", ""), row.get("body", ""), row["files"])
     if row["migration_flag"]:
         row["category"] = "REVIEW-MIGRATION"
-        row["override"] = "KEEP_MAIN"
+        row.setdefault("override", "KEEP_MAIN")
     else:
         row.setdefault("override", None)
 
@@ -442,7 +473,9 @@ def finalize_row(row, a):
     row["probe"] = "SKIPPED"
     row["conflict_files"] = []
     if a.probe_rebase and (cat == "LEGACY_ONLY" or row.get("override") == "RETARGET"):
-        status, conflicts = probe_rebase(a.repo, row["number"], a.base, a.probe_target_base)
+        status, conflicts = probe_rebase(
+            a.repo, row["number"], a.base, a.probe_target_base, row.get("head_sha"),
+        )
         row["probe"] = status
         row["conflict_files"] = conflicts
     return row
@@ -470,7 +503,7 @@ def main():
     if a.pr:
         pr = gh(["pr", "view", str(a.pr), "-R", a.repo,
                  "--json", "number,title,body,author,isDraft,createdAt,updatedAt,headRefName,headRepositoryOwner,"
-                           "isCrossRepository,maintainerCanModify,mergeable,labels"])
+                           "headRefOid,baseRefName,isCrossRepository,maintainerCanModify,mergeable,labels"])
         raw = subprocess.run(["gh", "api", f"repos/{a.repo}/pulls/{a.pr}/files", "--paginate",
                               "--jq", ".[].filename"], check=True, capture_output=True, text=True).stdout
         files = [l for l in raw.splitlines() if l.strip()]
@@ -479,6 +512,8 @@ def main():
             "author": pr["author"]["login"], "draft": pr["isDraft"], "fork": pr["isCrossRepository"],
             "maintainerCanModify": pr["maintainerCanModify"], "mergeable": pr["mergeable"],
             "head": f"{pr['headRepositoryOwner']['login']}:{pr['headRefName']}",
+            "head_sha": pr.get("headRefOid"),
+            "base_ref": pr.get("baseRefName"),
             "labels": [l["name"] for l in pr["labels"]],
             "files": files,
         }
@@ -519,7 +554,7 @@ def main():
 
     prs = gh(["pr", "list", "-R", a.repo, "--state", "open", "--base", a.base, "--limit", str(a.limit),
               "--json", "number,title,body,author,isDraft,createdAt,updatedAt,headRefName,headRepositoryOwner,"
-                        "isCrossRepository,maintainerCanModify,mergeable,labels,changedFiles"])
+                        "headRefOid,baseRefName,isCrossRepository,maintainerCanModify,mergeable,labels,changedFiles"])
     prs = [pr for pr in prs if not (a.skip_bots and is_bot_login(pr["author"]["login"]))]
     rows = [None] * len(prs)
     lock = threading.Lock()
@@ -534,6 +569,8 @@ def main():
             "draft": pr["isDraft"], "fork": pr["isCrossRepository"],
             "maintainerCanModify": pr["maintainerCanModify"], "mergeable": pr["mergeable"],
             "head": f"{pr['headRepositoryOwner']['login']}:{pr['headRefName']}",
+            "head_sha": pr.get("headRefOid"),
+            "base_ref": pr.get("baseRefName"),
             "labels": [l["name"] for l in pr["labels"]],
             "files": files,
         }
