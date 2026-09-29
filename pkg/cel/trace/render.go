@@ -43,6 +43,14 @@ func Render(w io.Writer, d *Decision) {
 	for _, v := range d.Variables {
 		row(w, "VARIABLES", "", named(v))
 	}
+	for _, m := range d.Mutations {
+		if m.Error == "" {
+			row(w, "MUTATIONS", "", named(NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
+			continue
+		}
+		row(w, "MUTATIONS", VerdictError, m.Name+": "+m.Error)
+		printNodes(w, m.Nodes)
+	}
 
 	v := d.Verdict
 	if v.Status == "" {
@@ -62,15 +70,24 @@ func Render(w io.Writer, d *Decision) {
 	if v.Message != "" && v.Status != VerdictPass {
 		fmt.Fprintf(w, "%-10s %-8s message: %q\n", "", "", v.Message)
 	}
-	if v.Status != VerdictPass && len(v.Nodes) > 0 {
-		fmt.Fprintf(w, "%-10s %-8s evaluated:\n", "", "")
-		for _, n := range v.Nodes {
-			if n.Error != "" {
-				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, clip(n.Error))
-				continue
-			}
-			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(n.Value))
+	if v.Status != VerdictPass {
+		printNodes(w, v.Nodes)
+	}
+}
+
+// printNodes prints the per-node breakdown shared by VERDICT and MUTATIONS: one indented line
+// per traced sub-expression, showing its resolved value or, if it failed, its error.
+func printNodes(w io.Writer, nodes []NodeTrace) {
+	if len(nodes) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "%-10s %-8s evaluated:\n", "", "")
+	for _, n := range nodes {
+		if n.Error != "" {
+			fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, clip(n.Error))
+			continue
 		}
+		fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(n.Value))
 	}
 }
 

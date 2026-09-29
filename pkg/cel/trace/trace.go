@@ -123,4 +123,20 @@ type Decision struct {
 	Match     []NamedExpressionTrace
 	Variables []NamedExpressionTrace
 	Verdict   VerdictTrace
+	// Mutations holds one entry per mutation expression that actually ran, in order. Unlike
+	// Verdict (vpol's single deciding validation), a MutatingPolicy has no one expression that
+	// "decides" the outcome -- every mutation that runs contributes to the result, so this is a
+	// list rather than a single ExpressionTrace. Empty for policy kinds with no mutations (vpol).
+	Mutations []MutationTrace
+}
+
+// MutationTrace is the trace of one mutation expression that ran. Name identifies it, e.g.
+// "mutations[0] (applyConfiguration)".
+type MutationTrace struct {
+	Name string
+	ExpressionTrace
+	// Error is set when evaluating or applying this specific mutation failed outright (the
+	// Go-level error Patch() returned), distinct from a Nodes[i].Error, which marks a single
+	// failing sub-expression inside an otherwise-evaluated CEL expression.
+	Error string
 }
