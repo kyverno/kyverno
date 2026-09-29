@@ -168,23 +168,45 @@ func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *Variabl
 }
 
 func CompileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type) (cel.Program, field.ErrorList) {
+	prog, _, errs := compileMutation(path, env, expression, returnType, false)
+	return prog, errs
+}
+
+func compileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (cel.Program, *cel.Ast, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
 		ast, issues := env.Compile(expression)
 		if err := issues.Err(); err != nil {
-			return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+			return nil, nil, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(returnType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", returnType.TypeName())
-			return nil, append(allErrs, field.Invalid(path, expression, msg))
+			return nil, nil, append(allErrs, field.Invalid(path, expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := env.Program(ast, programOptions(trace)...)
 		if err != nil {
-			return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+			return nil, nil, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
-		return prog, allErrs
+		return prog, ast, allErrs
 	}
+}
+
+// CompileMutationWithTrace is the tracing-aware entry point for a mutation expression
+// (ApplyConfiguration or JSONPatch). With trace false it is exactly CompileMutation and the
+// returned AST is nil. With trace true the program is built with state tracking on and its AST
+// is retained, so trace.Build can turn a later evaluation into a per-node breakdown of the
+// mutation, the same way it already does for match conditions, variables and validations.
+func CompileMutationWithTrace(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (TracedProgram, field.ErrorList) {
+	prog, ast, errs := compileMutation(path, env, expression, returnType, trace)
+	if prog == nil {
+		return TracedProgram{}, errs
+	}
+	traced := TracedProgram{Program: prog}
+	if trace {
+		traced.AST = ast
+	}
+	return traced, errs
 }
 
 func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, field.ErrorList) {
