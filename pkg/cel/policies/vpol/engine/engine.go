@@ -220,6 +220,21 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
+		} else if refused := result.RefusedException; refused != nil {
+			// an exception matched but its controls were not satisfied, and the policy then
+			// failed. Report what the exception required: nowhere else does the submitter learn
+			// one was in play. reportResult is not consulted — nothing was granted.
+			exceptions := []engineapi.GenericException{engineapi.NewCELPolicyException(refused.Exception)}
+			if refused.Error != nil {
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation,
+					fmt.Sprintf("failed to evaluate compensating controls of policy exception %s", cache.MetaObjectToName(refused.Exception)),
+					refused.Error, withValidationIndex(nil, result.Index),
+				).WithExceptions(exceptions))
+			} else {
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message,
+					withValidationIndex(result.AuditAnnotations, result.Index),
+				).WithExceptions(exceptions))
+			}
 		} else {
 			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
 		}
@@ -307,6 +322,15 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 			}
 			if result.Error != nil {
 				result.Error = fmt.Errorf("%w (pod template at %s)", result.Error, tpl.Path)
+			}
+			// a refusal is what gets reported, so it must carry the path too
+			if refused := result.RefusedException; refused != nil {
+				if refused.Message != "" {
+					refused.Message = fmt.Sprintf("%s (pod template at %s)", refused.Message, tpl.Path)
+				}
+				if refused.Error != nil {
+					refused.Error = fmt.Errorf("%w (pod template at %s)", refused.Error, tpl.Path)
+				}
 			}
 			return result, nil
 		}
