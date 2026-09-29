@@ -33,7 +33,7 @@ ci:
 # Non-blocking FYI, never needs-author-action — not something the author can fix. e2e-gate.yaml already turns
 # "E2E Gate" green for the PR that fixes it (e2e-gate-bypass label), so no bypass check is needed here.
 e2e_gate:
-  message: '"the E2E gate is red — a base-branch problem, not this PR; no action needed here by author"'
+  message: '"the E2E gate or its sync job is red — a base-branch or CI-infrastructure issue, not this PR; no action needed here by author"'
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
       | select((.name // .context) as $n | ["E2E Gate", "Sync E2E Gate status"] | any(. == $n)) | (.conclusion // .state)]

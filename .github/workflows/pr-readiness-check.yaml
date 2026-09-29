@@ -308,7 +308,7 @@ jobs:
                   gh api "repos/${GITHUB_REPOSITORY}/issues/$number/comments" --paginate --jq '.[].body' > comments.txt
                   if ! grep -qF -- "$e2e_marker" comments.txt; then
                     gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$e2e_marker
-          Everything else here looks ready — the only red check is the E2E gate or its status-sync job, which reflects a problem on the base branch, not this PR. No action needed on your end."
+          Everything else here looks ready — the only red check is the E2E gate or its status-sync job. Either way it's a base-branch or CI-infrastructure issue, not something in this PR. No action needed on your end."
                   fi
                 fi
               fi
