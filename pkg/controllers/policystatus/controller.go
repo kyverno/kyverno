@@ -9,6 +9,9 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
+	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
+	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -310,6 +313,13 @@ func (c controller) reconcile(ctx context.Context, logger logr.Logger, key strin
 func (c controller) reconcileConditions(ctx context.Context, policy engineapi.GenericPolicy) *policiesv1beta1.ConditionStatus {
 	var key string
 	var matchConstraints admissionregistrationv1.MatchResources
+	// autogenMatchConstraints holds the match constraints of every autogen'd config
+	// (built-in controllers and custom-CRD extraction targets alike), recomputed fresh
+	// here rather than read from status - status.Autogen.Configs reflects the *previous*
+	// reconcile's result, so reading it would leave the RBAC check one cycle stale
+	// whenever autogen targets change (including on a brand-new policy, where it's
+	// still empty). See reconcileRBACPermissionsCondition.
+	var autogenMatchConstraints []*admissionregistrationv1.MatchResources
 	status := &policiesv1beta1.ConditionStatus{}
 	backgroundOnly := false
 	// backgroundEnabled gates the reports-controller RBAC permission check below.
@@ -327,6 +337,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		// MutatingPolicy uses v1beta1.ConditionStatus, convert to return type
 		v1beta1Status := policy.AsMutatingPolicy().GetStatus().ConditionStatus
 		status = &v1beta1Status
+		autogenMatchConstraints = c.resolveMpolAutogenMatchConstraints(policy.AsMutatingPolicy())
 	case webhook.NamespacedMutatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.NamespacedMutatingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedMutatingPolicy().GetMatchConstraints()
@@ -335,6 +346,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		// NamespacedMutatingPolicy uses v1beta1.ConditionStatus, convert to return type
 		v1beta1Status := policy.AsNamespacedMutatingPolicy().GetStatus().ConditionStatus
 		status = &v1beta1Status
+		autogenMatchConstraints = c.resolveMpolAutogenMatchConstraints(policy.AsNamespacedMutatingPolicy())
 	case webhook.GeneratingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.GeneratingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsGeneratingPolicy().GetMatchConstraints()
@@ -365,8 +377,69 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		}
 	}
 
-	c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, backgroundEnabled)
+	c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, autogenMatchConstraints, backgroundEnabled)
 	return status
+}
+
+// resolveMpolAutogenMatchConstraints recomputes the MutatingPolicy's autogen'd configs
+// (built-in controllers and custom-CRD extraction targets alike) and returns each one's
+// match constraints, for the RBAC permission check in reconcileRBACPermissionsCondition.
+func (c controller) resolveMpolAutogenMatchConstraints(policy policiesv1beta1.MutatingPolicyLike) []*admissionregistrationv1.MatchResources {
+	rules, err := mpolautogen.Autogen(policy)
+	if err != nil {
+		logger.V(4).Info("failed to compute autogen configs for RBAC permission check", "policy", policy.GetName(), "error", err)
+		return nil
+	}
+	return extractAutogenMatchConstraints(rules, func(cfg policiesv1beta1.MutatingPolicyAutogen) *admissionregistrationv1.MatchResources {
+		if cfg.Spec == nil {
+			return nil
+		}
+		return cfg.Spec.MatchConstraints
+	})
+}
+
+// resolveVpolAutogenMatchConstraints is the ValidatingPolicy equivalent of
+// resolveMpolAutogenMatchConstraints.
+func (c controller) resolveVpolAutogenMatchConstraints(policy policiesv1beta1.ValidatingPolicyLike) []*admissionregistrationv1.MatchResources {
+	rules, err := vpolautogen.Autogen(policy)
+	if err != nil {
+		logger.V(4).Info("failed to compute autogen configs for RBAC permission check", "policy", policy.GetName(), "error", err)
+		return nil
+	}
+	return extractAutogenMatchConstraints(rules, func(cfg policiesv1beta1.ValidatingPolicyAutogen) *admissionregistrationv1.MatchResources {
+		if cfg.Spec == nil {
+			return nil
+		}
+		return cfg.Spec.MatchConstraints
+	})
+}
+
+// resolveIvpolAutogenMatchConstraints is the ImageValidatingPolicy equivalent of
+// resolveMpolAutogenMatchConstraints.
+func (c controller) resolveIvpolAutogenMatchConstraints(policy policiesv1beta1.ImageValidatingPolicyLike) []*admissionregistrationv1.MatchResources {
+	rules, err := ivpolautogen.Autogen(policy)
+	if err != nil {
+		logger.V(4).Info("failed to compute autogen configs for RBAC permission check", "policy", policy.GetName(), "error", err)
+		return nil
+	}
+	return extractAutogenMatchConstraints(rules, func(cfg policiesv1beta1.ImageValidatingPolicyAutogen) *admissionregistrationv1.MatchResources {
+		if cfg.Spec == nil {
+			return nil
+		}
+		return cfg.Spec.MatchConstraints
+	})
+}
+
+// extractAutogenMatchConstraints pulls the non-nil match constraints out of an autogen
+// config map (shape shared by ValidatingPolicyAutogen/MutatingPolicyAutogen/ImageValidatingPolicyAutogen).
+func extractAutogenMatchConstraints[T any](configs map[string]T, matchConstraints func(T) *admissionregistrationv1.MatchResources) []*admissionregistrationv1.MatchResources {
+	var out []*admissionregistrationv1.MatchResources
+	for _, cfg := range configs {
+		if mc := matchConstraints(cfg); mc != nil {
+			out = append(out, mc)
+		}
+	}
+	return out
 }
 
 // reconcileRBACPermissionsCondition sets the RBACPermissionsGranted condition.
@@ -376,15 +449,32 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 // admission-only policies from being marked not-ready (and forcing operators to
 // grant otherwise-unnecessary read permissions) merely because the reports
 // controller cannot list the matched resource types.
-func (c controller) reconcileRBACPermissionsCondition(ctx context.Context, status *policiesv1beta1.ConditionStatus, matchConstraints admissionregistrationv1.MatchResources, backgroundEnabled bool) {
+//
+// The check covers both the policy's own matchConstraints and every autogen'd
+// config's matchConstraints (autogenMatchConstraints), so a policy autogen'd for a
+// custom workload CRD (e.g. Argo Rollout, JobSet) is correctly marked not-ready
+// until RBAC for that CRD is granted - mirroring the same scope the reports
+// controller itself watches (see kindsFromPolicyAndAutogen in
+// pkg/controllers/report/resource/controller.go). Without this, the condition
+// only ever reflects the policy's own resource (frequently just "pods", which is
+// always readable), silently reporting "ready" while the reports controller is
+// actually failing to watch the autogen'd target with a Forbidden error.
+func (c controller) reconcileRBACPermissionsCondition(ctx context.Context, status *policiesv1beta1.ConditionStatus, matchConstraints admissionregistrationv1.MatchResources, autogenMatchConstraints []*admissionregistrationv1.MatchResources, backgroundEnabled bool) {
 	if !backgroundEnabled {
 		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Background scanning disabled; reporting permissions not required.")
 		return
 	}
 	gvrs := c.resolveGVRs(matchConstraints.ResourceRules)
+	for _, mc := range autogenMatchConstraints {
+		gvrs = append(gvrs, c.resolveGVRs(mc.ResourceRules)...)
+	}
 	errs := c.permissionsCheck(ctx, gvrs)
 	if errs != nil {
-		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...)))
+		msg := fmt.Sprintf("Policy is not ready for reporting, missing permissions: %v.", multierr.Combine(errs...))
+		if len(autogenMatchConstraints) > 0 {
+			msg += " If this is for an autogen'd custom workload CRD, grant it via reportsController.rbac.clusterRole.extraResources in the Helm values (or an equivalent ClusterRole labeled rbac.kyverno.io/aggregate-to-reports-controller)."
+		}
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionFalse, msg)
 	} else {
 		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "Policy is ready for reporting.")
 	}
@@ -393,6 +483,8 @@ func (c controller) reconcileRBACPermissionsCondition(ctx context.Context, statu
 func (c controller) reconcileBeta1Conditions(ctx context.Context, policy engineapi.GenericPolicy) *policiesv1beta1.ConditionStatus {
 	var key string
 	var matchConstraints admissionregistrationv1.MatchResources
+	// see the comment on autogenMatchConstraints in reconcileConditions
+	var autogenMatchConstraints []*admissionregistrationv1.MatchResources
 	status := &policiesv1beta1.ConditionStatus{}
 	backgroundOnly := false
 	// backgroundEnabled gates the reports-controller RBAC permission check below:
@@ -407,24 +499,28 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 		backgroundEnabled = policy.AsImageValidatingPolicy().GetSpec().BackgroundEnabled()
 		backgroundOnly = (!policy.AsImageValidatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
 		status = &policy.AsImageValidatingPolicy().GetStatus().ConditionStatus
+		autogenMatchConstraints = c.resolveIvpolAutogenMatchConstraints(policy.AsImageValidatingPolicy())
 	case webhook.NamespacedImageValidatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.NamespacedImageValidatingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedImageValidatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsNamespacedImageValidatingPolicy().GetSpec().BackgroundEnabled()
 		backgroundOnly = (!policy.AsNamespacedImageValidatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
 		status = &policy.AsNamespacedImageValidatingPolicy().GetStatus().ConditionStatus
+		autogenMatchConstraints = c.resolveIvpolAutogenMatchConstraints(policy.AsNamespacedImageValidatingPolicy())
 	case webhook.ValidatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.ValidatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsValidatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsValidatingPolicy().GetSpec().BackgroundEnabled()
 		backgroundOnly = (!policy.AsValidatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
 		status = &policy.AsValidatingPolicy().GetStatus().ConditionStatus
+		autogenMatchConstraints = c.resolveVpolAutogenMatchConstraints(policy.AsValidatingPolicy())
 	case webhook.NamespacedValidatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.NamespacedValidatingPolicyType, policy.GetName(), policy.GetNamespace())
 		matchConstraints = policy.AsNamespacedValidatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsNamespacedValidatingPolicy().GetSpec().BackgroundEnabled()
 		backgroundOnly = (!policy.AsNamespacedValidatingPolicy().GetSpec().AdmissionEnabled() && backgroundEnabled)
 		status = &policy.AsNamespacedValidatingPolicy().GetStatus().ConditionStatus
+		autogenMatchConstraints = c.resolveVpolAutogenMatchConstraints(policy.AsNamespacedValidatingPolicy())
 	}
 
 	if !backgroundOnly {
@@ -435,7 +531,7 @@ func (c controller) reconcileBeta1Conditions(ctx context.Context, policy enginea
 		}
 	}
 
-	c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, backgroundEnabled)
+	c.reconcileRBACPermissionsCondition(ctx, status, matchConstraints, autogenMatchConstraints, backgroundEnabled)
 
 	return status
 }

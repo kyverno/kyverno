@@ -10,6 +10,10 @@ import (
 )
 
 func GetRESTMapper(client dclient.Interface) (meta.RESTMapper, error) {
+	if client != nil && client.Discovery() != nil && client.Discovery().RESTMapper() != nil {
+		return client.Discovery().RESTMapper(), nil
+	}
+
 	var restMapper meta.RESTMapper
 
 	var apiGroupResources []*restmapper.APIGroupResources

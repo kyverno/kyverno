@@ -202,8 +202,38 @@ func TestGetCELExceptionsIgnoresExpired(t *testing.T) {
 	c := &controller{
 		celpolexLister: lister,
 	}
-	got, err := c.getCELExceptions("vpol-1")
+	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy")
 	assert.NoError(t, err)
 	assert.Len(t, got, 1)
 	assert.Equal(t, "active-exception", got[0].GetName())
+}
+
+// names are unique only within a kind, so a MutatingPolicy exception must not surface for a
+// same-named ValidatingPolicy: it would otherwise be baked into that policy's generated VAP.
+func TestGetCELExceptionsFiltersByKind(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	newException := func(name, kind string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "shared-name", Kind: kind}},
+			},
+		}
+	}
+	assert.NoError(t, indexer.Add(newException("vpol-exception", "ValidatingPolicy")))
+	assert.NoError(t, indexer.Add(newException("mpol-exception", "MutatingPolicy")))
+
+	c := &controller{
+		celpolexLister: policiesv1beta1listers.NewPolicyExceptionLister(indexer),
+	}
+
+	got, err := c.getCELExceptions("shared-name", "ValidatingPolicy")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "vpol-exception", got[0].GetName())
+
+	got, err = c.getCELExceptions("shared-name", "MutatingPolicy")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "mpol-exception", got[0].GetName())
 }

@@ -40,27 +40,27 @@ func TestResponse(t *testing.T) {
 	}, {
 		name: "error, no warnings",
 		args: args{
-			err:      errors.New("an error has occured"),
+			err:      errors.New("an error has occurred"),
 			warnings: nil,
 		},
 		want: admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
 				Status:  metav1.StatusFailure,
-				Message: "an error has occured",
+				Message: "an error has occurred",
 			},
 		},
 	}, {
 		name: "error, warnings",
 		args: args{
-			err:      errors.New("an error has occured"),
+			err:      errors.New("an error has occurred"),
 			warnings: []string{"foo", "bar"},
 		},
 		want: admissionv1.AdmissionResponse{
 			Allowed: false,
 			Result: &metav1.Status{
 				Status:  metav1.StatusFailure,
-				Message: "an error has occured",
+				Message: "an error has occurred",
 			},
 			Warnings: []string{"foo", "bar"},
 		},

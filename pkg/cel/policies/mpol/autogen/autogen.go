@@ -18,6 +18,11 @@ var (
 	metadataAnnotationsRe = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.annotations`)
 )
 
+// ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
+// callers of this package (e.g. the engine provider) don't need to import
+// pkg/cel/autogen directly just to check it.
+const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
+
 func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
@@ -40,7 +45,7 @@ func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1be
 func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
-		if config := autogen.ConfigsMap[config]; config != nil {
+		if config := autogen.ResolveConfig(config); config != nil {
 			targets := mapping[config.ReplacementsRef]
 			targets = append(targets, config.Target)
 			mapping[config.ReplacementsRef] = targets
@@ -54,17 +59,26 @@ func generateRuleForControllers(spec *policiesv1beta1.MutatingPolicySpec, config
 		match := autogen.CreateMatchConstraints(targets, operations, spec.MatchConstraints.NamespaceSelector)
 		spec.SetMatchConstraints(*match)
 
-		for i := range spec.MatchConditions {
-			if spec.MatchConditions[i].Expression != "" {
-				convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
-				spec.MatchConditions[i].Expression = convertedExpr
+		// Extraction-mode targets (custom workload CRDs) have no fixed
+		// "spec.template"-style path to rewrite expressions to - their pod
+		// template is discovered at evaluation time instead - so
+		// convertPodToTemplateExpression must not run for them. Without this
+		// guard it would fall into its "default" case and rewrite these
+		// expressions to the built-in flat shape, which is wrong for
+		// whatever custom CRD this config actually targets.
+		if config != autogen.ExtractionReplacementsRef {
+			for i := range spec.MatchConditions {
+				if spec.MatchConditions[i].Expression != "" {
+					convertedExpr := convertPodToTemplateExpression(spec.MatchConditions[i].Expression, config)
+					spec.MatchConditions[i].Expression = convertedExpr
+				}
 			}
-		}
 
-		for i := range spec.Mutations {
-			if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
-				convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
-				spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
+			for i := range spec.Mutations {
+				if spec.Mutations[i].ApplyConfiguration != nil && spec.Mutations[i].ApplyConfiguration.Expression != "" {
+					convertedExpr := convertPodToTemplateExpression(spec.Mutations[i].ApplyConfiguration.Expression, config)
+					spec.Mutations[i].ApplyConfiguration.Expression = convertedExpr
+				}
 			}
 		}
 

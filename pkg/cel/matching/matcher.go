@@ -1,7 +1,6 @@
 package matching
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
@@ -99,7 +98,7 @@ func matchesResourceRules(namedRules []admissionregistrationv1.NamedRuleWithOper
 				return true, nil
 			}
 
-			log.Log.V(2).Info(fmt.Sprintf("Skipping name match due to empty name and no matching generateName for resource: %+v", attr))
+			log.Log.V(2).Info("Skipping name match due to empty name and no matching generateName", "resource", attr)
 			continue
 		}
 
