@@ -1,11 +1,17 @@
 package policy
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
@@ -31,7 +37,7 @@ func TestLoad(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			_, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -65,7 +71,7 @@ func TestLoadInvalid(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(tt.fs, tt.resourcePath, tt.paths...)
+			results, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
 			if tt.wantErr {
 				assert.NotNil(t, err, "result mismatch")
 			} else {
@@ -125,7 +131,7 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := LoadWithLoader(nil, tt.fs, tt.resourcePath, tt.paths...)
+			results, err := LoadWithLoader(nil, tt.fs, tt.resourcePath, true, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -190,7 +196,7 @@ func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(nil, "", tt.path)
+			results, err := Load(nil, "", true, tt.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -207,5 +213,288 @@ func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLoad_BlocksAllLegacyKindsAndVersions(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest string
+	}{
+		{
+			name: "Policy v1",
+			manifest: `
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: test-policy
+  namespace: default
+spec:
+  background: false
+  rules:
+  - name: test-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "test"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+`,
+		},
+		{
+			name: "Policy v2beta1",
+			manifest: `
+apiVersion: kyverno.io/v2beta1
+kind: Policy
+metadata:
+  name: test-policy
+  namespace: default
+spec:
+  background: false
+  rules:
+  - name: test-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "test"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+`,
+		},
+		{
+			name: "ClusterPolicy v2beta1",
+			manifest: `
+apiVersion: kyverno.io/v2beta1
+kind: ClusterPolicy
+metadata:
+  name: test-cluster-policy
+spec:
+  background: false
+  rules:
+  - name: test-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      message: "test"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+`,
+		},
+		{
+			name: "CleanupPolicy v2",
+			manifest: `
+apiVersion: kyverno.io/v2
+kind: CleanupPolicy
+metadata:
+  name: test-cleanup
+  namespace: default
+spec:
+  schedule: '*/1 * * * *'
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+`,
+		},
+		{
+			name: "CleanupPolicy v2beta1",
+			manifest: `
+apiVersion: kyverno.io/v2beta1
+kind: CleanupPolicy
+metadata:
+  name: test-cleanup
+  namespace: default
+spec:
+  schedule: '*/1 * * * *'
+  match:
+    any:
+    - resources:
+        kinds:
+        - Pod
+`,
+		},
+		{
+			name: "ClusterCleanupPolicy v2",
+			manifest: `
+apiVersion: kyverno.io/v2
+kind: ClusterCleanupPolicy
+metadata:
+  name: test-cluster-cleanup
+spec:
+  schedule: '*/1 * * * *'
+  match:
+    any:
+    - resources:
+        kinds:
+        - Namespace
+`,
+		},
+		{
+			name: "ClusterCleanupPolicy v2beta1",
+			manifest: `
+apiVersion: kyverno.io/v2beta1
+kind: ClusterCleanupPolicy
+metadata:
+  name: test-cluster-cleanup
+spec:
+  schedule: '*/1 * * * *'
+  match:
+    any:
+    - resources:
+        kinds:
+        - Namespace
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "policy.yaml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.manifest), 0o600))
+
+			_, err := Load(nil, "", false, path)
+			require.Error(t, err, "expected the legacy-policy block to fire")
+			assert.Contains(t, err.Error(), "is no longer accepted")
+
+			_, err = Load(nil, "", true, path)
+			require.NoError(t, err, "expected allowLegacyPolicies=true to bypass the block")
+		})
+	}
+}
+
+func TestLoad_BlocksMalformedLegacyClusterPolicy(t *testing.T) {
+	// invalid-schema.yaml is a legacy kyverno.io/v1 ClusterPolicy that also fails OpenAPI schema
+	// validation (unknown field). The loader still returns the parsed GVK alongside that error,
+	// so the block must fire instead of surfacing only the generic schema error.
+	_, err := Load(nil, "", false, "../_testdata/policies/invalid-schema.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+
+	_, err = Load(nil, "", true, "../_testdata/policies/invalid-schema.yaml")
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "no longer accepted")
+}
+
+func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T) {
+	// A plain ConfigMap ahead of a legacy ClusterPolicy in the same multi-document file must not
+	// cause the loader to give up on the rest of the file before it reaches the legacy document:
+	// the block still has to fire for the ClusterPolicy, taking priority over the ConfigMap's
+	// (unrelated, non-fatal-by-comparison) "unsupported kind" error.
+	_, err := Load(nil, "", false, "testdata/configmap-then-legacy-clusterpolicy.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+
+	// With the block bypassed, the ConfigMap's own "unsupported kind" problem is still a real,
+	// pre-existing error the loader must surface (not silently swallow), same as before this PR.
+	_, err = Load(nil, "", true, "testdata/configmap-then-legacy-clusterpolicy.yaml")
+	require.Error(t, err)
+	assert.NotContains(t, err.Error(), "no longer accepted")
+}
+
+func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
+	// testdata/list-single-clusterpolicy.yaml wraps a legacy kyverno.io/v1 ClusterPolicy in a
+	// v1 List; the block must fire for a List item exactly as it does for a standalone manifest.
+	_, err := Load(nil, "", false, "testdata/list-single-clusterpolicy.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+
+	results, err := Load(nil, "", true, "testdata/list-single-clusterpolicy.yaml")
+	require.NoError(t, err)
+	assert.Len(t, results.Policies, 1)
+}
+func TestLoadHTTP(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		body       string
+		wantErr    bool
+	}{
+		{
+			name:       "successful fetch",
+			statusCode: http.StatusOK,
+			body: `
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-policy
+spec:
+  rules: []
+`,
+			wantErr: false,
+		},
+		{
+			name:       "non 200 response",
+			statusCode: http.StatusNotFound,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+				_, _ = w.Write([]byte(tt.body))
+			}))
+			defer server.Close()
+
+			results, err := Load(nil, "", true, server.URL)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && len(results.Policies) != 1 {
+				t.Errorf("expected 1 policy, got %d", len(results.Policies))
+			}
+		})
+	}
+}
+
+func TestLoadHTTPTimeout(t *testing.T) {
+	oldTimeout := remoteHTTPTimeout
+	defer func() {
+		remoteHTTPTimeout = oldTimeout
+	}()
+
+	remoteHTTPTimeout = 100 * time.Millisecond
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(time.Second):
+		}
+	}))
+	defer server.Close()
+
+	_, err := Load(nil, "", true, server.URL)
+
+	assert.Error(t, err)
+	check := err
+	for {
+		if te, ok := check.(interface{ Timeout() bool }); ok && te.Timeout() {
+			break
+		}
+		if ue, ok := check.(interface{ Unwrap() error }); ok && ue.Unwrap() != nil {
+			check = ue.Unwrap()
+			continue
+		}
+		t.Fatalf("expected timeout error, got: %v", err)
 	}
 }

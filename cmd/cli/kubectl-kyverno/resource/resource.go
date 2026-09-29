@@ -12,6 +12,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils"
 	yamlutils "github.com/kyverno/kyverno/ext/yaml"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -103,16 +104,21 @@ func GetResourceFromPath(fs billy.Filesystem, path string, apiVersion, kind, res
 	return nil, fmt.Errorf("resource with name %s not found in manifest", resourceName)
 }
 
+var remoteHTTPTimeout = utils.RemoteHTTPTimeout
+
 func GetFileBytes(path string) ([]byte, error) {
 	if source.IsHttp(path) {
 		// We accept here that a random URL might be called based on user provided input.
-		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
+		ctx, cancel := context.WithTimeout(context.Background(), remoteHTTPTimeout)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to process %v: %w", path, err)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := utils.RemoteHTTPClient.Do(req)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to process %v: %w", path, err)
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
@@ -120,7 +126,7 @@ func GetFileBytes(path string) ([]byte, error) {
 		}
 		file, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to process %v: %w", path, err)
 		}
 		return file, nil
 	} else {

@@ -80,4 +80,27 @@ func TestIsImageVerified(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, engineapi.ImageVerificationPass, status)
 	})
+
+	t.Run("legacy metadata is not scoped proof", func(t *testing.T) {
+		res := unstructured.Unstructured{}
+		res.SetAnnotations(map[string]string{
+			kyverno.AnnotationImageVerify: `{"nginx":"pass"}`,
+		})
+		status, err := IsImageVerifiedForPolicy(res, "", "policy", "rule", "nginx", log)
+		assert.NoError(t, err)
+		assert.Equal(t, engineapi.ImageVerificationFail, status)
+	})
+
+	t.Run("scoped metadata verifies only its policy and rule", func(t *testing.T) {
+		res := unstructured.Unstructured{}
+		res.SetAnnotations(map[string]string{
+			kyverno.AnnotationImageVerifyScoped: `{"version":1,"policies":{"/policy":{"rule":{"nginx":"pass"}}}}`,
+		})
+		status, err := IsImageVerifiedForPolicy(res, "", "policy", "rule", "nginx", log)
+		assert.NoError(t, err)
+		assert.Equal(t, engineapi.ImageVerificationPass, status)
+		status, err = IsImageVerifiedForPolicy(res, "", "other", "rule", "nginx", log)
+		assert.NoError(t, err)
+		assert.Equal(t, engineapi.ImageVerificationFail, status)
+	})
 }

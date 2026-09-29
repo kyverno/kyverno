@@ -21,6 +21,8 @@ annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
   artifacthub.io/changes: |
+    - kind: changed
+      description: Default policyType is now ValidatingPolicy (policies.kyverno.io), set policyType to ClusterPolicy to keep installing the deprecated legacy policy types
     - kind: removed
       description: Remove spec.validationFailureAction field from policies as it is deprecated
     - kind: added

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -202,4 +203,24 @@ func Test_findResourceFromResourceName(t *testing.T) {
 	assert.Equal(t, apiResource.Kind, podEvictionAPIResource.Kind)
 	assert.Equal(t, apiResource.Group, podEvictionAPIResource.Group)
 	assert.Equal(t, apiResource.Version, podEvictionAPIResource.Version)
+}
+
+type mockResettableMapper struct {
+	meta.RESTMapper
+}
+
+func (m *mockResettableMapper) Reset() {}
+
+func TestServerResources_RESTMapper(t *testing.T) {
+	mockMapper := &mockResettableMapper{
+		RESTMapper: meta.NewDefaultRESTMapper([]schema.GroupVersion{}),
+	}
+	sr := &serverResources{
+		mapper: mockMapper,
+	}
+	assert.NotNil(t, sr.RESTMapper())
+	assert.Same(t, mockMapper, sr.RESTMapper())
+
+	fakeDisco := &fakeDiscoveryClient{}
+	assert.Nil(t, fakeDisco.RESTMapper())
 }

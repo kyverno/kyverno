@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mutate-existing-same-trigger-and-target
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isMutatingPolicy: true
+  kind: Ingress
+  patchedResources: patchedResource.yaml
+  policy: add-acm-cert-annotation
+  resources:
+  - workload/missing-cert-annotation
+  result: pass

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
@@ -12,7 +11,7 @@ type RegistryClientFactory interface {
 	GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (RegistryClient, error)
 }
 
-type Initializer = func(jsonContext enginecontext.Interface) error
+type Initializer = func(jsonContext Interface) error
 
 // ContextLoaderFactory provides a ContextLoader given a policy context and rule name
 type ContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) ContextLoader
@@ -25,6 +24,6 @@ type ContextLoader interface {
 		client RawClient,
 		rclientFactory RegistryClientFactory,
 		contextEntries []kyvernov1.ContextEntry,
-		jsonContext enginecontext.Interface,
+		jsonContext Interface,
 	) error
 }

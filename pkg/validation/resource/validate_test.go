@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	v1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

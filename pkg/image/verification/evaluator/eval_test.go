@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/utils/ptr"
 )
 
 var nonMatchingImage = "docker.io/library/nginx:latest"
@@ -28,6 +31,9 @@ var (
 		Spec: policiesv1beta1.ImageValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
 				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				VerifyDigest: func() *bool { b := false; return &b }(),
 			},
 			MatchImageReferences: []policiesv1beta1.MatchImageReference{
 				{
@@ -112,4 +118,82 @@ func Test_Eval(t *testing.T) {
 	assert.True(t, len(result) == 1)
 	assert.False(t, result[ivpol.Name].Result)
 	assert.Equal(t, result[ivpol.Name].Message, "failed to verify image with notary cert")
+}
+
+func Test_Eval_VerifyDigest_ImageWithoutDigest_Fails(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeJSON,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				VerifyDigest: func() *bool { b := true; return &b }(),
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{
+				{Glob: "ghcr.io/*"},
+			},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{Name: "bar", Expression: "[object.foo.bar]"},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true"},
+			},
+		},
+	}
+
+	imageWithoutDigest := "ghcr.io/kyverno/test-verify-image:latest"
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: policy}}, obj(imageWithoutDigest), nil, nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, result[policy.Name])
+	assert.False(t, result[policy.Name].Result)
+	assert.Contains(t, result[policy.Name].Message, "does not have a digest")
+}
+
+// A policy whose expressions never perform a cryptographic check must not be
+// treated as having verified the image. This is the gap
+// validationConfigurations.required closes: such a policy passes all of its
+// validations while nothing was actually verified, so before required was
+// enforced it silently admitted every image while looking like it enforced
+// signature verification.
+func Test_Eval_RequiredDeniesPolicyThatVerifiesNothing(t *testing.T) {
+	p := ivpol.DeepCopy()
+	p.Name = "verifies-nothing"
+	p.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "true"}}
+
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: p}}, obj(signedImage), nil, nil, nil)
+	assert.NoError(t, err)
+	require.NotNil(t, result[p.Name])
+	assert.False(t, result[p.Name].Result, "an image that no expression verified must not be admitted")
+	assert.Contains(t, result[p.Name].Message, signedImage)
+	assert.Contains(t, result[p.Name].Message, "no policy performed a signature or attestation check")
+}
+
+// Opting out has to keep working, otherwise policies that legitimately only
+// inspect image metadata would start being denied.
+func Test_Eval_RequiredDisabledAllowsPolicyThatVerifiesNothing(t *testing.T) {
+	p := ivpol.DeepCopy()
+	p.Name = "verifies-nothing-required-off"
+	p.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "true"}}
+	p.Spec.ValidationConfigurations.Required = ptr.To(false)
+
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: p}}, obj(signedImage), nil, nil, nil)
+	assert.NoError(t, err)
+	require.NotNil(t, result[p.Name])
+	assert.True(t, result[p.Name].Result)
+}
+
+// An expression that tolerates a zero verification count reports success without
+// anything having been verified, which required must still catch.
+func Test_Eval_RequiredDeniesExpressionToleratingZeroVerifications(t *testing.T) {
+	p := ivpol.DeepCopy()
+	p.Name = "tolerates-zero"
+	p.Spec.Validations = []admissionregistrationv1.Validation{
+		{Expression: "images.bar.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e >= 0)"},
+	}
+
+	result, err := Evaluate(context.Background(), []*CompiledImageValidatingPolicy{{Policy: p}}, obj(unsignedImage), nil, nil, nil)
+	assert.NoError(t, err)
+	require.NotNil(t, result[p.Name])
+	assert.False(t, result[p.Name].Result, "a passing expression must not override a failed verification")
+	assert.Contains(t, result[p.Name].Message, "failed signature or attestation verification")
 }

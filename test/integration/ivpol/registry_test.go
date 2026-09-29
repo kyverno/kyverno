@@ -13,6 +13,8 @@ package ivpol_test
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
@@ -229,4 +231,68 @@ func TestValidate_NotarySignedImage_Admits(t *testing.T) {
 	allowed, _ := validatePod(t, "notary-signed", "notary-pod", "default", signedImage)
 
 	assert.True(t, allowed, "a notary signed image must be admitted")
+}
+
+// TestMutate_PinsDigestAndStampsNothingElse is the success path of digest pinning, and the reason
+// issue #16808 was filed: mutateDigest defaults to true but the mutating handler used to be a stub,
+// so tags were never pinned. A real image is resolved here and the route must emit exactly one
+// replace patch, targeting the container image field and carrying the resolved digest.
+//
+// The patch is also asserted to be the only one, which is the issue #16336 invariant on the path
+// where mutation actually succeeds: the route must not additionally stamp an image verification
+// outcome annotation for the validating route to trust.
+func TestMutate_PinsDigestAndStampsNothingElse(t *testing.T) {
+	requireImageReachable(t, signedImage)
+
+	createIvpolWithCleanup(t, cosignKeyedPolicy("mutate-pin-digest", cosignPubKey))
+	waitForPolicyReady(t, "mutate-pin-digest", "")
+
+	resp := mutatePod(t, "mutate-pin-digest", "pinned-pod", "default", signedImage)
+	require.True(t, resp.Allowed, "a resolvable image must be admitted by the mutating route")
+	require.NotEmpty(t, resp.Patch, "mutateDigest is enabled, so the tag must be pinned (issue #16808)")
+
+	var patches []map[string]any
+	require.NoError(t, json.Unmarshal(resp.Patch, &patches))
+	require.Len(t, patches, 1, "digest pinning must be the only mutation the route performs")
+
+	assert.Equal(t, "replace", patches[0]["op"])
+	assert.Equal(t, "/spec/containers/0/image", patches[0]["path"],
+		"the patch must target the image field, not an annotation (issue #16336)")
+
+	value, ok := patches[0]["value"].(string)
+	require.True(t, ok, "the patched image must be a string")
+	assert.True(t, strings.HasPrefix(value, signedImage+"@sha256:"),
+		"the image must keep its original reference and gain a digest, got %q", value)
+}
+
+// TestMutate_PinsResolvableImageDespiteUnresolvableOne proves digest pinning is per image. A pod
+// with one resolvable and one unresolvable image still gets the resolvable one pinned: abandoning
+// every patch because a single image could not be resolved would leave images unpinned that the
+// policy was perfectly able to pin. ClusterPolicy resolves each image independently for the same
+// reason. The policy only warns here, so the failure does not block and the partial patch is
+// observable in the response.
+func TestMutate_PinsResolvableImageDespiteUnresolvableOne(t *testing.T) {
+	requireImageReachable(t, signedImage)
+
+	policy := cosignKeyedPolicy("mutate-partial-pin", cosignPubKey)
+	policy.Spec.ValidationAction = []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}
+	createIvpolWithCleanup(t, policy)
+	waitForPolicyReady(t, "mutate-partial-pin", "")
+
+	raw := podRawWithImages(t, "partial-pod", "default", signedImage, unverifiableImage)
+	resp := mutatePodRaw(t, "mutate-partial-pin", "partial-pod", "default", raw)
+
+	require.True(t, resp.Allowed, "a warn only policy must not block on a digest pinning failure")
+	assert.NotEmpty(t, resp.Warnings, "the image that could not be resolved must still be reported")
+
+	var patches []map[string]any
+	require.NoError(t, json.Unmarshal(resp.Patch, &patches))
+	require.Len(t, patches, 1, "the resolvable image must still be pinned")
+
+	assert.Equal(t, "/spec/containers/0/image", patches[0]["path"],
+		"only the resolvable container must be patched")
+	value, ok := patches[0]["value"].(string)
+	require.True(t, ok, "the patched image must be a string")
+	assert.True(t, strings.HasPrefix(value, signedImage+"@sha256:"),
+		"the resolvable image must gain a digest, got %q", value)
 }

@@ -17,12 +17,19 @@ kyverno version [flags]
 ```
   # Print Kyverno CLI version
   kyverno version
+
+  # Print Kyverno CLI version in JSON format
+  kyverno version -o json
+
+  # Print Kyverno CLI version in YAML format
+  kyverno version --output yaml
 ```
 
 ### Options
 
 ```
-  -h, --help   help for version
+  -h, --help            help for version
+  -o, --output string   Output format (json, yaml)
 ```
 
 ### Options inherited from parent commands

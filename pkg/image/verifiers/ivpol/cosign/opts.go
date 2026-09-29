@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/sigstore/cosign/v3/pkg/blob"
@@ -62,6 +63,15 @@ const maxTrustedRootJSONSize = 1 << 20 // 1 MiB
 // pemCertBlockHeader is the PEM block header used to count certificate blocks
 // cheaply before full ASN.1 parsing.
 var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
+
+type tsaTrustedMaterial struct {
+	*root.BaseTrustedMaterial
+	timestampingAuthority *root.SigstoreTimestampingAuthority
+}
+
+func (t tsaTrustedMaterial) TimestampingAuthorities() []root.TimestampingAuthority {
+	return []root.TimestampingAuthority{t.timestampingAuthority}
+}
 
 // countPEMCertBlocks returns the number of CERTIFICATE PEM blocks in the input
 // using a cheap byte scan, so we can reject oversized chains before doing the
@@ -161,6 +171,18 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			opts.TSAIntermediateCertificates = intermediates
 			opts.TSARootCertificates = roots
 			opts.UseSignedTimestamps = true
+			if opts.TrustedMaterial != nil && len(roots) > 0 {
+				trustedMaterials := root.TrustedMaterialCollection{opts.TrustedMaterial}
+				for _, tsaRoot := range roots {
+					tsa := &root.SigstoreTimestampingAuthority{
+						Root:          tsaRoot,
+						Intermediates: intermediates,
+						Leaf:          opts.TSACertificate,
+					}
+					trustedMaterials = append(trustedMaterials, tsaTrustedMaterial{BaseTrustedMaterial: &root.BaseTrustedMaterial{}, timestampingAuthority: tsa})
+				}
+				opts.TrustedMaterial = trustedMaterials
+			}
 		}
 	}
 
@@ -363,7 +385,7 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), signaturePullSecrets...)
+		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), logging.GlobalLogger(), signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil

@@ -904,6 +904,36 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 	}
 }
 
+func TestCheckOptions_Keyless_TSACertChainTrustedMaterial(t *testing.T) {
+	stubTufWithFixture(t)
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{{
+				Issuer:  testIssuer,
+				Subject: testSubject,
+			}},
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+			TSACertChain:       testTSACertChain,
+		},
+	}
+
+	opts, err := checkOptions(context.Background(), cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	require.NotNil(t, opts.TrustedMaterial)
+
+	timestampingAuthorities := opts.TrustedMaterial.TimestampingAuthorities()
+	require.NotEmpty(t, timestampingAuthorities)
+	configuredTSA, ok := timestampingAuthorities[len(timestampingAuthorities)-1].(*root.SigstoreTimestampingAuthority)
+	require.True(t, ok)
+	require.Len(t, opts.TSARootCertificates, 1)
+	assert.True(t, configuredTSA.Root.Equal(opts.TSARootCertificates[0]))
+}
+
 func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()

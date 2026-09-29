@@ -8,7 +8,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 )
@@ -442,51 +442,4 @@ func Test_ValidateWithCELExpressions(t *testing.T) {
 
 	rules := computeRules(policies[0], "DaemonSet")
 	assert.Equal(t, 2, len(rules))
-}
-
-func Test_ValidateWithAssertion(t *testing.T) {
-	policy := []byte(`
-	{
-		"apiVersion": "kyverno.io/v1",
-		"kind": "ClusterPolicy",
-		"metadata": {
-		  "name": "disallow-default-sa"
-		},
-		"spec": {
-		  "validationFailureAction": "Enforce",
-		  "background": false,
-		  "rules": [
-			{
-			  "name": "default-sa",
-			  "match": {
-				"any": [
-				  {
-					"resources": {
-					  "kinds": [
-						"Pod"
-					  ]
-					}
-				  }
-				]
-			  },
-			  "validate": {
-			    "assert": {
-				  "object": {
-					"spec": {
-					  "(serviceAccountName == 'default')": false
-				    }
-				  }
-				}
-			  }
-			}
-		  ]
-		}
-	  }
-`)
-	policies, _, _, _, _, _, _, err := yamlutils.GetPolicy([]byte(policy))
-	assert.NilError(t, err)
-	assert.Equal(t, 1, len(policies))
-
-	rules := computeRules(policies[0], "")
-	assert.Equal(t, 3, len(rules))
 }
