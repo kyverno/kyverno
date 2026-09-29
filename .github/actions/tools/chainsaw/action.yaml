@@ -6,7 +6,15 @@ description: Install Chainsaw (E2E test runner)
 runs:
   using: composite
   steps:
-    - uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+    # The download or its signature check fails now and then on the runners, so try once more.
+    - id: install
+      uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+      continue-on-error: true
+      with:
+        verify: true
+        release: v0.2.15-beta.3
+    - if: steps.install.outcome == 'failure'
+      uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
       with:
         verify: true
         release: v0.2.15-beta.3
