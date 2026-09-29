@@ -12,11 +12,11 @@ spec:
         file: policy.yaml
     - assert:
         file: policy-assert.yaml
-  - name: check validatingadmissionpolicy not generated
+  - name: check validatingadmissionpolicies generated for pods and pod controllers
     try:
-    - error:
+    - assert:
         file: validatingadmissionpolicy.yaml
-  - name: check validatingadmissionpolicybinding not generated
+  - name: check validatingadmissionpolicybindings generated for pods and pod controllers
     try:
-    - error:
+    - assert:
         file: validatingadmissionpolicybinding.yaml
