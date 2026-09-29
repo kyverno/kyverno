@@ -1,5 +1,8 @@
 import importlib.util
+import json
+import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,7 +17,13 @@ SPEC.loader.exec_module(triage)
 
 class MigrationClassificationTest(unittest.TestCase):
     def test_migration_word_forms_are_detected_on_migration_paths(self):
-        for title in ("Policy migration", "Migrate legacy policies", "Deprecation warning"):
+        for title in (
+            "Policy migration",
+            "Migrate legacy policies",
+            "Deprecation warning",
+            "Legacy support",
+            "Remove v1.20 compatibility",
+        ):
             with self.subTest(title=title):
                 self.assertTrue(triage.is_migration_pr(title, "", ["pkg/deprecations/warnings.go"]))
 
@@ -46,6 +55,26 @@ class MigrationClassificationTest(unittest.TestCase):
         probe.assert_called_once_with(
             "kyverno/kyverno", 123, "main", "release-1.19", "approved-head",
         )
+
+    def test_null_migration_override_defaults_to_keep_main(self):
+        row = {
+            "number": 124,
+            "title": "Policy migration",
+            "body": "",
+            "files": ["pkg/deprecations/warnings.go"],
+            "override": None,
+            "head_sha": "approved-head",
+        }
+        args = SimpleNamespace(
+            diff_scan=False,
+            repo="kyverno/kyverno",
+            probe_rebase=False,
+            base="main",
+            probe_target_base="release-1.19",
+        )
+        triage.finalize_row(row, args)
+        self.assertEqual(row["category"], "REVIEW-MIGRATION")
+        self.assertEqual(row["override"], "KEEP_MAIN")
 
 
 class RebaseProbeCleanupTest(unittest.TestCase):
@@ -112,6 +141,75 @@ class RebaseProbeCleanupTest(unittest.TestCase):
 
         self.assertEqual((status, conflicts), ("ERROR:head-sha-mismatch", []))
         self.assertFalse(any(c.args[0][1:3] == ["worktree", "add"] for c in mocked_run.call_args_list))
+
+
+class LabelSnapshotSafetyTest(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        self.temp_path = Path(self.temp_dir.name)
+        self.report = self.temp_path / "report.json"
+        self.gh = self.temp_path / "gh"
+        self.gh.write_text(
+            "#!/bin/sh\n"
+            "if [ \"$1 $2\" = \"label list\" ]; then "
+            "printf '%s\\n' type_legacy type_cel type_mixed type_shared; exit 0; fi\n"
+            "if [ \"$1 $2\" = \"pr view\" ]; then "
+            "printf '%s\\n' \"$GH_STUB_PR_JSON\"; exit 0; fi\n"
+            "echo \"unexpected gh call: $*\" >&2; exit 2\n"
+        )
+        self.gh.chmod(0o755)
+        self.env = os.environ.copy()
+        self.env["PATH"] = f"{self.temp_path}:{self.env['PATH']}"
+        self.live_pr = {
+            "labels": [],
+            "state": "OPEN",
+            "baseRefName": "main",
+            "headRefOid": "approved-sha",
+            "updatedAt": "2026-09-28T12:00:00Z",
+        }
+        self.row = {
+            "number": 42,
+            "category": "LEGACY_ONLY",
+            "proposed_label": "type_legacy",
+            "base_ref": "main",
+            "head_sha": "approved-sha",
+            "updated_at": "2026-09-28T12:00:00Z",
+        }
+
+    def run_script(self):
+        self.env["GH_STUB_PR_JSON"] = json.dumps(self.live_pr)
+        return subprocess.run(
+            [
+                "bash",
+                str(SCRIPT.with_name("apply-labels.sh")),
+                "--json",
+                str(self.report),
+            ],
+            env=self.env,
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+
+    def test_matching_live_snapshot_is_labeled(self):
+        self.report.write_text(json.dumps([self.row]))
+        result = self.run_script()
+        self.assertIn("gh pr edit 42", result.stdout)
+
+    def test_metadata_only_update_invalidates_report_snapshot(self):
+        self.report.write_text(json.dumps([self.row]))
+        self.live_pr["updatedAt"] = "2026-09-28T12:01:00Z"
+        result = self.run_script()
+        self.assertIn("metadata changed since triage", result.stderr)
+        self.assertNotIn("gh pr edit 42", result.stdout)
+
+    def test_older_snapshot_without_update_time_is_skipped(self):
+        self.row.pop("updated_at")
+        self.report.write_text(json.dumps([self.row]))
+        result = self.run_script()
+        self.assertIn("no captured head SHA/base/update timestamp", result.stderr)
+        self.assertNotIn("gh pr edit 42", result.stdout)
 
 
 if __name__ == "__main__":

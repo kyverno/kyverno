@@ -127,22 +127,25 @@ while IFS= read -r row; do
   cat=$(jq -r '.category' <<<"$row")
   label=$(jq -r '.proposed_label' <<<"$row")
 
-  if ! live_pr=$(gh pr view "$num" -R "$REPO" --json labels,state,baseRefName,headRefOid 2>/dev/null); then
+  if ! live_pr=$(gh pr view "$num" -R "$REPO" --json labels,state,baseRefName,headRefOid,updatedAt 2>/dev/null); then
     echo "[$n/$count] #$num: failed to fetch live PR state from GitHub — skipping" >&2
     continue
   fi
 
   snapshot_head=$(jq -r '.head_sha // empty' <<<"$row")
   snapshot_base=$(jq -r '.base_ref // empty' <<<"$row")
+  snapshot_updated=$(jq -r '.updated_at // empty' <<<"$row")
   live_state=$(jq -r '.state // empty' <<<"$live_pr")
   live_base=$(jq -r '.baseRefName // empty' <<<"$live_pr")
   live_head=$(jq -r '.headRefOid // empty' <<<"$live_pr")
-  if [[ -z "$snapshot_head" || -z "$snapshot_base" ]]; then
-    echo "[$n/$count] #$num: report has no captured head SHA/base; regenerate the triage report — skipping" >&2
+  live_updated=$(jq -r '.updatedAt // empty' <<<"$live_pr")
+  if [[ -z "$snapshot_head" || -z "$snapshot_base" || -z "$snapshot_updated" ]]; then
+    echo "[$n/$count] #$num: report has no captured head SHA/base/update timestamp; regenerate the triage report — skipping" >&2
     continue
   fi
-  if [[ "$live_state" != "OPEN" || "$live_base" != "$snapshot_base" || "$live_head" != "$snapshot_head" ]]; then
-    echo "[$n/$count] #$num: PR state/base/head changed since triage (live=$live_state/$live_base/$live_head, report=$snapshot_base/$snapshot_head) — skipping" >&2
+  if [[ "$live_state" != "OPEN" || "$live_base" != "$snapshot_base" \
+    || "$live_head" != "$snapshot_head" || "$live_updated" != "$snapshot_updated" ]]; then
+    echo "[$n/$count] #$num: PR state/base/head/metadata changed since triage (live=$live_state/$live_base/$live_head/$live_updated, report=$snapshot_base/$snapshot_head/$snapshot_updated) — skipping" >&2
     continue
   fi
 

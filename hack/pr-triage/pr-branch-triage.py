@@ -21,7 +21,7 @@ A migration-grace heuristic (§1.5 of PR_REBASE_PLAN.md) flags PRs whose
 title/body reference legacy/migration/deprecation/1.20 AND that touch
 pkg/deprecations/**, charts/kyverno/**, or a legacypolicies-fix CLI path.
 These are reported as REVIEW-MIGRATION and are never auto-labeled or
-auto-retargeted, even if Tier 1 would otherwise call them LEGACY_ONLY.
+auto-retargeted unless a maintainer explicitly sets override=RETARGET.
 
 Every row also carries a `probe` field ("SKIPPED" by default). Pass
 --probe-rebase to actually attempt `git rebase --onto <target-base>` for each
@@ -29,8 +29,8 @@ LEGACY_ONLY PR in a throwaway git worktree (nothing is pushed; the rebase is
 always aborted and the worktree removed). This must be run from inside a
 clone of kyverno/kyverno with a remote that has both `main` and the target
 base (default `release-1.19`) fetchable. The approval gate in the plan
-(category=LEGACY_ONLY && override!=KEEP_MAIN && probe=OK) is only
-machine-checkable once this field is populated.
+((category=LEGACY_ONLY || override=RETARGET) && override!=KEEP_MAIN &&
+probe=OK) is only machine-checkable once this field is populated.
 
 Read-only: only uses `gh api`/`gh pr list`/`gh pr diff` GET calls, plus local,
 non-mutating `git fetch`/`git worktree`/`git rebase --abort` when
@@ -212,7 +212,7 @@ CEL_CONTENT_RE = re.compile(
 # gate/warn/block/migrate them belong on `main`, not release-1.19.
 # ---------------------------------------------------------------------------
 MIGRATION_TITLE_RE = re.compile(
-    r"(?i)\b(migrat\w*|deprecat\w*|1\.20|legacy[ -_]*(policy|policies|gate|optout|warn|signal|block|cr|crd|manifest))\b"
+    r"(?i)\b(migrat\w*|deprecat\w*|v?1\.20|legacy\b|legacy[ -_]*(policy|policies|gate|optout|warn|signal|block|cr|crd|manifest))\b"
 )
 MIGRATION_PATH_GLOBS = [
     "pkg/deprecations/**",
@@ -461,7 +461,8 @@ def finalize_row(row, a):
     row["migration_flag"] = is_migration_pr(row.get("title", ""), row.get("body", ""), row["files"])
     if row["migration_flag"]:
         row["category"] = "REVIEW-MIGRATION"
-        row.setdefault("override", "KEEP_MAIN")
+        if row.get("override") is None:
+            row["override"] = "KEEP_MAIN"
     else:
         row.setdefault("override", None)
 
@@ -514,6 +515,7 @@ def main():
             "head": f"{pr['headRepositoryOwner']['login']}:{pr['headRefName']}",
             "head_sha": pr.get("headRefOid"),
             "base_ref": pr.get("baseRefName"),
+            "updated_at": pr.get("updatedAt"),
             "labels": [l["name"] for l in pr["labels"]],
             "files": files,
         }
@@ -571,6 +573,7 @@ def main():
             "head": f"{pr['headRepositoryOwner']['login']}:{pr['headRefName']}",
             "head_sha": pr.get("headRefOid"),
             "base_ref": pr.get("baseRefName"),
+            "updated_at": pr.get("updatedAt"),
             "labels": [l["name"] for l in pr["labels"]],
             "files": files,
         }
@@ -602,7 +605,8 @@ def write_reports(a, rows):
                      else f"| {c} | {summary[c]} | _(none — human review)_ | {ACTION[c]} |\n")
         fh.write("\n**No PRs were modified. This report is read-only. Labels are proposed, not applied "
                  "(see `apply-labels.sh --execute`). `probe` is `SKIPPED` unless `--probe-rebase` was passed; "
-                 "the automated-retarget gate requires `category=LEGACY_ONLY && override!=KEEP_MAIN && probe=OK`.**\n")
+                 "the automated-retarget gate requires `(category=LEGACY_ONLY || override=RETARGET) "
+                 "&& override!=KEEP_MAIN && probe=OK`, with live PR identity unchanged.**\n")
         for c in order:
             sub = [r for r in rows if r["category"] == c]
             if not sub:
