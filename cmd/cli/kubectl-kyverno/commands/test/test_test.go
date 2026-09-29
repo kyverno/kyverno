@@ -105,22 +105,22 @@ func TestApplyImageValidatingPolicies_RESTMappingError(t *testing.T) {
 	resources := []*unstructured.Unstructured{resource}
 
 	_, err := applyImageValidatingPolicies(
-		nil,            // ivps
-		nil,            // jsonPayloads
-		resources,      // resources
-		nil,            // celExceptions
-		nil,            // namespaceProvider
-		nil,            // userInfo
-		nil,            // rc
-		nil,            // dclient
-		false,          // registryAccess
-		nil,            // f
-		"",             // contextPath
-		false,          // continueOnFail
-		false,          // isFake
-		restMapper,     // restMapper
-		nil,            // gceMap
-		"",             // operation
+		nil,        // ivps
+		nil,        // jsonPayloads
+		resources,  // resources
+		nil,        // celExceptions
+		nil,        // namespaceProvider
+		nil,        // userInfo
+		nil,        // rc
+		nil,        // dclient
+		false,      // registryAccess
+		nil,        // f
+		"",         // contextPath
+		false,      // continueOnFail
+		false,      // isFake
+		restMapper, // restMapper
+		nil,        // gceMap
+		"",         // operation
 	)
 
 	if !errors.Is(err, errSentinel) {

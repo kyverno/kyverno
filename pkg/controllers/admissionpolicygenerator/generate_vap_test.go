@@ -6,18 +6,22 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	k8sfake "k8s.io/client-go/kubernetes/fake"
-	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 )
 
@@ -57,7 +61,23 @@ func (m *mockCelPolexListerForError) PolicyExceptions(namespace string) policies
 	return &mockCelPolexNamespaceListerForError{err: m.err}
 }
 
+type mockPolexListerForSuccess struct{}
 
+func (m *mockPolexListerForSuccess) List(selector labels.Selector) ([]*kyvernov2.PolicyException, error) {
+	return nil, nil
+}
+func (m *mockPolexListerForSuccess) PolicyExceptions(namespace string) kyvernov2listers.PolicyExceptionNamespaceLister {
+	return nil
+}
+
+type mockDiscoveryForError struct {
+	dclient.IDiscovery
+	err error
+}
+
+func (m *mockDiscoveryForError) FindResources(group, version, kind, subresource string) (map[dclient.TopLevelApiDescription]metav1.APIResource, error) {
+	return nil, m.err
+}
 
 func TestHandleVAPGeneration_SentinelError(t *testing.T) {
 	errSentinel := errors.New("sentinel vap list error")
@@ -91,12 +111,12 @@ func TestHandleVAPGeneration_APIError(t *testing.T) {
 		return true, nil, errSentinel
 	})
 	c := &controller{
-		client:         client,
-		kyvernoClient:  fake.NewSimpleClientset(),
-		vapLister:      &mockVAPListerForError{err: apierrors.NewNotFound(schema.GroupResource{}, "notfound")},
+		client:           client,
+		kyvernoClient:    fake.NewSimpleClientset(),
+		vapLister:        &mockVAPListerForError{err: apierrors.NewNotFound(schema.GroupResource{}, "notfound")},
 		vapbindingLister: &mockVAPBindingLister{},
-		celpolexLister: &mockCelPolexListerForSuccess{},
-		checker:        &mockAuthChecker{},
+		celpolexLister:   &mockCelPolexListerForSuccess{},
+		checker:          &mockAuthChecker{},
 	}
 
 	mpol := &policiesv1beta1.ValidatingPolicy{
@@ -109,5 +129,48 @@ func TestHandleVAPGeneration_APIError(t *testing.T) {
 		},
 	}
 	err := c.handleVAPGeneration(context.Background(), "test-policy", api.NewValidatingPolicy(mpol))
+	assert.ErrorIs(t, err, errSentinel)
+}
+
+func TestHandleVAPGeneration_BuildError(t *testing.T) {
+	errSentinel := errors.New("sentinel vap build error")
+	c := &controller{
+		client:           k8sfake.NewSimpleClientset(),
+		kyvernoClient:    fake.NewSimpleClientset(),
+		vapLister:        &mockVAPListerForError{err: apierrors.NewNotFound(schema.GroupResource{}, "notfound")},
+		vapbindingLister: &mockVAPBindingLister{},
+		celpolexLister:   &mockCelPolexListerForSuccess{},
+		polexLister:      &mockPolexListerForSuccess{},
+		checker:          &mockAuthChecker{},
+		discoveryClient:  &mockDiscoveryForError{err: errSentinel},
+	}
+
+	cpol := &kyvernov1.ClusterPolicy{
+		TypeMeta:   metav1.TypeMeta{Kind: "ClusterPolicy", APIVersion: "kyverno.io/v1"},
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cpol"},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					MatchResources: kyvernov1.MatchResources{
+						Any: kyvernov1.ResourceFilters{
+							{
+								ResourceDescription: kyvernov1.ResourceDescription{
+									Kinds: []string{"Pod"},
+								},
+							},
+						},
+					},
+					Validation: &kyvernov1.Validation{
+						CEL: &kyvernov1.CEL{
+							Generate:    ptr.To(true),
+							Expressions: []admissionregistrationv1.Validation{},
+						},
+					},
+				},
+			},
+		},
+	}
+	policy := api.NewKyvernoPolicy(cpol)
+	err := c.handleVAPGeneration(context.Background(), "ClusterPolicy", policy)
 	assert.ErrorIs(t, err, errSentinel)
 }

@@ -5,7 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"errors"
+
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -15,14 +18,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"errors"
-	"k8s.io/apimachinery/pkg/labels"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -117,19 +118,19 @@ func TestBuildResourceValidatingWebhookConfiguration_SentinelError(t *testing.T)
 
 	t.Run("cpolLister failure", func(t *testing.T) {
 		c := &controller{
-			cpolLister:          &mockCpolListerForError{err: errSentinel},
-			polLister:           kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			vpolLister:          policiesv1beta1listers.NewValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nvpolLister:         policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ivpolLister:         policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nivpolLister:        policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			gpolLister:          policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ngpolLister:         policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			mpolLister:          policiesv1beta1listers.NewMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nmpolLister:         policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			clusterroleLister:   &mockClusterRoleLister{},
-			leaseLister:         coordinationv1listers.NewLeaseLister(indexer),
-			runtime:             mockRuntimeForError{},
+			cpolLister:                &mockCpolListerForError{err: errSentinel},
+			polLister:                 kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			vpolLister:                policiesv1beta1listers.NewValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nvpolLister:               policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ivpolLister:               policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nivpolLister:              policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			gpolLister:                policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ngpolLister:               policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			mpolLister:                policiesv1beta1listers.NewMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nmpolLister:               policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			clusterroleLister:         &mockClusterRoleLister{},
+			leaseLister:               coordinationv1listers.NewLeaseLister(indexer),
+			runtime:                   mockRuntimeForError{},
 			excludeBootstrapResources: true,
 		}
 
@@ -142,19 +143,19 @@ func TestBuildResourceValidatingWebhookConfiguration_SentinelError(t *testing.T)
 
 	t.Run("vpolLister failure", func(t *testing.T) {
 		c := &controller{
-			cpolLister:          kyvernov1listers.NewClusterPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			polLister:           kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			vpolLister:          &mockVpolListerForError{err: errSentinel},
-			nvpolLister:         policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ivpolLister:         policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nivpolLister:        policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			gpolLister:          policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ngpolLister:         policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			mpolLister:          policiesv1beta1listers.NewMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nmpolLister:         policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			clusterroleLister:   &mockClusterRoleLister{},
-			leaseLister:         coordinationv1listers.NewLeaseLister(indexer),
-			runtime:             mockRuntimeForError{},
+			cpolLister:                kyvernov1listers.NewClusterPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			polLister:                 kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			vpolLister:                &mockVpolListerForError{err: errSentinel},
+			nvpolLister:               policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ivpolLister:               policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nivpolLister:              policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			gpolLister:                policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ngpolLister:               policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			mpolLister:                policiesv1beta1listers.NewMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nmpolLister:               policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			clusterroleLister:         &mockClusterRoleLister{},
+			leaseLister:               coordinationv1listers.NewLeaseLister(indexer),
+			runtime:                   mockRuntimeForError{},
 			excludeBootstrapResources: true,
 		}
 
@@ -182,19 +183,19 @@ func TestBuildResourceMutatingWebhookConfiguration_SentinelError(t *testing.T) {
 
 	t.Run("cpolLister failure", func(t *testing.T) {
 		c := &controller{
-			cpolLister:          &mockCpolListerForError{err: errSentinel},
-			polLister:           kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			vpolLister:          policiesv1beta1listers.NewValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nvpolLister:         policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ivpolLister:         policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nivpolLister:        policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			gpolLister:          policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ngpolLister:         policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			mpolLister:          policiesv1beta1listers.NewMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nmpolLister:         policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			clusterroleLister:   &mockClusterRoleLister{},
-			leaseLister:         coordinationv1listers.NewLeaseLister(indexer),
-			runtime:             mockRuntimeForError{},
+			cpolLister:                &mockCpolListerForError{err: errSentinel},
+			polLister:                 kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			vpolLister:                policiesv1beta1listers.NewValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nvpolLister:               policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ivpolLister:               policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nivpolLister:              policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			gpolLister:                policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ngpolLister:               policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			mpolLister:                policiesv1beta1listers.NewMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nmpolLister:               policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			clusterroleLister:         &mockClusterRoleLister{},
+			leaseLister:               coordinationv1listers.NewLeaseLister(indexer),
+			runtime:                   mockRuntimeForError{},
 			excludeBootstrapResources: true,
 		}
 
@@ -207,19 +208,19 @@ func TestBuildResourceMutatingWebhookConfiguration_SentinelError(t *testing.T) {
 
 	t.Run("mpolLister failure", func(t *testing.T) {
 		c := &controller{
-			cpolLister:          kyvernov1listers.NewClusterPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			polLister:           kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			vpolLister:          policiesv1beta1listers.NewValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nvpolLister:         policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ivpolLister:         policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			nivpolLister:        policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			gpolLister:          policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			ngpolLister:         policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			mpolLister:          &mockMpolListerForError{err: errSentinel},
-			nmpolLister:         policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
-			clusterroleLister:   &mockClusterRoleLister{},
-			leaseLister:         coordinationv1listers.NewLeaseLister(indexer),
-			runtime:             mockRuntimeForError{},
+			cpolLister:                kyvernov1listers.NewClusterPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			polLister:                 kyvernov1listers.NewPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			vpolLister:                policiesv1beta1listers.NewValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nvpolLister:               policiesv1beta1listers.NewNamespacedValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ivpolLister:               policiesv1beta1listers.NewImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			nivpolLister:              policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			gpolLister:                policiesv1beta1listers.NewGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			ngpolLister:               policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			mpolLister:                &mockMpolListerForError{err: errSentinel},
+			nmpolLister:               policiesv1beta1listers.NewNamespacedMutatingPolicyLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+			clusterroleLister:         &mockClusterRoleLister{},
+			leaseLister:               coordinationv1listers.NewLeaseLister(indexer),
+			runtime:                   mockRuntimeForError{},
 			excludeBootstrapResources: true,
 		}
 

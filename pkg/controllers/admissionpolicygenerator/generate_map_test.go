@@ -2,25 +2,25 @@ package admissionpolicygenerator
 
 import (
 	"context"
-	"testing"
 	"errors"
+	"testing"
 
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
-	k8sfake "k8s.io/client-go/kubernetes/fake"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
-	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 )
 
@@ -242,6 +242,7 @@ func (m *mockMAPBetaListerForError) Get(name string) (*admissionregistrationv1be
 }
 
 type mockAuthChecker struct{}
+
 func (m *mockAuthChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
 	return &checker.AuthResult{Allowed: true}, nil
 }
@@ -249,18 +250,18 @@ func (m *mockAuthChecker) Check(ctx context.Context, group, version, resource, s
 func TestHandleMAPGeneration_SentinelError(t *testing.T) {
 	errSentinel := errors.New("sentinel map list error")
 	c := &controller{
-		client:         k8sfake.NewSimpleClientset(),
-		kyvernoClient:  fake.NewSimpleClientset(),
-		mapBetaLister: &mockMAPBetaListerForError{err: errSentinel},
+		client:               k8sfake.NewSimpleClientset(),
+		kyvernoClient:        fake.NewSimpleClientset(),
+		mapBetaLister:        &mockMAPBetaListerForError{err: errSentinel},
 		mapbindingBetaLister: &mockMAPBindingBetaLister{},
-		checker:        &mockAuthChecker{},
-		celpolexLister: &mockCelPolexListerForSuccess{},
+		checker:              &mockAuthChecker{},
+		celpolexLister:       &mockCelPolexListerForSuccess{},
 	}
-	
+
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
-			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			MatchConstraints:     &admissionregistrationv1.MatchResources{},
 			AutogenConfiguration: mapGenEnabled(),
 		},
 	}
@@ -275,18 +276,18 @@ func TestHandleMAPGeneration_APIError(t *testing.T) {
 		return true, nil, errSentinel
 	})
 	c := &controller{
-		client:         client,
-		kyvernoClient:  fake.NewSimpleClientset(),
-		mapBetaLister: &mockMAPBetaListerForError{err: apierrors.NewNotFound(schema.GroupResource{}, "notfound")},
+		client:               client,
+		kyvernoClient:        fake.NewSimpleClientset(),
+		mapBetaLister:        &mockMAPBetaListerForError{err: apierrors.NewNotFound(schema.GroupResource{}, "notfound")},
 		mapbindingBetaLister: &mockMAPBindingBetaLister{},
-		checker:        &mockAuthChecker{},
-		celpolexLister: &mockCelPolexListerForSuccess{},
+		checker:              &mockAuthChecker{},
+		celpolexLister:       &mockCelPolexListerForSuccess{},
 	}
-	
+
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
-			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			MatchConstraints:     &admissionregistrationv1.MatchResources{},
 			AutogenConfiguration: mapGenEnabled(),
 		},
 	}
