@@ -327,148 +327,151 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 			return err
 		}
 	}
-	switch gvk {
-	case policyV1, policyV2:
-		typed, err := convert.To[kyvernov1.Policy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.Policies = append(results.Policies, typed)
-	case clusterPolicyV1, clusterPolicyV2:
-		typed, err := convert.To[kyvernov1.ClusterPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.Policies = append(results.Policies, typed)
-	case vapV1:
-		typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.VAPs = append(results.VAPs, *typed)
-	case vapBindingV1:
-		typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicyBinding](*untyped)
-		if err != nil {
-			return err
-		}
-		results.VAPBindings = append(results.VAPBindings, *typed)
-	case exception.ExceptionV2, exception.ExceptionV2beta1:
+	switch {
+	case exception.IsLegacyException(gvk):
 		typed, err := convert.To[kyvernov2.PolicyException](*untyped)
 		if err != nil {
 			return err
 		}
 		results.PolicyExceptions = append(results.PolicyExceptions, typed)
-	case exception.CELExceptionV1alpha1, exception.CELExceptionV1beta1, exception.CELExceptionV1:
+	case exception.IsCELException(gvk):
 		typed, err := convert.To[policiesv1beta1.PolicyException](*untyped)
 		if err != nil {
 			return err
 		}
 		results.PolicyCelExceptions = append(results.PolicyCelExceptions, typed)
-	case vpV1alpha1, vpV1beta1, vpV1:
-		typed, err := convert.To[policiesv1beta1.ValidatingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		switch typed.Spec.EvaluationMode() {
-		case "Envoy":
-			results.EnvoyPolicies = append(results.EnvoyPolicies, typed)
-		case "HTTP":
-			results.HTTPPolicies = append(results.HTTPPolicies, typed)
-		default:
-			results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
-		}
-	case nvpV1beta1, nvpV1:
-		typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
-	case ivpV1alpha1, ivpV1beta1, ivpV1:
-		typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
-	case nivpV1beta1, nivpV1:
-		typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
-	case mapV1:
-		typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.MAPs = append(results.MAPs, *admissionpolicy.ConvertMutatingAdmissionPolicyToBeta(typed))
-	case mapV1alpha1, mapV1beta1:
-		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.MAPs = append(results.MAPs, *typed)
-	case mapBindingV1:
-		typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicyBinding](*untyped)
-		if err != nil {
-			return err
-		}
-		results.MAPBindings = append(results.MAPBindings, *admissionpolicy.ConvertMutatingAdmissionPolicyBindingToBeta(typed))
-	case mapBindingV1alpha1, mapBindingV1beta1:
-		typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](*untyped)
-		if err != nil {
-			return err
-		}
-		results.MAPBindings = append(results.MAPBindings, *typed)
-	case gpsV1alpha1, gpsV1beta1, gpsV1:
-		typed, err := convert.To[policiesv1beta1.GeneratingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
-	case ngpsV1beta1, ngpsV1:
-		typed, err := convert.To[policiesv1beta1.NamespacedGeneratingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
-	case dpV1alpha1, dpV1beta1, dpV1:
-		typed, err := convert.To[policiesv1beta1.DeletingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.DeletingPolicies = append(results.DeletingPolicies, typed)
-	case ndpV1beta1, ndpV1:
-		typed, err := convert.To[policiesv1beta1.NamespacedDeletingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.DeletingPolicies = append(results.DeletingPolicies, typed)
-	case cpV2beta1, cpV2:
-		typed, err := convert.To[kyvernov2.CleanupPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.CleanupPolicies = append(results.CleanupPolicies, typed)
-	case ccpV2beta1, ccpV2:
-		typed, err := convert.To[kyvernov2.ClusterCleanupPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.CleanupPolicies = append(results.CleanupPolicies, typed)
-	case mpV1alpha1, mpV1beta1, mpV1:
-		typed, err := convert.To[policiesv1beta1.MutatingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.MutatingPolicies = append(results.MutatingPolicies, typed)
-	case nmpV1beta1, nmpV1:
-		typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](*untyped)
-		if err != nil {
-			return err
-		}
-		results.MutatingPolicies = append(results.MutatingPolicies, typed)
 	default:
-		return errors.New("policy type not supported")
+		switch gvk {
+		case policyV1, policyV2:
+			typed, err := convert.To[kyvernov1.Policy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.Policies = append(results.Policies, typed)
+		case clusterPolicyV1, clusterPolicyV2:
+			typed, err := convert.To[kyvernov1.ClusterPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.Policies = append(results.Policies, typed)
+		case vapV1:
+			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.VAPs = append(results.VAPs, *typed)
+		case vapBindingV1:
+			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicyBinding](*untyped)
+			if err != nil {
+				return err
+			}
+			results.VAPBindings = append(results.VAPBindings, *typed)
+		case vpV1alpha1, vpV1beta1, vpV1:
+			typed, err := convert.To[policiesv1beta1.ValidatingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			switch typed.Spec.EvaluationMode() {
+			case "Envoy":
+				results.EnvoyPolicies = append(results.EnvoyPolicies, typed)
+			case "HTTP":
+				results.HTTPPolicies = append(results.HTTPPolicies, typed)
+			default:
+				results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+			}
+		case nvpV1beta1, nvpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedValidatingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.ValidatingPolicies = append(results.ValidatingPolicies, typed)
+		case ivpV1alpha1, ivpV1beta1, ivpV1:
+			typed, err := convert.To[policiesv1beta1.ImageValidatingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+		case nivpV1beta1, nivpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedImageValidatingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.ImageValidatingPolicies = append(results.ImageValidatingPolicies, typed)
+		case mapV1:
+			typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.MAPs = append(results.MAPs, *admissionpolicy.ConvertMutatingAdmissionPolicyToBeta(typed))
+		case mapV1alpha1, mapV1beta1:
+			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.MAPs = append(results.MAPs, *typed)
+		case mapBindingV1:
+			typed, err := convert.To[admissionregistrationv1.MutatingAdmissionPolicyBinding](*untyped)
+			if err != nil {
+				return err
+			}
+			results.MAPBindings = append(results.MAPBindings, *admissionpolicy.ConvertMutatingAdmissionPolicyBindingToBeta(typed))
+		case mapBindingV1alpha1, mapBindingV1beta1:
+			typed, err := convert.To[admissionregistrationv1beta1.MutatingAdmissionPolicyBinding](*untyped)
+			if err != nil {
+				return err
+			}
+			results.MAPBindings = append(results.MAPBindings, *typed)
+		case gpsV1alpha1, gpsV1beta1, gpsV1:
+			typed, err := convert.To[policiesv1beta1.GeneratingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
+		case ngpsV1beta1, ngpsV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedGeneratingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.GeneratingPolicies = append(results.GeneratingPolicies, typed)
+		case dpV1alpha1, dpV1beta1, dpV1:
+			typed, err := convert.To[policiesv1beta1.DeletingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.DeletingPolicies = append(results.DeletingPolicies, typed)
+		case ndpV1beta1, ndpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedDeletingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.DeletingPolicies = append(results.DeletingPolicies, typed)
+		case cpV2beta1, cpV2:
+			typed, err := convert.To[kyvernov2.CleanupPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.CleanupPolicies = append(results.CleanupPolicies, typed)
+		case ccpV2beta1, ccpV2:
+			typed, err := convert.To[kyvernov2.ClusterCleanupPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.CleanupPolicies = append(results.CleanupPolicies, typed)
+		case mpV1alpha1, mpV1beta1, mpV1:
+			typed, err := convert.To[policiesv1beta1.MutatingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.MutatingPolicies = append(results.MutatingPolicies, typed)
+		case nmpV1beta1, nmpV1:
+			typed, err := convert.To[policiesv1beta1.NamespacedMutatingPolicy](*untyped)
+			if err != nil {
+				return err
+			}
+			results.MutatingPolicies = append(results.MutatingPolicies, typed)
+		default:
+			return errors.New("policy type not supported")
+		}
 	}
 	return nil
 }

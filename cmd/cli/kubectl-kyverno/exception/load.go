@@ -26,12 +26,6 @@ var (
 	CELExceptionV1alpha1 = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("PolicyException")
 	CELExceptionV1beta1  = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("PolicyException")
 	CELExceptionV1       = schema.GroupVersion(policiesv1.GroupVersion).WithKind("PolicyException")
-
-	exceptionV2beta1     = ExceptionV2beta1
-	exceptionV2          = ExceptionV2
-	celExceptionV1alpha1 = CELExceptionV1alpha1
-	celExceptionV1beta1  = CELExceptionV1beta1
-	celExceptionV1       = CELExceptionV1
 )
 
 // IsLegacyException returns true if the GVK matches a legacy Kyverno PolicyException.
@@ -116,8 +110,8 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 			}
 			continue
 		}
-		switch gvk {
-		case exceptionV2beta1, exceptionV2:
+		switch {
+		case IsLegacyException(gvk):
 			if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
 				results.Warnings = append(results.Warnings, warning.Message)
 			}
@@ -134,7 +128,7 @@ func load(content []byte, allowLegacyPolicies bool) (*LoaderResults, error) {
 				continue
 			}
 			results.Exceptions = append(results.Exceptions, exception)
-		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
+		case IsCELException(gvk):
 			exception, err := convert.To[policiesv1beta1.PolicyException](untyped)
 			if err != nil {
 				if pendingErr == nil {
@@ -164,8 +158,8 @@ func SelectFrom(resources []*unstructured.Unstructured, allowLegacyPolicies bool
 	var pendingErr error
 	for _, resource := range resources {
 		gvk := resource.GroupVersionKind()
-		switch gvk {
-		case exceptionV2beta1, exceptionV2:
+		switch {
+		case IsLegacyException(gvk):
 			if !allowLegacyPolicies {
 				if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
 					return nil, err
@@ -179,7 +173,7 @@ func SelectFrom(resources []*unstructured.Unstructured, allowLegacyPolicies bool
 				continue
 			}
 			results.Exceptions = append(results.Exceptions, exception)
-		case celExceptionV1alpha1, celExceptionV1beta1, celExceptionV1:
+		case IsCELException(gvk):
 			celException, err := convert.To[policiesv1beta1.PolicyException](*resource)
 			if err != nil {
 				if pendingErr == nil {
