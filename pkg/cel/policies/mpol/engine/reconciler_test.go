@@ -59,7 +59,7 @@ func TestReconcile(t *testing.T) {
 		}
 		rec := newReconciler(
 			&fakeClient{policy: mp},
-			compiler.NewCompiler(),
+			compiler.NewCompiler(false),
 			nil, false,
 		)
 		// Cluster-scoped: no namespace in request.
@@ -75,7 +75,7 @@ func TestReconcile(t *testing.T) {
 		}
 		rec := newReconciler(
 			&fakeClient{nmpol: nmp},
-			compiler.NewCompiler(),
+			compiler.NewCompiler(false),
 			nil, false,
 		)
 		// Namespaced: namespace in request.
@@ -128,7 +128,7 @@ func TestReconcile_ExtractionMode(t *testing.T) {
 	ctx := context.Background()
 	rec := newReconciler(
 		&fakeClient{policy: disallowLatestTagMutatingPolicy()},
-		compiler.NewCompiler(),
+		compiler.NewCompiler(false),
 		nil, false,
 	)
 
@@ -393,7 +393,7 @@ func TestMatchesMutateExisting(t *testing.T) {
 		},
 	}
 
-	comp := compiler.NewCompiler()
+	comp := compiler.NewCompiler(false)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
