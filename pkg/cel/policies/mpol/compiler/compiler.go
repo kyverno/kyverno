@@ -154,6 +154,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				}
 				patchers = append(patchers, newJSONPatcher(traced.Program))
 				if c.trace {
+					traced.Name = fmt.Sprintf("mutations[%d] (jsonPatch)", i)
 					tracedMutations = append(tracedMutations, traced)
 				}
 			}
@@ -165,6 +166,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 				}
 				patchers = append(patchers, newApplyConfigPatcher(traced.Program, useServerSideApply))
 				if c.trace {
+					traced.Name = fmt.Sprintf("mutations[%d] (applyConfiguration)", i)
 					tracedMutations = append(tracedMutations, traced)
 				}
 			}
