@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
@@ -59,7 +61,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if request.JsonPayload != nil {
 		response.Resource = request.JsonPayload
 		for _, policy := range policies {
-			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, request.Context))
+			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, nil, request.Context))
 		}
 		return response, nil
 	}
@@ -96,6 +98,19 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	if ns := request.Request.Namespace; ns != "" {
 		namespace = e.nsResolver(ns)
 	}
+	// Build the `request` CEL activation value at most once for the whole
+	// loop below, instead of once per policy - but lazily: matching happens
+	// per policy inside handlePolicy, before this is ever called, so a
+	// request matching zero policies must not pay this cost at all.
+	// sync.OnceValues memoizes on first actual invocation and reuses the
+	// result (or error) for every subsequent policy that reaches it.
+	// BuildRawRequestMap reproduces vpol's base semantics (an un-normalized
+	// unmarshal of request.Object.Raw/request.OldObject.Raw) - it does not
+	// take object/oldObject, since those are ExtractResources-normalized and
+	// must not leak into request.object/request.oldObject here.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildRawRequestMap(&request.Request)
+	})
 	// evaluate policies
 	for _, policy := range policies {
 		if predicate != nil && !predicate(policy.Policy) {
@@ -103,7 +118,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		}
 
 		startTime := time.Now()
-		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, request.Context)
+		pol := e.handlePolicy(ctx, policy, nil, attr, &request.Request, namespace, requestMapFn, request.Context)
 		for i, rule := range pol.Rules {
 			pol.Rules[i] = rule.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 		}
@@ -113,7 +128,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 	return response, nil
 }
 
-func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, context libs.Context) engine.ValidatingPolicyResponse {
+func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
 	response := engine.ValidatingPolicyResponse{
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
@@ -131,11 +146,14 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	var err error
 	switch {
 	case jsonPayload != nil:
-		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, context)
+		result, err = policy.CompiledPolicy.Evaluate(ctx, jsonPayload, nil, nil, nil, nil, context)
 	case policy.ExtractionMode:
+		// the synthetic per-template request built inside evaluateExtracted
+		// has a different embedded object/oldObject than the hoisted
+		// requestMapFn above - it must not be forwarded here.
 		result, err = e.evaluateExtracted(ctx, policy, attr, request, namespace, context)
 	default:
-		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, context)
+		result, err = policy.CompiledPolicy.Evaluate(ctx, nil, attr, request, namespace, requestMapFn, context)
 	}
 	// TODO: error is about match conditions here ?
 	if err != nil {
@@ -197,12 +215,26 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			)
 		}
 	} else {
-		// TODO: do we want to set a rule name?
-		ruleName := ""
+		ruleName := "validation"
 		if result.Error != nil {
 			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
 		} else if result.Result {
 			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
+		} else if refused := result.RefusedException; refused != nil {
+			// an exception matched but its controls were not satisfied, and the policy then
+			// failed. Report what the exception required: nowhere else does the submitter learn
+			// one was in play. reportResult is not consulted — nothing was granted.
+			exceptions := []engineapi.GenericException{engineapi.NewCELPolicyException(refused.Exception)}
+			if refused.Error != nil {
+				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation,
+					fmt.Sprintf("failed to evaluate compensating controls of policy exception %s", cache.MetaObjectToName(refused.Exception)),
+					refused.Error, withValidationIndex(nil, result.Index),
+				).WithExceptions(exceptions))
+			} else {
+				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message,
+					withValidationIndex(result.AuditAnnotations, result.Index),
+				).WithExceptions(exceptions))
+			}
 		} else {
 			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
 		}
@@ -266,7 +298,11 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 			synthAttr = extract.SynthesizePodAttributes(&tpl, otherTpl, attr)
 		}
 		synthRequest := extract.SynthesizePodAdmissionRequest(request, synthAttr)
-		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, synthRequest, namespace, context)
+		// nil requestMap: the synthesized request embeds a different
+		// object/oldObject than the outer hoisted map, so it must be
+		// rebuilt from scratch for each synthetic Pod (see prepareK8sData's
+		// nil-fallback).
+		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, synthRequest, namespace, nil, context)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
@@ -286,6 +322,15 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 			}
 			if result.Error != nil {
 				result.Error = fmt.Errorf("%w (pod template at %s)", result.Error, tpl.Path)
+			}
+			// a refusal is what gets reported, so it must carry the path too
+			if refused := result.RefusedException; refused != nil {
+				if refused.Message != "" {
+					refused.Message = fmt.Sprintf("%s (pod template at %s)", refused.Message, tpl.Path)
+				}
+				if refused.Error != nil {
+					refused.Error = fmt.Errorf("%w (pod template at %s)", refused.Error, tpl.Path)
+				}
 			}
 			return result, nil
 		}

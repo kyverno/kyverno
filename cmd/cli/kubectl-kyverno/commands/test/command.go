@@ -1,6 +1,8 @@
 package test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -9,10 +11,12 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -39,7 +43,7 @@ func Command() *cobra.Command {
 				removeColor = true
 			}
 			color.Init(removeColor)
-			return testCommandExecute(cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors)
+			return testCommandExecute(cmd.Context(), cmd.OutOrStdout(), dirPath, fileName, gitBranch, testCase, outputFormat, registryAccess, failOnly, detailedResults, requireTests, removeColor, warningsAsErrors)
 		},
 	}
 	cmd.Flags().StringVarP(&fileName, "file-name", "f", "kyverno-test.yaml", "Test filename")
@@ -62,6 +66,7 @@ type resultCounts struct {
 }
 
 func testCommandExecute(
+	ctx context.Context,
 	out io.Writer,
 	dirPath []string,
 	fileName string,
@@ -75,6 +80,20 @@ func testCommandExecute(
 	removeColor bool,
 	warningsAsErrors bool,
 ) (err error) {
+	resolvedPaths := make([]string, 0, len(dirPath))
+	for _, p := range dirPath {
+		if source.IsOCI(p) {
+			tmpDir, cleanup, ociErr := pull.ToTempDir(ctx, source.StripOCIPrefix(p), pull.NewKeychain())
+			if ociErr != nil {
+				return fmt.Errorf("failed to pull OCI bundle %s (%w)", p, ociErr)
+			}
+			defer cleanup()
+			resolvedPaths = append(resolvedPaths, tmpDir)
+		} else {
+			resolvedPaths = append(resolvedPaths, p)
+		}
+	}
+	dirPath = resolvedPaths
 	// check input dir
 	if len(dirPath) == 0 {
 		return fmt.Errorf("a directory is required")
@@ -94,11 +113,11 @@ func testCommandExecute(
 	// fetch resource filters
 	resourceFilters := filter.ExtractResourceFilters(testCase)
 	// parse filter
-	filter, errors := filter.ParseFilter(testCase)
-	if len(errors) > 0 {
+	filter, filterErrs := filter.ParseFilter(testCase)
+	if len(filterErrs) > 0 {
 		fmt.Fprintln(out)
 		fmt.Fprintln(out, "Filter errors:")
-		for _, e := range errors {
+		for _, e := range filterErrs {
 			fmt.Fprintln(out, "  Error:", e)
 		}
 	}
@@ -127,12 +146,7 @@ func testCommandExecute(
 			return fmt.Errorf("no tests found")
 		}
 
-		if len(errors) == 0 {
-			return nil
-		} else {
-			// TODO aggregate errors
-			return errors[0]
-		}
+		return errors.Join(filterErrs...)
 	}
 	rc := &resultCounts{}
 	var fullTable table.Table
@@ -156,7 +170,7 @@ func testCommandExecute(
 				continue
 			}
 			resourcePath := filepath.Dir(test.Path)
-			responses, err := runTest(out, test, registryAccess, warningsAsErrors)
+			responses, err := runTest(ctx, out, test, registryAccess, warningsAsErrors)
 			if err != nil {
 				return fmt.Errorf("failed to run test (%w)", err)
 			}

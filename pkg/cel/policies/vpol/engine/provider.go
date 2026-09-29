@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -95,65 +96,8 @@ func NewKubeProvider(
 	vpolBuilder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1beta1.ValidatingPolicy{})
 	nvpolBuilder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1beta1.NamespacedValidatingPolicy{})
 
-	type object = client.Object
-	type eventCreate = event.TypedCreateEvent[object]
-	type eventUpdate = event.TypedUpdateEvent[object]
-	type eventDelete = event.TypedDeleteEvent[object]
-	type queue = workqueue.TypedRateLimitingInterface[reconcile.Request]
-
 	if polexEnabled {
-		exceptionHandlerFuncs := &handler.Funcs{
-			CreateFunc: func(ctx context.Context, tce eventCreate, trli queue) {
-				polex := tce.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
-					if applies {
-						trli.Add(reconcile.Request{
-							NamespacedName: client.ObjectKey{
-								Name: ref.Name,
-							},
-						})
-					}
-				}
-			},
-			UpdateFunc: func(ctx context.Context, tue eventUpdate, trli queue) {
-				newPolex := tue.ObjectNew.(*policiesv1beta1.PolicyException)
-				for _, ref := range newPolex.Spec.PolicyRefs {
-					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
-					if applies {
-						trli.Add(reconcile.Request{
-							NamespacedName: client.ObjectKey{
-								Name: ref.Name,
-							},
-						})
-					}
-				}
-				oldPolex := tue.ObjectOld.(*policiesv1beta1.PolicyException)
-				for _, ref := range oldPolex.Spec.PolicyRefs {
-					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
-					if applies {
-						trli.Add(reconcile.Request{
-							NamespacedName: client.ObjectKey{
-								Name: ref.Name,
-							},
-						})
-					}
-				}
-			},
-			DeleteFunc: func(ctx context.Context, tde eventDelete, trli queue) {
-				polex := tde.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					applies := ref.Kind == policieskyvernoio.ValidatingPolicyKind || ref.Kind == policieskyvernoio.NamespacedValidatingPolicyKind
-					if applies {
-						trli.Add(reconcile.Request{
-							NamespacedName: client.ObjectKey{
-								Name: ref.Name,
-							},
-						})
-					}
-				}
-			},
-		}
+		exceptionHandlerFuncs := newPolicyExceptionHandler(mgr.GetClient())
 		vpolBuilder = vpolBuilder.Watches(&policiesv1beta1.PolicyException{}, exceptionHandlerFuncs)
 		nvpolBuilder = nvpolBuilder.Watches(&policiesv1beta1.PolicyException{}, exceptionHandlerFuncs)
 	}
@@ -166,4 +110,47 @@ func NewKubeProvider(
 	}
 
 	return reconciler, nil
+}
+
+type policyExceptionQueue = workqueue.TypedRateLimitingInterface[reconcile.Request]
+
+// newPolicyExceptionHandler requeues the policies a PolicyException refers to.
+// Policy refs carry no namespace, so a ref to a namespaced policy requeues every
+// NamespacedValidatingPolicy with that name.
+func newPolicyExceptionHandler(c client.Client) *handler.Funcs {
+	enqueue := func(ctx context.Context, obj client.Object, q policyExceptionQueue) {
+		polex, ok := obj.(*policiesv1beta1.PolicyException)
+		if !ok {
+			return
+		}
+		for _, ref := range polex.Spec.PolicyRefs {
+			switch ref.Kind {
+			case policieskyvernoio.ValidatingPolicyKind:
+				q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Name: ref.Name}})
+			case policieskyvernoio.NamespacedValidatingPolicyKind:
+				var policies policiesv1beta1.NamespacedValidatingPolicyList
+				if err := c.List(ctx, &policies); err != nil {
+					logging.Error(err, "failed to list namespaced validating policies", "policy", ref.Name)
+					continue
+				}
+				for _, policy := range policies.Items {
+					if policy.Name == ref.Name {
+						q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Namespace: policy.Namespace, Name: policy.Name}})
+					}
+				}
+			}
+		}
+	}
+	return &handler.Funcs{
+		CreateFunc: func(ctx context.Context, e event.TypedCreateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+		UpdateFunc: func(ctx context.Context, e event.TypedUpdateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.ObjectNew, q)
+			enqueue(ctx, e.ObjectOld, q)
+		},
+		DeleteFunc: func(ctx context.Context, e event.TypedDeleteEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+	}
 }
