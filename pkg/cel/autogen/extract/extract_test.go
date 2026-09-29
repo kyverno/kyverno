@@ -136,6 +136,38 @@ func TestExtractPodTemplates(t *testing.T) {
 			want: nil,
 		},
 		{
+			// PyTorchJob-shaped: replicas are a map keyed by role name, not a
+			// list. A role name containing '.' or '[' must not be confused
+			// with path syntax when the resulting Path is later parsed by
+			// SetAtPath (see TestSetAtPath's escaping cases).
+			name: "map-of-templates keyed by a name containing path-syntax characters",
+			obj: map[string]any{
+				"apiVersion": "kubeflow.org/v1",
+				"kind":       "PyTorchJob",
+				"spec": map[string]any{
+					"pytorchReplicaSpecs": map[string]any{
+						"worker.pool[0]": map[string]any{
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{container("pytorch", "pytorch:2.0")},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Extracted{
+				{
+					Path: `spec.pytorchReplicaSpecs.worker\.pool\[0\].template`,
+					Template: map[string]any{
+						"spec": map[string]any{
+							"containers": []any{container("pytorch", "pytorch:2.0")},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "jobset with multiple replicatedJobs yields one Extracted per entry",
 			obj: map[string]any{
 				"apiVersion": "jobset.x-k8s.io/v1alpha2",
