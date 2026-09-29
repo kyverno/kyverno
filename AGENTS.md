@@ -252,4 +252,5 @@ Use this checklist before every push to avoid repeated CI failures:
 - [Logging](./docs/dev/logging/logging.md) — Logging levels and conventions
 - [Feature Flags](./docs/dev/feature-flags/README.md) — How to add and use feature toggles
 - [Reports Design](./docs/dev/reports/README.md) — Report architecture
+- [OCI Policy Bundle Spec](./docs/dev/oci/bundle-spec.md) — Normative spec for the `kyverno oci` bundle format
 - [Kyverno Docs](https://kyverno.io) — User-facing documentation
