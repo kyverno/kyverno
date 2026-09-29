@@ -180,7 +180,7 @@ class LabelSnapshotSafetyTest(unittest.TestCase):
             "updated_at": "2026-09-28T12:00:00Z",
         }
 
-    def run_script(self, execute=False):
+    def run_script(self, *, execute=False):
         self.env["GH_STUB_PR_JSON"] = json.dumps(self.live_pr)
         self.env["GH_STUB_LOG"] = str(self.gh_log)
         args = [
