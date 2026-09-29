@@ -530,7 +530,7 @@ checks:
 	assert.Equal(t, testCases[0].Test.Checks[0].Match.Resource.Value.(map[string]interface{})["name"], "no-team-label")
 	assert.Equal(t, testCases[0].Test.Checks[0].Match.Policy.Value.(map[string]interface{})["name"], "require-team-label")
 	assert.Equal(t, testCases[0].Test.Checks[0].Match.Rule.Value.(map[string]interface{})["name"], "check-label")
-	assert.Equal(t, testCases[0].Test.Checks[0].Assert.CEL.Expressions[0].Expression, "result.status == 'fail'")
+	assert.Equal(t, testCases[0].Test.Checks[0].Assert.Value.(map[string]interface{})["cel"].(map[string]interface{})["expressions"].([]interface{})[0].(map[string]interface{})["expression"], "result.status == 'fail'")
 }
 
 
