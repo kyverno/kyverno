@@ -563,6 +563,5 @@ checks:
 	assert.Assert(t, testCases[0].Err == nil)
 	assert.Assert(t, testCases[0].Test != nil)
 	assert.Equal(t, len(testCases[0].Test.Checks), 1)
-	assert.Equal(t, testCases[0].Test.Checks[0].Assert.CEL, (*v1alpha1.CheckCEL)(nil))
-	assert.Equal(t, testCases[0].Test.Checks[0].Assert.Legacy.(map[string]interface{})["message"], "The label 'team' is required.")
+	assert.Equal(t, testCases[0].Test.Checks[0].Assert.Value.(map[string]interface{})["message"], "The label 'team' is required.")
 }
