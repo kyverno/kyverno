@@ -150,12 +150,15 @@ class LabelSnapshotSafetyTest(unittest.TestCase):
         self.temp_path = Path(self.temp_dir.name)
         self.report = self.temp_path / "report.json"
         self.gh = self.temp_path / "gh"
+        self.gh_log = self.temp_path / "gh.log"
         self.gh.write_text(
             "#!/bin/sh\n"
             "if [ \"$1 $2\" = \"label list\" ]; then "
             "printf '%s\\n' type_legacy type_cel type_mixed type_shared; exit 0; fi\n"
             "if [ \"$1 $2\" = \"pr view\" ]; then "
             "printf '%s\\n' \"$GH_STUB_PR_JSON\"; exit 0; fi\n"
+            "if [ \"$1 $2\" = \"pr edit\" ]; then "
+            "printf '%s\\n' \"$*\" >> \"$GH_STUB_LOG\"; exit 0; fi\n"
             "echo \"unexpected gh call: $*\" >&2; exit 2\n"
         )
         self.gh.chmod(0o755)
@@ -177,15 +180,19 @@ class LabelSnapshotSafetyTest(unittest.TestCase):
             "updated_at": "2026-09-28T12:00:00Z",
         }
 
-    def run_script(self):
+    def run_script(self, execute=False):
         self.env["GH_STUB_PR_JSON"] = json.dumps(self.live_pr)
+        self.env["GH_STUB_LOG"] = str(self.gh_log)
+        args = [
+            "bash",
+            str(SCRIPT.with_name("apply-labels.sh")),
+            "--json",
+            str(self.report),
+        ]
+        if execute:
+            args.append("--execute")
         return subprocess.run(
-            [
-                "bash",
-                str(SCRIPT.with_name("apply-labels.sh")),
-                "--json",
-                str(self.report),
-            ],
+            args,
             env=self.env,
             text=True,
             capture_output=True,
@@ -196,20 +203,31 @@ class LabelSnapshotSafetyTest(unittest.TestCase):
         self.report.write_text(json.dumps([self.row]))
         result = self.run_script()
         self.assertIn("gh pr edit 42", result.stdout)
+        self.assertFalse(self.gh_log.exists())
+
+    def test_execute_edits_labels_for_matching_snapshot(self):
+        self.report.write_text(json.dumps([self.row]))
+        self.run_script(execute=True)
+        self.assertEqual(
+            self.gh_log.read_text().strip(),
+            "pr edit 42 -R kyverno/kyverno --add-label type_legacy",
+        )
 
     def test_metadata_only_update_invalidates_report_snapshot(self):
         self.report.write_text(json.dumps([self.row]))
         self.live_pr["updatedAt"] = "2026-09-28T12:01:00Z"
-        result = self.run_script()
+        result = self.run_script(execute=True)
         self.assertIn("metadata changed since triage", result.stderr)
         self.assertNotIn("gh pr edit 42", result.stdout)
+        self.assertFalse(self.gh_log.exists())
 
     def test_older_snapshot_without_update_time_is_skipped(self):
         self.row.pop("updated_at")
         self.report.write_text(json.dumps([self.row]))
-        result = self.run_script()
+        result = self.run_script(execute=True)
         self.assertIn("no captured head SHA/base/update timestamp", result.stderr)
         self.assertNotIn("gh pr edit 42", result.stdout)
+        self.assertFalse(self.gh_log.exists())
 
 
 if __name__ == "__main__":
