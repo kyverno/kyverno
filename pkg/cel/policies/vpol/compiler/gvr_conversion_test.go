@@ -27,9 +27,6 @@ func (s gvrStubContext) ToGVR(apiVersion, kind string) (*schema.GroupVersionReso
 // Since cel-go v0.31.0 (#17067) NativeToValue only converts registered native types,
 // and the kyverno/sdk resource lib hands it a bare *schema.GroupVersionResource.
 func TestResourceToGVR_RealVpolEnv(t *testing.T) {
-	// The fix belongs in kyverno/sdk; drop this skip once go.mod picks it up.
-	t.Skip("#17744: resource.ToGVR fails until kyverno/sdk returns a CEL-convertible GVR")
-
 	fake := libs.NewFakeContextProvider()
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
