@@ -2,6 +2,7 @@ package cluster
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -116,6 +117,41 @@ func TestWrapper_FakeOverridesReal(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, "fake", got.GetLabels()["source"])
+}
+
+// spyClient wraps dclient.Interface and records RawAbsPath calls, standing in
+// for the real cluster so a test can prove whether a call reached it.
+type spyClient struct {
+	dclient.Interface
+	rawAbsPathCalls []string
+}
+
+func (s *spyClient) RawAbsPath(_ context.Context, _ string, method string, _ io.Reader) ([]byte, error) {
+	s.rawAbsPathCalls = append(s.rawAbsPathCalls, method)
+	return []byte("response from the real cluster"), nil
+}
+
+func TestWrapper_RawAbsPath_WriteMethodsNeverReachReal(t *testing.T) {
+	inner := &spyClient{}
+	client := NewWrapper(inner)
+
+	for _, method := range []string{"POST", "PUT", "DELETE", "PATCH"} {
+		_, err := client.RawAbsPath(context.TODO(), "/api/v1/namespaces/default/pods/victim/eviction", method, nil)
+		assert.Error(t, err, "%s should be rejected by the fake client, not proxied to the real cluster", method)
+	}
+
+	assert.Empty(t, inner.rawAbsPathCalls, "a write method must never reach the real cluster; got calls: %v", inner.rawAbsPathCalls)
+}
+
+func TestWrapper_RawAbsPath_GetStillFallsBackToReal(t *testing.T) {
+	inner := &spyClient{}
+	client := NewWrapper(inner)
+
+	result, err := client.RawAbsPath(context.TODO(), "/api/v1/namespaces/default/pods/foo", "GET", nil)
+
+	require.NoError(t, err)
+	assert.Equal(t, "response from the real cluster", string(result))
+	assert.Equal(t, []string{"GET"}, inner.rawAbsPathCalls)
 }
 
 func TestWrapper_GetResource_FallsBackToReal(t *testing.T) {
