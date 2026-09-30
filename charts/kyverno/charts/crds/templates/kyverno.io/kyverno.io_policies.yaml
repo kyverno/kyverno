@@ -385,8 +385,7 @@ spec:
                                       secretName:
                                         description: |-
                                           SecretName is the name of the Kubernetes Secret holding the client certificate
-                                          and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                          or as namespace/name.
+                                          and private key. This secret must reside in the Kyverno namespace.
                                         type: string
                                     required:
                                     - secretName
@@ -1450,8 +1449,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -2560,8 +2558,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -2968,8 +2965,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -3751,8 +3747,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -5117,8 +5112,7 @@ spec:
                                   secretName:
                                     description: |-
                                       SecretName is the name of the Kubernetes Secret holding the client certificate
-                                      and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                      or as namespace/name.
+                                      and private key. This secret must reside in the Kyverno namespace.
                                     type: string
                                 required:
                                 - secretName
@@ -5621,8 +5615,7 @@ spec:
                                           secretName:
                                             description: |-
                                               SecretName is the name of the Kubernetes Secret holding the client certificate
-                                              and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                              or as namespace/name.
+                                              and private key. This secret must reside in the Kyverno namespace.
                                             type: string
                                         required:
                                         - secretName
@@ -6697,8 +6690,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -7819,8 +7811,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -8236,8 +8227,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -9031,8 +9021,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -10421,8 +10410,7 @@ spec:
                                       secretName:
                                         description: |-
                                           SecretName is the name of the Kubernetes Secret holding the client certificate
-                                          and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                          or as namespace/name.
+                                          and private key. This secret must reside in the Kyverno namespace.
                                         type: string
                                     required:
                                     - secretName
@@ -10982,8 +10970,7 @@ spec:
                                       secretName:
                                         description: |-
                                           SecretName is the name of the Kubernetes Secret holding the client certificate
-                                          and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                          or as namespace/name.
+                                          and private key. This secret must reside in the Kyverno namespace.
                                         type: string
                                     required:
                                     - secretName
@@ -11841,8 +11828,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -12745,8 +12731,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -13153,8 +13138,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -14107,8 +14091,7 @@ spec:
                                                 secretName:
                                                   description: |-
                                                     SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                    and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                    or as namespace/name.
+                                                    and private key. This secret must reside in the Kyverno namespace.
                                                   type: string
                                               required:
                                               - secretName
@@ -15454,8 +15437,7 @@ spec:
                                   secretName:
                                     description: |-
                                       SecretName is the name of the Kubernetes Secret holding the client certificate
-                                      and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                      or as namespace/name.
+                                      and private key. This secret must reside in the Kyverno namespace.
                                     type: string
                                 required:
                                 - secretName
@@ -15945,8 +15927,7 @@ spec:
                                           secretName:
                                             description: |-
                                               SecretName is the name of the Kubernetes Secret holding the client certificate
-                                              and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                              or as namespace/name.
+                                              and private key. This secret must reside in the Kyverno namespace.
                                             type: string
                                         required:
                                         - secretName
@@ -17021,8 +17002,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -18143,8 +18123,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -18560,8 +18539,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -19355,8 +19333,7 @@ spec:
                                                     secretName:
                                                       description: |-
                                                         SecretName is the name of the Kubernetes Secret holding the client certificate
-                                                        and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                                        or as namespace/name.
+                                                        and private key. This secret must reside in the Kyverno namespace.
                                                       type: string
                                                   required:
                                                   - secretName
@@ -20745,8 +20722,7 @@ spec:
                                       secretName:
                                         description: |-
                                           SecretName is the name of the Kubernetes Secret holding the client certificate
-                                          and private key. It can be specified as a name (resolved in the Kyverno namespace)
-                                          or as namespace/name.
+                                          and private key. This secret must reside in the Kyverno namespace.
                                         type: string
                                     required:
                                     - secretName

@@ -1260,10 +1260,10 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 		jmesPath:       "x509_decode('" + certs[6] + "')",
 		expectedResult: resExpected[2],
 	},
-	{
-		jmesPath:    "x509_decode('xyz')",
-		expectedErr: "failed to decode PEM block",
-	},
+		{
+			jmesPath:    "x509_decode('xyz')",
+			expectedErr: "failed to decode PEM block",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {

@@ -11,6 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"net/http"
+	"reflect"
+	"unsafe"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +23,11 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
+
+// getUnexportedField safely extracts an unexported field via reflection
+func getUnexportedField(field reflect.Value) interface{} {
+	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
+}
 
 func generateTestCert(t *testing.T) ([]byte, []byte) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -31,10 +40,10 @@ func generateTestCert(t *testing.T) ([]byte, []byte) {
 		Subject: pkix.Name{
 			Organization: []string{"Test Corp"},
 		},
-		NotBefore: time.Now(),
-		NotAfter:  time.Now().Add(time.Hour),
-		KeyUsage:  x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 		BasicConstraintsValid: true,
 	}
 
@@ -114,8 +123,8 @@ func TestRegistryClientFactory_TLSClientCert(t *testing.T) {
 			creds: &kyvernov1.ImageRegistryCredentials{
 				TLSClientCert: &kyvernov1.TLSClientCert{
 					SecretName: "custom-keys-secret",
-					CertKey:  "my.crt",
-					KeyKey:   "my.key",
+					CertKey:    "my.crt",
+					KeyKey:     "my.key",
 				},
 			},
 			expectError: false,
@@ -151,6 +160,33 @@ func TestRegistryClientFactory_TLSClientCert(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, client)
+
+				// Extract the transport to verify the certificate was loaded
+				val := reflect.ValueOf(client)
+				if val.Kind() == reflect.Ptr {
+					val = val.Elem()
+				}
+				clientField := val.FieldByName("Client")
+				if clientField.IsValid() {
+					clientVal := clientField.Elem()
+					if clientVal.Kind() == reflect.Ptr {
+						clientVal = clientVal.Elem()
+					}
+					transportField := clientVal.FieldByName("transport")
+					if transportField.IsValid() {
+						transportVal := reflect.ValueOf(getUnexportedField(transportField))
+						if transportVal.Kind() == reflect.Ptr {
+							transportVal = transportVal.Elem()
+						}
+						rtField := transportVal.FieldByName("rt")
+						if rtField.IsValid() {
+							rtVal := getUnexportedField(rtField)
+							if ht, ok := rtVal.(*http.Transport); ok && ht.TLSClientConfig != nil {
+								assert.NotEmpty(t, ht.TLSClientConfig.Certificates, "Expected TLS certificates to be loaded in the transport")
+							}
+						}
+					}
+				}
 			}
 		})
 	}
