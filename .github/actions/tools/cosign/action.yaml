@@ -6,4 +6,9 @@ description: Install Cosign
 runs:
   using: composite
   steps:
-    - uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+    # The downloads from GitHub releases fail now and then on the runners, so try once more.
+    - id: install
+      uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
+      continue-on-error: true
+    - if: steps.install.outcome == 'failure'
+      uses: sigstore/cosign-installer@ba7bc0a3fef59531c69a25acd34668d6d3fe6f22 # v4.1.0
