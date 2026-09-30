@@ -77,6 +77,20 @@ func TestCommandRequireTests(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
 }
 
+func TestCommandAggregateFilterErrors(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetErr(errBuffer)
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetArgs([]string{".", "-t", "invalid1,invalid2"})
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid1)")
+	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid2)")
+}
+
 func TestCommandWithInvalidFlag(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
