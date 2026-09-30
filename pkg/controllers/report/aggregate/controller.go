@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -877,6 +878,15 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 			}
 		}
 	}()
+	if report != nil && len(ephemeralReports) == 0 {
+		deleted, err := c.reconcileOrphanReport(ctx, report)
+		if err != nil {
+			return err
+		}
+		if deleted {
+			return nil
+		}
+	}
 	// aggregate reports
 	policyMap, err := c.createPolicyMap()
 	if err != nil {
@@ -973,4 +983,55 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		c.cacheMu.Unlock()
 	}
 	return nil
+}
+
+// reconcileOrphanReport repairs a report whose ephemeral inputs have already
+// been consumed, or deletes it when its scoped resource has gone away.
+func (c *controller) reconcileOrphanReport(ctx context.Context, report reportsv1.ReportInterface) (bool, error) {
+	if !controllerutils.IsManagedByKyverno(report) || len(report.GetOwnerReferences()) != 0 {
+		return false, nil
+	}
+	scope := reportScope(report)
+	if scope == nil || scope.APIVersion == "" || scope.Kind == "" || scope.Name == "" ||
+		scope.UID == "" || scope.UID != types.UID(report.GetName()) || scope.Namespace != report.GetNamespace() {
+		logger.V(3).Info("cannot verify owner of report without a valid scope", "report", controllerutils.MetaObjectToName(report))
+		return false, nil
+	}
+	gvk := schema.FromAPIVersionAndKind(scope.APIVersion, scope.Kind)
+	gvr, err := c.dclient.Discovery().GetGVRFromGVK(gvk)
+	if err != nil {
+		return false, err
+	}
+	resourceClient := c.dclient.GetDynamicInterface().Resource(gvr)
+	var resourceInterface dynamic.ResourceInterface = resourceClient
+	if scope.Namespace != "" {
+		resourceInterface = resourceClient.Namespace(scope.Namespace)
+	}
+	resource, err := resourceInterface.Get(ctx, scope.Name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return true, deleteReport(ctx, report, c.client, c.orClient)
+	}
+	if err != nil {
+		return false, err
+	}
+	if resource.GetUID() != scope.UID {
+		return true, deleteReport(ctx, report, c.client, c.orClient)
+	}
+	controllerutils.SetOwner(report, scope.APIVersion, scope.Kind, scope.Name, scope.UID)
+	return false, nil
+}
+
+func reportScope(report reportsv1.ReportInterface) *corev1.ObjectReference {
+	switch report := report.(type) {
+	case *openreports.WgpolicyReportAdapter:
+		return report.Scope
+	case *openreports.WgpolicyClusterReportAdapter:
+		return report.Scope
+	case *openreports.ReportAdapter:
+		return report.Scope
+	case *openreports.ClusterReportAdapter:
+		return report.Scope
+	default:
+		return nil
+	}
 }
