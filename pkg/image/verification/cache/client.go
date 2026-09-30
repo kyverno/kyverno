@@ -91,6 +91,10 @@ func generateKey(policy metav1.Object, ruleName string, imageRef string) string 
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
+func (c *cache) Enabled() bool {
+	return c.isCacheEnabled
+}
+
 func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
 	return c.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, nil)
 }

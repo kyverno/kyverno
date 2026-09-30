@@ -82,8 +82,8 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 			out, _, err = payload.Eval(activation)
 			require.NoError(t, err)
 			require.Equal(t, true, out.Value())
-			require.Empty(t, runtime.functions.pendingIntotoRestores)
-			require.Empty(t, factory.functions.pendingIntotoRestores)
+			require.Empty(t, runtime.functions.pendingAttestationRestores)
+			require.Empty(t, factory.functions.pendingAttestationRestores)
 		})
 	}
 }
