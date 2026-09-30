@@ -1237,6 +1237,7 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 	testCases := []struct {
 		jmesPath       string
 		expectedResult map[string]any
+		expectedErr    string
 	}{{
 		jmesPath:       "x509_decode(base64_decode('" + certs[0] + "'))",
 		expectedResult: resExpected[0],
@@ -1259,10 +1260,10 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 		jmesPath:       "x509_decode('" + certs[6] + "')",
 		expectedResult: resExpected[2],
 	},
-	// {
-	// 	jmesPath:       "x509_decode('xyz')",
-	// 	expectedResult: map[string]any{},
-	// }
+	{
+		jmesPath:    "x509_decode('xyz')",
+		expectedErr: "failed to decode PEM block",
+	},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
@@ -1270,6 +1271,10 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 			assert.NilError(t, err)
 
 			result, err := jp.Search("")
+			if tc.expectedErr != "" {
+				assert.ErrorContains(t, err, tc.expectedErr)
+				return
+			}
 			if err != nil && err.Error() != "invalid certificate" {
 				assert.NilError(t, err)
 			}
