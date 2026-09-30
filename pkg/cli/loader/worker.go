@@ -126,9 +126,21 @@ func (wp *WorkerPool) processTask(ctx context.Context, task LoadTask) LoadTaskRe
 }
 
 func (wp *WorkerPool) SubmitTask(ctx context.Context, task LoadTask) {
+	// Check for cancellation and shutdown first: once Close has run, the queue may still
+	// have room, and a select with several ready cases picks one at random, so without
+	// this check a task could be queued after the workers have already exited.
 	select {
 	case <-ctx.Done():
+		wp.logger.Debug("context cancelled; ignoring submitted task: ", task.ID)
+		return
+	case <-wp.done:
 		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
+		return
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		wp.logger.Debug("context cancelled; ignoring submitted task: ", task.ID)
 	case <-wp.done:
 		wp.logger.Debug("worker pool is closed; ignoring submitted task: ", task.ID)
 	case wp.taskQueue <- task:

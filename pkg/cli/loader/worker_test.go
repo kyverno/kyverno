@@ -274,3 +274,21 @@ func TestWorkerPool_SubmitTaskDoesNotDropWhenQueueFull(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 	wp.Close(cancel)
 }
+
+func TestWorkerPool_SubmitTaskAfterCloseIsNotQueued(t *testing.T) {
+	logger := logrus.New()
+	wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
+		Workers:   1,
+		QueueSize: 5,
+		Logger:    logger,
+	})
+	_, cancel := context.WithCancel(context.Background())
+	wp.Close(cancel)
+
+	// The queue has room, so before the shutdown check this send could win the
+	// select against wp.done and leave a task that no worker will ever process.
+	for i := 0; i < 20; i++ {
+		wp.SubmitTask(context.Background(), LoadTask{ID: fmt.Sprintf("task-%d", i)})
+	}
+	assert.Empty(t, wp.taskQueue, "no task should be queued after Close")
+}
