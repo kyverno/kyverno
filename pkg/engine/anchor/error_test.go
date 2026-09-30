@@ -172,6 +172,11 @@ func TestIsNegationAnchorError(t *testing.T) {
 		want: true,
 	}, {
 		args: args{
+			err: fmt.Errorf("multiply wrapped: %w", fmt.Errorf("wrapped: %w", newNegationAnchorError("test"))),
+		},
+		want: true,
+	}, {
+		args: args{
 			err: newConditionalAnchorError("test"),
 		},
 		want: false,
@@ -220,6 +225,11 @@ func TestIsConditionalAnchorError(t *testing.T) {
 		want: true,
 	}, {
 		args: args{
+			err: fmt.Errorf("multiply wrapped: %w", fmt.Errorf("wrapped: %w", newConditionalAnchorError("test"))),
+		},
+		want: true,
+	}, {
+		args: args{
 			err: newConditionalAnchorError("test"),
 		},
 		want: true,
@@ -264,6 +274,11 @@ func TestIsGlobalAnchorError(t *testing.T) {
 	}, {
 		args: args{
 			err: fmt.Errorf("wrapped: %w", newGlobalAnchorError("test")),
+		},
+		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("multiply wrapped: %w", fmt.Errorf("wrapped: %w", newGlobalAnchorError("test"))),
 		},
 		want: true,
 	}, {
