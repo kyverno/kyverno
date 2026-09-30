@@ -5,11 +5,17 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var policyNamespaceSelector = []byte(`{
@@ -295,4 +301,167 @@ func Test_resolveResource_generatingPolicyFallsThrough(t *testing.T) {
 	got, err := p.resolveResource("Deployment")
 	assert.NilError(t, err)
 	assert.Equal(t, "deployments", got)
+}
+
+func TestMakePolicyContext_ConnectOperation(t *testing.T) {
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "check-connect"
+		},
+		"spec": {
+			"rules": [
+				{
+					"name": "check-connect",
+					"match": {
+						"all": [
+							{
+								"resources": {
+									"kinds": ["Pod"],
+									"operations": ["CONNECT"]
+								}
+							}
+						]
+					},
+					"validate": {
+						"deny": {}
+					}
+				}
+			]
+		}
+	}`)
+	policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(policyRaw)
+	assert.NilError(t, err)
+	assert.Equal(t, len(policies), 1)
+
+	resourceRaw := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod","namespace":"default"}}`)
+	resources, err := resource.GetUnstructuredResources(resourceRaw)
+	assert.NilError(t, err)
+
+	jp := jmespath.New(config.NewDefaultConfiguration(false))
+	cfg := config.NewDefaultConfiguration(false)
+
+	t.Run("explicit operation CONNECT", func(t *testing.T) {
+		p := &PolicyProcessor{
+			Operation: "CONNECT",
+		}
+		pCtx, err := p.makePolicyContext(jp, cfg, *resources[0], policies[0], nil, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, "")
+		assert.NilError(t, err)
+		assert.Equal(t, kyvernov1.Connect, pCtx.Operation())
+	})
+
+	t.Run("operation from values request.operation CONNECT", func(t *testing.T) {
+		vars, err := variables.New(nil, nil, "", "", &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		})
+		assert.NilError(t, err)
+
+		p := &PolicyProcessor{
+			Variables: vars,
+		}
+		pCtx, err := p.makePolicyContext(jp, cfg, *resources[0], policies[0], nil, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, "")
+		assert.NilError(t, err)
+		assert.Equal(t, kyvernov1.Connect, pCtx.Operation())
+	})
+
+	t.Run("operation from resource-specific values request.operation CONNECT", func(t *testing.T) {
+		vars, err := variables.New(nil, nil, "", "", &v1alpha1.ValuesSpec{
+			Policies: []v1alpha1.Policy{
+				{
+					Name: "check-connect",
+					Resources: []v1alpha1.Resource{
+						{
+							Name: "test-pod",
+							Values: map[string]interface{}{
+								"request.operation": "CONNECT",
+							},
+						},
+					},
+				},
+			},
+		})
+		assert.NilError(t, err)
+
+		p := &PolicyProcessor{
+			Variables: vars,
+		}
+		pCtx, err := p.makePolicyContext(jp, cfg, *resources[0], policies[0], nil, schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, "")
+		assert.NilError(t, err)
+		assert.Equal(t, kyvernov1.Connect, pCtx.Operation())
+	})
+}
+
+func Test_ConnectOperation_PolicyEvaluation(t *testing.T) {
+	policyRaw := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "block-connect"
+		},
+		"spec": {
+			"validationFailureAction": "Enforce",
+			"rules": [
+				{
+					"name": "check-connect",
+					"match": {
+						"all": [
+							{
+								"resources": {
+									"kinds": ["Pod"],
+									"operations": ["CONNECT"]
+								}
+							}
+						]
+					},
+					"validate": {
+						"message": "CONNECT operation blocked",
+						"deny": {}
+					}
+				}
+			]
+		}
+	}`)
+	policies, _, _, _, _, _, _, err := yamlutils.GetPolicy(policyRaw)
+	assert.NilError(t, err)
+
+	resourceRaw := []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod","namespace":"default"}}`)
+	resources, err := resource.GetUnstructuredResources(resourceRaw)
+	assert.NilError(t, err)
+
+	testCases := []struct {
+		name      string
+		operation string
+		fail      int64
+		pass      int64
+		skip      int64
+	}{
+		{
+			name:      "CONNECT operation triggers rule and fails",
+			operation: "CONNECT",
+			fail:      1,
+		},
+		{
+			name: "default CREATE operation does not match CONNECT rule",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rc := &ResultCounts{}
+			processor := PolicyProcessor{
+				Store:     &store.Store{},
+				Policies:  policies,
+				Resource:  *resources[0],
+				Operation: tc.operation,
+				Rc:        rc,
+				Out:       os.Stdout,
+			}
+			processor.ApplyPoliciesOnResource()
+			assert.Equal(t, int64(rc.Fail), tc.fail)
+			assert.Equal(t, int64(rc.Pass), tc.pass)
+			assert.Equal(t, int64(rc.Skip), tc.skip)
+		})
+	}
 }

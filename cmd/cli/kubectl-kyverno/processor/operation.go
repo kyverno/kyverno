@@ -12,10 +12,10 @@ import (
 // string is valid and means "use the default operation".
 func NormalizeOperation(operation string) (string, error) {
 	switch operation {
-	case "", "CREATE", "UPDATE", "DELETE":
+	case "", "CREATE", "UPDATE", "DELETE", "CONNECT":
 		return operation, nil
 	default:
-		return "", fmt.Errorf("invalid operation %q, must be one of CREATE, UPDATE, DELETE", operation)
+		return "", fmt.Errorf("invalid operation %q, must be one of CREATE, UPDATE, DELETE, CONNECT", operation)
 	}
 }
 
@@ -38,6 +38,7 @@ func NormalizeValuesOperation(operation string) (string, error) {
 //   - CREATE (default): object is the resource, oldObject is null
 //   - UPDATE: object and oldObject are both the resource
 //   - DELETE: object is null, oldObject is the resource
+//   - CONNECT: object and oldObject are both null
 func AdmissionRequestShape(operation string, resource *unstructured.Unstructured) (admissionv1.Operation, runtime.Object, runtime.Object) {
 	switch operation {
 	case "UPDATE":
@@ -46,6 +47,8 @@ func AdmissionRequestShape(operation string, resource *unstructured.Unstructured
 		// deep copy so downstream mutations of the old state cannot leak into
 		// the shared resource object
 		return admissionv1.Delete, nil, resource.DeepCopy()
+	case "CONNECT":
+		return admissionv1.Connect, nil, nil
 	default:
 		return admissionv1.Create, resource, nil
 	}
