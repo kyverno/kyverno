@@ -2,6 +2,7 @@ package apply
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -269,7 +270,7 @@ func Test_Apply(t *testing.T) {
 		}
 		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
 
-		_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
+		_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), os.Stdout)
 		assert.NoError(t, err, desc)
 
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
@@ -614,7 +615,7 @@ func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
 		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
 		PolicyReport: true,
 	}
-	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
 	assert.NoError(t, err, "should not crash with segfault")
 	// K8s-mode policy should be skipped for JSON payloads, so no responses expected
 	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
@@ -962,7 +963,7 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 		strings.Join(tc.config.JSONPaths, ","),
 	)
 
-	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err, desc)
 
 	clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
@@ -1033,7 +1034,7 @@ func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 		ResourcePaths: []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/resources.yaml"},
 		PolicyReport:  true,
 	}
-	_, _, _, _, err := blocked.applyCommandHelper(io.Discard)
+	_, _, _, _, err := blocked.applyCommandHelper(context.TODO(), io.Discard)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
 	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
@@ -1059,7 +1060,7 @@ func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
 		PolicyReport:  true,
 	}
 
-	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err)
 
 	// Check the responses for the correct message
@@ -1086,7 +1087,7 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 		PolicyReport:  true,
 	}
 
-	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err)
 
 	// Check the responses for the correct message

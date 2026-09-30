@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: legacy-app-no-ticket
+  annotations:
+    security.company.com/network-isolation: strict
+spec:
+  containers:
+  - name: app
+    image: public.ecr.aws/docker/library/busybox:latest

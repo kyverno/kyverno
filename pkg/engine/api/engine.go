@@ -4,11 +4,10 @@ import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 // EngineContextLoader provides a function to load context entries from the various clients initialized with the engine ones
-type EngineContextLoader = func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error
+type EngineContextLoader = func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext Interface) error
 
 // EngineContextLoaderFactory provides an EngineContextLoader given a policy and rule name
 type EngineContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) EngineContextLoader
