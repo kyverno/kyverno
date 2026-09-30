@@ -8,4 +8,33 @@ metadata:
   - apiVersion: policies.kyverno.io/v1beta1
     kind: ValidatingPolicy
     name: disallow-privilege-escalation
-spec: {}
+spec:
+  policyName: vpol-disallow-privilege-escalation
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    policies.kyverno.io/autogen-source: disallow-privilege-escalation
+  name: vpol-disallow-privilege-escalation-autogen-defaults-binding
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
+    name: disallow-privilege-escalation
+spec:
+  policyName: vpol-disallow-privilege-escalation-autogen-defaults
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    policies.kyverno.io/autogen-source: disallow-privilege-escalation
+  name: vpol-disallow-privilege-escalation-autogen-cronjobs-binding
+  ownerReferences:
+  - apiVersion: policies.kyverno.io/v1beta1
+    kind: ValidatingPolicy
+    name: disallow-privilege-escalation
+spec:
+  policyName: vpol-disallow-privilege-escalation-autogen-cronjobs

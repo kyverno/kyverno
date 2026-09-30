@@ -98,18 +98,21 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 				}
 			}
 			if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
-				policies, err := vpolautogen.Autogen(vpol)
-				if err != nil {
-					continue
-				}
-				for _, config := range slices.Sorted(maps.Keys(policies)) {
-					policy := policies[config]
-					webhook.MatchConditions = append(
-						webhook.MatchConditions,
-						autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
-					)
-					for _, match := range policy.Spec.MatchConstraints.ResourceRules {
-						webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+				// Pod-controller kinds are left to the generated native VAPs once they are in place.
+				if !autogenCoveredByVAP(p) {
+					policies, err := vpolautogen.Autogen(vpol)
+					if err != nil {
+						continue
+					}
+					for _, config := range slices.Sorted(maps.Keys(policies)) {
+						policy := policies[config]
+						webhook.MatchConditions = append(
+							webhook.MatchConditions,
+							autogen.CreateMatchConditions(config, policy.Targets, webhookMatchConditions(validConditions(expressionCache, policy.Spec.MatchConditions)))...,
+						)
+						for _, match := range policy.Spec.MatchConstraints.ResourceRules {
+							webhook.Rules = append(webhook.Rules, match.RuleWithOperations)
+						}
 					}
 				}
 			}
@@ -219,13 +222,16 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			p := extractGenericPolicy(policy)
 			var webhookRules []admissionregistrationv1.RuleWithOperations
 			if vpol, ok := p.(*policiesv1beta1.ValidatingPolicy); ok {
-				rules, err := vpolautogen.Autogen(vpol)
-				if err != nil {
-					continue
-				}
-				for _, rule := range rules {
-					for _, match := range rule.Spec.MatchConstraints.ResourceRules {
-						webhookRules = append(webhookRules, match.RuleWithOperations)
+				// Pod-controller kinds are left to the generated native VAPs once they are in place.
+				if !autogenCoveredByVAP(vpol) {
+					rules, err := vpolautogen.Autogen(vpol)
+					if err != nil {
+						continue
+					}
+					for _, rule := range rules {
+						for _, match := range rule.Spec.MatchConstraints.ResourceRules {
+							webhookRules = append(webhookRules, match.RuleWithOperations)
+						}
 					}
 				}
 			}
@@ -484,4 +490,16 @@ func generateName(name string, policy policiesv1beta1.GenericPolicy) string {
 	}
 
 	return name + "-" + policy.GetName()
+}
+
+// autogenCoveredByVAP reports whether the pod-controller autogen variants of a policy are
+// enforced by generated native ValidatingAdmissionPolicies, in which case no webhook rules
+// are needed for them. VAP generation is asynchronous, so the webhook keeps covering those
+// kinds until the policy status confirms the VAPs (including the autogen ones) were generated.
+func autogenCoveredByVAP(policy any) bool {
+	vpol, ok := policy.(*policiesv1beta1.ValidatingPolicy)
+	if !ok {
+		return false
+	}
+	return vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() && vpol.Status.Generated
 }
