@@ -154,6 +154,26 @@ func TestWrapper_RawAbsPath_GetStillFallsBackToReal(t *testing.T) {
 	assert.Equal(t, []string{"GET"}, inner.rawAbsPathCalls)
 }
 
+func TestWrapper_RawAbsPath_GetPrefersFakeOverReal(t *testing.T) {
+	inner := &spyClient{}
+	client := NewWrapper(inner)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-secret",
+			Namespace: "default",
+		},
+	}
+	_, err := client.CreateResource(context.TODO(), "v1", "Secret", "default", secret, false)
+	require.NoError(t, err)
+
+	result, err := client.RawAbsPath(context.TODO(), "/api/v1/namespaces/default/secrets/test-secret", "GET", nil)
+
+	require.NoError(t, err)
+	assert.Contains(t, string(result), "test-secret")
+	assert.Empty(t, inner.rawAbsPathCalls, "a GET the fake client can already answer must not reach the real cluster")
+}
+
 func TestWrapper_GetResource_FallsBackToReal(t *testing.T) {
 	realSecret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
