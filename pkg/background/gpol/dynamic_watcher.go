@@ -86,7 +86,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyvernov1.Resou
 		gvk := resource.GroupVersionKind()
 		mapping, err := wm.restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
-			return fmt.Errorf("failed to map gvk to gvr %s (%v)", gvk, err)
+			return fmt.Errorf("failed to map gvk to gvr %s (%w)", gvk, err)
 		}
 
 		gvr := mapping.Resource

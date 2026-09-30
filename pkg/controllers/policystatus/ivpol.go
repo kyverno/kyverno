@@ -30,7 +30,7 @@ func (c controller) updateIvpolStatus(ctx context.Context, ivpol *policiesv1beta
 		// autogen
 		rules, err := ivpolautogen.Autogen(ivpol)
 		if err != nil {
-			return fmt.Errorf("failed to build autogen rules for ivpol %s: %v", ivpol.GetName(), err)
+			return fmt.Errorf("failed to build autogen rules for ivpol %s: %w", ivpol.GetName(), err)
 		}
 		autogenStatus := policiesv1beta1.ImageValidatingPolicyAutogenStatus{
 			Configs: rules,

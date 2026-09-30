@@ -115,7 +115,7 @@ func doesResourceMatchConditionBlock(
 	if conditionBlock.Selector != nil {
 		hasPassed, err := matchutils.CheckSelector(conditionBlock.Selector, resource.GetLabels())
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse selector: %v", err))
+			errs = append(errs, fmt.Errorf("failed to parse selector: %w", err))
 		} else {
 			if !hasPassed {
 				errs = append(errs, fmt.Errorf("selector does not match"))
@@ -129,7 +129,7 @@ func doesResourceMatchConditionBlock(
 		} else if resource.GetKind() != "" || slices.Contains(conditionBlock.Kinds, "*") && wildcard.Match("*", resource.GetKind()) {
 			hasPassed, err := matchutils.CheckSelector(conditionBlock.NamespaceSelector, namespaceLabels)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("failed to parse namespace selector: %v", err))
+				errs = append(errs, fmt.Errorf("failed to parse namespace selector: %w", err))
 			} else {
 				if !hasPassed {
 					errs = append(errs, fmt.Errorf("namespace selector does not match labels"))

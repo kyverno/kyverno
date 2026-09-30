@@ -121,7 +121,7 @@ func (v *mutationHandler) applyMutations(
 
 				engineResponse, policyPatches, err := v.applyMutation(ctx, request.AdmissionRequest, currentContext, failurePolicy, policy)
 				if err != nil {
-					return fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
+					return fmt.Errorf("mutation policy %s error: %w", policy.GetName(), err)
 				}
 
 				if len(policyPatches) > 0 {
@@ -135,7 +135,7 @@ func (v *mutationHandler) applyMutations(
 				if engineResponse != nil {
 					policyContext = currentContext.WithNewResource(engineResponse.PatchedResource)
 					if err := policyContext.JSONContext().AddResource(engineResponse.PatchedResource.Object); err != nil {
-						return fmt.Errorf("failed to update resource in context for policy %s: %v", policy.GetName(), err)
+						return fmt.Errorf("failed to update resource in context for policy %s: %w", policy.GetName(), err)
 					}
 					emitWarning := policy.GetSpec().EmitWarning
 					if emitWarning != nil && *emitWarning {

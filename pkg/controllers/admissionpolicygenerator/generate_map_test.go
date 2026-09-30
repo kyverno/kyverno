@@ -2,15 +2,25 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/utils/ptr"
 )
 
@@ -184,6 +194,24 @@ func (m *mockMAPBindingBetaLister) Get(name string) (*admissionregistrationv1bet
 	return nil, nil
 }
 
+type mockCelPolexNamespaceListerForSuccess struct{}
+
+func (m *mockCelPolexNamespaceListerForSuccess) List(selector labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return nil, nil
+}
+func (m *mockCelPolexNamespaceListerForSuccess) Get(name string) (*policiesv1beta1.PolicyException, error) {
+	return nil, nil
+}
+
+type mockCelPolexListerForSuccess struct{}
+
+func (m *mockCelPolexListerForSuccess) List(selector labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return nil, nil
+}
+func (m *mockCelPolexListerForSuccess) PolicyExceptions(namespace string) policiesv1beta1listers.PolicyExceptionNamespaceLister {
+	return &mockCelPolexNamespaceListerForSuccess{}
+}
+
 type mockMAPAlphaLister struct{}
 
 func (m *mockMAPAlphaLister) List(selector labels.Selector) ([]*admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
@@ -202,4 +230,67 @@ func (m *mockMAPBindingAlphaLister) List(selector labels.Selector) ([]*admission
 
 func (m *mockMAPBindingAlphaLister) Get(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
 	return nil, nil
+}
+
+type mockMAPBetaListerForError struct{ err error }
+
+func (m *mockMAPBetaListerForError) List(selector labels.Selector) ([]*admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
+	return nil, m.err
+}
+func (m *mockMAPBetaListerForError) Get(name string) (*admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
+	return nil, m.err
+}
+
+type mockAuthChecker struct{}
+
+func (m *mockAuthChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
+	return &checker.AuthResult{Allowed: true}, nil
+}
+
+func TestHandleMAPGeneration_SentinelError(t *testing.T) {
+	errSentinel := errors.New("sentinel map list error")
+	c := &controller{
+		client:               k8sfake.NewSimpleClientset(),
+		kyvernoClient:        fake.NewSimpleClientset(),
+		mapBetaLister:        &mockMAPBetaListerForError{err: errSentinel},
+		mapbindingBetaLister: &mockMAPBindingBetaLister{},
+		checker:              &mockAuthChecker{},
+		celpolexLister:       &mockCelPolexListerForSuccess{},
+	}
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints:     &admissionregistrationv1.MatchResources{},
+			AutogenConfiguration: mapGenEnabled(),
+		},
+	}
+	err := c.handleMAPGeneration(context.Background(), mpol)
+	assert.ErrorIs(t, err, errSentinel)
+}
+
+func TestHandleMAPGeneration_APIError(t *testing.T) {
+	errSentinel := errors.New("sentinel map api error")
+	client := k8sfake.NewSimpleClientset()
+	client.PrependReactor("create", "mutatingadmissionpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errSentinel
+	})
+	c := &controller{
+		client:               client,
+		kyvernoClient:        fake.NewSimpleClientset(),
+		mapBetaLister:        &mockMAPBetaListerForError{err: apierrors.NewNotFound(schema.GroupResource{}, "notfound")},
+		mapbindingBetaLister: &mockMAPBindingBetaLister{},
+		checker:              &mockAuthChecker{},
+		celpolexLister:       &mockCelPolexListerForSuccess{},
+	}
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints:     &admissionregistrationv1.MatchResources{},
+			AutogenConfiguration: mapGenEnabled(),
+		},
+	}
+	err := c.handleMAPGeneration(context.Background(), mpol)
+	assert.ErrorIs(t, err, errSentinel)
 }

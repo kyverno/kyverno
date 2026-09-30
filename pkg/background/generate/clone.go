@@ -35,7 +35,7 @@ func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, sev
 
 	sourceObj, err := client.GetResource(context.TODO(), source.GetAPIVersion(), source.GetKind(), source.GetNamespace(), source.GetName())
 	if err != nil {
-		return newSkipGenerateResponse(nil, target, fmt.Errorf("source resource %s not found: %v", target.String(), err))
+		return newSkipGenerateResponse(nil, target, fmt.Errorf("source resource %s not found: %w", target.String(), err))
 	}
 
 	if err := updateSourceLabel(client, sourceObj); err != nil {
@@ -94,7 +94,7 @@ func manageCloneList(log logr.Logger, targetNamespace string, severSideApply boo
 				newSkipGenerateResponse(
 					nil,
 					newResourceSpec(apiVersion, kind, targetNamespace, ""),
-					fmt.Errorf("failed to list source resource for cloneList %s %s/%s. %v", apiVersion, kind, sourceNamespace, err),
+					fmt.Errorf("failed to list source resource for cloneList %s %s/%s. %w", apiVersion, kind, sourceNamespace, err),
 				),
 			)
 

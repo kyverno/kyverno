@@ -32,16 +32,16 @@ func GetPolicy(bytes []byte) (
 	for _, thisPolicyBytes := range documents {
 		policyBytes, err := yaml.ToJSON(thisPolicyBytes)
 		if err != nil {
-			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to convert to JSON: %v", err)
+			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to convert to JSON: %w", err)
 		}
 		var us unstructured.Unstructured
 		if err := us.UnmarshalJSON(policyBytes); err != nil {
-			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to decode policy: %v", err)
+			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to decode policy: %w", err)
 		}
 		if us.IsList() {
 			list, err := us.ToList()
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to decode policy list: %v", err)
+				return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to decode policy list: %w", err)
 			}
 			for i := range list.Items {
 				item := list.Items[i]
@@ -150,7 +150,7 @@ func parse(obj unstructured.Unstructured) (
 func parseValidatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionregistrationv1.ValidatingAdmissionPolicy, error) {
 	var out admissionregistrationv1.ValidatingAdmissionPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		return nil, fmt.Errorf("failed to decode policy: %v", err)
+		return nil, fmt.Errorf("failed to decode policy: %w", err)
 	}
 	if out.Kind == "" {
 		log.V(3).Info("skipping file as ValidatingAdmissionPolicy.Kind not found")
@@ -162,7 +162,7 @@ func parseValidatingAdmissionPolicy(obj unstructured.Unstructured) (*admissionre
 func parseValidatingAdmissionPolicyBinding(obj unstructured.Unstructured) (*admissionregistrationv1.ValidatingAdmissionPolicyBinding, error) {
 	var out admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		return nil, fmt.Errorf("failed to decode policy: %v", err)
+		return nil, fmt.Errorf("failed to decode policy: %w", err)
 	}
 	if out.Kind == "" {
 		log.V(3).Info("skipping file as ValidatingAdmissionPolicyBinding.Kind not found")
@@ -174,7 +174,7 @@ func parseValidatingAdmissionPolicyBinding(obj unstructured.Unstructured) (*admi
 func parsePolicy(obj unstructured.Unstructured) (*kyvernov1.Policy, error) {
 	var out kyvernov1.Policy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		return nil, fmt.Errorf("failed to decode policy: %v", err)
+		return nil, fmt.Errorf("failed to decode policy: %w", err)
 	}
 	if out.Kind == "" {
 		log.V(3).Info("skipping file as Policy.Kind not found")
@@ -189,7 +189,7 @@ func parsePolicy(obj unstructured.Unstructured) (*kyvernov1.Policy, error) {
 func parseClusterPolicy(obj unstructured.Unstructured) (*kyvernov1.ClusterPolicy, error) {
 	var out kyvernov1.ClusterPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		return nil, fmt.Errorf("failed to decode policy: %v", err)
+		return nil, fmt.Errorf("failed to decode policy: %w", err)
 	}
 	if out.Kind == "" {
 		log.V(3).Info("skipping file as ClusterPolicy.Kind not found")
@@ -202,7 +202,7 @@ func parseClusterPolicy(obj unstructured.Unstructured) (*kyvernov1.ClusterPolicy
 func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1beta1.ValidatingPolicy, error) {
 	var out policiesv1beta1.ValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		return nil, fmt.Errorf("failed to decode policy: %v", err)
+		return nil, fmt.Errorf("failed to decode policy: %w", err)
 	}
 	if out.Kind == "" {
 		log.V(3).Info("skipping file as ValidatingPolicy.Kind not found")
@@ -214,7 +214,7 @@ func parseValidatingPolicy(obj unstructured.Unstructured) (*policiesv1beta1.Vali
 func parseImageValidatingPolicy(obj unstructured.Unstructured) (*policiesv1beta1.ImageValidatingPolicy, error) {
 	var out policiesv1beta1.ImageValidatingPolicy
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructuredWithValidation(obj.Object, &out, true); err != nil {
-		return nil, fmt.Errorf("failed to decode policy: %v", err)
+		return nil, fmt.Errorf("failed to decode policy: %w", err)
 	}
 	return &out, nil
 }

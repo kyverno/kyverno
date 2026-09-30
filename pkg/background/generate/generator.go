@@ -89,17 +89,17 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 	var newGenResources []kyvernov1.ResourceSpec
 
 	if err := g.loadContext(context.TODO()); err != nil {
-		return newGenResources, fmt.Errorf("failed to load context: %v", err)
+		return newGenResources, fmt.Errorf("failed to load context: %w", err)
 	}
 
 	typeConditions, err := engineutils.TransformConditions(g.anyAllConditions)
 	if err != nil {
-		return newGenResources, fmt.Errorf("failed to parse preconditions: %v", err)
+		return newGenResources, fmt.Errorf("failed to parse preconditions: %w", err)
 	}
 
 	preconditionsPassed, msg, err := variables.EvaluateConditionsWithContext(g.logger, g.policyContext.JSONContext(), typeConditions, "generate.preconditions")
 	if err != nil {
-		return newGenResources, fmt.Errorf("failed to evaluate preconditions: %v", err)
+		return newGenResources, fmt.Errorf("failed to evaluate preconditions: %w", err)
 	}
 
 	if !preconditionsPassed {
@@ -229,12 +229,12 @@ func (g *generator) generateForeach() ([]kyvernov1.ResourceSpec, error) {
 	for i, foreach := range g.forEach {
 		elements, err := engineutils.EvaluateList(foreach.List, g.policyContext.JSONContext())
 		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to evaluate %v foreach list: %v", i, err))
+			errors = append(errors, fmt.Errorf("failed to evaluate %v foreach list: %w", i, err))
 			continue
 		}
 		gen, err := g.generateElements(foreach, elements, nil)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to process %v foreach in rule %s: %v", i, g.rule.Name, err))
+			errors = append(errors, fmt.Errorf("failed to process %v foreach in rule %s: %w", i, g.rule.Name, err))
 		}
 		if gen != nil {
 			genResources = append(genResources, gen...)
@@ -258,7 +258,7 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 		policyContext := g.policyContext.Copy()
 		if err := engineutils.AddElementToContext(policyContext, element, index, 0, elementScope); err != nil {
 			g.logger.Error(err, "")
-			errors = append(errors, fmt.Errorf("failed to add %v element to context: %v", index, err))
+			errors = append(errors, fmt.Errorf("failed to add %v element to context: %w", index, err))
 			continue
 		}
 
@@ -274,7 +274,7 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 			g.contextLoader).
 			generate()
 		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to process %v element: %v", index, err))
+			errors = append(errors, fmt.Errorf("failed to process %v element: %w", index, err))
 		}
 		if gen != nil {
 			genResources = append(genResources, gen...)

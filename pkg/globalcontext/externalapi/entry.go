@@ -65,7 +65,7 @@ func New(
 	for _, p := range gce.Spec.Projections {
 		jpQuery, err := jp.Query(p.JMESPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse jmespath query: %s", err)
+			return nil, fmt.Errorf("failed to parse jmespath query: %w", err)
 		}
 		projections = append(projections, store.Projection{
 			Name: p.Name,

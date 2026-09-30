@@ -153,7 +153,7 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 		// No name to fetch by: list the namespace and match on UID.
 		triggers, err := client.ListResource(context.TODO(), resourceSpec.GetAPIVersion(), resourceSpec.GetKind(), resourceSpec.GetNamespace(), nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list trigger resources: %v", err)
+			return nil, fmt.Errorf("failed to list trigger resources: %w", err)
 		}
 
 		for _, trigger := range triggers.Items {
@@ -174,7 +174,7 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 				return nil, nil
 			}
 
-			return nil, fmt.Errorf("resource %s/%s/%s/%s: %v", resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
+			return nil, fmt.Errorf("resource %s/%s/%s/%s: %w", resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name, err)
 		}
 
 		return resource, nil
@@ -189,7 +189,7 @@ func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, 
 
 		resource, err = kubeutils.BytesToUnstructured(raw)
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert raw object to unstructured: %v", err)
+			return nil, fmt.Errorf("failed to convert raw object to unstructured: %w", err)
 		} else {
 			return resource, nil
 		}

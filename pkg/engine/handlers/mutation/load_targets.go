@@ -61,7 +61,7 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 	var s kyvernov1.TargetSelector
 	jsonData, err := json.Marshal(target.TargetSelector)
 	if err != nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to marshal the mutation target to JSON: %s", err)
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to marshal the mutation target to JSON: %w", err)
 	}
 
 	var result map[string]interface{}
@@ -70,8 +70,11 @@ func resolveSpec(i int, target kyvernov1.TargetResourceSpec, ctx engineapi.Polic
 	}
 
 	selector, err := variables.SubstituteAll(logger, ctx.JSONContext(), result)
-	if err != nil || selector == nil {
-		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d]: %v", i, err)
+	if err != nil {
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d]: %w", i, err)
+	}
+	if selector == nil {
+		return kyvernov1.TargetSelector{}, fmt.Errorf("failed to substitute variables in target[%d]: returned nil selector", i)
 	}
 
 	substitutedJson, err := json.Marshal(selector)

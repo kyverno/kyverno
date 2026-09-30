@@ -286,7 +286,7 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 			policy, err = h.polLister.Policies(polNamespace).Get(polName)
 		}
 		if err != nil {
-			return nil, nil, nil, nil, nil, fmt.Errorf("key %s/%s: %v", polNamespace, polName, err)
+			return nil, nil, nil, nil, nil, fmt.Errorf("key %s/%s: %w", polNamespace, polName, err)
 		}
 
 		filteredPolicies := filterPolicies(ctx, failurePolicy, policy)

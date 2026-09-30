@@ -47,7 +47,7 @@ func readFile(reader io.Reader) (string, error) {
 func loadFile(cmd *cobra.Command, file string) (string, error) {
 	reader, err := os.Open(filepath.Clean(file))
 	if err != nil {
-		return "", fmt.Errorf("failed open file %s: %v", file, err)
+		return "", fmt.Errorf("failed open file %s: %w", file, err)
 	}
 	defer func() {
 		if err := reader.Close(); err != nil {
@@ -56,7 +56,7 @@ func loadFile(cmd *cobra.Command, file string) (string, error) {
 	}()
 	content, err := readFile(reader)
 	if err != nil {
-		return "", fmt.Errorf("failed read file %s: %v", file, err)
+		return "", fmt.Errorf("failed read file %s: %w", file, err)
 	}
 	return content, nil
 }
@@ -76,7 +76,7 @@ func loadExpressions(cmd *cobra.Command, args []string, files []string) ([]strin
 		fmt.Fprintln(cmd.OutOrStdout(), "Enter a jmespath expression and hit Ctrl+D.")
 		data, err := readFile(cmd.InOrStdin())
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file STDIN: %v", err)
+			return nil, fmt.Errorf("failed to read file STDIN: %w", err)
 		}
 		expressions = append(expressions, data)
 	}

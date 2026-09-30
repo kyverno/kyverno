@@ -93,7 +93,7 @@ func getSignature(sp cosign.SignedPayload) (oci.Signature, error) {
 	}
 	ociSig, err := static.NewSignature(sp.Payload, sp.Base64Signature, staticOpts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get signature %v", err)
+		return nil, fmt.Errorf("failed to get signature %w", err)
 	}
 	return ociSig, nil
 }

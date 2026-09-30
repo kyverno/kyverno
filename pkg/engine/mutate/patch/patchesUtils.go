@@ -26,7 +26,7 @@ func convertPatchesToJSON(patchesJSON6902 string) ([]byte, error) {
 		// try to parse it to json.
 		op, err := yaml.YAMLToJSON([]byte(patchesJSON6902))
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert patchesJSON6902 to JSON: %v", err)
+			return nil, fmt.Errorf("failed to convert patchesJSON6902 to JSON: %w", err)
 		}
 		return op, nil
 	}

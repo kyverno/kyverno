@@ -82,7 +82,7 @@ func readFile(reader io.Reader) ([]byte, error) {
 func loadFile(cmd *cobra.Command, file string) ([]byte, error) {
 	reader, err := os.Open(filepath.Clean(file))
 	if err != nil {
-		return nil, fmt.Errorf("failed open file %s: %v", file, err)
+		return nil, fmt.Errorf("failed open file %s: %w", file, err)
 	}
 	defer func() {
 		if err := reader.Close(); err != nil {
@@ -91,7 +91,7 @@ func loadFile(cmd *cobra.Command, file string) ([]byte, error) {
 	}()
 	content, err := readFile(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file %s: %v", file, err)
+		return nil, fmt.Errorf("failed to read file %s: %w", file, err)
 	}
 	return content, nil
 }
@@ -152,12 +152,12 @@ func evaluate(input interface{}, query string) (interface{}, error) {
 	jp := jmespath.New(config.NewDefaultConfiguration(false))
 	q, err := jp.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", query, err)
+		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %w", query, err)
 	}
 	result, err := q.Search(input)
 	if err != nil {
 		if syntaxError, ok := err.(gojmespath.SyntaxError); ok {
-			return nil, fmt.Errorf("%s\n%s", syntaxError, syntaxError.HighlightLocation())
+			return nil, fmt.Errorf("%w\n%s", syntaxError, syntaxError.HighlightLocation())
 		}
 		return nil, fmt.Errorf("error evaluating JMESPath expression: %w", err)
 	}

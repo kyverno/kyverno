@@ -66,7 +66,7 @@ func (v *Validate) Validate(ctx context.Context, _ []string) (warnings []string,
 	if target := v.validationRule.GetAnyPattern(); target != nil {
 		anyPattern, err := v.validationRule.DeserializeAnyPattern()
 		if err != nil {
-			return nil, "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
+			return nil, "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %w", err)
 		}
 		for i, pattern := range anyPattern {
 			if path, err := common.ValidatePattern(pattern, "/", func(a anchor.Anchor) bool {

@@ -265,7 +265,7 @@ func (pc *policyController) updatePolicy(old, new interface{}) {
 		if deleted, ok, selector := ruleChange(oldkpol, newkpol); ok {
 			err := pc.createURForDownstreamDeletion(deleted)
 			if err != nil {
-				utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %v", err))
+				utilruntime.HandleError(fmt.Errorf("failed to create UR on rule deletion, clean up downstream resource may be failed: %w", err))
 			}
 		} else {
 			pc.unlabelDownstream(selector)
@@ -328,14 +328,14 @@ func (pc *policyController) deletePolicy(obj interface{}) {
 		cpol := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 		err := pc.createURForDownstreamDeletion(cpol)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
+			utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %w", err))
 		}
 		p = engineapi.NewKyvernoPolicy(cpol)
 	case *kyvernov1.Policy:
 		pol := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 		err := pc.createURForDownstreamDeletion(pol)
 		if err != nil {
-			utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %v", err))
+			utilruntime.HandleError(fmt.Errorf("failed to create UR on policy deletion, clean up downstream resource may be failed: %w", err))
 		}
 		p = engineapi.NewKyvernoPolicy(pol)
 	case *policiesv1beta1.GeneratingPolicy:

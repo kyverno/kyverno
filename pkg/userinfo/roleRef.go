@@ -27,13 +27,13 @@ func GetRoleRef(rbLister RoleBindingLister, crbLister ClusterRoleBindingLister, 
 	// rolebindings
 	roleBindings, err := rbLister.List(labels.Everything())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list rolebindings: %v", err)
+		return nil, nil, fmt.Errorf("failed to list rolebindings: %w", err)
 	}
 	rs, crs := getRoleRefByRoleBindings(roleBindings, userInfo, requestNamespace)
 	// clusterrolebindings
 	clusterroleBindings, err := crbLister.List(labels.Everything())
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to list clusterrolebindings: %v", err)
+		return nil, nil, fmt.Errorf("failed to list clusterrolebindings: %w", err)
 	}
 	crs = append(crs, getRoleRefByClusterRoleBindings(clusterroleBindings, userInfo)...)
 	if rs != nil {

@@ -102,7 +102,7 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		GetWithRetry(1*time.Second, 120, func() error { // Wait Till preparing Chaos engine
 			chaosresult, err := e2eClient.GetNamespacedResource(crGVR, nspace, "kind-chaos-pod-cpu-hog")
 			if err != nil {
-				return fmt.Errorf("Unable to fatch ChaosResult: %v", err)
+				return fmt.Errorf("Unable to fatch ChaosResult: %w", err)
 			}
 			chaosVerdict, _, err := unstructured.NestedString(chaosresult.UnstructuredContent(), "status", "experimentStatus", "verdict")
 			if err != nil {

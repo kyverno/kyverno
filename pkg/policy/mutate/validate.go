@@ -63,7 +63,7 @@ func (m *Mutate) Validate(ctx context.Context, _ []string) (warnings []string, p
 	}
 	if m.rule.Mutation.Targets != nil {
 		if err := m.validateAuth(ctx, m.rule.Mutation.Targets); err != nil {
-			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %v", m.authCheckerBackground.User(), err)
+			return nil, "targets", fmt.Errorf("auth check fails, additional privileges are required for the service account '%s': %w", m.authCheckerBackground.User(), err)
 		}
 	}
 	if w, err := m.validateAuthReports(ctx); err != nil {
