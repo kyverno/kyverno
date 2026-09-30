@@ -18,7 +18,7 @@ func TestNormalizeOperation(t *testing.T) {
 		{operation: "CREATE", want: "CREATE"},
 		{operation: "UPDATE", want: "UPDATE"},
 		{operation: "DELETE", want: "DELETE"},
-		{operation: "CONNECT", wantErr: true},
+		{operation: "CONNECT", want: "CONNECT"},
 		{operation: "delete", wantErr: true},
 		{operation: "foo", wantErr: true},
 	}
@@ -91,12 +91,22 @@ func TestAdmissionRequestShape(t *testing.T) {
 		assert.Nil(t, object)
 		assert.Equal(t, resource.Object, oldObject.(*unstructured.Unstructured).Object)
 	})
+	t.Run("CONNECT sets nil object and nil oldObject", func(t *testing.T) {
+		op, object, oldObject := AdmissionRequestShape("CONNECT", resource)
+		assert.Equal(t, admissionv1.Connect, op)
+		assert.Nil(t, object)
+		assert.Nil(t, oldObject)
+	})
 }
 
 func TestResolveOperation(t *testing.T) {
 	t.Run("explicit operation wins", func(t *testing.T) {
 		p := &PolicyProcessor{Operation: "DELETE"}
 		assert.Equal(t, "DELETE", p.resolveOperation())
+	})
+	t.Run("explicit CONNECT wins", func(t *testing.T) {
+		p := &PolicyProcessor{Operation: "CONNECT"}
+		assert.Equal(t, "CONNECT", p.resolveOperation())
 	})
 	t.Run("empty without variables", func(t *testing.T) {
 		p := &PolicyProcessor{}

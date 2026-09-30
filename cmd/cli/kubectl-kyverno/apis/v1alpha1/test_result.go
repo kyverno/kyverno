@@ -54,14 +54,15 @@ type TestResultBase struct {
 	Kind string `json:"kind"`
 
 	// Operation mentions the admission operation to simulate when applying policies
-	// on the resources of this test result. Possible values are CREATE, UPDATE and
-	// DELETE. If unset, the operation defaults to CREATE, or to the operation
+	// on the resources of this test result. Possible values are CREATE, UPDATE, DELETE
+	// and CONNECT. If unset, the operation defaults to CREATE, or to the operation
 	// declared via the `request.operation` global value in the values file.
 	// For UPDATE, both object and oldObject are set to the resource. For DELETE,
 	// object is null and oldObject is set to the resource, mirroring the API server.
+	// For CONNECT, both object and oldObject are null.
 	// It is not supported for deleting policies and JSON payloads.
 	// +optional
-	// +kubebuilder:validation:Enum=CREATE;UPDATE;DELETE
+	// +kubebuilder:validation:Enum=CREATE;UPDATE;DELETE;CONNECT
 	Operation string `json:"operation,omitempty"`
 
 	// PatchedResource takes a resource configuration file in yaml format from
