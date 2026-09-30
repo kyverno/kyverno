@@ -233,3 +233,22 @@ func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {
 		})
 	}
 }
+
+func TestWithPolicyNamespace(t *testing.T) {
+	opt := WithPolicyNamespace("tenant-a")
+
+	assert.NotNil(t, opt)
+	cl := &contextLoader{}
+	opt(cl)
+	assert.Equal(t, "tenant-a", cl.policyNamespace)
+}
+
+func TestDefaultContextLoaderFactory_WithPolicyNamespaceOverridesNilPolicy(t *testing.T) {
+	factory := DefaultContextLoaderFactory(nil, WithPolicyNamespace("tenant-a"))
+
+	loader := factory(nil, kyvernov1.Rule{})
+
+	cl, ok := loader.(*contextLoader)
+	require.True(t, ok)
+	assert.Equal(t, "tenant-a", cl.policyNamespace)
+}

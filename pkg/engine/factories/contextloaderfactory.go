@@ -53,6 +53,13 @@ func WithGlobalContextStore(gctxStore loaders.Store) ContextLoaderFactoryOptions
 	}
 }
 
+// WithPolicyNamespace sets the namespace clamp for callers whose policy type is not a kyvernov1.PolicyInterface.
+func WithPolicyNamespace(ns string) ContextLoaderFactoryOptions {
+	return func(cl *contextLoader) {
+		cl.policyNamespace = ns
+	}
+}
+
 type contextLoader struct {
 	logger          logr.Logger
 	cmResolver      engineapi.ConfigmapResolver
