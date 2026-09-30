@@ -1305,6 +1305,88 @@ func Test_OperationDelete(t *testing.T) {
 	})
 }
 
+func Test_OperationConnect(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-connect")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+
+	resourceKey := "v1,Pod,test-ns,test-pod"
+
+	t.Run("CONNECT run filters policies by operation", func(t *testing.T) {
+		require.Contains(t, testResponse.TriggerByOperation, "CONNECT")
+		responses := testResponse.TriggerByOperation["CONNECT"][resourceKey]
+		require.NotEmpty(t, responses)
+		tests := []struct {
+			name     string
+			policy   string
+			wantFail bool
+		}{
+			{"CONNECT-scoped policy fails", "deny-connect", true},
+			{"CREATE-scoped policy does not match", "require-env-label", false},
+		}
+		for _, tc := range tests {
+			t.Run(tc.name, func(t *testing.T) {
+				var matched, failed bool
+				for _, response := range responses {
+					if response.Policy().GetName() != tc.policy {
+						continue
+					}
+					matched = true
+					if !tc.wantFail {
+						assert.Empty(t, response.PolicyResponse.Rules)
+						continue
+					}
+					for _, rule := range response.PolicyResponse.Rules {
+						if rule.Status() == engineapi.RuleStatusFail {
+							failed = true
+						}
+					}
+				}
+				require.True(t, matched, "expected a response for %s", tc.policy)
+				if tc.wantFail {
+					assert.True(t, failed, "expected a failing rule for %s", tc.policy)
+				}
+			})
+		}
+	})
+
+	t.Run("default run skips the CONNECT-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		require.NotEmpty(t, responses)
+		for _, response := range responses {
+			if response.Policy().GetName() == "deny-connect" {
+				assert.Empty(t, response.PolicyResponse.Rules, "CONNECT-scoped policy must not match the default CREATE run")
+			}
+		}
+	})
+
+	t.Run("default run evaluates the CREATE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "require-env-label" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for require-env-label in the default run")
+	})
+}
+
 func Test_InvalidResultOperation(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
@@ -1315,7 +1397,7 @@ func Test_InvalidResultOperation(t *testing.T) {
 	testCases := test.LoadTest(nil, testFile)
 	require.Len(t, testCases, 1)
 	testCase := testCases[0]
-	testCase.Test.Results[0].Operation = "CONNECT"
+	testCase.Test.Results[0].Operation = "INVALID"
 
 	_, err = runTest(context.TODO(), io.Discard, testCase, false)
 	require.Error(t, err)
