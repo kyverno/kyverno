@@ -1020,6 +1020,74 @@ func TestRunTest_MutatingPolicySubresourceMatch(t *testing.T) {
 	require.True(t, found, "expected engine response for policy mutate-add-aws-zone-id")
 }
 
+func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+
+	tests := []struct {
+		name       string
+		dir        string
+		policy     string
+		targetKind string
+		targetName string
+	}{
+		{
+			name:       "deployment trigger, configmap target",
+			dir:        "mutate-existing",
+			policy:     "mutate-existing-configmap",
+			targetKind: "ConfigMap",
+			targetName: "test-configmap",
+		},
+		{
+			name:       "secret trigger, deployment target",
+			dir:        "mutate-existing-secret-trigger-deployment-target",
+			policy:     "mutate-existing-deployment-from-secret",
+			targetKind: "Deployment",
+			targetName: "test-deploy",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", tt.dir)
+			if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+				t.Skip("Test directory not found, skipping test")
+				return
+			}
+			testFile := filepath.Join(testDir, "kyverno-test.yaml")
+			testCases := test.LoadTest(nil, testFile)
+			require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+			out := &bytes.Buffer{}
+			testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+			require.NoError(t, err, "Failed to run test: %s", out.String())
+
+			var targetMutated bool
+			for _, responses := range testResponse.Trigger {
+				for _, r := range responses {
+					if r.Policy().GetName() != tt.policy {
+						continue
+					}
+					// A policy with active targetMatchConstraints must not be applied inline to the trigger.
+					if r.PatchedResource.Object != nil {
+						assert.Equal(t, r.Resource.Object, r.PatchedResource.Object, "trigger %s/%s must not be patched", r.Resource.GetKind(), r.Resource.GetName())
+					}
+					for _, rule := range r.PolicyResponse.Rules {
+						patched, _, _ := rule.PatchedTarget()
+						require.NotNil(t, patched, "rule %q evaluated against the trigger instead of a target: %s", rule.Name(), rule.Message())
+						require.Equal(t, engineapi.RuleStatusPass, rule.Status(), rule.Message())
+						if patched.GetKind() == tt.targetKind && patched.GetName() == tt.targetName {
+							assert.Equal(t, "true", patched.GetLabels()["mutated"])
+							targetMutated = true
+						}
+					}
+				}
+			}
+			assert.True(t, targetMutated, "expected target %s %s to be mutated", tt.targetKind, tt.targetName)
+		})
+	}
+}
+
 func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")

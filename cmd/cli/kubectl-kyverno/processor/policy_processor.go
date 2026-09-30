@@ -363,7 +363,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			reps, err := eng.Handle(context.TODO(), request, nil)
+			// Policies with active targetMatchConstraints mutate their selected targets, not the trigger.
+			// Exclude them from inline mutation, as the admission webhook handlers do.
+			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
