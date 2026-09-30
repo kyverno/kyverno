@@ -181,53 +181,55 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 			logger.V(4).Info("target resource is filtered out by resource filters", "kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName(), "mpol", ur.Spec.GetPolicyKey())
 			continue
 		}
-		// Build the AdmissionRequest for this target. For background-only scans there is no
-		// real admission request, so we construct a synthetic one from the target resource.
-		// Operation is Update (background scans mutate already-existing resources).
-		// Object.Raw, Kind, Resource, Namespace and Name are populated so that request.*
-		// CEL variables (request.object, request.namespace, etc.) reflect the actual target.
-		ar := baseAR
-		if ar == nil {
-			raw, err := json.Marshal(object.Object)
-			if err != nil {
-				failures = append(failures, fmt.Errorf("failed to marshal target object for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
-				continue
+		evaluate := func(object *unstructured.Unstructured) (mpolengine.EngineResponse, error) {
+			// Build the AdmissionRequest for this target. For background-only scans there is no
+			// real admission request, so we construct a synthetic one from the target resource.
+			// Operation is Update (background scans mutate already-existing resources).
+			// Object.Raw, Kind, Resource, Namespace and Name are populated so that request.*
+			// CEL variables (request.object, request.namespace, etc.) reflect the actual target.
+			ar := baseAR
+			if ar == nil {
+				raw, err := json.Marshal(object.Object)
+				if err != nil {
+					return mpolengine.EngineResponse{}, fmt.Errorf("failed to marshal target object: %w", err)
+				}
+				gvk := object.GroupVersionKind()
+				ar = &admissionv1.AdmissionRequest{
+					Operation: admissionv1.Update,
+					Kind: metav1.GroupVersionKind{
+						Group:   gvk.Group,
+						Version: gvk.Version,
+						Kind:    gvk.Kind,
+					},
+					Resource: metav1.GroupVersionResource{
+						Group:    target.parentResource.Group,
+						Version:  target.parentResource.Version,
+						Resource: target.parentResource.Resource,
+					},
+					SubResource: target.subresource,
+					Namespace:   object.GetNamespace(),
+					Name:        object.GetName(),
+					Object:      runtime.RawExtension{Raw: raw},
+				}
 			}
-			gvk := object.GroupVersionKind()
-			ar = &admissionv1.AdmissionRequest{
-				Operation: admissionv1.Update,
-				Kind: metav1.GroupVersionKind{
-					Group:   gvk.Group,
-					Version: gvk.Version,
-					Kind:    gvk.Kind,
-				},
-				Resource: metav1.GroupVersionResource{
-					Group:    target.parentResource.Group,
-					Version:  target.parentResource.Version,
-					Resource: target.parentResource.Resource,
-				},
-				SubResource: target.subresource,
-				Namespace:   object.GetNamespace(),
-				Name:        object.GetName(),
-				Object:      runtime.RawExtension{Raw: raw},
-			}
+
+			attr := admission.NewAttributesRecord(
+				object,
+				nil,
+				object.GroupVersionKind(),
+				object.GetNamespace(),
+				object.GetName(),
+				target.parentResource,
+				target.subresource,
+				admission.Operation(ar.Operation),
+				nil,
+				false,
+				admissionpolicy.NewUser(ar.UserInfo),
+			)
+			return p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
 		}
 
-		attr := admission.NewAttributesRecord(
-			object,
-			nil,
-			object.GroupVersionKind(),
-			object.GetNamespace(),
-			object.GetName(),
-			target.parentResource,
-			target.subresource,
-			admission.Operation(ar.Operation),
-			nil,
-			false,
-			admissionpolicy.NewUser(ar.UserInfo),
-		)
-
-		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
+		response, err := evaluate(object)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue
@@ -242,6 +244,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				}
 				continue
 			}
+			listedResourceVersion := object.GetResourceVersion()
 			object, err = p.client.GetResource(context.TODO(), object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName())
 			if err != nil {
 				// The target may have been deleted between resolution and update
@@ -251,6 +254,24 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				}
 				failures = append(failures, fmt.Errorf("failed to refresh target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 				continue
+			}
+			// The patch above was computed from the listed copy of the target; if the target has
+			// changed since, re-apply the policy to the live object so that change is not overwritten.
+			if object.GetResourceVersion() != listedResourceVersion {
+				response, err = evaluate(object)
+				if err != nil {
+					failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+					continue
+				}
+				if response.PatchedResource == nil {
+					continue
+				}
+				if apiequality.Semantic.DeepEqual(response.PatchedResource.Object, object.Object) {
+					if err := p.audit(object, &response); err != nil {
+						logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+					}
+					continue
+				}
 			}
 			new := response.PatchedResource
 			new.SetResourceVersion(object.GetResourceVersion())
