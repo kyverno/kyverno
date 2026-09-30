@@ -2,6 +2,7 @@ package validate
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -1760,4 +1761,15 @@ func testMatchPattern(t *testing.T, testCase struct {
 	} else if testCase.status == engineapi.RuleStatusError {
 		assert.Assert(t, err == nil, fmt.Sprintf("\nexpected error - test: %s\npattern: %s\nresource: %s\n", testCase.name, pattern, resource))
 	}
+}
+
+func TestPatternError_Unwrap(t *testing.T) {
+	inner := errors.New("inner error")
+	pe := &PatternError{
+		Err:  inner,
+		Path: "spec.containers",
+		Skip: false,
+	}
+	assert.Equal(t, pe.Unwrap(), inner)
+	assert.Equal(t, errors.Unwrap(pe), inner)
 }

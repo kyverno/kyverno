@@ -2,6 +2,7 @@ package anchor
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -163,6 +164,11 @@ func TestIsNegationAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("negation anchor matched in resource: test"),
 		},
+		want: false,
+	}, {
+		args: args{
+			err: fmt.Errorf("wrapped: %w", newNegationAnchorError("test")),
+		},
 		want: true,
 	}, {
 		args: args{
@@ -206,6 +212,11 @@ func TestIsConditionalAnchorError(t *testing.T) {
 		args: args{
 			err: errors.New("conditional anchor mismatch: test"),
 		},
+		want: false,
+	}, {
+		args: args{
+			err: fmt.Errorf("wrapped: %w", newConditionalAnchorError("test")),
+		},
 		want: true,
 	}, {
 		args: args{
@@ -248,6 +259,11 @@ func TestIsGlobalAnchorError(t *testing.T) {
 	}, {
 		args: args{
 			err: errors.New("global anchor mismatch: test"),
+		},
+		want: false,
+	}, {
+		args: args{
+			err: fmt.Errorf("wrapped: %w", newGlobalAnchorError("test")),
 		},
 		want: true,
 	}, {
