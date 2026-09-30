@@ -1020,6 +1020,8 @@ func TestRunTest_MutatingPolicySubresourceMatch(t *testing.T) {
 	require.True(t, found, "expected engine response for policy mutate-add-aws-zone-id")
 }
 
+// TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger checks that a MutatingPolicy with
+// targetMatchConstraints mutates only its selected targets and leaves the trigger unchanged.
 func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")

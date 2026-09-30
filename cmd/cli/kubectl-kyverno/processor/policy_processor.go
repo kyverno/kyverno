@@ -464,6 +464,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							},
 						}
 						resp = resp.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+						if err := p.processMutateExistingEngineResponse(resp, resPath); err != nil {
+							return responses, fmt.Errorf("failed to print mutated target result (%w)", err)
+						}
 						responses = append(responses, resp)
 					}
 				}
@@ -952,11 +955,27 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 	return nil
 }
 
-func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
-	yamlEncodedResource, err := yaml.Marshal(resource)
-	if err != nil {
-		return fmt.Errorf("failed to marshal (%w)", err)
+// processMutateExistingEngineResponse records and prints a response produced for a mutateExisting target.
+// Only the patched targets are printed, the trigger itself is left untouched.
+func (p *PolicyProcessor) processMutateExistingEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
+	if !p.Rc.addMutateResponse(response) {
+		return nil
 	}
+	return p.printOutput(nil, response, resourcePath, false)
+}
+
+// printOutput prints the given resource followed by any patched targets found in the response.
+// A nil resource prints only the patched targets.
+func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
+	var yamlEncodedResource []byte
+	if resource != nil {
+		var err error
+		yamlEncodedResource, err = yaml.Marshal(resource)
+		if err != nil {
+			return fmt.Errorf("failed to marshal (%w)", err)
+		}
+	}
+	printResource := resource != nil
 
 	var yamlEncodedTargetResources [][]byte
 	for _, ruleResponese := range response.PolicyResponse.Rules {
@@ -975,11 +994,15 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 
 	if p.MutateLogPath == "" {
 		resource := string(yamlEncodedResource) + string("\n---")
-		if len(strings.TrimSpace(resource)) > 0 {
+		if !printResource || len(strings.TrimSpace(resource)) > 0 {
 			if !p.Stdin {
 				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
 			}
-			fmt.Fprint(p.Out, "\n"+resource+"\n")
+			if printResource {
+				fmt.Fprint(p.Out, "\n"+resource+"\n")
+			} else {
+				fmt.Fprint(p.Out, "\n")
+			}
 			if len(yamlEncodedTargetResources) > 0 {
 				fmt.Fprintf(p.Out, "patched targets: \n")
 				for _, patchedTarget := range yamlEncodedTargetResources {
@@ -991,6 +1014,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 	}
 
 	var file *os.File
+	var err error
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
 	if isGenerate {
@@ -1009,8 +1033,10 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 			return err
 		}
 	}
-	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
-		return err
+	if printResource {
+		if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
+			return err
+		}
 	}
 
 	for _, patchedTarget := range yamlEncodedTargetResources {

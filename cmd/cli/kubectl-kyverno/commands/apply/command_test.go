@@ -1436,3 +1436,60 @@ func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
 		})
 	}
 }
+
+// Test_Apply_MutatingPolicyTargetResources checks that a MutatingPolicy with targetMatchConstraints mutates
+// the resources passed with --target-resource and never the trigger itself.
+func Test_Apply_MutatingPolicyTargetResources(t *testing.T) {
+	dir := "../../../../../test/cli/test-mutating-policy/mutate-existing-secret-trigger-deployment-target"
+	tests := []struct {
+		name            string
+		targetResources []string
+		wantPass        int
+	}{
+		{
+			name:            "with target resource",
+			targetResources: []string{dir + "/target.yaml"},
+			wantPass:        1,
+		},
+		{
+			name:     "without target resource",
+			wantPass: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := ApplyCommandConfig{
+				PolicyPaths:         []string{dir + "/policy.yaml"},
+				ResourcePaths:       []string{dir + "/trigger.yaml"},
+				TargetResourcePaths: tt.targetResources,
+			}
+			out := &bytes.Buffer{}
+			rc, _, _, responses, err := config.applyCommandHelper(context.TODO(), out)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, 0, rc.Fail+rc.Error)
+
+			var targetMutated bool
+			for _, response := range responses {
+				if response.Policy().GetName() != "mutate-existing-deployment-from-secret" {
+					continue
+				}
+				if response.PatchedResource.Object != nil {
+					assert.Equal(t, response.Resource.Object, response.PatchedResource.Object, "trigger must not be patched")
+				}
+				for _, rule := range response.PolicyResponse.Rules {
+					patched, _, _ := rule.PatchedTarget()
+					if !assert.NotNil(t, patched, "rule %q evaluated against the trigger: %s", rule.Name(), rule.Message()) {
+						continue
+					}
+					assert.Equal(t, "Deployment", patched.GetKind())
+					assert.Equal(t, "true", patched.GetLabels()["mutated"])
+					targetMutated = true
+				}
+			}
+			assert.Equal(t, tt.wantPass > 0, targetMutated)
+			assert.Equal(t, tt.wantPass > 0, strings.Contains(out.String(), "patched targets"))
+			assert.NotContains(t, out.String(), "kind: Secret", "trigger must not be printed as mutated")
+		})
+	}
+}
