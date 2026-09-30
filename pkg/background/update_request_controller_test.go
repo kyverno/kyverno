@@ -3,6 +3,7 @@ package background
 import (
 	"errors"
 	"testing"
+	"time"
 
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -353,6 +354,22 @@ func TestUpdateUR_EnqueuesPendingState(t *testing.T) {
 
 	// Queue should have the UR
 	assert.Equal(t, 1, c.queue.Len())
+}
+
+func TestUpdateUR_RequeuesFailedStateAfterBackoff(t *testing.T) {
+	c := &controller{
+		queue: newTestQueue(),
+	}
+
+	failedUR := newTestUpdateRequest("failed-ur", kyvernov2.Failed, kyvernov2.Generate)
+	failedUR.Status.RetryCount = 1
+
+	// A Failed UR whose flip back to Pending did not happen (e.g. the status
+	// update failed) is only seen again on a resync; it must not be dropped.
+	c.updateUR(failedUR, failedUR)
+
+	assert.Equal(t, 0, c.queue.Len(), "a retry should wait for its backoff")
+	assert.Eventually(t, func() bool { return c.queue.Len() == 1 }, 10*time.Second, 20*time.Millisecond)
 }
 
 func TestAddUR_EnqueuesUpdateRequest(t *testing.T) {
