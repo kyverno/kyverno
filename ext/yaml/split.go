@@ -18,10 +18,14 @@ func SplitDocuments(yamlBytes document) ([]document, error) {
 	for {
 		// Read one YAML document at a time, until io.EOF is returned
 		b, err := reader.Read()
-		if err == io.EOF || len(b) == 0 {
-			break
-		} else if err != nil {
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return documents, fmt.Errorf("unable to read yaml")
+		}
+		if len(b) == 0 {
+			continue
 		}
 		if !IsEmptyDocument(b) {
 			documents = append(documents, b)
