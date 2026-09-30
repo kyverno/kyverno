@@ -42,6 +42,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	admissionregistrationv1alpha1informers "k8s.io/client-go/informers/admissionregistration/v1alpha1"
@@ -662,9 +663,18 @@ func (c *controller) reconcileReport(
 			}
 			policyNameToLabel[key] = reportutils.PolicyLabel(policy)
 		}
-		for i, exception := range exceptions {
-			key := cache.MetaObjectToName(&exceptions[i]).String()
-			policyNameToLabel[key] = reportutils.PolicyExceptionLabel(exception)
+		// Results record matched exceptions by bare name (see reportutils.ToPolicyReportResult),
+		// and exception labels are keyed by bare name too, so exceptions get their own lookup
+		// rather than sharing the namespace/name keys used for policies.
+		exceptionNameToLabel := map[string]string{}
+		for _, exception := range exceptions {
+			exceptionNameToLabel[exception.GetName()] = reportutils.PolicyExceptionLabel(exception)
+		}
+		// CEL policy exceptions carry no report label, so their changes can't be detected here;
+		// they are only used to tell them apart from a deleted PolicyException.
+		celExceptionNames := sets.New[string]()
+		for _, exception := range celexceptions {
+			celExceptionNames.Insert(exception.GetName())
 		}
 		for _, binding := range vapBindings {
 			key := cache.MetaObjectToName(&binding).String()
@@ -675,7 +685,7 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
-			if shouldKeepStaleResult(result, policyNameToLabel, expected, actual) {
+			if shouldKeepStaleResult(result, policyNameToLabel, exceptionNameToLabel, celExceptionNames, expected, actual) {
 				ruleResults = append(ruleResults, result)
 			}
 		}
@@ -756,29 +766,61 @@ func (c *controller) reconcileReport(
 // shouldKeepStaleResult reports whether a previously observed rule result can be carried
 // over as-is into the new report without a rescan. This is only safe when everything that
 // could have influenced the result - the owning policy or binding, and any exceptions that
-// matched it - still has the resource version it had when the result was produced. If any of
-// those changed (e.g. a policy was edited to exclude the resource's namespace), the stale
-// result must be dropped so the resource is re-evaluated against the current policy.
-func shouldKeepStaleResult(result openreportsv1alpha1.ReportResult, policyNameToLabel, expected, actual map[string]string) bool {
-	label := policyNameToLabel[result.Policy]
-	vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
-	mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
+// matched it - still exists and has the resource version it had when the result was produced.
+// If any of those changed or was deleted (e.g. a policy was edited to exclude the resource's
+// namespace), the stale result must be dropped so the resource is re-evaluated against the
+// current policy.
+func shouldKeepStaleResult(
+	result openreportsv1alpha1.ReportResult,
+	policyNameToLabel map[string]string,
+	exceptionNameToLabel map[string]string,
+	celExceptionNames sets.Set[string],
+	expected, actual map[string]string,
+) bool {
+	// every non-empty reference must resolve to a known policy or binding
+	resolve := func(name string) (string, bool) {
+		if name == "" {
+			return "", true
+		}
+		label := policyNameToLabel[name]
+		return label, label != ""
+	}
+	label, ok := resolve(result.Policy)
+	if !ok {
+		return false
+	}
+	vapBindingLabel, ok := resolve(result.Properties["binding"])
+	if !ok {
+		return false
+	}
+	mapBindingLabel, ok := resolve(result.Properties["mapBinding"])
+	if !ok {
+		return false
+	}
 	if label == "" && vapBindingLabel == "" && mapBindingLabel == "" {
 		return false
 	}
-	if label != "" && expected[label] != actual[label] {
-		return false
-	}
-	if vapBindingLabel != "" && expected[vapBindingLabel] != actual[vapBindingLabel] {
-		return false
-	}
-	if mapBindingLabel != "" && expected[mapBindingLabel] != actual[mapBindingLabel] {
-		return false
-	}
-	for _, exception := range strings.Split(result.Properties["exceptions"], ",") {
-		exceptionLabel := policyNameToLabel[exception]
-		if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
+	for _, l := range []string{label, vapBindingLabel, mapBindingLabel} {
+		if l != "" && expected[l] != actual[l] {
 			return false
+		}
+	}
+	if exceptions := result.Properties["exceptions"]; exceptions != "" {
+		for _, exception := range strings.Split(exceptions, ",") {
+			if exception == "" {
+				continue
+			}
+			exceptionLabel := exceptionNameToLabel[exception]
+			if exceptionLabel == "" {
+				if celExceptionNames.Has(exception) {
+					continue
+				}
+				// the exception that produced this result no longer exists
+				return false
+			}
+			if expected[exceptionLabel] != actual[exceptionLabel] {
+				return false
+			}
 		}
 	}
 	return true
