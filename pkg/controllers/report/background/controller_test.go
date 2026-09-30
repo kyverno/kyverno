@@ -307,3 +307,36 @@ func TestShouldKeepStaleResult_NoMatchingLabel(t *testing.T) {
 
 	assert.False(t, shouldKeepStaleResult(result, map[string]string{}, nil, nil, map[string]string{}, map[string]string{}))
 }
+
+func TestShouldKeepStaleResult_BindingChanged(t *testing.T) {
+	for _, property := range []string{"binding", "mapBinding"} {
+		t.Run(property, func(t *testing.T) {
+			policyNameToLabel := map[string]string{
+				"my-policy":  "policy.kyverno.io/my-policy",
+				"my-binding": "binding.example/my-binding",
+			}
+			expected := map[string]string{
+				"policy.kyverno.io/my-policy": "1",
+				"binding.example/my-binding":  "2",
+			}
+			actual := map[string]string{
+				"policy.kyverno.io/my-policy": "1",
+				"binding.example/my-binding":  "1",
+			}
+			result := openreportsv1alpha1.ReportResult{
+				Policy:     "my-policy",
+				Properties: map[string]string{property: "my-binding"},
+			}
+
+			assert.False(t, shouldKeepStaleResult(result, policyNameToLabel, nil, nil, expected, actual))
+		})
+	}
+}
+
+func TestShouldKeepStaleResult_NoReferences(t *testing.T) {
+	policyNameToLabel := map[string]string{"my-policy": "policy.kyverno.io/my-policy"}
+	expected := map[string]string{"policy.kyverno.io/my-policy": "1"}
+	actual := map[string]string{"policy.kyverno.io/my-policy": "1"}
+
+	assert.False(t, shouldKeepStaleResult(openreportsv1alpha1.ReportResult{}, policyNameToLabel, nil, nil, expected, actual))
+}

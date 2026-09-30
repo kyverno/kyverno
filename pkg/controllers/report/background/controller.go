@@ -707,6 +707,18 @@ func (c *controller) reconcileReport(
 					break
 				}
 			}
+			// an exception that was observed but no longer exists has its results dropped above,
+			// so the resource has to be rescanned to get them back
+			if !reevaluate {
+				for label := range actual {
+					if strings.HasPrefix(label, reportutils.LabelPrefixPolicyException) {
+						if _, exists := expected[label]; !exists {
+							reevaluate = true
+							break
+						}
+					}
+				}
+			}
 		} else if policy.AsValidatingAdmissionPolicy() != nil {
 			for _, binding := range vapBindings {
 				if actual[reportutils.ValidatingAdmissionPolicyBindingLabel(binding)] != binding.GetResourceVersion() {
