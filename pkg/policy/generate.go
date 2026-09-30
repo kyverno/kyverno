@@ -143,6 +143,11 @@ func (pc *policyController) handleGenerateForExisting(policy kyvernov1.PolicyInt
 		return multierr.Combine(errors...)
 	}
 
+	if existing := pc.listGenerateURs(policyKey(policy)); len(existing) > 0 {
+		logger.V(4).Info("skipping UR creation as a generate UR already exists for policy", "policy", policy.GetName(), "count", len(existing))
+		return multierr.Combine(errors...)
+	}
+
 	logger.V(4).Info("creating URs for generateExisting", "total", len(ur.Spec.RuleContext))
 	for _, batch := range splitUR(ur, generateBatchSize) {
 		if err := pc.submitUR(context.TODO(), batch); err != nil {

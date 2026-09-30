@@ -136,6 +136,20 @@ func (mr *MockConfigurationMockRecorder) GetUpdateRequestThreshold() *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpdateRequestThreshold", reflect.TypeOf((*MockConfiguration)(nil).GetUpdateRequestThreshold))
 }
 
+// GetUpdateRequestMaxBatchSize mocks base method.
+func (m *MockConfiguration) GetUpdateRequestMaxBatchSize() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUpdateRequestMaxBatchSize")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GetUpdateRequestMaxBatchSize indicates an expected call of GetUpdateRequestMaxBatchSize.
+func (mr *MockConfigurationMockRecorder) GetUpdateRequestMaxBatchSize() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpdateRequestMaxBatchSize", reflect.TypeOf((*MockConfiguration)(nil).GetUpdateRequestMaxBatchSize))
+}
+
 // GetWebhook mocks base method.
 func (m *MockConfiguration) GetWebhook() config.WebhookConfig {
 	m.ctrl.T.Helper()
