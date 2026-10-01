@@ -622,10 +622,12 @@ func TestProcess_TargetExpressionInvalidURMarksFailed(t *testing.T) {
 
 // removeKeyEngine mutates whatever object it is given, the way a real policy
 // does: it drops data["a"]. onFirstEvaluate lets a test land a write from
-// someone else while the policy is being evaluated.
+// someone else while the policy is being evaluated, and second, when set,
+// replaces the result of the second evaluation.
 type removeKeyEngine struct {
 	fakeEngine
 	onFirstEvaluate func()
+	second          func(live *unstructured.Unstructured) (mpolengine.EngineResponse, error)
 	calls           int
 }
 
@@ -635,6 +637,9 @@ func (e *removeKeyEngine) Evaluate(_ context.Context, attr admission.Attributes,
 		e.onFirstEvaluate()
 	}
 	obj := attr.GetObject().(*unstructured.Unstructured)
+	if e.calls == 2 && e.second != nil {
+		return e.second(obj)
+	}
 	patched := obj.DeepCopy()
 	unstructured.RemoveNestedField(patched.Object, "data", "a")
 	return mpolengine.EngineResponse{Resource: obj, PatchedResource: patched}, nil
@@ -683,8 +688,9 @@ func newRemoveAFixture(t *testing.T) (dclient.Interface, versioned.Interface, me
 	return fakeClient, kyvernoClient, restMapper
 }
 
-func runRemoveA(t *testing.T, client dclient.Interface, kyvernoClient versioned.Interface, restMapper meta.RESTMapper, eng mpolengine.Engine) map[string]string {
-	p := NewProcessor(client, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, &fakeStatusControl{}, event.NewFake(), config.NewDefaultConfiguration(false))
+func runRemoveA(t *testing.T, client dclient.Interface, kyvernoClient versioned.Interface, restMapper meta.RESTMapper, eng mpolengine.Engine) (map[string]string, *fakeStatusControl) {
+	sc := &fakeStatusControl{}
+	p := NewProcessor(client, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, sc, event.NewFake(), config.NewDefaultConfiguration(false))
 	ur := &kyvernov2.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{Name: "ur-remove-a", Namespace: "kyverno"},
 		Spec:       kyvernov2.UpdateRequestSpec{Policy: "remove-a"},
@@ -694,30 +700,73 @@ func runRemoveA(t *testing.T, client dclient.Interface, kyvernoClient versioned.
 	assert.NoError(t, err)
 	data, _, err := unstructured.NestedStringMap(final.Object, "data")
 	assert.NoError(t, err)
-	return data
+	return data, sc
+}
+
+// addDataB is a write from someone else: it adds data["b"] to the shared ConfigMap.
+func addDataB(t *testing.T, client dclient.Interface) {
+	ctx := context.Background()
+	live, err := client.GetResource(ctx, "v1", "ConfigMap", "shared", "shared-cm")
+	assert.NoError(t, err)
+	assert.NoError(t, unstructured.SetNestedField(live.Object, "2", "data", "b"))
+	// the API server gives every write a new resourceVersion; the fake client does not
+	live.SetResourceVersion("2")
+	_, err = client.UpdateResource(ctx, "v1", "ConfigMap", "shared", live.Object, false)
+	assert.NoError(t, err)
 }
 
 func TestProcess_TargetChangedDuringEvaluation_KeepsTheOtherWrite(t *testing.T) {
-	ctx := context.Background()
 	fakeClient, kyvernoClient, restMapper := newRemoveAFixture(t)
 	// Another writer adds data["b"] after the target was listed but before
 	// the policy's change is written back.
-	eng := &removeKeyEngine{onFirstEvaluate: func() {
-		live, err := fakeClient.GetResource(ctx, "v1", "ConfigMap", "shared", "shared-cm")
-		assert.NoError(t, err)
-		assert.NoError(t, unstructured.SetNestedField(live.Object, "2", "data", "b"))
-		// the API server gives every write a new resourceVersion; the fake client does not
-		live.SetResourceVersion("2")
-		_, err = fakeClient.UpdateResource(ctx, "v1", "ConfigMap", "shared", live.Object, false)
-		assert.NoError(t, err)
+	eng := &removeKeyEngine{onFirstEvaluate: func() { addDataB(t, fakeClient) }}
+	data, sc := runRemoveA(t, fakeClient, kyvernoClient, restMapper, eng)
+	assert.Equal(t, map[string]string{"b": "2"}, data)
+	assert.False(t, sc.failedCalled)
+}
+
+// When the target changed since it was listed and re-evaluating it does not give a new
+// patch, the patch computed from the listed copy must not be written over the live object.
+func TestProcess_TargetChangedDuringEvaluation_ReevaluationWithoutPatch(t *testing.T) {
+	tests := []struct {
+		name       string
+		second     func(live *unstructured.Unstructured) (mpolengine.EngineResponse, error)
+		wantFailed bool
+	}{{
+		name: "the re-evaluation errors",
+		second: func(*unstructured.Unstructured) (mpolengine.EngineResponse, error) {
+			return mpolengine.EngineResponse{}, errors.New("cel evaluation failed")
+		},
+		wantFailed: true,
+	}, {
+		name: "the re-evaluation no longer matches",
+		second: func(live *unstructured.Unstructured) (mpolengine.EngineResponse, error) {
+			return mpolengine.EngineResponse{Resource: live}, nil
+		},
+	}, {
+		name: "the re-evaluation changes nothing",
+		second: func(live *unstructured.Unstructured) (mpolengine.EngineResponse, error) {
+			return mpolengine.EngineResponse{Resource: live, PatchedResource: live.DeepCopy()}, nil
+		},
 	}}
-	assert.Equal(t, map[string]string{"b": "2"}, runRemoveA(t, fakeClient, kyvernoClient, restMapper, eng))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, kyvernoClient, restMapper := newRemoveAFixture(t)
+			eng := &removeKeyEngine{onFirstEvaluate: func() { addDataB(t, fakeClient) }, second: tt.second}
+			data, sc := runRemoveA(t, fakeClient, kyvernoClient, restMapper, eng)
+			// writing the stale patch would drop both "a" and the other writer's "b"
+			assert.Equal(t, map[string]string{"a": "1", "b": "2"}, data)
+			assert.Equal(t, 2, eng.calls)
+			assert.Equal(t, tt.wantFailed, sc.failedCalled)
+		})
+	}
 }
 
 func TestProcess_TargetUnchangedSinceList_EvaluatesOnce(t *testing.T) {
 	fakeClient, kyvernoClient, restMapper := newRemoveAFixture(t)
 	eng := &removeKeyEngine{}
-	assert.Equal(t, map[string]string{}, runRemoveA(t, fakeClient, kyvernoClient, restMapper, eng))
+	data, _ := runRemoveA(t, fakeClient, kyvernoClient, restMapper, eng)
+	assert.Equal(t, map[string]string{}, data)
 	// a second evaluation would record the policy result twice and repeat any http calls
 	assert.Equal(t, 1, eng.calls)
 }
