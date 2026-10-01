@@ -1,27 +1,20 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-# Sets a PR's milestone from the "Kyverno Release ..." milestone of the issue it closes, so the PR shows which
-# release it targets before it merges. The value is provisional: assign-milestone.yaml overrides it with the
-# milestone computed from git history when the release tag is pushed.
+# Sets a PR's milestone from the "Kyverno Release ..." milestone of the issue it closes. The value is
+# provisional; assign-milestone.yaml overwrites it from git history at release time.
 #
-# Event-driven, no polling:
-#   - PR opened, or its body edited (e.g. "Fixes #123" added later) -> take the milestone of the issue the PR will close,
-#     but only if the PR has none. A milestone already on the PR (a maintainer's `/milestone`, the UI, ...)
-#     is never overwritten. (`/milestone` runs as github-actions[bot] too, so the actor can't tell it
-#     from us — hence "only if empty".)
-#   - an issue is milestoned -> for each open PR that closes it, set the new milestone if the PR has none or
-#     still has the issue's *previous* milestone (the two were in sync). A PR with any other milestone was
-#     set deliberately and is left alone.
+# - PR opened, or body edited: if the PR has no milestone, copy it from a closing issue. An existing
+#   milestone is never overwritten.
+# - Issue milestoned: for each open PR that closes the issue, set the new milestone if the PR has none or
+#   still has the issue's previous one. Any other milestone was chosen by a maintainer and is kept.
 #
-# Not covered: linking an issue that already has a milestone through the PR's Development sidebar fires no
-# event; the release job covers it.
+# Not covered: linking an already-milestoned issue via the PR sidebar fires no event.
 
 name: PR milestone
 
 permissions: {}
 
-# Per PR/issue, not global: a group holds one running and one pending run and cancels older pending ones,
-# so a global group would drop runs when several PRs open at once. (PR and issue numbers share one space.)
+# Per PR/issue: a global group would cancel older pending runs when several PRs open at once.
 concurrency:
   group: pr-milestone-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: false
@@ -38,8 +31,7 @@ on:
 jobs:
   from-pr:
     name: Set milestone from the issue the PR closes
-    # `edited` also fires for title/base changes; only a body change can add a closing reference.
-    # Dependabot's token is read-only and its PRs close no issues.
+    # Only a body edit can add a closing reference. Dependabot's token is read-only.
     if: |
       github.event_name == 'pull_request_target' &&
       github.actor != 'dependabot[bot]' &&
@@ -75,7 +67,7 @@ jobs:
               }
             }'
 
-          # GitHub may not have parsed the closing reference the instant the event fires, so retry briefly.
+          # The closing reference may not be parsed yet, so retry briefly.
           milestone=""
           for attempt in 1 2 3; do
             response=$(gh api graphql -f query="$query" -f owner="${REPO%/*}" -f name="${REPO#*/}" \
@@ -103,7 +95,7 @@ jobs:
             exit 0
           fi
 
-          # 3: a maintainer may have set a milestone while we were querying or sleeping; never overwrite it.
+          # Re-check: a milestone may have been set while we were retrying.
           current=$(gh api "repos/${REPO}/issues/${PR_NUMBER}" --jq '.milestone.title // ""')
           if [[ -n "$current" ]]; then
             echo "PR #${PR_NUMBER} got milestone '${current}' meanwhile, leaving it."
@@ -136,11 +128,8 @@ jobs:
           owner="${REPO%/*}"
           name="${REPO#*/}"
 
-          # The issue's milestone before this change, replayed from its milestone timeline; the webhook payload
-          # only carries the new one. The last event is the one that triggered us, so drop it. GitHub records a
-          # direct change (R1 -> R2) as a `demilestoned` R1 + `milestoned` R2 pair in the same second, whereas
-          # clearing and later setting leaves a gap — so a `demilestoned` right before the new event is the
-          # previous milestone, and an earlier one means the issue had none.
+          # The issue's previous milestone, from its timeline (the payload only has the new one). GitHub logs a
+          # direct change as a demilestoned + milestoned pair in the same second; a gap means it was cleared first.
           history_query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
@@ -170,8 +159,7 @@ jobs:
                   end')
           echo "Issue #${ISSUE_NUMBER}: '${previous}' -> '${NEW_TITLE}'"
 
-          # Candidate PRs: those that cross-reference or are linked to the issue. Each is verified below
-          # against its own closingIssuesReferences, so a mere mention or a later unlink doesn't count.
+          # Candidate PRs are verified below against their own closing references.
           links_query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
@@ -190,8 +178,7 @@ jobs:
           if [[ "$(jq -r '.data.repository.issue.timelineItems.pageInfo.hasPreviousPage' <<< "$links")" == "true" ]]; then
             echo "::warning::Issue #${ISSUE_NUMBER} has more than 100 linked or referencing PRs; older ones were not checked."
           fi
-          # Same-repo only: a cross-reference can come from a fork or another repository, whose PR numbers mean
-          # nothing here.
+          # Same repo only; cross-references can come from forks.
           candidates=$(jq -r --arg repo "$REPO" '[.data.repository.issue.timelineItems.nodes[]
                 | (.source // .subject)
                 | select(.__typename == "PullRequest" and .state == "OPEN" and .repository.nameWithOwner == $repo)
