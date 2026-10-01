@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-namespaces-with-reserved-names
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: validate-namespace-names
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      validate:
+        message: "Namespace name cannot start with 'kube-' or be 'default'"
+        pattern:
+          metadata:
+            name: "!kube-*"
+    - name: do-not-change-immutable-fields-generic
+      match:
+        any:
+          - resources:
+              kinds:
+                - ConfigMap
+              selector:
+                matchLabels:
+                  immutable: "true"
+      validate:
+        message: "ConfigMap marked as immutable cannot be modified"
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.operation }}"
+                operator: Equals
+                value: UPDATE
