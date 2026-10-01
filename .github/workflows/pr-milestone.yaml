@@ -134,6 +134,7 @@ jobs:
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 issue(number: $number) {
+                  milestone { title }
                   timelineItems(last: 100, itemTypes: [MILESTONED_EVENT, DEMILESTONED_EVENT]) {
                     nodes {
                       __typename
@@ -144,9 +145,15 @@ jobs:
                 }
               }
             }'
-          previous=$(gh api graphql -f query="$history_query" -f owner="$owner" -f name="$name" \
-              -F number="$ISSUE_NUMBER" \
-            | jq -r --arg new "$NEW_TITLE" '
+          history=$(gh api graphql -f query="$history_query" -f owner="$owner" -f name="$name" \
+              -F number="$ISSUE_NUMBER")
+          # Skip a superseded run: the issue has moved on since this event.
+          issue_now=$(jq -r '.data.repository.issue.milestone.title // ""' <<< "$history")
+          if [[ "$issue_now" != "$NEW_TITLE" ]]; then
+            echo "Issue #${ISSUE_NUMBER} is now on '${issue_now}', not '${NEW_TITLE}'; skipping."
+            exit 0
+          fi
+          previous=$(jq -r --arg new "$NEW_TITLE" '
                 .data.repository.issue.timelineItems.nodes as $e
                 | ($e | length > 0 and (last | .__typename == "MilestonedEvent" and .milestoneTitle == $new)) as $ours
                 | (if $ours then $e[:-1] else $e end) as $before
@@ -156,7 +163,7 @@ jobs:
                     | if $l.__typename == "DemilestonedEvent"
                       then (if $at != null and ($at - ($l.createdAt | fromdateiso8601)) <= 2 then $l.milestoneTitle else "" end)
                       else $l.milestoneTitle end
-                  end')
+                  end' <<< "$history")
           echo "Issue #${ISSUE_NUMBER}: '${previous}' -> '${NEW_TITLE}'"
 
           # Candidate PRs are verified below against their own closing references.
