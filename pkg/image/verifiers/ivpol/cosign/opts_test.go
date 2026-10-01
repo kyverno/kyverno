@@ -1072,3 +1072,25 @@ func TestCheckOptions_KeylessAdditionalExtensions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "kyverno/kyverno", opts.CertGithubWorkflowRepository)
 }
+
+func TestApplyAdditionalExtensions_Aliases(t *testing.T) {
+	t.Run("name and OID with the same value are accepted", func(t *testing.T) {
+		opts := &cosign.CheckOpts{}
+		err := applyAdditionalExtensions(opts, map[string]string{
+			"githubWorkflowRepository":                   "kyverno/kyverno",
+			cosign.CertExtensionGithubWorkflowRepository: "kyverno/kyverno",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "kyverno/kyverno", opts.CertGithubWorkflowRepository)
+	})
+	t.Run("name and OID with different values are rejected", func(t *testing.T) {
+		for range 20 {
+			opts := &cosign.CheckOpts{}
+			err := applyAdditionalExtensions(opts, map[string]string{
+				"githubWorkflowRepository":                   "kyverno/kyverno",
+				cosign.CertExtensionGithubWorkflowRepository: "someone/else",
+			})
+			require.ErrorContains(t, err, "conflicting values")
+		}
+	})
+}
