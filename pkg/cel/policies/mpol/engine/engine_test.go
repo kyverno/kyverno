@@ -444,7 +444,7 @@ func TestEvaluate(t *testing.T) {
 				}},
 			},
 		}
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
+		provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -521,7 +521,7 @@ func TestEvaluate(t *testing.T) {
 
 		// The resource does not satisfy spec.matchConditions: mutateExisting/background
 		// evaluation must skip it just like admission-time evaluation would.
-		providerSkip, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
+		providerSkip, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			return
 		}
@@ -531,7 +531,7 @@ func TestEvaluate(t *testing.T) {
 		assert.Nil(t, respSkip.PatchedResource, "matchConditions should have excluded this resource from mutateExisting")
 
 		// The resource satisfies spec.matchConditions: it should be mutated.
-		providerMatch, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
+		providerMatch, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.MutatingPolicyLike{newPolicy()}, nil, libs.NewFakeContextProvider())
 		if !assert.NoError(t, err) {
 			return
 		}
