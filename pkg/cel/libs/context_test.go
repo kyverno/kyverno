@@ -1,6 +1,7 @@
 package libs
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -64,4 +65,85 @@ func TestContextProvider_GetGlobalReference_KubernetesShapedEntry(t *testing.T) 
 		"globalContext": globalcontext.Context{ContextInterface: cp},
 	})
 	require.NoError(t, err, "globalContext.get on a Kubernetes-shaped entry must not fail at evaluation time")
+}
+
+// failingEntry is a store.Entry whose Get always fails.
+type failingEntry struct{}
+
+func (e *failingEntry) Get(projection string) (any, error) {
+	return nil, errors.New("api call failed")
+}
+
+func (e *failingEntry) Stop() {}
+
+func TestContextProvider_GetGlobalReference(t *testing.T) {
+	gctxStore := store.New(0)
+	require.NoError(t, gctxStore.Set("failing", &failingEntry{}))
+	require.NoError(t, gctxStore.Set("scalar", &staticEntry{data: "value"}))
+	require.NoError(t, gctxStore.Set("kube-object", &staticEntry{data: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "cm"},
+	}}))
+	cp := &contextProvider{gctxStore: gctxStore}
+
+	tests := []struct {
+		name    string
+		entry   string
+		want    any
+		wantErr string
+	}{{
+		name:  "an absent entry gives no value and no error",
+		entry: "missing",
+		want:  nil,
+	}, {
+		name:    "an entry that fails returns its error",
+		entry:   "failing",
+		wantErr: "api call failed",
+	}, {
+		name:  "a value that is not a Kubernetes object is returned as is",
+		entry: "scalar",
+		want:  "value",
+	}, {
+		name:  "a Kubernetes object is returned as a map",
+		entry: "kube-object",
+		want: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": "cm"},
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := cp.GetGlobalReference(tt.entry, "")
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// An error from the entry must fail the CEL evaluation instead of yielding a value.
+func TestContextProvider_GetGlobalReference_EntryErrorFailsEvaluation(t *testing.T) {
+	gctxStore := store.New(0)
+	require.NoError(t, gctxStore.Set("failing", &failingEntry{}))
+	cp := &contextProvider{gctxStore: gctxStore}
+	env, err := cel.NewEnv(
+		globalcontext.Lib(
+			globalcontext.Context{ContextInterface: cp},
+			version.MajorMinor(1, 18),
+		),
+	)
+	require.NoError(t, err)
+	ast, iss := env.Compile(`globalContext.get("failing", "") != 0`)
+	require.NoError(t, iss.Err())
+	prg, err := env.Program(ast)
+	require.NoError(t, err)
+	_, _, err = prg.Eval(map[string]any{
+		"globalContext": globalcontext.Context{ContextInterface: cp},
+	})
+	require.ErrorContains(t, err, "api call failed")
 }
