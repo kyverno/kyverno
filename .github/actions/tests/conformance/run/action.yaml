@@ -66,7 +66,10 @@ runs:
     - name: Clean up the failed kind cluster
       if: steps.kind.outcome == 'failure'
       shell: bash
-      run: kind delete cluster --name kind || true
+      run: |
+        kind delete cluster --name kind || true
+        # give a GitHub releases outage a moment to pass before trying again
+        sleep 30
     - name: Create kind cluster (retry)
       if: steps.kind.outcome == 'failure'
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
