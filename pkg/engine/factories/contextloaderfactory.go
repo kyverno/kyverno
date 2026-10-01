@@ -18,7 +18,7 @@ import (
 type ContextLoaderFactoryOptions func(*contextLoader)
 
 func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
-	return func(policy kyvernov1.PolicyInterface, _ kyvernov1.Rule) engineapi.ContextLoader {
+	return func(policy engineapi.PolicyScope, _ kyvernov1.Rule) engineapi.ContextLoader {
 		policyNamespace := ""
 		if policy != nil && policy.IsNamespaced() {
 			policyNamespace = policy.GetNamespace()
@@ -50,13 +50,6 @@ func WithAPICallConfig(config apicall.APICallConfiguration) ContextLoaderFactory
 func WithGlobalContextStore(gctxStore loaders.Store) ContextLoaderFactoryOptions {
 	return func(cl *contextLoader) {
 		cl.gctxStore = gctxStore
-	}
-}
-
-// WithPolicyNamespace sets the namespace clamp for callers whose policy type is not a kyvernov1.PolicyInterface.
-func WithPolicyNamespace(ns string) ContextLoaderFactoryOptions {
-	return func(cl *contextLoader) {
-		cl.policyNamespace = ns
 	}
 }
 

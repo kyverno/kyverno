@@ -170,8 +170,8 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 		PropagationPolicy: spec.DeletionPropagationPolicy,
 	}
 	enginectx := enginecontext.NewContext(c.jp)
-	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore), factories.WithPolicyNamespace(policy.GetNamespace()))
-	loader := ctxFactory(nil, kyvernov1.Rule{})
+	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
+	loader := ctxFactory(policy, kyvernov1.Rule{})
 	if err := loader.Load(
 		ctx,
 		c.jp,
