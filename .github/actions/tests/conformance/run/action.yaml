@@ -117,7 +117,13 @@ runs:
       run: |
         set -e
         GOBIN=$(go env GOPATH)/bin
-        go install github.com/ueokande/kubectl-evict@latest
+        # The module proxy or checksum database is unreachable now and then, so retry.
+        for i in 1 2 3; do
+          if go install github.com/ueokande/kubectl-evict@latest; then break; fi
+          if [ "$i" -eq 3 ]; then exit 1; fi
+          echo "go install failed, retrying in 10s"
+          sleep 10
+        done
         echo 'Adding kubectl-evict directory to PATH...'
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready
