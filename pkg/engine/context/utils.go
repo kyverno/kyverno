@@ -86,7 +86,7 @@ func convertStructs(value interface{}) (interface{}, error) {
 			return toUnstructured(value)
 		}
 
-		if v.Kind() == reflect.Ptr {
+		if v.Kind() == reflect.Pointer {
 			ptrVal := v.Elem()
 			if ptrVal.Kind() == reflect.Struct {
 				return toUnstructured(value)
