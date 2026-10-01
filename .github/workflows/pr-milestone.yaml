@@ -67,7 +67,8 @@ jobs:
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $number) {
-                  closingIssuesReferences(first: 20) {
+                  closingIssuesReferences(first: 100) {
+                    pageInfo { hasNextPage }
                     nodes { repository { nameWithOwner } milestone { number title state } }
                   }
                 }
@@ -77,15 +78,15 @@ jobs:
           # GitHub may not have parsed the closing reference the instant the event fires, so retry briefly.
           milestone=""
           for attempt in 1 2 3; do
-            milestone=$(gh api graphql -f query="$query" -f owner="${REPO%/*}" -f name="${REPO#*/}" \
-                -F number="$PR_NUMBER" \
-              | jq -c --arg repo "$REPO" '
+            response=$(gh api graphql -f query="$query" -f owner="${REPO%/*}" -f name="${REPO#*/}" \
+                -F number="$PR_NUMBER")
+            milestone=$(jq -c --arg repo "$REPO" '
                   [.data.repository.pullRequest.closingIssuesReferences.nodes[]
                     | select(.repository.nameWithOwner == $repo
                         and .milestone != null
                         and .milestone.state == "OPEN"
                         and (.milestone.title | test("^Kyverno Release ")))
-                    | .milestone] | first // empty')
+                    | .milestone] | first // empty' <<< "$response")
             if [[ -n "$milestone" ]]; then
               break
             fi
@@ -96,6 +97,16 @@ jobs:
 
           if [[ -z "$milestone" ]]; then
             echo "PR #${PR_NUMBER} closes no issue with an open Kyverno Release milestone."
+            if [[ "$(jq -r '.data.repository.pullRequest.closingIssuesReferences.pageInfo.hasNextPage' <<< "$response")" == "true" ]]; then
+              echo "::warning::PR #${PR_NUMBER} closes more than 100 issues; some were not checked."
+            fi
+            exit 0
+          fi
+
+          # 3: a maintainer may have set a milestone while we were querying or sleeping; never overwrite it.
+          current=$(gh api "repos/${REPO}/issues/${PR_NUMBER}" --jq '.milestone.title // ""')
+          if [[ -n "$current" ]]; then
+            echo "PR #${PR_NUMBER} got milestone '${current}' meanwhile, leaving it."
             exit 0
           fi
 
@@ -106,6 +117,7 @@ jobs:
     name: Propagate an issue's milestone to the PRs that close it
     if: |
       github.event_name == 'issues' &&
+      github.event.issue.milestone.state == 'open' &&
       startsWith(github.event.issue.milestone.title, 'Kyverno Release ')
     runs-on: ubuntu-slim
     permissions:
@@ -165,27 +177,32 @@ jobs:
               repository(owner: $owner, name: $name) {
                 issue(number: $number) {
                   timelineItems(last: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+                    pageInfo { hasPreviousPage }
                     nodes {
-                      ... on CrossReferencedEvent { source { __typename ... on PullRequest { number state } } }
-                      ... on ConnectedEvent { subject { __typename ... on PullRequest { number state } } }
+                      ... on CrossReferencedEvent { source { __typename ... on PullRequest { number state repository { nameWithOwner } } } }
+                      ... on ConnectedEvent { subject { __typename ... on PullRequest { number state repository { nameWithOwner } } } }
                     }
                   }
                 }
               }
             }'
-          candidates=$(gh api graphql -f query="$links_query" -f owner="$owner" -f name="$name" \
-              -F number="$ISSUE_NUMBER" \
-            | jq -r '[.data.repository.issue.timelineItems.nodes[]
+          links=$(gh api graphql -f query="$links_query" -f owner="$owner" -f name="$name" -F number="$ISSUE_NUMBER")
+          if [[ "$(jq -r '.data.repository.issue.timelineItems.pageInfo.hasPreviousPage' <<< "$links")" == "true" ]]; then
+            echo "::warning::Issue #${ISSUE_NUMBER} has more than 100 linked or referencing PRs; older ones were not checked."
+          fi
+          # Same-repo only: a cross-reference can come from a fork or another repository, whose PR numbers mean
+          # nothing here.
+          candidates=$(jq -r --arg repo "$REPO" '[.data.repository.issue.timelineItems.nodes[]
                 | (.source // .subject)
-                | select(.__typename == "PullRequest" and .state == "OPEN")
-                | .number] | unique | .[]')
+                | select(.__typename == "PullRequest" and .state == "OPEN" and .repository.nameWithOwner == $repo)
+                | .number] | unique | .[]' <<< "$links")
 
           pr_query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $number) {
                   milestone { title }
-                  closingIssuesReferences(first: 20) { nodes { number repository { nameWithOwner } } }
+                  closingIssuesReferences(first: 100) { pageInfo { hasNextPage } nodes { number repository { nameWithOwner } } }
                 }
               }
             }'
@@ -196,6 +213,9 @@ jobs:
                 | select(.number == $n and .repository.nameWithOwner == $repo)] | length > 0' <<< "$info")
             if [[ "$closes" != "true" ]]; then
               echo "PR #${pr}: doesn't close #${ISSUE_NUMBER}, skipping."
+              if [[ "$(jq -r '.data.repository.pullRequest.closingIssuesReferences.pageInfo.hasNextPage' <<< "$info")" == "true" ]]; then
+                echo "::warning::PR #${pr} closes more than 100 issues; #${ISSUE_NUMBER} may be among those not checked."
+              fi
               continue
             fi
             current=$(jq -r '.data.repository.pullRequest.milestone.title // ""' <<< "$info")
