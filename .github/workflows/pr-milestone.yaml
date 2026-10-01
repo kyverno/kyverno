@@ -268,7 +268,7 @@ jobs:
           # Collect "<PR>\t<milestone number>\t<milestone title>" for PRs with no milestone.
           : > targets.tsv
           after=""
-          for page in $(seq 1 50); do
+          while :; do
             args=(-f query="$query" -f owner="${REPO%/*}" -f name="${REPO#*/}")
             if [[ -n "$after" ]]; then
               args+=(-f after="$after")
@@ -295,6 +295,19 @@ jobs:
             after=$(jq -r '.data.repository.pullRequests.pageInfo.endCursor' <<< "$response")
           done
 
+          # Re-read each PR just before updating it: its milestone or closing issues may have changed.
+          fresh_query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  milestone { title }
+                  closingIssuesReferences(first: 100) {
+                    nodes { repository { nameWithOwner } milestone { number title state } }
+                  }
+                }
+              }
+            }'
+
           count=0
           while IFS=$'\t' read -r pr number title; do
             if [[ "$DRY_RUN" == "true" ]]; then
@@ -302,14 +315,25 @@ jobs:
               count=$((count + 1))
               continue
             fi
-            # Re-check: never overwrite a milestone set since the listing.
-            current=$(gh api "repos/${REPO}/issues/${pr}" --jq '.milestone.title // ""')
+            fresh=$(gh api graphql -f query="$fresh_query" -f owner="${REPO%/*}" -f name="${REPO#*/}" -F number="$pr")
+            current=$(jq -r '.data.repository.pullRequest.milestone.title // ""' <<< "$fresh")
             if [[ -n "$current" ]]; then
               echo "PR #${pr} got '${current}' meanwhile, leaving it."
               continue
             fi
-            echo "Setting PR #${pr} to '${title}'."
-            gh api -X PATCH "repos/${REPO}/issues/${pr}" -F milestone="$number" > /dev/null
+            milestone=$(jq -c --arg repo "$REPO" '
+              [.data.repository.pullRequest.closingIssuesReferences.nodes[]
+                | select(.repository.nameWithOwner == $repo
+                    and .milestone != null
+                    and .milestone.state == "OPEN"
+                    and (.milestone.title | test("^Kyverno Release ")))
+                | .milestone] | first // empty' <<< "$fresh")
+            if [[ -z "$milestone" ]]; then
+              echo "PR #${pr} no longer closes an issue with an open Kyverno Release milestone, leaving it."
+              continue
+            fi
+            echo "Setting PR #${pr} to '$(jq -r '.title' <<< "$milestone")'."
+            gh api -X PATCH "repos/${REPO}/issues/${pr}" -F milestone="$(jq -r '.number' <<< "$milestone")" > /dev/null
             count=$((count + 1))
           done < targets.tsv
 
