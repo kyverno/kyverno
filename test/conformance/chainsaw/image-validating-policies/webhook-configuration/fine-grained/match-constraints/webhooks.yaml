@@ -16,7 +16,7 @@ webhooks:
       path: /ivpol/mutate/check-signed-images
       port: 443
   failurePolicy: Fail
-  matchPolicy: Equivalent
+  matchPolicy: Exact
   name: ivpol.mutate.kyverno.svc-fail-finegrained-check-signed-images
   namespaceSelector:
     matchExpressions:
