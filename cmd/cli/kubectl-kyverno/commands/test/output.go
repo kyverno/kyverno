@@ -140,29 +140,8 @@ func printTestResult(
 							}
 						}
 					}
-
-					// if there are no RuleResponse, the resource has been excluded. This is a pass.
-					if len(rows) == 0 && !resourceSkipped {
-						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-						resourceParts := strings.Split(resourceGVKAndName, "/")
-
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
-						}
-						rc.Skip++
-						testCount++
-						rows = append(rows, row)
-					}
 				}
+
 			}
 
 			// Check if the resource specified exists in the targets
@@ -199,6 +178,20 @@ func printTestResult(
 							IsFailure: false,
 						},
 						Message: responses.SkippedPolicies[policyName],
+					}
+					rc.Skip++
+				} else if triggerResponses, ok := trigger[resource]; ok && len(triggerResponses) == 0 {
+					row = table.Row{
+						RowCompact: table.RowCompact{
+							ID:        testCount,
+							Policy:    color.Policy("", test.Policy),
+							Rule:      color.Rule(test.Rule),
+							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Result:    color.ResultPass(),
+							Reason:    color.Excluded(),
+							IsFailure: false,
+						},
+						Message: color.Excluded(),
 					}
 					rc.Skip++
 				} else {
