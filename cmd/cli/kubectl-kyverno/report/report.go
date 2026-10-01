@@ -71,7 +71,7 @@ func ComputePolicyReports(auditWarn bool, engineResponses ...engineapi.EngineRes
 			report := openreportsv1alpha1.Report{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: openreportsv1alpha1.SchemeGroupVersion.String(),
-					Kind:       "PolicyReport",
+					Kind:       "Report",
 				},
 				Results: results,
 				Summary: reportutils.CalculateSummary(results),
