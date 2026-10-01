@@ -3,6 +3,7 @@ package imageverify
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -826,4 +827,53 @@ func Test_impl_verify_image_signature_kms_attestor_ignores_cache(t *testing.T) {
 	count, ok := out.Value().(int64)
 	assert.True(t, ok, "expected an integer result, got an error instead: %v", out.Value())
 	assert.Less(t, count, int64(len(attestors)), "a seeded entry must not be served for a KMS-backed attestor")
+}
+
+// Test_impl_getImageData evaluates getImageData() against a real registry image, which failed
+// to convert to a CEL value after cel-go v0.31.
+func Test_impl_getImageData(t *testing.T) {
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	env, err := cel.NewEnv(Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil, NewImageVerificationResults()))
+	assert.NoError(t, err)
+	ast, issues := env.Compile(`getImageData("ghcr.io/kyverno/test-verify-image:signed")`)
+	assert.Nil(t, issues.Err())
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+
+	out, _, err := prog.Eval(map[string]any{})
+	assert.NoError(t, err, "getImageData on a real image must not fail at evaluation time")
+	if err == nil {
+		asMap, ok := out.Value().(map[string]any)
+		assert.True(t, ok, "getImageData result must convert to a CEL map, got %T", out.Value())
+		assert.Equal(t, "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", asMap["digest"])
+	}
+}
+
+// Test_impl_getImageData_errors covers getImageData() failures that need no registry: a
+// reference that does not parse, and a registry nothing listens on.
+func Test_impl_getImageData_errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+	}{
+		{name: "invalid image reference", image: "not a valid::image"},
+		{name: "unreachable registry", image: "localhost:1/missing/image:v1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+			assert.NoError(t, err)
+			env, err := cel.NewEnv(Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil, NewImageVerificationResults()))
+			assert.NoError(t, err)
+			ast, issues := env.Compile(fmt.Sprintf("getImageData(%q)", tt.image))
+			assert.Nil(t, issues.Err())
+			prog, err := env.Program(ast)
+			assert.NoError(t, err)
+
+			_, _, err = prog.Eval(map[string]any{})
+			assert.ErrorContains(t, err, "failed to get imagedata")
+		})
+	}
 }
