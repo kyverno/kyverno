@@ -8,6 +8,7 @@ import (
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 )
 
 type NodeTrace struct {
@@ -80,9 +81,32 @@ func referencesMacroInternal(e celast.Expr) bool {
 	return found
 }
 
+// stringify renders a CEL value for human consumption. Scalars and maps go through
+// fmt.Sprintf("%v", v.Value()) exactly as before. Lists get one extra step: Value() only unwraps
+// the outermost layer, so a list's elements can still be un-rendered CEL values -- a JSONPatch
+// mutation's result, for instance, is a list of *mutation.JSONPatchVal (from
+// k8s.io/apiserver/pkg/cel/mutation), a hand-written CEL type whose Value() just returns itself,
+// with no plain-Go form at all. Formatting that bare pointer is fine on its own (Go's fmt
+// dereferences a struct pointer passed directly to Sprintf), but not once it is nested inside a
+// slice (fmt does not dereference a pointer found while formatting a compound value's elements).
+// Recursing element by element gives each one that same direct, top-level Sprintf treatment.
 func stringify(v ref.Val) string {
 	if v == nil {
 		return ""
+	}
+	if lister, ok := v.(traits.Lister); ok {
+		var sb strings.Builder
+		sb.WriteByte('[')
+		first := true
+		for it := lister.Iterator(); it.HasNext() == types.True; {
+			if !first {
+				sb.WriteString(" ")
+			}
+			first = false
+			sb.WriteString(stringify(it.Next()))
+		}
+		sb.WriteByte(']')
+		return sb.String()
 	}
 	return fmt.Sprintf("%v", v.Value())
 }
