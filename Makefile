@@ -211,8 +211,8 @@ lint: $(GOLANGCI_LINT)
 
 .PHONY: unused-package-check
 unused-package-check:
-	@go mod tidy; \
-	changes=$$(git diff --name-only go.mod go.sum 2>/dev/null); \
+	@go mod tidy || exit $$?; \
+	changes=$$(git diff --name-only HEAD -- go.mod go.sum) || exit $$?; \
 	if [ -n "$${changes}" ]; then \
 		echo "go mod tidy checking failed! The following files have uncommitted changes:"; \
 		echo "$${changes}"; \
