@@ -111,8 +111,6 @@ type PolicyProcessor struct {
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
-	// Explain compiles validating policies with tracing on and prints, for each policy, how it
-	// arrived at its result (scope, match conditions, variables and verdict).
 	Explain bool
 }
 
