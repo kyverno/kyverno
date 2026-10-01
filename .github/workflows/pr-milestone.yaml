@@ -1,0 +1,210 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+# Sets a PR's milestone from the "Kyverno Release ..." milestone of the issue it closes, so the PR shows which
+# release it targets before it merges. The value is provisional: assign-milestone.yaml overrides it with the
+# milestone computed from git history when the release tag is pushed.
+#
+# Event-driven, no polling:
+#   - PR opened, or its body edited (e.g. "Fixes #123" added later) -> take the milestone of the issue the PR will close,
+#     but only if the PR has none. A milestone already on the PR (a maintainer's `/milestone`, the UI, ...)
+#     is never overwritten. (`/milestone` runs as github-actions[bot] too, so the actor can't tell it
+#     from us — hence "only if empty".)
+#   - an issue is milestoned -> for each open PR that closes it, set the new milestone if the PR has none or
+#     still has the issue's *previous* milestone (the two were in sync). A PR with any other milestone was
+#     set deliberately and is left alone.
+#
+# Not covered: linking an issue that already has a milestone through the PR's Development sidebar fires no
+# event; the release job covers it.
+
+name: PR milestone
+
+permissions: {}
+
+# Per PR/issue, not global: a group holds one running and one pending run and cancels older pending ones,
+# so a global group would drop runs when several PRs open at once. (PR and issue numbers share one space.)
+concurrency:
+  group: pr-milestone-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+  issues:
+    types:
+      - milestoned
+
+jobs:
+  from-pr:
+    name: Set milestone from the issue the PR closes
+    # `edited` also fires for title/base changes; only a body change can add a closing reference.
+    # Dependabot's token is read-only and its PRs close no issues.
+    if: |
+      github.event_name == 'pull_request_target' &&
+      github.actor != 'dependabot[bot]' &&
+      (github.event.action == 'opened' || github.event.changes.body != null)
+    runs-on: ubuntu-slim
+    permissions:
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Set the PR milestone if it has none
+        run: |
+          set -euo pipefail
+
+          current=$(gh api "repos/${REPO}/issues/${PR_NUMBER}" --jq '.milestone.title // ""')
+          if [[ -n "$current" ]]; then
+            echo "PR #${PR_NUMBER} already has milestone '${current}', leaving it."
+            exit 0
+          fi
+
+          query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  closingIssuesReferences(first: 20) {
+                    nodes { repository { nameWithOwner } milestone { number title state } }
+                  }
+                }
+              }
+            }'
+
+          # GitHub may not have parsed the closing reference the instant the event fires, so retry briefly.
+          milestone=""
+          for attempt in 1 2 3; do
+            milestone=$(gh api graphql -f query="$query" -f owner="${REPO%/*}" -f name="${REPO#*/}" \
+                -F number="$PR_NUMBER" \
+              | jq -c --arg repo "$REPO" '
+                  [.data.repository.pullRequest.closingIssuesReferences.nodes[]
+                    | select(.repository.nameWithOwner == $repo
+                        and .milestone != null
+                        and .milestone.state == "OPEN"
+                        and (.milestone.title | test("^Kyverno Release ")))
+                    | .milestone] | first // empty')
+            if [[ -n "$milestone" ]]; then
+              break
+            fi
+            if [[ "$attempt" -lt 3 ]]; then
+              sleep 5
+            fi
+          done
+
+          if [[ -z "$milestone" ]]; then
+            echo "PR #${PR_NUMBER} closes no issue with an open Kyverno Release milestone."
+            exit 0
+          fi
+
+          echo "Setting PR #${PR_NUMBER} milestone to $(jq -r '.title' <<< "$milestone")."
+          gh api -X PATCH "repos/${REPO}/issues/${PR_NUMBER}" -F milestone="$(jq -r '.number' <<< "$milestone")" > /dev/null
+
+  from-issue:
+    name: Propagate an issue's milestone to the PRs that close it
+    if: |
+      github.event_name == 'issues' &&
+      startsWith(github.event.issue.milestone.title, 'Kyverno Release ')
+    runs-on: ubuntu-slim
+    permissions:
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      ISSUE_NUMBER: ${{ github.event.issue.number }}
+      NEW_NUMBER: ${{ github.event.issue.milestone.number }}
+      NEW_TITLE: ${{ github.event.issue.milestone.title }}
+    steps:
+      - name: Update linked open PRs
+        run: |
+          set -euo pipefail
+          owner="${REPO%/*}"
+          name="${REPO#*/}"
+
+          # The issue's milestone before this change, replayed from its milestone timeline; the webhook payload
+          # only carries the new one. The last event is the one that triggered us, so drop it. GitHub records a
+          # direct change (R1 -> R2) as a `demilestoned` R1 + `milestoned` R2 pair in the same second, whereas
+          # clearing and later setting leaves a gap — so a `demilestoned` right before the new event is the
+          # previous milestone, and an earlier one means the issue had none.
+          history_query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                issue(number: $number) {
+                  timelineItems(last: 100, itemTypes: [MILESTONED_EVENT, DEMILESTONED_EVENT]) {
+                    nodes {
+                      __typename
+                      ... on MilestonedEvent { createdAt milestoneTitle }
+                      ... on DemilestonedEvent { createdAt milestoneTitle }
+                    }
+                  }
+                }
+              }
+            }'
+          previous=$(gh api graphql -f query="$history_query" -f owner="$owner" -f name="$name" \
+              -F number="$ISSUE_NUMBER" \
+            | jq -r --arg new "$NEW_TITLE" '
+                .data.repository.issue.timelineItems.nodes as $e
+                | ($e | length > 0 and (last | .__typename == "MilestonedEvent" and .milestoneTitle == $new)) as $ours
+                | (if $ours then $e[:-1] else $e end) as $before
+                | (if $ours then ($e | last | .createdAt | fromdateiso8601) else null end) as $at
+                | if ($before | length) == 0 then ""
+                  else ($before | last) as $l
+                    | if $l.__typename == "DemilestonedEvent"
+                      then (if $at != null and ($at - ($l.createdAt | fromdateiso8601)) <= 2 then $l.milestoneTitle else "" end)
+                      else $l.milestoneTitle end
+                  end')
+          echo "Issue #${ISSUE_NUMBER}: '${previous}' -> '${NEW_TITLE}'"
+
+          # Candidate PRs: those that cross-reference or are linked to the issue. Each is verified below
+          # against its own closingIssuesReferences, so a mere mention or a later unlink doesn't count.
+          links_query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                issue(number: $number) {
+                  timelineItems(last: 100, itemTypes: [CROSS_REFERENCED_EVENT, CONNECTED_EVENT]) {
+                    nodes {
+                      ... on CrossReferencedEvent { source { __typename ... on PullRequest { number state } } }
+                      ... on ConnectedEvent { subject { __typename ... on PullRequest { number state } } }
+                    }
+                  }
+                }
+              }
+            }'
+          candidates=$(gh api graphql -f query="$links_query" -f owner="$owner" -f name="$name" \
+              -F number="$ISSUE_NUMBER" \
+            | jq -r '[.data.repository.issue.timelineItems.nodes[]
+                | (.source // .subject)
+                | select(.__typename == "PullRequest" and .state == "OPEN")
+                | .number] | unique | .[]')
+
+          pr_query='
+            query($owner: String!, $name: String!, $number: Int!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  milestone { title }
+                  closingIssuesReferences(first: 20) { nodes { number repository { nameWithOwner } } }
+                }
+              }
+            }'
+          for pr in $candidates; do
+            info=$(gh api graphql -f query="$pr_query" -f owner="$owner" -f name="$name" -F number="$pr")
+            closes=$(jq --argjson n "$ISSUE_NUMBER" --arg repo "$REPO" \
+              '[.data.repository.pullRequest.closingIssuesReferences.nodes[]
+                | select(.number == $n and .repository.nameWithOwner == $repo)] | length > 0' <<< "$info")
+            if [[ "$closes" != "true" ]]; then
+              echo "PR #${pr}: doesn't close #${ISSUE_NUMBER}, skipping."
+              continue
+            fi
+            current=$(jq -r '.data.repository.pullRequest.milestone.title // ""' <<< "$info")
+            if [[ "$current" == "$NEW_TITLE" ]]; then
+              echo "PR #${pr}: already on '${NEW_TITLE}'."
+            elif [[ -z "$current" || "$current" == "$previous" ]]; then
+              echo "PR #${pr}: '${current}' -> '${NEW_TITLE}'."
+              gh api -X PATCH "repos/${REPO}/issues/${pr}" -F milestone="$NEW_NUMBER" > /dev/null
+            else
+              echo "PR #${pr}: has '${current}' (not the issue's previous '${previous}'), leaving it."
+            fi
+          done
