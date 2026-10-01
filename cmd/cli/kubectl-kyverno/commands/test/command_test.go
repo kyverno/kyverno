@@ -1234,8 +1234,12 @@ func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T)
 		assert.Equal(t, triggerIdentity, describe(response.Resource),
 			"trigger response must be produced for the trigger resource")
 
-		// The trigger must not be patched with the target-shaped mutation.
-		assert.NotContains(t, response.PatchedResource.GetLabels(), labelKey,
+		// The trigger must not be patched at all. PatchedResource is the engine's patch
+		// output, so the strongest statement is that it carries no object; the trigger's
+		// own labels are checked too, so the target-shaped mutation cannot hide there.
+		assert.Nil(t, response.PatchedResource.Object,
+			"trigger %s must not carry a patched resource", triggerIdentity)
+		assert.NotContains(t, response.Resource.GetLabels(), labelKey,
 			"trigger %s was mutated with the target-shaped patch", triggerIdentity)
 
 		// The mutate-existing flow does legitimately carry the target's patch on this
