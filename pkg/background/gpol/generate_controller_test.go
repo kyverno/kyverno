@@ -305,18 +305,12 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 	assert.Contains(t, wm.dynamicWatchers[configMapGVR].metadataCache, downstream.GetUID())
 }
 
-// TestDynamicWatcher_HandleUpdateRevertsOwnWriteDuringStaleCacheWindow is the
-// first half of the gpol clone/sync race behind the chainsaw scenario
-// generating-policies/clone/sync/sync-modify-trigger: it proves the defect
-// mechanism in dynamic_watcher.go's handleUpdate in isolation, deterministically
-// and without any goroutine scheduling. handleUpdate has no way to distinguish
-// "the cache is stale because a legitimate Kyverno write hasn't been synced into
-// it yet" from "a user modified the downstream out of band" -- both look like a
-// hash mismatch against whatever is currently cached, and both are reverted
-// (dynamic_watcher.go:576 "downstream resource updated by user, reverting
-// changes"). generate_controller.go's ProcessUR is what can leave the cache in
-// exactly that first state (see the sibling test below), so this is the
-// mechanism that turns that window into data loss.
+// TestDynamicWatcher_HandleUpdateRevertsOwnWriteDuringStaleCacheWindow shows why the
+// watcher cache must be refreshed before Kyverno's own generate write is visible. With
+// no generate write in flight, handleUpdate treats any hash mismatch against the cache as
+// a user edit and reverts it (revertDownstream), so a stale cache would undo Kyverno's
+// own write. TestProcessUR_SyncWatchersMustCompleteBeforeReturn guards the other half:
+// ProcessUR refreshes the cache before it returns.
 func TestDynamicWatcher_HandleUpdateRevertsOwnWriteDuringStaleCacheWindow(t *testing.T) {
 	secretGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 	downstreamOld := makeUnstructured("", "", "v1", "Secret", "sync-modify-trigger", "sync-modify-trigger", "downstream-uid", map[string]string{
@@ -354,29 +348,18 @@ func TestDynamicWatcher_HandleUpdateRevertsOwnWriteDuringStaleCacheWindow(t *tes
 	// the cache is still stale.
 	wm.handleUpdate(downstreamNew.DeepCopy(), secretGVR)
 
-	assert.NotEmpty(t, client.updated, "handleUpdate must revert a hash mismatch while the cache is stale -- this is the defect: it cannot tell a pending Kyverno write apart from real user tampering")
+	assert.NotEmpty(t, client.updated, "with no generate write in flight, handleUpdate reverts any hash mismatch, so a stale cache would undo Kyverno's own write")
 }
 
-// TestProcessUR_SyncWatchersMustCompleteBeforeReturn is the second half of the
-// same race: it proves ProcessUR (generate_controller.go) actually leaves the
-// watcher cache in the stale state the test above exploits, because it
-// dispatches SyncWatchers in a goroutine (`go func(...) { c.watchManager.
-// SyncWatchers(...) }`) instead of calling it inline before returning.
+// TestProcessUR_SyncWatchersMustCompleteBeforeReturn guards that ProcessUR refreshes the
+// watcher cache (SyncWatchers) before it returns, so the watch event for its own write
+// never meets a stale cache (see the test above).
 //
-// This does NOT race real wall-clock time against a fixed sleep (an earlier
-// version of this test did exactly that, comparing "elapsed" against the
-// mock's delay, and was flaky under load: ~15/20 runs correctly caught the
-// bug, but ~5/20 falsely passed because scheduling jitter let the background
-// goroutine finish before the assertion ran). Instead it proves a dependency,
-// not a timing window: the mocked RESTMapper blocks on a channel that only
-// the test controls, and is never released until AFTER we've already
-// observed whether ProcessUR returned. If ProcessUR returns anyway, that
-// deterministically proves it does not wait for SyncWatchers, regardless of
-// CPU contention. No channel/lock coordination with handleUpdate is needed
-// (and must be avoided: SyncWatchers holds wm.lock for its whole body, so
-// calling handleUpdate, which also needs wm.lock, while SyncWatchers is
-// deliberately stalled inside that body would deadlock both goroutines --
-// the mistake in that same earlier version).
+// It checks an ordering, not a timing window: the mocked RESTMapper blocks on a channel
+// that only the test controls, and it is released only after the test has seen whether
+// ProcessUR returned. If ProcessUR returns while SyncWatchers is still blocked, it does
+// not wait for the refresh, whatever the CPU load. handleUpdate must not be called while
+// SyncWatchers is blocked: both take wm.lock.
 func TestProcessUR_SyncWatchersMustCompleteBeforeReturn(t *testing.T) {
 	// needsReports (called at the end of ProcessUR) dereferences the global
 	// reporting configuration; set it explicitly for this test and restore the
@@ -518,7 +501,7 @@ func TestProcessUR_SyncWatchersMustCompleteBeforeReturn(t *testing.T) {
 		// release at all.
 		unblockMock()
 		require.NoError(t, err)
-		t.Fatal("ProcessUR returned before SyncWatchers (still blocked on the mocked RESTMapping call) could complete -- the cache refresh runs in a detached goroutine (`go func(...) { c.watchManager.SyncWatchers(...) }`), leaving a window where a watch event for this same write is reverted as user tampering (see TestDynamicWatcher_HandleUpdateRevertsOwnWriteDuringStaleCacheWindow)")
+		t.Fatal("ProcessUR returned before SyncWatchers (blocked on the mocked RESTMapping call) completed, so the watcher cache can still be stale when the watch event for this write arrives and the write is reverted as a user edit (see TestDynamicWatcher_HandleUpdateRevertsOwnWriteDuringStaleCacheWindow)")
 	case <-time.After(3 * time.Second):
 		// ProcessUR has not returned: SyncWatchers must be running inline and
 		// blocked on the mocked RESTMapping call. Release it and confirm
@@ -537,7 +520,7 @@ func TestProcessUR_SyncWatchersMustCompleteBeforeReturn(t *testing.T) {
 	hash := wm.dynamicWatchers[secretGVR].metadataCache[downstreamOld.GetUID()].Hash
 	wm.lock.Unlock()
 	assert.Equal(t, reportutils.CalculateResourceHash(*downstreamNew), hash,
-		"the watcher cache must reflect the new content once ProcessUR has fully completed (including its SyncWatchers dispatch)")
+		"the watcher cache must reflect the new content once ProcessUR has returned (SyncWatchers included)")
 }
 
 // Regression test for kyverno/kyverno#16983: when the engine evaluation
