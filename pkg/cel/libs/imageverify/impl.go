@@ -398,6 +398,12 @@ func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
-		return f.NativeToValue(*img)
+		// Convert through JSON: since cel-go v0.31 (#17067) NativeToValue only converts
+		// registered native types, and imagedataloader.ImageData is not one.
+		data, err := utils.GetValue(img.Data())
+		if err != nil {
+			return types.NewErr("failed to convert imagedata: %v", err)
+		}
+		return f.NativeToValue(data)
 	}
 }
