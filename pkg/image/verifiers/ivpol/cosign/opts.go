@@ -196,6 +196,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 					SubjectRegExp: id.SubjectRegExp,
 				})
 		}
+		if err := applyAdditionalExtensions(opts, att.Keyless.AdditionalExtensions); err != nil {
+			return nil, err
+		}
 		// trust is always non-nil when att.Keyless != nil because
 		// skipSigstoreInfra requires keyOrCert=true (att.Keyless==nil).
 		opts.RootCerts = trust.fulcioRoots
@@ -281,6 +284,30 @@ type sigstoreTrustMaterial struct {
 	trustedRoot         *root.TrustedRoot
 	fulcioRoots         *x509.CertPool
 	fulcioIntermediates *x509.CertPool
+}
+
+// take extensions that exist in the policy's definition and use them to populate
+// attestation opts
+func applyAdditionalExtensions(opts *cosign.CheckOpts, extensions map[string]string) error {
+	for key, value := range extensions {
+		switch key {
+		case cosign.CertExtensionGithubWorkflowTrigger, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowTrigger]:
+			opts.CertGithubWorkflowTrigger = value
+		case cosign.CertExtensionGithubWorkflowSha, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowSha]:
+			opts.CertGithubWorkflowSha = value
+		case cosign.CertExtensionGithubWorkflowName, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowName]:
+			opts.CertGithubWorkflowName = value
+		case cosign.CertExtensionGithubWorkflowRepository, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRepository]:
+			opts.CertGithubWorkflowRepository = value
+		case cosign.CertExtensionGithubWorkflowRef, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRef]:
+			opts.CertGithubWorkflowRef = value
+		case cosign.CertExtensionOIDCIssuer, cosign.CertExtensionMap[cosign.CertExtensionOIDCIssuer]:
+			return fmt.Errorf("additionalExtensions key %q is not supported, use identities issuer or issuerRegExp", key)
+		default:
+			return fmt.Errorf("invalid certificate extension %q in additionalExtensions", key)
+		}
+	}
+	return nil
 }
 
 // initTUFAndFetch pre-reads any file-based TUF root (pure I/O), then
