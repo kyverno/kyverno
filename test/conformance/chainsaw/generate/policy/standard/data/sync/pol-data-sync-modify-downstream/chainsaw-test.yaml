@@ -12,6 +12,17 @@ spec:
         file: chainsaw-step-01-apply-1-1.yaml
     - apply:
         file: chainsaw-step-01-apply-1-2.yaml
+  # The Secret below is the trigger; if it is created before the policy is ready, no
+  # UpdateRequest is made for it and the ConfigMap is never generated.
+  - name: wait policy ready
+    use:
+      template: ../../../../../../_step-templates/policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: pol-data-sync
+        - name: namespace
+          value: pol-data-sync-modify-downstream-ns
   - name: step-02
     try:
     - apply:
