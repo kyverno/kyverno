@@ -103,59 +103,49 @@ func disallowPrivilegeEscalationVpol(statusAutogenConfigs map[string]policiesv1b
 	}
 }
 
-// TestHandleVAPGeneration_AutogenStatusRace covers a new policy whose status.autogen is not
-// written yet: generation must still be skipped because autogen is set in the spec.
-func TestHandleVAPGeneration_AutogenStatusRace(t *testing.T) {
-	ctx := context.Background()
+// TestHandleVAPGeneration_PodControllerAutogen checks that no ValidatingAdmissionPolicy is
+// generated for a policy with pod-controller autogen, including right after the policy is
+// created, before the policystatus controller has written status.autogen.
+func TestHandleVAPGeneration_PodControllerAutogen(t *testing.T) {
+	tests := []struct {
+		name           string
+		statusConfigs  map[string]policiesv1beta1.ValidatingPolicyAutogen
+		disableAutogen bool
+		wantGenerated  bool
+	}{{
+		name: "autogen in the spec, status.autogen not written yet",
+	}, {
+		name:          "autogen in the spec and in status.autogen",
+		statusConfigs: map[string]policiesv1beta1.ValidatingPolicyAutogen{"deployments": {}},
+	}, {
+		// autogen is on by default for pod-shaped policies, so an empty controllers list turns it off
+		name:           "autogen turned off",
+		disableAutogen: true,
+		wantGenerated:  true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			vpol := disallowPrivilegeEscalationVpol(tt.statusConfigs)
+			if tt.disableAutogen {
+				vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
+			}
+			c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
 
-	// status.autogen is empty, as it is right after the policy is created
-	vpol := disallowPrivilegeEscalationVpol(nil)
-	c, kubeClient, kyvernoClient := newVAPTestController(t, vpol)
+			require.NoError(t, c.handleVAPGeneration(ctx, "ValidatingPolicy", engineapi.NewValidatingPolicy(vpol)))
 
-	err := c.handleVAPGeneration(ctx, "ValidatingPolicy", engineapi.NewValidatingPolicy(vpol))
-	require.NoError(t, err)
-
-	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "vpol-disallow-privilege-escalation", metav1.GetOptions{})
-	assert.True(t, apierrors.IsNotFound(vapErr),
-		"a ValidatingAdmissionPolicy must NOT be generated for a policy whose spec has pod-controller autogen"+
-			" configured, even if status.autogen.configs has not been populated yet by the policystatus controller: got err=%v", vapErr)
-
-	_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, "vpol-disallow-privilege-escalation-binding", metav1.GetOptions{})
-	assert.True(t, apierrors.IsNotFound(bindingErr), "a ValidatingAdmissionPolicyBinding must NOT be generated either: got err=%v", bindingErr)
-
-	updated, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, "disallow-privilege-escalation", metav1.GetOptions{})
-	require.NoError(t, err)
-	assert.False(t, updated.Status.Generated, "status.generated must stay false when autogen is configured in spec")
-}
-
-// TestHandleVAPGeneration_AutogenStatusPopulated checks generation is skipped once status.autogen is set.
-func TestHandleVAPGeneration_AutogenStatusPopulated(t *testing.T) {
-	ctx := context.Background()
-
-	vpol := disallowPrivilegeEscalationVpol(map[string]policiesv1beta1.ValidatingPolicyAutogen{
-		"deployments": {},
-	})
-	c, kubeClient, _ := newVAPTestController(t, vpol)
-
-	err := c.handleVAPGeneration(ctx, "ValidatingPolicy", engineapi.NewValidatingPolicy(vpol))
-	require.NoError(t, err)
-
-	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "vpol-disallow-privilege-escalation", metav1.GetOptions{})
-	assert.True(t, apierrors.IsNotFound(vapErr), "no ValidatingAdmissionPolicy expected: got err=%v", vapErr)
-}
-
-// TestHandleVAPGeneration_NoAutogen checks a VAP is still generated when autogen is turned off.
-// Autogen is on by default for pod-shaped policies, so it is disabled with an empty controllers list.
-func TestHandleVAPGeneration_NoAutogen(t *testing.T) {
-	ctx := context.Background()
-
-	vpol := disallowPrivilegeEscalationVpol(nil)
-	vpol.Spec.AutogenConfiguration.PodControllers.Controllers = []string{}
-	c, kubeClient, _ := newVAPTestController(t, vpol)
-
-	err := c.handleVAPGeneration(ctx, "ValidatingPolicy", engineapi.NewValidatingPolicy(vpol))
-	require.NoError(t, err)
-
-	_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "vpol-disallow-privilege-escalation", metav1.GetOptions{})
-	assert.NoError(t, vapErr, "a ValidatingAdmissionPolicy IS expected when pod-controller autogen is not configured")
+			_, vapErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "vpol-disallow-privilege-escalation", metav1.GetOptions{})
+			_, bindingErr := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, "vpol-disallow-privilege-escalation-binding", metav1.GetOptions{})
+			updated, err := kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, "disallow-privilege-escalation", metav1.GetOptions{})
+			require.NoError(t, err)
+			if tt.wantGenerated {
+				assert.NoError(t, vapErr, "a ValidatingAdmissionPolicy is expected")
+				assert.NoError(t, bindingErr, "a ValidatingAdmissionPolicyBinding is expected")
+			} else {
+				assert.True(t, apierrors.IsNotFound(vapErr), "no ValidatingAdmissionPolicy expected: got err=%v", vapErr)
+				assert.True(t, apierrors.IsNotFound(bindingErr), "no ValidatingAdmissionPolicyBinding expected: got err=%v", bindingErr)
+			}
+			assert.Equal(t, tt.wantGenerated, updated.Status.Generated)
+		})
+	}
 }
