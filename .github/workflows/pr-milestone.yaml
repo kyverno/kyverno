@@ -300,6 +300,7 @@ jobs:
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $number) {
+                  state
                   milestone { title }
                   closingIssuesReferences(first: 100) {
                     nodes { repository { nameWithOwner } milestone { number title state } }
@@ -316,6 +317,10 @@ jobs:
               continue
             fi
             fresh=$(gh api graphql -f query="$fresh_query" -f owner="${REPO%/*}" -f name="${REPO#*/}" -F number="$pr")
+            if [[ "$(jq -r '.data.repository.pullRequest.state' <<< "$fresh")" != "OPEN" ]]; then
+              echo "PR #${pr} is no longer open, leaving it."
+              continue
+            fi
             current=$(jq -r '.data.repository.pullRequest.milestone.title // ""' <<< "$fresh")
             if [[ -n "$current" ]]; then
               echo "PR #${pr} got '${current}' meanwhile, leaving it."
