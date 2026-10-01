@@ -2,6 +2,7 @@ package background
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -370,6 +371,42 @@ func TestUpdateUR_RequeuesFailedStateAfterBackoff(t *testing.T) {
 
 	assert.Equal(t, 0, c.queue.Len(), "a retry should wait for its backoff")
 	assert.Eventually(t, func() bool { return c.queue.Len() == 1 }, 10*time.Second, 20*time.Millisecond)
+}
+
+func TestUpdateUR_RequeuesRetriedPendingStateAfterBackoff(t *testing.T) {
+	c := &controller{
+		queue: newTestQueue(),
+	}
+
+	pendingUR := newTestUpdateRequest("retried-ur", kyvernov2.Pending, kyvernov2.Generate)
+	pendingUR.Status.RetryCount = 2
+
+	// A UR flipped back to Pending after a failure carries its retry count and
+	// must wait for its backoff too.
+	c.updateUR(pendingUR, pendingUR)
+
+	assert.Equal(t, 0, c.queue.Len(), "a retry should wait for its backoff")
+	assert.Eventually(t, func() bool { return c.queue.Len() == 1 }, 10*time.Second, 20*time.Millisecond)
+}
+
+func TestDefaultRetryBackoff(t *testing.T) {
+	tests := []struct {
+		retryCount int
+		want       time.Duration
+	}{
+		{retryCount: 0, want: 300 * time.Millisecond},
+		{retryCount: 1, want: 300 * time.Millisecond},
+		{retryCount: 2, want: 600 * time.Millisecond},
+		{retryCount: 3, want: 1200 * time.Millisecond},
+		{retryCount: 6, want: 9600 * time.Millisecond},
+		{retryCount: 7, want: 10 * time.Second},
+		{retryCount: 10, want: 10 * time.Second},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("retry count %d", tt.retryCount), func(t *testing.T) {
+			assert.Equal(t, tt.want, defaultRetryBackoff(tt.retryCount))
+		})
+	}
 }
 
 func TestAddUR_EnqueuesUpdateRequest(t *testing.T) {
