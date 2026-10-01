@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -195,6 +197,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 					SubjectRegExp: id.SubjectRegExp,
 				})
 		}
+		if err := applyAdditionalExtensions(opts, att.Keyless.AdditionalExtensions); err != nil {
+			return nil, err
+		}
 		// trust is always non-nil when att.Keyless != nil because
 		// skipSigstoreInfra requires keyOrCert=true (att.Keyless==nil).
 		opts.RootCerts = trust.fulcioRoots
@@ -280,6 +285,60 @@ type sigstoreTrustMaterial struct {
 	trustedRoot         *root.TrustedRoot
 	fulcioRoots         *x509.CertPool
 	fulcioIntermediates *x509.CertPool
+}
+
+// take extensions that exist in the policy's definition and use them to populate
+// attestation opts
+func applyAdditionalExtensions(opts *cosign.CheckOpts, extensions map[string]string) error {
+	// canonicalize friendly names to OIDs so that both spellings of the same
+	// extension collapse to one entry, rejecting conflicting values
+	byOID := make(map[string]string, len(extensions))
+	for _, key := range slices.Sorted(maps.Keys(extensions)) {
+		oid, ok := canonicalExtensionOID(key) // translate a friendly key to an OID
+		if !ok {
+			return fmt.Errorf("invalid certificate extension %q in additionalExtensions", key)
+		}
+		if oid == cosign.CertExtensionOIDCIssuer {
+			return fmt.Errorf("additionalExtensions key %q is not supported, use identities issuer or issuerRegExp", key)
+		}
+		value := extensions[key]
+		if prev, isDuplicated := byOID[oid]; isDuplicated && prev != value {
+			return fmt.Errorf("additionalExtensions contains conflicting values for certificate extension %s (%s): %q and %q",
+				oid, cosign.CertExtensionMap[oid], prev, value)
+		}
+		byOID[oid] = value
+	}
+	for oid, value := range byOID {
+		switch oid {
+		case cosign.CertExtensionGithubWorkflowTrigger:
+			opts.CertGithubWorkflowTrigger = value
+		case cosign.CertExtensionGithubWorkflowSha:
+			opts.CertGithubWorkflowSha = value
+		case cosign.CertExtensionGithubWorkflowName:
+			opts.CertGithubWorkflowName = value
+		case cosign.CertExtensionGithubWorkflowRepository:
+			opts.CertGithubWorkflowRepository = value
+		case cosign.CertExtensionGithubWorkflowRef:
+			opts.CertGithubWorkflowRef = value
+		}
+	}
+	return nil
+}
+
+// canonicalExtensionOID resolves an OID or its friendly name to the OID.
+func canonicalExtensionOID(key string) (string, bool) {
+	// its an oid, return that directly
+	if _, ok := cosign.CertExtensionMap[key]; ok {
+		return key, true
+	}
+	// if its a friendly name, iterate on the extensions map and check
+	// if the value is equal to the passed key, then return that map key
+	for oid, name := range cosign.CertExtensionMap {
+		if name == key {
+			return oid, true
+		}
+	}
+	return "", false
 }
 
 // initTUFAndFetch pre-reads any file-based TUF root (pure I/O), then
