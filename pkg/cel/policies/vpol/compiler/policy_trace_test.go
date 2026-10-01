@@ -172,6 +172,51 @@ func TestEvaluate_TracingOn_MatchConditionFalseSkipsPolicy(t *testing.T) {
 	assert.Nil(t, compileAndEvaluate(t, false, policy, object))
 }
 
+func TestEvaluate_TracingOn_MatchConditionErrorKeepsMatchTraces(t *testing.T) {
+	policy := buildTracePolicy(threeValidations()...)
+	// the second condition reads a label that is absent, a runtime error; with the default
+	// failurePolicy (Fail) that error is returned rather than treated as a non-match
+	policy.Spec.MatchConditions = append(policy.Spec.MatchConditions, admissionregistrationv1.MatchCondition{
+		Name:       "owner-is-platform",
+		Expression: "object.metadata.labels.owner == 'platform'",
+	})
+	object := podObject("prod", nil)
+
+	evaluate := func(traced bool) (*EvaluationResult, error) {
+		p, errs := NewCompiler(traced).Compile(policy, nil)
+		require.Empty(t, errs)
+		return p.Evaluate(context.Background(), object, nil, nil, nil, nil, nil)
+	}
+
+	// tracing off: unchanged, a nil result and the error
+	untraced, untracedErr := evaluate(false)
+	require.Error(t, untracedErr)
+	assert.Nil(t, untraced)
+
+	// tracing on: the same error, plus the match traces recorded up to the failure
+	traced, tracedErr := evaluate(true)
+	require.Error(t, tracedErr)
+	assert.Equal(t, untracedErr.Error(), tracedErr.Error())
+	require.NotNil(t, traced)
+	require.NotNil(t, traced.Trace)
+	assert.Equal(t, trace.VerdictError, traced.Trace.Verdict.Status)
+	assert.Equal(t, tracedErr.Error(), traced.Trace.Verdict.Message)
+
+	require.Len(t, traced.Trace.Match, 2)
+	assert.Equal(t, "not-kube-system", traced.Trace.Match[0].Name)
+	assert.Equal(t, "true", traced.Trace.Match[0].Result)
+	failing := traced.Trace.Match[1]
+	assert.Equal(t, "owner-is-platform", failing.Name)
+	var sawError bool
+	for _, n := range failing.Nodes {
+		if n.Error != "" {
+			sawError = true
+		}
+	}
+	assert.True(t, sawError, "the failing condition should show which sub-expression errored")
+	assert.Empty(t, traced.Trace.Variables, "nothing past the match conditions runs")
+}
+
 func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
 	policy := buildTracePolicy(threeValidations()...)
 	objects := []map[string]any{

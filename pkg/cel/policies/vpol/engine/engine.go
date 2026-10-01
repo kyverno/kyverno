@@ -280,6 +280,10 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	}
 	if tracing {
 		switch {
+		case err != nil && result != nil && result.Trace != nil:
+			// Evaluate failed partway (e.g. a match condition errored) but kept what it traced
+			result.Trace.Scope = scope
+			response.Trace = result.Trace
 		case err != nil:
 			response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
 		case result != nil && result.Trace != nil:

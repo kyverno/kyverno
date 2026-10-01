@@ -165,7 +165,16 @@ func (p *Policy) evaluateWithData(
 	}
 	match, err := p.match(ctx, dataNew, p.matchConditions, recordMatch)
 	if err != nil {
-		return nil, err
+		if !p.trace {
+			return nil, err
+		}
+		// the error stays the second return value so callers handle it exactly as before; the
+		// result only carries the match traces recorded up to the failure, so --explain can show
+		// which condition errored instead of a bare ERROR
+		return &EvaluationResult{Trace: &trace.Decision{
+			Match:   matchTraces,
+			Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
+		}}, err
 	}
 	if !match {
 		if !p.trace {
