@@ -6,7 +6,8 @@ description: Install Chainsaw (E2E test runner)
 runs:
   using: composite
   steps:
-    # The download or its signature check fails now and then on the runners, so try once more.
+    # The download or its signature check fails now and then on the runners, sometimes for a
+    # minute or so, so wait and try up to two more times.
     - id: install
       uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
       continue-on-error: true
@@ -14,6 +15,19 @@ runs:
         verify: true
         release: v0.2.15-beta.3
     - if: steps.install.outcome == 'failure'
+      shell: bash
+      run: sleep 30
+    - id: retry
+      if: steps.install.outcome == 'failure'
+      uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
+      continue-on-error: true
+      with:
+        verify: true
+        release: v0.2.15-beta.3
+    - if: steps.retry.outcome == 'failure'
+      shell: bash
+      run: sleep 60
+    - if: steps.retry.outcome == 'failure'
       uses: kyverno/action-install-chainsaw@06560d18422209e9c1e08e931d477d04bf2674c1 # v0.2.14
       with:
         verify: true
