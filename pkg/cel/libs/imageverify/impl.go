@@ -40,12 +40,13 @@ type ivfuncs struct {
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
 	attestationList map[string]v1beta1.Attestation
-	cosignVerifier  *cosign.Verifier
+	cosignVerifier  cosignImageVerifier
 	notaryVerifier  *notary.Verifier
 	ivCache         imageverifycache.Client
 	authOpts        []remote.Option
 	nameOpts        []name.Option
 	verifications   *ImageVerificationResults
+	diagnostics     *verificationDiagnostics
 
 	// pendingIntotoRestores holds intoto payloads read back from the cache on
 	// a verifyAttestationSignatures() hit, keyed by "<image>\x00<attestation>".
@@ -60,6 +61,11 @@ type ivfuncs struct {
 	// never completes the write -- so it would never get a real cache hit
 	// again, defeating caching entirely for that common case.
 	pendingIntotoRestores map[string]map[string][]byte
+}
+
+type cosignImageVerifier interface {
+	VerifyImageSignature(context.Context, *imagedataloader.ImageData, *v1beta1.Attestor) error
+	VerifyAttestationSignature(context.Context, *imagedataloader.ImageData, *v1beta1.Attestation, *v1beta1.Attestor) error
 }
 
 // Runtime holds state owned by a single request. Bind creates a policy-local
@@ -85,6 +91,7 @@ func (f *Factory) Bind(r *Runtime) Runtime {
 	functions.cosignVerifier = cosign.NewVerifier(f.lister, functions.logger)
 	functions.notaryVerifier = notary.NewVerifier(functions.logger)
 	functions.pendingIntotoRestores = map[string]map[string][]byte{}
+	functions.diagnostics = &verificationDiagnostics{}
 	return Runtime{functions: &functions}
 }
 
@@ -181,6 +188,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+					f.diagnostics.record(image, attestor.Name, "", err)
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "cosign", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "cosign")
@@ -277,6 +285,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
+					f.diagnostics.record(image, attestor.Name, attestation, err)
 					f.logger.V(6).Info("attestation signature verification failed", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign", "error", err)
 				} else {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
