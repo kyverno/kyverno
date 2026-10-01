@@ -29,7 +29,16 @@ jobs:
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: 3.13.1
+      # Setting up chart-testing downloads cosign and Python packages, which fails now and
+      # then on the runners, so wait and try once more.
       - name: Set up chart-testing
+        id: ct-setup
+        uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+        continue-on-error: true
+      - if: steps.ct-setup.outcome == 'failure'
+        run: sleep 30
+      - name: Set up chart-testing (retry)
+        if: steps.ct-setup.outcome == 'failure'
         uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
       # Exports HELM=<path>, which the Makefile's `HELM ?=` picks up, so the
       # retention check below reuses this helm instead of building one from
