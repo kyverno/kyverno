@@ -8,6 +8,9 @@
 # - Issue milestoned: for each open PR that closes the issue, set the new milestone if the PR has none or
 #   still has the issue's previous one. Any other milestone was chosen by a maintainer and is kept.
 #
+# - Manual run (workflow_dispatch): backfill every open PR that has no milestone yet. Tick "dry run" to only
+#   list what would be set.
+#
 # Not covered: linking an already-milestoned issue via the PR sidebar fires no event.
 
 name: PR milestone
@@ -27,6 +30,12 @@ on:
   issues:
     types:
       - milestoned
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only list the PRs that would get a milestone
+        type: boolean
+        default: true
 
 jobs:
   from-pr:
@@ -222,3 +231,90 @@ jobs:
               echo "PR #${pr}: has '${current}' (not the issue's previous '${previous}'), leaving it."
             fi
           done
+
+  backfill:
+    name: Set milestones on existing open PRs
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-slim
+    permissions:
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Set the milestone on open PRs that have none
+        run: |
+          set -euo pipefail
+
+          query='
+            query($owner: String!, $name: String!, $after: String) {
+              repository(owner: $owner, name: $name) {
+                pullRequests(states: OPEN, first: 100, after: $after) {
+                  pageInfo { hasNextPage endCursor }
+                  nodes {
+                    number
+                    milestone { title }
+                    closingIssuesReferences(first: 100) {
+                      pageInfo { hasNextPage }
+                      nodes { repository { nameWithOwner } milestone { number title state } }
+                    }
+                  }
+                }
+              }
+            }'
+
+          # Collect "<PR>\t<milestone number>\t<milestone title>" for PRs with no milestone.
+          : > targets.tsv
+          after=""
+          for page in $(seq 1 50); do
+            args=(-f query="$query" -f owner="${REPO%/*}" -f name="${REPO#*/}")
+            if [[ -n "$after" ]]; then
+              args+=(-f after="$after")
+            fi
+            response=$(gh api graphql "${args[@]}")
+            jq -r --arg repo "$REPO" '
+              .data.repository.pullRequests.nodes[]
+              | select(.milestone == null)
+              | . as $pr
+              | ([.closingIssuesReferences.nodes[]
+                  | select(.repository.nameWithOwner == $repo
+                      and .milestone != null
+                      and .milestone.state == "OPEN"
+                      and (.milestone.title | test("^Kyverno Release ")))
+                  | .milestone] | first) as $m
+              | select($m != null)
+              | "\($pr.number)\t\($m.number)\t\($m.title)"' <<< "$response" >> targets.tsv
+            jq -r '.data.repository.pullRequests.nodes[]
+              | select(.milestone == null and .closingIssuesReferences.pageInfo.hasNextPage)
+              | "::warning::PR #\(.number) closes more than 100 issues; some were not checked."' <<< "$response"
+            if [[ "$(jq -r '.data.repository.pullRequests.pageInfo.hasNextPage' <<< "$response")" != "true" ]]; then
+              break
+            fi
+            after=$(jq -r '.data.repository.pullRequests.pageInfo.endCursor' <<< "$response")
+          done
+
+          count=0
+          while IFS=$'\t' read -r pr number title; do
+            if [[ "$DRY_RUN" == "true" ]]; then
+              echo "Would set PR #${pr} to '${title}'."
+              count=$((count + 1))
+              continue
+            fi
+            # Re-check: never overwrite a milestone set since the listing.
+            current=$(gh api "repos/${REPO}/issues/${pr}" --jq '.milestone.title // ""')
+            if [[ -n "$current" ]]; then
+              echo "PR #${pr} got '${current}' meanwhile, leaving it."
+              continue
+            fi
+            echo "Setting PR #${pr} to '${title}'."
+            gh api -X PATCH "repos/${REPO}/issues/${pr}" -F milestone="$number" > /dev/null
+            count=$((count + 1))
+          done < targets.tsv
+
+          if [[ "$DRY_RUN" == "true" ]]; then
+            echo "Dry run: ${count} PR(s) would be updated."
+          else
+            echo "Updated ${count} PR(s)."
+          fi
