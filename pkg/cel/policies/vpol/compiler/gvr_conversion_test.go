@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -13,12 +14,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// gvrStubContext returns the GVR a real RESTMapper returns for core/v1 Pod.
+// gvrStubContext returns the GVR a real RESTMapper returns for core/v1 Pod, or err when
+// it is set (a kind the RESTMapper does not know).
 type gvrStubContext struct {
 	*libs.FakeContextProvider
+	err error
 }
 
 func (s gvrStubContext) ToGVR(apiVersion, kind string) (*schema.GroupVersionResource, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
 	return &schema.GroupVersionResource{Version: "v1", Resource: "pods"}, nil
 }
 
@@ -82,4 +88,33 @@ func TestResourceToGVR_RealVpolEnv(t *testing.T) {
 	out, _, err := gvrProgram.ContextEval(context.Background(), map[string]any{})
 	require.NoError(t, err, "resource.ToGVR(\"v1\", \"Pod\") must not fail at evaluation time")
 	t.Logf("gvr=%v", out)
+}
+
+// A kind the RESTMapper cannot resolve must fail the evaluation instead of yielding a GVR.
+func TestResourceToGVR_UnknownKindFailsEvaluation(t *testing.T) {
+	prev := libs.LibraryContext
+	libs.LibraryContext = gvrStubContext{
+		FakeContextProvider: libs.NewFakeContextProvider(),
+		err:                 errors.New(`no matches for kind "Widget" in version "example.com/v1"`),
+	}
+	t.Cleanup(func() { libs.LibraryContext = prev })
+
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "unknown-kind"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{
+				{Name: "gvr", Expression: `resource.ToGVR("example.com/v1", "Widget")`},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "variables.gvr != null"},
+			},
+		},
+	}
+	compiled, errs := NewCompiler().Compile(policy, nil)
+	require.Empty(t, errs)
+	gvrProgram, ok := compiled.variables["gvr"]
+	require.True(t, ok)
+
+	_, _, err := gvrProgram.ContextEval(context.Background(), map[string]any{})
+	require.ErrorContains(t, err, `no matches for kind "Widget"`)
 }
