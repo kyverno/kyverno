@@ -6,7 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -152,10 +152,10 @@ func Test_Evaluate_NamespacedPolicyGlobalContextDeniedAtRuntime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			compiled, errs := NewCompiler(ictx, nil, nil, imageverifycache.DisabledImageVerifyCache()).Compile(gctxPolicy(tt.namespace), nil, nil)
+			compiled, errs := NewCompiler(nil).Compile(gctxPolicy(tt.namespace), nil)
 			require.Empty(t, errs)
 
-			result, err := compiled.Evaluate(context.Background(), ictx, attr, &admissionv1.AdmissionRequest{}, nil, true, libctx)
+			result, err := compiled.Evaluate(context.Background(), &imageverify.Runtime{ImageContext: ictx}, attr, &admissionv1.AdmissionRequest{}, nil, true, nil, libctx)
 			if tt.wantErr != "" {
 				assert.ErrorContains(t, err, tt.wantErr)
 				return

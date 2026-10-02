@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"strings"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
@@ -25,7 +26,7 @@ func (pc *policyController) createURForGeneratingPolicy(gpol *policiesv1beta1.Ge
 		pc.log.V(4).Info("no downstream resources found for generating policy, creating UR to restore dynamic watcher cache")
 		triggers := pc.getGpolTriggers(gpol.Spec.MatchConstraints)
 		for _, trigger := range triggers {
-			addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger), false, synchronize, true)
+			addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, synchronize, true)
 		}
 	} else {
 		// sync the gpol changes to the downstream resources
@@ -57,7 +58,7 @@ func (pc *policyController) handleGenerateExisting(gpol *policiesv1beta1.Generat
 	synchronize := gpol.Spec.SynchronizationEnabled()
 	triggers := pc.getGpolTriggers(gpol.Spec.MatchConstraints)
 	for _, trigger := range triggers {
-		addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger), false, synchronize, false)
+		addRuleContext(ur, gpol.GetName(), common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, synchronize, false)
 	}
 	if len(ur.Spec.RuleContext) == 0 {
 		return nil
@@ -83,7 +84,7 @@ func (pc *policyController) createURForNamespacedGeneratingPolicy(ngpol *policie
 		pc.log.V(4).Info("no downstream resources found for namespaced generating policy, creating UR to restore dynamic watcher cache")
 		triggers := filterTriggersByNamespace(pc.getGpolTriggers(ngpol.Spec.MatchConstraints), ngpol.GetNamespace())
 		for _, trigger := range triggers {
-			addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger), false, synchronize, true)
+			addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, synchronize, true)
 		}
 	} else {
 		// sync the ngpol changes to the downstream resources
@@ -115,7 +116,7 @@ func (pc *policyController) handleNamespacedGenerateExisting(ngpol *policiesv1be
 	policyKey := ngpol.GetNamespace() + "/" + ngpol.GetName()
 	triggers := filterTriggersByNamespace(pc.getGpolTriggers(ngpol.Spec.MatchConstraints), ngpol.GetNamespace())
 	for _, trigger := range triggers {
-		addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger), false, ngpol.Spec.SynchronizationEnabled(), false)
+		addRuleContext(ur, policyKey, common.ResourceSpecFromUnstructured(*trigger.Unstructured), false, ngpol.Spec.SynchronizationEnabled(), false)
 	}
 	if len(ur.Spec.RuleContext) == 0 {
 		return nil
@@ -130,14 +131,26 @@ func (pc *policyController) handleNamespacedGenerateExisting(ngpol *policiesv1be
 	return multierr.Combine(errs...)
 }
 
-func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources) []*unstructured.Unstructured {
-	var triggers []*unstructured.Unstructured
+type gpolTrigger struct {
+	*unstructured.Unstructured
+	SubResource string
+}
+
+func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.MatchResources) []gpolTrigger {
+	var triggers []gpolTrigger
+	seen := make(map[string]bool)
 	objectSelector := match.ObjectSelector
 	nsSelector := match.NamespaceSelector
 
 	for _, rule := range match.ResourceRules {
 		for _, group := range rule.APIGroups {
 			for _, resource := range rule.Resources {
+				baseResource := resource
+				subresource := ""
+				if idx := strings.IndexByte(resource, '/'); idx != -1 {
+					baseResource = resource[:idx]
+					subresource = resource[idx+1:]
+				}
 				versions := rule.APIVersions
 				// RESTMapper does not support wildcard versions ("*"). When a wildcard is used,
 				// resolve it to a concrete version (the RESTMapper will pick the preferred version)
@@ -146,11 +159,11 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 					gvk, err := pc.restMapper.KindFor(
 						schema.GroupVersionResource{
 							Group:    group,
-							Resource: resource,
+							Resource: baseResource,
 						},
 					)
 					if err != nil {
-						pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", resource)
+						pc.log.Error(err, "failed to resolve wildcard APIVersions", "group", group, "resource", baseResource)
 						continue
 					}
 					versions = []string{gvk.Version}
@@ -161,7 +174,8 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						Version: version,
 					}
 					gvr := schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
-					gvk, err := pc.restMapper.KindFor(gvr)
+					baseGVR := schema.GroupVersionResource{Group: group, Version: version, Resource: baseResource}
+					gvk, err := pc.restMapper.KindFor(baseGVR)
 					if err != nil {
 						pc.log.Error(err, "mapping gvr to gvk failed", "gvr", gvr)
 						continue
@@ -175,7 +189,23 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 						if !pc.triggerMatches(res, gvr, rule.ResourceNames, match.ExcludeResourceRules, nsSelector) {
 							continue
 						}
-						triggers = append(triggers, &resources.Items[i])
+						kind := res.GetKind()
+						if kind == "" {
+							kind = gvk.Kind
+						}
+						apiVersion := res.GetAPIVersion()
+						if apiVersion == "" {
+							apiVersion = groupVersion.String()
+						}
+						key := apiVersion + "/" + kind + "/" + res.GetNamespace() + "/" + res.GetName() + "/" + string(res.GetUID())
+						if seen[key] {
+							continue
+						}
+						seen[key] = true
+						triggers = append(triggers, gpolTrigger{
+							Unstructured: &resources.Items[i],
+							SubResource:  subresource,
+						})
 					}
 				}
 			}
@@ -184,11 +214,11 @@ func (pc *policyController) getGpolTriggers(match *admissionregistrationv1.Match
 	return triggers
 }
 
-func filterTriggersByNamespace(triggers []*unstructured.Unstructured, namespace string) []*unstructured.Unstructured {
+func filterTriggersByNamespace(triggers []gpolTrigger, namespace string) []gpolTrigger {
 	if namespace == "" {
 		return triggers
 	}
-	filtered := make([]*unstructured.Unstructured, 0, len(triggers))
+	filtered := make([]gpolTrigger, 0, len(triggers))
 	for _, trigger := range triggers {
 		if trigger.GetNamespace() == namespace || (trigger.GetKind() == "Namespace" && trigger.GetName() == namespace) {
 			filtered = append(filtered, trigger)

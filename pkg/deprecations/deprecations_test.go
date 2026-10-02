@@ -1,6 +1,8 @@
 package deprecations
 
 import (
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -109,6 +111,46 @@ func TestBuildKindWarningIgnoresNonKyvernoGroup(t *testing.T) {
 	}
 }
 
+// TestReplacementsKeySet pins the exact key set of the replacements map.
+// It's what catches a newly ADDED kind going unnoticed. If you add or
+// remove a legacy kind here, also update the e2e fixtures in
+// scripts/verify-legacy-policy-migration.sh.
+func TestReplacementsKeySet(t *testing.T) {
+	t.Parallel()
+	want := map[string]struct{}{
+		"ClusterPolicy":        {},
+		"Policy":               {},
+		"ClusterCleanupPolicy": {},
+		"CleanupPolicy":        {},
+		"PolicyException":      {},
+	}
+	got := make(map[string]struct{}, len(replacements))
+	for kind := range replacements {
+		got[kind] = struct{}{}
+	}
+	if len(got) != len(want) {
+		t.Fatalf("replacements has %d keys, want %d (got=%v, want=%v); see this test's doc comment for what to update if this is a deliberate kind addition/removal", len(got), len(want), keys(got), keys(want))
+	}
+	for kind := range want {
+		if _, ok := got[kind]; !ok {
+			t.Errorf("replacements is missing expected legacy kind %q; see this test's doc comment for what to update if this is a deliberate removal", kind)
+		}
+	}
+	for kind := range got {
+		if _, ok := want[kind]; !ok {
+			t.Errorf("replacements has unexpected legacy kind %q not in this test's expected set; see this test's doc comment for what to update if this is a deliberate addition", kind)
+		}
+	}
+}
+
+func keys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}
+
 func TestIsLegacyPolicyKind(t *testing.T) {
 	t.Parallel()
 	for kind := range replacements {
@@ -174,6 +216,46 @@ func TestBuildKindErrorIgnoresNonKyvernoGroup(t *testing.T) {
 	t.Parallel()
 	if _, ok := BuildKindError("policies.kyverno.io", "v1", "PolicyException"); ok {
 		t.Fatalf("expected non-kyverno.io group to be ignored")
+	}
+}
+
+func TestIsLegacyPolicyBlockError(t *testing.T) {
+	t.Parallel()
+	blockErr, ok := BuildKindError("kyverno.io", "v1", "ClusterPolicy")
+	if !ok {
+		t.Fatalf("BuildKindError() ok = false, want true")
+	}
+	if !IsLegacyPolicyBlockError(blockErr) {
+		t.Errorf("IsLegacyPolicyBlockError(%v) = false, want true for a BuildKindError result", blockErr)
+	}
+	if IsLegacyPolicyBlockError(errors.New("some unrelated error")) {
+		t.Errorf("IsLegacyPolicyBlockError() = true for an unrelated error, want false")
+	}
+	if IsLegacyPolicyBlockError(nil) {
+		t.Errorf("IsLegacyPolicyBlockError(nil) = true, want false")
+	}
+	// Wrapping the block error (e.g. fmt.Errorf("...: %w", blockErr), as the CLI loaders do) must
+	// still be recognized -- that's the whole point of the sentinel implementing Unwrap.
+	wrapped := fmt.Errorf("failed to process document: %w", blockErr)
+	if !IsLegacyPolicyBlockError(wrapped) {
+		t.Errorf("IsLegacyPolicyBlockError(%v) = false, want true for a wrapped BuildKindError result", wrapped)
+	}
+}
+
+// TestLegacyPolicyBlockErrorUnwrap exercises legacyPolicyBlockError.Unwrap directly: errors.As stops
+// at the first assignable match, so wrapping alone (as above) never actually invokes it.
+func TestLegacyPolicyBlockErrorUnwrap(t *testing.T) {
+	t.Parallel()
+	blockErr, ok := BuildKindError("kyverno.io", "v1", "ClusterPolicy")
+	if !ok {
+		t.Fatalf("BuildKindError() ok = false, want true")
+	}
+	sentinel, ok := blockErr.(legacyPolicyBlockError)
+	if !ok {
+		t.Fatalf("BuildKindError() returned %T, want legacyPolicyBlockError", blockErr)
+	}
+	if got := sentinel.Unwrap(); got != sentinel.error {
+		t.Errorf("legacyPolicyBlockError.Unwrap() = %v, want %v", got, sentinel.error)
 	}
 }
 

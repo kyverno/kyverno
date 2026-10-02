@@ -7,9 +7,10 @@ spec:
     - name: extra-config
       configMap:
         name: extra-cm
+    # The two policies can run in either order, so extra-cache only gets a sizeLimit when the
+    # prepend runs first. A stale elementIndex would patch extra-cache instead of cache below.
     - name: extra-cache
-      emptyDir:
-        sizeLimit: "250Mi"
+      emptyDir: {}
     - name: data
       configMap:
         name: app-data
