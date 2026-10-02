@@ -21,9 +21,9 @@ spec:
   - name: step-04
     try:
     - script:
-        content: kyverno apply policy.yaml --exception exception.yaml --cluster --namespace ns-1
+        content: kyverno apply policy.yaml --exception exception.yaml --cluster --namespace ns-1 --values-file values.yaml
         check:
           (trim_space($stdout)): |-
-            Applying 3 policy rule(s) to 1 resource(s) with 1 exception(s)...
+            Applying 1 policy rule(s) to 1 resource(s) with 1 exception(s)...
 
             pass: 0, fail: 0, warn: 0, error: 0, skip: 1

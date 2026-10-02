@@ -44,6 +44,9 @@ type WatchManager struct {
 	policyRefs map[string][]schema.GroupVersionResource
 	// refCount tracks the number of policies that generates the same resource.
 	refCount map[schema.GroupVersionResource]int
+	// pendingGenerates tracks, per policy/trigger, generate writes that are being
+	// applied but are not yet reflected in the metadata cache. See BeginGenerate.
+	pendingGenerates map[string]*pendingGenerate
 
 	log  logr.Logger
 	lock sync.Mutex
@@ -61,12 +64,76 @@ func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
 		restMapper = meta.NewDefaultRESTMapper(nil)
 	}
 	return &WatchManager{
-		log:             log,
-		client:          client,
-		restMapper:      restMapper,
-		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
-		policyRefs:      map[string][]schema.GroupVersionResource{},
-		refCount:        map[schema.GroupVersionResource]int{},
+		log:              log,
+		client:           client,
+		restMapper:       restMapper,
+		dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
+		policyRefs:       map[string][]schema.GroupVersionResource{},
+		refCount:         map[schema.GroupVersionResource]int{},
+		pendingGenerates: map[string]*pendingGenerate{},
+	}
+}
+
+// pendingGenerate is an open generate window for one policy/trigger pair.
+type pendingGenerate struct {
+	count int
+	// skipped holds the latest event handleUpdate ignored per downstream while
+	// the window was open, so it can be re-checked when the window closes.
+	skipped map[types.UID]skippedUpdate
+}
+
+type skippedUpdate struct {
+	gvr schema.GroupVersionResource
+	obj *unstructured.Unstructured
+}
+
+// generateKey identifies a policy/trigger pair. It uses the bare policy name and
+// trigger UID, the values the engine stamps on the downstream's
+// GeneratePolicyLabel and GenerateTriggerUIDLabel.
+func generateKey(policyName string, triggerUID types.UID) string {
+	return policyName + "/" + string(triggerUID)
+}
+
+// BeginGenerate marks a generate write for the given policy name and trigger UID
+// as in flight, so handleUpdate does not revert a hash mismatch on that
+// trigger's downstream while the watcher cache is catching up. The returned
+// function closes the window and reverts any edit skipped inside it. It is
+// ref-counted and safe to call more than once.
+func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) func() {
+	key := generateKey(policyName, triggerUID)
+	wm.lock.Lock()
+	if wm.pendingGenerates == nil {
+		wm.pendingGenerates = map[string]*pendingGenerate{}
+	}
+	pending := wm.pendingGenerates[key]
+	if pending == nil {
+		pending = &pendingGenerate{skipped: map[types.UID]skippedUpdate{}}
+		wm.pendingGenerates[key] = pending
+	}
+	pending.count++
+	wm.lock.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			wm.lock.Lock()
+			defer wm.lock.Unlock()
+			pending.count--
+			if pending.count > 0 {
+				return
+			}
+			if wm.pendingGenerates[key] == pending {
+				delete(wm.pendingGenerates, key)
+			}
+			for uid, s := range pending.skipped {
+				watcher, ok := wm.dynamicWatchers[s.gvr]
+				if !ok {
+					continue
+				}
+				if cached, ok := watcher.metadataCache[uid]; ok && cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*s.obj) {
+					wm.revertDownstream(watcher, uid, s.obj)
+				}
+			}
+		})
 	}
 }
 
@@ -574,23 +641,38 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			// if the cached resource has not been invalidated and is different from the hash of the resource,
 			// then we need to revert the downstream resource as it means that it has been updated by the user.
 			if hash != "" && hash != reportutils.CalculateResourceHash(*obj) {
-				wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
-				// create a copy of the resource to avoid modifying the cache
-				downstream := watcher.metadataCache[uid].Data.DeepCopy()
-				// clean up parameters that shouldn't be copied
-				downstream.SetUID("")
-				downstream.SetSelfLink("")
-				downstream.SetCreationTimestamp(metav1.Time{})
-				downstream.SetManagedFields(nil)
-				downstream.SetResourceVersion("")
-				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
-				if err != nil {
-					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
-				} else {
-					wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+				cachedLabels := watcher.metadataCache[uid].Labels
+				key := generateKey(cachedLabels[common.GeneratePolicyLabel], types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+				if pending := wm.pendingGenerates[key]; pending != nil {
+					// Likely Kyverno's own write racing the cache refresh (see
+					// BeginGenerate); re-checked when the window closes.
+					pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
+					wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					return
 				}
+				wm.revertDownstream(watcher, uid, obj)
 			}
 		}
+	}
+}
+
+// revertDownstream restores the cached desired state of a downstream. The caller
+// must hold wm.lock.
+func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *unstructured.Unstructured) {
+	wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	// create a copy of the resource to avoid modifying the cache
+	downstream := watcher.metadataCache[uid].Data.DeepCopy()
+	// clean up parameters that shouldn't be copied
+	downstream.SetUID("")
+	downstream.SetSelfLink("")
+	downstream.SetCreationTimestamp(metav1.Time{})
+	downstream.SetManagedFields(nil)
+	downstream.SetResourceVersion("")
+	_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+	if err != nil {
+		wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	} else {
+		wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	}
 }
 
