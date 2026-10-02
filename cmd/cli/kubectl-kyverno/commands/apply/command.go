@@ -767,7 +767,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			false,
 			nil,
 		)
-		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
+		engineResponse, err := engine.HandleValidating(context.TODO(), request, processor.InNamespaceScope[policiesv1beta1.ImageValidatingPolicyLike](resource.GetNamespace()))
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
@@ -866,6 +866,9 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		for _, dpol := range policies {
+			if !processor.InNamespaceScope[policiesv1beta1.DeletingPolicyLike](resource.GetNamespace())(dpol.Policy) {
+				continue
+			}
 			genericPolicy := engineapi.NewDeletingPolicyFromLike(dpol.Policy)
 			if genericPolicy == nil {
 				return nil, fmt.Errorf("unsupported deleting policy type %T", dpol.Policy)

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod
+  namespace: default
+  labels:
+    prod: "true"
+spec:
+  containers:
+    - name: nginx
+      image: 'ghcr.io/kyverno/test-verify-image:unsigned'
