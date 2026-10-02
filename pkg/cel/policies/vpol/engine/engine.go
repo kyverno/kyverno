@@ -359,7 +359,14 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 		// nil-fallback).
 		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, synthRequest, namespace, nil, context)
 		if err != nil {
-			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			err = fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			// result is nil here unless tracing is on, in which case it carries what was traced
+			// before the failure (e.g. the match conditions); pass it up with the error so
+			// handlePolicy can still render it, labelled with the same template path
+			if result != nil && result.Trace != nil {
+				result.Trace.Verdict.Message = err.Error()
+			}
+			return result, err
 		}
 		if result == nil || result.Skipped {
 			// with tracing on, a skipped template still carries its match-condition trace;

@@ -616,3 +616,68 @@ func TestHandle_ExtractionMode_AllTemplatesSkippedStillCarriesTrace(t *testing.T
 	assert.Equal(t, "never", fired[0].Trace.Match[0].Name)
 	assert.Equal(t, "false", fired[0].Trace.Match[0].Result)
 }
+
+// TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace covers the extraction-mode error path: a
+// match condition that errors on a synthesized pod must still hand its match trace up to --explain,
+// labelled with the pod template path, while the rule outcome stays exactly what it is untraced.
+func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	// the synthesized pod has no labels, so this lookup is a runtime error; with the default
+	// failurePolicy (Fail) the error is returned rather than treated as a non-match
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
+		Name:       "owner-is-platform",
+		Expression: "object.metadata.labels.owner == 'platform'",
+	}}
+	handle := func(traced bool) celengine.ValidatingPolicyResponse {
+		provider, err := NewProvider(compiler.NewCompiler(traced), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+		require.NoError(t, err)
+		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+			schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+			"",
+			"latest-tag-jobset",
+			"default",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			jobSetWithImage("bash:1.0"),
+			nil,
+			false,
+			nil,
+		)
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+		require.Len(t, fired, 1)
+		return fired[0]
+	}
+
+	untraced := handle(false)
+	traced := handle(true)
+
+	// the rule outcome is the same either way
+	assert.Equal(t, engineapi.RuleStatusError, untraced.Rules[0].Status())
+	assert.Equal(t, untraced.Rules[0].Status(), traced.Rules[0].Status())
+	assert.Equal(t, untraced.Rules[0].Message(), traced.Rules[0].Message())
+	assert.Nil(t, untraced.Trace)
+
+	// with tracing, the failing condition is kept instead of a bare ERROR
+	require.NotNil(t, traced.Trace)
+	assert.Equal(t, trace.VerdictError, traced.Trace.Verdict.Status)
+	assert.Contains(t, traced.Trace.Verdict.Message, "pod template at spec.replicatedJobs[0].template.spec.template")
+	require.Len(t, traced.Trace.Match, 1)
+	assert.Equal(t, "owner-is-platform", traced.Trace.Match[0].Name)
+	var sawError bool
+	for _, n := range traced.Trace.Match[0].Nodes {
+		if n.Error != "" {
+			sawError = true
+		}
+	}
+	assert.True(t, sawError, "the failing condition should show which sub-expression errored")
+}
