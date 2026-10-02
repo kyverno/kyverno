@@ -1353,3 +1353,93 @@ func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
 	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }
+
+func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
+	color.Init(true)
+
+	resourceKey := "v1,Pod,default,test-pod"
+	responses := &TestResponse{
+		Trigger:            map[string][]engineapi.EngineResponse{},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target: map[string][]engineapi.EngineResponse{
+			resourceKey: {
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-policy",
+						},
+					}),
+					nil,
+				),
+			},
+		},
+		SkippedPolicies:  map[string]string{},
+		DeletingPolicies: map[string]struct{}{},
+	}
+
+	testResults := []v1alpha1.TestResult{
+		{
+			TestResultBase: v1alpha1.TestResultBase{
+				Policy: "test-policy",
+				Rule:   "test-rule",
+				Result: openreportsv1alpha1.Result(openreports.StatusPass),
+			},
+			TestResultData: v1alpha1.TestResultData{
+				Resources: []string{"test-pod"},
+			},
+		},
+	}
+
+	rc := &resultCounts{}
+	resultsTable := table.Table{}
+
+	assert.NotPanics(t, func() {
+		err := printTestResult(
+			testResults,
+			responses,
+			rc,
+			&resultsTable,
+			nil,
+			"",
+			true,
+		)
+		require.NoError(t, err)
+	})
+}
+
+func TestExtractPatchedTargetFromEngineResponse(t *testing.T) {
+	// 1. Empty response returns nil, nil
+	resp := engineapi.EngineResponse{}
+	r, rule := extractPatchedTargetFromEngineResponse("v1", "Pod", "test", "default", resp)
+	assert.Nil(t, r)
+	assert.Nil(t, rule)
+
+	// 2. Multi-rule response does not mutate resourceNamespace parameter
+	target1 := unstructured.Unstructured{}
+	target1.SetAPIVersion("v1")
+	target1.SetKind("Pod")
+	target1.SetName("pod-1")
+	target1.SetNamespace("ns-1")
+
+	target2 := unstructured.Unstructured{}
+	target2.SetAPIVersion("v1")
+	target2.SetKind("Pod")
+	target2.SetName("pod-2")
+	target2.SetNamespace("ns-2")
+
+	rule1 := *engineapi.RulePass("rule-1", engineapi.Mutation, "msg", nil).WithPatchedTarget(&target1, metav1.GroupVersionResource{}, "")
+	rule2 := *engineapi.RulePass("rule-2", engineapi.Mutation, "msg", nil).WithPatchedTarget(&target2, metav1.GroupVersionResource{}, "")
+
+	respWithRules := engineapi.EngineResponse{}.WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule1, rule2},
+	})
+
+	// When searching for pod-2 without specifying namespace (""), it should match pod-2 in ns-2
+	// instead of being overridden by pod-1's namespace
+	r2, matchedRule := extractPatchedTargetFromEngineResponse("v1", "Pod", "pod-2", "", respWithRules)
+	require.NotNil(t, r2)
+	require.NotNil(t, matchedRule)
+	assert.Equal(t, "pod-2", r2.GetName())
+	assert.Equal(t, "rule-2", matchedRule.Name())
+}
