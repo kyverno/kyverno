@@ -121,9 +121,16 @@ func (r Runtime) AuthOpts() []remote.Option {
 // deliberately not handing out a global puller, and that
 // TestFactoryCredentialsObserveSecretRotation covers.
 //
-// Binding one puller per policy evaluation also keeps policies that carry their
-// own spec.Credentials apart: each gets a puller built from its own options, so a
-// token obtained for one policy is never replayed for another.
+// Each Bind builds its own puller from the options it was handed, so two
+// evaluations never share one.
+//
+// That alone does not isolate policies carrying different spec.Credentials: the
+// ImageContext cache is keyed by image reference only, so the first policy to
+// fetch an image fixes the options -- keychain as much as puller -- recorded on
+// the ImageData that every later policy reuses for it. That sharing predates
+// this change and is not widened by it: the cached keychain already resolved the
+// first policy's credentials for those calls, so reusing its token alongside
+// grants no access the keychain did not already grant.
 func reuseRegistryAuth(authOpts []remote.Option, logger logr.Logger) []remote.Option {
 	puller, err := remote.NewPuller(authOpts...)
 	if err != nil {

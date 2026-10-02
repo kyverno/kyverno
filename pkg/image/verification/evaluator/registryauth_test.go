@@ -30,15 +30,20 @@ import (
 // registries such as GitLab, GHCR and Docker Hub, counting how often a client is
 // challenged and exchanges the challenge for a token.
 type tokenRegistry struct {
-	inner  http.Handler
-	url    func() string
-	pings  atomic.Int64
-	tokens atomic.Int64
+	inner       http.Handler
+	url         func() string
+	pings       atomic.Int64
+	tokens      atomic.Int64
+	rejectToken atomic.Bool
 }
 
 func (t *tokenRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/token" {
 		t.tokens.Add(1)
+		if t.rejectToken.Load() {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"token":"test-token"}`)
 		return
@@ -93,17 +98,40 @@ func TestEvaluationReusesRegistryAuth(t *testing.T) {
 	compiled, errs := NewCompiler(nil).Compile(policy, nil)
 	require.Empty(t, errs)
 
-	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
-	require.NoError(t, err)
-	rt := &imageverify.Runtime{ImageContext: ictx, Results: imageverify.NewImageVerificationResults()}
+	tests := []struct {
+		name        string
+		rejectToken bool
+		wantErr     bool
+		wantPings   int64
+	}{{
+		name:      "one handshake serves the whole evaluation",
+		wantPings: 1,
+	}, {
+		// reusing a fetcher must not mask a rejection: the error still surfaces
+		name:        "a rejected token exchange fails the evaluation",
+		rejectToken: true,
+		wantErr:     true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler.rejectToken.Store(tt.rejectToken)
+			// a fresh context per case: its cache is request scoped
+			ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
+			require.NoError(t, err)
+			rt := &imageverify.Runtime{ImageContext: ictx, Results: imageverify.NewImageVerificationResults()}
 
-	handler.pings.Store(0)
-	handler.tokens.Store(0)
-	result, err := compiled.Evaluate(context.Background(), rt, nil, map[string]any{"images": images}, nil, false, nil, nil)
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.True(t, result.Result, result.Message)
-
-	require.Equal(t, int64(1), handler.pings.Load(), "expected a single /v2/ ping for the whole evaluation")
-	require.Equal(t, int64(1), handler.tokens.Load(), "expected a single token exchange for the whole evaluation")
+			handler.pings.Store(0)
+			handler.tokens.Store(0)
+			result, err := compiled.Evaluate(context.Background(), rt, nil, map[string]any{"images": images}, nil, false, nil, nil)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.True(t, result.Result, result.Message)
+			require.Equal(t, tt.wantPings, handler.pings.Load(), "expected a single /v2/ ping for the whole evaluation")
+			require.Equal(t, tt.wantPings, handler.tokens.Load(), "expected a single token exchange for the whole evaluation")
+		})
+	}
 }

@@ -29,15 +29,20 @@ import (
 // only then is it served. It counts both legs so a test can assert how often the
 // handshake is repeated.
 type tokenRegistry struct {
-	inner  http.Handler
-	url    func() string
-	pings  atomic.Int64
-	tokens atomic.Int64
+	inner       http.Handler
+	url         func() string
+	pings       atomic.Int64
+	tokens      atomic.Int64
+	rejectToken atomic.Bool
 }
 
 func (t *tokenRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/token" {
 		t.tokens.Add(1)
+		if t.rejectToken.Load() {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, `{"token":"test-token"}`)
 		return
@@ -118,6 +123,35 @@ func TestBoundRuntimeReusesRegistryAuth(t *testing.T) {
 
 	t.Logf("handshakes: compiled options %d pings / %d tokens, bound runtime %d pings / %d tokens",
 		unboundPings, unboundTokens, handler.pings.Load(), handler.tokens.Load())
+
+	// a second bind must authenticate on its own: pullers are per request, so a
+	// token obtained for one never carries into the next
+	exercise(factory.Bind(&Runtime{}).AuthOpts())
+	require.Equal(t, int64(2), handler.pings.Load(), "expected the next bind to re-authenticate rather than reuse the first puller")
+	require.Equal(t, int64(2), handler.tokens.Load())
+}
+
+// TestBoundRuntimeSurfacesAuthFailure guards that reusing a fetcher does not
+// swallow a registry rejection: the error must still reach the caller.
+func TestBoundRuntimeSurfacesAuthFailure(t *testing.T) {
+	handler := &tokenRegistry{inner: registry.New(registry.Logger(log.New(io.Discard, "", 0)))}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	handler.url = func() string { return server.URL }
+	handler.rejectToken.Store(true)
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			Credentials: &policiesv1beta1.Credentials{AllowInsecureRegistry: true},
+		},
+	}
+	factory := NewFactory(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
+	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	require.NoError(t, err)
+
+	_, err = ictx.Get(context.Background(), host+"/test/image:tag", factory.Bind(&Runtime{}).AuthOpts(), factory.functions.nameOpts)
+	require.Error(t, err, "a rejected token exchange must fail the fetch")
 }
 
 // TestBindDoesNotMutateFactoryOptions guards the copy in reuseRegistryAuth: the
@@ -134,9 +168,9 @@ func TestBindDoesNotMutateFactoryOptions(t *testing.T) {
 	require.Len(t, factory.functions.authOpts, before, "Bind must not append to the factory's options")
 	require.Len(t, first, before+1, "the bound options must carry the puller")
 	require.Len(t, second, before+1)
-
-	// each request gets its own puller, so a cached token is never shared
-	require.NotSame(t, &first[len(first)-1], &second[len(second)-1])
+	// that each bind gets its own puller is asserted behaviourally, by the second
+	// bind re-authenticating in TestBoundRuntimeReusesRegistryAuth; comparing the
+	// option slots here would hold whether or not they shared a puller.
 }
 
 // TestZeroRuntimeHasNoAuthOpts covers the fallback in compiledPolicy.registryOpts:
