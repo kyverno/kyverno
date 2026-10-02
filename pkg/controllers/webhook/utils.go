@@ -283,9 +283,7 @@ func generateRuleKey(rule admissionregistrationv1.RuleWithOperations) string {
 	stringBuilderFn(opsCopy)
 
 	sb.WriteString("s:")
-	if rule.Scope != nil {
-		sb.WriteString(string(*rule.Scope))
-	}
+	sb.WriteString(scopeString(rule.Scope))
 	return sb.String()
 }
 

@@ -724,6 +724,8 @@ func TestDeduplicateRules(t *testing.T) {
 			admissionregistrationv1.Update,
 		},
 	}
+	rule8_NilScope := *rule1.DeepCopy()
+	rule8_NilScope.Scope = nil
 
 	testCases := []struct {
 		name          string
@@ -731,6 +733,18 @@ func TestDeduplicateRules(t *testing.T) {
 		expectedCount int
 		expectedRules []admissionregistrationv1.RuleWithOperations
 	}{
+		{
+			name:          "Nil and explicit AllScopes are duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule8_NilScope, rule1},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule8_NilScope},
+		},
+		{
+			name:          "Explicit AllScopes and nil are duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule8_NilScope},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1},
+		},
 		{
 			name:          "No duplicates",
 			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
@@ -940,9 +954,9 @@ func TestSortedRules_NilScope(t *testing.T) {
 		result := sortedRules([]admissionregistrationv1.RuleWithOperations{
 			ruleNamespacedScope, ruleNilScope, ruleClusterScope,
 		})
-		assert.Equal(t, scopeString(result[0].Scope), string(admissionregistrationv1.AllScopes))
-		assert.Equal(t, scopeString(result[1].Scope), string(admissionregistrationv1.ClusterScope))
-		assert.Equal(t, scopeString(result[2].Scope), string(admissionregistrationv1.NamespacedScope))
+		assert.Equal(t, string(admissionregistrationv1.AllScopes), scopeString(result[0].Scope))
+		assert.Equal(t, string(admissionregistrationv1.ClusterScope), scopeString(result[1].Scope))
+		assert.Equal(t, string(admissionregistrationv1.NamespacedScope), scopeString(result[2].Scope))
 	})
 }
 
