@@ -56,7 +56,7 @@ spec:
       message: failed to verify image with notary cert
     - expression: >-
         images.containers.map(image, verifyAttestationSignatures(image, attestations.sbom ,[attestors.notary])).all(e, e > 0)
-      message: failed to verify attestation with notary cer
+      message: failed to verify attestation with notary cert
     - expression: >-
         images.containers.map(image, extractPayload(image, attestations.sbom).bomFormat == 'CycloneDX').all(e, e)
       message: sbom is not a cyclone dx sbom

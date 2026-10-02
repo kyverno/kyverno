@@ -13,3 +13,9 @@ results:
   resources:
   - pod-in-team-a
   result: pass
+- isDeletingPolicy: true
+  kind: Pod
+  policy: team-a/delete-pods
+  resources:
+  - pod-in-team-b
+  result: skip
