@@ -48,6 +48,59 @@ func New(
 	shouldUpdateStatus bool,
 	jp jmespath.Interface,
 ) (store.Entry, error) {
+	projections := make([]store.Projection, 0)
+	for _, p := range gce.Spec.Projections {
+		if jp == nil {
+			err := fmt.Errorf("jmespath interface is nil")
+			logger.Error(err, "failed to parse projection jmespath query")
+
+			if eventGen != nil {
+				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+					APIVersion: gce.APIVersion,
+					Kind:       gce.Kind,
+					Name:       gce.Name,
+					Namespace:  gce.Namespace,
+					UID:        gce.UID,
+				}, err))
+			}
+
+			if shouldUpdateStatus && kyvernoClient != nil {
+				if updateErr := updateStatus(ctx, gce, kyvernoClient, false, err.Error()); updateErr != nil {
+					logger.Error(updateErr, "failed to update status")
+				}
+			}
+
+			return nil, err
+		}
+		jpQuery, err := jp.Query(p.JMESPath)
+		if err != nil {
+			parseErr := fmt.Errorf("failed to parse jmespath query: %s", err)
+			logger.Error(parseErr, "failed to parse projection jmespath query")
+
+			if eventGen != nil {
+				eventGen.Add(entryevent.NewErrorEvent(corev1.ObjectReference{
+					APIVersion: gce.APIVersion,
+					Kind:       gce.Kind,
+					Name:       gce.Name,
+					Namespace:  gce.Namespace,
+					UID:        gce.UID,
+				}, parseErr))
+			}
+
+			if shouldUpdateStatus && kyvernoClient != nil {
+				if updateErr := updateStatus(ctx, gce, kyvernoClient, false, parseErr.Error()); updateErr != nil {
+					logger.Error(updateErr, "failed to update status")
+				}
+			}
+
+			return nil, parseErr
+		}
+		projections = append(projections, store.Projection{
+			Name: p.Name,
+			JP:   jpQuery,
+		})
+	}
+
 	var group wait.Group
 	var stopOnce sync.Once
 	ctx, cancel := context.WithCancel(ctx)
@@ -58,18 +111,6 @@ func New(
 			cancel()
 			// Wait for the group to terminate
 			group.Wait()
-		})
-	}
-
-	projections := make([]store.Projection, 0)
-	for _, p := range gce.Spec.Projections {
-		jpQuery, err := jp.Query(p.JMESPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse jmespath query: %s", err)
-		}
-		projections = append(projections, store.Projection{
-			Name: p.Name,
-			JP:   jpQuery,
 		})
 	}
 
