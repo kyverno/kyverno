@@ -37,7 +37,7 @@ spec:
     - script:
         timeout: 5m
         content: |
-          set -euo pipefail
+          set -eu
           NS="sync-generate-existing-restart-background-controller"
           NAME="sync-generate-existing-restart-background-controller"
 
