@@ -7,7 +7,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	internal "github.com/kyverno/kyverno/pkg/autogen/v1/internal"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -150,7 +150,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	if rule.Validation != nil {
 		if target := rule.Validation.GetPattern(); target != nil {
 			newValidate := &kyvernov1.Validation{
-				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+				Message:                 regex.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 				FailureAction:           rule.Validation.FailureAction,
 				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
 				AllowExistingViolations: rule.Validation.AllowExistingViolations,
@@ -167,7 +167,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		}
 		if rule.Validation.Deny != nil {
 			deny := &kyvernov1.Validation{
-				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
+				Message:                 regex.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
 				Deny:                    rule.Validation.Deny,
 				FailureAction:           rule.Validation.FailureAction,
 				FailureActionOverrides:  rule.Validation.FailureActionOverrides,
@@ -180,7 +180,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			newExclude := make([]kyvernov1.PodSecurityStandard, len(rule.Validation.PodSecurity.Exclude))
 			copy(newExclude, rule.Validation.PodSecurity.Exclude)
 			podSecurity := &kyvernov1.Validation{
-				Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
+				Message: regex.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
 				PodSecurity: &kyvernov1.PodSecurity{
 					Level:   rule.Validation.PodSecurity.Level,
 					Version: rule.Validation.PodSecurity.Version,
@@ -210,7 +210,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			failureAction := rule.Validation.FailureAction
 			failureActionOverrides := rule.Validation.FailureActionOverrides
 			rule.Validation = &kyvernov1.Validation{
-				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
+				Message:                 regex.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
 				FailureAction:           failureAction,
 				FailureActionOverrides:  failureActionOverrides,
 				AllowExistingViolations: rule.Validation.AllowExistingViolations,
@@ -224,7 +224,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			failureAction := rule.Validation.FailureAction
 			failureActionOverrides := rule.Validation.FailureActionOverrides
 			rule.Validation = &kyvernov1.Validation{
-				Message:                 variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
+				Message:                 regex.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 				ForEachValidation:       newForeachValidate,
 				FailureAction:           failureAction,
 				FailureActionOverrides:  failureActionOverrides,

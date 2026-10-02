@@ -20,6 +20,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -29,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -154,7 +156,7 @@ func Command() *cobra.Command {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
-			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(out)
+			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				return err
 			}
@@ -267,7 +269,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
 	err := c.checkArguments()
@@ -302,7 +304,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(out)
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -703,10 +705,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		// This informer will automatically die at the end of this function and thats ok,
 		// we don't care about it past applying image validating policies anyways
 		defer close(stopCh)
+		secretsInformer := informerFactory.Core().V1().Secrets()
 		informerFactory.Start(stopCh)
 		informerFactory.WaitForCacheSync(stopCh)
 
-		lister = informerFactory.Core().V1().Secrets().Lister()
+		lister = secretsInformer.Lister()
 	}
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -1095,7 +1098,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
+func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
@@ -1130,6 +1133,14 @@ func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 	var envoyPols []*policiesv1beta1.ValidatingPolicy
 	var httpPols []*policiesv1beta1.ValidatingPolicy
 	for _, path := range c.PolicyPaths {
+		if source.IsOCI(path) {
+			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), pull.NewKeychain())
+			if err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
+			}
+			defer cleanup()
+			path = tmpDir
+		}
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
@@ -1349,11 +1360,21 @@ func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
 }
 
+func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	return resource.FlattenResources(resources)
+}
+
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
 	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
 	allResources = append(allResources, resources...)
 	allResources = append(allResources, targetResources...)
 	allResources = append(allResources, parameterResources...)
+
+	flatResources, err := flattenResources(allResources)
+	if err != nil {
+		return nil, err
+	}
+	allResources = flatResources
 
 	gvrToListKind := make(map[schema.GroupVersionResource]string)
 	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from

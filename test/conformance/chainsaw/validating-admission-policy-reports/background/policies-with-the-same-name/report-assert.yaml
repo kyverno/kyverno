@@ -7,14 +7,17 @@ metadata:
   - apiVersion: apps/v1
     kind: Deployment
     name: test-deployment-vpol-background
-results:
+# Results are sorted by policy, rule and source, and each engine names its rule
+# differently, so select each result by source instead of by position.
+(length(results)): 3
+(results[?source == 'KyvernoValidatingPolicy']):
 - message: success
   policy: report-background-sample
   result: pass
-  properties: 
+  properties:
     process: background scan
   scored: true
-  source: KyvernoValidatingPolicy
+(results[?source == 'KyvernoImageValidatingPolicy']):
 - message: failed to verify image with notary cert
   policy: report-background-sample
   result: fail
@@ -22,7 +25,7 @@ results:
     process: background scan
   rule: report-background-sample
   scored: true
-  source: KyvernoImageValidatingPolicy
+(results[?source == 'ValidatingAdmissionPolicy']):
 - policy: report-background-sample
   properties:
     process: background scan
@@ -30,7 +33,6 @@ results:
   result: pass
   rule: report-background-sample
   scored: true
-  source: ValidatingAdmissionPolicy
 scope:
   apiVersion: apps/v1
   kind: Deployment
