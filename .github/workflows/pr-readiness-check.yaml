@@ -1,10 +1,15 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 #
-# Daily sweep: for every open PR closing an issue with an open "Kyverno Release ..." milestone, check DCO, CI,
-# conflicts, and unresolved review threads. Clean -> `ready-for-review`; not -> `needs-author-action` + a comment.
+# Checks DCO, CI, conflicts, and unresolved review threads for every open, non-draft, non-Dependabot PR.
+# Clean -> `ready-for-review`; not -> `needs-author-action` + a comment.
 #
-# PRs never carry the milestone themselves (assign-milestone.yaml assigns it retroactively, at release-tag time),
-# so discovery goes through each PR's closing issue instead.
+# Workflows awaiting maintainer approval -> `workflow-approval-required`, never `ready-for-review`; no
+# `needs-author-action` or comment. Approving fires no event, so the hourly sweep clears it.
+#
+# Triggers: a push, or a PR reopened/marked ready — each checks just that one PR. Plus an hourly sweep of every
+# open PR, which also stamps `milestone-pr` on PRs closing an open "Kyverno Release ..." issue. Reviews and
+# review comments aren't triggers: on a fork PR they only ever get a read-only GITHUB_TOKEN, so they couldn't
+# write labels anyway — the hourly sweep picks those up instead.
 #
 # Checks live in .github/pr-readiness-checks.yml, not here.
 
@@ -12,10 +17,19 @@ name: "PR readiness check"
 
 permissions: {}
 
+concurrency:
+  group: pr-readiness
+  cancel-in-progress: false
+
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 0,8,16 * * *"
+    - cron: "0 * * * *"
+  pull_request_target:
+    types:
+      - synchronize
+      - reopened
+      - ready_for_review
 
 jobs:
   check:
@@ -25,14 +39,12 @@ jobs:
       pull-requests: write
       issues: write
       checks: read
+      actions: read
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install yq
-        uses: ./.github/actions/tools/yq
 
       - name: Build the readiness-check program from .github/pr-readiness-checks.yml
         run: |
@@ -43,7 +55,39 @@ jobs:
             | ".author.login as $author\n| [\n" + . + "\n]"
           ' > readiness-checks.jq
 
-      - name: Discover which open PRs close a milestoned issue (cheap pass)
+      - name: Resolve which PR number(s) to process
+        id: resolve
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+
+          case "$EVENT_NAME" in
+            pull_request_target)
+              # Same eligibility as the sweep: non-draft, not Dependabot's (dependabot-merge-triage.yaml owns those).
+              if [[ "$IS_DRAFT" == "true" || "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+                echo '[]' > qualifying-numbers.json
+              else
+                echo "[$PR_NUMBER]" > qualifying-numbers.json
+              fi
+              ;;
+            schedule|workflow_dispatch)
+              echo 'sweep' > mode.txt
+              ;;
+          esac
+
+          if [[ -f mode.txt ]]; then
+            echo "mode=sweep" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=single" >> "$GITHUB_OUTPUT"
+            echo "Processing PR(s): $(cat qualifying-numbers.json)"
+          fi
+
+      - name: Discover open PRs and stamp milestone-pr (sweep mode only)
+        if: steps.resolve.outputs.mode == 'sweep'
         run: |
           set -euo pipefail
 
@@ -66,8 +110,8 @@ jobs:
             }'
           search="repo:${GITHUB_REPOSITORY} is:pr is:open draft:false -author:app/dependabot"
 
-          # Qualifies if it closes a same-repo issue with an open "Kyverno Release ..." milestone. Expects an
-          # object with .closingIssuesReferences.nodes, e.g. a PullRequest node or a detail-query response.
+          # milestone-pr: closes a same-repo issue with an open "Kyverno Release ..." milestone. Only gates
+          # that label — every open PR found above gets a readiness check, milestone or not.
           qualifies='
             [.closingIssuesReferences.nodes[]?
               | select(.repository.nameWithOwner == $repo
@@ -77,6 +121,7 @@ jobs:
             | length > 0'
 
           echo '[]' > qualifying-numbers.json
+          echo '[]' > milestone-numbers.json
           after=""
           page=0
           while :; do
@@ -87,16 +132,22 @@ jobs:
               gh api graphql -f query="$query" -f search="$search" -f after="$after" > response.json
             fi
 
+            jq -c '[.data.search.nodes[] | select(.isDraft | not) | .number]' \
+              response.json > page-numbers.json
+            jq -s 'add' qualifying-numbers.json page-numbers.json > numbers-next.json \
+              && mv numbers-next.json qualifying-numbers.json
+
             jq -c --arg repo "${GITHUB_REPOSITORY}" \
               "[.data.search.nodes[] | select(.isDraft | not) | select($qualifies) | .number]" \
-              response.json > page-numbers.json
-            jq -s 'add' qualifying-numbers.json page-numbers.json > numbers-next.json && mv numbers-next.json qualifying-numbers.json
+              response.json > page-milestone-numbers.json
+            jq -s 'add' milestone-numbers.json page-milestone-numbers.json > milestone-next.json \
+              && mv milestone-next.json milestone-numbers.json
 
             # A PR closing more than 100 issues isn't realistic, but flag it loudly rather than silently miss it.
             still_truncated=$(jq --arg repo "${GITHUB_REPOSITORY}" \
               "[.data.search.nodes[] | select(.isDraft | not) | select(.closingIssuesReferences.pageInfo.hasNextPage and ($qualifies | not)) | .number]" \
               response.json)
-            [[ "$still_truncated" != "[]" ]] && echo "::warning::PR(s) $still_truncated close more than 100 issues and may be wrongly excluded."
+            [[ "$still_truncated" != "[]" ]] && echo "::warning::PR(s) $still_truncated close more than 100 issues and may be wrongly excluded from milestone-pr."
 
             has_next=$(jq -r '.data.search.pageInfo.hasNextPage' response.json)
             [[ "$has_next" != "true" ]] && break
@@ -107,7 +158,17 @@ jobs:
               break
             fi
           done
-          echo "Found $(jq 'length' qualifying-numbers.json) PR(s) closing a milestoned issue."
+          echo "Found $(jq 'length' qualifying-numbers.json) open PR(s) to evaluate."
+          echo "Found $(jq 'length' milestone-numbers.json) milestone PR(s) to stamp."
+
+          # Stamp milestone-pr on qualifying PRs. Removing it from PRs that stop qualifying is a follow-up.
+          for number in $(jq -r '.[]' milestone-numbers.json); do
+            current_labels=$(gh pr view "$number" --repo "${GITHUB_REPOSITORY}" --json labels --jq '[.labels[].name]')
+            has_milestone_label=$(jq 'any(. == "milestone-pr")' <<< "$current_labels")
+            if [[ "$has_milestone_label" == "false" ]]; then
+              gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "milestone-pr"
+            fi
+          done
 
       - name: Fetch full readiness data and check each qualifying PR (per-PR pass)
         run: |
@@ -122,6 +183,7 @@ jobs:
                   labels(first: 100) { pageInfo { hasNextPage endCursor } nodes { name } }
                   commits(last: 1) {
                     nodes { commit {
+                      oid
                       statusCheckRollup { contexts(first: 100) { pageInfo { hasNextPage endCursor } nodes {
                         ... on CheckRun { name conclusion status }
                         ... on StatusContext { context state }
@@ -211,8 +273,29 @@ jobs:
             number=$(jq -r '.number' pr.json)
             author=$(jq -r '.author.login' pr.json)
             findings=$(jq -c -f readiness-checks.jq pr.json)
+            # e2e_gate is never something the author can fix from this PR — it's reported as an FYI comment
+            # below, not as a reason to withhold ready-for-review.
+            blocking=$(jq -c '[.[] | select(.id != "e2e_gate")]' <<< "$findings")
+            e2e_finding=$(jq -c '[.[] | select(.id == "e2e_gate")]' <<< "$findings")
             has_label=$(jq -r '[.labels.nodes[].name] | any(. == "needs-author-action")' pr.json)
             has_ready_label=$(jq -r '[.labels.nodes[].name] | any(. == "ready-for-review")' pr.json)
+            has_approval_label=$(jq -r '[.labels.nodes[].name] | any(. == "workflow-approval-required")' pr.json)
+
+            # Gated workflows are absent from the rollup, so the PR would look clean. Matched by head SHA
+            # (`pull_requests` is empty on fork runs); on lookup failure, skip the PR.
+            head_sha=$(jq -r '.commits.nodes[0].commit.oid' pr.json)
+            if ! gated_count=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${head_sha}&status=action_required&per_page=1" --jq '.total_count'); then
+              echo "::warning::PR #$number: could not check for workflow runs awaiting approval — leaving labels as-is."
+              continue
+            fi
+            gated=false
+            [[ "$gated_count" -gt 0 ]] && gated=true
+
+            if [[ "$gated" == "true" && "$has_approval_label" == "false" ]]; then
+              gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "workflow-approval-required"
+            elif [[ "$gated" == "false" && "$has_approval_label" == "true" ]]; then
+              gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "workflow-approval-required"
+            fi
 
             # A truncated connection means "no findings" is unproven — leave labels as-is rather than clear them.
             truncated=$(jq -r '
@@ -229,11 +312,16 @@ jobs:
                 | select((.status? and .status != "COMPLETED") or .state? == "PENDING" or .state? == "EXPECTED")]
                | length > 0)' pr.json)
 
-            if [[ "$findings" == "[]" ]]; then
+            if [[ "$blocking" == "[]" ]]; then
               if [[ "$truncated" == "true" ]]; then
                 # Still-truncated after pagination — drop a stale ready-for-review, leave needs-author-action.
                 [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
                 echo "PR #$number: truncated connection, no findings on the visible page — removed ready-for-review if present."
+              elif [[ "$gated" == "true" ]]; then
+                # Not the author's to fix, but never ready while CI hasn't run.
+                [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
+                [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
+                echo "PR #$number: $gated_count workflow run(s) awaiting approval — not ready-for-review."
               elif [[ "$pending" == "true" ]]; then
                 # A new commit's checks aren't settled yet — don't let an old ready-for-review keep claiming so.
                 [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
@@ -241,11 +329,20 @@ jobs:
               else
                 [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
                 [[ "$has_ready_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
+
+                if [[ "$e2e_finding" != "[]" ]]; then
+                  e2e_marker="<!-- pr-readiness-check-e2e -->"
+                  gh api "repos/${GITHUB_REPOSITORY}/issues/$number/comments" --paginate --jq '.[].body' > comments.txt
+                  if ! grep -qF -- "$e2e_marker" comments.txt; then
+                    gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$e2e_marker
+          Everything else here looks ready — the only red check is the E2E gate or its status-sync job. Either way it's a base-branch or CI-infrastructure issue, not something in this PR. No action needed on your end."
+                  fi
+                fi
               fi
               continue
             fi
 
-            ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$findings")
+            ids=$(jq -r '[.[].id] | sort | join(",")' <<< "$blocking")
             marker="<!-- pr-readiness-check: $ids -->"
             # REST, fully paginated — a GraphQL comments(last: 100) cap could miss the marker on a busy PR.
             # Fetched to a file first, then searched — piping straight into `grep -q` would let grep close the
@@ -259,7 +356,7 @@ jobs:
             [[ "$has_ready_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "ready-for-review"
             [[ "$already_reported" == "true" ]] && continue
 
-            items=$(jq -r '.[] | "- " + .message' <<< "$findings")
+            items=$(jq -r '.[] | "- " + .message' <<< "$blocking")
             body=$(printf '%s\n\n@%s this PR needs a bit more before it can be reviewed:\n%s' "$marker" "$author" "$items")
 
             gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$body"

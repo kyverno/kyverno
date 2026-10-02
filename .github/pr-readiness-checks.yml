@@ -14,19 +14,29 @@ dco:
       | select((.name // .context) == "DCO") | (.conclusion // .state)]
     | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
-# Excludes DCO — that gets its own message above, so a DCO failure doesn't also fire this one redundantly.
+# Excludes DCO (own message above) and E2E Gate + its sync job (base-branch/automation issue, not this PR's —
+# see the non-blocking check below).
 ci:
   message: |
     "fix the failing check(s): " + (
       [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-        | select((.name // .context) != "DCO")
+        | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status"] | any(. == $n) | not)
         | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
         | (.name // .context)]
       | join(", ")
     )
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-      | select((.name // .context) != "DCO") | (.conclusion // .state)]
+      | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status"] | any(. == $n) | not) | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
+
+# Non-blocking FYI, never needs-author-action — not something the author can fix. e2e-gate.yaml already turns
+# "E2E Gate" green for the PR that fixes it (e2e-gate-bypass label), so no bypass check is needed here.
+e2e_gate:
+  message: '"the E2E gate or its sync job is red — a base-branch or CI-infrastructure issue, not this PR; no action needed here by author"'
+  test: |
+    [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.name // .context) as $n | ["E2E Gate", "Sync E2E Gate status"] | any(. == $n)) | (.conclusion // .state)]
     | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
 conflicts:

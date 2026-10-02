@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -85,4 +86,72 @@ func TestBuildForJSONPoliciesMutationPreservesWebhookConfiguration(t *testing.T)
 	require.Equal(t, admissionregistrationv1.IfNeededReinvocationPolicy, *mpolWebhook.ReinvocationPolicy)
 	require.NotNil(t, mpolWebhook.MatchPolicy, "MutatingPolicy webhook must preserve matchPolicy")
 	require.Equal(t, admissionregistrationv1.Exact, *mpolWebhook.MatchPolicy)
+}
+
+func TestBuildForJSONPoliciesMutationKeepsImageVerificationWebhooksOnDefaultReinvocation(t *testing.T) {
+	podsOnCreate := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods"},
+				},
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			},
+		}},
+	}
+	mpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, mpolIndexer.Add(&policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "add-labels"},
+		Spec:       policiesv1beta1.MutatingPolicySpec{MatchConstraints: podsOnCreate},
+	}))
+	ivpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, ivpolIndexer.Add(&policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "check-signed-images"},
+		Spec:       policiesv1beta1.ImageValidatingPolicySpec{MatchConstraints: podsOnCreate},
+	}))
+	leaseIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, leaseIndexer.Add(&coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno-health",
+			Namespace: config.KyvernoNamespace(),
+			Annotations: map[string]string{
+				AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+			},
+		},
+	}))
+	emptyIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	c := &controller{
+		mpolLister:         policiesv1beta1listers.NewMutatingPolicyLister(mpolIndexer),
+		nmpolLister:        policiesv1beta1listers.NewNamespacedMutatingPolicyLister(emptyIndexer),
+		ivpolLister:        policiesv1beta1listers.NewImageValidatingPolicyLister(ivpolIndexer),
+		nivpolLister:       policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(emptyIndexer),
+		leaseLister:        coordinationv1listers.NewLeaseLister(leaseIndexer),
+		stateRecorder:      NewStateRecorder(nil),
+		celExpressionCache: NewExpressionCache(),
+	}
+	result := &admissionregistrationv1.MutatingWebhookConfiguration{}
+	require.NoError(t, c.buildForJSONPoliciesMutation(config.NewDefaultConfiguration(false), nil, result))
+
+	var mpolWebhook, ivpolWebhook *admissionregistrationv1.MutatingWebhook
+	for i := range result.Webhooks {
+		svc := result.Webhooks[i].ClientConfig.Service
+		if svc == nil || svc.Path == nil {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(*svc.Path, "/mpol/"):
+			mpolWebhook = &result.Webhooks[i]
+		case strings.HasPrefix(*svc.Path, "/ivpol/mutate"):
+			ivpolWebhook = &result.Webhooks[i]
+		}
+	}
+	require.NotNil(t, mpolWebhook, "MutatingPolicy webhook should be generated")
+	require.NotNil(t, ivpolWebhook, "ImageValidatingPolicy mutate webhook should be generated")
+	require.NotNil(t, mpolWebhook.ReinvocationPolicy)
+	require.Equal(t, admissionregistrationv1.IfNeededReinvocationPolicy, *mpolWebhook.ReinvocationPolicy)
+	// The image verification mutate webhook only pins digests; it keeps the API
+	// default (Never) so a pod is not verified again after other mutators run.
+	require.Nil(t, ivpolWebhook.ReinvocationPolicy)
 }

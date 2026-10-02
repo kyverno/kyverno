@@ -4,15 +4,13 @@
 # clean, a conflict, or no Copilot approval → needs-review. Confirmed patch/minor + clean + approved →
 # ready-for-review. Merging is a separate, human-approved step elsewhere.
 #
-# Triggers on whichever of CI or Copilot's review settles last, plus a schedule backstop (e.g. a conflict from
-# main moving, not from anything happening on the PR itself).
+# Schedule-only: sweeps every open Dependabot PR three times a day, plus on manual dispatch. Each run re-reads
+# each PR's live check status itself, so it doesn't need to react to any individual PR event to stay accurate.
 
 name: "Dependabot merge triage"
 
 permissions: {}
 
-# Several of the workflow_run triggers below can complete near-simultaneously for the same PR; without this, an
-# older run's stale read could overwrite a newer run's labels out of order.
 concurrency:
   group: dependabot-merge-triage
   cancel-in-progress: false
@@ -20,34 +18,11 @@ concurrency:
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 6,18 * * *"
-  pull_request_review:
-    types:
-      - submitted
-  workflow_run:
-    types:
-      - completed
-    workflows:
-      - "Unit tests"
-      - "CLI"
-      - "Go"
-      - "Go format"
-      - "Go vet"
-      - "Go imports"
-      - "Go packages"
-      - "Codegen"
-      - "Chart-testing"
-      - "Artifact Hub"
-      - "Actions"
-      - "Devcontainer"
-      - "framework tests (envtest)"
+    - cron: "0 0,8,16 * * *"
 
 jobs:
   triage:
     name: Classify every open Dependabot PR
-    if: >
-      github.event_name != 'pull_request_review' ||
-      github.event.review.user.login == 'copilot-pull-request-reviewer[bot]'
     runs-on: ubuntu-slim
     permissions:
       contents: read
@@ -58,9 +33,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install yq
-        uses: ./.github/actions/tools/yq
 
       - name: Classify and label each Dependabot PR
         run: |
@@ -125,8 +97,9 @@ jobs:
             grep -qF "Approval recommended" <<< "$verdict" && copilot_approved=true
 
             # gh pr checks exits non-zero on a failing/pending check — don't let set -e kill the loop over it.
-            not_green=$(gh pr checks "$pr" --repo "${GITHUB_REPOSITORY}" --json bucket \
-              --jq '[.[] | select(.bucket == "fail" or .bucket == "pending" or .bucket == "cancel")] | length') || true
+            # E2E Gate + its sync job are excluded, same reasoning as pr-readiness-check.yaml.
+            not_green=$(gh pr checks "$pr" --repo "${GITHUB_REPOSITORY}" --json name,bucket \
+              --jq '[.[] | select(.name != "E2E Gate" and .name != "Sync E2E Gate status") | select(.bucket == "fail" or .bucket == "pending" or .bucket == "cancel")] | length') || true
 
             mergeable_state=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json mergeStateStatus --jq '.mergeStateStatus')
             has_conflict=false
