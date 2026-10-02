@@ -18,8 +18,11 @@ type countingAuth struct {
 	verbCalls []string
 }
 
+// User returns the configured subject.
 func (c *countingAuth) User() string { return c.user }
 
+// CanI records the invocation and its verbs, then denies any verb present in
+// denied (returning the aggregate message) or returns the configured error.
 func (c *countingAuth) CanI(_ context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error) {
 	c.calls++
 	c.verbCalls = append(c.verbCalls, verbs...)
@@ -38,6 +41,7 @@ func (c *countingAuth) CanI(_ context.Context, verbs []string, gvk, namespace, n
 	return true, "", nil
 }
 
+// countVerb returns how many times verb appears in verbCalls.
 func countVerb(verbCalls []string, verb string) int {
 	n := 0
 	for _, v := range verbCalls {
@@ -48,6 +52,8 @@ func countVerb(verbCalls []string, verb string) int {
 	return n
 }
 
+// TestNewCachedAuth_NilPassthrough verifies the wrapper is a no-op when either
+// the inner checker or the cache is nil.
 func TestNewCachedAuth_NilPassthrough(t *testing.T) {
 	inner := &countingAuth{user: "u"}
 
@@ -55,6 +61,8 @@ func TestNewCachedAuth_NilPassthrough(t *testing.T) {
 	assert.Same(t, inner, NewCachedAuth(inner, nil))
 }
 
+// TestCachedAuth_MemoizesIdenticalCalls verifies repeated identical CanI calls
+// resolve each verb through the inner checker only once.
 func TestCachedAuth_MemoizesIdenticalCalls(t *testing.T) {
 	inner := &countingAuth{user: "reports-sa"}
 	checker := NewCachedAuth(inner, NewResultCache())
@@ -91,6 +99,8 @@ func TestCachedAuth_DeduplicatesOverlappingVerbs(t *testing.T) {
 	assert.Equal(t, 1, countVerb(inner.verbCalls, "create"))
 }
 
+// TestCachedAuth_DistinctKeysMiss verifies that varying any component of the
+// cache key produces a fresh lookup against the inner checker.
 func TestCachedAuth_DistinctKeysMiss(t *testing.T) {
 	inner := &countingAuth{user: "reports-sa"}
 	checker := NewCachedAuth(inner, NewResultCache())
@@ -107,6 +117,9 @@ func TestCachedAuth_DistinctKeysMiss(t *testing.T) {
 	assert.Equal(t, 5, inner.calls)
 }
 
+// TestCachedAuth_SharedCacheKeyedByUser verifies a cache shared between
+// checkers for different subjects does not let one subject's decision satisfy
+// another's.
 func TestCachedAuth_SharedCacheKeyedByUser(t *testing.T) {
 	cache := NewResultCache()
 	reports := &countingAuth{user: "reports-sa"}
@@ -125,6 +138,8 @@ func TestCachedAuth_SharedCacheKeyedByUser(t *testing.T) {
 	assert.Equal(t, 3, background.calls)
 }
 
+// TestCachedAuth_DoesNotCacheErrors verifies an errored check is not memoized
+// and is retried on the next call.
 func TestCachedAuth_DoesNotCacheErrors(t *testing.T) {
 	inner := &countingAuth{user: "reports-sa", err: errors.New("boom")}
 	checker := NewCachedAuth(inner, NewResultCache())

@@ -389,6 +389,8 @@ func TestValidateForEach_Nested(t *testing.T) {
 	})
 }
 
+// TestNewMutateFactory verifies the factory wires background and reports auth
+// checkers, falling back to fake auth when a service account is empty.
 func TestNewMutateFactory(t *testing.T) {
 	rule := &kyvernov1.Rule{Mutation: &kyvernov1.Mutation{}}
 

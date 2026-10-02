@@ -28,6 +28,7 @@ func NewResultCache() *ResultCache {
 	}
 }
 
+// get returns the cached decision for key and whether an entry exists.
 func (c *ResultCache) get(key string) (bool, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -35,6 +36,7 @@ func (c *ResultCache) get(key string) (bool, bool) {
 	return allowed, ok
 }
 
+// set records the authorization decision for key.
 func (c *ResultCache) set(key string, allowed bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -62,10 +64,15 @@ func NewCachedAuth(inner AuthChecks, cache *ResultCache) AuthChecks {
 	return &cachedAuth{inner: inner, cache: cache}
 }
 
+// User returns the subject of the wrapped checker.
 func (c *cachedAuth) User() string {
 	return c.inner.User()
 }
 
+// CanI reports whether the subject may perform every verb on the resource. Each
+// verb is served from the shared cache when present and resolved via the inner
+// checker (one SubjectAccessReview) on a miss; the aggregate denial message is
+// rebuilt with buildMessage to match the uncached path.
 func (c *cachedAuth) CanI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error) {
 	user := c.inner.User()
 	var failedVerbs []string

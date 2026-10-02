@@ -14,12 +14,15 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 )
 
+// Test_validateActions_NilRule verifies a nil rule is a no-op.
 func Test_validateActions_NilRule(t *testing.T) {
 	warnings, err := validateActions(0, nil, nil, true, "", "", nil)
 	assert.Nil(t, err)
 	assert.Nil(t, warnings)
 }
 
+// Test_validateActions_GenerateSameKind verifies a generate rule whose target
+// kind matches its own match kind is rejected.
 func Test_validateActions_GenerateSameKind(t *testing.T) {
 	rule := &kyvernov1.Rule{
 		Name: "test-rule",
@@ -48,6 +51,8 @@ func Test_validateActions_GenerateSameKind(t *testing.T) {
 	assert.Nil(t, warnings)
 }
 
+// Test_validateActions_GenerateMockSuccess verifies a valid generate rule
+// passes in mock mode.
 func Test_validateActions_GenerateMockSuccess(t *testing.T) {
 	rule := &kyvernov1.Rule{
 		Name: "test-rule",
