@@ -548,6 +548,11 @@ ready-for-review:
   color: 0E8A16
   description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
 
+# Applied and removed automatically by pr-readiness-check.yaml.
+workflow-approval-required:
+  color: FBCA04
+  description: This PR's workflows are waiting for a maintainer's approval to run
+
 # Applied automatically by pr-readiness-check.yaml during its sweep, never removed. Purely informational —
 # marks a PR as closing an open "Kyverno Release ..." milestone issue.
 milestone-pr:

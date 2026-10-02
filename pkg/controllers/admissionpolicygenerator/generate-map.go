@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -60,7 +61,10 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	mapName := "mpol-" + mpol.GetName()
 	mapBindingName := constructBindingName(mapName)
 
-	reason := mapGenerationSkipReason(mpol)
+	reason, err := mapGenerationSkipReason(mpol)
+	if err != nil {
+		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
+	}
 	shouldDelete := reason != ""
 
 	switch version {
@@ -153,17 +157,23 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 // useServerSideApply mutates atomic fields that a native MutatingAdmissionPolicy rejects, so a
 // generated MAP (which becomes the sole admission path once status.generated is set) would drop the
 // mutation. Pod-controller autogen is likewise incompatible with MAP generation.
-func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) string {
+func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) (string, error) {
 	if !mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
-		return "skip generating MutatingAdmissionPolicy: not enabled."
+		return "skip generating MutatingAdmissionPolicy: not enabled.", nil
 	}
 	if ec := mpol.GetSpec().EvaluationConfiguration; ec != nil && ec.UseServerSideApply {
-		return "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects."
+		return "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects.", nil
 	}
-	if len(mpol.GetStatus().Autogen.Configs) > 0 {
-		return "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled."
+	// Read autogen from the spec: status.autogen is written later by the
+	// policystatus controller and can still be empty on a new policy.
+	autogenConfigs, err := mpolautogen.Autogen(mpol)
+	if err != nil {
+		return "", err
 	}
-	return ""
+	if len(autogenConfigs) > 0 {
+		return "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled.", nil
+	}
+	return "", nil
 }
 
 func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {

@@ -4,15 +4,15 @@ metadata:
   name: block-ephemeral-containers
 status:
   conditionStatus:
-    conditions:
+    (conditions[?type == 'WebhookConfigured']):
     - message: Webhook configured.
       reason: Succeeded
       status: "True"
-      type: WebhookConfigured
-    - message: 'Policy is not ready for reporting, missing permissions: get /v1,
-        Resource=pods/ephemeralcontainers: ; list /v1, Resource=pods/ephemeralcontainers:
-        ; watch /v1, Resource=pods/ephemeralcontainers: .'
-      reason: Failed
+    # The reports controller cannot read pods/ephemeralcontainers by default, so the
+    # RBAC condition is expected to fail. Match on the resource rather than the full
+    # message, whose wording depends on whether the policy has autogen targets.
+    (conditions[?type == 'RBACPermissionsGranted']):
+    - reason: Failed
       status: "False"
-      type: RBACPermissionsGranted
+      (contains(message, 'Resource=pods/ephemeralcontainers')): true
     # ready: true

@@ -27,6 +27,8 @@ spec:
   - name: check report
     try:
     - assert:
+        # Background reports are written asynchronously after the policy becomes ready.
+        timeout: 90s
         template: true
         resource:
           apiVersion: wgpolicyk8s.io/v1alpha2
