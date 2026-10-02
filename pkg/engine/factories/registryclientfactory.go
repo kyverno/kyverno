@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -57,6 +58,7 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			registryclient.WithImagePullSecrets(secrets...),
 			registryclient.WithCredentialHelpers(providers...),
 			registryclient.WithAllowInsecureRegistry(creds.AllowInsecureRegistry),
+			registryclient.WithLogger(logging.GlobalLogger()),
 		)
 		return adapters.RegistryClient(client), nil
 	}
@@ -66,6 +68,7 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 	client := registryclient.New(
 		registryclient.WithSecretLister(f.secretsLister, resourceNamespace),
 		registryclient.WithImagePullSecrets(secrets...),
+		registryclient.WithLogger(logging.GlobalLogger()),
 	)
 	return adapters.RegistryClient(client), nil
 }

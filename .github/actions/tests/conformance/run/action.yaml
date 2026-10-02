@@ -53,8 +53,26 @@ runs:
     - name: Install chainsaw
       uses: ./.github/actions/tools/chainsaw
     # create cluster
+    # Downloading kind or its checksum from GitHub fails now and then on the runners, so clean
+    # up whatever the first attempt left behind and try once more.
     - name: Create kind cluster
-      uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
+      id: kind
+      uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+      continue-on-error: true
+      with:
+        node_image: kindest/node:${{ inputs.k8s-version }}
+        cluster_name: kind
+        config: ${{ inputs.kind-config }}
+    - name: Clean up the failed kind cluster
+      if: steps.kind.outcome == 'failure'
+      shell: bash
+      run: |
+        kind delete cluster --name kind || true
+        # give a GitHub releases outage a moment to pass before trying again
+        sleep 30
+    - name: Create kind cluster (retry)
+      if: steps.kind.outcome == 'failure'
+      uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
       with:
         node_image: kindest/node:${{ inputs.k8s-version }}
         cluster_name: kind
@@ -102,7 +120,13 @@ runs:
       run: |
         set -e
         GOBIN=$(go env GOPATH)/bin
-        go install github.com/ueokande/kubectl-evict@latest
+        # The module proxy or checksum database is unreachable now and then, so retry.
+        for i in 1 2 3; do
+          if go install github.com/ueokande/kubectl-evict@latest; then break; fi
+          if [ "$i" -eq 3 ]; then exit 1; fi
+          echo "go install failed, retrying in 10s"
+          sleep 10
+        done
         echo 'Adding kubectl-evict directory to PATH...'
         echo "${GOBIN}" >> "${GITHUB_PATH}"
     - name: Wait for kyverno ready

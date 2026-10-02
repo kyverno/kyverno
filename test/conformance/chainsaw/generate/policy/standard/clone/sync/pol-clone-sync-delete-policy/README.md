@@ -1,6 +1,6 @@
 ## Description
 
-This test checks to ensure that deletion of a Policy (Namespaced) generate rule, clone declaration, with sync enabled, does NOT result in the downstream resource's deletion.
+This test checks to ensure that deletion of a Policy (Namespaced) generate rule, clone declaration, with sync enabled and `orphanDownstreamOnPolicyDelete: true`, does NOT result in the downstream resource's deletion. Without that field (default `false`), deleting the policy removes the downstream.
 
 ## Expected Behavior
 
