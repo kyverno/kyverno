@@ -16,6 +16,7 @@ spec:
       name: regcred
       namespace: "{{request.object.metadata.name}}"
       synchronize: true
+      orphanDownstreamOnPolicyDelete: true
       clone:
         namespace: default
         name: regcred

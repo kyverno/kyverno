@@ -113,3 +113,5 @@ jobs:
         with:
           conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
           needs: ${{ toJSON(needs) }}
+          # Read by the E2E gate (.github/workflows/e2e-gate.yaml).
+          labels: e2e-failure

@@ -70,6 +70,14 @@ type TestResponse struct {
 	TriggerByOperation map[string]map[string][]engineapi.EngineResponse
 	Target             map[string][]engineapi.EngineResponse
 	SkippedPolicies    map[string]string
+	DeletingPolicies   map[string]struct{}
+}
+
+func deletingPolicyKey(namespace, name string) string {
+	if namespace == "" {
+		return name
+	}
+	return namespace + "/" + name
 }
 
 // `kyverno test` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
@@ -403,14 +411,16 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
 	}
 
-	// TODO document the code below
+	// Map generate rules (clone/cloneList) to clone source paths from test results.
 	ruleToCloneSourceResource := map[string]string{}
 	for _, policy := range results.Policies {
+		// Include autogen controller rules.
 		for _, rule := range autogen.Default.ComputeRules(policy, "") {
 			for _, res := range testCase.Test.Results {
 				if isRulelessPolicyKind(policy.GetKind()) {
 					continue
 				}
+				// Parse [namespace/]name format.
 				resPolicyNamespace, resPolicyName := "", res.Policy
 				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
 					resPolicyNamespace, resPolicyName = ns, name
@@ -438,6 +448,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
 								break
 							}
+							// Check if clone is specified.
 							genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
 							if err != nil {
 								fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
@@ -479,6 +490,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
 		Target:             map[string][]engineapi.EngineResponse{},
 		SkippedPolicies:    skippedPolicyNames,
+		DeletingPolicies:   map[string]struct{}{},
+	}
+	for _, policy := range results.DeletingPolicies {
+		testResponse.DeletingPolicies[deletingPolicyKey(policy.GetNamespace(), policy.GetName())] = struct{}{}
 	}
 	// validate the operations declared on test results and collect the distinct
 	// explicit operations, each of which triggers a dedicated evaluation run
