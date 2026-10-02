@@ -1,5 +1,5 @@
 # Failing cases: a non-empty host on each of the ten restricted field paths,
-# spread across spec.containers, spec.initContainers, and spec.ephemeralContainers.
+# spread across spec.containers and spec.initContainers.
 apiVersion: v1
 kind: Pod
 metadata:
