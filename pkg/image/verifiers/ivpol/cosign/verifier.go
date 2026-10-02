@@ -3,14 +3,17 @@ package cosign
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/oci"
+	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
 	"github.com/sigstore/cosign/v3/pkg/policy"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -36,14 +39,115 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 	}
 
 	// Auto-detect if new bundle format (cosign v3) is actually present
-	newBundles, _, err := cosign.GetBundles(ctx, image.NameRef(), cOpts.RegistryClientOpts)
-	bundleDetected := len(newBundles) > 0 && err == nil
+	bundleDetected, err := hasSigstoreBundles(image, cOpts)
+	if err != nil {
+		// Discovery that cannot complete leaves the legacy path, exactly as the
+		// cosign.GetBundles call this replaced did by folding any error into
+		// "no bundles found".
+		v.log.V(4).Info("bundle discovery failed, assuming legacy format", "image", image.Image, "error", err)
+		bundleDetected = false
+	}
 	cOpts.NewBundleFormat = bundleDetected
 	if bundleDetected && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
 	}
 
 	return cOpts, nil
+}
+
+// bundleMediaTypePrefix is the media type cosign gives a sigstore bundle, both
+// as the artifactType of the referrer manifest and as the media type of the
+// layer holding the bundle itself (pkg/oci/remote/write.go).
+const bundleMediaTypePrefix = "application/vnd.dev.sigstore.bundle"
+
+// isBundleMediaType reports whether a media type names a sigstore bundle that
+// cosign would go on to verify, which means format v0.3 or later.
+//
+// The version check matters: ociremote.Bundle rejects anything older (it parses
+// the blob and calls MinVersion("v0.3")), so cosign.GetBundles would not count a
+// v0.1/v0.2 bundle and verification stays on the legacy path. Treating one as
+// new-format here would instead route it to VerifyImageAttestations, which then
+// fails with "no valid bundles exist in registry" -- turning a working fallback
+// into a denial. Those two versions carry their version as a media type
+// parameter; v0.3 onwards spell it in the subtype, so anything else matching the
+// prefix is v0.3 or later.
+func isBundleMediaType(mediaType string) bool {
+	switch mediaType {
+	case bundleMediaTypePrefix + "+json;version=0.1", bundleMediaTypePrefix + "+json;version=0.2":
+		return false
+	}
+	return strings.HasPrefix(mediaType, bundleMediaTypePrefix)
+}
+
+// hasSigstoreBundles reports whether the image carries at least one cosign v3
+// sigstore bundle, reading the referrers index and, only where that is not
+// conclusive, the referrer manifests -- never the bundle blobs.
+//
+// cosign.GetBundles answers the same question, but to do so it fetches and
+// parses the blob behind every referrer (ociremote.Bundle reads the layer), and
+// the answer is all that is kept: VerifyImageAttestations calls GetBundles again
+// to do the actual verification. On an image carrying large attestations -- an
+// SBOM, a vulnerability report -- that makes every bundle a download that
+// happens twice per check, to decide a boolean.
+//
+// The index settles it alone when an entry carries the bundle media type as its
+// artifactType, which is how a registry serving the referrers API reports the
+// manifests cosign writes. On a registry without one, go-containerregistry falls
+// back to the sha256-<digest> tag, an index maintained by whichever client wrote
+// the referrer, and some type the entry from the manifest's config, so it reads
+// only application/vnd.oci.empty.v1+json (kyverno#16664). Those are settled by
+// reading the referrer manifest, which is under a kilobyte and carries the layer
+// media type ociremote.Bundle itself screens on.
+func hasSigstoreBundles(img *imagedataloader.ImageData, cOpts *cosign.CheckOpts) (bool, error) {
+	// img.Digest is already resolved, so unlike GetBundles this needs no
+	// ResolveDigest round trip to turn a tag into a digest.
+	digest := img.NameRef().Context().Digest(img.Digest)
+	index, err := ociremote.Referrers(digest, "", cOpts.RegistryClientOpts...)
+	if err != nil {
+		return false, err
+	}
+
+	// bundles live in the signature repository when the attestor configures one,
+	// which is how GetBundles resolves them
+	bundleRepo := digest.Repository
+	if target := ociremote.TargetRepositoryFromOptions(cOpts.RegistryClientOpts...); (target != name.Repository{}) {
+		bundleRepo = target
+	}
+
+	// first pass over the index alone: no requests at all
+	for _, desc := range index.Manifests {
+		if isBundleMediaType(desc.ArtifactType) {
+			return true, nil
+		}
+	}
+
+	// nothing conclusive in the index, so read the referrer manifests
+	for _, desc := range index.Manifests {
+		// parsed without the image's name options, as GetBundles parses it when
+		// VerifyImageAttestations calls it without any: with name.Insecure this
+		// would read a plain-HTTP registry that verification then reads over HTTPS
+		ref, err := name.ParseReference(fmt.Sprintf("%s@%s", bundleRepo, desc.Digest.String()))
+		if err != nil {
+			return false, err
+		}
+		// SignedImage fetches the manifest; layers stay lazy, so no blob is read
+		bundleImage, err := ociremote.SignedImage(ref, cOpts.RegistryClientOpts...)
+		if err != nil {
+			// a referrer that cannot be read is not a bundle we could verify, and
+			// GetBundles skips these rather than failing discovery
+			continue
+		}
+		manifest, err := bundleImage.Manifest()
+		if err != nil {
+			continue
+		}
+		// ociremote.Bundle requires exactly one layer and screens its media type
+		if len(manifest.Layers) == 1 && isBundleMediaType(string(manifest.Layers[0].MediaType)) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // shouldUseSignedTimestamps reports whether a detected Sigstore bundle (format
