@@ -296,4 +296,3 @@ func TestValidateImageHandler_ImageReferencesWithVariable(t *testing.T) {
 	assert.Equal(t, engineapi.ImageVerify, responses[0].RuleType())
 	assert.Contains(t, responses[0].Message(), "unverified image")
 }
-
