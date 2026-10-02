@@ -1275,9 +1275,7 @@ ZDGRs55xuoeLDJ/ZRFf9bI+IaCUd1YrfYcHIl3G87Av+r49YVwqRDT0VDV7uLgqn
 				assert.ErrorContains(t, err, tc.expectedErr)
 				return
 			}
-			if err != nil && err.Error() != "invalid certificate" {
-				assert.NilError(t, err)
-			}
+			assert.NilError(t, err)
 
 			res, ok := result.(map[string]any)
 			assert.Assert(t, ok)

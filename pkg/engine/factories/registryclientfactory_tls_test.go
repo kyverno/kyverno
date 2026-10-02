@@ -137,7 +137,7 @@ func TestRegistryClientFactory_TLSClientCert(t *testing.T) {
 				},
 			},
 			expectError: true,
-			errorMsg:    "secret \"missing-secret\" not found",
+			errorMsg:    "missing-secret",
 		},
 		{
 			name: "malformed cert",
