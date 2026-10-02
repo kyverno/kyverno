@@ -2,12 +2,14 @@ package policy
 
 import (
 	"errors"
+	"sync"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"github.com/stretchr/testify/assert"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
@@ -102,4 +104,82 @@ func Test_validateActions_LiveAuthError(t *testing.T) {
 	_, err := validateActions(0, rule, client, false, "background-sa", "reports-sa", auth.NewResultCache())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "authorization request failed")
+}
+
+// sarCountingClient returns a live (non-mock) dclient whose SubjectAccessReview
+// requests are approved and counted per (subject, resource, verb) tuple.
+func sarCountingClient(t *testing.T) (dclient.Interface, func() map[string]int) {
+	t.Helper()
+	var mu sync.Mutex
+	counts := map[string]int{}
+
+	kube := kubefake.NewSimpleClientset()
+	kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		sar := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		ra := sar.Spec.ResourceAttributes
+		key := sar.Spec.User + "|" + ra.Resource + "|" + ra.Verb
+		mu.Lock()
+		counts[key]++
+		mu.Unlock()
+		return true, &authorizationv1.SubjectAccessReview{
+			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
+		}, nil
+	})
+
+	client := dclient.NewFakeClientWithDisco(
+		dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()),
+		kube,
+		dclient.NewFakeDiscoveryClient(nil),
+	)
+	snapshot := func() map[string]int {
+		mu.Lock()
+		defer mu.Unlock()
+		out := make(map[string]int, len(counts))
+		for k, v := range counts {
+			out[k] = v
+		}
+		return out
+	}
+	return client, snapshot
+}
+
+// Test_validateActions_SharesAuthCacheAcrossRules is the integration regression
+// test for the shared-cache contract. It mirrors Validate()'s per-pass loop: a
+// single ResultCache is threaded through validateActions for every rule, so a
+// (subject, kind, verb) authorization tuple is checked at most once across the
+// whole pass — even when several rules match the same kind and even across
+// different action factories (validate and mutate both run the reports check).
+// If a future change recreates the cache per rule or drops the cache threading
+// into any factory, the overlapping ConfigMap checks would re-issue their
+// SubjectAccessReviews and a per-tuple count would exceed one.
+func Test_validateActions_SharesAuthCacheAcrossRules(t *testing.T) {
+	client, counts := sarCountingClient(t)
+	cache := auth.NewResultCache() // one cache for the whole pass, as Validate() does
+
+	cm := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"ConfigMap"}}}
+	secret := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Secret"}}}
+
+	rules := []*kyvernov1.Rule{
+		// validate on ConfigMap
+		{Name: "cm-validate-a", MatchResources: cm, Validation: &kyvernov1.Validation{Deny: &kyvernov1.Deny{}}},
+		// a second validate on ConfigMap — overlaps the first (same factory)
+		{Name: "cm-validate-b", MatchResources: cm, Validation: &kyvernov1.Validation{Deny: &kyvernov1.Deny{}}},
+		// mutate on ConfigMap — its reports check overlaps the validate rules (different factory)
+		{Name: "cm-mutate", MatchResources: cm, Mutation: &kyvernov1.Mutation{PatchesJSON6902: "dummy"}},
+		// validate on Secret — a distinct kind
+		{Name: "secret-validate", MatchResources: secret, Validation: &kyvernov1.Validation{Deny: &kyvernov1.Deny{}}},
+	}
+
+	for i, rule := range rules {
+		_, err := validateActions(i, rule, client, false, "background-sa", "reports-sa", cache)
+		assert.NoErrorf(t, err, "rule %s", rule.Name)
+	}
+
+	// Reports auth checks "get","list","watch" per kind under reportsSA.
+	// Expected tuples: {configmaps,secrets} x 3 verbs = 6, each checked once.
+	result := counts()
+	assert.Lenf(t, result, 6, "expected 6 distinct (subject, kind, verb) tuples, got %v", result)
+	for key, n := range result {
+		assert.Equalf(t, 1, n, "tuple %q checked %d times; cache must dedupe to one SubjectAccessReview", key, n)
+	}
 }
