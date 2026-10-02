@@ -121,13 +121,24 @@ func TestHasSigstoreBundlesReadsNoBlobs(t *testing.T) {
 		wantManifests  int
 	}{{
 		// an entry typed with the bundle media type, as a referrers-API registry
-		// reports what cosign writes, settles it from the index alone
-		name:           "detected from the index alone",
+		// reports what cosign writes
+		name:           "detected from a bundle-typed entry",
 		artifactType:   bundleMediaTypePrefix + ".v0.3+json",
 		layerMediaType: bundleMediaTypePrefix + ".v0.3+json",
 		attach:         true,
 		want:           true,
-		wantManifests:  0,
+		wantManifests:  1,
+	}, {
+		// the artifactType says bundle but the layer is not one, as a tool that
+		// sets only the artifactType writes it: ociremote.Bundle rejects it, so
+		// GetBundles would not have counted it and verification must stay on the
+		// legacy path
+		name:           "a bundle-typed entry without a bundle layer is not new-format",
+		artifactType:   bundleMediaTypePrefix + ".v0.3+json",
+		layerMediaType: "application/vnd.oci.image.layer.v1.tar",
+		attach:         true,
+		want:           false,
+		wantManifests:  1,
 	}, {
 		// kyverno#16664: entries typed from an empty config say nothing, so the
 		// referrer manifest has to be read -- but still not the bundle blob
@@ -197,10 +208,8 @@ func TestHasSigstoreBundlesReadsNoBlobs(t *testing.T) {
 			// sha256-<digest> fallback tag go-containerregistry drops back to
 			require.Equal(t, 1, handler.count("/referrers/"))
 			require.Equal(t, 1, handler.count("/manifests/sha256-"))
-			// referrer manifests are addressed by digest, and only read when the
-			// index entry did not already settle it
-			require.Equal(t, tt.wantManifests, handler.count("/manifests/sha256:"),
-				"detection reads a referrer manifest only when the index is not conclusive")
+			// referrer manifests are addressed by digest
+			require.Equal(t, tt.wantManifests, handler.count("/manifests/sha256:"))
 		})
 	}
 }
@@ -305,8 +314,8 @@ func TestDetectionAgreesWithGetBundlesOverPlainHTTP(t *testing.T) {
 	require.NoError(t, remote.Write(ref, pushed, opts...))
 	digest, err := pushed.Digest()
 	require.NoError(t, err)
-	// untyped in the index, so detection has to read the referrer manifest
-	attachReferrer(t, ref.Context().Digest(digest.String()), "", bundleMediaTypePrefix+".v0.3+json",
+	// typed as a bundle in the index, which detection must not take on trust
+	attachReferrer(t, ref.Context().Digest(digest.String()), bundleMediaTypePrefix+".v0.3+json", bundleMediaTypePrefix+".v0.3+json",
 		`{"mediaType":"test-bundle"}`, opts...)
 
 	idf, err := imagedataloader.New(nil, nil, nil)

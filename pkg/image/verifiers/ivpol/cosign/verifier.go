@@ -80,8 +80,8 @@ func isBundleMediaType(mediaType string) bool {
 }
 
 // hasSigstoreBundles reports whether the image carries at least one cosign v3
-// sigstore bundle, reading the referrers index and, only where that is not
-// conclusive, the referrer manifests -- never the bundle blobs.
+// sigstore bundle, reading the referrers index and the referrer manifests --
+// never the bundle blobs.
 //
 // cosign.GetBundles answers the same question, but to do so it fetches and
 // parses the blob behind every referrer (ociremote.Bundle reads the layer), and
@@ -90,14 +90,14 @@ func isBundleMediaType(mediaType string) bool {
 // SBOM, a vulnerability report -- that makes every bundle a download that
 // happens twice per check, to decide a boolean.
 //
-// The index settles it alone when an entry carries the bundle media type as its
-// artifactType, which is how a registry serving the referrers API reports the
-// manifests cosign writes. On a registry without one, go-containerregistry falls
-// back to the sha256-<digest> tag, an index maintained by whichever client wrote
-// the referrer, and some type the entry from the manifest's config, so it reads
-// only application/vnd.oci.empty.v1+json (kyverno#16664). Those are settled by
-// reading the referrer manifest, which is under a kilobyte and carries the layer
-// media type ociremote.Bundle itself screens on.
+// The index entry's artifactType is not enough to go on. It can name a bundle
+// whose manifest holds something ociremote.Bundle rejects (a tool that sets the
+// artifactType but not the layer media type), or whose manifest is gone (a stale
+// sha256-<digest> fallback index), and GetBundles skips both; and on a registry
+// without the referrers API some clients type the entry from the manifest's
+// config, so it reads only application/vnd.oci.empty.v1+json (kyverno#16664).
+// So each referrer manifest is read instead, which is under a kilobyte and
+// carries the layer media type ociremote.Bundle itself screens on.
 func hasSigstoreBundles(img *imagedataloader.ImageData, cOpts *cosign.CheckOpts) (bool, error) {
 	// img.Digest is already resolved, so unlike GetBundles this needs no
 	// ResolveDigest round trip to turn a tag into a digest.
@@ -114,14 +114,6 @@ func hasSigstoreBundles(img *imagedataloader.ImageData, cOpts *cosign.CheckOpts)
 		bundleRepo = target
 	}
 
-	// first pass over the index alone: no requests at all
-	for _, desc := range index.Manifests {
-		if isBundleMediaType(desc.ArtifactType) {
-			return true, nil
-		}
-	}
-
-	// nothing conclusive in the index, so read the referrer manifests
 	for _, desc := range index.Manifests {
 		// parsed without the image's name options, as GetBundles parses it when
 		// VerifyImageAttestations calls it without any: with name.Insecure this
