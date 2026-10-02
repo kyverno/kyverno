@@ -1,7 +1,9 @@
 package webhooks
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/webhooks/auth"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -166,7 +169,7 @@ func TestNewServer(t *testing.T) {
 
 // buildTestServer wires NewServer with mock handlers, mirroring TestNewServer, and returns the
 // underlying httprouter so route registration can be asserted against the real server.
-func buildTestServer(t *testing.T) *httprouter.Router {
+func buildTestServer(t *testing.T, receiver ...*auth.Receiver) *httprouter.Router {
 	t.Helper()
 	ctx := context.TODO()
 	dummyHandler := &mockHandler{}
@@ -198,13 +201,44 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, receiver...,
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")
 	router, ok := srv.server.Handler.(*httprouter.Router)
 	require.True(t, ok, "server handler must be an httprouter.Router")
 	return router
+}
+
+func TestEveryAdmissionRouteRequiresAuthentication(t *testing.T) {
+	router := buildTestServer(t, auth.NewReceiver(nil, "", 443))
+	review, err := json.Marshal(admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{UID: "route-test"}})
+	require.NoError(t, err)
+	for _, path := range []string{
+		"/mpol/p", "/nmpol/p", "/vpol/p", "/nvpol/p", "/ivpol/validate/p", "/ivpol/mutate/p",
+		"/nivpol/validate/p", "/nivpol/mutate/p", "/gpol/p", "/ngpol/p",
+		"/mutate", "/mutate/ignore", "/mutate/fail", "/mutate/ignore/finegrained/p", "/mutate/fail/finegrained/p",
+		"/validate", "/validate/ignore", "/validate/fail", "/validate/ignore/finegrained/p", "/validate/fail/finegrained/p",
+		"/policymutate", "/policyvalidate", "/exceptionvalidate", "/celexception/validate", "/globalcontextvalidate", "/verifymutate",
+	} {
+		t.Run(path, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(review))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, request)
+			require.Equal(t, http.StatusOK, response.Code)
+			var result admissionv1.AdmissionReview
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+			require.NotNil(t, result.Response)
+			require.False(t, result.Response.Allowed)
+			require.Equal(t, types.UID("route-test"), result.Response.UID)
+		})
+	}
+	for _, path := range []string{config.LivenessServicePath, config.ReadinessServicePath} {
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		require.Equal(t, http.StatusOK, response.Code)
+	}
 }
 
 // TestServer_NamespacedImageValidatingPolicyRoutesAreServed verifies the webhook server serves the

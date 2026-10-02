@@ -56,6 +56,7 @@ import (
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/auth"
 	webhookscelexception "github.com/kyverno/kyverno/pkg/webhooks/celexception"
 	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
@@ -408,6 +409,7 @@ func main() {
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
+	flagset.Func(toggle.WebhookAuthenticationFlagName, toggle.WebhookAuthenticationDescription, toggle.WebhookAuthentication.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.GenerateMutatingAdmissionPolicyFlagName, toggle.GenerateMutatingAdmissionPolicyDescription, toggle.GenerateMutatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.DumpMutatePatchesFlagName, toggle.DumpMutatePatchesDescription, toggle.DumpMutatePatches.Parse)
@@ -920,6 +922,15 @@ func main() {
 			Enabled: internal.PolicyExceptionEnabled(),
 		})
 		globalContextHandlers := webhooksglobalcontext.NewHandlers()
+		var webhookAuth *auth.Receiver
+		if toggle.WebhookAuthentication.Enabled() {
+			verifier, err := auth.NewVerifier(signalCtx, setup.RestConfig)
+			if err != nil {
+				setup.Logger.Error(err, "failed to initialize webhook authentication")
+				os.Exit(1)
+			}
+			webhookAuth = auth.NewReceiver(verifier, serverIP, int32(servicePort)) //nolint:gosec
+		}
 		server := webhooks.NewServer(
 			signalCtx,
 			webhooks.PolicyHandlers{
@@ -970,6 +981,7 @@ func main() {
 			setup.KyvernoDynamicClient.Discovery(),
 			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
+			webhookAuth,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers
