@@ -9,6 +9,18 @@ spec:
   - name: app
     image: nginx:latest
 ---
+# securityContext set but no `capabilities` field. PSA denies this.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: security-context-no-capabilities
+spec:
+  containers:
+  - name: app
+    image: nginx:latest
+    securityContext:
+      runAsNonRoot: true
+---
 # capabilities set but no `drop` key. PSA denies; the old expression passed it.
 apiVersion: v1
 kind: Pod

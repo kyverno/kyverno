@@ -12,6 +12,7 @@ results:
   policy: disallow-capabilities-strict
   resources:
   - no-security-context
+  - security-context-no-capabilities
   - capabilities-no-drop
   - drop-net-raw
   - drop-all-add-sys-admin
