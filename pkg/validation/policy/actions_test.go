@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	memory "k8s.io/client-go/discovery/cached/memory"
+	discoveryfake "k8s.io/client-go/discovery/fake"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -132,7 +133,8 @@ func sarCountingClient(t *testing.T) (dclient.Interface, func() map[string]int) 
 	kube := kubefake.NewSimpleClientset()
 	// Populate discovery so Validate()'s discovery.ServerPreferredResources has
 	// at least one API group to walk (an empty fake discovery panics there).
-	kube.Resources = []*metav1.APIResourceList{
+	// Resources live on the FakeDiscovery, not on the clientset.
+	kube.Discovery().(*discoveryfake.FakeDiscovery).Resources = []*metav1.APIResourceList{
 		{
 			GroupVersion: "v1",
 			APIResources: []metav1.APIResource{
