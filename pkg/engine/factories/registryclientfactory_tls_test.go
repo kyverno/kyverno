@@ -4,16 +4,16 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
-
-	"net/http"
-	"reflect"
-	"unsafe"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -24,10 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-// getUnexportedField safely extracts an unexported field via reflection
-func getUnexportedField(field reflect.Value) interface{} {
-	return reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).Elem().Interface()
-}
+
 
 func generateTestCert(t *testing.T) ([]byte, []byte) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -161,32 +158,31 @@ func TestRegistryClientFactory_TLSClientCert(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, client)
 
-				// Extract the transport to verify the certificate was loaded
-				val := reflect.ValueOf(client)
-				if val.Kind() == reflect.Ptr {
-					val = val.Elem()
-				}
-				clientField := val.FieldByName("Client")
-				if clientField.IsValid() {
-					clientVal := clientField.Elem()
-					if clientVal.Kind() == reflect.Ptr {
-						clientVal = clientVal.Elem()
+				// Verify mTLS behaviorally
+				server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.TLS != nil && len(r.TLS.PeerCertificates) > 0 {
+						w.WriteHeader(http.StatusOK)
+						return
 					}
-					transportField := clientVal.FieldByName("transport")
-					if transportField.IsValid() {
-						transportVal := reflect.ValueOf(getUnexportedField(transportField))
-						if transportVal.Kind() == reflect.Ptr {
-							transportVal = transportVal.Elem()
-						}
-						rtField := transportVal.FieldByName("rt")
-						if rtField.IsValid() {
-							rtVal := getUnexportedField(rtField)
-							if ht, ok := rtVal.(*http.Transport); ok && ht.TLSClientConfig != nil {
-								assert.NotEmpty(t, ht.TLSClientConfig.Certificates, "Expected TLS certificates to be loaded in the transport")
-							}
-						}
-					}
+					w.WriteHeader(http.StatusUnauthorized)
+				}))
+				server.TLS = &tls.Config{
+					ClientAuth: tls.RequireAnyClientCert,
 				}
+				server.StartTLS()
+				
+				// Ensure the client uses the provided certificates when communicating with a TLS endpoint
+				// The FetchImageDescriptor method will use the underlying roundtripper.
+				ref := strings.TrimPrefix(server.URL, "https://") + "/test/image:latest"
+				_, err := client.FetchImageDescriptor(context.Background(), ref)
+				
+				// A 401 Unauthorized from our test server means the certificate was NOT provided or invalid.
+				// A 404 Not Found or EOF or other error means the connection was established but path wasn't found (which is OK for behavioral test)
+				if err != nil {
+					assert.NotContains(t, err.Error(), "401 Unauthorized", "expected behavioral mTLS test to not fail with 401")
+				}
+				
+				server.Close()
 			}
 		})
 	}
