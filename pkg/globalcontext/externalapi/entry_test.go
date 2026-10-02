@@ -863,4 +863,165 @@ func TestNew_PollingSuccessPath(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond)
 }
 
+func TestNew_ProjectionParsingError_UpdatesStatusReadyFalse(t *testing.T) {
+	ctx := context.Background()
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce-proj-parse-fail",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Millisecond},
+				RetryLimit:      1,
+			},
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{
+					Name:     "invalidProj",
+					JMESPath: "[invalid syntax",
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+	apiClient := &fakeAPIClient{data: []byte(`{"key":"value"}`)}
+	mockJP := &mockJMESPathInterface{
+		queryErr: fmt.Errorf("SyntaxError: Incomplete expression"),
+	}
 
+	e, err := New(
+		ctx,
+		gce,
+		event.NewFake(),
+		client,
+		nil,
+		logr.Discard(),
+		apiClient,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		true,
+		mockJP,
+	)
+	assert.Error(t, err)
+	assert.Nil(t, e)
+	assert.Contains(t, err.Error(), "failed to parse jmespath query")
+
+	updated, getErr := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce-proj-parse-fail", metav1.GetOptions{})
+	assert.NoError(t, getErr)
+	assert.False(t, updated.Status.IsReady())
+	assert.Len(t, updated.Status.Conditions, 1)
+	assert.Equal(t, metav1.ConditionFalse, updated.Status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonFailed, updated.Status.Conditions[0].Reason)
+	assert.Contains(t, updated.Status.Conditions[0].Message, "failed to parse jmespath query: SyntaxError: Incomplete expression")
+}
+
+func TestNew_ProjectionParsingError_ShouldNotUpdateStatusWhenDisabled(t *testing.T) {
+	ctx := context.Background()
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce-proj-parse-no-status",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Millisecond},
+				RetryLimit:      1,
+			},
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{
+					Name:     "invalidProj",
+					JMESPath: "[invalid syntax",
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+	apiClient := &fakeAPIClient{data: []byte(`{"key":"value"}`)}
+	mockJP := &mockJMESPathInterface{
+		queryErr: fmt.Errorf("SyntaxError: Incomplete expression"),
+	}
+
+	e, err := New(
+		ctx,
+		gce,
+		event.NewFake(),
+		client,
+		nil,
+		logr.Discard(),
+		apiClient,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		false,
+		mockJP,
+	)
+	assert.Error(t, err)
+	assert.Nil(t, e)
+
+	updated, getErr := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce-proj-parse-no-status", metav1.GetOptions{})
+	assert.NoError(t, getErr)
+	assert.Len(t, updated.Status.Conditions, 0)
+}
+
+func TestNew_NilJMESPathWithProjections(t *testing.T) {
+	ctx := context.Background()
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-gce-nil-jp",
+		},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			APICall: &kyvernov2beta1.ExternalAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: "/apis",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Millisecond},
+				RetryLimit:      1,
+			},
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{
+					Name:     "proj",
+					JMESPath: "foo.bar",
+				},
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(gce)
+	apiClient := &fakeAPIClient{data: []byte(`{"key":"value"}`)}
+
+	e, err := New(
+		ctx,
+		gce,
+		event.NewFake(),
+		client,
+		nil,
+		logr.Discard(),
+		apiClient,
+		gce.Spec.APICall.APICall,
+		gce.Spec.APICall.RefreshInterval.Duration,
+		0,
+		time.Second,
+		true,
+		nil,
+	)
+	assert.Error(t, err)
+	assert.Nil(t, e)
+	assert.Equal(t, "jmespath interface is nil", err.Error())
+
+	updated, getErr := client.KyvernoV2beta1().GlobalContextEntries().Get(ctx, "test-gce-nil-jp", metav1.GetOptions{})
+	assert.NoError(t, getErr)
+	assert.False(t, updated.Status.IsReady())
+	assert.Len(t, updated.Status.Conditions, 1)
+	assert.Equal(t, metav1.ConditionFalse, updated.Status.Conditions[0].Status)
+	assert.Equal(t, kyvernov2beta1.GlobalContextEntryReasonFailed, updated.Status.Conditions[0].Reason)
+	assert.Equal(t, "jmespath interface is nil", updated.Status.Conditions[0].Message)
+}
