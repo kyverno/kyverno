@@ -1,6 +1,6 @@
 ## Description
 
-This test ensures that deletion of a ClusterPolicy, with a generate rule using clone and sync, does NOT cause the downstream resource to be deleted.
+This test ensures that deletion of a ClusterPolicy, with a generate rule using clone and sync and `orphanDownstreamOnPolicyDelete: true`, does NOT cause the downstream resource to be deleted. Without that field (default `false`), deleting the policy removes the downstream.
 
 ## Expected Behavior
 

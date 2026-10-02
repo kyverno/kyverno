@@ -1,0 +1,39 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources-widget.yaml
+- clusterresources-gadget.yaml
+kind: Test
+metadata:
+  name: validating-policy-multiple-crds
+policies:
+- policy.yaml
+resources:
+- pass-widget.yaml
+- fail-widget.yaml
+- pass-gadget.yaml
+- fail-gadget.yaml
+results:
+- isValidatingPolicy: true
+  kind: Gadget
+  policy: require-app-label
+  resources:
+  - bad-gadget
+  result: fail
+- isValidatingPolicy: true
+  kind: Widget
+  policy: require-app-label
+  resources:
+  - bad-widget
+  result: fail
+- isValidatingPolicy: true
+  kind: Gadget
+  policy: require-app-label
+  resources:
+  - good-gadget
+  result: pass
+- isValidatingPolicy: true
+  kind: Widget
+  policy: require-app-label
+  resources:
+  - good-widget
+  result: pass
