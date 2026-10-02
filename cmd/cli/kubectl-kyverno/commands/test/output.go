@@ -183,6 +183,9 @@ func printTestResult(
 					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
+					if r == nil || rule == nil {
+						continue
+					}
 					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
@@ -313,14 +316,16 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 }
 
 func extractPatchedTargetFromEngineResponse(apiVersion, kind, resourceName, resourceNamespace string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
-	for _, rule := range response.PolicyResponse.Rules {
+	for i := range response.PolicyResponse.Rules {
+		rule := &response.PolicyResponse.Rules[i]
 		r, _, _ := rule.PatchedTarget()
 		if r != nil {
-			if resourceNamespace == "" {
-				resourceNamespace = r.GetNamespace()
+			targetNs := resourceNamespace
+			if targetNs == "" {
+				targetNs = r.GetNamespace()
 			}
-			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == resourceNamespace {
-				return r, &rule
+			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == targetNs {
+				return r, rule
 			}
 		}
 	}
