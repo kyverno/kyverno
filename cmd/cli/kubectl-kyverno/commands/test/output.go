@@ -328,11 +328,20 @@ func printTestResult(
 
 			// Check if the resource specified exists in the targets
 			if _, ok := responses.Target[resource]; ok {
-				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
+				policyNamespace, policyName := "", test.Policy
+				if ns, name, ok := strings.Cut(test.Policy, "/"); ok {
+					policyNamespace = ns
+					policyName = name
+				}
 
 				for _, response := range responses.Target[resource] {
-					if test.Policy != "" && response.Policy() != nil && response.Policy().GetName() != policyName {
-						continue
+					if test.Policy != "" && response.Policy() != nil {
+						if response.Policy().GetName() != policyName {
+							continue
+						}
+						if policyNamespace != "" && response.Policy().GetNamespace() != "" && response.Policy().GetNamespace() != policyNamespace {
+							continue
+						}
 					}
 
 					// we are doing this twice which is kinda not nice
