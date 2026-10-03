@@ -91,10 +91,11 @@ func TestEvaluate_Tracing(t *testing.T) {
 		wantMessage:    "no such key: tier",
 		wantConditions: [][2]string{{"has-expiry", "true"}, {"is-temporary", "no such key: tier"}},
 	}, {
-		name:        "exempted by a policy exception",
-		labels:      map[string]any{"expires": "2026-01-01", "tier": "temp"},
-		exceptions:  []*policiesv1beta1.PolicyException{exemptProd},
-		wantStatus:  trace.VerdictSkip,
+		name:       "exempted by a policy exception",
+		labels:     map[string]any{"expires": "2026-01-01", "tier": "temp"},
+		exceptions: []*policiesv1beta1.PolicyException{exemptProd},
+		// FAIL, not SKIP: the result is "not deleted", which the CLI reports as fail
+		wantStatus:  trace.VerdictFail,
 		wantMessage: "exempted by policy exception prod/keep-prod: the resource is kept",
 	}}
 	for _, tt := range tests {
