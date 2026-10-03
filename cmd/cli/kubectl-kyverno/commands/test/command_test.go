@@ -1358,54 +1358,178 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 	color.Init(true)
 
 	resourceKey := "v1,Pod,default,test-pod"
-	responses := &TestResponse{
-		Trigger:            map[string][]engineapi.EngineResponse{},
-		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
-		Target: map[string][]engineapi.EngineResponse{
-			resourceKey: {
-				engineapi.NewEngineResponse(
-					unstructured.Unstructured{},
-					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "test-policy",
-						},
-					}),
-					nil,
-				),
-			},
-		},
-		SkippedPolicies:  map[string]string{},
-		DeletingPolicies: map[string]struct{}{},
-	}
 
-	testResults := []v1alpha1.TestResult{
+	tests := []struct {
+		name            string
+		expectedResult  openreportsv1alpha1.Result
+		rules           []engineapi.RuleResponse
+		skippedPolicies map[string]string
+		wantSkip        int
+		wantPass        int
+		wantFail        int
+		wantResult      string
+		wantReason      string
+	}{
 		{
-			TestResultBase: v1alpha1.TestResultBase{
-				Policy: "test-policy",
-				Rule:   "test-rule",
-				Result: openreportsv1alpha1.Result(openreports.StatusPass),
+			name:            "ordinary missing target without rules reports fail not found",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusPass),
+			skippedPolicies: map[string]string{},
+			wantSkip:        0,
+			wantPass:        0,
+			wantFail:        1,
+			wantResult:      "Fail",
+			wantReason:      "Not found",
+		},
+		{
+			name:           "target when policy was skipped during validation reports skip",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			skippedPolicies: map[string]string{
+				"test-policy": "preconditions not met",
 			},
-			TestResultData: v1alpha1.TestResultData{
-				Resources: []string{"test-pod"},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Skip",
+			wantReason: "Invalid Policy",
+		},
+		{
+			name:           "target with skipped mutation outcome preserving engine skip",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
 			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with skipped mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got skip",
+		},
+		{
+			name:           "target with errored mutation outcome preserving engine error",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusError),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("test-rule", engineapi.Mutation, "target evaluation error", nil, nil),
+			},
+			wantSkip:   0,
+			wantPass:   1,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with errored mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("test-rule", engineapi.Mutation, "target evaluation error", nil, nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got error",
+		},
+		{
+			name:           "target with failed mutation outcome preserving engine failure",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusFail),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("test-rule", engineapi.Mutation, "mutation failed", nil),
+			},
+			wantSkip:   0,
+			wantPass:   1,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with failed mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("test-rule", engineapi.Mutation, "mutation failed", nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got fail",
 		},
 	}
 
-	rc := &resultCounts{}
-	resultsTable := table.Table{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			engineResp := engineapi.NewEngineResponse(
+				unstructured.Unstructured{},
+				engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-policy",
+					},
+				}),
+				nil,
+			)
+			if len(tt.rules) > 0 {
+				engineResp = engineResp.WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: tt.rules,
+				})
+			}
 
-	assert.NotPanics(t, func() {
-		err := printTestResult(
-			testResults,
-			responses,
-			rc,
-			&resultsTable,
-			nil,
-			"",
-			true,
-		)
-		require.NoError(t, err)
-	})
+			responses := &TestResponse{
+				Trigger:            map[string][]engineapi.EngineResponse{},
+				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+				Target: map[string][]engineapi.EngineResponse{
+					resourceKey: {engineResp},
+				},
+				SkippedPolicies:  tt.skippedPolicies,
+				DeletingPolicies: map[string]struct{}{},
+			}
+
+			testResults := []v1alpha1.TestResult{
+				{
+					TestResultBase: v1alpha1.TestResultBase{
+						Policy: "test-policy",
+						Rule:   "test-rule",
+						Result: tt.expectedResult,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{"test-pod"},
+					},
+				},
+			}
+
+			rc := &resultCounts{}
+			resultsTable := table.Table{}
+
+			assert.NotPanics(t, func() {
+				err := printTestResult(
+					testResults,
+					responses,
+					rc,
+					&resultsTable,
+					nil,
+					"",
+					true,
+				)
+				require.NoError(t, err)
+			})
+
+			assert.Equal(t, tt.wantSkip, rc.Skip)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+			require.Len(t, resultsTable.RawRows, 1)
+			assert.Equal(t, tt.wantResult, resultsTable.RawRows[0].Result)
+			assert.Equal(t, tt.wantReason, resultsTable.RawRows[0].Reason)
+		})
+	}
 }
 
 func TestExtractPatchedTargetFromEngineResponse(t *testing.T) {

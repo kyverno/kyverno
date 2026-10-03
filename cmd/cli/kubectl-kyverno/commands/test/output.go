@@ -328,19 +328,38 @@ func printTestResult(
 
 			// Check if the resource specified exists in the targets
 			if _, ok := responses.Target[resource]; ok {
+				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
+
 				for _, response := range responses.Target[resource] {
+					if test.Policy != "" && response.Policy() != nil && response.Policy().GetName() != policyName {
+						continue
+					}
+
 					// we are doing this twice which is kinda not nice
 					nameParts := strings.Split(resource, ",")
 					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
-					if r == nil || rule == nil {
+					if r != nil && rule != nil && (test.Rule == "" || len(lookupRuleResponses(test, *rule)) > 0) {
+						ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
+
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
+						rows = append(rows, resourceRows...)
 						continue
 					}
-					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
-					rows = append(rows, resourceRows...)
+					var rulesToCheck []engineapi.RuleResponse
+					if test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) {
+						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
+					} else {
+						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
+					}
+
+					for _, rResp := range rulesToCheck {
+						ok, message, reason := checkRuleResultOnly(test, response, rResp)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rResp.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
+						rows = append(rows, resourceRows...)
+					}
 				}
 			}
 
