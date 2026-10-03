@@ -37,9 +37,8 @@ func TestCompiledPolicyConcurrentEvaluation(t *testing.T) {
 			if i%2 == 0 {
 				results.Record("image", true)
 			}
-			rt := &imageverify.Runtime{Results: results}
 			for range 10 {
-				result, err := compiled.Evaluate(context.Background(), rt, nil, map[string]any{"allowed": i%2 == 0}, nil, false, nil, nil)
+				result, err := compiled.Evaluate(context.Background(), nil, nil, results, nil, map[string]any{"allowed": i%2 == 0}, nil, false, nil, nil)
 				require.NoError(t, err)
 				require.Equal(t, i%2 == 0, result.Result)
 				if i%2 == 0 {
@@ -50,20 +49,6 @@ func TestCompiledPolicyConcurrentEvaluation(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCompiledPolicyRejectsNilRuntime(t *testing.T) {
-	policy := &policiesv1beta1.ImageValidatingPolicy{Spec: policiesv1beta1.ImageValidatingPolicySpec{
-		Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
-	}}
-	compiled, errs := NewCompiler(nil).Compile(policy, nil)
-	require.Empty(t, errs)
-	result, err := compiled.Evaluate(context.Background(), nil, nil, map[string]any{}, nil, false, nil, nil)
-	require.Nil(t, result)
-	require.ErrorContains(t, err, "image verification runtime is required")
-	patches, err := compiled.MutateDigest(context.Background(), nil, nil, nil, nil, unstructured.Unstructured{}, nil, config.NewDefaultConfiguration(false), nil)
-	require.Nil(t, patches)
-	require.ErrorContains(t, err, "image verification runtime is required")
 }
 
 func TestRequiredEvidenceSharedAcrossPoliciesOnlyWithinRequest(t *testing.T) {
@@ -99,7 +84,7 @@ func TestCompiledPolicyUsesCurrentHTTPMocks(t *testing.T) {
 		allowed bool
 	}{{first, false}, {second, true}, {first, false}} {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
-			result, err := compiled.Evaluate(context.Background(), &imageverify.Runtime{}, nil, map[string]any{}, nil, false, nil, test.context)
+			result, err := compiled.Evaluate(context.Background(), nil, nil, nil, nil, map[string]any{}, nil, false, nil, test.context)
 			require.NoError(t, err)
 			require.Equal(t, test.allowed, result.Result)
 		})
@@ -130,7 +115,7 @@ func TestMutateDigestUsesCurrentHTTPMocks(t *testing.T) {
 		context libs.Context
 		patches int
 	}{{first, 0}, {second, 1}, {first, 0}} {
-		patches, err := compiled.MutateDigest(context.Background(), &imageverify.Runtime{ImageContext: mutationImages{}}, attr, request, nil, pod, nil, config.NewDefaultConfiguration(false), test.context)
+		patches, err := compiled.MutateDigest(context.Background(), mutationImages{}, nil, nil, attr, request, nil, pod, nil, config.NewDefaultConfiguration(false), test.context)
 		require.NoError(t, err)
 		require.Len(t, patches, test.patches)
 	}
