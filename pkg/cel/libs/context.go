@@ -129,7 +129,9 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 			return nil, err
 		}
 		if out != nil {
-			return *out, nil
+			// Return the map form: since cel-go v0.31 (#17067) NativeToValue only converts
+			// registered native types, and unstructured.Unstructured is not one.
+			return out.UnstructuredContent(), nil
 		} else {
 			return nil, errors.New("failed to convert to Unstructured")
 		}
