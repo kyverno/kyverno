@@ -405,11 +405,11 @@ func (c *controller) watchResources(ctx context.Context, logger logr.Logger, gvr
 		for event := range watchInterface.ResultChan() {
 			switch event.Type {
 			case watch.Added:
-				c.updateHash(Added, event.Object.(*unstructured.Unstructured), gvr)
+				c.updateHash(Added, event.Object.(*unstructured.Unstructured), gvr, w)
 			case watch.Modified:
-				c.updateHash(Modified, event.Object.(*unstructured.Unstructured), gvr)
+				c.updateHash(Modified, event.Object.(*unstructured.Unstructured), gvr, w)
 			case watch.Deleted:
-				c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
+				c.deleteHash(event.Object.(*unstructured.Unstructured), gvr, w)
 			case watch.Error:
 				errObject := apierrors.FromObject(event.Object)
 				statusErr, ok := errObject.(*apierrors.StatusError)
@@ -694,11 +694,12 @@ func (c *controller) notify(eventType EventType, uid types.UID, gvk schema.Group
 	}
 }
 
-func (c *controller) updateHash(eventType EventType, obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
+// updateHash and deleteHash drop events from a watcher that was stopped or replaced meanwhile.
+func (c *controller) updateHash(eventType EventType, obj *unstructured.Unstructured, gvr schema.GroupVersionResource, from *watcher) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	watcher, exists := c.dynamicWatchers[gvr]
-	if exists {
+	if exists && watcher == from {
 		uid := obj.GetUID()
 		hash := reportutils.CalculateResourceHash(*obj)
 		if exists && hash != watcher.hashes[uid].Hash {
@@ -712,11 +713,11 @@ func (c *controller) updateHash(eventType EventType, obj *unstructured.Unstructu
 	}
 }
 
-func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
+func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.GroupVersionResource, from *watcher) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	watcher, exists := c.dynamicWatchers[gvr]
-	if exists {
+	if exists && watcher == from {
 		uid := obj.GetUID()
 		hash := watcher.hashes[uid]
 		delete(watcher.hashes, uid)

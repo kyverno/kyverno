@@ -97,17 +97,21 @@ func (c *fakeCluster) setList(resourceVersion string, names ...string) {
 	list := &unstructured.UnstructuredList{}
 	list.SetResourceVersion(resourceVersion)
 	for _, name := range names {
-		obj := unstructured.Unstructured{}
-		obj.SetAPIVersion("v1")
-		obj.SetKind("ConfigMap")
-		obj.SetNamespace("default")
-		obj.SetName(name)
-		obj.SetUID(types.UID(name))
-		list.Items = append(list.Items, obj)
+		list.Items = append(list.Items, configMap(name))
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.list = list
+}
+
+func configMap(name string) unstructured.Unstructured {
+	obj := unstructured.Unstructured{}
+	obj.SetAPIVersion("v1")
+	obj.SetKind("ConfigMap")
+	obj.SetNamespace("default")
+	obj.SetName(name)
+	obj.SetUID(types.UID(name))
+	return obj
 }
 
 func (c *fakeCluster) failNextLists(n int) {
@@ -261,4 +265,29 @@ func TestWatcherRestartDoesNotBlockCacheWhileListing(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("cache read blocked while the restart was listing")
 	}
+}
+
+func TestEventsFromReplacedWatcherAreDropped(t *testing.T) {
+	cluster := newFakeCluster()
+	cluster.setList("100", "a")
+	c := newTestController(t, cluster)
+	cluster.nextWatch(t)
+
+	c.lock.RLock()
+	old := c.dynamicWatchers[configMapsGVR]
+	want := old.hashes["a"].Hash
+	c.lock.RUnlock()
+	// replace a watcher that is still running, its in-flight events must not
+	// reach the replacement
+	assert.NilError(t, c.restartWatcher(context.Background(), configMapsGVR))
+
+	stale := configMap("a")
+	stale.SetLabels(map[string]string{"stale": "true"})
+	c.updateHash(Modified, &stale, configMapsGVR, old)
+	got, _, _, ok := c.GetResourceHash("a")
+	assert.Assert(t, ok)
+	assert.Equal(t, got.Hash, want)
+
+	c.deleteHash(&stale, configMapsGVR, old)
+	assertCached(t, c, "a", true)
 }
