@@ -1524,6 +1524,35 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			wantResult: "Pass",
 			wantReason: "Ok",
 		},
+		{
+			name:            "competing cluster policy with same name is excluded when test specifies namespace",
+			policy:          "test-ns-1/test-policy",
+			policyNamespace: "test-ns-1",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "cluster policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
 	}
 
 	for _, tt := range tests {
