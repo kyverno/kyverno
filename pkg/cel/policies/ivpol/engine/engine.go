@@ -236,7 +236,6 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	rt := &imageverify.Runtime{ImageContext: ictx, Cache: imageverifycache.DisabledImageVerifyCache()}
 
 	// Built at most once for the whole loop, lazily: matching happens per policy
 	// inside the loop below (matchPolicy), before MutateDigest is ever called, so
@@ -288,7 +287,7 @@ func (e *engineImpl) handleMutation(
 			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, rt, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -330,7 +329,9 @@ func (e *engineImpl) handleMutation(
 func (e *engineImpl) evaluateExtractedIv(
 	ctx context.Context,
 	compiled eval.CompiledPolicy,
-	rt *imageverify.Runtime,
+	imgCtx imagedataloader.ImageContext,
+	cache imageverifycache.Client,
+	results *imageverify.ImageVerificationResults,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
@@ -390,7 +391,7 @@ func (e *engineImpl) evaluateExtractedIv(
 		// is still exactly one build per template -- Evaluate calls prepareK8sData
 		// once per call -- not one per (matchConditions + exceptions) as it would
 		// be if match still assembled its own data.
-		result, err := compiled.Evaluate(ctx, rt, synthAttr, synthRequest, namespace, true, nil, libctx)
+		result, err := compiled.Evaluate(ctx, imgCtx, cache, results, synthAttr, synthRequest, namespace, true, nil, libctx)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
@@ -521,7 +522,6 @@ func (e *engineImpl) evaluatePolicies(
 	})
 	// Shared by every policy evaluated below, so required sees cross-policy evidence.
 	verifications := imageverify.NewImageVerificationResults()
-	rt := &imageverify.Runtime{ImageContext: ictx, Cache: e.ivCache, Results: verifications}
 
 	type evaluation struct {
 		response  eval.ImageVerifyPolicyResponse
@@ -564,9 +564,9 @@ func (e *engineImpl) evaluatePolicies(
 			}
 
 			if ivpol.ExtractionMode {
-				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, rt, attr, request, namespace, libctx)
+				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
 			} else {
-				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, rt, attr, request, namespace, true, requestMapFn, libctx)
+				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, requestMapFn, libctx)
 			}
 		}(i)
 	}
