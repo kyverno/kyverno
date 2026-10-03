@@ -189,8 +189,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, rt *imageverify.Runtime, 
 
 	// Prefetch image data through Get() one image at a time to avoid triggering
 	// racy concurrent map writes in the SDK AddImages() implementation.
+	authOpts := c.registryOpts(boundRuntime)
 	for _, image := range imgList {
-		if _, err := rt.ImageContext.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+		if _, err := rt.ImageContext.Get(ctx, image, authOpts, c.nameOpts); err != nil {
 			return nil, err
 		}
 	}
@@ -335,7 +336,7 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
-	c.bindRuntime(data, rt, libctx)
+	boundRuntime := c.bindRuntime(data, rt, libctx)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -369,6 +370,7 @@ func (c *compiledPolicy) MutateDigest(
 
 	var patches []jsonpatch.JsonPatchOperation
 	var errs []error
+	authOpts := c.registryOpts(boundRuntime)
 	for _, infos := range imagesByCategory {
 		for _, info := range infos {
 			if info.Digest != "" {
@@ -381,7 +383,7 @@ func (c *compiledPolicy) MutateDigest(
 			} else if !apply {
 				continue
 			}
-			data, err := rt.ImageContext.Get(ctx, image, c.authOpts, c.nameOpts)
+			data, err := rt.ImageContext.Get(ctx, image, authOpts, c.nameOpts)
 			if err != nil {
 				// Record the failure and carry on: an image that cannot be resolved must not
 				// cost the images that can their digest. ClusterPolicy pins each image
@@ -521,6 +523,18 @@ func prepareK8sData(
 	data[engine.ObjectKey] = objectVal
 	data[engine.OldObjectKey] = oldObjectVal
 	return data, nil
+}
+
+// registryOpts returns the options to fetch image data with. A bound runtime
+// carries a puller scoped to this policy evaluation that reuses one registry auth
+// handshake per repository, so prefer its options over the ones the policy was
+// compiled with; both are built from the same credentials. Falls back to the
+// compiled options when no factory was bound.
+func (c *compiledPolicy) registryOpts(bound imageverify.Runtime) []remote.Option {
+	if opts := bound.AuthOpts(); opts != nil {
+		return opts
+	}
+	return c.authOpts
 }
 
 // bindRuntime keeps request-owned state out of reusable programs, including CLI
