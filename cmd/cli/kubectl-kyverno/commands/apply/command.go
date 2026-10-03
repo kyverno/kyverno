@@ -42,6 +42,7 @@ import (
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -242,7 +243,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
-	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy and MutatingPolicy reached its result: whether it applied, its match conditions, variables, and either its validations or the mutations it ran (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, and its validations, the mutations it ran or its delete conditions (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -494,12 +495,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -837,6 +838,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 }
 
 func (c *ApplyCommandConfig) applyDeletingPolicies(
+	out io.Writer,
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1beta1.PolicyException,
@@ -845,7 +847,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	dclient dclient.Interface,
 	payloadType string,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -876,6 +878,12 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			}
 			policyName := dpol.Policy.GetName()
 			resp, err := engine.Handle(context.TODO(), dpol, *resource)
+			// before the error and not-matched branches below, so their traces are printed too;
+			// Trace is only ever set when the policy was compiled with --explain
+			if resp.Trace != nil {
+				trace.Render(out, resp.Trace)
+				fmt.Fprintln(out)
+			}
 			if err != nil {
 				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
