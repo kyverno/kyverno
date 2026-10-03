@@ -1288,3 +1288,342 @@ func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
 	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }
+
+func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
+	color.Init(true)
+
+	resourceKey := "v1,Pod,default,test-pod"
+
+	tests := []struct {
+		name               string
+		policy             string
+		policyNamespace    string
+		expectedResult     openreportsv1alpha1.Result
+		rules              []engineapi.RuleResponse
+		competingResponses []engineapi.EngineResponse
+		skippedPolicies    map[string]string
+		wantSkip           int
+		wantPass           int
+		wantFail           int
+		wantResult         string
+		wantReason         string
+	}{
+		{
+			name:            "ordinary missing target without rules reports fail not found",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusPass),
+			skippedPolicies: map[string]string{},
+			wantSkip:        0,
+			wantPass:        0,
+			wantFail:        1,
+			wantResult:      "Fail",
+			wantReason:      "Not found",
+		},
+		{
+			name:           "target when policy was skipped during validation reports skip",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			skippedPolicies: map[string]string{
+				"test-policy": "preconditions not met",
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Skip",
+			wantReason: "Invalid Policy",
+		},
+		{
+			name:           "target with skipped mutation outcome preserving engine skip",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with skipped mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got skip",
+		},
+		{
+			name:           "target with errored mutation outcome preserving engine error",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusError),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("test-rule", engineapi.Mutation, "target evaluation error", nil, nil),
+			},
+			wantSkip:   0,
+			wantPass:   1,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with errored mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleError("test-rule", engineapi.Mutation, "target evaluation error", nil, nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got error",
+		},
+		{
+			name:           "target with failed mutation outcome preserving engine failure",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusFail),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("test-rule", engineapi.Mutation, "mutation failed", nil),
+			},
+			wantSkip:   0,
+			wantPass:   1,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "target with failed mutation outcome when expecting pass reports fail",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusPass),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleFail("test-rule", engineapi.Mutation, "mutation failed", nil),
+			},
+			wantSkip:   0,
+			wantPass:   0,
+			wantFail:   1,
+			wantResult: "Fail",
+			wantReason: "Want pass, got fail",
+		},
+		{
+			name:           "competing policy under same target key is excluded",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "competing-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("competing-rule", engineapi.Mutation, "competing policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:            "competing namespaced policy with same name in different namespace is excluded",
+			policy:          "test-ns-1/test-policy",
+			policyNamespace: "test-ns-1",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-policy",
+							Namespace: "test-ns-2",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "competing namespace should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:            "competing cluster policy with same name is excluded when test specifies namespace",
+			policy:          "test-ns-1/test-policy",
+			policyNamespace: "test-ns-1",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "test-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "cluster policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policyStr := "test-policy"
+			if tt.policy != "" {
+				policyStr = tt.policy
+			}
+			policyMeta := metav1.ObjectMeta{
+				Name: strings.Split(policyStr, "/")[len(strings.Split(policyStr, "/"))-1],
+			}
+			if tt.policyNamespace != "" {
+				policyMeta.Namespace = tt.policyNamespace
+			}
+			var genericPolicy engineapi.GenericPolicy
+			if tt.policyNamespace != "" {
+				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					ObjectMeta: policyMeta,
+				})
+			} else {
+				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					ObjectMeta: policyMeta,
+				})
+			}
+
+			engineResp := engineapi.NewEngineResponse(
+				unstructured.Unstructured{},
+				genericPolicy,
+				nil,
+			)
+			if len(tt.rules) > 0 {
+				engineResp = engineResp.WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: tt.rules,
+				})
+			}
+
+			targetList := []engineapi.EngineResponse{engineResp}
+			if len(tt.competingResponses) > 0 {
+				targetList = append(targetList, tt.competingResponses...)
+			} else {
+				targetList = append(targetList, engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "competing-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("competing-rule", engineapi.Mutation, "competing policy should be excluded", nil),
+					},
+				}))
+			}
+
+			responses := &TestResponse{
+				Trigger:            map[string][]engineapi.EngineResponse{},
+				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+				Target: map[string][]engineapi.EngineResponse{
+					resourceKey: targetList,
+				},
+				SkippedPolicies:  tt.skippedPolicies,
+				DeletingPolicies: map[string]struct{}{},
+			}
+
+			testResults := []v1alpha1.TestResult{
+				{
+					TestResultBase: v1alpha1.TestResultBase{
+						Policy: policyStr,
+						Rule:   "test-rule",
+						Result: tt.expectedResult,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{"test-pod"},
+					},
+				},
+			}
+
+			rc := &resultCounts{}
+			resultsTable := table.Table{}
+
+			assert.NotPanics(t, func() {
+				err := printTestResult(
+					testResults,
+					responses,
+					rc,
+					&resultsTable,
+					nil,
+					"",
+					true,
+				)
+				require.NoError(t, err)
+			})
+
+			assert.Equal(t, tt.wantSkip, rc.Skip)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+			require.Len(t, resultsTable.RawRows, 1)
+			assert.Equal(t, tt.wantResult, resultsTable.RawRows[0].Result)
+			assert.Equal(t, tt.wantReason, resultsTable.RawRows[0].Reason)
+		})
+	}
+}
+
+func TestExtractPatchedTargetFromEngineResponse(t *testing.T) {
+	// 1. Empty response returns nil, nil
+	resp := engineapi.EngineResponse{}
+	r, rule := extractPatchedTargetFromEngineResponse("v1", "Pod", "test", "default", resp)
+	assert.Nil(t, r)
+	assert.Nil(t, rule)
+
+	// 2. Multi-rule response does not mutate resourceNamespace parameter
+	target1 := unstructured.Unstructured{}
+	target1.SetAPIVersion("v1")
+	target1.SetKind("Pod")
+	target1.SetName("pod-1")
+	target1.SetNamespace("ns-1")
+
+	target2 := unstructured.Unstructured{}
+	target2.SetAPIVersion("v1")
+	target2.SetKind("Pod")
+	target2.SetName("pod-2")
+	target2.SetNamespace("ns-2")
+
+	rule1 := *engineapi.RulePass("rule-1", engineapi.Mutation, "msg", nil).WithPatchedTarget(&target1, metav1.GroupVersionResource{}, "")
+	rule2 := *engineapi.RulePass("rule-2", engineapi.Mutation, "msg", nil).WithPatchedTarget(&target2, metav1.GroupVersionResource{}, "")
+
+	respWithRules := engineapi.EngineResponse{}.WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule1, rule2},
+	})
+
+	// When searching for pod-2 without specifying namespace (""), it should match pod-2 in ns-2
+	// instead of being overridden by pod-1's namespace
+	r2, matchedRule := extractPatchedTargetFromEngineResponse("v1", "Pod", "pod-2", "", respWithRules)
+	require.NotNil(t, r2)
+	require.NotNil(t, matchedRule)
+	assert.Equal(t, "pod-2", r2.GetName())
+	assert.Equal(t, "rule-2", matchedRule.Name())
+}

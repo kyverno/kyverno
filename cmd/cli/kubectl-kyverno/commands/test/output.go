@@ -177,16 +177,47 @@ func printTestResult(
 
 			// Check if the resource specified exists in the targets
 			if _, ok := responses.Target[resource]; ok {
+				policyNamespace, policyName := "", test.Policy
+				if ns, name, ok := strings.Cut(test.Policy, "/"); ok {
+					policyNamespace = ns
+					policyName = name
+				}
+
 				for _, response := range responses.Target[resource] {
+					if test.Policy != "" && response.Policy() != nil {
+						if response.Policy().GetName() != policyName {
+							continue
+						}
+						if policyNamespace != "" && response.Policy().GetNamespace() != policyNamespace {
+							continue
+						}
+					}
+
 					// we are doing this twice which is kinda not nice
 					nameParts := strings.Split(resource, ",")
 					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
-					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
+					if r != nil && rule != nil && (test.Rule == "" || len(lookupRuleResponses(test, *rule)) > 0) {
+						ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
-					rows = append(rows, resourceRows...)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
+						rows = append(rows, resourceRows...)
+						continue
+					}
+
+					var rulesToCheck []engineapi.RuleResponse
+					if test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) {
+						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
+					} else {
+						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
+					}
+
+					for _, rResp := range rulesToCheck {
+						ok, message, reason := checkRuleResultOnly(test, response, rResp)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rResp.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
+						rows = append(rows, resourceRows...)
+					}
 				}
 			}
 
@@ -313,14 +344,16 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 }
 
 func extractPatchedTargetFromEngineResponse(apiVersion, kind, resourceName, resourceNamespace string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
-	for _, rule := range response.PolicyResponse.Rules {
+	for i := range response.PolicyResponse.Rules {
+		rule := &response.PolicyResponse.Rules[i]
 		r, _, _ := rule.PatchedTarget()
 		if r != nil {
-			if resourceNamespace == "" {
-				resourceNamespace = r.GetNamespace()
+			targetNs := resourceNamespace
+			if targetNs == "" {
+				targetNs = r.GetNamespace()
 			}
-			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == resourceNamespace {
-				return r, &rule
+			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == targetNs {
+				return r, rule
 			}
 		}
 	}
