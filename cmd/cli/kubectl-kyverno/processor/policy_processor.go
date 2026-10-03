@@ -384,11 +384,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
-				p.Rc.addMutateResponse(response)
 
-				err = p.processMutateEngineResponse(response, resPath)
-				if err != nil {
-					return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+				// processMutateEngineResponse counts the response, so it is not counted here as well.
+				// A response with no rules, such as the autogen copy of a Pod policy evaluated against a
+				// Pod, mutated nothing, so it is not printed or written to the output file.
+				if len(r.Rules) > 0 {
+					if err := p.processMutateEngineResponse(response, resPath); err != nil {
+						return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+					}
 				}
 
 				responses = append(responses, response)
