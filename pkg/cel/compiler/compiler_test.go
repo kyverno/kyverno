@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/versions"
@@ -223,7 +224,7 @@ func TestCompileValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := NewBaseEnv()
 			assert.NoError(t, err)
-			got, errs := CompileValidation(nil, env, tt.rule)
+			got, errs := CompileValidation(nil, env, tt.rule, false)
 			assert.Equal(t, tt.wantErrs, errs)
 			assert.Equal(t, tt.wantMessage, got.Message)
 			assert.Equal(t, tt.wantMessageExpr, got.MessageExpression != nil)
@@ -751,4 +752,42 @@ generator.apply(
 			assert.Equal(t, tt.wantProgs, len(gotProgs))
 		})
 	}
+}
+
+func TestCompileMutationWithTrace(t *testing.T) {
+	env, err := NewBaseEnv()
+	assert.NoError(t, err)
+
+	t.Run("trace=false behaves exactly like CompileMutation", func(t *testing.T) {
+		traced, errs := CompileMutationWithTrace(nil, env, `"hello"`, types.StringType, false)
+		assert.Empty(t, errs)
+		assert.NotNil(t, traced.Program)
+		assert.Nil(t, traced.AST, "AST must not be retained when trace is off")
+
+		out, details, err := traced.Program.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, "hello", out.Value())
+		assert.Nil(t, details, "no EvalDetails when the program wasn't built with tracking on")
+	})
+
+	t.Run("trace=true retains the AST and turns on state tracking", func(t *testing.T) {
+		traced, errs := CompileMutationWithTrace(nil, env, `"a" + "b"`, types.StringType, true)
+		assert.Empty(t, errs)
+		assert.NotNil(t, traced.Program)
+		assert.NotNil(t, traced.AST, "AST must be retained when trace is on")
+
+		out, details, err := traced.Program.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, "ab", out.Value())
+		assert.NotNil(t, details, "EvalDetails must be non-nil once tracking is on")
+	})
+
+	t.Run("a compile error is reported the same way regardless of trace", func(t *testing.T) {
+		for _, trace := range []bool{false, true} {
+			traced, errs := CompileMutationWithTrace(nil, env, `1 + 1`, types.StringType, trace)
+			assert.NotEmpty(t, errs, "wrong return type must still error with trace=%v", trace)
+			assert.Nil(t, traced.Program)
+			assert.Nil(t, traced.AST)
+		}
+	})
 }

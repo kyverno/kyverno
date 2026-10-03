@@ -95,7 +95,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 
 	var toAppend []internal.Object
 
-	vCompiler := vpolcompiler.NewCompiler()
+	vCompiler := vpolcompiler.NewCompiler(false)
 	for _, pol := range results.ValidatingPolicies {
 		obj, ok := pol.(internal.Object)
 		if !ok {
@@ -128,7 +128,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		toAppend = append(toAppend, pol)
 	}
 
-	mCompiler := mpolcompiler.NewCompiler()
+	mCompiler := mpolcompiler.NewCompiler(false)
 	for _, pol := range results.MutatingPolicies {
 		obj, ok := pol.(internal.Object)
 		if !ok {

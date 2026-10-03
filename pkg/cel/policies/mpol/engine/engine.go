@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -61,6 +62,10 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 type MutatingPolicyResponse struct {
 	Policy policiesv1beta1.MutatingPolicyLike
 	Rules  []engineapi.RuleResponse
+	// Trace explains how this policy reached its result. It is nil unless the policy was
+	// compiled with tracing on, so callers must nil-check it. Mirrors vpol's
+	// ValidatingPolicyResponse.Trace (pkg/cel/engine/response.go).
+	Trace *trace.Decision
 }
 
 type Predicate = func(policiesv1beta1.MutatingPolicyLike) bool
@@ -132,6 +137,7 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 			}
 		}
 	}
+	annotateTraces(response.Policies, response.Resource)
 	return response, nil
 }
 
@@ -204,7 +210,30 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 			)
 		}
 	}
+	annotateTraces(response.Policies, response.Resource)
 	return response, nil
+}
+
+// annotateTraces fills in the policy and resource header of every trace. handlePolicy cannot do
+// it because the resource is only known once the whole request has been unpacked. Mirrors vpol's
+// annotateTraces (pkg/cel/policies/vpol/engine/engine.go).
+func annotateTraces(policies []MutatingPolicyResponse, resource *unstructured.Unstructured) {
+	for i := range policies {
+		p := &policies[i]
+		if p.Trace == nil {
+			continue
+		}
+		p.Trace.PolicyName = p.Policy.GetName()
+		p.Trace.PolicyKind = p.Policy.GetKind()
+		if p.Trace.PolicyKind == "" {
+			p.Trace.PolicyKind = "MutatingPolicy"
+		}
+		if resource != nil {
+			p.Trace.ResourceKind = resource.GetKind()
+			p.Trace.ResourceName = resource.GetName()
+			p.Trace.ResourceNamespace = resource.GetNamespace()
+		}
+	}
 }
 
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
@@ -213,6 +242,8 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		Rules:  []engineapi.RuleResponse{},
 	}
 
+	tracing := mpol.CompiledPolicy.Tracing()
+	var scope trace.ScopeTrace
 	startTime := time.Now()
 	targetConstraints := mpol.Policy.GetTargetMatchConstraints()
 	// A policy only defines a genuine, separate target when targetMatchConstraints is set.
@@ -226,12 +257,30 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			constraints = targetConstraints.MatchResources
 		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
+		if tracing {
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(&constraints, attr, namespace, matches)}
+		}
 		if err != nil {
 			ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+			if tracing {
+				scope.Reason = "failed to evaluate matchConstraints: " + err.Error()
+				ruleResponse.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
+			}
 			return ruleResponse, nil
 		} else if !matches {
+			if tracing {
+				ruleResponse.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"}}
+			}
 			return ruleResponse, nil
 		}
+	} else if tracing {
+		// unlike vpol, mpol has no JSON-payload mode: a nil matcher means a mutate-existing engine
+		// (the CLI's and the background controller's), whose caller already picked this resource
+		reason := "evaluated without a matcher (mutate-existing), so matchConstraints were not checked here"
+		if target && hasExplicitTarget {
+			reason = "mutate-existing target, selected by the policy's targetMatchConstraints before evaluation"
+		}
+		scope = trace.ScopeTrace{Applied: true, Reason: reason}
 	}
 	if mpol.ExtractionMode {
 		// Mutating a custom workload CRD correctly requires writing the
@@ -241,7 +290,11 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		// admitted object, which would produce a meaningless or broken
 		// patch. ValidatingPolicy/ImageValidatingPolicy extraction-mode
 		// targets are unaffected - this only concerns mutation.
-		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "extraction mode: mutation for custom workload CRDs is not yet supported", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		const msg = "extraction mode: mutation for custom workload CRDs is not yet supported"
+		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, msg, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		if tracing {
+			ruleResponse.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: msg}}
+		}
 		return ruleResponse, nil
 	}
 	var result *compiler.EvaluationResult
@@ -250,11 +303,23 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	} else {
 		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
 	}
-	if result == nil {
+	if result == nil || result.Skipped {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "skip", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		if tracing && result != nil && result.Trace != nil {
+			result.Trace.Scope = scope
+			ruleResponse.Trace = result.Trace
+		}
 		return ruleResponse, nil
 	} else if result.Error != nil {
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleError("evaluation", engineapi.Mutation, "failed to evaluate policy", result.Error, nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		if tracing {
+			if result.Trace != nil {
+				result.Trace.Scope = scope
+				ruleResponse.Trace = result.Trace
+			} else {
+				ruleResponse.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: result.Error.Error()}}
+			}
+		}
 		return ruleResponse, nil
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
@@ -310,9 +375,18 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 				).WithExceptions(exceptions),
 			)
 		}
+		if tracing {
+			// evaluate() does not populate Trace for a full exemption (there is nothing to
+			// trace: the policy never ran), same gap as vpol's equivalent case.
+			ruleResponse.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "exempted by a policy exception"}}
+		}
 	} else {
 		// Surface evaluated audit annotations as report result properties on successful evaluation.
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", result.AuditAnnotations).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+		if tracing && result.Trace != nil {
+			result.Trace.Scope = scope
+			ruleResponse.Trace = result.Trace
+		}
 	}
 	return ruleResponse, result.PatchedResource
 }

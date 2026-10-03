@@ -11,11 +11,13 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -1433,6 +1435,126 @@ func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
 
 			assert.Error(t, err)
 			assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
+		})
+	}
+}
+
+// Test_Apply_ExplainFlagCombinations checks that --explain is rejected next to every flag whose
+// stdout is meant for another program, before anything is written, while the combinations whose
+// output is for humans keep working.
+func Test_Apply_ExplainFlagCombinations(t *testing.T) {
+	const (
+		policy   = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+		resource = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"
+	)
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string // empty means the command must succeed
+	}{
+		{name: "explain with policy report", args: []string{"--explain", "--policy-report"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with policy report short flag", args: []string{"--explain", "-p"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with json policy report", args: []string{"--explain", "--policy-report", "--output-format", "json"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with generate exceptions", args: []string{"--explain", "--generate-exceptions"}, wantErr: "--explain cannot be used with --generate-exceptions"},
+		{name: "explain with stdin", args: []string{"--explain", "--stdin"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain with stdin short flag", args: []string{"--explain", "-i"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain alone", args: []string{"--explain"}},
+		{name: "explain with table", args: []string{"--explain", "--table"}},
+		{name: "policy report without explain", args: []string{"--policy-report"}},
+		{name: "generate exceptions without explain", args: []string{"--generate-exceptions"}},
+		{name: "stdin without explain", args: []string{"--stdin"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(append([]string{policy, "--resource", resource}, tt.args...))
+
+			err := cmd.Execute()
+
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tt.wantErr)
+			assert.Empty(t, stdout.String(), "a rejected combination must fail before writing any output")
+		})
+	}
+}
+
+// Test_Apply_Explain runs --explain through the apply command for both input paths: resource
+// files (a ValidatingPolicy and a MutatingPolicy) and a JSON payload. With the flag the trace is
+// printed; without it nothing trace-shaped appears and the results themselves do not change.
+func Test_Apply_Explain(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name   string
+		config ApplyCommandConfig
+		want   []string
+	}{{
+		name: "validating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-validating-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{base + "test-validating-policy/check-deployment-labels/deployment2.yaml"},
+		},
+		want: []string{"(ValidatingPolicy)", "SCOPE      applied", "VERDICT    FAIL"},
+	}, {
+		name: "mutating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-mutating-policy/mutating-label/policy.yaml"},
+			ResourcePaths: []string{base + "test-mutating-policy/mutating-label/resource.yaml"},
+		},
+		want: []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
+	}, {
+		name: "validating policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-validating-policy/json-check-dockerfile/policy.yaml"},
+			JSONPaths:   []string{base + "test-validating-policy/json-check-dockerfile/payload.json"},
+		},
+		want: []string{"(ValidatingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		// two pods: test-nginx-1 meets both conditions, test-nginx-2 fails the second
+		name: "deleting policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+			ResourcePaths: []string{base + "test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+		},
+		want: []string{
+			"(DeletingPolicy)",
+			"(deletion scan, so operations are not checked)",
+			"VERDICT    PASS     conditions held: the resource would be deleted",
+			`VERDICT    FAIL     condition "pod-name" is false: the resource is kept`,
+		},
+	}, {
+		name: "deleting policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-deleting-policy/deleting-json/policy.yaml"},
+			JSONPaths:   []string{base + "test-deleting-policy/deleting-json/payload.json"},
+		},
+		want: []string{"(DeletingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(explain bool) (string, *processor.ResultCounts) {
+				config := tt.config
+				config.Explain = explain
+				var out bytes.Buffer
+				rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+				require.NoError(t, err)
+				return out.String(), rc
+			}
+
+			explained, explainedCounts := run(true)
+			for _, want := range tt.want {
+				assert.Contains(t, explained, want)
+			}
+
+			plain, plainCounts := run(false)
+			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
+			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
+			assert.Equal(t, plainCounts, explainedCounts, "--explain must not change the results")
 		})
 	}
 }
