@@ -64,6 +64,22 @@ spec:
   - name: app
     image: nginx
 ---
+# Ephemeral container appArmorProfile.type Unconfined: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ephemeral-profile-unconfined
+spec:
+  containers:
+  - name: app
+    image: nginx
+  ephemeralContainers:
+  - name: debug
+    image: busybox
+    securityContext:
+      appArmorProfile:
+        type: Unconfined
+---
 # Localhost profile through the deprecated annotation: allowed.
 apiVersion: v1
 kind: Pod

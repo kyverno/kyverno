@@ -9,19 +9,23 @@ spec:
       apiVersions: ["v1"]
       operations:  ["CREATE", "UPDATE"]
       resources:   ["pods"]
-  variables:
-    - name: allContainers
-      expression: >-
-        object.spec.containers
-        + object.spec.?initContainers.orValue([])
-        + object.spec.?ephemeralContainers.orValue([])
   validations:
     # Windows pods are exempt: the Pod API rejects allowPrivilegeEscalation when
     # spec.os.name is windows, so PSA admits them with the field unset.
     - expression: >-
         object.spec.?os.?name.orValue('') == 'windows' ||
-        variables.allContainers.all(c,
-          c.?securityContext.?allowPrivilegeEscalation.orValue(true) == false)
+        (!has(object.spec.containers) || object.spec.containers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.allowPrivilegeEscalation) &&
+          c.securityContext.allowPrivilegeEscalation == false)) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.allowPrivilegeEscalation) &&
+          c.securityContext.allowPrivilegeEscalation == false)) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
+          has(c.securityContext) &&
+          has(c.securityContext.allowPrivilegeEscalation) &&
+          c.securityContext.allowPrivilegeEscalation == false))
       message: >-
         Privilege escalation is disallowed. The fields
         spec.containers[*].securityContext.allowPrivilegeEscalation,
