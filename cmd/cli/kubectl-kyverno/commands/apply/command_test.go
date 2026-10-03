@@ -1552,6 +1552,26 @@ func Test_Apply_Explain(t *testing.T) {
 			ResourcePaths: []string{base + "test-mutating-policy/mutating-label/resource.yaml"},
 		},
 		want: []string{"(MutatingPolicy)", "(ValidatingPolicy)", "Mutation has been applied successfully."},
+	}, {
+		// two pods: test-nginx-1 meets both conditions, test-nginx-2 fails the second
+		name: "deleting policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+			ResourcePaths: []string{base + "test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+		},
+		want: []string{
+			"(DeletingPolicy)",
+			"(deletion scan, so operations are not checked)",
+			"VERDICT    PASS     conditions held: the resource would be deleted",
+			`VERDICT    FAIL     condition "pod-name" is false: the resource is kept`,
+		},
+	}, {
+		name: "deleting policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-deleting-policy/deleting-json/policy.yaml"},
+			JSONPaths:   []string{base + "test-deleting-policy/deleting-json/payload.json"},
+		},
+		want: []string{"(DeletingPolicy)", "evaluated against a JSON payload", "VERDICT"},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
