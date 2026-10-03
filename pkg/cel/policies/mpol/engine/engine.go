@@ -274,7 +274,13 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			return ruleResponse, nil
 		}
 	} else if tracing {
-		scope = trace.ScopeTrace{Applied: true, Reason: "evaluated against a JSON payload, so no matchConstraints apply"}
+		// unlike vpol, mpol has no JSON-payload mode: a nil matcher means a mutate-existing engine
+		// (the CLI's and the background controller's), whose caller already picked this resource
+		reason := "evaluated without a matcher (mutate-existing), so matchConstraints were not checked here"
+		if target && hasExplicitTarget {
+			reason = "mutate-existing target, selected by the policy's targetMatchConstraints before evaluation"
+		}
+		scope = trace.ScopeTrace{Applied: true, Reason: reason}
 	}
 	if mpol.ExtractionMode {
 		// Mutating a custom workload CRD correctly requires writing the

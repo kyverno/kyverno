@@ -30,9 +30,11 @@ func buildTrackedProgram(t *testing.T, expr string) (cel.Program, *cel.Ast) {
 
 func TestBuild(t *testing.T) {
 	tests := []struct {
-		name   string
-		expr   string
-		object map[string]any
+		name       string
+		expr       string
+		object     map[string]any
+		wantResult string
+		wantNodes  []NodeTrace
 	}{
 		{
 			name: "has app label",
@@ -41,6 +43,15 @@ func TestBuild(t *testing.T) {
 				"metadata": map[string]any{
 					"labels": map[string]any{"app": "nginx"},
 				},
+			},
+			wantResult: "true",
+			wantNodes: []NodeTrace{
+				{Expression: `has(object.metadata.labels) && "app" in object.metadata.labels`, Value: "true"},
+				{Expression: "has(object.metadata.labels)", Value: "true"},
+				{Expression: "object.metadata", Value: "map[labels:map[app:nginx]]"},
+				{Expression: `"app" in object.metadata.labels`, Value: "true"},
+				{Expression: "object.metadata.labels", Value: "map[app:nginx]"},
+				{Expression: "object.metadata", Value: "map[labels:map[app:nginx]]"},
 			},
 		},
 		{
@@ -51,12 +62,30 @@ func TestBuild(t *testing.T) {
 					"labels": map[string]any{"team": "platform"},
 				},
 			},
+			wantResult: "false",
+			wantNodes: []NodeTrace{
+				{Expression: `has(object.metadata.labels) && "app" in object.metadata.labels`, Value: "false"},
+				{Expression: "has(object.metadata.labels)", Value: "true"},
+				{Expression: "object.metadata", Value: "map[labels:map[team:platform]]"},
+				{Expression: `"app" in object.metadata.labels`, Value: "false"},
+				{Expression: "object.metadata.labels", Value: "map[team:platform]"},
+				{Expression: "object.metadata", Value: "map[labels:map[team:platform]]"},
+			},
 		},
 		{
+			// the failing lookup and everything built on it must land in Error, never in Value,
+			// while the parent that did resolve keeps its value
 			name: "missing key error",
 			expr: "object.metadata.labels.team == 'platform'",
 			object: map[string]any{
 				"metadata": map[string]any{},
+			},
+			wantResult: "no such key: labels",
+			wantNodes: []NodeTrace{
+				{Expression: `object.metadata.labels.team == "platform"`, Error: "no such key: labels"},
+				{Expression: "object.metadata.labels.team", Error: "no such key: labels"},
+				{Expression: "object.metadata.labels", Error: "no such key: labels"},
+				{Expression: "object.metadata", Value: "map[]"},
 			},
 		},
 	}
@@ -81,6 +110,10 @@ func TestBuild(t *testing.T) {
 				}
 			}
 			t.Logf("  result: %s", et.Result)
+
+			assert.Equal(t, tt.expr, et.Source)
+			assert.Equal(t, tt.wantResult, et.Result)
+			assert.Equal(t, tt.wantNodes, et.Nodes)
 		})
 	}
 }
