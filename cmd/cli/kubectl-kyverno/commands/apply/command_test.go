@@ -1436,3 +1436,48 @@ func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
 		})
 	}
 }
+
+// Test_Apply_ExplainFlagCombinations checks that --explain is rejected next to every flag whose
+// stdout is meant for another program, before anything is written, while the combinations whose
+// output is for humans keep working.
+func Test_Apply_ExplainFlagCombinations(t *testing.T) {
+	const (
+		policy   = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+		resource = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"
+	)
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string // empty means the command must succeed
+	}{
+		{name: "explain with policy report", args: []string{"--explain", "--policy-report"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with policy report short flag", args: []string{"--explain", "-p"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with json policy report", args: []string{"--explain", "--policy-report", "--output-format", "json"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with generate exceptions", args: []string{"--explain", "--generate-exceptions"}, wantErr: "--explain cannot be used with --generate-exceptions"},
+		{name: "explain with stdin", args: []string{"--explain", "--stdin"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain with stdin short flag", args: []string{"--explain", "-i"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain alone", args: []string{"--explain"}},
+		{name: "explain with table", args: []string{"--explain", "--table"}},
+		{name: "policy report without explain", args: []string{"--policy-report"}},
+		{name: "generate exceptions without explain", args: []string{"--generate-exceptions"}},
+		{name: "stdin without explain", args: []string{"--stdin"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(append([]string{policy, "--resource", resource}, tt.args...))
+
+			err := cmd.Execute()
+
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tt.wantErr)
+			assert.Empty(t, stdout.String(), "a rejected combination must fail before writing any output")
+		})
+	}
+}

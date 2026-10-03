@@ -1327,6 +1327,30 @@ func hasStdinPath(paths []string) bool {
 	return false
 }
 
+// checkExplainCompatible rejects --explain alongside the flags whose stdout is meant for another
+// program (a policy report or generated exceptions to parse, or a mutated resource to pipe into
+// kubectl). The trace is human-readable text written to the same stdout, so mixing the two would
+// leave that output unparseable. These are the same modes that already suppress the
+// "Applying N policy rule(s)" banner.
+func (c *ApplyCommandConfig) checkExplainCompatible() error {
+	if !c.Explain {
+		return nil
+	}
+	for _, f := range []struct {
+		set  bool
+		name string
+	}{
+		{c.PolicyReport, "--policy-report"},
+		{c.GenerateExceptions, "--generate-exceptions"},
+		{c.Stdin, "--stdin"},
+	} {
+		if f.set {
+			return fmt.Errorf("--explain cannot be used with %s: %s output must stay machine-readable, and the trace would be mixed into it", f.name, f.name)
+		}
+	}
+	return nil
+}
+
 func (c *ApplyCommandConfig) checkArguments() error {
 	if c.ValuesFile != "" && c.Variables != nil {
 		return fmt.Errorf("pass the values either using set flag or values_file flag")
@@ -1336,6 +1360,9 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	}
 	if hasStdinPath(c.PolicyPaths) && hasStdinPath(c.ResourcePaths) {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
+	}
+	if err := c.checkExplainCompatible(); err != nil {
+		return err
 	}
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
 		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
