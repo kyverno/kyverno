@@ -48,6 +48,8 @@ const (
 	Workers        = 1
 	ControllerName = "resource-report-controller"
 	maxRetries     = 5
+	// upper bound of the backoff between restarts of the same watcher
+	maxRestartDelay = time.Minute
 )
 
 type Resource struct {
@@ -138,7 +140,7 @@ func NewController(
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 		),
 		restartQueue: workqueue.NewTypedRateLimitingQueue(
-			workqueue.NewTypedItemExponentialFailureRateLimiter[schema.GroupVersionResource](time.Second, time.Minute),
+			workqueue.NewTypedItemExponentialFailureRateLimiter[schema.GroupVersionResource](time.Second, maxRestartDelay),
 		),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
@@ -231,8 +233,6 @@ func (c *controller) processRestarts(ctx context.Context) {
 		if err := c.restartWatcher(ctx, gvr); err != nil {
 			logger.Error(err, "failed to restart watcher, will retry", "gvr", gvr)
 			c.restartQueue.AddRateLimited(gvr)
-		} else {
-			c.restartQueue.Forget(gvr)
 		}
 		c.restartQueue.Done(gvr)
 	}
@@ -241,13 +241,25 @@ func (c *controller) processRestarts(ctx context.Context) {
 // restartWatcher replaces the watcher of a gvr with one started from a fresh list.
 // Events were missed while it was down, so resources deleted meanwhile are dropped.
 func (c *controller) restartWatcher(ctx context.Context, gvr schema.GroupVersionResource) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.lock.RLock()
 	old, ok := c.dynamicWatchers[gvr]
+	c.lock.RUnlock()
 	if !ok {
 		return nil
 	}
-	w, err := c.startWatcher(ctx, logger.WithValues("gvr", gvr, "gvk", old.gvk), gvr, old.gvk)
+	logger := logger.WithValues("gvr", gvr, "gvk", old.gvk)
+	// list without holding the lock, a slow apiserver must not block cache readers
+	hashes, resourceVersion, err := c.listResources(ctx, logger, gvr)
+	if err != nil {
+		return err
+	}
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if c.dynamicWatchers[gvr] != old {
+		// removed or replaced while we were listing
+		return nil
+	}
+	w, err := c.watchResources(ctx, logger, gvr, old.gvk, hashes, resourceVersion)
 	if err != nil {
 		return err
 	}
@@ -311,6 +323,14 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 }
 
 func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) (*watcher, error) {
+	hashes, resourceVersion, err := c.listResources(ctx, logger, gvr)
+	if err != nil {
+		return nil, err
+	}
+	return c.watchResources(ctx, logger, gvr, gvk, hashes, resourceVersion)
+}
+
+func (c *controller) listResources(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource) (map[types.UID]Resource, string, error) {
 	objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		if apierrors.IsForbidden(err) {
@@ -320,9 +340,8 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 		} else {
 			logger.Error(err, "failed to list resources")
 		}
-		return nil, err
+		return nil, "", err
 	}
-	resourceVersion := objs.GetResourceVersion()
 	hashes := map[types.UID]Resource{}
 	for _, obj := range objs.Items {
 		uid := obj.GetUID()
@@ -333,6 +352,11 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			Name:      obj.GetName(),
 		}
 	}
+	return hashes, objs.GetResourceVersion(), nil
+}
+
+// watchResources starts watching gvr from resourceVersion, the caller must hold the lock.
+func (c *controller) watchResources(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, hashes map[types.UID]Resource, resourceVersion string) (*watcher, error) {
 	for uid := range hashes {
 		c.notify(Added, uid, gvk, hashes[uid])
 	}
@@ -358,6 +382,7 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 		hashes:  hashes,
 	}
 	go func(gvr schema.GroupVersionResource) {
+		started := time.Now()
 		defer logger.V(2).Info("watcher stopped")
 		defer func() {
 			// the retry watcher gives up for good on errors like an expired resource
@@ -367,9 +392,15 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 			}
 			c.lock.RLock()
 			defer c.lock.RUnlock()
-			if c.dynamicWatchers[gvr] == w {
-				c.restartQueue.Add(gvr)
+			if c.dynamicWatchers[gvr] != w {
+				return
 			}
+			// keep backing off watchers that die right after a restart,
+			// one that ran fine for a while starts over with a short delay
+			if time.Since(started) > maxRestartDelay {
+				c.restartQueue.Forget(gvr)
+			}
+			c.restartQueue.AddRateLimited(gvr)
 		}()
 		for event := range watchInterface.ResultChan() {
 			switch event.Type {

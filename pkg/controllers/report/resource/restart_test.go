@@ -36,10 +36,13 @@ type startedWatch struct {
 type fakeCluster struct {
 	*dynamicfake.FakeDynamicClient
 
-	mu        sync.Mutex
-	list      *unstructured.UnstructuredList
-	failLists int
-	watches   chan startedWatch
+	mu            sync.Mutex
+	list          *unstructured.UnstructuredList
+	failLists     int
+	rejectWatches int
+	listGate      chan struct{}
+	listing       chan struct{}
+	watches       chan startedWatch
 }
 
 func newFakeCluster() *fakeCluster {
@@ -48,9 +51,20 @@ func newFakeCluster() *fakeCluster {
 			runtime.NewScheme(),
 			map[schema.GroupVersionResource]string{configMapsGVR: "ConfigMapList"},
 		),
+		listing: make(chan struct{}, 8),
 		watches: make(chan startedWatch, 8),
 	}
 	c.PrependReactor("list", "configmaps", func(k8stesting.Action) (bool, runtime.Object, error) {
+		c.mu.Lock()
+		gate := c.listGate
+		c.mu.Unlock()
+		if gate != nil {
+			select {
+			case c.listing <- struct{}{}:
+			default:
+			}
+			<-gate
+		}
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if c.failLists > 0 {
@@ -60,6 +74,15 @@ func newFakeCluster() *fakeCluster {
 		return true, c.list.DeepCopy(), nil
 	})
 	c.PrependWatchReactor("configmaps", func(action k8stesting.Action) (bool, watch.Interface, error) {
+		c.mu.Lock()
+		reject := c.rejectWatches > 0
+		if reject {
+			c.rejectWatches--
+		}
+		c.mu.Unlock()
+		if reject {
+			return true, nil, apierrors.NewForbidden(configMapsGVR.GroupResource(), "", errors.New("watch is not allowed"))
+		}
 		w := watch.NewRaceFreeFake()
 		c.watches <- startedWatch{
 			resourceVersion: action.(k8stesting.WatchAction).GetWatchRestrictions().ResourceVersion,
@@ -91,6 +114,21 @@ func (c *fakeCluster) failNextLists(n int) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.failLists = n
+}
+
+func (c *fakeCluster) rejectNextWatches(n int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.rejectWatches = n
+}
+
+// holdLists blocks every list until the returned channel is closed.
+func (c *fakeCluster) holdLists() chan struct{} {
+	gate := make(chan struct{})
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.listGate = gate
+	return gate
 }
 
 func (c *fakeCluster) nextWatch(t *testing.T) startedWatch {
@@ -183,4 +221,44 @@ func TestWatcherRestartIsRetriedUntilListSucceeds(t *testing.T) {
 	second := cluster.nextWatch(t)
 	assert.Equal(t, second.resourceVersion, "300")
 	assertCached(t, c, "b", true)
+}
+
+func TestWatcherRestartBacksOffWhenWatchIsRejected(t *testing.T) {
+	cluster := newFakeCluster()
+	cluster.setList("100", "a")
+	// listing works but watching does not, every restart dies right away
+	cluster.rejectNextWatches(3)
+	c := newTestController(t, cluster)
+
+	w := cluster.nextWatch(t)
+	assert.Equal(t, w.resourceVersion, "100")
+	assert.Equal(t, c.restartQueue.NumRequeues(configMapsGVR), 3)
+}
+
+func TestWatcherRestartDoesNotBlockCacheWhileListing(t *testing.T) {
+	cluster := newFakeCluster()
+	cluster.setList("100", "a")
+	c := newTestController(t, cluster)
+
+	first := cluster.nextWatch(t)
+	gate := cluster.holdLists()
+	defer close(gate)
+	expireWatch(first)
+	select {
+	case <-cluster.listing:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for the restart to list")
+	}
+
+	cached := make(chan bool)
+	go func() {
+		_, _, _, ok := c.GetResourceHash("a")
+		cached <- ok
+	}()
+	select {
+	case ok := <-cached:
+		assert.Assert(t, ok)
+	case <-time.After(5 * time.Second):
+		t.Fatal("cache read blocked while the restart was listing")
+	}
 }
