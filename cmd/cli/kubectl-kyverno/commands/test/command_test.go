@@ -1295,15 +1295,18 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 	resourceKey := "v1,Pod,default,test-pod"
 
 	tests := []struct {
-		name            string
-		expectedResult  openreportsv1alpha1.Result
-		rules           []engineapi.RuleResponse
-		skippedPolicies map[string]string
-		wantSkip        int
-		wantPass        int
-		wantFail        int
-		wantResult      string
-		wantReason      string
+		name               string
+		policy             string
+		policyNamespace    string
+		expectedResult     openreportsv1alpha1.Result
+		rules              []engineapi.RuleResponse
+		competingResponses []engineapi.EngineResponse
+		skippedPolicies    map[string]string
+		wantSkip           int
+		wantPass           int
+		wantFail           int
+		wantResult         string
+		wantReason         string
 	}{
 		{
 			name:            "ordinary missing target without rules reports fail not found",
@@ -1399,17 +1402,91 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			wantResult: "Fail",
 			wantReason: "Want pass, got fail",
 		},
+		{
+			name:           "competing policy under same target key is excluded",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "competing-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("competing-rule", engineapi.Mutation, "competing policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:            "competing namespaced policy with same name in different namespace is excluded",
+			policy:          "test-ns-1/test-policy",
+			policyNamespace: "test-ns-1",
+			expectedResult:  openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-policy",
+							Namespace: "test-ns-2",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "competing namespace should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			policyStr := "test-policy"
+			if tt.policy != "" {
+				policyStr = tt.policy
+			}
+			policyMeta := metav1.ObjectMeta{
+				Name: strings.Split(policyStr, "/")[len(strings.Split(policyStr, "/"))-1],
+			}
+			if tt.policyNamespace != "" {
+				policyMeta.Namespace = tt.policyNamespace
+			}
+			var genericPolicy engineapi.GenericPolicy
+			if tt.policyNamespace != "" {
+				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+					ObjectMeta: policyMeta,
+				})
+			} else {
+				genericPolicy = engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+					ObjectMeta: policyMeta,
+				})
+			}
+
 			engineResp := engineapi.NewEngineResponse(
 				unstructured.Unstructured{},
-				engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-policy",
-					},
-				}),
+				genericPolicy,
 				nil,
 			)
 			if len(tt.rules) > 0 {
@@ -1418,11 +1495,30 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 				})
 			}
 
+			targetList := []engineapi.EngineResponse{engineResp}
+			if len(tt.competingResponses) > 0 {
+				targetList = append(targetList, tt.competingResponses...)
+			} else {
+				targetList = append(targetList, engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "competing-policy",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("competing-rule", engineapi.Mutation, "competing policy should be excluded", nil),
+					},
+				}))
+			}
+
 			responses := &TestResponse{
 				Trigger:            map[string][]engineapi.EngineResponse{},
 				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
 				Target: map[string][]engineapi.EngineResponse{
-					resourceKey: {engineResp},
+					resourceKey: targetList,
 				},
 				SkippedPolicies:  tt.skippedPolicies,
 				DeletingPolicies: map[string]struct{}{},
@@ -1431,7 +1527,7 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 			testResults := []v1alpha1.TestResult{
 				{
 					TestResultBase: v1alpha1.TestResultBase{
-						Policy: "test-policy",
+						Policy: policyStr,
 						Rule:   "test-rule",
 						Result: tt.expectedResult,
 					},
