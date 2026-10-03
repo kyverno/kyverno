@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -63,6 +64,7 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 		for _, policy := range policies {
 			response.Policies = append(response.Policies, e.handlePolicy(ctx, policy, request.JsonPayload.Object, nil, nil, nil, nil, request.Context))
 		}
+		annotateTraces(&response)
 		return response, nil
 	}
 	// load objects
@@ -125,7 +127,29 @@ func (e *engineImpl) Handle(ctx context.Context, request EngineRequest, predicat
 
 		response.Policies = append(response.Policies, pol)
 	}
+	annotateTraces(&response)
 	return response, nil
+}
+
+// annotateTraces fills in the policy and resource header of every trace. handlePolicy cannot do
+// it because the resource is only known once the whole request has been unpacked.
+func annotateTraces(response *EngineResponse) {
+	for i := range response.Policies {
+		p := &response.Policies[i]
+		if p.Trace == nil {
+			continue
+		}
+		p.Trace.PolicyName = p.Policy.GetName()
+		p.Trace.PolicyKind = p.Policy.GetKind()
+		if p.Trace.PolicyKind == "" {
+			p.Trace.PolicyKind = "ValidatingPolicy"
+		}
+		if r := response.Resource; r != nil {
+			p.Trace.ResourceKind = r.GetKind()
+			p.Trace.ResourceName = r.GetName()
+			p.Trace.ResourceNamespace = r.GetNamespace()
+		}
+	}
 }
 
 func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayload any, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace runtime.Object, requestMapFn func() (map[string]any, error), context libs.Context) engine.ValidatingPolicyResponse {
@@ -133,14 +157,29 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 		Actions: policy.Actions,
 		Policy:  policy.Policy,
 	}
+	tracing := policy.CompiledPolicy.Tracing()
+	var scope trace.ScopeTrace
 	if e.matcher != nil {
-		matches, err := e.matchPolicy(policy.CompiledPolicy.MatchConstraints(), attr, namespace)
+		constraints := policy.CompiledPolicy.MatchConstraints()
+		matches, err := e.matchPolicy(constraints, attr, namespace)
+		if tracing {
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(constraints, attr, namespace, matches)}
+		}
 		if err != nil {
 			response.Rules = handlers.WithResponses(engineapi.RuleError("match", engineapi.Validation, "failed to execute matching", err, nil))
+			if tracing {
+				scope.Reason = "failed to evaluate matchConstraints: " + err.Error()
+				response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
+			}
 			return response
 		} else if !matches {
+			if tracing {
+				response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"}}
+			}
 			return response
 		}
+	} else if tracing {
+		scope = trace.ScopeTrace{Applied: true, Reason: "evaluated against a JSON payload, so no matchConstraints apply"}
 	}
 	var result *compiler.EvaluationResult
 	var err error
@@ -158,7 +197,7 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 	// TODO: error is about match conditions here ?
 	if err != nil {
 		response.Rules = handlers.WithResponses(engineapi.RuleError("evaluation", engineapi.Validation, "failed to load context", err, nil))
-	} else if result == nil {
+	} else if result == nil || result.Skipped {
 		response.Rules = append(response.Rules, *engineapi.RuleSkip("", engineapi.Validation, "skip", nil).WithSkipReason(engineapi.SkipReasonMatchConditions))
 	} else if len(result.Exceptions) > 0 {
 		exceptions := make([]engineapi.GenericException, 0, len(result.Exceptions))
@@ -239,6 +278,21 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, result.Message, withValidationIndex(result.AuditAnnotations, result.Index)))
 		}
 	}
+	if tracing {
+		switch {
+		case err != nil && result != nil && result.Trace != nil:
+			// Evaluate failed partway (e.g. a match condition errored) but kept what it traced
+			result.Trace.Scope = scope
+			response.Trace = result.Trace
+		case err != nil:
+			response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
+		case result != nil && result.Trace != nil:
+			result.Trace.Scope = scope
+			response.Trace = result.Trace
+		case result != nil && len(result.Exceptions) > 0:
+			response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "exempted by a policy exception"}}
+		}
+	}
 	return response
 }
 
@@ -282,6 +336,7 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 	}
 	var (
 		last          *compiler.EvaluationResult
+		lastSkipped   *compiler.EvaluationResult
 		allExceptions []*policiesv1beta1.PolicyException
 	)
 	for _, tpl := range templates {
@@ -304,9 +359,21 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 		// nil-fallback).
 		result, err := policy.CompiledPolicy.Evaluate(ctx, nil, synthAttr, synthRequest, namespace, nil, context)
 		if err != nil {
-			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			err = fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			// result is nil here unless tracing is on, in which case it carries what was traced
+			// before the failure (e.g. the match conditions); pass it up with the error so
+			// handlePolicy can still render it, labelled with the same template path
+			if result != nil && result.Trace != nil {
+				result.Trace.Verdict.Message = err.Error()
+			}
+			return result, err
 		}
-		if result == nil {
+		if result == nil || result.Skipped {
+			// with tracing on, a skipped template still carries its match-condition trace;
+			// keep the most recent one so it is not lost if every template ends up skipped.
+			if result != nil && result.Trace != nil {
+				lastSkipped = result
+			}
 			continue
 		}
 		// A policy-exception match is a per-template skip, not a failure - it
@@ -338,6 +405,9 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 	}
 	if last == nil && len(allExceptions) > 0 {
 		return &compiler.EvaluationResult{Exceptions: allExceptions}, nil
+	}
+	if last == nil && lastSkipped != nil {
+		return lastSkipped, nil
 	}
 	return last, nil
 }

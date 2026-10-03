@@ -9,6 +9,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +46,7 @@ func TestHandle_ValidationIndexInProperties(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 3: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -70,7 +71,7 @@ func TestHandle_ValidationIndexFirstExpression(t *testing.T) {
 		{Expression: "object.name != ''", Message: "index 1: would pass"},
 	})
 
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 
 	eng := NewEngine(provider, nil, nil)
@@ -165,7 +166,7 @@ func buildDisallowLatestTagPolicyUsingRequest() *policiesv1beta1.ValidatingPolic
 
 func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) {
 	policy := buildDisallowLatestTagPolicyUsingRequest()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -215,7 +216,7 @@ func TestHandle_ExtractionMode_RequestObjectMatchesSynthesizedPod(t *testing.T) 
 
 func TestHandle_ExtractionMode_JobSet(t *testing.T) {
 	policy := buildDisallowLatestTagPolicy()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
 	require.NoError(t, err)
 	noopNsResolver := func(string) *corev1.Namespace { return nil }
 	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
@@ -268,7 +269,7 @@ func TestHandle_ExtractionMode_RefusedExceptionCarriesTemplatePath(t *testing.T)
 		t.Helper()
 		policy := buildDisallowLatestTagPolicy()
 		polex := buildException("default", "polex", policy.GetName(), control)
-		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{polex})
+		provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{polex})
 		require.NoError(t, err)
 		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
 		req := celengine.Request(
@@ -354,7 +355,7 @@ func buildException(namespace, name, policyName string, validations ...admission
 
 func handle(t *testing.T, policy *policiesv1beta1.ValidatingPolicy, payload map[string]any, exceptions ...*policiesv1beta1.PolicyException) engineapi.RuleResponse {
 	t.Helper()
-	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, exceptions)
+	provider, err := NewProvider(compiler.NewCompiler(false), []policiesv1beta1.ValidatingPolicyLike{policy}, exceptions)
 	require.NoError(t, err)
 
 	resp, err := NewEngine(provider, nil, nil).Handle(
@@ -538,7 +539,7 @@ func TestNewProvider_CompensatingControlCompileErrorNamesTheException(t *testing
 	polex := buildException("prod", "needs-ticket", "compensating-controls",
 		admissionregistrationv1.Validation{Expression: "'not a bool'"})
 
-	_, err := NewProvider(compiler.NewCompiler(),
+	_, err := NewProvider(compiler.NewCompiler(false),
 		[]policiesv1beta1.ValidatingPolicyLike{policy},
 		[]*policiesv1beta1.PolicyException{polex})
 	require.Error(t, err)
@@ -558,11 +559,125 @@ func TestNewProvider_CompensatingControlCannotReferencePolicyScopedIdentifiers(t
 			polex := buildException("prod", "needs-ticket", "compensating-controls",
 				admissionregistrationv1.Validation{Expression: expression})
 
-			_, err := NewProvider(compiler.NewCompiler(),
+			_, err := NewProvider(compiler.NewCompiler(false),
 				[]policiesv1beta1.ValidatingPolicyLike{policy},
 				[]*policiesv1beta1.PolicyException{polex})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "exception[prod/needs-ticket].spec.validations[0].expression")
 		})
 	}
+}
+
+// TestHandle_ExtractionMode_AllTemplatesSkippedStillCarriesTrace verifies the evaluateExtracted
+// fix: when every synthesized pod template is excluded by a match condition (so evaluateExtracted
+// would previously fall through to nil, nil), the trace of the last skipped template is still
+// surfaced instead of being silently discarded. The JobSet fixture has exactly one pod template,
+// so "all" and "the last" are the same template here.
+func TestHandle_ExtractionMode_AllTemplatesSkippedStillCarriesTrace(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
+		Name:       "never",
+		Expression: "object.metadata.name != object.metadata.name", // always false
+	}}
+	provider, err := NewProvider(compiler.NewCompiler(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	noopNsResolver := func(string) *corev1.Namespace { return nil }
+	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
+
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+		schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+		"",
+		"latest-tag-jobset",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		jobSetWithImage("bash:1.0"),
+		nil,
+		false,
+		nil,
+	)
+	resp, err := eng.Handle(context.Background(), req, nil)
+	require.NoError(t, err)
+
+	var fired []celengine.ValidatingPolicyResponse
+	for _, p := range resp.Policies {
+		if len(p.Rules) > 0 {
+			fired = append(fired, p)
+		}
+	}
+	require.Len(t, fired, 1, "the extraction-mode JobSet target should still produce a (skipped) rule")
+	assert.Equal(t, engineapi.RuleStatusSkip, fired[0].Rules[0].Status())
+
+	require.NotNil(t, fired[0].Trace, "the match-condition trace of the only (skipped) template must not be silently lost")
+	assert.Equal(t, trace.VerdictSkip, fired[0].Trace.Verdict.Status)
+	require.Len(t, fired[0].Trace.Match, 1)
+	assert.Equal(t, "never", fired[0].Trace.Match[0].Name)
+	assert.Equal(t, "false", fired[0].Trace.Match[0].Result)
+}
+
+// TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace covers the extraction-mode error path: a
+// match condition that errors on a synthesized pod must still hand its match trace up to --explain,
+// labelled with the pod template path, while the rule outcome stays exactly what it is untraced.
+func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	// the synthesized pod has no labels, so this lookup is a runtime error; with the default
+	// failurePolicy (Fail) the error is returned rather than treated as a non-match
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
+		Name:       "owner-is-platform",
+		Expression: "object.metadata.labels.owner == 'platform'",
+	}}
+	handle := func(traced bool) celengine.ValidatingPolicyResponse {
+		provider, err := NewProvider(compiler.NewCompiler(traced), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+		require.NoError(t, err)
+		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+			schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+			"",
+			"latest-tag-jobset",
+			"default",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			jobSetWithImage("bash:1.0"),
+			nil,
+			false,
+			nil,
+		)
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+		require.Len(t, fired, 1)
+		return fired[0]
+	}
+
+	untraced := handle(false)
+	traced := handle(true)
+
+	// the rule outcome is the same either way
+	assert.Equal(t, engineapi.RuleStatusError, untraced.Rules[0].Status())
+	assert.Equal(t, untraced.Rules[0].Status(), traced.Rules[0].Status())
+	assert.Equal(t, untraced.Rules[0].Message(), traced.Rules[0].Message())
+	assert.Nil(t, untraced.Trace)
+
+	// with tracing, the failing condition is kept instead of a bare ERROR
+	require.NotNil(t, traced.Trace)
+	assert.Equal(t, trace.VerdictError, traced.Trace.Verdict.Status)
+	assert.Contains(t, traced.Trace.Verdict.Message, "pod template at spec.replicatedJobs[0].template.spec.template")
+	require.Len(t, traced.Trace.Match, 1)
+	assert.Equal(t, "owner-is-platform", traced.Trace.Match[0].Name)
+	var sawError bool
+	for _, n := range traced.Trace.Match[0].Nodes {
+		if n.Error != "" {
+			sawError = true
+		}
+	}
+	assert.True(t, sawError, "the failing condition should show which sub-expression errored")
 }
