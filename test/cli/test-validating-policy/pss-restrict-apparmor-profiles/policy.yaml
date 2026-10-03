@@ -9,29 +9,39 @@ spec:
       apiVersions: ["v1"]
       operations:  ["CREATE", "UPDATE"]
       resources:   ["pods"]
-  variables:
-    - name: allContainers
-      expression: >-
-        object.spec.containers
-        + object.spec.?initContainers.orValue([])
-        + object.spec.?ephemeralContainers.orValue([])
   validations:
     # The deprecated beta annotation accepts any profile under the `localhost/` prefix,
     # matching allowedAnnotationValue in Kubernetes Pod Security Admission.
     - expression: >-
-        object.metadata.?annotations.orValue({})
-          .filter(k, k.startsWith('container.apparmor.security.beta.kubernetes.io/'))
-          .all(k,
-            object.metadata.annotations[k] == '' ||
-            object.metadata.annotations[k] == 'runtime/default' ||
-            object.metadata.annotations[k].startsWith('localhost/')) &&
-        (object.spec.?securityContext.?appArmorProfile.?type.orValue('RuntimeDefault')
-          in ['RuntimeDefault', 'Localhost']) &&
-        variables.allContainers.all(c,
-          c.?securityContext.?appArmorProfile.?type.orValue('RuntimeDefault')
-            in ['RuntimeDefault', 'Localhost'])
+        (!has(object.metadata) ||
+         !has(object.metadata.annotations) ||
+         object.metadata.annotations.filter(k, k.startsWith('container.apparmor.security.beta.kubernetes.io/')).all(k,
+           object.metadata.annotations[k] in ['', 'runtime/default'] ||
+           object.metadata.annotations[k].startsWith('localhost/'))) &&
+        (!has(object.spec.securityContext) ||
+         !has(object.spec.securityContext.appArmorProfile) ||
+         !has(object.spec.securityContext.appArmorProfile.type) ||
+         object.spec.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost']) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.appArmorProfile) ||
+          !has(c.securityContext.appArmorProfile.type) ||
+          c.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost'])) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.appArmorProfile) ||
+          !has(c.securityContext.appArmorProfile.type) ||
+          c.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost'])) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.appArmorProfile) ||
+          !has(c.securityContext.appArmorProfile.type) ||
+          c.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost']))
       message: >-
         AppArmor profiles must be restricted. The annotation
         metadata.annotations['container.apparmor.security.beta.kubernetes.io/*'] must be empty,
-        `runtime/default`, or start with `localhost/`, and every
-        securityContext.appArmorProfile.type must be unset, `RuntimeDefault`, or `Localhost`.
+        `runtime/default`, or start with `localhost/`, and
+        spec.securityContext.appArmorProfile.type,
+        spec.containers[*].securityContext.appArmorProfile.type,
+        spec.initContainers[*].securityContext.appArmorProfile.type, and
+        spec.ephemeralContainers[*].securityContext.appArmorProfile.type must be unset, `RuntimeDefault`, or `Localhost`.

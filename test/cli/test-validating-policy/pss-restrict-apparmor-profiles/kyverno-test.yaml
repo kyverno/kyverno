@@ -16,6 +16,7 @@ results:
   - pod-profile-unconfined
   - container-profile-unconfined
   - init-profile-unconfined
+  - ephemeral-profile-unconfined
   result: fail
 - isValidatingPolicy: true
   kind: Pod
