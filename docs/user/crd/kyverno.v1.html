@@ -5223,6 +5223,38 @@ imagePullSecrets from the resource namespace are also used.</p>
       </tr>
     
   
+    
+    
+      <tr>
+        <td><code>tlsClientCert</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <a href="#kyverno-io-v1-TLSClientCert">
+                <span style="font-family: monospace">TLSClientCert</span>
+              </a>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>TLSClientCert specifies a Kubernetes Secret containing a TLS client certificate
+and private key for mTLS authentication with the registry.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
 
 
       </tbody>
@@ -9348,6 +9380,133 @@ is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.</
 
           <p>CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
 Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+
+
+      </tbody>
+    </table>
+  
+
+  <H3 id="kyverno-io-v1-TLSClientCert">TLSClientCert
+    </H3>
+
+  
+    <p>
+      (<em>Appears in:</em>
+        <a href="#kyverno-io-v1-ImageRegistryCredentials">ImageRegistryCredentials</a>)
+    </p>
+  
+
+  <p><p>TLSClientCert holds a reference to a Kubernetes Secret containing a TLS
+client certificate and private key for mTLS authentication with the registry.</p>
+</p>
+
+  
+    <table class="table table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        
+
+        
+        
+
+  
+  
+    
+    
+      <tr>
+        <td><code>secretName</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>SecretName is the name of the Kubernetes Secret holding the client certificate
+and private key. This secret must reside in the Kyverno namespace.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>certKey</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>CertKey is the key within the secret for the PEM-encoded client certificate.
+Defaults to tls.crt.</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
+        <td><code>keyKey</code>
+          
+          <span style="color:blue;"> *</span>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>KeyKey is the key within the secret for the PEM-encoded client private key.
+Defaults to tls.key.</p>
 
 
           
