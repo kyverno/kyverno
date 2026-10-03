@@ -24,8 +24,6 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-
-
 func generateTestCert(t *testing.T) ([]byte, []byte) {
 	priv, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -170,20 +168,21 @@ func TestRegistryClientFactory_TLSClientCert(t *testing.T) {
 					ClientAuth: tls.RequireAnyClientCert,
 				}
 				server.StartTLS()
-				
+
 				// Ensure the client uses the provided certificates when communicating with a TLS endpoint
 				// The FetchImageDescriptor method will use the underlying roundtripper.
 				ref := strings.TrimPrefix(server.URL, "https://") + "/test/image:latest"
 				ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 				defer cancel()
 				_, err := client.FetchImageDescriptor(ctx, ref)
-				
+
 				// A 401 Unauthorized from our test server means the certificate was NOT provided or invalid.
 				// A 404 Not Found or EOF or other error means the connection was established but path wasn't found (which is OK for behavioral test)
 				if err != nil {
 					assert.NotContains(t, err.Error(), "401 Unauthorized", "expected behavioral mTLS test to not fail with 401")
 				}
-				
+
+				server.CloseClientConnections()
 				server.Close()
 			}
 		})
