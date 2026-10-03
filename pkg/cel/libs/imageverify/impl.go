@@ -78,7 +78,7 @@ type Runtime struct {
 
 // NewRuntimeForPolicy copies the policy's IvFuncs and attaches request-owned
 // state to the copy. This is needed because the same compiled policy can be used
-// by two admisson requests, and those shouldn't replace stateful fields in IvFuncs
+// by two admission requests, and those shouldn't replace stateful fields in IvFuncs
 // that belong to eachother
 func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
 	newFuncs := *f
