@@ -39,6 +39,7 @@ jobs:
       uses: ./.github/actions/go/setup
       with:
         gobuild-cache-prefix: gobuild-unit-tests
+        gobuild-cache-include-run-id: 'true'
     - name: Unit test
       run: make test-unit
     - name: Save gobuild cache
@@ -49,6 +50,7 @@ jobs:
       with:
         path: ${{ steps.setup-go.outputs.gobuild-cache }}
         cache-prefix: gobuild-unit-tests
+        include-run-id: 'true'
     - name: Upload coverage
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
