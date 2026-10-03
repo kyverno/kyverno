@@ -282,7 +282,7 @@ func TestCompile(t *testing.T) {
 		},
 	}
 
-	compiler := NewCompiler()
+	compiler := NewCompiler(false)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			compiled, errs := compiler.Compile(tt.pol, tt.polex)
@@ -311,7 +311,7 @@ func TestCompileAuditAnnotations(t *testing.T) {
 			},
 		},
 	}
-	compiled, errs := NewCompiler().Compile(pol, nil)
+	compiled, errs := NewCompiler(false).Compile(pol, nil)
 	assert.Empty(t, errs)
 	assert.NotNil(t, compiled)
 	assert.Len(t, compiled.auditAnnotations, 2)

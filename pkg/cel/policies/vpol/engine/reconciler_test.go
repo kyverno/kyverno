@@ -152,7 +152,7 @@ func TestReconcile_ExceptionLister_StaleCacheMissesException(t *testing.T) {
 
 	// The stale lister never sees the exception that fc (the reconciling cache)
 	// already has, mirroring the dual-cache race.
-	rec := newReconciler(compiler.NewCompiler(), fc, staleExceptionLister{}, true)
+	rec := newReconciler(compiler.NewCompiler(false), fc, staleExceptionLister{}, true)
 	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}})
 	require.NoError(t, err)
 
@@ -183,7 +183,7 @@ func TestReconcile_ManagerCacheExceptionLister_SeesException(t *testing.T) {
 	}
 
 	polexLister := celengine.NewManagerPolicyExceptionLister(fc, "")
-	rec := newReconciler(compiler.NewCompiler(), fc, polexLister, true)
+	rec := newReconciler(compiler.NewCompiler(false), fc, polexLister, true)
 	_, err := rec.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{Name: policy.Name}})
 	require.NoError(t, err)
 
@@ -208,7 +208,7 @@ func TestReconcile_ManagerCacheExceptionLister_SeesException(t *testing.T) {
 func TestReconcile_ExtractionMode(t *testing.T) {
 	ctx := context.Background()
 	rec := newReconciler(
-		compiler.NewCompiler(),
+		compiler.NewCompiler(false),
 		&fakeClient{policy: disallowLatestTagPolicy()},
 		nil, false,
 	)

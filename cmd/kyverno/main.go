@@ -783,7 +783,7 @@ func main() {
 			// without the exception, and never gets retried.
 			celExceptionLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace())
 			// create compiler
-			compiler := vpolcompiler.NewCompiler()
+			compiler := vpolcompiler.NewCompiler(false)
 			// create vpolProvider
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,
@@ -800,7 +800,7 @@ func main() {
 				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
 			}
-			mpolcompiler := mpolcompiler.NewCompiler()
+			mpolcompiler := mpolcompiler.NewCompiler(false)
 			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celExceptionLister, internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")

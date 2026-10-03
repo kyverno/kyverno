@@ -47,11 +47,17 @@ type Compiler interface {
 	Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
-func NewCompiler() Compiler {
-	return &compilerImpl{}
+// NewCompiler builds an mpol compiler. When trace is true, its match conditions, target match
+// conditions, variables and mutations are all compiled with tracing on (see
+// compiler.CompileMatchConditionsWithTrace, CompileVariablesWithTrace, CompileMutationWithTrace),
+// so a later evaluation can produce a trace instead of just a pass/fail result. Mirrors vpol's
+// NewCompiler(trace bool) (pkg/cel/policies/vpol/compiler/compiler.go). The webhook admission
+// path must always construct this with trace=false; only offline callers (the CLI) should opt in.
+func NewCompiler(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
 }
 
-type compilerImpl struct{}
+type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
@@ -69,19 +75,21 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		return nil, allErrs
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), extendedCompiler, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, extendedCompiler, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 
 	var targetExpression cel.Program
@@ -100,13 +108,15 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}
 
 	targetMatchConditions := make([]cel.Program, 0, len(spec.TargetMatchConditions))
+	var tracedTargetMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("targetMatchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, extendedCompiler, spec.TargetMatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.TargetMatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		targetMatchConditions = append(targetMatchConditions, programs...)
+		tracedTargetMatchConditions = traced
 	}
 
 	// exceptions' match conditions
@@ -133,36 +143,50 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}
 
 	var patchers []Patcher
+	var tracedMutations []compiler.TracedProgram
 	for i, m := range policy.GetSpec().Mutations {
 		switch m.PatchType {
 		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
-				prog, errs := compiler.CompileMutation(path.Child("mutations").Index(i).Child("jsonPatch"), extendedCompiler, m.JSONPatch.Expression, cel.ListType(jsonPatchType))
+				traced, errs := compiler.CompileMutationWithTrace(path.Child("mutations").Index(i).Child("jsonPatch"), extendedCompiler, m.JSONPatch.Expression, cel.ListType(jsonPatchType), c.trace)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newJSONPatcher(prog))
+				patchers = append(patchers, newJSONPatcher(traced.Program))
+				if c.trace {
+					traced.Name = fmt.Sprintf("mutations[%d] (jsonPatch)", i)
+					tracedMutations = append(tracedMutations, traced)
+				}
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
-				prog, errs := compiler.CompileMutation(path.Child("mutations").Index(i).Child("applyConfiguration"), extendedCompiler, m.ApplyConfiguration.Expression, applyConfigObjectType)
+				traced, errs := compiler.CompileMutationWithTrace(path.Child("mutations").Index(i).Child("applyConfiguration"), extendedCompiler, m.ApplyConfiguration.Expression, applyConfigObjectType, c.trace)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newApplyConfigPatcher(prog, useServerSideApply))
+				patchers = append(patchers, newApplyConfigPatcher(traced.Program, useServerSideApply))
+				if c.trace {
+					traced.Name = fmt.Sprintf("mutations[%d] (applyConfiguration)", i)
+					tracedMutations = append(tracedMutations, traced)
+				}
 			}
 		}
 	}
 
 	return &Policy{
-		matchConditions:       matchConditions,
-		targetMatchConditions: targetMatchConditions,
-		targetExpression:      targetExpression,
-		variables:             variables,
-		auditAnnotations:      auditAnnotations,
-		exceptions:            compiledExceptions,
-		matchConstraints:      policy.GetSpec().MatchConstraints,
-		patchers:              patchers,
+		matchConditions:             matchConditions,
+		targetMatchConditions:       targetMatchConditions,
+		targetExpression:            targetExpression,
+		variables:                   variables,
+		auditAnnotations:            auditAnnotations,
+		exceptions:                  compiledExceptions,
+		matchConstraints:            policy.GetSpec().MatchConstraints,
+		patchers:                    patchers,
+		trace:                       c.trace,
+		tracedMatchConditions:       tracedMatchConditions,
+		tracedTargetMatchConditions: tracedTargetMatchConditions,
+		tracedVariables:             tracedVariables,
+		tracedMutations:             tracedMutations,
 	}, allErrs
 }
 
