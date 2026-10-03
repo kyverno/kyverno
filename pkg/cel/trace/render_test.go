@@ -92,6 +92,8 @@ func TestRender_MutatingPolicyPassMessage(t *testing.T) {
 	out := sb.String()
 	assert.NotContains(t, out, "no validations to evaluate", "this wording is vpol-specific and wrong for a policy kind with no validations at all")
 	assert.Contains(t, out, "MUTATIONS")
+	assert.Contains(t, out, "VERDICT    PASS     completed; see MUTATIONS above for what ran",
+		"the source-less mutating verdict must point at the MUTATIONS rows, not render empty")
 }
 
 func TestRender_SkipAndErrorNodes(t *testing.T) {
