@@ -2,6 +2,8 @@ package engine
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
@@ -772,6 +774,123 @@ func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
 			for _, name := range tt.names {
 				assert.Contains(t, d.Verdict.Message, name, "the trace names every matched exception")
 			}
+		})
+	}
+}
+
+// jobSetWithImages builds a JobSet with one replicatedJob (so one pod template) per image, in order.
+func jobSetWithImages(images ...string) *unstructured.Unstructured {
+	jobs := make([]any, 0, len(images))
+	for i, image := range images {
+		jobs = append(jobs, map[string]any{
+			"name": fmt.Sprintf("job-%d", i),
+			"template": map[string]any{"spec": map[string]any{"template": map[string]any{"spec": map[string]any{
+				"containers": []any{map[string]any{"name": "worker", "image": image}},
+			}}}},
+		})
+	}
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "jobset.x-k8s.io/v1alpha2",
+		"kind":       "JobSet",
+		"metadata":   map[string]any{"name": "multi-template-jobset", "namespace": "default"},
+		"spec":       map[string]any{"replicatedJobs": jobs},
+	}}
+}
+
+// TestHandle_ExtractionMode_MultiTemplateTraceSelection covers which template's result and trace
+// evaluateExtracted reports when a JobSet carries several pod templates: a failing template wins
+// outright, otherwise the last evaluated template wins, and only when every template was skipped
+// does the last skipped template's match trace come through. A match condition excludes any
+// template whose image starts with "skip/", so each case controls which templates are evaluated.
+func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
+	tests := []struct {
+		name       string
+		images     []string
+		wantStatus engineapi.RuleStatus
+		wantTrace  string
+		// wantMatch is the match condition result in the reported trace; wantImage is an image
+		// that must appear in it, which identifies the template whose trace was kept
+		wantMatch string
+		wantImage string
+	}{{
+		name:       "every template skipped keeps the last skipped trace",
+		images:     []string{"skip/first:1.0", "skip/second:1.0"},
+		wantStatus: engineapi.RuleStatusSkip,
+		wantTrace:  trace.VerdictSkip,
+		wantMatch:  "false",
+		wantImage:  "skip/second:1.0",
+	}, {
+		name:       "a later evaluated template takes precedence over an earlier skipped one",
+		images:     []string{"skip/first:1.0", "bash:1.0"},
+		wantStatus: engineapi.RuleStatusPass,
+		wantTrace:  trace.VerdictPass,
+		wantMatch:  "true",
+		wantImage:  "bash:1.0",
+	}, {
+		name:       "an evaluated template is not overridden by a later skipped one",
+		images:     []string{"bash:1.0", "skip/second:1.0"},
+		wantStatus: engineapi.RuleStatusPass,
+		wantTrace:  trace.VerdictPass,
+		wantMatch:  "true",
+		wantImage:  "bash:1.0",
+	}, {
+		name:       "a failing template wins over skipped ones",
+		images:     []string{"skip/first:1.0", "bash:latest", "skip/third:1.0"},
+		wantStatus: engineapi.RuleStatusFail,
+		wantTrace:  trace.VerdictFail,
+		wantMatch:  "true",
+		wantImage:  "bash:latest",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := buildDisallowLatestTagPolicy()
+			policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
+				Name:       "not-skipped-image",
+				Expression: "!object.spec.containers.exists(c, c.image.startsWith('skip/'))",
+			}}
+			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+			require.NoError(t, err)
+			eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+			req := celengine.Request(
+				nil,
+				schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+				schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+				"",
+				"multi-template-jobset",
+				"default",
+				admissionv1.Create,
+				authenticationv1.UserInfo{},
+				jobSetWithImages(tt.images...),
+				nil,
+				false,
+				nil,
+			)
+			resp, err := eng.Handle(context.Background(), req, nil)
+			require.NoError(t, err)
+
+			var fired []celengine.ValidatingPolicyResponse
+			for _, p := range resp.Policies {
+				if len(p.Rules) > 0 {
+					fired = append(fired, p)
+				}
+			}
+			require.Len(t, fired, 1)
+			assert.Equal(t, tt.wantStatus, fired[0].Rules[0].Status())
+
+			got := fired[0].Trace
+			require.NotNil(t, got)
+			assert.Equal(t, tt.wantTrace, got.Verdict.Status)
+			require.Len(t, got.Match, 1)
+			assert.Equal(t, "not-skipped-image", got.Match[0].Name)
+			assert.Equal(t, tt.wantMatch, got.Match[0].Result)
+			var sawImage bool
+			for _, n := range got.Match[0].Nodes {
+				if strings.Contains(n.Value, tt.wantImage) {
+					sawImage = true
+				}
+			}
+			assert.True(t, sawImage, "the reported trace should come from the template running %s", tt.wantImage)
 		})
 	}
 }

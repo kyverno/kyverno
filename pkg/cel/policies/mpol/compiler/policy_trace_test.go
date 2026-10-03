@@ -202,26 +202,53 @@ func TestEvaluate_TracingOn_MutationErrorIsCapturedOnTheMutation(t *testing.T) {
 }
 
 func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
-	policy := buildMutationTracePolicy(applyConfigMutation(addTeamLabelExpr))
-	namespaces := []string{"prod", "kube-system"}
-
-	for _, ns := range namespaces {
-		// separate podObject() calls per run: the real merge pipeline is not guaranteed to
-		// leave its input object untouched, so sharing one pointer between the traced and
-		// untraced run could make one run see the other's mutation.
-		off := compileMutAndEvaluate(t, false, policy, podObject(ns, nil))
-		on := compileMutAndEvaluate(t, true, policy, podObject(ns, nil))
-
-		if off == nil {
+	tests := []struct {
+		name      string
+		mutation  string
+		namespace string
+		want      string // "mutated", "skipped" or "error"
+	}{
+		{name: "mutation applies", mutation: addTeamLabelExpr, namespace: "prod", want: "mutated"},
+		{name: "match condition skips", mutation: addTeamLabelExpr, namespace: "kube-system", want: "skipped"},
+		{
+			// the runtime-error policy from TestEvaluate_TracingOn_MutationErrorIsCapturedOnTheMutation
+			name:      "mutation errors",
+			mutation:  `Object{metadata: Object.metadata{labels: {"copied": object.metadata.labels.owner}}}`,
+			namespace: "prod",
+			want:      "error",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := buildMutationTracePolicy(applyConfigMutation(tt.mutation))
+			// separate podObject() calls per run: the real merge pipeline is not guaranteed to
+			// leave its input object untouched, so sharing one pointer between the traced and
+			// untraced run could make one run see the other's mutation.
+			off := compileMutAndEvaluate(t, false, policy, podObject(tt.namespace, nil))
+			on := compileMutAndEvaluate(t, true, policy, podObject(tt.namespace, nil))
 			require.NotNil(t, on)
-			assert.True(t, on.Skipped, "a policy skipped without tracing must be reported as skipped with it")
-			continue
-		}
-		require.NotNil(t, on)
-		assert.Equal(t, off.Error != nil, on.Error != nil)
-		if off.PatchedResource != nil {
-			require.NotNil(t, on.PatchedResource)
-			assert.Equal(t, off.PatchedResource.Object, on.PatchedResource.Object)
-		}
+
+			switch tt.want {
+			case "skipped":
+				// without tracing a skip is a nil result; with it, a result flagged Skipped
+				assert.Nil(t, off)
+				assert.True(t, on.Skipped)
+				assert.Nil(t, on.PatchedResource)
+			case "error":
+				require.NotNil(t, off)
+				require.Error(t, off.Error)
+				require.Error(t, on.Error)
+				assert.Equal(t, off.Error.Error(), on.Error.Error(), "tracing must not change the error")
+				assert.Nil(t, off.PatchedResource)
+				assert.Nil(t, on.PatchedResource, "a failed mutation must not hand back a patched resource")
+			case "mutated":
+				require.NotNil(t, off)
+				require.NoError(t, off.Error)
+				require.NoError(t, on.Error)
+				require.NotNil(t, off.PatchedResource)
+				require.NotNil(t, on.PatchedResource)
+				assert.Equal(t, off.PatchedResource.Object, on.PatchedResource.Object)
+			}
+		})
 	}
 }
