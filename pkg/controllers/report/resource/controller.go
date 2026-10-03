@@ -3,7 +3,6 @@ package resource
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"slices"
 	"sync"
 	"time"
@@ -15,7 +14,6 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -105,15 +103,15 @@ type controller struct {
 	mapV1Lister    admissionregistrationv1listers.MutatingAdmissionPolicyLister
 	mapLister      admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
-	metaClient     metaclient.UpstreamInterface
 
 	// queue
 	queue workqueue.TypedRateLimitingInterface[any]
+	// watchers that stopped on their own and need a fresh list
+	restartQueue workqueue.TypedRateLimitingInterface[schema.GroupVersionResource]
 
 	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
 	eventHandlers   []EventHandler
-	watchDeathChan  chan schema.GroupVersionResource
 }
 
 func NewController(
@@ -130,7 +128,6 @@ func NewController(
 	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
 	mapInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
-	metaClient metaclient.UpstreamInterface,
 ) Controller {
 	c := controller{
 		client:     client,
@@ -140,8 +137,10 @@ func NewController(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
 		),
+		restartQueue: workqueue.NewTypedRateLimitingQueue(
+			workqueue.NewTypedItemExponentialFailureRateLimiter[schema.GroupVersionResource](time.Second, time.Minute),
+		),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
-		metaClient:      metaClient,
 	}
 	if vpolInformer != nil {
 		c.vpolLister = vpolInformer.Lister()
@@ -209,7 +208,6 @@ func NewController(
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
-	c.watchDeathChan = make(chan schema.GroupVersionResource, 100)
 	return &c
 }
 
@@ -218,37 +216,49 @@ func (c *controller) Warmup(ctx context.Context) error {
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	adminCtx, adminCancel := context.WithCancel(context.Background())
-	defer adminCancel()
-	go func() {
-		for {
-			select {
-			case <-adminCtx.Done():
-				return
-			case gvr, ok := <-c.watchDeathChan:
-				if !ok {
-					return
-				}
-				c.lock.Lock()
-				if old, stillNeeded := c.dynamicWatchers[gvr]; stillNeeded {
-					for attempts := 0; attempts <= maxRetries; attempts++ {
-						w, err := c.startWatcher(ctx, logger, gvr, old.gvk, c.watchDeathChan)
-						if err != nil {
-							logger.Error(err, "failed to start watcher, sleeping 2 seconds then retrying")
-							time.Sleep(time.Second * 2)
-						} else {
-							c.dynamicWatchers[gvr] = w
-							break
-						}
-					}
-				}
-				c.lock.Unlock()
-			}
-		}
-	}()
-
+	go c.processRestarts(ctx)
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
+	c.restartQueue.ShutDown()
 	c.stopDynamicWatchers()
+}
+
+func (c *controller) processRestarts(ctx context.Context) {
+	for {
+		gvr, shutdown := c.restartQueue.Get()
+		if shutdown {
+			return
+		}
+		if err := c.restartWatcher(ctx, gvr); err != nil {
+			logger.Error(err, "failed to restart watcher, will retry", "gvr", gvr)
+			c.restartQueue.AddRateLimited(gvr)
+		} else {
+			c.restartQueue.Forget(gvr)
+		}
+		c.restartQueue.Done(gvr)
+	}
+}
+
+// restartWatcher replaces the watcher of a gvr with one started from a fresh list.
+// Events were missed while it was down, so resources deleted meanwhile are dropped.
+func (c *controller) restartWatcher(ctx context.Context, gvr schema.GroupVersionResource) error {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	old, ok := c.dynamicWatchers[gvr]
+	if !ok {
+		return nil
+	}
+	w, err := c.startWatcher(ctx, logger.WithValues("gvr", gvr, "gvk", old.gvk), gvr, old.gvk)
+	if err != nil {
+		return err
+	}
+	old.watcher.Stop()
+	for uid, resource := range old.hashes {
+		if _, exists := w.hashes[uid]; !exists {
+			c.notify(Deleted, uid, old.gvk, resource)
+		}
+	}
+	c.dynamicWatchers[gvr] = w
+	return nil
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, schema.GroupVersionResource, bool) {
@@ -300,43 +310,28 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	}
 }
 
-func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind, errChan chan schema.GroupVersionResource) (*watcher, error) {
+func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) (*watcher, error) {
+	objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		if apierrors.IsForbidden(err) {
+			logger.Error(err, "reports-controller is missing RBAC to list/watch this resource - "+
+				"grant it via reportsController.rbac.clusterRole.extraResources in the Helm values",
+				"gvr", gvr)
+		} else {
+			logger.Error(err, "failed to list resources")
+		}
+		return nil, err
+	}
+	resourceVersion := objs.GetResourceVersion()
 	hashes := map[types.UID]Resource{}
-	var resourceVersion string
-
-	w, ok := c.dynamicWatchers[gvr]
-	// if we never started a watcher for this resource before, list the resources initially
-	if !ok {
-		objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			if apierrors.IsForbidden(err) {
-				logger.Error(err, "reports-controller is missing RBAC to list/watch this resource - "+
-					"grant it via reportsController.rbac.clusterRole.extraResources in the Helm values",
-					"gvr", gvr)
-			} else {
-				logger.Error(err, "failed to list resources")
-			}
-			return nil, err
+	for _, obj := range objs.Items {
+		uid := obj.GetUID()
+		hash := reportutils.CalculateResourceHash(obj)
+		hashes[uid] = Resource{
+			Hash:      hash,
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
 		}
-		resourceVersion = objs.GetResourceVersion()
-		for _, obj := range objs.Items {
-			uid := obj.GetUID()
-			hash := reportutils.CalculateResourceHash(obj)
-			hashes[uid] = Resource{
-				Hash:      hash,
-				Namespace: obj.GetNamespace(),
-				Name:      obj.GetName(),
-			}
-		}
-		// we started watcher for this resource before, use the previously existing hashes
-	} else {
-		// fetch the metadata to get the resource version
-		metadata, err := c.metaClient.Resource(gvr).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		resourceVersion = metadata.GetResourceVersion()
-		hashes = w.hashes
 	}
 	for uid := range hashes {
 		c.notify(Added, uid, gvk, hashes[uid])
@@ -357,13 +352,25 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 		logger.Error(err, "failed to create watcher")
 		return nil, err
 	}
-	w = &watcher{
+	w := &watcher{
 		watcher: watchInterface,
 		gvk:     gvk,
 		hashes:  hashes,
 	}
 	go func(gvr schema.GroupVersionResource) {
 		defer logger.V(2).Info("watcher stopped")
+		defer func() {
+			// the retry watcher gives up for good on errors like an expired resource
+			// version, start over from a fresh list unless we stopped it ourselves
+			if ctx.Err() != nil {
+				return
+			}
+			c.lock.RLock()
+			defer c.lock.RUnlock()
+			if c.dynamicWatchers[gvr] == w {
+				c.restartQueue.Add(gvr)
+			}
+		}()
 		for event := range watchInterface.ResultChan() {
 			switch event.Type {
 			case watch.Added:
@@ -381,13 +388,6 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 				}
 
 				logger.Error(statusErr, fmt.Sprintf("watch error for gvr: %s", gvr))
-				// status gone error will signal for a watcher restart to the admin goroutine
-				if statusErr.ErrStatus.Code == http.StatusGone {
-					logger.V(2).Info(fmt.Sprintf("watcher for gvr %s got resource version too old, restarting", gvr))
-					watchInterface.Stop()
-					errChan <- gvr
-					return
-				}
 			}
 		}
 	}(gvr)
@@ -606,7 +606,7 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 			dynamicWatchers[gvr] = c.dynamicWatchers[gvr]
 			delete(c.dynamicWatchers, gvr)
 		} else {
-			if w, err := c.startWatcher(ctx, logger, gvr, gvk, c.watchDeathChan); err != nil {
+			if w, err := c.startWatcher(ctx, logger, gvr, gvk); err != nil {
 				logger.Error(err, "failed to start watcher")
 			} else {
 				dynamicWatchers[gvr] = w
