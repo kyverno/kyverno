@@ -98,9 +98,11 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 			}
 		}
 		if len(matchedExceptions) > 0 {
+			// FAIL rather than SKIP: an exempted resource is simply not deleted, which is reported
+			// the same way as a false condition (see the verdict below)
 			return &EvaluationResult{
 				Exceptions: matchedExceptions,
-				Trace:      decision(trace.VerdictTrace{Status: trace.VerdictSkip, Message: exemptMessage(matchedExceptions)}),
+				Trace:      decision(trace.VerdictTrace{Status: trace.VerdictFail, Message: exemptMessage(matchedExceptions)}),
 			}, nil
 		}
 	}
