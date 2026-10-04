@@ -14,10 +14,13 @@ import (
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	reportresource "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -187,4 +190,153 @@ func TestReconcile_ListerError_StillRearmed(t *testing.T) {
 	if cq.lastDelay != forceDelay {
 		t.Fatalf("expected delay %v, got %v", forceDelay, cq.lastDelay)
 	}
+}
+
+func TestShouldKeepStaleResult_PolicyUnchanged(t *testing.T) {
+	policyNameToLabel := map[string]string{
+		"require-requests-limits": "policy.kyverno.io/require-requests-limits",
+	}
+	expected := map[string]string{"policy.kyverno.io/require-requests-limits": "1"}
+	actual := map[string]string{"policy.kyverno.io/require-requests-limits": "1"}
+
+	result := openreportsv1alpha1.ReportResult{Policy: "require-requests-limits"}
+
+	assert.True(t, shouldKeepStaleResult(result, policyNameToLabel, nil, nil, expected, actual))
+}
+
+// Reproduces the scenario from the reported issue: a ClusterPolicy is edited to add
+// `exclude.any.resources.namespaces: [kube-system]`, bumping its resource version. A stale
+// "pass" result recorded for a kube-system Pod under the old version must be dropped so the
+// resource is rescanned (and correctly excluded), instead of surviving in the report forever.
+func TestShouldKeepStaleResult_PolicyChanged(t *testing.T) {
+	policyNameToLabel := map[string]string{
+		"require-requests-limits": "policy.kyverno.io/require-requests-limits",
+	}
+	expected := map[string]string{"policy.kyverno.io/require-requests-limits": "2"}
+	actual := map[string]string{"policy.kyverno.io/require-requests-limits": "1"}
+
+	result := openreportsv1alpha1.ReportResult{Policy: "require-requests-limits"}
+
+	assert.False(t, shouldKeepStaleResult(result, policyNameToLabel, nil, nil, expected, actual))
+}
+
+// Results record matched exceptions by bare name (reportutils.ToPolicyReportResult uses
+// GetName()), so the fixture uses the same form the controller sees in real reports.
+func exceptionFixture(exceptionVersion string) (openreportsv1alpha1.ReportResult, map[string]string, map[string]string, map[string]string) {
+	policyNameToLabel := map[string]string{
+		"require-requests-limits": "policy.kyverno.io/require-requests-limits",
+	}
+	exceptionNameToLabel := map[string]string{
+		"my-exception": "policyexception.kyverno.io/my-exception",
+	}
+	expected := map[string]string{
+		"policy.kyverno.io/require-requests-limits": "1",
+		"policyexception.kyverno.io/my-exception":   exceptionVersion,
+	}
+	result := openreportsv1alpha1.ReportResult{
+		Policy:     "require-requests-limits",
+		Properties: map[string]string{"exceptions": "my-exception"},
+	}
+	return result, policyNameToLabel, exceptionNameToLabel, expected
+}
+
+func TestShouldKeepStaleResult_ExceptionUnchanged(t *testing.T) {
+	result, policyNameToLabel, exceptionNameToLabel, expected := exceptionFixture("1")
+	actual := map[string]string{
+		"policy.kyverno.io/require-requests-limits": "1",
+		"policyexception.kyverno.io/my-exception":   "1",
+	}
+
+	assert.True(t, shouldKeepStaleResult(result, policyNameToLabel, exceptionNameToLabel, nil, expected, actual))
+}
+
+func TestShouldKeepStaleResult_ExceptionChanged(t *testing.T) {
+	result, policyNameToLabel, exceptionNameToLabel, expected := exceptionFixture("2")
+	actual := map[string]string{
+		"policy.kyverno.io/require-requests-limits": "1",
+		"policyexception.kyverno.io/my-exception":   "1",
+	}
+
+	assert.False(t, shouldKeepStaleResult(result, policyNameToLabel, exceptionNameToLabel, nil, expected, actual))
+}
+
+func TestShouldKeepStaleResult_ExceptionDeleted(t *testing.T) {
+	result, policyNameToLabel, _, _ := exceptionFixture("1")
+	expected := map[string]string{"policy.kyverno.io/require-requests-limits": "1"}
+	actual := map[string]string{
+		"policy.kyverno.io/require-requests-limits": "1",
+		"policyexception.kyverno.io/my-exception":   "1",
+	}
+
+	assert.False(t, shouldKeepStaleResult(result, policyNameToLabel, map[string]string{}, nil, expected, actual))
+}
+
+func TestShouldKeepStaleResult_CELExceptionKept(t *testing.T) {
+	policyNameToLabel := map[string]string{"my-vpol": "validatingpolicy.policies.kyverno.io/my-vpol"}
+	expected := map[string]string{"validatingpolicy.policies.kyverno.io/my-vpol": "1"}
+	actual := map[string]string{"validatingpolicy.policies.kyverno.io/my-vpol": "1"}
+	result := openreportsv1alpha1.ReportResult{
+		Policy:     "my-vpol",
+		Properties: map[string]string{"exceptions": "my-cel-exception"},
+	}
+
+	assert.True(t, shouldKeepStaleResult(result, policyNameToLabel, map[string]string{}, sets.New("my-cel-exception"), expected, actual))
+}
+
+func TestShouldKeepStaleResult_BindingDeleted(t *testing.T) {
+	for _, property := range []string{"binding", "mapBinding"} {
+		t.Run(property, func(t *testing.T) {
+			policyNameToLabel := map[string]string{"my-policy": "policy.kyverno.io/my-policy"}
+			expected := map[string]string{"policy.kyverno.io/my-policy": "1"}
+			actual := map[string]string{
+				"policy.kyverno.io/my-policy": "1",
+				"binding.example/my-binding":  "1",
+			}
+			result := openreportsv1alpha1.ReportResult{
+				Policy:     "my-policy",
+				Properties: map[string]string{property: "my-binding"},
+			}
+
+			assert.False(t, shouldKeepStaleResult(result, policyNameToLabel, nil, nil, expected, actual))
+		})
+	}
+}
+
+func TestShouldKeepStaleResult_NoMatchingLabel(t *testing.T) {
+	result := openreportsv1alpha1.ReportResult{Policy: "some-other-policy"}
+
+	assert.False(t, shouldKeepStaleResult(result, map[string]string{}, nil, nil, map[string]string{}, map[string]string{}))
+}
+
+func TestShouldKeepStaleResult_BindingChanged(t *testing.T) {
+	for _, property := range []string{"binding", "mapBinding"} {
+		t.Run(property, func(t *testing.T) {
+			policyNameToLabel := map[string]string{
+				"my-policy":  "policy.kyverno.io/my-policy",
+				"my-binding": "binding.example/my-binding",
+			}
+			expected := map[string]string{
+				"policy.kyverno.io/my-policy": "1",
+				"binding.example/my-binding":  "2",
+			}
+			actual := map[string]string{
+				"policy.kyverno.io/my-policy": "1",
+				"binding.example/my-binding":  "1",
+			}
+			result := openreportsv1alpha1.ReportResult{
+				Policy:     "my-policy",
+				Properties: map[string]string{property: "my-binding"},
+			}
+
+			assert.False(t, shouldKeepStaleResult(result, policyNameToLabel, nil, nil, expected, actual))
+		})
+	}
+}
+
+func TestShouldKeepStaleResult_NoReferences(t *testing.T) {
+	policyNameToLabel := map[string]string{"my-policy": "policy.kyverno.io/my-policy"}
+	expected := map[string]string{"policy.kyverno.io/my-policy": "1"}
+	actual := map[string]string{"policy.kyverno.io/my-policy": "1"}
+
+	assert.False(t, shouldKeepStaleResult(openreportsv1alpha1.ReportResult{}, policyNameToLabel, nil, nil, expected, actual))
 }
