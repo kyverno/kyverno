@@ -29,8 +29,8 @@ func newApplyConfigPatcher(prog cel.Program, useServerSideApply bool) Patcher {
 }
 
 func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, *MutationEval, error) {
-	out, details, err := a.prog.ContextEval(ctx, evalData)
-	eval := &MutationEval{Result: out, Details: details}
+	out, _, err := a.prog.ContextEval(ctx, evalData)
+	eval := &MutationEval{Result: out}
 	if err != nil {
 		return nil, eval, err
 	}
