@@ -211,10 +211,12 @@ lint: $(GOLANGCI_LINT)
 
 .PHONY: unused-package-check
 unused-package-check:
-	@tidy=$$(go mod tidy); \
-	if [ -n "$${tidy}" ]; then \
-		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
-	fi
+	@echo Checking unused packages... >&2
+	@go mod tidy
+	@git --no-pager diff go.mod go.sum
+	@echo 'If this test fails, it is because the git diff is non-empty after running "go mod tidy".' >&2
+	@echo 'To correct this, locally run "go mod tidy" and commit the changes.' >&2
+	@git diff --quiet --exit-code go.mod go.sum
 
 $(BACKGROUND_BIN): fmt
 	@echo Build background controller binary... >&2
