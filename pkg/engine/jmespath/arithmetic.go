@@ -30,29 +30,65 @@ type scalar struct {
 	float64
 }
 
-func parseArithemticOperand(arguments []interface{}, index int, operator string) (operand, error) {
+type candidate struct {
+	isScalar    bool
+	scalar      scalar
+	hasQuantity bool
+	quantity    quantity
+	hasDuration bool
+	duration    duration
+}
+
+func parseCandidate(arguments []interface{}, index int, operator string) (candidate, error) {
+	var c candidate
 	if tmp, err := validateArg(operator, arguments, index, reflect.Float64); err == nil {
-		return scalar{float64: tmp.Float()}, nil
+		c.isScalar = true
+		c.scalar = scalar{float64: tmp.Float()}
+		return c, nil
 	} else if tmp, err = validateArg(operator, arguments, index, reflect.String); err == nil {
-		if q, err := resource.ParseQuantity(tmp.String()); err == nil {
-			return quantity{Quantity: q}, nil
-		} else if d, err := time.ParseDuration(tmp.String()); err == nil {
-			return duration{Duration: d}, nil
+		str := tmp.String()
+		if q, err := resource.ParseQuantity(str); err == nil {
+			c.hasQuantity = true
+			c.quantity = quantity{Quantity: q}
+		}
+		if d, err := time.ParseDuration(str); err == nil {
+			c.hasDuration = true
+			c.duration = duration{Duration: d}
+		}
+		if c.hasQuantity || c.hasDuration {
+			return c, nil
 		}
 	}
-	return nil, formatError(genericError, operator, "invalid operand")
+	return c, formatError(genericError, operator, "invalid operand")
+}
+
+func resolveOperand(c candidate, durationContext bool) operand {
+	if c.isScalar {
+		return c.scalar
+	}
+	if c.hasDuration && !c.hasQuantity {
+		return c.duration
+	}
+	if c.hasQuantity && !c.hasDuration {
+		return c.quantity
+	}
+	if durationContext {
+		return c.duration
+	}
+	return c.quantity
 }
 
 func parseArithemticOperands(arguments []interface{}, operator string) (operand, operand, error) {
-	left, err := parseArithemticOperand(arguments, 0, operator)
+	c1, err := parseCandidate(arguments, 0, operator)
 	if err != nil {
 		return nil, nil, err
 	}
-	right, err := parseArithemticOperand(arguments, 1, operator)
+	c2, err := parseCandidate(arguments, 1, operator)
 	if err != nil {
 		return nil, nil, err
 	}
-	return left, right, nil
+	durationContext := (c1.hasDuration && !c1.hasQuantity) || (c2.hasDuration && !c2.hasQuantity)
+	return resolveOperand(c1, durationContext), resolveOperand(c2, durationContext), nil
 }
 
 // Quantity +|- Quantity          -> Quantity

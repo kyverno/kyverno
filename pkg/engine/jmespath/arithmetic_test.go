@@ -3,8 +3,10 @@ package jmespath
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func Test_Add(t *testing.T) {
@@ -78,6 +80,38 @@ func Test_Add(t *testing.T) {
 			name: "Duration + Quantity -> error",
 			test: "add('12s', '13')",
 			err:  true,
+		},
+		// Duration with 'm' (minute)
+		{
+			name:           "Duration ('m') + Duration ('s') -> Duration",
+			test:           "add('1m', '1s')",
+			expectedResult: `1m1s`,
+		},
+		{
+			name:           "Duration ('s') + Duration ('m') -> Duration",
+			test:           "add('1s', '1m')",
+			expectedResult: `1m1s`,
+		},
+		{
+			name:           "Duration ('h') + Duration ('m') -> Duration",
+			test:           "add('1h', '1m')",
+			expectedResult: `1h1m0s`,
+		},
+		// Quantity regression protection with 'm' (milli)
+		{
+			name:           "Quantity ('m') + Quantity ('m') -> Quantity",
+			test:           "add('500m', '500m')",
+			expectedResult: `1`,
+		},
+		{
+			name:           "Quantity ('m') + Quantity ('m') -> Quantity (fractional)",
+			test:           "add('1m', '2m')",
+			expectedResult: `3m`,
+		},
+		{
+			name:           "Quantity ('Ki') + Quantity ('m') -> Quantity",
+			test:           "add('12Ki', '1m')",
+			expectedResult: `12288001m`,
 		},
 	}
 	for _, tc := range testCases {
@@ -211,6 +245,31 @@ func Test_Sum(t *testing.T) {
 			expectedResult: `25s`,
 		},
 		{
+			name:           "sum(Duration['1m', '1s']) -> Duration",
+			test:           "sum(['1m', '1s'])",
+			expectedResult: `1m1s`,
+		},
+		{
+			name:           "sum(Duration['1s', '1m', '1m']) -> Duration",
+			test:           "sum(['1s', '1m', '1m'])",
+			expectedResult: `2m1s`,
+		},
+		{
+			name:           "sum(Duration['1m', '1m', '10s']) -> Duration",
+			test:           "sum(['1m', '1m', '10s'])",
+			expectedResult: `2m10s`,
+		},
+		{
+			name:           "sum(Quantity['500m', '500m']) -> Quantity",
+			test:           "sum(['500m', '500m'])",
+			expectedResult: `1`,
+		},
+		{
+			name:           "sum(Quantity['1m', '2m', '3m']) -> Quantity",
+			test:           "sum(['1m', '2m', '3m'])",
+			expectedResult: `6m`,
+		},
+		{
 			name: "sum(Duration[Duration, Scalar, ..]) -> error",
 			test: "sum(['12s', `13`])",
 			err:  true,
@@ -323,6 +382,23 @@ func Test_Subtract(t *testing.T) {
 			name: "Duration - Quantity -> error",
 			test: "subtract('12s', '13')",
 			err:  true,
+		},
+		// Duration with 'm' (minute)
+		{
+			name:           "Duration ('m') - Duration ('s') -> Duration",
+			test:           "subtract('1m', '30s')",
+			expectedResult: `30s`,
+		},
+		{
+			name:           "Duration ('h') - Duration ('m') -> Duration",
+			test:           "subtract('1h', '1m')",
+			expectedResult: `59m0s`,
+		},
+		// Quantity regression protection with 'm' (milli)
+		{
+			name:           "Quantity ('m') - Quantity ('m') -> Quantity",
+			test:           "subtract('500m', '100m')",
+			expectedResult: `400m`,
 		},
 	}
 	for _, tc := range testCases {
@@ -518,6 +594,18 @@ func Test_Divide(t *testing.T) {
 			retFloat:       true,
 		},
 		{
+			name:           "Duration ('m') / Duration ('s') -> Scalar",
+			test:           "divide('1m', '1s')",
+			expectedResult: 60.0,
+			retFloat:       true,
+		},
+		{
+			name:           "Quantity ('m') / Quantity ('m') -> Scalar",
+			test:           "divide('500m', '250m')",
+			expectedResult: 2.0,
+			retFloat:       true,
+		},
+		{
 			name: "Duration / Quantity -> error",
 			test: "divide('12s', '4Ki')",
 			err:  true,
@@ -656,6 +744,11 @@ func Test_Modulo(t *testing.T) {
 			name:           "Duration % Duration -> Duration",
 			test:           "modulo('13s', '2s')",
 			expectedResult: `1s`,
+		},
+		{
+			name:           "Duration ('m') % Duration ('s') -> Duration",
+			test:           "modulo('1m', '10s')",
+			expectedResult: `0s`,
 		},
 		{
 			name: "Duration % Scalar -> error",
@@ -903,6 +996,61 @@ func TestParseArithemticOperands(t *testing.T) {
 			},
 		},
 		wantErr: true,
+	}, {
+		name: "Ambiguous ('1m') + Duration ('1s') -> both Duration",
+		args: args{
+			arguments: []interface{}{
+				"1m",
+				"1s",
+			},
+			operator: add,
+		},
+		want:  duration{Duration: time.Minute},
+		want1: duration{Duration: time.Second},
+	}, {
+		name: "Duration ('1s') + Ambiguous ('1m') -> both Duration",
+		args: args{
+			arguments: []interface{}{
+				"1s",
+				"1m",
+			},
+			operator: add,
+		},
+		want:  duration{Duration: time.Second},
+		want1: duration{Duration: time.Minute},
+	}, {
+		name: "Ambiguous ('500m') + Ambiguous ('500m') -> both Quantity",
+		args: args{
+			arguments: []interface{}{
+				"500m",
+				"500m",
+			},
+			operator: add,
+		},
+		want:  quantity{Quantity: resource.MustParse("500m")},
+		want1: quantity{Quantity: resource.MustParse("500m")},
+	}, {
+		name: "Quantity ('12Ki') + Ambiguous ('1m') -> both Quantity",
+		args: args{
+			arguments: []interface{}{
+				"12Ki",
+				"1m",
+			},
+			operator: add,
+		},
+		want:  quantity{Quantity: resource.MustParse("12Ki")},
+		want1: quantity{Quantity: resource.MustParse("1m")},
+	}, {
+		name: "Quantity ('12Ki') + Duration ('13s') -> Quantity and Duration",
+		args: args{
+			arguments: []interface{}{
+				"12Ki",
+				"13s",
+			},
+			operator: add,
+		},
+		want:  quantity{Quantity: resource.MustParse("12Ki")},
+		want1: duration{Duration: 13 * time.Second},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
