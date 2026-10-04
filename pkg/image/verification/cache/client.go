@@ -87,20 +87,20 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
-func generateKey(policy metav1.Object, ruleName string, imageRef string) string {
-	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
+func generateKey(policy metav1.Object, ruleName string, imageRef string, configFingerprint string) string {
+	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef + ";" + configFingerprint
 }
 
-func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
-	return c.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, nil)
+func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, configFingerprint string, useCache bool) (bool, error) {
+	return c.SetWithPayload(ctx, policy, ruleName, imageRef, configFingerprint, useCache, nil)
 }
 
-func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
-	found, _, err := c.GetWithPayload(ctx, policy, ruleName, imageRef, useCache)
+func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, configFingerprint string, useCache bool) (bool, error) {
+	found, _, err := c.GetWithPayload(ctx, policy, ruleName, imageRef, configFingerprint, useCache)
 	return found, err
 }
 
-func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error) {
+func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, configFingerprint string, useCache bool, payloads map[string][]byte) (bool, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil
@@ -108,7 +108,7 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 		// Else If enabled globally then return if locally disabled
 		return false, nil
 	}
-	key := generateKey(policy, ruleName, imageRef)
+	key := generateKey(policy, ruleName, imageRef, configFingerprint)
 
 	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
 	c.cache.Wait()
@@ -118,7 +118,7 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 	return false, nil
 }
 
-func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, map[string][]byte, error) {
+func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, configFingerprint string, useCache bool) (bool, map[string][]byte, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil, nil
@@ -126,7 +126,7 @@ func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 		// Else If enabled globally then return if locally disabled
 		return false, nil, nil
 	}
-	key := generateKey(policy, ruleName, imageRef)
+	key := generateKey(policy, ruleName, imageRef, configFingerprint)
 	val, found := c.cache.Get(key)
 	if !found {
 		return false, nil, nil

@@ -28,6 +28,8 @@ import (
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"gomodules.xyz/jsonpatch/v2"
 	"gotest.tools/v3/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 )
@@ -1174,6 +1176,128 @@ func Test_changePolicyCacheVerificationCosign(t *testing.T) {
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache entry not found, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+}
+
+var testConfigMapKeyRotationPolicy = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "annotations": {
+            "pod-policies.kyverno.io/autogen-controllers": "none"
+        },
+        "name": "image-verify-key-rotation"
+    },
+    "spec": {
+        "validationFailureAction": "Enforce",
+        "background": false,
+        "failurePolicy": "Fail",
+        "rules": [
+            {
+                "context": [
+                    {
+                        "configMap": {
+                            "name": "myconfigmap",
+                            "namespace": "mynamespace"
+                        },
+                        "name": "myconfigmap"
+                    }
+                ],
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "name": "verify-with-configmap-key",
+                "verifyImages": [
+                    {
+                        "imageReferences": [
+                            "ghcr.io/*"
+                        ],
+                        "mutateDigest": false,
+                        "verifyDigest": false,
+                        "useCache": true,
+                        "attestors": [
+                            {
+                                "entries": [
+                                    {
+                                        "keys": {
+                                            "publicKeys": "{{myconfigmap.data.configmapkey}}",
+                                            "rekor": {
+                                                "url": "https://rekor.sigstore.dev",
+                                                "ignoreTlog": true
+                                            },
+                                            "ctlog": {
+                                                "ignoreSCT": true
+                                            }
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}`
+
+// Regression test for #17753: when the attestor public key comes from a
+// ConfigMap (rule variable substitution) and the ConfigMap is rotated without
+// touching the policy, the verification cache must not keep serving results
+// produced under the old key until the entry expires.
+func Test_ImageVerifyCacheAttestorKeyRotation(t *testing.T) {
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(60 * time.Minute),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+	err = cosign.SetMock(image, signaturePayloads)
+	defer cosign.ClearMock()
+	assert.NilError(t, err)
+
+	// a real ConfigMap holds the PEM with actual newlines, unlike the escaped
+	// form the JSON policy text carries; substitution inserts the raw value
+	unescape := func(key string) string {
+		return strings.ReplaceAll(key, "\\n", "\n")
+	}
+	configMap := func(key string) *corev1.ConfigMap {
+		return &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "myconfigmap", Namespace: "mynamespace"},
+			Data:       map[string]string{"configmapkey": unescape(key)},
+		}
+	}
+
+	// the image is signed by testVerifyImageKey, so with that key in the
+	// ConfigMap the first admission verifies and gets cached
+	resolver, err := resolvers.NewClientBasedResolver(kubefake.NewSimpleClientset(configMap(testVerifyImageKey)))
+	assert.NilError(t, err)
+	policyContext := buildContext(t, testConfigMapKeyRotationPolicy, cosignTestResource, "")
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), resolver, policyContext, cfg)
+	errorAssertionUtil(t, image, ivm, er)
+
+	// rotate the key: same policy, same rule, same image -- only the
+	// ConfigMap content changed. The cached entry must miss, forcing
+	// re-verification instead of serving the result produced under the
+	// old key. (The mock returns the same signatures either way, so a
+	// fresh verification still passes; "verified from cache" is the
+	// stale-hit signature we're guarding against.)
+	resolver, err = resolvers.NewClientBasedResolver(kubefake.NewSimpleClientset(configMap(testOtherKey)))
+	assert.NilError(t, err)
+	policyContext = buildContext(t, testConfigMapKeyRotationPolicy, cosignTestResource, "")
+	er, _ = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), resolver, policyContext, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Message())
+	assert.Assert(t, er.PolicyResponse.Rules[0].Message() != "verified from cache", er.PolicyResponse.Rules[0].Message())
 }
 
 var verifyImageNotaryPolicy = `{
