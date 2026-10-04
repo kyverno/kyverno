@@ -63,7 +63,8 @@ func TestPointer_Append(t *testing.T) {
 		want Pointer
 	}{
 		{
-			p: []string{"a", "b"},
+			name: "append multiple",
+			p:    []string{"a", "b"},
 			args: args{
 				s: []string{"c", "d"},
 			},
@@ -90,7 +91,7 @@ func TestPointer_AppendPath(t *testing.T) {
 		want Pointer
 	}{
 		{
-			name: "",
+			name: "append path with escaped slash",
 			p:    []string{"a", "b", "c"},
 			args: args{
 				s: `d/e\/e/f`,
@@ -114,10 +115,12 @@ func TestPointer_JMESPath(t *testing.T) {
 		want string
 	}{
 		{
+			name: "standard path 1",
 			p:    []string{"a", "b", "c", "3", "e/e", "f"},
 			want: `a.b.c[3]."e/e".f`,
 		},
 		{
+			name: "standard path 2",
 			p:    []string{"a", "b", "c", "3", "e/e", "f"},
 			want: `a.b.c[3]."e/e".f`,
 		},
@@ -153,14 +156,17 @@ func TestPointer_String(t *testing.T) {
 		want string
 	}{
 		{
+			name: "plain path",
 			p:    []string{"a", "b", "c"},
 			want: "a/b/c",
 		},
 		{
+			name: "escaped tilde and slash",
 			p:    []string{"a", "b/b", "c~c"},
 			want: `a/b~1b/c~0c`,
 		},
 		{
+			name: "escaped backslash and quote",
 			p:    []string{"a", `b\b`, `c"c`},
 			want: `a/b\\b/c\"c`,
 		},
@@ -185,7 +191,8 @@ func TestPointer_Prepend(t *testing.T) {
 		want Pointer
 	}{
 		{
-			p: []string{"c", "d", "e"},
+			name: "prepend multiple",
+			p:    []string{"c", "d", "e"},
 			args: args{
 				s: []string{"a", "b"},
 			},
@@ -211,6 +218,7 @@ func TestParse(t *testing.T) {
 		want Pointer
 	}{
 		{
+			name: "parse escaped tilde and slash",
 			args: args{
 				s: "a/b~1c/~0d",
 			},
