@@ -132,6 +132,9 @@ func printTestResult(
 								resourceSkipped = true
 								continue
 							}
+							if isExpectedFailure(ok, reason, test) {
+								ok = true
+							}
 
 							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
 							rows = append(rows, resourceRows...)
@@ -144,6 +147,9 @@ func printTestResult(
 							}
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
+								if isExpectedFailure(ok, reason, test) {
+									ok = true
+								}
 
 								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, r.GetName())
 								rows = append(rows, resourceRows...)
@@ -184,6 +190,9 @@ func printTestResult(
 
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
+					if isExpectedFailure(ok, reason, test) {
+						ok = true
+					}
 
 					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
 					rows = append(rows, resourceRows...)

@@ -1,0 +1,23 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: patched-resource-negative
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: ConfigMap
+  patchedResources: results.yaml
+  policy: test-mutation
+  resources:
+  - expected-fail
+  result: fail
+  rule: add-annotation
+- kind: ConfigMap
+  patchedResources: results.yaml
+  policy: test-mutation
+  resources:
+  - expected-pass
+  result: pass
+  rule: add-annotation
