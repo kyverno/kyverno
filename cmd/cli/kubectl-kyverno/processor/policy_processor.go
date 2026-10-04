@@ -80,7 +80,7 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
+	// Operation is the admission operation to simulate (CREATE, UPDATE, DELETE or CONNECT).
 	// When empty, the `request.operation` global value from the values file is
 	// honored, defaulting to CREATE.
 	Operation          string
@@ -798,6 +798,8 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	case "CONNECT":
+		operation = kyvernov1.Connect
 	}
 	// an explicitly configured operation (e.g. from the test result entry) takes
 	// precedence over the values file
@@ -809,6 +811,8 @@ func (p *PolicyProcessor) makePolicyContext(
 			operation = kyvernov1.Delete
 		case "UPDATE":
 			operation = kyvernov1.Update
+		case "CONNECT":
+			operation = kyvernov1.Connect
 		}
 		if resourceValues == nil {
 			resourceValues = map[string]interface{}{}
@@ -920,6 +924,12 @@ func (p *PolicyProcessor) makePolicyContext(
 			}
 			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
 		}
+	}
+	if operation == kyvernov1.Connect {
+		if err := policyContext.JSONContext().AddResource(nil); err != nil {
+			return nil, fmt.Errorf("failed to clear CONNECT request object in json context (%w)", err)
+		}
+		policyContext = policyContext.WithNewResource(resource)
 	}
 	return policyContext, nil
 }
