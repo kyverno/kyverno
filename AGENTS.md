@@ -178,7 +178,7 @@ working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AG
 [`pkg/cel/`](./pkg/cel/AGENTS.md), [`pkg/webhooks/`](./pkg/webhooks/AGENTS.md),
 [`pkg/background/`](./pkg/background/AGENTS.md), [`pkg/image/`](./pkg/image/AGENTS.md),
 [`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
-[`pkg/controllers/`](./pkg/controllers/AGENTS.md),
+[`pkg/controllers/`](./pkg/controllers/AGENTS.md), [`pkg/policy/auth/`](./pkg/policy/auth/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md). Every claim in them is grounded in code actually read in the
 session that wrote them, not inferred from directory structure — if one goes stale, fix it in place rather than
 letting drift accumulate the way the old `pkg/cosign`/`cmd/tools` references did.
