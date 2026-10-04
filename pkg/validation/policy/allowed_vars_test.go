@@ -2,6 +2,7 @@ package policy
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
@@ -486,4 +487,119 @@ spec:
 
 	err = hasInvalidVariables(policy[0], false)
 	assert.NilError(t, err)
+}
+
+func TestAllowedVariables_AnchoredRejectsSubstringBypass(t *testing.T) {
+	tcs := []struct {
+		name       string
+		input      string
+		background bool
+		pass       bool
+	}{
+		{"bg_request_object", "request.object.metadata.name", true, true},
+		{"bg_element", "element", true, true},
+		{"bg_element0", "element0", true, true},
+		{"bg_element0_env", "element0.env", true, true},
+		{"bg_element1_foo", "element1.foo", true, true},
+		{"bg_elementIndex", "elementIndex", true, true},
+		{"bg_elementIndex0", "elementIndex0", true, true},
+		{"bg_elementIndex1", "elementIndex1", true, true},
+		{"bg_elementIndex0_env", "elementIndex0.env", true, true},
+		{"bg_at", "@", true, true},
+		{"bg_images", "images.containers.nginx", true, true},
+		{"bg_image_path", "image.registry", true, true},
+		{"bg_length", "length(request.object)", true, true},
+		// pipe forms are whole JMESPath expressions, so the identifier boundary
+		// after a root must accept " | " as well as "." and end of string.
+		{"bg_request_pipe_keys", "request | keys(@)", true, true},
+		{"bg_element0_pipe_keys", "element0 | keys(@)", true, true},
+		{"bg_images_pipe_keys", "images | keys(@)", true, true},
+		{"bg_at_pipe_type", "@ | type(@)", true, true},
+		{"bg_reject_invalid_request", "invalid_request.object_test", true, false},
+		{"bg_reject_requestevil", "requestevil", true, false},
+		{"bg_reject_element0evil", "element0evil", true, false},
+		{"bg_reject_foorequest", "foorequest.object", true, false},
+		{"bg_reject_elementss", "elementss", true, false},
+		{"bg_reject_elementevil", "elementevil", true, false},
+		{"bg_reject_elementIndexevil", "elementIndexevil", true, false},
+		{"bg_reject_myelement", "myelement", true, false},
+		{"bg_reject_myelement0", "myelement0", true, false},
+		{"bg_reject_prefix_images", "prefix_images_suffix", true, false},
+		{"adm_serviceAccountName", "serviceAccountName", false, true},
+		{"adm_element0_env", "element0.env", false, true},
+		{"adm_elementIndex1", "elementIndex1", false, true},
+		{"adm_element1_foo", "element1.foo", false, true},
+		{"adm_request_pipe_keys", "request | keys(@)", false, true},
+		{"adm_at_pipe_type", "@ | type(@)", false, true},
+		{"adm_elementIndexevil", "elementIndexevil", false, false},
+		{"adm_reject_element0evil", "element0evil", false, false},
+		{"adm_reject_requestevil", "requestevil", false, false},
+		{"adm_reject_elementss", "elementss", false, false},
+		{"adm_reject_elementevil", "elementevil", false, false},
+		{"adm_reject_myelement0", "myelement0", false, false},
+		{"adm_reject_foorequest", "foorequest.object", false, false},
+	}
+	for _, tc := range tcs {
+		t.Run(tc.name, func(t *testing.T) {
+			policyYAML := []byte(fmt.Sprintf(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: anchored-vars
+spec:
+  background: %t
+  rules:
+  - name: check
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      any:
+        - key: "{{ %s }}"
+          operator: NotEquals
+          value: ""
+    validate:
+      message: ok
+      pattern:
+        metadata:
+          name: "*"
+`, tc.background, tc.input))
+			policy, _, _, _, _, _, _, err := yamlutils.GetPolicy(policyYAML)
+			assert.NilError(t, err)
+			err = hasInvalidVariables(policy[0], tc.background)
+			if tc.pass {
+				assert.NilError(t, err, "%s: expected pass", tc.name)
+			} else {
+				assert.Assert(t, err != nil, "%s: expected reject", tc.name)
+			}
+		})
+	}
+}
+
+func TestAllowedVariables_BackgroundRejectsUserInfo(t *testing.T) {
+	policyYAML := []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: bg-userinfo
+spec:
+  background: true
+  rules:
+  - name: check
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "{{ request.userInfo.username }}"
+      pattern:
+        metadata:
+          name: "*"
+`)
+	policy, _, _, _, _, _, _, err := yamlutils.GetPolicy(policyYAML)
+	assert.NilError(t, err)
+	err = ValidateVariables(policy[0], true)
+	assert.Assert(t, err != nil)
+	assert.Assert(t, strings.Contains(err.Error(), "request.userInfo") || strings.Contains(err.Error(), "not allowed"))
 }
