@@ -5,7 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 )
@@ -33,6 +35,10 @@ func podRules(ops ...admissionregistrationv1.OperationType) []admissionregistrat
 	}}
 }
 
+func labelledNamespace(name string, labels map[string]string) *corev1.Namespace {
+	return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}}
+}
+
 // TestExplain checks Explain against the real matcher: for each case, Match decides the
 // outcome and Explain is asked to describe it, so a drift between the two shows up here.
 func TestExplain(t *testing.T) {
@@ -40,6 +46,7 @@ func TestExplain(t *testing.T) {
 		name        string
 		constraints *admissionregistrationv1.MatchResources
 		attr        admission.Attributes
+		ns          runtime.Object
 		wantMatch   bool
 		wantReason  string
 	}{
@@ -78,6 +85,28 @@ func TestExplain(t *testing.T) {
 			wantReason: "objectSelector",
 		},
 		{
+			name: "namespace selector rejects",
+			constraints: &admissionregistrationv1.MatchResources{
+				ResourceRules:     podRules(admissionregistrationv1.Create),
+				NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "staging"}},
+			},
+			attr:       podAttrs("prod", admission.Create),
+			ns:         labelledNamespace("prod", map[string]string{"env": "prod"}),
+			wantMatch:  false,
+			wantReason: `namespace "prod" does not satisfy the policy's namespaceSelector`,
+		},
+		{
+			name: "namespace selector satisfied",
+			constraints: &admissionregistrationv1.MatchResources{
+				ResourceRules:     podRules(admissionregistrationv1.Create),
+				NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}},
+			},
+			attr:       podAttrs("prod", admission.Create),
+			ns:         labelledNamespace("prod", map[string]string{"env": "prod"}),
+			wantMatch:  true,
+			wantReason: "matched kind Pod, namespace prod, operation CREATE",
+		},
+		{
 			name:        "no constraints",
 			constraints: nil,
 			attr:        podAttrs("prod", admission.Create),
@@ -90,11 +119,11 @@ func TestExplain(t *testing.T) {
 			matched := false
 			if tt.constraints != nil {
 				var err error
-				matched, err = NewMatcher().Match(&MatchCriteria{Constraints: tt.constraints}, tt.attr, nil)
+				matched, err = NewMatcher().Match(&MatchCriteria{Constraints: tt.constraints}, tt.attr, tt.ns)
 				assert.NoError(t, err)
 			}
 			assert.Equal(t, tt.wantMatch, matched, "test setup: the real matcher disagrees with the case's expectation")
-			assert.Contains(t, Explain(tt.constraints, tt.attr, nil, matched), tt.wantReason)
+			assert.Contains(t, Explain(tt.constraints, tt.attr, tt.ns, matched), tt.wantReason)
 		})
 	}
 }

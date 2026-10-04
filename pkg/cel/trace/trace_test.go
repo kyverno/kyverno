@@ -263,3 +263,47 @@ func TestBuild_NilInputs(t *testing.T) {
 		assert.Empty(t, et.Nodes)
 	})
 }
+
+// TestBuild_CallReceiverIdentifiersAreOmitted checks that a bare identifier used as a call
+// receiver (in real policies a library handle like resource or generator, whose value renders
+// as a pointer) is left out, while the call itself and data paths are still traced.
+func TestBuild_CallReceiverIdentifiersAreOmitted(t *testing.T) {
+	env, err := compiler.NewBaseEnv()
+	require.NoError(t, err)
+	env, err = env.Extend(cel.Variable("name", cel.StringType), cel.Variable("object", cel.DynType))
+	require.NoError(t, err)
+	expr := "name.startsWith('x') && object.metadata.name.startsWith('x')"
+	ast, iss := env.Compile(expr)
+	require.NoError(t, iss.Err())
+	prg, err := env.Program(ast, cel.EvalOptions(cel.OptTrackState))
+	require.NoError(t, err)
+
+	out, details, err := prg.ContextEval(context.TODO(), map[string]any{
+		"name":   "xyz",
+		"object": map[string]any{"metadata": map[string]any{"name": "xyz"}},
+	})
+	require.NoError(t, err)
+	texts := nodeTexts(Build(expr, ast, out, details))
+
+	assert.NotContains(t, texts, "name", "a bare call receiver must not be traced")
+	assert.Contains(t, texts, `name.startsWith("x")`, "the call itself is still traced")
+	assert.Contains(t, texts, `object.metadata.name.startsWith("x")`)
+	assert.Contains(t, texts, "object.metadata.name", "a qualified receiver is still traced")
+}
+
+// TestBuild_LongExpressionsStayOnOneLine checks that node text never contains a newline: the CEL
+// unparser wraps long &&/|| expressions, which would break the one-line-per-node breakdown.
+func TestBuild_LongExpressionsStayOnOneLine(t *testing.T) {
+	expr := "object.metadata.name.startsWith('a-very-long-prefix-to-force-wrapping') && object.metadata.namespace.endsWith('another-long-suffix-value') || object.metadata.name == 'x\\ny'"
+	prg, ast := buildTrackedProgram(t, expr)
+	out, details, err := prg.ContextEval(context.TODO(), map[string]any{
+		"object": map[string]any{"metadata": map[string]any{"name": "n", "namespace": "ns"}},
+	})
+	require.NoError(t, err)
+	et := Build(expr, ast, out, details)
+	require.NotEmpty(t, et.Nodes)
+	for _, n := range et.Nodes {
+		assert.NotContains(t, n.Expression, "\n", "node text must stay on one line: %q", n.Expression)
+	}
+	assert.Contains(t, nodeTexts(et), `object.metadata.name == "x\ny"`, "an escaped newline inside a string literal is kept as written")
+}

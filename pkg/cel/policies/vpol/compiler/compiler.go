@@ -48,10 +48,8 @@ type Compiler interface {
 	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
-// NewCompiler builds a vpol compiler. When trace is true, every validation it compiles is
-// built with tracing on (see compiler.CompileValidation), so a later evaluation can produce a
-// trace.ExpressionTrace instead of just a pass/fail result. The webhook admission path must
-// always construct this with trace=false; only offline callers (the CLI) should opt in.
+// NewCompiler builds a vpol compiler with tracing off, as admission, background and reports use
+// it. For `kyverno apply --explain`, see NewCompilerWithTrace.
 func NewCompiler() Compiler {
 	return NewCompilerWithTrace(false)
 }
