@@ -206,7 +206,7 @@ jobs:
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-denial-probe
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deprecations
 

@@ -12,6 +12,40 @@ spec:
     webhook entirely because the webhook rules only listed v2beta1 (see #17483).
   concurrent: false
   steps:
+  - name: probe-condition-wiring
+    description: >
+      The legacy-denial-probe overlay sets config.matchConditions. Prove the probe is actually
+      live before trusting the denials above: the TTL webhook must carry the condition
+      (it is built unconditionally with static rules, unlike the resource webhook, which has no
+      entries until a policy exists), and every legacy denial configuration must omit it (so
+      WithoutConfigMatchConditions is doing its job). Without the first assertion a Helm or
+      plumbing regression would silently disarm the probe and the error steps would pass for the
+      ordinary reason, proving nothing.
+    try:
+    - assert:
+        resource:
+          apiVersion: admissionregistration.k8s.io/v1
+          kind: ValidatingWebhookConfiguration
+          metadata:
+            name: kyverno-ttl-validating-webhook-cfg
+          webhooks:
+          - (matchConditions[?name == 'exempt-cluster-admin'] | length(@)): 1
+    - script:
+        content: |
+          set -eu
+          for cfg in kyverno-policy-validating-webhook-cfg \
+                     kyverno-exception-validating-webhook-cfg \
+                     kyverno-cleanup-validating-webhook-cfg; do
+            found=$(kubectl get validatingwebhookconfiguration "$cfg" \
+              -o jsonpath='{.webhooks[*].matchConditions[*].name}')
+            case " $found " in
+              *" exempt-cluster-admin "*)
+                echo "FAIL: $cfg inherited config.matchConditions; legacy writes could bypass denial"
+                exit 1
+                ;;
+            esac
+          done
+          echo "OK: no legacy denial webhook inherited config.matchConditions"
   - name: cluster-policy
     try:
     - error:

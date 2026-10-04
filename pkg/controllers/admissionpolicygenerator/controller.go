@@ -286,17 +286,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) {
 	if pol := policy.AsKyvernoPolicy(); pol != nil {
-		cpol := pol.(*kyvernov1.ClusterPolicy)
-		latest := cpol.DeepCopy()
-		latest.Status.ValidatingAdmissionPolicy.Generated = generated
-		latest.Status.ValidatingAdmissionPolicy.Message = msg
-
-		new, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
-		if err != nil {
-			logging.Error(err, "failed to update cluster policy status", "name", cpol.GetName(), "status", latest.Status)
-			return
-		}
-		logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", new.Status)
+		// The legacy ClusterPolicy branch lives in legacy_status.go, not inline here, so its
+		// /status allowance registration can be deleted along with it in one commit when
+		// #17710 removes legacy execution; the CEL branches below are not legacy and stay.
+		c.updateLegacyClusterPolicyStatus(ctx, pol.(*kyvernov1.ClusterPolicy), generated, msg)
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		latest := vpol.DeepCopy()
 		latest.Status.Generated = generated

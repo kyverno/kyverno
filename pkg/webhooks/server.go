@@ -257,6 +257,7 @@ func NewServer(
 		handlerFunc("VALIDATE", policyHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
@@ -267,6 +268,7 @@ func NewServer(
 		handlerFunc("VALIDATE", exceptionHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(exceptionLogger, metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),

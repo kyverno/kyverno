@@ -1036,7 +1036,7 @@ func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 	}
 	_, _, _, _, err := blocked.applyCommandHelper(context.TODO(), io.Discard)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
 }
 
