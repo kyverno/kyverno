@@ -709,7 +709,6 @@ jobs:
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,sigstore-custom-tuf,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: sigstore-custom-tuf
