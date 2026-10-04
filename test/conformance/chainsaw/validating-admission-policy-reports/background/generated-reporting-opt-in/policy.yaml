@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: reporting-opt-in-vap
+spec:
+  autogen:
+    validatingAdmissionPolicy:
+      enabled: true
+  matchConstraints:
+    objectSelector:
+      matchLabels:
+        reporting-test: reporting-opt-in-vap
+    resourceRules:
+    - apiGroups:
+      - ''
+      apiVersions:
+      - v1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - configmaps
+      - namespaces
+  validationActions:
+  - Audit
+  validations:
+  - expression: has(object.metadata.labels) && 'env' in object.metadata.labels &&
+      object.metadata.labels['env'] == 'prod'
+    message: env must be prod
+  matchConditions:
+  - name: test-resources
+    expression: has(object.metadata.labels) && 'reporting-test' in object.metadata.labels
+      && object.metadata.labels['reporting-test'] == 'reporting-opt-in-vap'

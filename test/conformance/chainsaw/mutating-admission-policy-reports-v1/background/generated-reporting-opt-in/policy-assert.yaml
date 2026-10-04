@@ -1,0 +1,7 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: reporting-opt-in-map-v1
+status:
+  conditionStatus:
+    ready: true

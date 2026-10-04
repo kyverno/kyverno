@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reporting-opt-in-map-v1-configmap-pass
+  labels:
+    reporting-test: reporting-opt-in-map-v1
+    env: prod
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reporting-opt-in-map-v1-configmap-fail
+  labels:
+    reporting-test: reporting-opt-in-map-v1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: reporting-opt-in-map-v1-namespace-pass
+  labels:
+    reporting-test: reporting-opt-in-map-v1
+    env: prod
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: reporting-opt-in-map-v1-namespace-fail
+  labels:
+    reporting-test: reporting-opt-in-map-v1

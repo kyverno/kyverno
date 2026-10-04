@@ -1,0 +1,7 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata:
+  name: mpol-reporting-opt-in-map-v1
+  labels:
+    (contains(keys(@), 'reports.kyverno.io/enabled')): false
+    (contains(keys(@), 'reports.kyverno.io/disabled')): true
