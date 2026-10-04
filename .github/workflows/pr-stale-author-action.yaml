@@ -5,8 +5,8 @@
 # 1. Stale author: a `needs-author-action` PR with no author activity (commit, comment, review) for STALE_DAYS
 #    gets `stale` and one comment pinging its reviewers. `stale` is removed once the PR no longer needs the
 #    author, the author pushes a commit (a reply does not count), or `no-stale` is set.
-# 2. Maintainer nudge: a `ready-for-review` PR with no maintainer activity for NUDGE_DAYS gets one comment
-#    (per head commit) pinging its reviewers.
+# 2. Maintainer nudge: a `ready-for-review` PR with no new commit or maintainer activity for NUDGE_DAYS gets one
+#    comment (per head commit) pinging its reviewers.
 #
 # The author is always told. For a PR idle BACKLOG_DAYS or more, reviewers are not pinged (no stale ping, no nudge),
 # to avoid a notification flood.
@@ -71,16 +71,18 @@ jobs:
           }
 
           # One GraphQL call per PR, normalised into small files (PR data is arbitrary text, so never bash variables).
-          # Comments, reviews and label events are capped at the newest 100 (review threads: 50 x 10).
+          # History is capped (commits 20, comments and reviews 100, review threads 50, label events 100); `truncated`
+          # flags a PR that exceeds it.
           # Helpers return non-zero on failure.
           pr_query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $number) {
+                  createdAt
                   headRefOid
                   author { login }
                   labels(first: 100) { nodes { name } }
-                  commits(last: 20) { nodes { commit { committedDate author { user { login } } } } }
+                  commits(last: 20) { totalCount nodes { commit { committedDate author { user { login } } } } }
                   assignees(first: 20) { nodes { login } }
                   reviewRequests(first: 50) { nodes { requestedReviewer {
                     __typename
@@ -89,17 +91,25 @@ jobs:
                     ... on Mannequin { login }
                     ... on Team { combinedSlug }
                   } } }
-                  comments(last: 100) { nodes { author { login __typename } createdAt body } }
-                  reviews(last: 100) { nodes { author { login __typename } submittedAt } }
-                  reviewThreads(last: 50) { nodes { comments(last: 10) { nodes { author { login __typename } createdAt } } } }
+                  comments(last: 100) { totalCount nodes { author { login __typename } createdAt body } }
+                  reviews(last: 100) { totalCount nodes { author { login __typename } submittedAt } }
+                  reviewThreads(last: 50) { totalCount nodes { comments(last: 10) { nodes { author { login __typename } createdAt } } } }
                   timelineItems(last: 100, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
                 }
               }
             }'
           fetch() {
-            gh api graphql -f query="$pr_query" -f owner="${repo%/*}" -f name="${repo#*/}" -F number="$1" > raw.json || return 1
+            local try
+            for try in 1 2 3; do
+              gh api graphql -f query="$pr_query" -f owner="${repo%/*}" -f name="${repo#*/}" -F number="$1" > raw.json && break
+              [[ "$try" -eq 3 ]] && return 1
+              sleep 2
+            done
             jq '.data.repository.pullRequest
               | {author: {login: (.author.login // "ghost")}, headRefOid,
+                 created: (.createdAt | fromdateiso8601),
+                 truncated: (.commits.totalCount > 20 or .comments.totalCount > 100
+                             or .reviews.totalCount > 100 or .reviewThreads.totalCount > 50),
                  labels: .labels.nodes,
                  commits: [.commits.nodes[].commit | {committedDate, login: .author.user.login}],
                  assignees: .assignees.nodes,
@@ -143,8 +153,8 @@ jobs:
               | max'
           }
 
-          # Epoch of the last maintainer-side activity: newest of label time ($2), last commit, or last
-          # non-author, non-bot comment/review.
+          # Epoch the PR started waiting on reviewers: newest of label time ($2), the last commit (anyone's, since a
+          # new push needs a fresh review), or the last non-author, non-bot comment/review.
           maintainer_clock() {
             jq -n --arg a "$1" --argjson ready "$2" \
               --slurpfile pr pr.json --slurpfile ic issue-comments.json \
@@ -176,6 +186,8 @@ jobs:
             author=$(jq -r '.author.login' pr.json)
             last=$(author_commit "$author") || return 1
             stale_at=$(label_time stale) || return 1
+            # Unknown when the label event is outside the fetched history; leave the label alone.
+            [[ "$stale_at" -eq 0 ]] && { echo "::warning::PR #$n: stale label time not found — skipping."; return 0; }
             if ! has_label needs-author-action || has_label no-stale || [[ "$last" -gt "$stale_at" ]]; then
               echo "PR #$n: no longer stale — removing the label."
               act gh pr edit "$n" --repo "$repo" --remove-label stale || return 1
@@ -188,6 +200,15 @@ jobs:
             fetch "$n" || return 1
             author=$(jq -r '.author.login' pr.json)
             last=$(author_activity "$author") || return 1
+            if [[ "$last" -eq 0 ]]; then
+              # Nothing from the author in the fetched history: if it was cut short that proves nothing, otherwise
+              # the author's last activity is opening the PR.
+              if jq -e '.truncated' pr.json > /dev/null; then
+                echo "::warning::PR #$n: no author activity in the truncated history — skipping."
+                return 0
+              fi
+              last=$(jq '.created' pr.json)
+            fi
             idle=$((now - last))
             [[ "$idle" -lt "$stale_secs" ]] && return 0
 
@@ -222,6 +243,7 @@ jobs:
             fetch "$n" || return 1
             author=$(jq -r '.author.login' pr.json)
             ready_at=$(label_time ready-for-review) || return 1
+            [[ "$ready_at" -eq 0 ]] && { echo "::warning::PR #$n: ready-for-review label time not found — skipping."; return 0; }
             since=$(maintainer_clock "$author" "$ready_at") || return 1
             [[ $((now - since)) -lt "$nudge_secs" ]] && return 0
             # Old PRs: no reviewer ping.
@@ -243,11 +265,20 @@ jobs:
           }
 
           list() { gh pr list --repo "$repo" --state open --limit 500 --search "$1 sort:created-asc" --json number --jq '.[].number'; }
+          failed=0
           run_pr() {
-            if ! "$1" "$2"; then echo "::warning::PR #$2: $1 failed — skipping."; fi
+            if ! "$1" "$2"; then echo "::error::PR #$2: $1 failed — skipping."; failed=$((failed + 1)); fi
+          }
+          # `for n in $(list ...)` would swallow a failed listing, so list first and count the failure.
+          sweep() {
+            local prs n
+            if ! prs=$(list "$1"); then echo "::error::Listing PRs for '$1' failed."; failed=$((failed + 1)); return 0; fi
+            for n in $prs; do run_pr "$2" "$n"; done
           }
 
-          base="draft:false -author:app/dependabot -label:no-stale"
-          for n in $(list "label:stale"); do run_pr handle_stale_label "$n"; done
-          for n in $(list "$base label:needs-author-action -label:stale"); do run_pr handle_needs_author "$n"; done
-          for n in $(list "$base label:ready-for-review"); do run_pr handle_ready "$n"; done
+          base="draft:false -author:app/dependabot"
+          sweep "$base label:stale" handle_stale_label
+          sweep "$base -label:no-stale label:needs-author-action -label:stale" handle_needs_author
+          sweep "$base -label:no-stale label:ready-for-review" handle_ready
+
+          if [[ "$failed" -gt 0 ]]; then echo "::error::$failed operation(s) failed."; exit 1; fi
