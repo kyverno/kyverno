@@ -9,8 +9,23 @@ import (
 // template path. For example, `object.metadata.namespace` must stay as-is
 // because pod templates (e.g. on Deployments) usually do not carry a
 // `metadata.namespace` field, which would otherwise break match conditions.
+// The optional-select (`.?namespace`) and bracket access forms select
+// the same field and need the same protection. Brackets are listed for
+// every CEL string spelling of the index, both as raw bytes and as the
+// JSON-escaped bytes Apply actually sees in production (the whole spec
+// is json.Marshal'ed before rewriting, which turns `"` into `\"`).
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
+	[]byte(".?namespace"),
+	[]byte("['namespace']"),
+	[]byte("[\"namespace\"]"),
+	[]byte("[\\\"namespace\\\"]"),
+	[]byte("['''namespace''']"),
+	[]byte("[\"\"\"namespace\"\"\"]"),
+	[]byte("[\\\"\\\"\\\"namespace\\\"\\\"\\\"]"),
+	[]byte("[r'namespace']"),
+	[]byte("[r\"namespace\"]"),
+	[]byte("[r\\\"namespace\\\"]"),
 }
 
 type Replacement struct {
