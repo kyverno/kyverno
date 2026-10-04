@@ -94,11 +94,14 @@ func PolicyLabelPrefix(policy engineapi.GenericPolicy) string {
 	if policy.AsDeletingPolicy() != nil || policy.AsCleanupPolicy() != nil {
 		return LabelPrefixDeletingPolicy
 	}
+	if policy.AsValidatingAdmissionPolicy() != nil {
+		return LabelPrefixValidatingAdmissionPolicy
+	}
 	if policy.AsMutatingAdmissionPolicy() != nil {
 		return LabelPrefixMutatingAdmissionPolicy
 	}
-	// TODO: detect potential type not detected
-	return LabelPrefixValidatingAdmissionPolicy
+	// Unrecognized policy type
+	return ""
 }
 
 func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
