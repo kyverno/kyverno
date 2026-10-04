@@ -119,7 +119,7 @@ jobs:
               const refs = blocking.map(b => `#${b.number}`).join(', ');
               return {
                 state: 'failure',
-                description: `Post-merge tests are failing on ${pr.base} (${refs}). Clears when Tests passes or the issue is closed`,
+                description: `Post-merge tests are failing on ${pr.base} (${refs}). Clears when the Tests workflow passes or the issue is closed`,
                 target_url: blocking[0].url,
               };
             }

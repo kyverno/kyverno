@@ -98,9 +98,15 @@ jobs:
       - name: Check performance regression
         run: make check-perf
 
+  # A run that was cancelled without a failure says nothing about the tests:
+  # it must neither close the tracking issue nor open one, so the issue is
+  # left as it is. A failure is still recorded even if other jobs were then
+  # cancelled.
   sync-issue:
     if: >-
-      always() && (github.event_name == 'push' ||
+      always() &&
+      (contains(needs.*.result, 'failure') || !contains(needs.*.result, 'cancelled')) &&
+      (github.event_name == 'push' ||
         (github.event_name == 'workflow_dispatch' &&
           (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))))
     needs:
@@ -126,7 +132,7 @@ jobs:
           note: |
             ### Clearing the E2E Gate
 
-            While this issue is open, every open pull request to `${{ github.ref_name }}` shows a red **E2E Gate** status. It turns green on all of them, without a push, as soon as one of these happens:
+            While this issue is open, every open pull request to `${{ github.ref_name }}` shows a red **E2E Gate** status, except those with the `e2e-gate-bypass` label. It turns green on all of them, without a push, as soon as one of these happens:
 
             - The Tests workflow passes on `${{ github.ref_name }}`. That happens on the next push, or right away by re-running the failed jobs of the run above, or with [Run workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/check-tests.yaml) on `${{ github.ref_name }}` when the fix landed in another repository.
             - A maintainer closes this issue.
