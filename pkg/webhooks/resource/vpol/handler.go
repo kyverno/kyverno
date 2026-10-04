@@ -86,15 +86,8 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
-	blocked := false
-	for _, p := range response.Policies {
-		if p.Actions.Has(admissionregistrationv1.Deny) {
-			blocked = true
-			break
-		}
-	}
+	requestDenied := isRequestDenied(response)
 
-	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
@@ -104,20 +97,18 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 			},
 		}
 		engineResponse = engineResponse.WithPolicy(engineapi.NewValidatingPolicyFromLike(r.Policy))
-		allEngineResponses = append(allEngineResponses, engineResponse)
 		if reportutils.IsPolicyReportable(r.Policy) {
 			reportableEngineResponses = append(reportableEngineResponses, engineResponse)
 		}
+		h.admissionEvent(ctx, []engineapi.EngineResponse{engineResponse}, policyBlocked(r))
 	}
 
-	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports) {
+	if !requestDenied && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports) {
 		err := h.admissionReport(ctx, request, response, reportableEngineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")
 		}
 	}
-
-	h.admissionEvent(ctx, allEngineResponses, blocked)
 }
 
 func (h *handler) admissionReport(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse, responses []engineapi.EngineResponse) error {
@@ -167,4 +158,26 @@ func (h *handler) admissionResponse(request vpolengine.EngineRequest, response v
 		}
 	}
 	return admissionutils.Response(request.AdmissionRequest().UID, multierr.Combine(errs...), warnings...)
+}
+
+func policyBlocked(p celengine.ValidatingPolicyResponse) bool {
+	if !p.Actions.Has(admissionregistrationv1.Deny) {
+		return false
+	}
+	for _, rule := range p.Rules {
+		switch rule.Status() {
+		case engineapi.RuleStatusFail, engineapi.RuleStatusError:
+			return true
+		}
+	}
+	return false
+}
+
+func isRequestDenied(response vpolengine.EngineResponse) bool {
+	for _, p := range response.Policies {
+		if policyBlocked(p) {
+			return true
+		}
+	}
+	return false
 }

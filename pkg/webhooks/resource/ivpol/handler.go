@@ -196,15 +196,8 @@ func (h *handler) validationResponse(request celengine.EngineRequest, response e
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) {
-	blocked := false
-	for _, p := range response.Policies {
-		if p.Actions.Has(admissionregistrationv1.Deny) {
-			blocked = true
-			break
-		}
-	}
+	requestDenied := isRequestDenied(response)
 
-	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	for _, r := range response.Policies {
 		engineResponse := engineapi.EngineResponse{
@@ -214,20 +207,18 @@ func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionReques
 			},
 		}
 		engineResponse = engineResponse.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
-		allEngineResponses = append(allEngineResponses, engineResponse)
 		if reportutils.IsPolicyReportable(r.Policy) {
 			reportableEngineResponses = append(reportableEngineResponses, engineResponse)
 		}
+		h.admissionEvent(ctx, []engineapi.EngineResponse{engineResponse}, policyBlocked(r))
 	}
 
-	if !blocked && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports) {
+	if !requestDenied && validation.NeedsReports(admissionRequest, *response.Resource, h.admissionReports) {
 		err := h.admissionReport(ctx, request, response, reportableEngineResponses)
 		if err != nil {
 			logger.Error(err, "failed to create report")
 		}
 	}
-
-	h.admissionEvent(ctx, allEngineResponses, blocked)
 }
 
 func (h *handler) admissionReport(ctx context.Context, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse, responses []engineapi.EngineResponse) error {
@@ -249,4 +240,25 @@ func (h *handler) admissionEvent(ctx context.Context, responses []engineapi.Engi
 		events := webhookutils.GenerateEvents([]engineapi.EngineResponse{response}, blocked)
 		h.eventGen.Add(events...)
 	}
+}
+
+func policyBlocked(p eval.ImageVerifyPolicyResponse) bool {
+	if !p.Actions.Has(admissionregistrationv1.Deny) {
+		return false
+	}
+	switch p.Result.Status() {
+	case engineapi.RuleStatusFail, engineapi.RuleStatusError:
+		return true
+	default:
+		return false
+	}
+}
+
+func isRequestDenied(response eval.ImageVerifyEngineResponse) bool {
+	for _, p := range response.Policies {
+		if policyBlocked(p) {
+			return true
+		}
+	}
+	return false
 }
