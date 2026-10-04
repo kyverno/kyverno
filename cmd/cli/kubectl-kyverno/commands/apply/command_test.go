@@ -1584,3 +1584,55 @@ func Test_Apply_Explain(t *testing.T) {
 		})
 	}
 }
+
+// Test_Apply_ExplainThroughTheCommand runs `apply --explain` the way a user does, through the
+// Cobra command and its flag parsing rather than by setting ApplyCommandConfig.Explain, and
+// checks the trace reaches the command's output. Without the flag no trace is printed, and the
+// flag never changes whether the command succeeds.
+func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name     string
+		policy   string
+		resource string
+		want     []string
+	}{{
+		name:     "validating policy",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/deployment2.yaml",
+		want:     []string{"(ValidatingPolicy)", "SCOPE      applied", "VERDICT    FAIL"},
+	}, {
+		name:     "mutating policy",
+		policy:   base + "test-mutating-policy/mutating-label/policy.yaml",
+		resource: base + "test-mutating-policy/mutating-label/resource.yaml",
+		want:     []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
+	}, {
+		name:     "deleting policy",
+		policy:   base + "test-deleting-policy/deleting-pod-by-name/policy.yaml",
+		resource: base + "test-deleting-policy/deleting-pod-by-name/resource.yaml",
+		want:     []string{"(DeletingPolicy)", "VERDICT    PASS     conditions held: the resource would be deleted"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(extra ...string) (string, error) {
+				cmd := Command()
+				var out bytes.Buffer
+				cmd.SetOut(&out)
+				cmd.SetErr(&out)
+				cmd.SetArgs(append([]string{tt.policy, "--resource", tt.resource}, extra...))
+				err := cmd.Execute()
+				return out.String(), err
+			}
+
+			explained, explainedErr := run("--explain")
+			for _, want := range tt.want {
+				assert.Contains(t, explained, want)
+			}
+
+			plain, plainErr := run()
+			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
+			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
+			assert.Equal(t, plainErr == nil, explainedErr == nil, "--explain must not change whether the command succeeds")
+		})
+	}
+}
