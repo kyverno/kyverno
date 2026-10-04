@@ -41,14 +41,18 @@ spec:
         + object.spec.?ephemeralContainers.orValue([])
 
   validations:
+    # Windows pods are exempt from both checks: the Pod API rejects seccompProfile
+    # when spec.os.name is windows, so PSA admits them with the field unset.
     - expression: >-
+        object.spec.?os.?name.orValue('') == 'windows' ||
         !object.spec.?securityContext.?seccompProfile.?type.hasValue() ||
         object.spec.securityContext.seccompProfile.type in ['RuntimeDefault', 'Localhost']
       message: >-
         The field spec.securityContext.seccompProfile.type must be unset or
-        set to `RuntimeDefault` or `Localhost`.
+        set to `RuntimeDefault` or `Localhost`. Windows Pods are exempt.
 
     - expression: >-
+        object.spec.?os.?name.orValue('') == 'windows' ||
         variables.allContainers.all(c,
           c.?securityContext.?seccompProfile.?type.orValue('') in ['RuntimeDefault', 'Localhost'] ||
           (!c.?securityContext.?seccompProfile.?type.hasValue() &&
@@ -56,7 +60,7 @@ spec:
       message: >-
         Containers must set securityContext.seccompProfile.type to `RuntimeDefault`
         or `Localhost`, or inherit a valid pod-level
-        spec.securityContext.seccompProfile.type.
+        spec.securityContext.seccompProfile.type. Windows Pods are exempt.
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
