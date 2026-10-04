@@ -83,7 +83,7 @@ func TestCheckResourceDescription_EmptyConditionBlock(t *testing.T) {
 	resource := unstructured.Unstructured{}
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "")
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
 	assert.True(t, result, "empty condition block should match")
 }
 
@@ -94,7 +94,7 @@ func TestCheckResourceDescription_MatchingKind(t *testing.T) {
 	resource := unstructured.Unstructured{}
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "")
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
 	assert.True(t, result, "should match when kind matches")
 }
 
@@ -105,7 +105,7 @@ func TestCheckResourceDescription_NonMatchingKind(t *testing.T) {
 	resource := unstructured.Unstructured{}
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "")
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
 	assert.False(t, result, "should not match when kind differs")
 }
 
@@ -117,7 +117,7 @@ func TestCheckResourceDescription_MatchingName(t *testing.T) {
 	resource.SetName("test-pod")
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "")
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
 	assert.True(t, result, "should match when name matches wildcard")
 }
 
@@ -129,7 +129,7 @@ func TestCheckResourceDescription_NonMatchingName(t *testing.T) {
 	resource.SetName("prod-pod")
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "")
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
 	assert.False(t, result, "should not match when name doesn't match wildcard")
 }
 
@@ -141,7 +141,7 @@ func TestCheckResourceDescription_MatchingNamespace(t *testing.T) {
 	resource.SetNamespace("default")
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "")
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
 	assert.True(t, result, "should match when namespace is in list")
 }
 
@@ -153,7 +153,7 @@ func TestCheckResourceDescription_NonMatchingNamespace(t *testing.T) {
 	resource.SetNamespace("default")
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 
-	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "")
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
 	assert.False(t, result, "should not match when namespace is not in list")
 }
 
@@ -163,7 +163,7 @@ func TestCheckResourceFilter_EmptyStatement(t *testing.T) {
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	admissionInfo := kyvernov2.RequestInfo{}
 
-	result := checkResourceFilter(statement, resource, nil, admissionInfo, gvk, "")
+	result := checkResourceFilter(statement, resource, nil, admissionInfo, gvk, "", kyvernov1.Create)
 	assert.False(t, result, "empty statement should not match")
 }
 
@@ -173,7 +173,7 @@ func TestCheckMatchesResources_EmptyStatement(t *testing.T) {
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	admissionInfo := kyvernov2.RequestInfo{}
 
-	result := checkMatchesResources(resource, statement, nil, admissionInfo, gvk, "")
+	result := checkMatchesResources(resource, statement, nil, admissionInfo, gvk, "", kyvernov1.Create)
 	assert.False(t, result, "empty match statement should not match")
 }
 
@@ -191,7 +191,7 @@ func TestCheckMatchesResources_AnyMatches(t *testing.T) {
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	admissionInfo := kyvernov2.RequestInfo{}
 
-	result := checkMatchesResources(resource, statement, nil, admissionInfo, gvk, "")
+	result := checkMatchesResources(resource, statement, nil, admissionInfo, gvk, "", kyvernov1.Create)
 	assert.True(t, result, "should match when any filter matches")
 }
 
@@ -209,7 +209,7 @@ func TestCheckMatchesResources_AllMatchesFail(t *testing.T) {
 	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
 	admissionInfo := kyvernov2.RequestInfo{}
 
-	result := checkMatchesResources(resource, statement, nil, admissionInfo, gvk, "")
+	result := checkMatchesResources(resource, statement, nil, admissionInfo, gvk, "", kyvernov1.Create)
 	assert.False(t, result, "should not match when all filter doesn't match")
 }
 
@@ -307,6 +307,35 @@ func polexMatchingNamespaceSelector(matchLabels map[string]string) *kyvernov2.Po
 	}
 }
 
+func polexMatchingOperations(operations ...kyvernov1.AdmissionOperation) *kyvernov2.PolicyException {
+	return &kyvernov2.PolicyException{
+		Spec: kyvernov2.PolicyExceptionSpec{
+			Exceptions: []kyvernov2.Exception{
+				{PolicyName: "disallow-capabilities", RuleNames: []string{"*"}},
+			},
+			Match: kyvernov2beta1.MatchResources{
+				Any: kyvernov1.ResourceFilters{
+					{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Namespaces: []string{"default"},
+							Operations: operations,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newExceptionTestPolicyContextForOperation(t *testing.T, resource unstructured.Unstructured, operation kyvernov1.AdmissionOperation) engineapi.PolicyContext {
+	t.Helper()
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+	pc, err := policycontext.NewPolicyContext(jp, resource, operation, nil, cfg)
+	assert.NoError(t, err)
+	return pc.WithNewResource(resource)
+}
+
 func TestMatchesException_NoNamespaceSelector_SkipsNamespaceGet(t *testing.T) {
 	client := &countingClient{}
 	polexs := []*kyvernov2.PolicyException{polexMatchingNamespaces("kube-system")}
@@ -357,4 +386,81 @@ func TestMatchesException_ClusterScopedResource_SkipsNamespaceGet(t *testing.T) 
 	matched := MatchesException(client, polexs, newExceptionTestPolicyContext(t, resource), true, logr.Discard())
 	assert.Empty(t, matched)
 	assert.Equal(t, 0, client.getNamespaceCalls, "cluster-scoped resources have no namespace to fetch")
+}
+
+func TestCheckResourceDescription_MatchingOperation(t *testing.T) {
+	conditionBlock := kyvernov1.ResourceDescription{
+		Operations: []kyvernov1.AdmissionOperation{kyvernov1.Create},
+	}
+	resource := unstructured.Unstructured{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Create)
+	assert.True(t, result, "should match when the operation is listed")
+}
+
+func TestCheckResourceDescription_NonMatchingOperation(t *testing.T) {
+	conditionBlock := kyvernov1.ResourceDescription{
+		Operations: []kyvernov1.AdmissionOperation{kyvernov1.Create},
+	}
+	resource := unstructured.Unstructured{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+
+	result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", kyvernov1.Delete)
+	assert.False(t, result, "should not match when the operation is not listed")
+}
+
+func TestCheckResourceDescription_EmptyOperationsMatchesAny(t *testing.T) {
+	conditionBlock := kyvernov1.ResourceDescription{
+		Kinds: []string{"Pod"},
+	}
+	resource := unstructured.Unstructured{}
+	gvk := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}
+
+	for _, op := range []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect} {
+		result := checkResourceDescription(conditionBlock, resource, nil, gvk, "", op)
+		assert.True(t, result, "an unset operations list must not restrict the match")
+	}
+}
+
+// A PolicyException that scopes itself to a set of operations must only apply to
+// those operations. Before this was honoured, an exception limited to CREATE also
+// exempted UPDATE and DELETE, silently widening the exception.
+func TestMatchesException_OperationsAreHonoured(t *testing.T) {
+	client := &countingClient{}
+	polexs := []*kyvernov2.PolicyException{polexMatchingOperations(kyvernov1.Create)}
+	resource := newPodResource("test-pod", "default")
+
+	matched := MatchesException(client, polexs, newExceptionTestPolicyContextForOperation(t, resource, kyvernov1.Create), true, logr.Discard())
+	assert.Len(t, matched, 1, "CREATE must match an exception scoped to CREATE")
+
+	for _, op := range []kyvernov1.AdmissionOperation{kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect} {
+		matched = MatchesException(client, polexs, newExceptionTestPolicyContextForOperation(t, resource, op), true, logr.Discard())
+		assert.Empty(t, matched, "%s must not match an exception scoped to CREATE", op)
+	}
+}
+
+func TestMatchesException_MultipleOperations(t *testing.T) {
+	client := &countingClient{}
+	polexs := []*kyvernov2.PolicyException{polexMatchingOperations(kyvernov1.Create, kyvernov1.Update)}
+	resource := newPodResource("test-pod", "default")
+
+	for _, op := range []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update} {
+		matched := MatchesException(client, polexs, newExceptionTestPolicyContextForOperation(t, resource, op), true, logr.Discard())
+		assert.Len(t, matched, 1, "%s must match an exception scoped to CREATE and UPDATE", op)
+	}
+
+	matched := MatchesException(client, polexs, newExceptionTestPolicyContextForOperation(t, resource, kyvernov1.Delete), true, logr.Discard())
+	assert.Empty(t, matched, "DELETE must not match an exception scoped to CREATE and UPDATE")
+}
+
+func TestMatchesException_NoOperationsAppliesToAll(t *testing.T) {
+	client := &countingClient{}
+	polexs := []*kyvernov2.PolicyException{polexMatchingNamespaces("default")}
+	resource := newPodResource("test-pod", "default")
+
+	for _, op := range []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect} {
+		matched := MatchesException(client, polexs, newExceptionTestPolicyContextForOperation(t, resource, op), true, logr.Discard())
+		assert.Len(t, matched, 1, "an exception without operations must still apply to %s", op)
+	}
 }
