@@ -75,7 +75,7 @@ func TestNewProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			prov, err := NewProvider(compiler.NewCompiler(false), tt.pols, tt.exceptions, libs.NewFakeContextProvider())
+			prov, err := NewProvider(compiler.NewCompiler(), tt.pols, tt.exceptions, libs.NewFakeContextProvider())
 			if tt.expectErr {
 				assert.Error(t, err)
 				assert.Nil(t, prov)
@@ -187,7 +187,7 @@ func TestStaticProviderMatchesMutateExisting_BuildsRequestMapAtMostOnce(t *testi
 	trueBool := true
 	const n = 5
 
-	comp := compiler.NewCompiler(false)
+	comp := compiler.NewCompiler()
 	policies := make([]Policy, 0, n)
 	for i := 0; i < n; i++ {
 		mpol := &policiesv1beta1.MutatingPolicy{

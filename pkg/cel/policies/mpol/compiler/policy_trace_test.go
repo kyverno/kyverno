@@ -107,7 +107,7 @@ func buildMutationTracePolicy(mutations ...admissionregistrationv1alpha1.Mutatio
 
 func compileMutAndEvaluate(t *testing.T, traced bool, policy *policiesv1beta1.MutatingPolicy, obj *unstructured.Unstructured) *EvaluationResult {
 	t.Helper()
-	p, errs := NewCompiler(traced).Compile(policy, nil)
+	p, errs := NewCompilerWithTrace(traced).Compile(policy, nil)
 	require.Empty(t, errs)
 	return p.Evaluate(context.Background(), &mutTraceAttrs{obj: obj}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
 }
@@ -249,6 +249,59 @@ func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
 				require.NotNil(t, on.PatchedResource)
 				assert.Equal(t, off.PatchedResource.Object, on.PatchedResource.Object)
 			}
+		})
+	}
+}
+
+// TestEvaluate_TracingKeepsTheCostLimit: in cel-go v0.31 a program that tracks state does not
+// enforce the per-call cost limit, so the outcome must come from the normal program and the
+// tracking twin is only re-run to explain. An expression over the limit is an error with tracing
+// off, and must stay the same error with it on, wherever it appears in the policy.
+func TestEvaluate_TracingKeepsTheCostLimit(t *testing.T) {
+	const items = "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]"
+	costly := items + ".all(a, " + items + ".all(b, " + items + ".all(c, " + items + ".all(d, " + items + ".all(e, a+b+c+d+e > 0)))))"
+	tests := map[string]func(p *policiesv1beta1.MutatingPolicy){
+		"in an applyConfiguration mutation": func(p *policiesv1beta1.MutatingPolicy) {
+			p.Spec.Mutations = []admissionregistrationv1alpha1.Mutation{applyConfigMutation(
+				`Object{metadata: Object.metadata{labels: {"checked": ` + costly + ` ? "yes" : "no"}}}`,
+			)}
+		},
+		"in a jsonPatch mutation": func(p *policiesv1beta1.MutatingPolicy) {
+			p.Spec.Mutations = []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+				JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+					Expression: `[JSONPatch{op: "add", path: "/metadata/labels", value: {"checked": ` + costly + ` ? "yes" : "no"}}]`,
+				},
+			}}
+		},
+		"in a variable": func(p *policiesv1beta1.MutatingPolicy) {
+			p.Spec.Variables = []admissionregistrationv1.Variable{{Name: "teamLabel", Expression: costly + ` ? "platform" : "other"`}}
+			p.Spec.Mutations = []admissionregistrationv1alpha1.Mutation{applyConfigMutation(addTeamLabelExpr)}
+		},
+		"in a match condition": func(p *policiesv1beta1.MutatingPolicy) {
+			p.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "expensive", Expression: costly}}
+			p.Spec.Mutations = []admissionregistrationv1alpha1.Mutation{applyConfigMutation(addTeamLabelExpr)}
+		},
+	}
+	for name, configure := range tests {
+		t.Run(name, func(t *testing.T) {
+			policy := buildMutationTracePolicy()
+			configure(policy)
+
+			untraced := compileMutAndEvaluate(t, false, policy, podObject("prod", nil))
+			traced := compileMutAndEvaluate(t, true, policy, podObject("prod", nil))
+			require.NotNil(t, untraced)
+			require.NotNil(t, traced)
+
+			require.Error(t, untraced.Error, "the cost limit must stop the expression")
+			require.Error(t, traced.Error, "tracing must not lift the cost limit")
+			assert.Equal(t, untraced.Error.Error(), traced.Error.Error())
+			assert.Contains(t, traced.Error.Error(), "cost limit exceeded")
+			assert.Nil(t, traced.PatchedResource, "nothing may be patched once the limit is hit")
+
+			require.NotNil(t, traced.Trace)
+			assert.Equal(t, trace.VerdictError, traced.Trace.Verdict.Status)
+			assert.Contains(t, traced.Trace.Verdict.Message, "cost limit exceeded")
 		})
 	}
 }

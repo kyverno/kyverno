@@ -377,8 +377,8 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		}
 		if tracing {
 			// evaluate() does not populate Trace for a full exemption (there is nothing to
-			// trace: the policy never ran), same gap as vpol's equivalent case.
-			ruleResponse.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "exempted by a policy exception"}}
+			// trace: the policy never ran), so the verdict follows the rule reported above
+			ruleResponse.Trace = &trace.Decision{Scope: scope, Verdict: exceptionVerdict(ruleResponse.Rules)}
 		}
 	} else {
 		// Surface evaluated audit annotations as report result properties on successful evaluation.
@@ -389,6 +389,24 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		}
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+// exceptionVerdict mirrors the rule reported for an exempted resource: the selected exception's
+// reportResult decides between pass and skip, and the rule's message names the exceptions.
+// Mirrors vpol's exceptionVerdict (pkg/cel/policies/vpol/engine/engine.go).
+func exceptionVerdict(rules []engineapi.RuleResponse) trace.VerdictTrace {
+	verdict := trace.VerdictTrace{Status: trace.VerdictSkip, Message: "exempted by a policy exception"}
+	if len(rules) == 0 {
+		return verdict
+	}
+	rule := rules[len(rules)-1]
+	if rule.Status() == engineapi.RuleStatusPass {
+		verdict.Status = trace.VerdictPass
+	}
+	if message := rule.Message(); message != "" {
+		verdict.Message = message
+	}
+	return verdict
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
