@@ -92,7 +92,101 @@ func Test_validateForEach_ListEvalError_ReturnsError(t *testing.T) {
 	assert.Equal(t, api.RuleStatusError, resp.Status(), "status should be Error when list evaluation fails")
 }
 
+func Test_buildErrorMessage_NonStringMessage(t *testing.T) {
+	// Regression test: when validate.message is written as a single, whole
+	// variable reference (e.g. "{{ request.object.spec.priority }}"),
+	// SubstituteAll returns the resolved value with its native JMESPath
+	// type instead of coercing it to string. If that type isn't a string
+	// (a JSON number here), buildErrorMessage used to do msgRaw.(string)
+	// unchecked and panic.
+	mockCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return nil
+	}
+
+	policyContext := buildContext(t, kyvernov1.Create, validateNonStringMessagePatternPolicy, podWithPriority, "")
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+
+	ctx := context.TODO()
+	var resp *api.RuleResponse
+	assert.NotPanics(t, func() {
+		resp = v.validate(ctx)
+	})
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusFail, resp.Status())
+}
+
+func Test_buildAnyPatternErrorMessage_NonStringMessage(t *testing.T) {
+	mockCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return nil
+	}
+
+	policyContext := buildContext(t, kyvernov1.Create, validateNonStringMessageAnyPatternPolicy, podWithPriority, "")
+	rule := policyContext.Policy().GetSpec().Rules[0]
+	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+
+	ctx := context.TODO()
+	var resp *api.RuleResponse
+	assert.NotPanics(t, func() {
+		resp = v.validate(ctx)
+	})
+	assert.NotNil(t, resp)
+	assert.Equal(t, api.RuleStatusFail, resp.Status())
+}
+
 var (
+	validateNonStringMessagePatternPolicy = `{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test-nonstring-message-pattern"},
+		"spec": {
+			"background": false,
+			"rules": [{
+				"name": "require-team-label",
+				"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+				"validate": {
+					"failureAction": "Enforce",
+					"message": "{{ request.object.spec.priority }}",
+					"pattern": {"metadata": {"labels": {"team": "?*"}}}
+				}
+			}]
+		}
+	}`
+
+	validateNonStringMessageAnyPatternPolicy = `{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test-nonstring-message-anypattern"},
+		"spec": {
+			"background": false,
+			"rules": [{
+				"name": "require-team-or-owner-label",
+				"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+				"validate": {
+					"failureAction": "Enforce",
+					"message": "{{ request.object.spec.priority }}",
+					"anyPattern": [
+						{"metadata": {"labels": {"team": "?*"}}},
+						{"metadata": {"labels": {"owner": "?*"}}}
+					]
+				}
+			}]
+		}
+	}`
+
+	podWithPriority = `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test",
+			"labels": {}
+		},
+		"spec": {
+			"priority": 5,
+			"containers": [{"name": "test", "image": "ghcr.io/test-webserver"}]
+		}
+	}`
+
 	validateDenyPolicy = `{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
