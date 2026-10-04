@@ -317,29 +317,13 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 		return nil, err
 	}
 
-	layerSize, err := layer.Size()
+	predicateBytes, err := verifiers.ReadLayerLimited(layer, maxPayloadSize)
 	if err != nil {
-		return nil, err
-	}
-
-	if layerSize > maxPayloadSize {
-		return nil, fmt.Errorf("layer size %d exceeds %d for digest %s", layerSize, maxPayloadSize, digest)
-	}
-
-	ioPredicate, err := layer.Uncompressed()
-	if err != nil {
-		return nil, err
-	}
-	defer ioPredicate.Close()
-
-	predicateBytes := new(bytes.Buffer)
-	_, err = predicateBytes.ReadFrom(ioPredicate)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read predicate for digest %s: %w", digest, err)
 	}
 
 	predicate := make(map[string]interface{})
-	if err := json.Unmarshal(predicateBytes.Bytes(), &predicate); err != nil {
+	if err := json.Unmarshal(predicateBytes, &predicate); err != nil {
 		return nil, err
 	}
 

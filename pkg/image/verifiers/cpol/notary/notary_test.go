@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
+	godigest "github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"gotest.tools/v3/assert"
 )
 
@@ -66,4 +69,58 @@ func TestNotaryImageVerification(t *testing.T) {
 	verifier := &notaryVerifier{}
 	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
+}
+
+func TestExtractStatementRejectsOversizedPredicate(t *testing.T) {
+	repo := newTestRegistry(t)
+	restore := maxPayloadSize
+	maxPayloadSize = 1 << 10
+	t.Cleanup(func() { maxPayloadSize = restore })
+
+	data := gzipBytes(t, int(maxPayloadSize)+1)
+	layerDigest, layerSize := pushBlob(t, repo, data, "application/vnd.in-toto+json")
+	manifest := ocispec.Manifest{
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    ocispec.Descriptor{MediaType: ocispec.MediaTypeEmptyJSON},
+		Layers: []ocispec.Descriptor{
+			{MediaType: "application/vnd.in-toto+json", Digest: godigest.Digest(layerDigest.DigestStr()), Size: layerSize},
+		},
+	}
+	manifestRef := pushManifest(t, repo, manifest)
+
+	repoRef, err := name.ParseReference(repo.Name())
+	assert.NilError(t, err)
+	h, err := v1.NewHash(manifestRef.DigestStr())
+	assert.NilError(t, err)
+
+	_, err = extractStatement(ctx, repoRef, v1.Descriptor{Digest: h}, nil, nil)
+	assert.ErrorContains(t, err, "exceeds")
+}
+
+// TestExtractStatementRoundTripsValidPredicate is a sanity control: a small predicate under
+// the limit must still verify, proving the harness above fails for the right reason.
+func TestExtractStatementRoundTripsValidPredicate(t *testing.T) {
+	repo := newTestRegistry(t)
+	predicate := []byte(`{"hello":"world"}`)
+	layerDigest, layerSize := pushBlob(t, repo, predicate, "application/vnd.in-toto+json")
+	manifest := ocispec.Manifest{
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    ocispec.Descriptor{MediaType: ocispec.MediaTypeEmptyJSON},
+		Layers: []ocispec.Descriptor{
+			{MediaType: "application/vnd.in-toto+json", Digest: godigest.Digest(layerDigest.DigestStr()), Size: layerSize},
+		},
+	}
+	manifestRef := pushManifest(t, repo, manifest)
+
+	repoRef, err := name.ParseReference(repo.Name())
+	assert.NilError(t, err)
+	h, err := v1.NewHash(manifestRef.DigestStr())
+	assert.NilError(t, err)
+
+	data, err := extractStatement(ctx, repoRef, v1.Descriptor{Digest: h, ArtifactType: "test"}, nil, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, data["type"], "test")
+	predicateMap, ok := data["predicate"].(map[string]interface{})
+	assert.Assert(t, ok)
+	assert.Equal(t, predicateMap["hello"], "world")
 }

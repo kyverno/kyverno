@@ -1,7 +1,6 @@
 package notary
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,6 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	"github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -84,6 +84,9 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
 		return nil, ocispec.Descriptor{}, err
 	}
+	if len(manifest.Layers) == 0 {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("no signature blob found in manifest %s", desc.Digest)
+	}
 	manifestDesc := manifest.Layers[0]
 
 	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
@@ -102,27 +105,11 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 
-	signatureBlobLayerSize, err := signatureBlobLayer.Size()
+	sigBlob, err := verifiers.ReadLayerLimited(signatureBlobLayer, maxPayloadSize)
 	if err != nil {
-		return nil, ocispec.Descriptor{}, err
+		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to read signature blob for digest %s: %w", digest, err)
 	}
-
-	if signatureBlobLayerSize > maxPayloadSize {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("layer size %d exceeds %d for digest %s", signatureBlobLayerSize, maxPayloadSize, digest)
-	}
-
-	io, err := signatureBlobLayer.Uncompressed()
-	if err != nil {
-		return nil, ocispec.Descriptor{}, err
-	}
-	defer io.Close()
-	SigBlobBuf := new(bytes.Buffer)
-
-	_, err = SigBlobBuf.ReadFrom(io)
-	if err != nil {
-		return nil, ocispec.Descriptor{}, err
-	}
-	return SigBlobBuf.Bytes(), manifestDesc, nil
+	return sigBlob, manifestDesc, nil
 }
 
 func (c *repositoryClient) PushSignature(ctx context.Context, mediaType string, blob []byte, subject ocispec.Descriptor, annotations map[string]string) (blobDesc, manifestDesc ocispec.Descriptor, err error) {
