@@ -83,7 +83,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | podSecurityUserNamespaces | bool | `false` | Enable the Kubernetes Pod Security Admission relaxation for user namespace pods for ValidatingPolicy templates only. When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed. This setting has no effect on legacy `ClusterPolicy` templates. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
-| customPolicies | list | `[]` | Additional custom policies to include. |
+| customPolicies | list | `[]` | Additional custom policies to include. Can be a list or a map (useful for Helm/ArgoCD value merging). |
 | failurePolicy | string | `"Fail"` | API server behavior if the webhook fails to respond ('Ignore', 'Fail') For more info: https://kyverno.io/docs/policy-types/cluster-policy/policy-settings/ |
 | validationFailureAction | string | `"Audit"` | Validation failure action (`Audit`, `Enforce`). For more info https://kyverno.io/docs/policy-types/cluster-policy/validate. |
 | validationFailureActionByPolicy | object | `{}` | Define validationFailureActionByPolicy for specific policies. Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies. |
