@@ -152,7 +152,7 @@ func TestConvertPodToTemplateExpression(t *testing.T) {
   }
 }`,
 			expected: `Object{spec: Object.spec{template: Object.spec.template{
-  metadata: Object.metadata{
+  metadata: Object.spec.template.metadata{
     labels: Object.spec.template.metadata.labels{
       foo: "bar"
     }
@@ -621,10 +621,28 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 			expected: "",
 		},
 		{
+			name:     "object metadata access is not rewritten",
+			config:   "deployments",
+			input:    `object.metadata.namespace`,
+			expected: `object.metadata.namespace`,
+		},
+		{
+			name:     "oldObject metadata access is not rewritten",
+			config:   "deployments",
+			input:    `oldObject.metadata.namespace`,
+			expected: `oldObject.metadata.namespace`,
+		},
+		{
 			name:     "expression without containers",
 			config:   "deployments",
 			input:    "Object{metadata: Object.metadata{labels: Object.metadata.labels{foo: 'bar'}}}",
-			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.metadata{labels: Object.spec.template.metadata.labels{foo: 'bar'}}}}}",
+			expected: "Object{spec: Object.spec{template: Object.spec.template{metadata: Object.spec.template.metadata{labels: Object.spec.template.metadata.labels{foo: 'bar'}}}}}",
+		},
+		{
+			name:     "Object metadata type is rewritten for cronjobs",
+			config:   "cronjobs",
+			input:    `Object{metadata: Object.metadata{labels: Object.metadata.labels{foo: 'bar'}}}`,
+			expected: `Object{spec: Object.spec{jobTemplate: Object.spec.jobTemplate{spec: Object.spec.jobTemplate.spec{template: Object.spec.jobTemplate.spec.template{metadata: Object.spec.jobTemplate.spec.template.metadata{labels: Object.spec.jobTemplate.spec.template.metadata.labels{foo: 'bar'}}}}}}}`,
 		},
 		{
 			name:   "whitespace between Object and brace",
