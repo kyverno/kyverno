@@ -113,6 +113,16 @@ func Test_Add(t *testing.T) {
 			test:           "add('12Ki', '1m')",
 			expectedResult: `12288001m`,
 		},
+		{
+			name:           "Quantity ('m') + Quantity ('Ki') -> Quantity",
+			test:           "add('1m', '13Ki')",
+			expectedResult: `13312001m`,
+		},
+		{
+			name: "Quantity ('m') + Scalar -> error",
+			test: "add('1m', `13`)",
+			err:  true,
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -268,6 +278,21 @@ func Test_Sum(t *testing.T) {
 			name:           "sum(Quantity['1m', '2m', '3m']) -> Quantity",
 			test:           "sum(['1m', '2m', '3m'])",
 			expectedResult: `6m`,
+		},
+		{
+			name: "sum(Quantity, Duration mismatch) -> error",
+			test: "sum(['12Ki', '1m', '1s'])",
+			err:  true,
+		},
+		{
+			name: "sum(Duration, Quantity mismatch) -> error",
+			test: "sum(['1m', '1s', '13Ki'])",
+			err:  true,
+		},
+		{
+			name:           "sum(Duration['500m', '500m', '10s']) -> Duration (whole-array context)",
+			test:           "sum(['500m', '500m', '10s'])",
+			expectedResult: `16h40m10s`,
 		},
 		{
 			name: "sum(Duration[Duration, Scalar, ..]) -> error",
@@ -1051,6 +1076,16 @@ func TestParseArithemticOperands(t *testing.T) {
 		},
 		want:  quantity{Quantity: resource.MustParse("12Ki")},
 		want1: duration{Duration: 13 * time.Second},
+	}, {
+		name: "Ambiguous ('1m') + Invalid ('abc') -> error",
+		args: args{
+			arguments: []interface{}{
+				"1m",
+				"abc",
+			},
+			operator: add,
+		},
+		wantErr: true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -91,6 +91,88 @@ func parseArithemticOperands(arguments []interface{}, operator string) (operand,
 	return resolveOperand(c1, durationContext), resolveOperand(c2, durationContext), nil
 }
 
+func executeSum(arguments []any) (any, error) {
+	items, ok := arguments[0].([]any)
+	if !ok {
+		return nil, formatError(typeMismatchError, sum)
+	}
+	if len(items) == 0 {
+		return nil, formatError(genericError, sum, "at least one element in the array is required")
+	}
+	if len(items) == 1 {
+		return items[0], nil
+	}
+
+	candidates := make([]candidate, len(items))
+	for i := range items {
+		c, err := parseCandidate(items, i, sum)
+		if err != nil {
+			return nil, err
+		}
+		candidates[i] = c
+	}
+
+	hasUnambiguousDuration := false
+	hasUnambiguousQuantity := false
+	hasScalar := false
+
+	for _, c := range candidates {
+		if c.isScalar {
+			hasScalar = true
+		} else if c.hasDuration && !c.hasQuantity {
+			hasUnambiguousDuration = true
+		} else if c.hasQuantity && !c.hasDuration {
+			hasUnambiguousQuantity = true
+		}
+	}
+
+	if (hasUnambiguousDuration && hasUnambiguousQuantity) ||
+		(hasScalar && (hasUnambiguousDuration || hasUnambiguousQuantity)) {
+		return nil, formatError(typeMismatchError, sum)
+	}
+
+	durationContext := hasUnambiguousDuration
+	operands := make([]operand, len(candidates))
+	for i, c := range candidates {
+		operands[i] = resolveOperand(c, durationContext)
+	}
+
+	switch first := operands[0].(type) {
+	case scalar:
+		total := first.float64
+		for _, op := range operands[1:] {
+			s, ok := op.(scalar)
+			if !ok {
+				return nil, formatError(typeMismatchError, sum)
+			}
+			total += s.float64
+		}
+		return total, nil
+	case duration:
+		total := first.Duration
+		for _, op := range operands[1:] {
+			d, ok := op.(duration)
+			if !ok {
+				return nil, formatError(typeMismatchError, sum)
+			}
+			total += d.Duration
+		}
+		return total.String(), nil
+	case quantity:
+		total := first.Quantity.DeepCopy()
+		for _, op := range operands[1:] {
+			q, ok := op.(quantity)
+			if !ok {
+				return nil, formatError(typeMismatchError, sum)
+			}
+			total.Add(q.Quantity)
+		}
+		return total.String(), nil
+	default:
+		return nil, formatError(typeMismatchError, sum)
+	}
+}
+
 // Quantity +|- Quantity          -> Quantity
 // Quantity +|- Duration|Scalar   -> error
 // Duration +|- Duration          -> Duration
