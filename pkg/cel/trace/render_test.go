@@ -211,3 +211,38 @@ func TestRender_ValidationsList(t *testing.T) {
 		assert.Contains(t, sb.String(), "VERDICT    PASS     a  ->  true")
 	})
 }
+
+func TestRender_Generations(t *testing.T) {
+	d := &Decision{
+		PolicyKind: "GeneratingPolicy",
+		Generations: []GenerationTrace{
+			{
+				Name:            "generate[0] (expression)",
+				ExpressionTrace: ExpressionTrace{Source: "generator.Apply(ns, [cm])", Result: "true"},
+				Generated:       []string{"ConfigMap prod/zk-kafka-address"},
+			},
+			{Name: "generate[1] (template)"},
+			{
+				Name:            "generate[2] (expression)",
+				ExpressionTrace: ExpressionTrace{Nodes: []NodeTrace{{Expression: "object.a", Error: "no such key: a"}}},
+				Error:           "no such key: a",
+			},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+	for _, want := range []string{
+		"GENERATE            generate[0] (expression): generator.Apply(ns, [cm])  ->  true",
+		"generated ConfigMap prod/zk-kafka-address",
+		"GENERATE            generate[1] (template)",
+		"generated nothing",
+		"GENERATE   ERROR    generate[2] (expression): no such key: a",
+		"object.a  ->  ERROR: no such key: a",
+		"VERDICT    PASS     completed; see GENERATE above for what ran",
+	} {
+		assert.Contains(t, out, want)
+	}
+	assert.NotContains(t, out, "no validations to evaluate")
+}

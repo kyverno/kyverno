@@ -661,7 +661,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		compiler := gpolcompiler.NewCompiler()
+		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
 			compiled, errs := compiler.Compile(pol, p.CELExceptions)
@@ -722,6 +722,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					return nil, err
 				}
 				for _, res := range engineResponse.Policies {
+					// before the no-result branch below, so a skipped policy's trace is printed too
+					if p.Explain && res.Trace != nil {
+						// the generate output of the previous resource ends without a newline
+						fmt.Fprintln(p.Out)
+						trace.Render(p.Out, res.Trace)
+						fmt.Fprintln(p.Out)
+					}
 					if res.Result == nil {
 						generateResponse := engineapi.EngineResponse{
 							Resource: *engineResponse.Trigger,

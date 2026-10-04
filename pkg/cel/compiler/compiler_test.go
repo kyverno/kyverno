@@ -803,3 +803,55 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		}
 	})
 }
+
+func TestCompileGenerationWithTrace(t *testing.T) {
+	env, err := NewBaseEnv()
+	assert.NoError(t, err)
+
+	t.Run("trace=false behaves exactly like CompileGeneration", func(t *testing.T) {
+		traced, errs := CompileGenerationWithTrace(nil, env, v1beta1.Generation{Expression: "true"}, false)
+		assert.Empty(t, errs)
+		assert.NotNil(t, traced.Program)
+		assert.Nil(t, traced.Traced, "no tracking twin when trace is off")
+		assert.Nil(t, traced.AST, "AST must not be retained when trace is off")
+
+		_, details, err := traced.Program.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Nil(t, details, "no EvalDetails when the program wasn't built with tracking on")
+	})
+
+	t.Run("trace=true keeps the deciding program untracked and adds a tracking twin", func(t *testing.T) {
+		traced, errs := CompileGenerationWithTrace(nil, env, v1beta1.Generation{Expression: "1 + 1 == 2"}, true)
+		assert.Empty(t, errs)
+		assert.NotNil(t, traced.AST, "AST must be retained when trace is on")
+
+		// the deciding program is built exactly as without tracing, so it keeps the cost limit
+		require.NotNil(t, traced.Program)
+		out, details, err := traced.Program.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, true, out.Value())
+		assert.Nil(t, details, "the deciding program must not track state")
+
+		// the twin records per-node state for the explanation
+		require.NotNil(t, traced.Traced)
+		out, details, err = traced.Traced.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, true, out.Value())
+		require.NotNil(t, details)
+		assert.NotNil(t, details.State(), "the tracking twin must record state")
+	})
+
+	t.Run("compile errors match CompileGeneration regardless of trace", func(t *testing.T) {
+		for _, expression := range []string{`"not a bool"`, `undefinedVar`} {
+			_, want := CompileGeneration(nil, env, v1beta1.Generation{Expression: expression})
+			assert.NotEmpty(t, want)
+			for _, trace := range []bool{false, true} {
+				traced, errs := CompileGenerationWithTrace(nil, env, v1beta1.Generation{Expression: expression}, trace)
+				assert.Equal(t, want, errs, "trace=%v", trace)
+				assert.Nil(t, traced.Program)
+				assert.Nil(t, traced.Traced)
+				assert.Nil(t, traced.AST)
+			}
+		}
+	})
+}

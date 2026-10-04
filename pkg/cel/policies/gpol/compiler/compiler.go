@@ -41,10 +41,19 @@ type Compiler interface {
 }
 
 func NewCompiler() Compiler {
-	return &compilerImpl{}
+	return NewCompilerWithTrace(false)
 }
 
-type compilerImpl struct{}
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on: when trace is
+// true, match conditions, variables and generate expressions are compiled with state tracking and
+// keep their ASTs, so each evaluation can record what every expression resolved to. It is a
+// separate constructor rather than a parameter on NewCompiler so the existing callers
+// (controllers, CLI, tests) are untouched and stay untraced.
+func NewCompilerWithTrace(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
+}
+
+type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.EnvOptionsForVersion(
@@ -167,16 +176,18 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 	spec := policy.GetSpec()
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -193,13 +204,13 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				generations = append(generations, Generation{template: tpl})
+				generations = append(generations, Generation{template: tpl, name: fmt.Sprintf("generate[%d] (template)", i)})
 			case generation.Expression != "":
-				program, errs := compiler.CompileGeneration(entryPath, env, generation)
+				traced, errs := compiler.CompileGenerationWithTrace(entryPath, env, generation, c.trace)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				generations = append(generations, Generation{expression: program})
+				generations = append(generations, Generation{expression: traced.Program, traced: traced.Traced, ast: traced.AST, name: fmt.Sprintf("generate[%d] (expression)", i)})
 			default:
 				return nil, append(allErrs, field.Required(entryPath, "one of expression or template must be set"))
 			}
@@ -229,5 +240,9 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 		auditAnnotations: auditAnnotations,
 		exceptions:       compiledExceptions,
 		matchConstraints: policy.GetSpec().MatchConstraints,
+
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
 	}, nil
 }

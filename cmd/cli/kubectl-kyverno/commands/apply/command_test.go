@@ -1540,6 +1540,30 @@ func Test_Apply_Explain(t *testing.T) {
 			JSONPaths:   []string{base + "test-validating-policy/json-check-dockerfile/payload.json"},
 		},
 		want: []string{"(ValidatingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		name: "generating policy with a generate expression",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/data/generate-cm/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/data/generate-cm/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (expression): generator.apply(variables.nsName, variables.configmap)  ->  true",
+			"generated ConfigMap test-ns/zk-kafka-address",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		name: "generating policy with a template",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/template/generate-cm-interpolated/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/template/generate-cm-interpolated/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (template)",
+			"generated ConfigMap test-ns/test-ns-config",
+			"VERDICT    PASS     generated 1 resource",
+		},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
