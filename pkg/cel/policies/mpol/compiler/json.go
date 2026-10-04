@@ -93,8 +93,8 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, *MutationEval, error) {
 	var err error
 
-	refVal, details, err := e.prog.ContextEval(ctx, evalData)
-	eval := &MutationEval{Result: refVal, Details: details}
+	refVal, _, err := e.prog.ContextEval(ctx, evalData)
+	eval := &MutationEval{Result: refVal}
 	if err != nil {
 		return nil, -1, eval, err
 	}

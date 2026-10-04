@@ -62,6 +62,8 @@ func TestHandle_Tracing(t *testing.T) {
 			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "always", Expression: "true"}},
 		},
 	}
+	exemptAllAsPass := exemptAll.DeepCopy()
+	exemptAllAsPass.Spec.ReportResult = "pass"
 	tests := []struct {
 		name         string
 		policy       *policiesv1beta1.MutatingPolicy
@@ -99,17 +101,26 @@ func TestHandle_Tracing(t *testing.T) {
 		wantApplied:  true,
 		wantMutation: true,
 	}, {
+		// the verdict follows the rule that is reported, which the exception's reportResult
+		// decides, and names the exception
 		name:        "exempted by a policy exception",
 		policy:      newPolicy("pods", nil, addLabel),
 		exceptions:  []*policiesv1beta1.PolicyException{exemptAll},
 		wantStatus:  trace.VerdictSkip,
 		wantApplied: true,
-		wantMessage: "exempted by a policy exception",
+		wantMessage: "rule is skipped due to policy exception: prod/exempt-all",
+	}, {
+		name:        "exempted by a policy exception with reportResult pass",
+		policy:      newPolicy("pods", nil, addLabel),
+		exceptions:  []*policiesv1beta1.PolicyException{exemptAllAsPass},
+		wantStatus:  trace.VerdictPass,
+		wantApplied: true,
+		wantMessage: "rule is passed due to policy exception: prod/exempt-all",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			handle := func(traced bool) EngineResponse {
-				provider, err := NewProvider(compiler.NewCompiler(traced), []policiesv1beta1.MutatingPolicyLike{tt.policy}, tt.exceptions, libs.NewFakeContextProvider())
+				provider, err := NewProvider(compiler.NewCompilerWithTrace(traced), []policiesv1beta1.MutatingPolicyLike{tt.policy}, tt.exceptions, libs.NewFakeContextProvider())
 				require.NoError(t, err)
 				eng := NewEngine(provider,
 					func(ns string) *corev1.Namespace { return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}} },
@@ -216,7 +227,7 @@ func TestEvaluate_MutateExistingScopeIsNotLabelledJSON(t *testing.T) {
 				},
 			}
 			evaluate := func(traced bool) EngineResponse {
-				provider, err := NewProvider(compiler.NewCompiler(traced), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
+				provider, err := NewProvider(compiler.NewCompilerWithTrace(traced), []policiesv1beta1.MutatingPolicyLike{mpol}, nil, libs.NewFakeContextProvider())
 				require.NoError(t, err)
 				target := &unstructured.Unstructured{Object: map[string]any{
 					"apiVersion": "v1", "kind": "ConfigMap", "metadata": map[string]any{"name": "target", "namespace": "default"},

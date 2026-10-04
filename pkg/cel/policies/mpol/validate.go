@@ -23,7 +23,7 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 		return warnings, err.ToAggregate()
 	}
 
-	c := mpolcompiler.NewCompiler(false)
+	c := mpolcompiler.NewCompiler()
 	_, errList := c.Compile(mpol, nil)
 	if len(errList) > 0 {
 		err = errList
