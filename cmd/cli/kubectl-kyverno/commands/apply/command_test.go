@@ -1596,6 +1596,9 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 		policy   string
 		resource string
 		want     []string
+		// wantErr is a command that fails outright: --explain must fail it the same way, and
+		// no trace is expected
+		wantErr bool
 	}{{
 		name:     "validating policy",
 		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
@@ -1611,6 +1614,11 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 		policy:   base + "test-deleting-policy/deleting-pod-by-name/policy.yaml",
 		resource: base + "test-deleting-policy/deleting-pod-by-name/resource.yaml",
 		want:     []string{"(DeletingPolicy)", "VERDICT    PASS     conditions held: the resource would be deleted"},
+	}, {
+		name:     "missing resource file",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/does-not-exist.yaml",
+		wantErr:  true,
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1625,6 +1633,13 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 			}
 
 			explained, explainedErr := run("--explain")
+			if tt.wantErr {
+				_, plainErr := run()
+				require.Error(t, plainErr)
+				require.Error(t, explainedErr, "--explain must not hide a command error")
+				assert.Equal(t, plainErr.Error(), explainedErr.Error())
+				return
+			}
 			for _, want := range tt.want {
 				assert.Contains(t, explained, want)
 			}
