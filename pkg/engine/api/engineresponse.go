@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	utils "github.com/kyverno/kyverno/pkg/utils/match"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"gomodules.xyz/jsonpatch/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )

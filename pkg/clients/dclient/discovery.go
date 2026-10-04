@@ -9,9 +9,9 @@ import (
 	"time"
 
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"

@@ -1,8 +1,8 @@
 package match
 
 import (
-	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 

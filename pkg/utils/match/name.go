@@ -1,7 +1,7 @@
 package match
 
 import (
-	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 func CheckName(expected, actual string) bool {

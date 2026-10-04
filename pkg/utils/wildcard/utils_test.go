@@ -192,7 +192,7 @@ func Test_MatchPatterns(t *testing.T) {
 	}
 }
 
-func Test_SeperateWildcards(t *testing.T) {
+func Test_SeparateWildcards(t *testing.T) {
 	testcases := []struct {
 		description string
 		inputList   []string
@@ -226,7 +226,7 @@ func Test_SeperateWildcards(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.description, func(t *testing.T) {
-			list1, list2 := SeperateWildcards(tc.inputList)
+			list1, list2 := SeparateWildcards(tc.inputList)
 			assert.Equal(t, tc.expList1, list1)
 			assert.Equal(t, tc.expList2, list2)
 		})
