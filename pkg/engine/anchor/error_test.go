@@ -1,7 +1,7 @@
 package anchor
 
 import (
-	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -161,9 +161,14 @@ func TestIsNegationAnchorError(t *testing.T) {
 		want: false,
 	}, {
 		args: args{
-			err: errors.New("negation anchor matched in resource: test"),
+			err: fmt.Errorf("wrapped: %w", newNegationAnchorError("test")),
 		},
 		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("plain error with negation anchor matched in resource text"),
+		},
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -204,9 +209,14 @@ func TestIsConditionalAnchorError(t *testing.T) {
 		want: false,
 	}, {
 		args: args{
-			err: errors.New("conditional anchor mismatch: test"),
+			err: fmt.Errorf("wrapped: %w", newConditionalAnchorError("test")),
 		},
 		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("plain error with conditional anchor mismatch text"),
+		},
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -247,9 +257,14 @@ func TestIsGlobalAnchorError(t *testing.T) {
 		want: false,
 	}, {
 		args: args{
-			err: errors.New("global anchor mismatch: test"),
+			err: fmt.Errorf("wrapped: %w", newGlobalAnchorError("test")),
 		},
 		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("plain error with global anchor mismatch text"),
+		},
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
