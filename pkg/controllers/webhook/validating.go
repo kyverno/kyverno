@@ -24,7 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
+func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort, defaultTimeout int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
@@ -151,9 +151,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			if p.GetMatchConstraints().MatchPolicy != nil && *p.GetMatchConstraints().MatchPolicy == admissionregistrationv1.Exact {
 				webhook.MatchPolicy = p.GetMatchConstraints().MatchPolicy
 			}
-			if p.GetTimeoutSeconds() != nil {
-				webhook.TimeoutSeconds = p.GetTimeoutSeconds()
-			}
+			webhook.TimeoutSeconds = ptr.To(policyWebhookTimeout(defaultTimeout, p))
 			if p.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()) == admissionregistrationv1.Ignore {
 				webhook.FailurePolicy = ptr.To(admissionregistrationv1.Ignore)
 				webhook.Name = generateName(name+"-ignore-finegrained", p)
@@ -196,6 +194,14 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 		slices.Sort(names)
 		dynamicPath := path.Join(names...)
+		// basic webhooks aggregate policies that do not set a per-policy timeout, so the
+		// admission controller's default timeout (the --webhookTimeout flag) applies
+		webhookTimeout := capTimeout(defaultTimeout)
+		for _, policy := range basic {
+			if timeout := policyWebhookTimeout(defaultTimeout, extractGenericPolicy(policy)); timeout > webhookTimeout {
+				webhookTimeout = timeout
+			}
+		}
 		webhookIgnore := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-ignore" + group.suffix,
 			ClientConfig:            newClientConfig(server, servicePort, caBundle, path.Join(queryPath, dynamicPath)),
@@ -204,6 +210,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			AdmissionReviewVersions: []string{"v1"},
 			NamespaceSelector:       group.namespaceSelector,
 			ObjectSelector:          group.objectSelector,
+			TimeoutSeconds:          &webhookTimeout,
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail" + group.suffix,
@@ -213,6 +220,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			AdmissionReviewVersions: []string{"v1"},
 			NamespaceSelector:       group.namespaceSelector,
 			ObjectSelector:          group.objectSelector,
+			TimeoutSeconds:          &webhookTimeout,
 		}
 
 		for _, policy := range basic {
@@ -315,6 +323,20 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 		}
 	}
 	return webhooks
+}
+
+// policyWebhookTimeout returns the timeout for a policy's webhook: the maximum of the
+// admission controller's default timeout (the --webhookTimeout flag) and the timeout
+// configured on the policy, capped at the maximum the API server accepts. This mirrors
+// the max-merge semantics used for ClusterPolicy webhooks (see mergeWebhook).
+func policyWebhookTimeout(defaultTimeout int32, p policiesv1beta1.GenericPolicy) int32 {
+	timeout := defaultTimeout
+	if p != nil {
+		if ts := p.GetTimeoutSeconds(); ts != nil && *ts > timeout {
+			timeout = *ts
+		}
+	}
+	return capTimeout(timeout)
 }
 
 // selectorGroup is a set of policies that resolve to the same namespace and object selectors and
