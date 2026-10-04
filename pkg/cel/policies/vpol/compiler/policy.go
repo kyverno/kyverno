@@ -229,13 +229,30 @@ func (p *Policy) evaluateWithData(
 		})
 	}
 	// verdict tracks the validation that decides the outcome: the one that failed or errored, or
-	// the last one evaluated when everything passes. It is only ever read when tracing is on.
+	// the last one evaluated when everything passes. validationTraces keeps every validation that
+	// ran, each with its own status. Both are only ever read when tracing is on.
 	verdict := trace.VerdictTrace{Status: trace.VerdictPass}
+	var validationTraces []trace.ValidationTrace
+	ran := func(index int, status string) {
+		if p.trace {
+			validationTraces = append(validationTraces, trace.ValidationTrace{Index: index, Status: status, ExpressionTrace: verdict.ExpressionTrace})
+		}
+	}
 	decision := func() *trace.Decision {
 		if !p.trace {
 			return nil
 		}
-		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Verdict: verdict}
+		// evaluation stops at the first validation that does not pass; the rest are listed so
+		// the reader sees them, but they are never evaluated just for the trace
+		validations := validationTraces
+		for i := len(validationTraces); i < len(p.validations); i++ {
+			validations = append(validations, trace.ValidationTrace{
+				Index:           i,
+				Status:          trace.VerdictNotRun,
+				ExpressionTrace: buildExpressionTrace(p.validations[i].AST, nil, nil, nil),
+			})
+		}
+		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Validations: validations, Verdict: verdict}
 	}
 	for index, validation := range p.validations {
 		out, _, err := validation.Program.ContextEval(ctx, dataNew)
@@ -247,10 +264,12 @@ func (p *Policy) evaluateWithData(
 			}
 		}
 		if err != nil {
+			ran(index, trace.VerdictError)
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
 			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
+			ran(index, trace.VerdictFail)
 			message := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
@@ -267,9 +286,11 @@ func (p *Policy) evaluateWithData(
 				Trace:            decision(),
 			}, nil
 		} else if err != nil {
+			ran(index, trace.VerdictError)
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
 			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
+		ran(index, trace.VerdictPass)
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 	if err != nil {

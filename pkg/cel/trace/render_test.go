@@ -146,3 +146,46 @@ func TestRender_LoopValuesOmittedNote(t *testing.T) {
 	Render(&sb, &Decision{Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: loop}})
 	assert.NotContains(t, sb.String(), note)
 }
+
+func TestRender_ValidationsList(t *testing.T) {
+	validation := func(index int, status, source, result string) ValidationTrace {
+		return ValidationTrace{Index: index, Status: status, ExpressionTrace: ExpressionTrace{Source: source, Result: result}}
+	}
+	t.Run("a pass lists every validation and says all passed", func(t *testing.T) {
+		var sb strings.Builder
+		Render(&sb, &Decision{
+			Validations: []ValidationTrace{validation(0, VerdictPass, "a", "true"), validation(1, VerdictPass, "b", "true")},
+			Verdict:     VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "b", Result: "true"}},
+		})
+		out := sb.String()
+		assert.Contains(t, out, "VALIDATION PASS     [0] a  ->  true")
+		assert.Contains(t, out, "VALIDATION PASS     [1] b  ->  true")
+		assert.Contains(t, out, "VERDICT    PASS     all 2 validations passed")
+		assert.NotContains(t, out, "VERDICT    PASS     b", "on a pass the last validation is not presented as the deciding one")
+	})
+	t.Run("a failure lists the rest as not run", func(t *testing.T) {
+		var sb strings.Builder
+		Render(&sb, &Decision{
+			Validations: []ValidationTrace{
+				validation(0, VerdictPass, "a", "true"),
+				validation(1, VerdictFail, "b", "false"),
+				validation(2, VerdictNotRun, "c", ""),
+			},
+			Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: ExpressionTrace{Source: "b", Result: "false"}, Message: "needs b"},
+		})
+		out := sb.String()
+		assert.Contains(t, out, "VALIDATION FAIL     [1] b  ->  false")
+		assert.Contains(t, out, "VALIDATION NOT RUN  [2] c  (an earlier validation did not pass)")
+		assert.Contains(t, out, "VERDICT    FAIL     b  ->  false")
+		assert.Contains(t, out, `message: "needs b"`)
+	})
+	t.Run("a single validation is not listed", func(t *testing.T) {
+		var sb strings.Builder
+		Render(&sb, &Decision{
+			Validations: []ValidationTrace{validation(0, VerdictPass, "a", "true")},
+			Verdict:     VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "a", Result: "true"}},
+		})
+		assert.NotContains(t, sb.String(), "VALIDATION")
+		assert.Contains(t, sb.String(), "VERDICT    PASS     a  ->  true")
+	})
+}

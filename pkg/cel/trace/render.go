@@ -11,7 +11,7 @@ import (
 // to a whole object (say, all containers) does not swamp the output.
 const maxValueLen = 100
 
-// Render writes d in the human-readable SCOPE / MATCH / VARIABLES / VERDICT form. A nil
+// Render writes d in the human-readable SCOPE / MATCH / VARIABLES / VALIDATION / VERDICT form. A nil
 // decision writes nothing, so callers can pass a result's Trace without checking it first.
 //
 // The default view is one line per expression: its source, an arrow, and what it resolved to.
@@ -43,9 +43,25 @@ func Render(w io.Writer, d *Decision) {
 	for _, v := range d.Variables {
 		row(w, "VARIABLES", "", named(v))
 	}
+	// with a single validation the list would only repeat the verdict line
+	listed := len(d.Validations) > 1
+	if listed {
+		for _, val := range d.Validations {
+			if val.Status == VerdictNotRun {
+				row(w, "VALIDATION", val.Status, fmt.Sprintf("[%d] %s  (an earlier validation did not pass)", val.Index, val.Source))
+				continue
+			}
+			row(w, "VALIDATION", val.Status, fmt.Sprintf("[%d] %s", val.Index, expressionLine(val.ExpressionTrace)))
+		}
+	}
 
 	v := d.Verdict
 	if v.Status == "" {
+		return
+	}
+	if listed && v.Status == VerdictPass {
+		// on a pass no single validation decided; the list above already shows each one
+		row(w, "VERDICT", v.Status, fmt.Sprintf("all %d validations passed", len(d.Validations)))
 		return
 	}
 	if v.Source != "" {

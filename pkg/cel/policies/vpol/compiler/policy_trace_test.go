@@ -217,6 +217,64 @@ func TestEvaluate_TracingOn_MatchConditionErrorKeepsMatchTraces(t *testing.T) {
 	assert.Empty(t, traced.Trace.Variables, "nothing past the match conditions runs")
 }
 
+// TestEvaluate_TracingOn_EveryValidationIsListed: each validation that ran is listed with its own
+// status, and the ones after a failure or error are listed as not run, without being evaluated.
+func TestEvaluate_TracingOn_EveryValidationIsListed(t *testing.T) {
+	type entry struct{ status, result string }
+	tests := []struct {
+		name        string
+		validations []admissionregistrationv1.Validation
+		object      map[string]any
+		verdict     string
+		want        []entry
+	}{{
+		name:        "all pass",
+		validations: threeValidations(),
+		object:      podObject("prod", map[string]any{"team": "a", "app": "b"}),
+		verdict:     trace.VerdictPass,
+		want:        []entry{{trace.VerdictPass, "true"}, {trace.VerdictPass, "true"}, {trace.VerdictPass, "true"}},
+	}, {
+		name:        "the second fails, the third is not run",
+		validations: threeValidations(),
+		object:      podObject("prod", map[string]any{"team": "a"}),
+		verdict:     trace.VerdictFail,
+		want:        []entry{{trace.VerdictPass, "true"}, {trace.VerdictFail, "false"}, {trace.VerdictNotRun, ""}},
+	}, {
+		name: "the first errors, the rest are not run",
+		validations: append([]admissionregistrationv1.Validation{
+			{Expression: "object.metadata.labels.owner == 'platform'", Message: "needs owner"},
+		}, threeValidations()[1:]...),
+		object:  podObject("prod", nil),
+		verdict: trace.VerdictError,
+		want:    []entry{{trace.VerdictError, ""}, {trace.VerdictNotRun, ""}, {trace.VerdictNotRun, ""}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := buildTracePolicy(tt.validations...)
+			result := compileAndEvaluate(t, true, policy, tt.object)
+			require.NotNil(t, result)
+			require.NotNil(t, result.Trace)
+			assert.Equal(t, tt.verdict, result.Trace.Verdict.Status)
+
+			require.Len(t, result.Trace.Validations, len(tt.validations), "every validation is listed")
+			for i, got := range result.Trace.Validations {
+				assert.Equal(t, i, got.Index)
+				assert.Equal(t, tt.want[i].status, got.Status, "validation %d", i)
+				assert.Equal(t, tt.validations[i].Expression, got.Source, "validation %d", i)
+				switch got.Status {
+				case trace.VerdictNotRun:
+					assert.Empty(t, got.Result, "a validation that never ran has no result")
+					assert.Empty(t, got.Nodes)
+				case trace.VerdictError:
+					assert.NotEmpty(t, got.Result, "the error is the result")
+				default:
+					assert.Equal(t, tt.want[i].result, got.Result, "validation %d", i)
+				}
+			}
+		})
+	}
+}
+
 // TestEvaluate_TracingOn_IgnoredMatchErrorNamesTheRightCondition: with failurePolicy Ignore a
 // match condition that errors does not stop the loop, so every condition runs and the policy is
 // skipped afterwards. The skip message must name the condition that errored (or the one that came

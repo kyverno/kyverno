@@ -137,7 +137,18 @@ const (
 	// VerdictSkip means the policy did not reach a pass/fail decision: a match condition
 	// excluded the resource, its constraints did not match, or an exception exempted it.
 	VerdictSkip = "SKIP"
+	// VerdictNotRun marks a validation that never ran: evaluation stops at the first validation
+	// that fails or errors, so the ones after it are listed but not evaluated.
+	VerdictNotRun = "NOT RUN"
 )
+
+// ValidationTrace is one validation's own outcome. Index is its position in the policy's
+// validations, since validations have no names.
+type ValidationTrace struct {
+	Index  int
+	Status string
+	ExpressionTrace
+}
 
 type VerdictTrace struct {
 	Status string
@@ -155,5 +166,8 @@ type Decision struct {
 	Scope     ScopeTrace
 	Match     []NamedExpressionTrace
 	Variables []NamedExpressionTrace
-	Verdict   VerdictTrace
+	// Validations lists every validation in order: the ones that ran with their own status, then
+	// any after a failure as VerdictNotRun. Verdict still carries the deciding one in full.
+	Validations []ValidationTrace
+	Verdict     VerdictTrace
 }
