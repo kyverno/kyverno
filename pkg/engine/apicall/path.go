@@ -15,26 +15,32 @@ import (
 // letting query strings, fragments, percent-encoding, or "." / ".."
 // segments be used to spoof the apparent target namespace while the real
 // request lands somewhere else.
-func canonicalizeURLPath(raw string) (string, error) {
+//
+// It returns two values: the canonical value to execute (path plus any query) and
+// the cleaned path on its own. Namespace validation must use the path-only value -
+// the clamp regex looks for a /namespaces/<name>/ segment anywhere in the string it
+// is given, so matching it against path+query lets a decoy segment planted in a
+// query value satisfy the check while the request routes somewhere else entirely.
+func canonicalizeURLPath(raw string) (string, string, error) {
 	if raw == "" {
-		return "", fmt.Errorf("urlPath must not be empty")
+		return "", "", fmt.Errorf("urlPath must not be empty")
 	}
 
 	parsed, err := url.Parse(raw)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse urlPath %q: %w", raw, err)
+		return "", "", fmt.Errorf("failed to parse urlPath %q: %w", raw, err)
 	}
 
 	if parsed.IsAbs() || parsed.Host != "" || parsed.User != nil {
-		return "", fmt.Errorf("urlPath %q must be a relative Kubernetes API path, not an absolute URL", raw)
+		return "", "", fmt.Errorf("urlPath %q must be a relative Kubernetes API path, not an absolute URL", raw)
 	}
 
 	if parsed.Fragment != "" || parsed.RawFragment != "" {
-		return "", fmt.Errorf("urlPath %q must not contain a fragment", raw)
+		return "", "", fmt.Errorf("urlPath %q must not contain a fragment", raw)
 	}
 
 	if !strings.HasPrefix(parsed.Path, "/") {
-		return "", fmt.Errorf("urlPath %q must be an absolute path", raw)
+		return "", "", fmt.Errorf("urlPath %q must be an absolute path", raw)
 	}
 
 	// path.Clean resolves "." / ".." segments and collapses repeated
@@ -45,7 +51,7 @@ func canonicalizeURLPath(raw string) (string, error) {
 	if !strings.HasPrefix(cleaned, "/") {
 		// path.Clean always roots a rooted input; this is a defensive
 		// guard in case that invariant ever changes.
-		return "", fmt.Errorf("urlPath %q resolved outside of the API root", raw)
+		return "", "", fmt.Errorf("urlPath %q resolved outside of the API root", raw)
 	}
 
 	parsed.Path = cleaned
@@ -55,6 +61,7 @@ func canonicalizeURLPath(raw string) (string, error) {
 	// the original RawQuery, re-escaping consistently. The fragment was
 	// already rejected above, and the query string plays no part in
 	// namespace/path validation since it is never used by the API server
-	// for routing - it is carried through unchanged.
-	return parsed.RequestURI(), nil
+	// for routing - it is carried through unchanged, but validation is
+	// handed the path alone.
+	return parsed.RequestURI(), cleaned, nil
 }

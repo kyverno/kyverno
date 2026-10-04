@@ -578,6 +578,53 @@ func Test_URLPathCanonicalization(t *testing.T) {
 		_, err = call.Fetch(context.TODO())
 		assert.ErrorContains(t, err, "must be a relative Kubernetes API path")
 	})
+
+	// The namespace clamp looks for a /namespaces/<name>/ segment anywhere in the
+	// string it is handed. If that string includes the query, a decoy segment in a
+	// query value satisfies the clamp while the path itself targets a cluster-scoped
+	// endpoint - which the API server reaches, because it never routes on the query.
+	t.Run("query-value namespace decoy on a cluster-scoped path is rejected", func(t *testing.T) {
+		for _, urlPath := range []string{
+			"/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y",
+			"/api/v1/secrets?x=/namespaces/default/y",
+			"/api/v1/secrets?x=/../../../../api/v1/namespaces/default/y",
+		} {
+			ctx := enginecontext.NewContext(jp)
+			client := &recordingClient{}
+
+			call, err := New(logr.Discard(), jp, newCall(urlPath), ctx, client, apiConfig, "default")
+			assert.NilError(t, err)
+			_, err = call.Fetch(context.TODO())
+			assert.ErrorContains(t, err, "does not contain a namespace segment")
+			assert.Equal(t, "", client.gotPath)
+		}
+	})
+
+	t.Run("legitimate query string is preserved on the wire", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default/pods?labelSelector=app%3Dweb&limit=10")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/pods?labelSelector=app%3Dweb&limit=10", client.gotPath)
+	})
+
+	t.Run("cluster-scoped policy is unaffected by a query decoy", func(t *testing.T) {
+		entry := newCall("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		// empty policyNamespace == ClusterPolicy: no clamp applies, and the
+		// query must still survive to the executor untouched.
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y", client.gotPath)
+	})
 }
 
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {

@@ -70,20 +70,22 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 	}
 
 	if call.APICall.URLPath != "" {
-		canonicalPath, err := canonicalizeURLPath(call.APICall.URLPath)
+		canonicalPath, validationPath, err := canonicalizeURLPath(call.APICall.URLPath)
 		if err != nil {
 			return nil, fmt.Errorf("invalid urlPath for context entry %s: %w", a.entry.Name, err)
 		}
 
 		if a.policyNamespace != "" {
-			// Namespaced Policy: verify path accesses only the policy's namespace
-			if matches := namespacePathRegex.FindStringSubmatch(canonicalPath); len(matches) > 2 {
+			// Namespaced Policy: verify path accesses only the policy's namespace.
+			// Match the path component alone - a /namespaces/<name>/ decoy in a query
+			// value would otherwise satisfy this check.
+			if matches := namespacePathRegex.FindStringSubmatch(validationPath); len(matches) > 2 {
 				ns := matches[2]
 				if ns != a.policyNamespace {
-					return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", canonicalPath, ns, a.policyNamespace)
+					return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", validationPath, ns, a.policyNamespace)
 				}
 			} else {
-				return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", canonicalPath)
+				return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", validationPath)
 			}
 		}
 
