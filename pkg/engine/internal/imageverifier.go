@@ -5,19 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/notary"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
-	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/strings"
 	"github.com/kyverno/kyverno/pkg/validation/policy"
 	"go.uber.org/multierr"
@@ -72,19 +72,29 @@ func (iv *imageVerifier) Verify(
 	for _, imageInfo := range matchedImageInfos {
 		image := imageInfo.String()
 
-		pointer := jsonpointer.ParsePath(imageInfo.Pointer).JMESPath()
-		changed, err := iv.policyContext.JSONContext().HasChanged(pointer)
-		if err == nil && !changed && iv.isPreviouslyVerified(image) {
-			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
-			iv.addImageVerificationMetadata(image, engineapi.ImageVerificationPass)
-			continue
+		// Cache keys must be bound to a resolved digest, never a tag: a tag
+		// is a registry-movable name, and a verdict keyed on it would be
+		// trusted for whatever the tag points to later, not what it pointed
+		// to when verified. If the reference isn't already digest-pinned,
+		// resolve it now, before the cache lookup. This HEAD is the binding
+		// between the mutable name and the immutable verdict, not overhead
+		// to optimize away: skipping it would let a moved tag serve a stale
+		// cache hit.
+		cacheInfo := imageInfo
+		if cacheInfo.Digest == "" && iv.ivCache != nil && imageVerify.UseCache {
+			if desc, err := iv.rclient.FetchImageDescriptor(ctx, image); err == nil {
+				cacheInfo.Digest = desc.Digest.String()
+			} else {
+				iv.logger.V(4).Info("failed to resolve image digest for cache lookup", "image", image, "error", err.Error())
+			}
 		}
+		cacheKey := cacheInfo.String()
 
 		isInCache := false
 		if iv.ivCache != nil {
-			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
+			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, cacheKey, imageVerify.UseCache)
 			if err != nil {
-				iv.logger.Error(err, "error occurred during cache get", "image", image)
+				iv.logger.Error(err, "error occurred during cache get", "image", cacheKey)
 			} else {
 				isInCache = found
 			}
@@ -93,20 +103,30 @@ func (iv *imageVerifier) Verify(
 		var ruleResp *engineapi.RuleResponse
 		var digest string
 		if isInCache {
-			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+			iv.logger.V(2).Info("cache entry found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", cacheKey)
 			ruleResp = engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, "verified from cache", iv.rule.ReportProperties)
-			digest = imageInfo.Digest
+			digest = cacheInfo.Digest
 		} else {
 			iv.logger.V(2).Info("cache entry not found", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
 			ruleResp, digest = iv.verifyImage(ctx, imageVerify, imageInfo, cfg)
 			if ruleResp != nil && ruleResp.Status() == engineapi.RuleStatusPass {
 				if iv.ivCache != nil {
-					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, image, imageVerify.UseCache)
+					// Key symmetry is mandatory: the Set key must be derived
+					// the same way as the Get key above (ImageInfo.String()
+					// with Digest populated), or a hit here becomes
+					// unreachable from the validating side and every "hit"
+					// silently degrades into a full re-verification.
+					setInfo := imageInfo
+					if digest != "" {
+						setInfo.Digest = digest
+					}
+					setKey := setInfo.String()
+					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, setKey, imageVerify.UseCache)
 					if err != nil {
-						iv.logger.Error(err, "error occurred during cache set", "image", image)
+						iv.logger.Error(err, "error occurred during cache set", "image", setKey)
 					} else {
 						if setted {
-							iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", image)
+							iv.logger.V(4).Info("successfully set cache", "namespace", iv.policyContext.Policy().GetNamespace(), "policy", iv.policyContext.Policy().GetName(), "ruleName", iv.rule.Name, "imageRef", setKey)
 						}
 					}
 				}
@@ -135,12 +155,6 @@ func (iv *imageVerifier) Verify(
 		}
 	}
 	return patches, responses
-}
-
-func (iv *imageVerifier) isPreviouslyVerified(image string) bool {
-	policy := iv.policyContext.Policy()
-	status, err := engineutils.IsImageVerifiedForPolicy(iv.policyContext.OldResource(), policy.GetNamespace(), policy.GetName(), iv.rule.Name, image, iv.logger)
-	return err == nil && (status == engineapi.ImageVerificationPass || status == engineapi.ImageVerificationSkip)
 }
 
 func (iv *imageVerifier) addImageVerificationMetadata(image string, status engineapi.ImageVerificationMetadataStatus) {
@@ -219,11 +233,35 @@ func (iv *imageVerifier) verifyAttestors(
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), cosignResponse
 }
 
-// handle registry network errors as a rule error (instead of a policy failure)
-func (iv *imageVerifier) handleRegistryErrors(image string, err error) *engineapi.RuleResponse {
-	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
+// isInfrastructureError reports whether err reflects an inability to reach or
+// authenticate with the registry, rather than a genuine verification
+// rejection. A configured constraint that could not be checked must map to
+// Error, not Fail: reporting Fail here would claim a check happened when it
+// didn't.
+func isInfrastructureError(err error) bool {
+	if err == nil {
+		return false
+	}
 	var netErr *net.OpError
 	if errors.As(err, &netErr) {
+		return true
+	}
+	var transportErr *transport.Error
+	if errors.As(err, &transportErr) {
+		switch transportErr.StatusCode {
+		case http.StatusUnauthorized, http.StatusForbidden,
+			http.StatusInternalServerError, http.StatusBadGateway,
+			http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+			return true
+		}
+	}
+	return false
+}
+
+// handle registry network/auth errors as a rule error (instead of a policy failure)
+func (iv *imageVerifier) handleRegistryErrors(image string, err error) *engineapi.RuleResponse {
+	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
+	if isInfrastructureError(err) {
 		return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, fmt.Sprintf("failed to verify image %s", image), err, iv.rule.ReportProperties)
 	}
 	return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties)
@@ -313,6 +351,15 @@ func (iv *imageVerifier) verifyAttestations(
 			}
 			if verifiedCount < requiredCount {
 				msg := fmt.Sprintf("image attestations verification failed, verifiedCount: %v, requiredCount: %v, error: %s", verifiedCount, requiredCount, errMsg)
+				// A fetch failure caused by an unreachable registry or a
+				// rejected credential means the constraint was never
+				// actually checked; report that distinctly from a genuine
+				// rejection.
+				for _, e := range errorList {
+					if isInfrastructureError(e) {
+						return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, msg, e, iv.rule.ReportProperties), ""
+					}
+				}
 				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), ""
 			}
 		}
@@ -562,7 +609,10 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 		return fmt.Errorf("a type is required")
 	}
 	image := imageInfo.String()
-	statementsByPredicate, types := buildStatementMap(statements)
+	statementsByPredicate, types, err := buildStatementMap(statements)
+	if err != nil {
+		return fmt.Errorf("failed to process attestation statements: %w", err)
+	}
 	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 	statements = statementsByPredicate[attestation.Type]
 	if statements == nil {

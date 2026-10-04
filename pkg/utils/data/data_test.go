@@ -202,3 +202,55 @@ func TestCopySliceOfMaps(t *testing.T) {
 		})
 	}
 }
+
+func TestGetStringField(t *testing.T) {
+	tests := []struct {
+		name    string
+		m       map[string]interface{}
+		key     string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "present string value",
+			m:    map[string]interface{}{"type": "example-type"},
+			key:  "type",
+			want: "example-type",
+		},
+		{
+			name:    "missing key",
+			m:       map[string]interface{}{"other": "value"},
+			key:     "type",
+			wantErr: true,
+		},
+		{
+			name:    "non-string value: number",
+			m:       map[string]interface{}{"type": 1337},
+			key:     "type",
+			wantErr: true,
+		},
+		{
+			name:    "non-string value: nested object",
+			m:       map[string]interface{}{"type": map[string]interface{}{"nested": true}},
+			key:     "type",
+			wantErr: true,
+		},
+		{
+			name:    "non-string value: nil",
+			m:       map[string]interface{}{"type": nil},
+			key:     "type",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := GetStringField(tt.m, tt.key)
+			if tt.wantErr {
+				assert.Assert(t, err != nil)
+				return
+			}
+			assert.NilError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

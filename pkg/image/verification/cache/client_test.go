@@ -8,6 +8,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	testDigestA       = "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000001"
+	testDigestB       = "example.com/repo@sha256:0000000000000000000000000000000000000000000000000000000000000002"
+	testTagRef        = "example.com/repo:latest"
+	testTagPlusDigest = "example.com/repo:latest@sha256:0000000000000000000000000000000000000000000000000000000000000001"
+)
+
 // Test_payloadCost verifies cache entry cost is charged by real payload byte
 // size instead of a flat 1 per entry, so --imageVerifyCacheMaxSize (ristretto's
 // MaxCost) bounds actual memory rather than just entry count.
@@ -29,11 +36,11 @@ func Test_SetWithPayload_presence_only_entry_costs_flat_one(t *testing.T) {
 
 	pol := &metav1.ObjectMeta{Name: "cost-test-policy", UID: "cost-test-uid", ResourceVersion: "1"}
 
-	stored, err := c.Set(context.TODO(), pol, "signature-rule", "image-a", true)
+	stored, err := c.Set(context.TODO(), pol, "signature-rule", testDigestA, true)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
-	found, err := c.Get(context.TODO(), pol, "signature-rule", "image-a", true)
+	found, err := c.Get(context.TODO(), pol, "signature-rule", testDigestA, true)
 	assert.NoError(t, err)
 	assert.True(t, found)
 }
@@ -53,12 +60,70 @@ func Test_SetWithPayload_round_trips_real_payload_size(t *testing.T) {
 	pol := &metav1.ObjectMeta{Name: "cost-test-policy", UID: "cost-test-uid", ResourceVersion: "1"}
 	largePayload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 4096)}
 
-	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", "image-b", true, largePayload)
+	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestB, true, largePayload)
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
-	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "image-b", true)
+	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestB, true)
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, largePayload, got)
+}
+
+// Test_isDigestRef pins the three reference forms the cache guard depends on:
+// a bare tag is rejected (it is registry-movable), while both a plain digest
+// reference and a tag-plus-digest reference are accepted (both are pinned).
+func Test_isDigestRef(t *testing.T) {
+	assert.False(t, isDigestRef(testTagRef), "a bare tag must not be treated as an immutable reference")
+	assert.True(t, isDigestRef(testDigestA), "a plain digest reference must be treated as immutable")
+	assert.True(t, isDigestRef(testTagPlusDigest), "a tag-plus-digest reference must be treated as immutable")
+}
+
+// Test_Cache_RefusesMutableKeys is the A4-class regression: a verdict must
+// never be stored or served under a mutable (tag-only) reference, in either
+// direction, for both the presence-only and payload-carrying paths.
+func Test_Cache_RefusesMutableKeys(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+	assert.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "guard-test-policy", UID: "guard-test-uid", ResourceVersion: "1"}
+
+	t.Run("Set/Get refuse a bare tag", func(t *testing.T) {
+		stored, err := c.Set(context.TODO(), pol, "rule", testTagRef, true)
+		assert.NoError(t, err)
+		assert.False(t, stored, "a tag-only reference must not be stored")
+
+		found, err := c.Get(context.TODO(), pol, "rule", testTagRef, true)
+		assert.NoError(t, err)
+		assert.False(t, found, "a tag-only reference must never be served, even if something else wrote it")
+	})
+
+	t.Run("Set/Get accept a digest and distinguish digests", func(t *testing.T) {
+		stored, err := c.Set(context.TODO(), pol, "rule", testDigestA, true)
+		assert.NoError(t, err)
+		assert.True(t, stored)
+
+		found, err := c.Get(context.TODO(), pol, "rule", testDigestA, true)
+		assert.NoError(t, err)
+		assert.True(t, found)
+
+		found, err = c.Get(context.TODO(), pol, "rule", testTagRef, true)
+		assert.NoError(t, err)
+		assert.False(t, found, "a hit for one reference form must not leak to the bare tag")
+
+		found, err = c.Get(context.TODO(), pol, "rule", testDigestB, true)
+		assert.NoError(t, err)
+		assert.False(t, found, "a different digest must never hit")
+	})
+
+	t.Run("SetWithPayload/GetWithPayload refuse a bare tag", func(t *testing.T) {
+		payload := map[string][]byte{"predicate": []byte("data")}
+		stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", testTagRef, true, payload)
+		assert.NoError(t, err)
+		assert.False(t, stored, "a tag-only reference must not be stored")
+
+		found, _, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testTagRef, true)
+		assert.NoError(t, err)
+		assert.False(t, found, "a tag-only reference must never be served")
+	})
 }

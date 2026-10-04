@@ -161,7 +161,10 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 			Attestors: attestors,
 		},
 	}
-	image := "ghcr.io/kyverno/test-verify-image:signed"
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
 
 	ivCache, err := imageverifycache.New(
 		imageverifycache.WithCacheEnableFlag(true),
@@ -290,7 +293,10 @@ func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
 	}
 	// Cosign/InToto image — Referrer/Notary GetPayload falls back to the registry and
 	// would not reproduce the "intoto attestation payload cannot be fetch" error.
-	image := "ghcr.io/kyverno/test-images/cosign:github-attestation"
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
 	attestationName := "slsa"
 
 	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
@@ -394,7 +400,10 @@ func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T
 			},
 		},
 	}
-	image := "ghcr.io/kyverno/test-images/cosign:github-attestation"
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
 	attestationName := "slsa"
 
 	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
@@ -509,7 +518,10 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 			},
 		},
 	}
-	image := "ghcr.io/kyverno/test-images/cosign:github-attestation"
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
 
 	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
@@ -644,7 +656,10 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 			Attestations: attestations,
 		},
 	}
-	image := "ghcr.io/kyverno/test-images/cosign:github-attestation"
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
 	attestationName := "slsa"
 
 	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)

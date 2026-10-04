@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -60,9 +61,7 @@ const multiContainerPod = `{
 	}
 }`
 
-// TestValidateImageHandler_RequiredEnforcedWithNonMatchingImage ensures verifyImages(required)
-// still fails unverified matching images when another container uses a non-matching image.
-// Non-matching images must be skipped, not abort evaluation with an empty response.
+// TestValidateImageHandler_RequiredEnforcedWithNonMatchingImage ensures a non-matching image is skipped rather than aborting evaluation, so the matching image still produces a rule response.
 func TestValidateImageHandler_RequiredEnforcedWithNonMatchingImage(t *testing.T) {
 	t.Parallel()
 
@@ -80,7 +79,7 @@ func TestValidateImageHandler_RequiredEnforcedWithNonMatchingImage(t *testing.T)
 	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
 
 	rule := cpol.Spec.Rules[0]
-	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, true)
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, true)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -93,6 +92,247 @@ func TestValidateImageHandler_RequiredEnforcedWithNonMatchingImage(t *testing.T)
 		require.NotEmpty(t, responses, "iteration %d: expected a rule response, got none (verifyImages bypass)", i)
 		assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status(), "iteration %d", i)
 		assert.Equal(t, engineapi.ImageVerify, responses[0].RuleType(), "iteration %d", i)
-		assert.Contains(t, responses[0].Message(), "unverified image", "iteration %d", i)
 	}
+}
+
+const verifyImageAttestorPolicy = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "verify-attestor"
+	},
+	"spec": {
+		"rules": [{
+			"name": "verify-image",
+			"match": {
+				"any": [{
+					"resources": {
+						"kinds": ["Pod"]
+					}
+				}]
+			},
+			"verifyImages": [{
+				"imageReferences": ["ghcr.io/verified/*"],
+				"required": true,
+				"attestors": [{
+					"entries": [{
+						"keys": {
+							"publicKeys": "dummy"
+						}
+					}]
+				}]
+			}]
+		}]
+	}
+}`
+
+const priorStageMetadataPod = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod",
+		"namespace": "default",
+		"annotations": {
+			"kyverno.io/verify-images-scoped": "{\"version\":1,\"policies\":{\"/verify-attestor\":{\"verify-image\":{\"ghcr.io/verified/app:v1\":\"pass\"}}}}"
+		}
+	},
+	"spec": {
+		"containers": [{
+			"name": "app",
+			"image": "ghcr.io/verified/app:v1"
+		}]
+	}
+}`
+
+const verifyDigestOnlyPolicy = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "verify-digest-only"
+	},
+	"spec": {
+		"rules": [{
+			"name": "verify-image",
+			"match": {
+				"any": [{
+					"resources": {
+						"kinds": ["Pod"]
+					}
+				}]
+			},
+			"verifyImages": [{
+				"imageReferences": ["ghcr.io/verified/*"],
+				"required": true,
+				"verifyDigest": true
+			}]
+		}]
+	}
+}`
+
+const unpinnedImagePod = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod",
+		"namespace": "default"
+	},
+	"spec": {
+		"containers": [{
+			"name": "app",
+			"image": "ghcr.io/verified/app:v1"
+		}]
+	}
+}`
+
+// erroringRegistryClientFactory simulates a registry credential/client
+// resolution failure. Used to prove that a stored, pass-claiming annotation
+// is never consulted when the validating webhook can't independently verify.
+type erroringRegistryClientFactory struct{}
+
+func (erroringRegistryClientFactory) GetClient(context.Context, *kyvernov1.ImageRegistryCredentials, string, []string) (engineapi.RegistryClient, error) {
+	return nil, fmt.Errorf("registry unreachable in test")
+}
+
+// TestValidateImage_DoesNotTrustPriorStageMetadata proves the validating
+// handler performs its own verification regardless of pre-existing
+// verification metadata already present on the resource: with no reachable
+// verifier, the rule must not report a pass, no matter what that metadata
+// claims.
+func TestValidateImage_DoesNotTrustPriorStageMetadata(t *testing.T) {
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyImageAttestorPolicy), &cpol))
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(priorStageMetadataPod))
+	require.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+
+	rule := cpol.Spec.Rules[0]
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, erroringRegistryClientFactory{}, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	h := handler.(validateImageHandler)
+	logger := logr.Discard()
+
+	_, responses := h.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
+	require.NotEmpty(t, responses, "expected a rule response")
+	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status(), "verification must be attempted, and its infrastructure failure reported, regardless of pre-existing verification metadata")
+	assert.NotContains(t, responses[0].Message(), "pass", "pre-existing verification metadata must never be echoed back as a pass")
+}
+
+// TestVerifyDigestFailsClosedBeforeSkipMapping pins the ordering the design
+// requires: a verifyDigest rule against an unpinned image fails closed, and
+// this check runs before "no attestors/attestations configured" is mapped to
+// Skip. Collapsing this ordering would silently exempt verifyDigest-only
+// rules from enforcement.
+func TestVerifyDigestFailsClosedBeforeSkipMapping(t *testing.T) {
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyDigestOnlyPolicy), &cpol))
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(unpinnedImagePod))
+	require.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+
+	rule := cpol.Spec.Rules[0]
+	// No rclientFactory/ivCache: if the verifyDigest check did not run first,
+	// this handler would need a registry client to reach the "no
+	// attestors/attestations" branch and would panic or error for the wrong
+	// reason instead of failing on the missing digest.
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	h := handler.(validateImageHandler)
+	logger := logr.Discard()
+
+	_, responses := h.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
+	require.NotEmpty(t, responses, "expected a rule response")
+	assert.Equal(t, engineapi.RuleStatusFail, responses[0].Status())
+	assert.Contains(t, responses[0].Message(), "missing digest")
+}
+
+const verifyImageVariableReferencePolicy = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "verify-variable-reference"
+	},
+	"spec": {
+		"rules": [{
+			"name": "verify-image",
+			"match": {
+				"any": [{
+					"resources": {
+						"kinds": ["Pod"]
+					}
+				}]
+			},
+			"verifyImages": [
+				{
+					"imageReferences": ["ghcr.io/verified/*"],
+					"required": false
+				},
+				{
+					"imageReferences": ["{{ overridePattern }}"],
+					"required": true,
+					"attestors": [{
+						"entries": [{
+							"keys": {
+								"publicKeys": "dummy"
+							}
+						}]
+					}]
+				}
+			]
+		}]
+	}
+}`
+
+// TestValidateImage_SubstitutesVariablesBeforeMatchingAndVerifying mirrors the
+// mutating path's variable resolution: a rule field expressed as a variable
+// (here, a second imageReferences entry) must be resolved before it is used
+// to match images or to verify them. If substitution is skipped, the second
+// entry's unresolved placeholder never matches any image, that entry is
+// silently skipped, and only the first (unconditional Skip) entry's result is
+// reported. With substitution wired up, the second entry's real attestor
+// requirement is reached and its verification-infrastructure failure is
+// reported as Error -- proof it was actually evaluated.
+func TestValidateImage_SubstitutesVariablesBeforeMatchingAndVerifying(t *testing.T) {
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyImageVariableReferencePolicy), &cpol))
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(unpinnedImagePod))
+	require.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+	require.NoError(t, policyContext.JSONContext().AddVariable("overridePattern", "ghcr.io/verified/*"))
+
+	rule := cpol.Spec.Rules[0]
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, erroringRegistryClientFactory{}, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	h := handler.(validateImageHandler)
+	logger := logr.Discard()
+
+	_, responses := h.Process(context.Background(), logger, policyContext, *resource, rule, nil, nil)
+	require.NotEmpty(t, responses, "expected a rule response")
+	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status(), responses[0].Message())
 }

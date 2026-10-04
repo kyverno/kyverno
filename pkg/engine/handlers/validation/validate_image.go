@@ -2,6 +2,7 @@ package validation
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,15 +12,21 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/cache"
 )
 
 type validateImageHandler struct {
-	client    engineapi.Client
-	isCluster bool
+	rclientFactory engineapi.RegistryClientFactory
+	ivCache        imageverifycache.Client
+	configuration  config.Configuration
+	images         []apiutils.ImageInfo
+	client         engineapi.Client
+	isCluster      bool
 }
 
 func NewValidateImageHandler(
@@ -27,6 +34,8 @@ func NewValidateImageHandler(
 	resource unstructured.Unstructured,
 	rule kyvernov1.Rule,
 	configuration config.Configuration,
+	rclientFactory engineapi.RegistryClientFactory,
+	ivCache imageverifycache.Client,
 	client engineapi.Client,
 	isCluster bool,
 ) (handlers.Handler, error) {
@@ -41,8 +50,12 @@ func NewValidateImageHandler(
 		return nil, nil
 	}
 	return validateImageHandler{
-		client:    client,
-		isCluster: isCluster,
+		rclientFactory: rclientFactory,
+		ivCache:        ivCache,
+		configuration:  configuration,
+		images:         ruleImages,
+		client:         client,
+		isCluster:      isCluster,
 	}, nil
 }
 
@@ -76,27 +89,53 @@ func (h validateImageHandler) Process(
 		)
 	}
 
+	// Resolve variable placeholders (for example a ConfigMap-backed public
+	// key) the same way the mutating path does, before using the rule for
+	// matching or verification: otherwise a rule that verifies fine at
+	// mutate time would see the literal, unresolved placeholder here and
+	// fail closed for the wrong reason on every cold-cache admission and
+	// background scan.
+	ruleCopy, err := internal.SubstituteRuleVariables(rule, policyContext.JSONContext(), logger)
+	if err != nil {
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
+		)
+	}
+
+	newResource := policyContext.NewResource()
+	resourceNamespace := newResource.GetNamespace()
+	// Get imagePullSecrets from the first image (all images from same resource share the same secrets)
+	var imagePullSecrets []string
+	if len(h.images) > 0 {
+		imagePullSecrets = h.images[0].ImagePullSecrets
+	}
+
 	skippedImages := make([]string, 0)
 	passedImages := make([]string, 0)
-	for _, v := range rule.VerifyImages {
+	for _, v := range ruleCopy.VerifyImages {
 		imageVerify := v.Convert()
-		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
-			for _, imageInfo := range infoMap {
-				image := imageInfo.String()
+		for _, imageInfo := range h.images {
+			image := imageInfo.String()
 
-				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
-					logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
-					continue
-				}
+			if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
+				logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
+				continue
+			}
 
-				logger.V(4).Info("validating image", "image", image)
-				if v, err := validateImage(policyContext, rule.Name, imageVerify, imageInfo, logger); err != nil {
-					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
-				} else if v == engineapi.ImageVerificationSkip {
-					skippedImages = append(skippedImages, image)
-				} else if v == engineapi.ImageVerificationPass {
-					passedImages = append(passedImages, image)
-				}
+			logger.V(4).Info("validating image", "image", image)
+			status, err := h.validateImage(ctx, logger, policyContext, resourceNamespace, imagePullSecrets, *ruleCopy, *imageVerify, imageInfo)
+			switch status {
+			case engineapi.RuleStatusFail:
+				return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
+			case engineapi.RuleStatusError:
+				return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to verify image", err)
+			case engineapi.RuleStatusSkip:
+				skippedImages = append(skippedImages, image)
+			case engineapi.RuleStatusPass:
+				passedImages = append(passedImages, image)
+			default:
+				// required is false: nothing was checked for this image, mirroring
+				// pre-existing opt-out semantics for verifyImages.required=false.
 			}
 		}
 	}
@@ -112,24 +151,64 @@ func (h validateImageHandler) Process(
 	}
 }
 
-func validateImage(ctx engineapi.PolicyContext, rule string, imageVerify *kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
-	var verified engineapi.ImageVerificationMetadataStatus
-	var err error
+// validateImage independently re-derives the verification verdict for a
+// single image instead of trusting metadata left on the resource by a prior
+// stage. The validating webhook verifies images independently rather than
+// trusting prior-stage metadata: nothing about this decision is read from an
+// annotation the admission submitter could have written.
+func (h validateImageHandler) validateImage(
+	ctx context.Context,
+	logger logr.Logger,
+	policyContext engineapi.PolicyContext,
+	resourceNamespace string,
+	imagePullSecrets []string,
+	rule kyvernov1.Rule,
+	imageVerify kyvernov1.ImageVerification,
+	imageInfo apiutils.ImageInfo,
+) (engineapi.RuleStatus, error) {
 	image := imageInfo.String()
+
+	// This fail-closed check runs before anything else and is preserved
+	// verbatim: a verifyDigest rule against an unpinned image always fails,
+	// regardless of what else the rule configures.
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
-		log.V(2).Info("missing digest", "image", imageInfo.String())
-		return engineapi.ImageVerificationFail, fmt.Errorf("missing digest for %s", image)
+		logger.V(2).Info("missing digest", "image", image)
+		return engineapi.RuleStatusFail, fmt.Errorf("missing digest for %s", image)
 	}
-	newResource := ctx.NewResource()
-	if imageVerify.Required && newResource.Object != nil {
-		policy := ctx.Policy()
-		verified, err = engineutils.IsImageVerifiedForPolicy(newResource, policy.GetNamespace(), policy.GetName(), rule, image, log)
-		if err != nil {
-			return engineapi.ImageVerificationFail, err
-		}
-		if verified == engineapi.ImageVerificationFail {
-			return engineapi.ImageVerificationFail, fmt.Errorf("unverified image %s", image)
-		}
+
+	if !imageVerify.Required || policyContext.NewResource().Object == nil {
+		// required is false: nothing further is enforced at validation time.
+		return "", nil
 	}
-	return verified, nil
+
+	if len(imageVerify.Attestors) == 0 && len(imageVerify.Attestations) == 0 {
+		// required is set but nothing is configured to verify against, so no image can satisfy it.
+		return engineapi.RuleStatusFail, fmt.Errorf("rule requires image verification but configures no attestors or attestations: %s", image)
+	}
+
+	rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials, resourceNamespace, imagePullSecrets)
+	if err != nil {
+		return engineapi.RuleStatusError, fmt.Errorf("failed to fetch registry credentials for %s: %w", image, err)
+	}
+
+	// The patches produced here are discarded: the validating webhook cannot
+	// mutate the admitted object, it can only decide pass/fail based on its
+	// own re-verification.
+	ivm := &engineapi.ImageVerificationMetadata{}
+	iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, rule, ivm)
+	_, responses := iv.Verify(ctx, imageVerify, []apiutils.ImageInfo{imageInfo}, h.configuration)
+	if len(responses) == 0 {
+		return engineapi.RuleStatusSkip, nil
+	}
+	resp := responses[0]
+	switch resp.Status() {
+	case engineapi.RuleStatusPass:
+		return engineapi.RuleStatusPass, nil
+	case engineapi.RuleStatusSkip:
+		return engineapi.RuleStatusSkip, nil
+	case engineapi.RuleStatusError:
+		return engineapi.RuleStatusError, errors.New(resp.Message())
+	default:
+		return engineapi.RuleStatusFail, fmt.Errorf("unverified image %s: %s", image, resp.Message())
+	}
 }
