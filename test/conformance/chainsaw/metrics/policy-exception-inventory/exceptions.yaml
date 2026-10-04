@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v2
+kind: PolicyException
+metadata:
+  name: legacy-inventory
+spec:
+  exceptions:
+    - policyName: missing-cluster-policy
+      ruleNames: [missing-rule]
+    - policyName: missing-cluster-policy
+      ruleNames: [another-rule]
+    - policyName: other/missing-policy
+      ruleNames: [missing-rule]
+  match:
+    any:
+      - resources:
+          kinds: [ConfigMap]
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: cel-inventory
+spec:
+  policyRefs:
+    - name: missing-cel-policy
+      kind: ValidatingPolicy
+    - name: missing-cel-policy
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: never
+      expression: 'false'
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: retained-inventory
+spec:
+  policyRefs:
+    - name: retained-policy
+      kind: ValidatingPolicy
+  matchConditions:
+    - name: never
+      expression: 'false'
