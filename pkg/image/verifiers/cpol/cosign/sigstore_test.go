@@ -167,6 +167,38 @@ func TestIssue_StaticKeyNoTlogUpload(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+func TestSigstoreBundleAttestationWithoutType(t *testing.T) {
+	opts := verifiers.Options{
+		SigstoreBundle: true,
+		ImageRef:       "ghcr.io/vishal-chdhry/artifact-attestation-example:artifact-attestation",
+		Issuer:         "https://token.actions.githubusercontent.com",
+		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
+	}
+
+	rc := registryclient.New(nil, "", "", "", false)
+	opts.Client = rc
+
+	verifier := &verifier{}
+	response, err := verifier.FetchAttestations(context.TODO(), opts)
+	assert.NilError(t, err)
+	assert.Assert(t, len(response.Statements) > 0)
+}
+
+func TestDecodeStatementsFromBundles_NilDSSEEnvelope(t *testing.T) {
+	results := []*verificationResult{
+		{
+			Bundle: &verificationBundle{
+				DSSE_Envelope: nil,
+			},
+			Desc: &v1.Descriptor{},
+		},
+	}
+
+	statements, err := decodeStatementsFromBundles(results)
+	assert.NilError(t, err)
+	assert.Equal(t, len(statements), 0)
+}
+
 func TestIssue_AllVerificationTypes(t *testing.T) {
 	desc := &v1.Descriptor{
 		Digest: v1.Hash{
