@@ -204,6 +204,8 @@ func (v *notaryVerifier) verifyOutcomes(outcomes []*notation.VerificationOutcome
 	return multierr.Combine(errs...)
 }
 
+// verifyAttestators verifies the notary signature on an attestation referrer and
+// returns its descriptor. It is a no-op when no attestor certificate is configured.
 func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Reference, opts verifiers.Options, desc v1.Descriptor) (ocispec.Descriptor, error) {
 	logger.V(2).Info("verifying attestations", "reference", opts.ImageRef, "opts", opts)
 	if opts.Cert == "" && opts.CertChain == "" {
@@ -248,7 +250,7 @@ func verifyAttestators(ctx context.Context, v *notaryVerifier, ref name.Referenc
 	}
 
 	logger.V(4).Info("verification started")
-	targetDesc, outcomes, err := notation.Verify(context.TODO(), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
+	targetDesc, outcomes, err := notation.Verify(notationlog.WithLogger(ctx, notary.NotaryLoggerAdapter(logger.WithName("Notary Verifier Debug"))), notationVerifier, parsedRef.Repo, remoteVerifyOptions)
 	if err != nil {
 		logger.V(4).Info("failed to vefify attestator", "remoteVerifyOptions", remoteVerifyOptions, "repo", parsedRef.Repo)
 		return targetDesc, err
