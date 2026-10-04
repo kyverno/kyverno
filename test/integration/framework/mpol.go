@@ -30,7 +30,7 @@ func NewMpolEngineWithExceptions(ctx context.Context, mgr ctrl.Manager, kubeClie
 }
 
 func newMpolEngine(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.Interface, contextProvider libs.Context, polexLister celengine.PolicyExceptionLister, polexEnabled bool) (mpolengine.Engine, mpolengine.Provider, error) {
-	compiler := mpolcompiler.NewCompiler(false)
+	compiler := mpolcompiler.NewCompiler()
 	openapiClient := kubeClient.Discovery().OpenAPIV3()
 
 	provider, typeConverter, err := mpolengine.NewKubeProvider(ctx, compiler, contextProvider, mgr, openapiClient, polexLister, polexEnabled)

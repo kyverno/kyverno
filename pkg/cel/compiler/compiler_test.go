@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/versions"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -762,6 +763,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		traced, errs := CompileMutationWithTrace(nil, env, `"hello"`, types.StringType, false)
 		assert.Empty(t, errs)
 		assert.NotNil(t, traced.Program)
+		assert.Nil(t, traced.Traced, "no tracking twin when trace is off")
 		assert.Nil(t, traced.AST, "AST must not be retained when trace is off")
 
 		out, details, err := traced.Program.Eval(map[string]any{})
@@ -770,16 +772,25 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		assert.Nil(t, details, "no EvalDetails when the program wasn't built with tracking on")
 	})
 
-	t.Run("trace=true retains the AST and turns on state tracking", func(t *testing.T) {
+	t.Run("trace=true keeps the deciding program untracked and adds a tracking twin", func(t *testing.T) {
 		traced, errs := CompileMutationWithTrace(nil, env, `"a" + "b"`, types.StringType, true)
 		assert.Empty(t, errs)
-		assert.NotNil(t, traced.Program)
 		assert.NotNil(t, traced.AST, "AST must be retained when trace is on")
 
+		// the deciding program is built exactly as without tracing, so it keeps the cost limit
+		require.NotNil(t, traced.Program)
 		out, details, err := traced.Program.Eval(map[string]any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "ab", out.Value())
-		assert.NotNil(t, details, "EvalDetails must be non-nil once tracking is on")
+		assert.Nil(t, details, "the deciding program must not track state")
+
+		// the twin records per-node state for the explanation
+		require.NotNil(t, traced.Traced)
+		out, details, err = traced.Traced.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, "ab", out.Value())
+		require.NotNil(t, details)
+		assert.NotNil(t, details.State(), "the tracking twin must record state")
 	})
 
 	t.Run("a compile error is reported the same way regardless of trace", func(t *testing.T) {
@@ -787,6 +798,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 			traced, errs := CompileMutationWithTrace(nil, env, `1 + 1`, types.StringType, trace)
 			assert.NotEmpty(t, errs, "wrong return type must still error with trace=%v", trace)
 			assert.Nil(t, traced.Program)
+			assert.Nil(t, traced.Traced)
 			assert.Nil(t, traced.AST)
 		}
 	})

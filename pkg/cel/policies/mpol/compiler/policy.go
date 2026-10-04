@@ -61,21 +61,22 @@ func (p *Policy) Tracing() bool {
 }
 
 // match evaluates the conditions in order. record, when non-nil, is called after each condition
-// is evaluated (including one that errors or comes back false) so a trace can be captured.
-// Mirrors vpol's Policy.match (pkg/cel/policies/vpol/compiler/policy.go).
+// is evaluated (including one that errors or comes back false) with that deciding evaluation's
+// result, so a trace can be captured. Mirrors vpol's Policy.match
+// (pkg/cel/policies/vpol/compiler/policy.go).
 func (p *Policy) match(
 	ctx context.Context,
 	data map[string]any,
 	matchConditions []cel.Program,
-	record func(index int, out ref.Val, details *cel.EvalDetails, err error),
+	record func(index int, out ref.Val, err error),
 ) (bool, error) {
 	var errs []error
 
 	for i, matchCondition := range matchConditions {
 		// evaluate the condition
-		out, details, err := matchCondition.ContextEval(ctx, data)
+		out, _, err := matchCondition.ContextEval(ctx, data)
 		if record != nil {
-			record(i, out, details, err)
+			record(i, out, err)
 		}
 		// check error
 		if err != nil {
@@ -106,16 +107,16 @@ func (p *Policy) match(
 func (p *Policy) appendVariables(
 	ctx context.Context,
 	data map[string]any,
-	record func(name string, out ref.Val, details *cel.EvalDetails, err error),
+	record func(name string, out ref.Val, err error),
 ) *lazy.MapValue {
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	data[compiler.VariablesKey] = vars
 
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, details, err := variable.ContextEval(ctx, data)
+			out, _, err := variable.ContextEval(ctx, data)
 			if record != nil {
-				record(name, out, details, err)
+				record(name, out, err)
 			}
 			if out != nil {
 				return out
@@ -264,25 +265,30 @@ func (p *Policy) evaluate(
 	// (pkg/cel/policies/vpol/compiler/policy.go).
 	var matchTraces, variableTraces []trace.NamedExpressionTrace
 	var mutationTraces []trace.MutationTrace
-	var recordMatch func(int, ref.Val, *cel.EvalDetails, error)
-	var recordVariable func(string, ref.Val, *cel.EvalDetails, error)
+	var recordMatch func(int, ref.Val, error)
+	var recordVariable func(string, ref.Val, error)
 	if p.trace {
+		// out and err are always the deciding evaluation's; each tracking twin is only re-run to
+		// collect node values for the trace (see compiler.TracedProgram)
 		tracedMatchConditions := p.tracedMatchConditions
 		if target {
 			tracedMatchConditions = p.tracedTargetMatchConditions
 		}
-		recordMatch = func(i int, out ref.Val, details *cel.EvalDetails, err error) {
+		recordMatch = func(i int, out ref.Val, err error) {
 			if i >= len(tracedMatchConditions) {
 				return
 			}
 			t := tracedMatchConditions[i]
+			details := compiler.TraceDetails(ctx, t.Traced, data, err)
 			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
 				Name:            t.Name,
 				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
 			})
 		}
-		recordVariable = func(name string, out ref.Val, details *cel.EvalDetails, err error) {
+		recordVariable = func(name string, out ref.Val, err error) {
 			if t, ok := p.tracedVariables[name]; ok {
+				// any variable the re-run reads comes from the same lazy map, so it matches
+				details := compiler.TraceDetails(ctx, t.Traced, data, err)
 				variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 					Name:            name,
 					ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
@@ -351,11 +357,13 @@ func (p *Policy) evaluate(
 		newVersionedObject, mutEval, err := patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
 		if p.trace && i < len(p.tracedMutations) {
 			var out ref.Val
-			var details *cel.EvalDetails
 			if mutEval != nil {
-				out, details = mutEval.Result, mutEval.Details
+				out = mutEval.Result
 			}
 			t := p.tracedMutations[i]
+			// re-run before data moves on to the patched object, so the twin sees what the
+			// patcher saw
+			details := compiler.TraceDetails(ctx, t.Traced, data, err)
 			mt := trace.MutationTrace{Name: t.Name, ExpressionTrace: buildExpressionTrace(t.AST, out, details, err)}
 			if err != nil {
 				mt.Error = err.Error()

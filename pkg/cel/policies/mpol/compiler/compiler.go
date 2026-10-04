@@ -47,13 +47,17 @@ type Compiler interface {
 	Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
-// NewCompiler builds an mpol compiler. When trace is true, its match conditions, target match
-// conditions, variables and mutations are all compiled with tracing on (see
-// compiler.CompileMatchConditionsWithTrace, CompileVariablesWithTrace, CompileMutationWithTrace),
-// so a later evaluation can produce a trace instead of just a pass/fail result. Mirrors vpol's
-// NewCompiler(trace bool) (pkg/cel/policies/vpol/compiler/compiler.go). The webhook admission
-// path must always construct this with trace=false; only offline callers (the CLI) should opt in.
-func NewCompiler(trace bool) Compiler {
+func NewCompiler() Compiler {
+	return NewCompilerWithTrace(false)
+}
+
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on, for
+// `kyverno apply --explain`. With trace true, match conditions, target match conditions,
+// variables and mutations also get an explain-only tracking program and keep their AST (see
+// compiler.TracedProgram), so a later evaluation can produce a trace. The webhook admission path
+// must keep using NewCompiler; only offline callers (the CLI) should turn tracing on. Mirrors
+// vpol's NewCompilerWithTrace (pkg/cel/policies/vpol/compiler/compiler.go).
+func NewCompilerWithTrace(trace bool) Compiler {
 	return &compilerImpl{trace: trace}
 }
 
