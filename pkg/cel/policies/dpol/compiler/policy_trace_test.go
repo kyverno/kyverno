@@ -61,6 +61,12 @@ func TestEvaluate_Tracing(t *testing.T) {
 			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "in-prod", Expression: "object.metadata.namespace == 'prod'"}},
 		},
 	}
+	brokenException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "broken", Namespace: "prod"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "missing-label", Expression: "object.metadata.labels.missing == 'x'"}},
+		},
+	}
 	tests := []struct {
 		name        string
 		labels      map[string]any
@@ -97,6 +103,15 @@ func TestEvaluate_Tracing(t *testing.T) {
 		// FAIL, not SKIP: the result is "not deleted", which the CLI reports as fail
 		wantStatus:  trace.VerdictFail,
 		wantMessage: "exempted by policy exception prod/keep-prod: the resource is kept",
+	}, {
+		// exceptions are checked before the policy's own conditions, so an exception whose match
+		// condition errors stops evaluation with no condition traced
+		name:        "exception match condition errors",
+		labels:      map[string]any{"expires": "2026-01-01", "tier": "temp"},
+		exceptions:  []*policiesv1beta1.PolicyException{brokenException},
+		wantErr:     true,
+		wantStatus:  trace.VerdictError,
+		wantMessage: "no such key: missing",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
