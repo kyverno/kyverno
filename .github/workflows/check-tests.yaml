@@ -9,6 +9,10 @@ on:
     branches:
       - main
       - release-*
+  # Re-runs the suite on the latest commit without a push, e.g. after a fix
+  # landed in kyverno/policies or kyverno/sdk. On main and release branches it
+  # updates the tracking issue like a push run, which clears the E2E gate.
+  workflow_dispatch: {}
 
 concurrency:
   group: ${{ github.workflow_ref }}
@@ -95,7 +99,10 @@ jobs:
         run: make check-perf
 
   sync-issue:
-    if: always() && github.event_name == 'push'
+    if: >-
+      always() && (github.event_name == 'push' ||
+        (github.event_name == 'workflow_dispatch' &&
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release-'))))
     needs:
       - images
       - cli
@@ -116,3 +123,10 @@ jobs:
           needs: ${{ toJSON(needs) }}
           # Read by the E2E gate (.github/workflows/e2e-gate.yaml).
           labels: e2e-failure
+          note: |
+            ### Clearing the E2E Gate
+
+            While this issue is open, every open pull request to `${{ github.ref_name }}` shows a red **E2E Gate** status. It turns green on all of them, without a push, as soon as one of these happens:
+
+            - The Tests workflow passes on `${{ github.ref_name }}`. That happens on the next push, or right away by re-running the failed jobs of the run above, or with [Run workflow](${{ github.server_url }}/${{ github.repository }}/actions/workflows/check-tests.yaml) on `${{ github.ref_name }}` when the fix landed in another repository.
+            - A maintainer closes this issue.
