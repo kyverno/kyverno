@@ -52,10 +52,15 @@ Other ClusterRole/ClusterRoleBinding names are configurable.
 
 **Notes on using ArgoCD:**
 
-When deploying this chart with ArgoCD you will need to enable `Replace` in the `syncOptions`, and you probably want to ignore diff in aggregated cluster roles.
+When deploying this chart with ArgoCD you will need to avoid using `Replace=true` in the `syncOptions`
 
 You can do so by following instructions in these pages of ArgoCD documentation:
-- [Enable Replace in the syncOptions](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#replace-resource-instead-of-applying-changes)
+ - Avoid using `Replace=true` as it may cause issues with existing resources
+ - Use `ServerSideApply=true` for smooth resource updates
+ - Enable `CreateNamespace=true` if deploying to a new namespace
+
+And you probably want to ignore diff in aggregated cluster roles.
+You can do so by following instructions in these pages of ArgoCD documentation:
 - [Ignore diff in aggregated cluster roles](https://argo-cd.readthedocs.io/en/stable/user-guide/diffing/#ignoring-rbac-changes-made-by-aggregateroles)
 
 ArgoCD uses helm only for templating but applies the results with `kubectl`.
@@ -68,46 +73,12 @@ Finally, we introduced new CRDs in 1.8 to manage resource-level reports. Those r
 
 As a consequence, ArgoCD will show those reports in the UI, but as they are managed dynamically by Kyverno it can pollute your dashboard.
 
-You can tell ArgoCD to ignore reports globally by adding them under the `resource.exclusions` stanza in the ArgoCD ConfigMap.
+Argo CD manifest now contains a default configuration for resource.exclusions in the argocd-cm to exclude resources that are known to be created by controllers and not usually managed in Git.
 
-```yaml
-    resource.exclusions: |
-      - apiGroups:
-          - kyverno.io
-        kinds:
-          - AdmissionReport
-          - BackgroundScanReport
-          - ClusterAdmissionReport
-          - ClusterBackgroundScanReport
-        clusters:
-          - '*'
-```
+No manual configuration is required anymore. In Argo CD v3+, resource.exclusions (including Kyverno reports) are already configured by default in argocd-cm to exclude high-churn, controller-generated resources for performance optimization.
 
-Below is an example of ArgoCD Application manifest that should work with this chart.
+**Recommendation:** Set `config.preserve=false` when deploying Kyverno via ArgoCD to ensure proper resource cleanup and sync status.
 
-```yaml
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: kyverno
-  namespace: argocd
-spec:
-  destination:
-    namespace: kyverno
-    server: https://kubernetes.default.svc
-  project: default
-  source:
-    chart: kyverno
-    repoURL: https://kyverno.github.io/kyverno
-    targetRevision: 2.6.0
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-      - Replace=true
-```
 
 **Notes on using Azure Kubernetes Service (AKS):**
 
