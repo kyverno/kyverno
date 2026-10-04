@@ -50,6 +50,8 @@ const (
 	maxRetries     = 5
 	// upper bound of the backoff between restarts of the same watcher
 	maxRestartDelay = time.Minute
+	// watchers often expire together, a slow list must not hold back the others
+	restartWorkers = 3
 )
 
 type Resource struct {
@@ -218,7 +220,9 @@ func (c *controller) Warmup(ctx context.Context) error {
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	go c.processRestarts(ctx)
+	for range restartWorkers {
+		go c.processRestarts(ctx)
+	}
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 	c.restartQueue.ShutDown()
 	c.stopDynamicWatchers()

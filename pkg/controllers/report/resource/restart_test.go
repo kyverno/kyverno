@@ -11,11 +11,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"gotest.tools/v3/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/util/workqueue"
@@ -24,6 +26,8 @@ import (
 var (
 	configMapsGVR = schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 	configMapGVK  = schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+	secretsGVR    = schema.GroupVersionResource{Version: "v1", Resource: "secrets"}
+	secretGVK     = schema.GroupVersionKind{Version: "v1", Kind: "Secret"}
 )
 
 type startedWatch struct {
@@ -31,8 +35,8 @@ type startedWatch struct {
 	watcher         *watch.RaceFreeFakeWatcher
 }
 
-// fakeCluster serves configmaps from whatever list is currently set and hands
-// out every watch it creates on the watches channel.
+// fakeCluster serves configmaps from whatever list is currently set, keeps
+// secrets empty and hands out every watch it creates on the watches channel.
 type fakeCluster struct {
 	*dynamicfake.FakeDynamicClient
 
@@ -49,31 +53,26 @@ func newFakeCluster() *fakeCluster {
 	c := &fakeCluster{
 		FakeDynamicClient: dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
 			runtime.NewScheme(),
-			map[schema.GroupVersionResource]string{configMapsGVR: "ConfigMapList"},
+			map[schema.GroupVersionResource]string{configMapsGVR: "ConfigMapList", secretsGVR: "SecretList"},
 		),
 		listing: make(chan struct{}, 8),
 		watches: make(chan startedWatch, 8),
 	}
-	c.PrependReactor("list", "configmaps", func(k8stesting.Action) (bool, runtime.Object, error) {
-		c.mu.Lock()
-		gate := c.listGate
-		c.mu.Unlock()
-		if gate != nil {
-			select {
-			case c.listing <- struct{}{}:
-			default:
-			}
-			<-gate
-		}
+	c.PrependReactor("list", "*", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		if c.failLists > 0 {
 			c.failLists--
 			return true, nil, errors.New("apiserver unavailable")
 		}
+		if action.GetResource() != configMapsGVR {
+			list := &unstructured.UnstructuredList{}
+			list.SetResourceVersion(c.list.GetResourceVersion())
+			return true, list, nil
+		}
 		return true, c.list.DeepCopy(), nil
 	})
-	c.PrependWatchReactor("configmaps", func(action k8stesting.Action) (bool, watch.Interface, error) {
+	c.PrependWatchReactor("*", func(action k8stesting.Action) (bool, watch.Interface, error) {
 		c.mu.Lock()
 		reject := c.rejectWatches > 0
 		if reject {
@@ -81,7 +80,7 @@ func newFakeCluster() *fakeCluster {
 		}
 		c.mu.Unlock()
 		if reject {
-			return true, nil, apierrors.NewForbidden(configMapsGVR.GroupResource(), "", errors.New("watch is not allowed"))
+			return true, nil, apierrors.NewForbidden(action.GetResource().GroupResource(), "", errors.New("watch is not allowed"))
 		}
 		w := watch.NewRaceFreeFake()
 		c.watches <- startedWatch{
@@ -91,6 +90,31 @@ func newFakeCluster() *fakeCluster {
 		return true, w, nil
 	})
 	return c
+}
+
+// Resource holds lists outside of the fake client, which runs every reactor
+// under a single lock and would serialize them.
+func (c *fakeCluster) Resource(gvr schema.GroupVersionResource) dynamic.NamespaceableResourceInterface {
+	return heldResource{c.FakeDynamicClient.Resource(gvr), c}
+}
+
+type heldResource struct {
+	dynamic.NamespaceableResourceInterface
+	cluster *fakeCluster
+}
+
+func (r heldResource) List(ctx context.Context, opts metav1.ListOptions) (*unstructured.UnstructuredList, error) {
+	r.cluster.mu.Lock()
+	gate := r.cluster.listGate
+	r.cluster.mu.Unlock()
+	if gate != nil {
+		select {
+		case r.cluster.listing <- struct{}{}:
+		default:
+		}
+		<-gate
+	}
+	return r.NamespaceableResourceInterface.List(ctx, opts)
 }
 
 func (c *fakeCluster) setList(resourceVersion string, names ...string) {
@@ -135,6 +159,15 @@ func (c *fakeCluster) holdLists() chan struct{} {
 	return gate
 }
 
+func (c *fakeCluster) awaitListing(t *testing.T) {
+	t.Helper()
+	select {
+	case <-c.listing:
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for a list")
+	}
+}
+
 func (c *fakeCluster) nextWatch(t *testing.T) startedWatch {
 	t.Helper()
 	select {
@@ -161,13 +194,20 @@ func newTestController(t *testing.T, cluster *fakeCluster) *controller {
 		c.restartQueue.ShutDown()
 		c.stopDynamicWatchers()
 	})
-	c.lock.Lock()
-	w, err := c.startWatcher(ctx, logr.Discard(), configMapsGVR, configMapGVK)
-	assert.NilError(t, err)
-	c.dynamicWatchers[configMapsGVR] = w
-	c.lock.Unlock()
-	go c.processRestarts(ctx)
+	addWatcher(t, c, ctx, configMapsGVR, configMapGVK)
+	for range restartWorkers {
+		go c.processRestarts(ctx)
+	}
 	return c
+}
+
+func addWatcher(t *testing.T, c *controller, ctx context.Context, gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) {
+	t.Helper()
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	w, err := c.startWatcher(ctx, logr.Discard(), gvr, gvk)
+	assert.NilError(t, err)
+	c.dynamicWatchers[gvr] = w
 }
 
 func expireWatch(w startedWatch) {
@@ -248,11 +288,7 @@ func TestWatcherRestartDoesNotBlockCacheWhileListing(t *testing.T) {
 	gate := cluster.holdLists()
 	defer close(gate)
 	expireWatch(first)
-	select {
-	case <-cluster.listing:
-	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for the restart to list")
-	}
+	cluster.awaitListing(t)
 
 	cached := make(chan bool)
 	go func() {
@@ -290,4 +326,21 @@ func TestEventsFromReplacedWatcherAreDropped(t *testing.T) {
 
 	c.deleteHash(&stale, configMapsGVR, old)
 	assertCached(t, c, "a", true)
+}
+
+func TestWatcherRestartsDoNotWaitForEachOther(t *testing.T) {
+	cluster := newFakeCluster()
+	cluster.setList("100", "a")
+	c := newTestController(t, cluster)
+	configMaps := cluster.nextWatch(t)
+	addWatcher(t, c, context.Background(), secretsGVR, secretGVK)
+	secrets := cluster.nextWatch(t)
+
+	gate := cluster.holdLists()
+	defer close(gate)
+	// both expire together, the second restart must not queue behind the first list
+	expireWatch(configMaps)
+	expireWatch(secrets)
+	cluster.awaitListing(t)
+	cluster.awaitListing(t)
 }
