@@ -881,6 +881,45 @@ func TestSortedRules(t *testing.T) {
 			input:         []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_apps_pods_cluster},
 			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_cluster, rule_apps_pods},
 		},
+		{
+			name: "Nil scope",
+			input: []admissionregistrationv1.RuleWithOperations{
+				{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"apps"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       nil,
+					},
+				},
+				{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"apps"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+					},
+				},
+			},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{
+				{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"apps"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       nil,
+					},
+				},
+				{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{"apps"},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+						Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+					},
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
