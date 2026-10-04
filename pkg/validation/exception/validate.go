@@ -88,7 +88,9 @@ func ValidateCompensatingControlExpressions(polex *policiesv1beta1.PolicyExcepti
 	path := field.NewPath("spec", "validations")
 	var errs field.ErrorList
 	for i, validation := range polex.Spec.Validations {
-		if _, compileErrs := celcompiler.CompileValidation(path.Index(i), env, validation); compileErrs != nil {
+		// this only checks the expression compiles at write time and discards the result, so
+		// tracing is irrelevant here
+		if _, compileErrs := celcompiler.CompileValidation(path.Index(i), env, validation, false); compileErrs != nil {
 			errs = append(errs, compileErrs...)
 		}
 	}
