@@ -1772,4 +1772,8 @@ func TestPatternError_Unwrap(t *testing.T) {
 	}
 	assert.Equal(t, pe.Unwrap(), inner)
 	assert.Equal(t, errors.Unwrap(pe), inner)
+
+	var nilPe *PatternError
+	assert.Equal(t, nilPe.Unwrap(), nil)
+	assert.Equal(t, errors.Unwrap(nilPe), nil)
 }

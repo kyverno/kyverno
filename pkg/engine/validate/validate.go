@@ -27,6 +27,9 @@ func (e *PatternError) Error() string {
 }
 
 func (e *PatternError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
 	return e.Err
 }
 

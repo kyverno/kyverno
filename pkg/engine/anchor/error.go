@@ -1,7 +1,6 @@
 package anchor
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -62,8 +61,26 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 
 // isError checks if error matches the given error type
 func isError(err error, code anchorError) bool {
-	var target validateAnchorError
-	return errors.As(err, &target) && target.err == code
+	if err == nil {
+		return false
+	}
+	if t, ok := err.(validateAnchorError); ok && t.err == code {
+		return true
+	}
+	if t, ok := err.(*validateAnchorError); ok && t != nil && t.err == code {
+		return true
+	}
+	switch u := err.(type) {
+	case interface{ Unwrap() error }:
+		return isError(u.Unwrap(), code)
+	case interface{ Unwrap() []error }:
+		for _, e := range u.Unwrap() {
+			if isError(e, code) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // IsNegationAnchorError checks if error is a negation anchor error
