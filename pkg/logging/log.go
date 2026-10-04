@@ -23,6 +23,8 @@ const (
 	// TextFormat represents text logging mode.
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
+	// TextNoColorFormat represents text logging mode without ANSI color codes.
+	TextNoColorFormat = "text-nocolor"
 	// LogLevelController is the log level to use for controllers plumbing.
 	LogLevelController = 1
 	// LogLevelClient is the log level to use for clients.
@@ -59,14 +61,15 @@ func Setup(logFormat string, loggingTimestampFormat string, level int, disableCo
 
 	var logger zerolog.Logger
 	switch logFormat {
-	case TextFormat:
-		output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: disableColor}
+	case TextFormat, TextNoColorFormat:
+		noColor := disableColor || logFormat == TextNoColorFormat
+		output := zerolog.ConsoleWriter{Out: os.Stderr, NoColor: noColor}
 		output.TimeFormat = resolveTimestampFormat(loggingTimestampFormat)
 		logger = zerolog.New(output).With().Timestamp().Caller().Logger()
 	case JSONFormat:
 		logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	default:
-		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
+		return errors.New("log format not recognized, pass `text`, `text-nocolor`, or `json`")
 	}
 
 	globalLog = zerologr.New(&logger)
