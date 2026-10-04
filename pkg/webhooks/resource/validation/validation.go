@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/alitto/pond/v2"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/breaker"
@@ -43,8 +44,9 @@ func NewValidationHandler(
 	pcBuilder webhookutils.PolicyContextBuilder,
 	eventGen event.Interface,
 	admissionReports bool,
-	metrics metrics.MetricsConfigManager,
+	metricsConfig metrics.MetricsConfigManager,
 	nsLister corev1listers.NamespaceLister,
+	reportsPool pond.Pool,
 ) ValidationHandler {
 	return &validationHandler{
 		log:              log,
@@ -54,8 +56,9 @@ func NewValidationHandler(
 		pcBuilder:        pcBuilder,
 		eventGen:         eventGen,
 		admissionReports: admissionReports,
-		metrics:          metrics,
+		metricsConfig:    metricsConfig,
 		nsLister:         nsLister,
+		reportsPool:      reportsPool,
 	}
 }
 
@@ -67,8 +70,9 @@ type validationHandler struct {
 	pcBuilder        webhookutils.PolicyContextBuilder
 	eventGen         event.Interface
 	admissionReports bool
-	metrics          metrics.MetricsConfigManager
+	metricsConfig    metrics.MetricsConfigManager
 	nsLister         corev1listers.NamespaceLister
+	reportsPool      pond.Pool
 }
 
 func (v *validationHandler) HandleValidationEnforce(
@@ -154,7 +158,7 @@ func (v *validationHandler) HandleValidationEnforce(
 
 	// create the admission report if any of the policies involved doesn't have the report exclusion label
 	if NeedsReports(request, policyContext.NewResource(), v.admissionReports) && hasReportablePolicy(policies) {
-		go func() { //nolint:gosec // background context is intentional: the goroutine outlives the request
+		v.reportsPool.Submit(func() {
 			if err := v.createReports(context.TODO(), policyContext.NewResource(), request, engineResponses...); err != nil {
 				if reportutils.IsNamespaceTerminationError(err) {
 					// Log namespace termination errors at debug level as they are expected
@@ -163,7 +167,7 @@ func (v *validationHandler) HandleValidationEnforce(
 					v.log.Error(err, "failed to create report")
 				}
 			}
-		}()
+		})
 	}
 
 	engineResponses = append(engineResponses, auditWarnEngineResponses...)
