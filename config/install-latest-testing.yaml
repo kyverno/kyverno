@@ -91428,6 +91428,8 @@ spec:
             - --loggingFormat=text
             - --v=2
             - --protectManagedResources=false
+            - --allowInsecureRegistry=false
+            - --registryCredentialHelpers=default,google,amazon,azure,github
             - --ttlReconciliationInterval=1m
             
           env:
