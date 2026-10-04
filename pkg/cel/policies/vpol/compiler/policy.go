@@ -3,6 +3,8 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -150,6 +152,11 @@ func (p *Policy) evaluateWithData(
 		AllowedValues: allowedValues,
 	}
 	var matchTraces, variableTraces []trace.NamedExpressionTrace
+	// excludedBy is the condition that came out false, if any; erroredMatches are the ones that
+	// errored or did not return a bool. With failurePolicy Ignore, errors alone skip the policy
+	// after every condition has run, so the skip message needs these rather than the last trace.
+	var excludedBy string
+	var erroredMatches []string
 	var recordMatch func(int, ref.Val, error)
 	if p.trace {
 		// out and err are the deciding evaluation's; the tracking twin is only re-run here to
@@ -164,6 +171,13 @@ func (p *Policy) evaluateWithData(
 				Name:            t.Name,
 				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
 			})
+			if err != nil {
+				erroredMatches = append(erroredMatches, t.Name)
+			} else if result, err := utils.ConvertToNative[bool](out); err != nil {
+				erroredMatches = append(erroredMatches, t.Name)
+			} else if !result {
+				excludedBy = t.Name
+			}
 		}
 	}
 	match, err := p.match(ctx, dataNew, p.matchConditions, recordMatch)
@@ -185,7 +199,7 @@ func (p *Policy) evaluateWithData(
 		}
 		return &EvaluationResult{Skipped: true, Trace: &trace.Decision{
 			Match:   matchTraces,
-			Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(matchTraces)},
+			Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(len(matchTraces), excludedBy, erroredMatches)},
 		}}, nil
 	}
 	vars := lazy.NewMapValue(compiler.VariablesType)
@@ -264,15 +278,22 @@ func (p *Policy) evaluateWithData(
 	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, Trace: decision()}, nil
 }
 
-// skipMessage names the match condition that excluded the resource. The last one recorded is the
-// one that stopped evaluation, since match returns as soon as a condition is false.
-func skipMessage(matchTraces []trace.NamedExpressionTrace) string {
-	if len(matchTraces) == 0 {
+// skipMessage says why the match conditions skipped the policy: either one came out false (match
+// stops there), or none did and some errored, which failurePolicy Ignore treats as a non-match.
+func skipMessage(recorded int, excludedBy string, errored []string) string {
+	switch {
+	case recorded == 0:
 		return "a match condition excluded this resource"
-	}
-	last := matchTraces[len(matchTraces)-1]
-	if last.Name != "" {
-		return fmt.Sprintf("match condition %q did not pass, so the policy was skipped", last.Name)
+	case excludedBy != "":
+		return fmt.Sprintf("match condition %q did not pass, so the policy was skipped", excludedBy)
+	case len(errored) == 1:
+		return fmt.Sprintf("match condition %q failed to evaluate and failurePolicy is Ignore, so the policy was skipped", errored[0])
+	case len(errored) > 1:
+		quoted := make([]string, 0, len(errored))
+		for _, name := range errored {
+			quoted = append(quoted, strconv.Quote(name))
+		}
+		return fmt.Sprintf("match conditions %s failed to evaluate and failurePolicy is Ignore, so the policy was skipped", strings.Join(quoted, ", "))
 	}
 	return "a match condition did not pass, so the policy was skipped"
 }

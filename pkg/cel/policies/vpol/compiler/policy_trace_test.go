@@ -217,6 +217,58 @@ func TestEvaluate_TracingOn_MatchConditionErrorKeepsMatchTraces(t *testing.T) {
 	assert.Empty(t, traced.Trace.Variables, "nothing past the match conditions runs")
 }
 
+// TestEvaluate_TracingOn_IgnoredMatchErrorNamesTheRightCondition: with failurePolicy Ignore a
+// match condition that errors does not stop the loop, so every condition runs and the policy is
+// skipped afterwards. The skip message must name the condition that errored (or the one that came
+// out false), not whichever condition happened to be evaluated last.
+func TestEvaluate_TracingOn_IgnoredMatchErrorNamesTheRightCondition(t *testing.T) {
+	ignore := admissionregistrationv1.Ignore
+	errored := admissionregistrationv1.MatchCondition{Name: "owner-is-platform", Expression: "object.metadata.labels.owner == 'platform'"}
+	alsoErrors := admissionregistrationv1.MatchCondition{Name: "tier-is-web", Expression: "object.metadata.labels.tier == 'web'"}
+	passes := admissionregistrationv1.MatchCondition{Name: "passes", Expression: "true"}
+	excludes := admissionregistrationv1.MatchCondition{Name: "excludes", Expression: "false"}
+	tests := []struct {
+		name       string
+		conditions []admissionregistrationv1.MatchCondition
+		want       string
+		notWant    string
+	}{{
+		name:       "an errored condition followed by a passing one",
+		conditions: []admissionregistrationv1.MatchCondition{errored, passes},
+		want:       `match condition "owner-is-platform" failed to evaluate and failurePolicy is Ignore`,
+		notWant:    `"passes"`,
+	}, {
+		name:       "several errored conditions are all named",
+		conditions: []admissionregistrationv1.MatchCondition{errored, passes, alsoErrors},
+		want:       `match conditions "owner-is-platform", "tier-is-web" failed to evaluate and failurePolicy is Ignore`,
+		notWant:    `"passes"`,
+	}, {
+		name:       "a false condition decides even after an ignored error",
+		conditions: []admissionregistrationv1.MatchCondition{errored, excludes},
+		want:       `match condition "excludes" did not pass`,
+		notWant:    "failurePolicy",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := buildTracePolicy(threeValidations()...)
+			policy.Spec.FailurePolicy = &ignore
+			policy.Spec.MatchConditions = append(policy.Spec.MatchConditions, tt.conditions...)
+			object := podObject("prod", nil)
+
+			assert.Nil(t, compileAndEvaluate(t, false, policy, object), "tracing off: an ignored error is still a plain skip")
+
+			traced := compileAndEvaluate(t, true, policy, object)
+			require.NotNil(t, traced)
+			assert.True(t, traced.Skipped)
+			require.NotNil(t, traced.Trace)
+			assert.Equal(t, trace.VerdictSkip, traced.Trace.Verdict.Status)
+			assert.Contains(t, traced.Trace.Verdict.Message, tt.want)
+			assert.NotContains(t, traced.Trace.Verdict.Message, tt.notWant)
+			assert.Len(t, traced.Trace.Match, 1+len(tt.conditions), "every condition runs under Ignore and is traced")
+		})
+	}
+}
+
 func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
 	policy := buildTracePolicy(threeValidations()...)
 	objects := []map[string]any{
