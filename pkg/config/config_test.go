@@ -174,3 +174,47 @@ func TestConfiguration_GetMaxContextSize_KubernetesQuantityFormat(t *testing.T) 
 		})
 	}
 }
+
+func TestConfiguration_GetUpdateRequestThreshold(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"updateRequestThreshold": "500",
+		},
+	}
+	cfg.Load(cm)
+	assert.Equal(t, int64(500), cfg.GetUpdateRequestThreshold())
+
+	// Invalid value falls back to default
+	cmInvalid := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"updateRequestThreshold": "invalid",
+		},
+	}
+	cfg.Load(cmInvalid)
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+}
+
+func TestConfiguration_Unload_ResetsUpdateRequestThresholdAndMatchConditions(t *testing.T) {
+	cfg := NewDefaultConfiguration(false)
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "kyverno", Namespace: "kyverno"},
+		Data: map[string]string{
+			"updateRequestThreshold": "250",
+			"matchConditions":        `[{"name":"test-condition","expression":"true"}]`,
+		},
+	}
+	cfg.Load(cm)
+	assert.Equal(t, int64(250), cfg.GetUpdateRequestThreshold())
+	assert.Len(t, cfg.GetMatchConditions(), 1)
+
+	// Unload by passing nil
+	cfg.Load(nil)
+	assert.Equal(t, int64(UpdateRequestThreshold), cfg.GetUpdateRequestThreshold())
+	assert.Nil(t, cfg.GetMatchConditions())
+}
