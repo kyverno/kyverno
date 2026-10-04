@@ -156,3 +156,27 @@ func TestEvaluate_TracingErrorNodeShowsFailingLookup(t *testing.T) {
 	}
 	assert.True(t, sawError, "the failing condition should show which sub-expression errored")
 }
+
+// TestEvaluate_TracingMatchesUntracedOnAnExpensiveExpression: in cel-go v0.31 a program that
+// tracks state does not enforce the per-call cost limit, which is why the decision always comes
+// from the normal program and the tracking twin only explains. DeletingPolicy's environment sets
+// no per-call cost limit today, so this condition holds either way; the test pins that tracing
+// gives the same outcome, so if a limit is ever added, tracing cannot lift it.
+func TestEvaluate_TracingMatchesUntracedOnAnExpensiveExpression(t *testing.T) {
+	const items = "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]"
+	costly := items + ".all(a, " + items + ".all(b, " + items + ".all(c, " + items + ".all(d, " + items + ".all(e, a+b+c+d+e > 0)))))"
+	policy := traceTestPolicy()
+	policy.Spec.Conditions = []admissionregistrationv1.MatchCondition{{Name: "expensive", Expression: costly}}
+	pod := tracePod(map[string]any{"tier": "temp"})
+
+	untraced, untracedErr := evaluateTraced(t, false, policy, nil, pod)
+	traced, tracedErr := evaluateTraced(t, true, policy, nil, pod)
+
+	if untracedErr != nil {
+		require.Error(t, tracedErr, "tracing must not lift a limit the untraced run hit")
+		assert.Equal(t, untracedErr.Error(), tracedErr.Error())
+		return
+	}
+	require.NoError(t, tracedErr)
+	assert.Equal(t, untraced.Result, traced.Result)
+}

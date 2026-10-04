@@ -62,9 +62,13 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 	}
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, details, err := variable.ContextEval(ctx, dataNew)
+			out, _, err := variable.ContextEval(ctx, dataNew)
 			if p.trace {
 				if t, ok := p.tracedVariables[name]; ok {
+					// out is still the deciding program's value; the twin only explains it (see
+					// compiler.TracedProgram). Any variable the re-run reads comes from this same
+					// lazy map, so it matches.
+					details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
 					// variables are lazy, so this records them in the order they are first read
 					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 						Name:            name,
@@ -106,13 +110,16 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 			}, nil
 		}
 	}
-	var recordCondition func(int, ref.Val, *cel.EvalDetails, error)
+	var recordCondition func(int, ref.Val, error)
 	if p.trace {
-		recordCondition = func(i int, out ref.Val, details *cel.EvalDetails, err error) {
+		// out and err are the deciding evaluation's; the tracking twin is only re-run to collect
+		// node values for the trace (see compiler.TracedProgram)
+		recordCondition = func(i int, out ref.Val, err error) {
 			if i >= len(p.tracedConditions) {
 				return
 			}
 			t := p.tracedConditions[i]
+			details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
 			name := t.Name
 			if name == "" {
 				name = fmt.Sprintf("conditions[%d]", i)
@@ -176,13 +183,13 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 
 // match evaluates conditions in order. record, when non-nil, is called for every condition that
 // is evaluated, with its index into conditions; pass nil when there is nothing to trace.
-func (p *Policy) match(ctx context.Context, data map[string]any, conditions []cel.Program, record func(int, ref.Val, *cel.EvalDetails, error)) (bool, error) {
+func (p *Policy) match(ctx context.Context, data map[string]any, conditions []cel.Program, record func(int, ref.Val, error)) (bool, error) {
 	var errs []error
 	for i, condition := range conditions {
 		// evaluate the condition
-		out, details, err := condition.ContextEval(ctx, data)
+		out, _, err := condition.ContextEval(ctx, data)
 		if record != nil {
-			record(i, out, details, err)
+			record(i, out, err)
 		}
 		// check error
 		if err != nil {
