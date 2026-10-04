@@ -51,7 +51,7 @@ func podObject(namespace string, labels map[string]any) map[string]any {
 
 func compileAndEvaluate(t *testing.T, traced bool, policy *policiesv1beta1.ValidatingPolicy, object map[string]any) *EvaluationResult {
 	t.Helper()
-	p, errs := NewCompiler(traced).Compile(policy, nil)
+	p, errs := NewCompilerWithTrace(traced).Compile(policy, nil)
 	require.Empty(t, errs)
 	result, err := p.Evaluate(context.Background(), object, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
@@ -183,7 +183,7 @@ func TestEvaluate_TracingOn_MatchConditionErrorKeepsMatchTraces(t *testing.T) {
 	object := podObject("prod", nil)
 
 	evaluate := func(traced bool) (*EvaluationResult, error) {
-		p, errs := NewCompiler(traced).Compile(policy, nil)
+		p, errs := NewCompilerWithTrace(traced).Compile(policy, nil)
 		require.Empty(t, errs)
 		return p.Evaluate(context.Background(), object, nil, nil, nil, nil, nil)
 	}

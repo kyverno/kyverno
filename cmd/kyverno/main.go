@@ -783,7 +783,7 @@ func main() {
 			// without the exception, and never gets retried.
 			celExceptionLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace())
 			// create compiler
-			compiler := vpolcompiler.NewCompiler(false)
+			compiler := vpolcompiler.NewCompiler()
 			// create vpolProvider
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,

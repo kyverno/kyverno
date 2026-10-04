@@ -78,7 +78,7 @@ func TestResourceToGVR_RealVpolEnv(t *testing.T) {
 		},
 	}
 
-	compiled, errs := NewCompiler(false).Compile(policy, nil)
+	compiled, errs := NewCompiler().Compile(policy, nil)
 	require.Empty(t, errs, "policy must compile cleanly, same as the real conformance fixture")
 	require.NotNil(t, compiled)
 
@@ -110,7 +110,7 @@ func TestResourceToGVR_UnknownKindFailsEvaluation(t *testing.T) {
 			},
 		},
 	}
-	compiled, errs := NewCompiler(false).Compile(policy, nil)
+	compiled, errs := NewCompiler().Compile(policy, nil)
 	require.Empty(t, errs)
 	gvrProgram, ok := compiled.variables["gvr"]
 	require.True(t, ok)

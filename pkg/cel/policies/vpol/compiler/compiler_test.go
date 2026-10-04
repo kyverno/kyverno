@@ -36,7 +36,7 @@ func TestCompile_PolicyScopedIdentifiersStayDeclared(t *testing.T) {
 					Validations: []admissionregistrationv1.Validation{{Expression: tt.expression}},
 				},
 			}
-			_, errs := NewCompiler(false).Compile(policy, nil)
+			_, errs := NewCompiler().Compile(policy, nil)
 			assert.Assert(t, errs == nil, "expected %q to compile, got %v", tt.expression, errs)
 		})
 	}

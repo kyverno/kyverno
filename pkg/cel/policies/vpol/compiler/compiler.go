@@ -52,7 +52,16 @@ type Compiler interface {
 // built with tracing on (see compiler.CompileValidation), so a later evaluation can produce a
 // trace.ExpressionTrace instead of just a pass/fail result. The webhook admission path must
 // always construct this with trace=false; only offline callers (the CLI) should opt in.
-func NewCompiler(trace bool) Compiler {
+func NewCompiler() Compiler {
+	return NewCompilerWithTrace(false)
+}
+
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on, for
+// `kyverno apply --explain`: when trace is true, match conditions, variables and validations keep
+// their ASTs so each evaluation can record what every expression resolved to. It is a separate
+// constructor so that NewCompiler, which admission, background and reports use, can never turn
+// tracing on by accident.
+func NewCompilerWithTrace(trace bool) Compiler {
 	return &compilerImpl{trace: trace}
 }
 
