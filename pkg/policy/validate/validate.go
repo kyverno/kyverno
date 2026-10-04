@@ -22,12 +22,12 @@ type Validate struct {
 }
 
 // NewValidateFactory returns a new instance of Mutate validation checker
-func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, reportsSA string) *Validate {
+func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, reportsSA string, cache *auth.Cache) *Validate {
 	var authChecker auth.AuthChecks
 	if mock {
 		authChecker = fake.NewFakeAuth()
 	} else {
-		authChecker = auth.NewAuth(client, reportsSA, logging.GlobalLogger())
+		authChecker = auth.NewAuth(client, reportsSA, logging.GlobalLogger(), cache)
 	}
 
 	return &Validate{
