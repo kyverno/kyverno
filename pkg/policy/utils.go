@@ -7,7 +7,9 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstructured, isNamespacedPolicy bool) bool {
@@ -30,6 +32,45 @@ func resourceMatches(match kyvernov1.ResourceDescription, res unstructured.Unstr
 
 	if !isNamespacedPolicy && len(match.Namespaces) > 0 && !containsIncludingWildcards(match.Namespaces, res.GetNamespace()) {
 		return false
+	}
+
+	if !selectorMatches(match.Selector, res.GetLabels()) {
+		return false
+	}
+	return true
+}
+
+// selectorMatches checks a resource's labels against a selector, resolving wildcard characters
+// in matchLabels keys/values against the resource's own labels. Kubernetes label selectors don't
+// support wildcards, so this is needed for resources that were listed without the selector applied
+// server-side (see getResources).
+func selectorMatches(selector *metav1.LabelSelector, resourceLabels map[string]string) bool {
+	if selector == nil {
+		return true
+	}
+	for k, v := range selector.MatchLabels {
+		if !wildcard.ContainsWildcard(k) && !wildcard.ContainsWildcard(v) {
+			if val, ok := resourceLabels[k]; !ok || val != v {
+				return false
+			}
+			continue
+		}
+		matched := false
+		for rk, rv := range resourceLabels {
+			if wildcard.Match(k, rk) && wildcard.Match(v, rv) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	if len(selector.MatchExpressions) > 0 {
+		exprSelector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: selector.MatchExpressions})
+		if err != nil || !exprSelector.Matches(labels.Set(resourceLabels)) {
+			return false
+		}
 	}
 	return true
 }
