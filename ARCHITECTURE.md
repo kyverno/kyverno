@@ -155,8 +155,10 @@ redirects to `kyverno/community`'s org-wide maintainer list — a different, nar
 
 Kyverno's code and process live in more than one GitHub repo. See
 [docs/context/shared/repo-boundaries.md](docs/context/shared/repo-boundaries.md) for the full list and why each is
-separate — most importantly `kyverno/api` (CEL policy CRD types) and `kyverno/KDP` (design proposals: any new design
-work belongs there, not in a new in-repo proposal process).
+separate — most importantly `kyverno/api` (CEL policy CRD types) and
+the separate repositories listed there. The in-repo proposal process is
+documented in `docs/dev/proposals/`; the separate `kyverno/KDP` repository
+contains historical proposals during the staged migration.
 
 ## Test architecture
 
