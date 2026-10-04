@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -610,6 +611,53 @@ func Test_URLPathCanonicalization(t *testing.T) {
 		_, err = call.Fetch(context.TODO())
 		assert.NilError(t, err)
 		assert.Equal(t, "/api/v1/namespaces/default/pods?labelSelector=app%3Dweb&limit=10", client.gotPath)
+	})
+
+	// An empty urlPath means a service call. There is no namespace segment to clamp, so
+	// a namespaced policy must not be able to make one at all - this is what keeps
+	// namespaced policies off the service-call path. 1.14-1.18 pin this in
+	// ssrf_e2e_test.go; this branch has no such file, so pin it here.
+	t.Run("namespaced policy cannot make a service call", func(t *testing.T) {
+		entry := kyvernov1.ContextEntry{
+			Name: "svc",
+			APICall: &kyvernov1.ContextAPICall{
+				APICall: kyvernov1.APICall{
+					Method:  "GET",
+					Service: &kyvernov1.ServiceCall{URL: "https://in-cluster.example/x"},
+				},
+			},
+		}
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "tenant-a")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "does not contain a namespace segment")
+	})
+
+	t.Run("cluster-scoped policy may still make a service call", func(t *testing.T) {
+		entry := kyvernov1.ContextEntry{
+			Name: "svc",
+			APICall: &kyvernov1.ContextAPICall{
+				APICall: kyvernov1.APICall{
+					Method:  "GET",
+					Service: &kyvernov1.ServiceCall{URL: "https://in-cluster.example/x"},
+				},
+			},
+		}
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		// empty policyNamespace == ClusterPolicy: the clamp must not apply, so this
+		// must get past validation (it fails later at the network layer, not here).
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		if err != nil {
+			assert.Assert(t, !strings.Contains(err.Error(), "namespace segment"),
+				"cluster-scoped service call must not be rejected by the namespace clamp, got: %v", err)
+		}
 	})
 
 	t.Run("cluster-scoped policy is unaffected by a query decoy", func(t *testing.T) {

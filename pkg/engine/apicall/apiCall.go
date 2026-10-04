@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 	"regexp"
 
 	"github.com/go-logr/logr"
@@ -92,6 +93,12 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 		// Execute the exact same canonical path that was just validated -
 		// validation and execution must never diverge on representation.
 		call.APICall.URLPath = canonicalPath
+	} else if a.policyNamespace != "" {
+		// A service call carries no API path, so there is no namespace segment to
+		// clamp. Keep rejecting it for namespaced policies - an empty urlPath used
+		// to fail the clamp via path.Clean(""), and that is what keeps namespaced
+		// policies off the service-call path entirely.
+		return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", path.Clean(call.APICall.URLPath))
 	}
 
 	data, err := a.Execute(ctx, &call.APICall)
