@@ -230,6 +230,7 @@ func (r *RuleResponse) SkipReason() SkipReason {
 	return r.skipReason
 }
 
+// WithMessageExpressionError sets the messageExpressionError on the RuleResponse.
 func (r RuleResponse) WithMessageExpressionError(err error) *RuleResponse {
 	if err != nil {
 		r.messageExpressionError = err.Error()
@@ -237,6 +238,7 @@ func (r RuleResponse) WithMessageExpressionError(err error) *RuleResponse {
 	return &r
 }
 
+// MessageExpressionError returns the messageExpressionError.
 func (r *RuleResponse) MessageExpressionError() string {
 	return r.messageExpressionError
 }

@@ -264,17 +264,17 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			// failed. Report what the exception required: nowhere else does the submitter learn
 			// one was in play. reportResult is not consulted — nothing was granted.
 			exceptions := []engineapi.GenericException{engineapi.NewCELPolicyException(refused.Exception)}
+			msgErr := result.MessageExpressionError
+			if refused.MessageExpressionError != nil {
+				msgErr = refused.MessageExpressionError
+			}
 			if refused.Error != nil {
 				response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation,
 					fmt.Sprintf("failed to evaluate compensating controls of policy exception %s", cache.MetaObjectToName(refused.Exception)),
 					refused.Error, withValidationIndex(nil, result.Index),
-				).WithExceptions(exceptions).WithMessageExpressionError(result.MessageExpressionError))
+				).WithExceptions(exceptions).WithMessageExpressionError(msgErr))
 			} else {
 				props := withValidationIndex(result.AuditAnnotations, result.Index)
-				msgErr := result.MessageExpressionError
-				if refused.MessageExpressionError != nil {
-					msgErr = refused.MessageExpressionError
-				}
 				response.Rules = append(response.Rules, *engineapi.RuleFail(ruleName, engineapi.Validation, refused.Message, props).WithExceptions(exceptions).WithMessageExpressionError(msgErr))
 			}
 		} else {
