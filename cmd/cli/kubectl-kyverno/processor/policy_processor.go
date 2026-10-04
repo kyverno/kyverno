@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1033,23 +1034,11 @@ func (p *PolicyProcessor) openAPI() openapi.Client {
 		}
 	}
 
-	addedCrdClient := false
-	if len(p.CrdPaths) > 0 {
-		visitedDirs := make(map[string]struct{})
-		for _, crdPath := range p.CrdPaths {
-			if strings.TrimSpace(crdPath) == "" {
-				continue
-			}
-			absPath := getAbsPath(crdPath)
-			if _, seen := visitedDirs[absPath]; !seen {
-				diskCrds := os.DirFS(absPath)
-				clients = append(clients, openapiclient.NewLocalCRDFiles(diskCrds))
-				visitedDirs[absPath] = struct{}{}
-				addedCrdClient = true
-			}
-		}
+	crdFss := crdFileSystems(p.CrdPaths)
+	for _, crdFs := range crdFss {
+		clients = append(clients, openapiclient.NewLocalCRDFiles(crdFs))
 	}
-	if !addedCrdClient {
+	if len(crdFss) == 0 {
 		if crds, err := data.Crds(); err == nil {
 			clients = append(clients, openapiclient.NewLocalSchemaFiles(crds))
 		}
@@ -1296,14 +1285,61 @@ func (p *PolicyProcessor) loadCrds() error {
 	return nil
 }
 
-func getAbsPath(path string) string {
-	if path[len(path)-1] == '/' {
-		path = path[:len(path)-1]
+// crdFileSystems returns one file system per directory holding the given CRD
+// paths. A path to a file exposes only that file (and the other listed files in
+// the same directory), not every YAML document that happens to sit next to it.
+func crdFileSystems(crdPaths []string) []fs.FS {
+	var dirs []string
+	files := make(map[string]map[string]struct{})
+	for _, crdPath := range crdPaths {
+		if strings.TrimSpace(crdPath) == "" {
+			continue
+		}
+		absPath, _ := filepath.Abs(strings.TrimSuffix(crdPath, "/"))
+		dir, name := absPath, ""
+		if fileInfo, err := os.Stat(absPath); err == nil && !fileInfo.IsDir() {
+			dir, name = filepath.Dir(absPath), filepath.Base(absPath)
+		}
+		names, seen := files[dir]
+		if !seen {
+			dirs = append(dirs, dir)
+			names = make(map[string]struct{})
+			files[dir] = names
+		}
+		// nil marks a directory listed as a whole
+		if names == nil || name == "" {
+			files[dir] = nil
+			continue
+		}
+		names[name] = struct{}{}
 	}
-	absPath, _ := filepath.Abs(path)
-	fileInfo, err := os.Stat(absPath)
-	if err == nil && !fileInfo.IsDir() {
-		absPath = filepath.Dir(absPath)
+	fileSystems := make([]fs.FS, 0, len(dirs))
+	for _, dir := range dirs {
+		var dirFs fs.FS = os.DirFS(dir)
+		if names := files[dir]; names != nil {
+			dirFs = filteredDirFS{FS: dirFs, names: names}
+		}
+		fileSystems = append(fileSystems, dirFs)
 	}
-	return absPath
+	return fileSystems
+}
+
+// filteredDirFS lists only the named files of its root directory.
+type filteredDirFS struct {
+	fs.FS
+	names map[string]struct{}
+}
+
+func (f filteredDirFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	entries, err := fs.ReadDir(f.FS, name)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]fs.DirEntry, 0, len(f.names))
+	for _, entry := range entries {
+		if _, ok := f.names[entry.Name()]; ok {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered, nil
 }
