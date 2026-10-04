@@ -1,0 +1,123 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: globalcontext-runtime-custom-resource
+spec:
+  concurrent: false
+  description: A custom-resource GCE created after Kyverno startup loads without restarting controllers.
+  steps:
+  # Keep the pod snapshot output in scope through the final restart assertion.
+  - name: runtime-created-gce
+    try:
+    - command:
+        entrypoint: kubectl
+        args: [rollout, status, deployment, -l, app.kubernetes.io/part-of=kyverno, -n, kyverno, --timeout=60s]
+        timeout: 70s
+    - command:
+        entrypoint: kubectl
+        args: [get, pods, -n, kyverno, -l, app.kubernetes.io/part-of=kyverno, -o, json]
+        outputs:
+        - name: controller_pods
+          value: (sort_by(json_parse($stdout).items[?metadata.ownerReferences[?kind == 'ReplicaSet']], &metadata.name)[].{uid:metadata.uid, restarts:status.containerStatuses[].restartCount})
+        check:
+          (length(json_parse($stdout).items) > `0`): true
+    # create-custom-resource-after-startup
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: test-globalcontext-runtime-custom-resource
+    - apply:
+        file: crd.yaml
+    - assert:
+        resource:
+          apiVersion: apiextensions.k8s.io/v1
+          kind: CustomResourceDefinition
+          metadata:
+            name: widgets.runtime.globalcontext.kyverno.io
+          status:
+            (conditions[?type == 'Established']):
+            - type: Established
+              status: "True"
+    - apply:
+        file: rbac.yaml
+    - apply:
+        resource:
+          apiVersion: runtime.globalcontext.kyverno.io/v1alpha1
+          kind: Widget
+          metadata:
+            name: a
+            namespace: test-globalcontext-runtime-custom-resource
+          spec:
+            value: a
+    - apply:
+        file: gce.yaml
+    - apply:
+        file: policy.yaml
+    # wait-policy-ready
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: ValidatingPolicy
+          metadata:
+            name: globalcontext-runtime-custom-resource
+          status:
+            conditionStatus:
+              ready: true
+              (conditions[?type == 'WebhookConfigured']):
+              - type: WebhookConfigured
+                status: "True"
+    # prove-admission-sees-custom-resource
+    # Apply retries on observable admission failure until the GCE is loaded;
+    # failurePolicy=Fail and the null guard prevent a missing entry from passing.
+    - apply:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: allowed-a
+            namespace: test-globalcontext-runtime-custom-resource
+          data:
+            value: a
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: rejected
+            namespace: test-globalcontext-runtime-custom-resource
+          data:
+            value: absent
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'ConfigMap value must be present in the runtime-created global context.')): true
+    # prove-watch-updates-without-recreating-gce
+    - apply:
+        resource:
+          apiVersion: runtime.globalcontext.kyverno.io/v1alpha1
+          kind: Widget
+          metadata:
+            name: b
+            namespace: test-globalcontext-runtime-custom-resource
+          spec:
+            value: b
+    - apply:
+        timeout: 60s
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: allowed-b
+            namespace: test-globalcontext-runtime-custom-resource
+          data:
+            value: b
+    # verify-no-controller-restart
+    - command:
+        entrypoint: kubectl
+        args: [get, pods, -n, kyverno, -l, app.kubernetes.io/part-of=kyverno, -o, json]
+        check:
+          (sort_by(json_parse($stdout).items[?metadata.ownerReferences[?kind == 'ReplicaSet']], &metadata.name)[].{uid:metadata.uid, restarts:status.containerStatuses[].restartCount} == $controller_pods): true
