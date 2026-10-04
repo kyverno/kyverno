@@ -66,6 +66,20 @@ func (mr *MockConfigurationMockRecorder) GetEnableDefaultRegistryMutation() *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnableDefaultRegistryMutation", reflect.TypeOf((*MockConfiguration)(nil).GetEnableDefaultRegistryMutation))
 }
 
+// GetEnableUpdateRequestCleanup mocks base method.
+func (m *MockConfiguration) GetEnableUpdateRequestCleanup() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEnableUpdateRequestCleanup")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// GetEnableUpdateRequestCleanup indicates an expected call of GetEnableUpdateRequestCleanup.
+func (mr *MockConfigurationMockRecorder) GetEnableUpdateRequestCleanup() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnableUpdateRequestCleanup", reflect.TypeOf((*MockConfiguration)(nil).GetEnableUpdateRequestCleanup))
+}
+
 // GetGenerateSuccessEvents mocks base method.
 func (m *MockConfiguration) GetGenerateSuccessEvents() bool {
 	m.ctrl.T.Helper()
@@ -78,20 +92,6 @@ func (m *MockConfiguration) GetGenerateSuccessEvents() bool {
 func (mr *MockConfigurationMockRecorder) GetGenerateSuccessEvents() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGenerateSuccessEvents", reflect.TypeOf((*MockConfiguration)(nil).GetGenerateSuccessEvents))
-}
-
-// GetSuccessEventActions mocks base method.
-func (m *MockConfiguration) GetSuccessEventActions() sets.Set[string] {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSuccessEventActions")
-	ret0, _ := ret[0].(sets.Set[string])
-	return ret0
-}
-
-// GetSuccessEventActions indicates an expected call of GetSuccessEventActions.
-func (mr *MockConfigurationMockRecorder) GetSuccessEventActions() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuccessEventActions", reflect.TypeOf((*MockConfiguration)(nil).GetSuccessEventActions))
 }
 
 // GetMatchConditions mocks base method.
@@ -120,6 +120,34 @@ func (m *MockConfiguration) GetMaxContextSize() int64 {
 func (mr *MockConfigurationMockRecorder) GetMaxContextSize() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMaxContextSize", reflect.TypeOf((*MockConfiguration)(nil).GetMaxContextSize))
+}
+
+// GetSuccessEventActions mocks base method.
+func (m *MockConfiguration) GetSuccessEventActions() sets.Set[string] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSuccessEventActions")
+	ret0, _ := ret[0].(sets.Set[string])
+	return ret0
+}
+
+// GetSuccessEventActions indicates an expected call of GetSuccessEventActions.
+func (mr *MockConfigurationMockRecorder) GetSuccessEventActions() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuccessEventActions", reflect.TypeOf((*MockConfiguration)(nil).GetSuccessEventActions))
+}
+
+// GetUpdateRequestCleanupTTL mocks base method.
+func (m *MockConfiguration) GetUpdateRequestCleanupTTL() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetUpdateRequestCleanupTTL")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetUpdateRequestCleanupTTL indicates an expected call of GetUpdateRequestCleanupTTL.
+func (mr *MockConfigurationMockRecorder) GetUpdateRequestCleanupTTL() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUpdateRequestCleanupTTL", reflect.TypeOf((*MockConfiguration)(nil).GetUpdateRequestCleanupTTL))
 }
 
 // GetUpdateRequestThreshold mocks base method.
