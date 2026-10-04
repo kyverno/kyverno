@@ -661,6 +661,15 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	assert.Equal(t, "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", image)
 }
 
+func Test_MutateImageHandler_ImageReferencesWithVariable(t *testing.T) {
+	policyWithVar := strings.Replace(testSampleSingleKeyPolicy, `"ghcr.io/kyverno/test-verify-image:*"`, `"{{ request.object.metadata.annotations.allowedImage }}"`, -1)
+	resourceWithAnno := strings.Replace(testSampleResource, `"metadata": {"name": "test"}`, `"metadata": {"name": "test", "annotations": {"allowedImage": "ghcr.io/kyverno/test-verify-image:*"}}`, -1)
+	policyContext := buildContext(t, policyWithVar, resourceWithAnno, "")
+	engineResp, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(), nil, policyContext, cfg)
+	assert.Equal(t, len(engineResp.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResp.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResp.PolicyResponse.Rules[0].Message())
+}
+
 func Test_SignatureUnsigned(t *testing.T) {
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")

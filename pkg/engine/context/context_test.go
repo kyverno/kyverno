@@ -7,12 +7,14 @@ import (
 	"strings"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -460,4 +462,103 @@ func Test_ContextSizeLimitBlocksExponentialAmplification(t *testing.T) {
 	var sizeErr ContextSizeLimitExceededError
 	assert.ErrorAs(t, lastErr, &sizeErr)
 	assert.LessOrEqual(t, sizeErr.Limit, int64(testLimit))
+}
+
+func TestContext_CheckpointRestoreImages(t *testing.T) {
+	ctx := NewContext(jp).(*context)
+	pod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"spec": map[string]interface{}{
+				"imagePullSecrets": []interface{}{
+					map[string]interface{}{
+						"name": "my-secret",
+					},
+				},
+				"containers": []interface{}{
+					map[string]interface{}{
+						"name":  "app",
+						"image": "nginx:1.20",
+					},
+				},
+			},
+		},
+	}
+	err := ctx.AddImageInfos(pod, cfg)
+	assert.NoError(t, err)
+
+	imagesBefore := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesBefore["containers"]))
+	assert.Equal(t, []string{"my-secret"}, imagesBefore["containers"]["app"].ImagePullSecrets)
+
+	ctx.Checkpoint()
+
+	// Mutate ImagePullSecrets slice in ctx.images to verify deep copy isolation
+	info := ctx.images["containers"]["app"]
+	info.ImagePullSecrets[0] = "mutated-secret"
+	info.ImagePullSecrets = append(info.ImagePullSecrets, "extra-secret")
+	ctx.images["containers"]["app"] = info
+
+	customPod := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "Pod",
+			"metadata": map[string]interface{}{
+				"name": "test",
+			},
+			"data": map[string]interface{}{
+				"myImage": "redis:6.0",
+			},
+		},
+	}
+	customExtractors := kyvernov1.ImageExtractorConfigs{
+		"Pod": []kyvernov1.ImageExtractorConfig{
+			{
+				Path: "/data/myImage",
+				Name: "customImg",
+			},
+		},
+	}
+	_, err = ctx.GenerateCustomImageInfo(customPod, customExtractors, cfg)
+	assert.NoError(t, err)
+
+	imagesInsideCheckpoint := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesInsideCheckpoint["customImg"]))
+
+	// Test Reset()
+	ctx.Reset()
+	imagesAfterReset := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesAfterReset["containers"]))
+	assert.Equal(t, []string{"my-secret"}, imagesAfterReset["containers"]["app"].ImagePullSecrets)
+	assert.Nil(t, imagesAfterReset["customImg"])
+
+	// Verify deferred loading on Query("images...") does not overwrite the reset image map
+	queryVal, err := ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", queryVal)
+	assert.Nil(t, ctx.ImageInfo()["customImg"])
+
+	// Mutate again before Restore
+	info2 := ctx.images["containers"]["app"]
+	info2.ImagePullSecrets[0] = "mutated-again"
+	ctx.images["containers"]["app"] = info2
+
+	ctx.Restore()
+
+	imagesAfterRestore := ctx.ImageInfo()
+	assert.Equal(t, 1, len(imagesAfterRestore["containers"]))
+	appInfo := imagesAfterRestore["containers"]["app"]
+	assert.Equal(t, "docker.io/nginx:1.20", appInfo.String())
+	assert.Equal(t, []string{"my-secret"}, appInfo.ImagePullSecrets)
+	assert.Nil(t, imagesAfterRestore["customImg"])
+
+	// Verify deferred loading on Query("images...") after Restore does not re-extract or overwrite
+	queryVal2, err := ctx.Query("images.containers.app.name")
+	assert.NoError(t, err)
+	assert.Equal(t, "nginx", queryVal2)
+	assert.Nil(t, ctx.ImageInfo()["customImg"])
 }

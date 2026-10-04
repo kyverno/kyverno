@@ -53,6 +53,7 @@ type context struct {
 	jsonRaw            map[string]interface{}
 	jsonRawCheckpoints []map[string]interface{}
 	images             map[string]map[string]apiutils.ImageInfo
+	imagesCheckpoints  []map[string]map[string]apiutils.ImageInfo
 	operation          kyvernov1.AdmissionOperation
 	deferred           DeferredLoaders
 	contextSize        int64
@@ -312,6 +313,10 @@ func (l *ImageInfoLoader) HasLoaded() bool {
 }
 
 func (l *ImageInfoLoader) LoadData() error {
+	l.hasLoaded = true
+	if len(l.eCtx.images) > 0 {
+		return nil
+	}
 	images, err := apiutils.ExtractImagesFromResource(*l.resource, nil, l.cfg)
 	if err != nil {
 		return err
@@ -371,6 +376,27 @@ func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := ctx.copyContext(ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
+	ctx.imagesCheckpoints = append(ctx.imagesCheckpoints, ctx.copyImages(ctx.images))
+}
+
+func (ctx *context) copyImages(in map[string]map[string]apiutils.ImageInfo) map[string]map[string]apiutils.ImageInfo {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]map[string]apiutils.ImageInfo, len(in))
+	for k, v := range in {
+		inner := make(map[string]apiutils.ImageInfo, len(v))
+		for k2, v2 := range v {
+			if v2.ImagePullSecrets != nil {
+				secrets := make([]string, len(v2.ImagePullSecrets))
+				copy(secrets, v2.ImagePullSecrets)
+				v2.ImagePullSecrets = secrets
+			}
+			inner[k2] = v2
+		}
+		out[k] = inner
+	}
+	return out
 }
 
 func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{} {
@@ -413,8 +439,15 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 		ctx.jsonRaw = jsonRawCheckpoint
+		if len(ctx.imagesCheckpoints) > n {
+			ctx.images = ctx.imagesCheckpoints[n]
+			ctx.imagesCheckpoints = ctx.imagesCheckpoints[:n]
+		}
 	} else {
 		ctx.jsonRaw = ctx.copyContext(jsonRawCheckpoint)
+		if len(ctx.imagesCheckpoints) > n {
+			ctx.images = ctx.copyImages(ctx.imagesCheckpoints[n])
+		}
 	}
 
 	return true
