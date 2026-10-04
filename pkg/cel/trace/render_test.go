@@ -124,3 +124,25 @@ func TestClip_DoesNotSplitAMultiByteRune(t *testing.T) {
 	assert.True(t, utf8.ValidString(got), "clip produced invalid UTF-8: %q", got)
 	assert.True(t, strings.HasSuffix(got, "..."), "clip should still append the ellipsis")
 }
+
+func TestRender_LoopValuesOmittedNote(t *testing.T) {
+	const note = "values inside loops such as all() and exists() are not shown"
+	loop := ExpressionTrace{
+		Source:            "object.spec.containers.all(c, has(c.resources))",
+		Result:            "false",
+		Nodes:             []NodeTrace{{Expression: "object.spec.containers", Value: "[...]"}},
+		LoopValuesOmitted: true,
+	}
+	var sb strings.Builder
+	Render(&sb, &Decision{Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: loop}})
+	assert.Contains(t, sb.String(), note, "a failing loop must say why its body is not broken down")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{Status: VerdictPass, ExpressionTrace: loop}})
+	assert.NotContains(t, sb.String(), note, "a pass shows no breakdown, so no note either")
+
+	sb.Reset()
+	loop.LoopValuesOmitted = false
+	Render(&sb, &Decision{Verdict: VerdictTrace{Status: VerdictFail, ExpressionTrace: loop}})
+	assert.NotContains(t, sb.String(), note)
+}

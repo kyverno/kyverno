@@ -136,7 +136,68 @@ func TestBuild_MacroInternalsAndLiteralsAreOmitted(t *testing.T) {
 		assert.NotEqual(t, "true", text, "literal nodes must not be traced")
 		assert.NotEqual(t, `"memory"`, text, "literal nodes must not be traced")
 	}
-	assert.Contains(t, nodeTexts(et), "has(c.resources)", "the meaningful sub-expression is kept")
+	// the list being looped over runs once and is kept; the loop body is left out (see
+	// TestBuild_LoopBodiesAreOmitted)
+	assert.Contains(t, nodeTexts(et), "object.spec.containers")
+	assert.NotContains(t, nodeTexts(et), "has(c.resources)")
+	assert.True(t, et.LoopValuesOmitted)
+}
+
+// TestBuild_LoopBodiesAreOmitted is the review repro: cel-go keeps one value per node, from its
+// last run, so inside a loop a node shows the last item's value even when another item decided
+// the result. With two containers where the second fails, the body used to show the second's
+// image next to the first's name. Body nodes must be left out, and the omission flagged.
+func TestBuild_LoopBodiesAreOmitted(t *testing.T) {
+	object := map[string]any{"spec": map[string]any{"containers": []any{
+		map[string]any{"name": "app", "image": "eu.foo.io/app:1.0", "resources": map[string]any{}},
+		map[string]any{"name": "sidecar", "image": "docker.io/envoyproxy/envoy:v1.30"},
+	}}}
+	tests := []struct {
+		name string
+		expr string
+		// kept are the nodes that run once and must still be traced
+		kept []string
+	}{{
+		name: "all",
+		expr: "object.spec.containers.all(c, c.image.startsWith('eu.foo.io/') && c.name != 'forbidden' && has(c.resources))",
+		kept: []string{"object.spec.containers", "object.spec"},
+	}, {
+		name: "exists",
+		expr: "object.spec.containers.exists(c, c.name == 'sidecar')",
+		kept: []string{"object.spec.containers", "object.spec"},
+	}, {
+		// nodes that contain a loop (the size() and == here) are not traced either: without
+		// macro call tracking in the policy environment the CEL unparser cannot render them
+		name: "map, then a check on its result outside the loop",
+		expr: "object.spec.containers.map(c, c.name).size() == 2",
+		kept: []string{"object.spec.containers", "object.spec"},
+	}, {
+		name: "loop over the result of another loop",
+		expr: "object.spec.containers.filter(c, has(c.resources)).all(c, c.image.startsWith('eu.foo.io/'))",
+		kept: []string{"object.spec.containers", "object.spec"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			prg, ast := buildTrackedProgram(t, tt.expr)
+			out, details, err := prg.ContextEval(context.TODO(), map[string]any{"object": object})
+			require.NoError(t, err)
+			et := Build(tt.expr, ast, out, details)
+
+			texts := nodeTexts(et)
+			for _, text := range texts {
+				assert.NotRegexp(t, `\bc\.`, text, "a node from inside a loop body must not be traced: %q", text)
+			}
+			assert.Equal(t, tt.kept, texts, "only the nodes that run once are traced")
+			assert.True(t, et.LoopValuesOmitted)
+		})
+	}
+}
+
+func TestBuild_NoLoopNothingOmitted(t *testing.T) {
+	prg, ast := buildTrackedProgram(t, "object.metadata.name == 'x'")
+	out, details, err := prg.ContextEval(context.TODO(), map[string]any{"object": map[string]any{"metadata": map[string]any{"name": "x"}}})
+	require.NoError(t, err)
+	assert.False(t, Build("object.metadata.name == 'x'", ast, out, details).LoopValuesOmitted)
 }
 
 func TestBuild_ShortCircuitedNodesAreOmitted(t *testing.T) {

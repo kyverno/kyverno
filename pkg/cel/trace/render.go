@@ -72,6 +72,9 @@ func Render(w io.Writer, d *Decision) {
 			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(n.Value))
 		}
 	}
+	if v.Status != VerdictPass && v.LoopValuesOmitted {
+		fmt.Fprintf(w, "%-10s %-8s (values inside loops such as all() and exists() are not shown: CEL keeps only the last item's)\n", "", "")
+	}
 }
 
 func row(w io.Writer, layer, status, rest string) {
