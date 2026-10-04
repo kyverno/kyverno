@@ -1229,3 +1229,80 @@ func TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher(t *testing.T) {
 			"expression-only target should not be filtered by trigger matchConstraints")
 	}
 }
+
+// TestEvaluate_ExpressionOnlyTargetNamespaceSelectorFilters verifies that even
+// for expression-only targetMatchConstraints (no resourceRules), a
+// NamespaceSelector on the targetMatchConstraints is still evaluated by the
+// matcher. A target whose namespace does NOT carry the required label must be
+// filtered out (empty Rules).
+func TestEvaluate_ExpressionOnlyTargetNamespaceSelectorFilters(t *testing.T) {
+	mutateExisting := true
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "expression-ns-selector"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+					Enabled: &mutateExisting,
+				},
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"secrets"},
+						},
+					},
+				}},
+			},
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				MatchResources: admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"env": "production"},
+					},
+				},
+				Expression: `resource.get("v1", "configmaps", object.metadata.namespace, "test-cm")`,
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"patched": "yes"}}}`,
+				},
+			}},
+		},
+	}
+
+	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
+	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
+	assert.NoError(t, err)
+
+	nsResolverNoLabel := func(ns string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	}
+
+	target := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1", "kind": "ConfigMap",
+		"metadata": map[string]interface{}{"name": "test-cm", "namespace": "default"},
+	}}
+	attr := admission.NewAttributesRecord(
+		target, nil,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
+		"default", "test-cm",
+		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+		"", admission.Update, nil, false, &user.DefaultInfo{},
+	)
+
+	eng := NewEngine(provider, nsResolverNoLabel, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+	resp, err := eng.Evaluate(ctx, attr, admissionv1.AdmissionRequest{
+		Operation: admissionv1.Update,
+		Name:      "test-cm",
+		Namespace: "default",
+	}, predicate)
+
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Empty(t, resp.Policies[0].Rules,
+			"expression-only target with non-matching NamespaceSelector should be filtered out")
+	}
+}

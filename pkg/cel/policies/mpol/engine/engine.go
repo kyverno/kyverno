@@ -21,6 +21,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -233,6 +234,24 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		if target && hasExplicitTarget {
 			if len(targetConstraints.ResourceRules) > 0 {
 				constraints = targetConstraints.MatchResources
+				// Normalize target resource-rule operations to OperationAll.
+				// Target matching is not an admission-operation filter: the
+				// background controller synthesizes Update for every scan request,
+				// and the CLI uses an empty operation. Without this normalization,
+				// a target rule limited to CREATE would be silently rejected even
+				// though the target was already selected for mutation.
+				normalizedRules := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ResourceRules))
+				for i, r := range constraints.ResourceRules {
+					normalizedRules[i] = r
+					normalizedRules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+				}
+				constraints.ResourceRules = normalizedRules
+				normalizedExclude := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ExcludeResourceRules))
+				for i, r := range constraints.ExcludeResourceRules {
+					normalizedExclude[i] = r
+					normalizedExclude[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+				}
+				constraints.ExcludeResourceRules = normalizedExclude
 			} else if targetConstraints.Expression != "" {
 				// Expression-only targets: the CEL expression (e.g. resource.get(...))
 				// resolves the target set directly. Use the targetMatchConstraints'
