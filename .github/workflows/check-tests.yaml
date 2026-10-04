@@ -90,6 +90,7 @@ jobs:
         uses: ./.github/actions/go/setup
         with:
           gobuild-cache-prefix: gobuild-unit-tests
+          gobuild-cache-include-run-id: 'true'
       - name: Check performance regression
         run: make check-perf
 
@@ -113,3 +114,5 @@ jobs:
         with:
           conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
           needs: ${{ toJSON(needs) }}
+          # Read by the E2E gate (.github/workflows/e2e-gate.yaml).
+          labels: e2e-failure

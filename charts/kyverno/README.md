@@ -290,6 +290,19 @@ $ helm delete -n kyverno kyverno
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
 
+**Note on legacy policy CRDs:** The legacy `kyverno.io` policy CRDs (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, and the legacy `PolicyException`) carry the `helm.sh/resource-policy: keep` annotation. Helm therefore does **not** delete them on uninstall, so existing legacy policy resources are preserved rather than garbage-collected. After migrating to the CEL-based `policies.kyverno.io` APIs, delete these CRDs explicitly once you have verified the migration (note: deleting a CRD also deletes any remaining legacy policy resources of that kind, so back up and confirm your migration first), for example:
+
+```console
+$ kubectl delete crd \
+    clusterpolicies.kyverno.io \
+    policies.kyverno.io \
+    cleanuppolicies.kyverno.io \
+    clustercleanuppolicies.kyverno.io \
+    policyexceptions.kyverno.io
+```
+
+See the [migration guide](https://kyverno.io/docs/guides/migration-to-cel/) for details.
+
 ## Values
 
 The chart values are organised per component.
@@ -1060,7 +1073,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
-| https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.2 |
+| https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.5 |
 | https://kyverno.github.io/reports-server/ | reports-server | 0.1.7 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 

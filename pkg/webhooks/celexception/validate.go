@@ -28,11 +28,10 @@ func (h *celExceptionHandlers) Validate(ctx context.Context, logger logr.Logger,
 		logger.Error(err, "failed to unmarshal CEL PolicyExceptions from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	var warning string
-	if !h.validationOptions.Enabled {
-		warning = validation.DisabledPolex
-	}
+	warnings := validation.ValidateNamespace(ctx, logger, polex.GetNamespace(), h.validationOptions)
+	warnings = append(warnings, validation.ValidateCompensatingControls(&polex.Spec)...)
 	errs := polex.Validate()
+	errs = append(errs, validation.ValidateCompensatingControlExpressions(polex)...)
 	preexistingExpressions := make(map[string]bool)
 	if oldPolex != nil {
 		for _, condition := range oldPolex.Spec.MatchConditions {
@@ -40,5 +39,5 @@ func (h *celExceptionHandlers) Validate(ctx context.Context, logger logr.Logger,
 		}
 	}
 	errs = append(errs, compiler.CompilePolicyExceptionMatchConditions(polex.Spec.MatchConditions, preexistingExpressions)...)
-	return admissionutils.Response(request.UID, errs.ToAggregate(), warning)
+	return admissionutils.Response(request.UID, errs.ToAggregate(), warnings...)
 }

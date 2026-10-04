@@ -26,6 +26,7 @@ spec:
       name: newsecret
       namespace: default
       synchronize: true
+      orphanDownstreamOnPolicyDelete: true
       clone:
         name: regcred
         namespace: default
