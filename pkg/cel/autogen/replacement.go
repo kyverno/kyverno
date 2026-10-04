@@ -11,6 +11,8 @@ import (
 // `metadata.namespace` field, which would otherwise break match conditions.
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
+	[]byte("['namespace']"),
+	[]byte("[\"namespace\"]"),
 }
 
 type Replacement struct {
@@ -18,6 +20,8 @@ type Replacement struct {
 	To   string
 }
 
+// Apply rewrites the configured field paths in the given data,
+// replacing both the "object." and "oldObject." prefixes.
 func (r *Replacement) Apply(data []byte) []byte {
 	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
 	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
@@ -92,9 +96,70 @@ func isIdentifierByte(b byte) bool {
 		(b >= '0' && b <= '9')
 }
 
+// Apply sequentially applies a list of replacements to the given data.
 func Apply(data []byte, replacements ...Replacement) []byte {
 	for _, replacement := range replacements {
 		data = replacement.Apply(data)
 	}
 	return data
+}
+
+// ApplyCEL sequentially applies a list of replacements to raw CEL strings,
+// skipping replacements inside string literals.
+func ApplyCEL(data []byte, replacements ...Replacement) []byte {
+	for _, replacement := range replacements {
+		data = replaceCEL(data, []byte("object."+replacement.From), []byte("object."+replacement.To))
+		data = replaceCEL(data, []byte("oldObject."+replacement.From), []byte("oldObject."+replacement.To))
+	}
+	return data
+}
+
+// replaceCEL is a syntax-aware replacer that skips CEL string literals.
+func replaceCEL(data, from, to []byte) []byte {
+	if len(from) == 0 || bytes.Equal(from, to) {
+		return data
+	}
+	idx := bytes.Index(data, from)
+	if idx < 0 {
+		return data
+	}
+
+	var buf bytes.Buffer
+	buf.Grow(len(data) + len(to))
+
+	inSingle := false
+	inDouble := false
+	escaped := false
+
+	for i := 0; i < len(data); {
+		if !inSingle && !inDouble {
+			if bytes.HasPrefix(data[i:], from) {
+				rest := data[i+len(from):]
+				if isProtected(rest) {
+					buf.Write(from)
+				} else {
+					buf.Write(to)
+				}
+				i += len(from)
+				continue
+			}
+		}
+
+		c := data[i]
+		if escaped {
+			escaped = false
+		} else {
+			if c == '\\' {
+				escaped = true
+			} else if c == '\'' && !inDouble {
+				inSingle = !inSingle
+			} else if c == '"' && !inSingle {
+				inDouble = !inDouble
+			}
+		}
+
+		buf.WriteByte(c)
+		i++
+	}
+	return buf.Bytes()
 }
