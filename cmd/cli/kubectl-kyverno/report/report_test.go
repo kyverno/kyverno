@@ -1,6 +1,7 @@
 package report
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -12,7 +13,58 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"sigs.k8s.io/yaml"
 )
+
+func TestComputePolicyReportsDecode(t *testing.T) {
+	scheme := runtime.NewScheme()
+	assert.NilError(t, openreportsv1alpha1.Install(scheme))
+	decoder := serializer.NewCodecFactory(scheme).UniversalDeserializer()
+	for _, tc := range []struct {
+		name    string
+		fixture string
+		kind    string
+	}{
+		{"cluster", "cpol-pod-requirements.yaml", "ClusterReport"},
+		{"namespaced", "pol-pod-requirements.yaml", "Report"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			policies, err := policy.Load(nil, "", true, "../_testdata/policies/"+tc.fixture)
+			assert.NilError(t, err)
+			assert.Equal(t, len(policies.Policies), 1)
+			p := policies.Policies[0]
+			response := engineapi.EngineResponse{}.WithPolicy(engineapi.NewKyvernoPolicy(p))
+			response.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RulePass("check", engineapi.Validation, "passed", nil))
+			clustered, namespaced := ComputePolicyReports(false, response)
+			assert.Equal(t, len(clustered)+len(namespaced), 1)
+			var report interface{}
+			if len(clustered) == 1 {
+				report = clustered[0]
+			} else {
+				report = namespaced[0]
+			}
+			for _, format := range []struct {
+				name    string
+				marshal func(interface{}) ([]byte, error)
+			}{
+				{"json", json.Marshal},
+				{"yaml", yaml.Marshal},
+			} {
+				t.Run(format.name, func(t *testing.T) {
+					data, err := format.marshal(report)
+					assert.NilError(t, err)
+					decoded, gvk, err := decoder.Decode(data, nil, nil)
+					assert.NilError(t, err)
+					assert.Equal(t, *gvk, openreportsv1alpha1.SchemeGroupVersion.WithKind(tc.kind))
+					assert.Equal(t, decoded.(metav1.Object).GetName(), p.GetName())
+					assert.Equal(t, decoded.(metav1.Object).GetNamespace(), p.GetNamespace())
+				})
+			}
+		})
+	}
+}
 
 func TestComputeClusterReports(t *testing.T) {
 	results, err := policy.Load(nil, "", true, "../_testdata/policies/cpol-pod-requirements.yaml")
@@ -79,7 +131,7 @@ func TestComputePolicyReports(t *testing.T) {
 		report := namespaced[0]
 		assert.Equal(t, report.GetName(), policy.GetName())
 		assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
-		assert.Equal(t, report.Kind, "PolicyReport")
+		assert.Equal(t, report.Kind, "Report")
 		assert.Equal(t, len(report.Results), 2)
 		assert.Equal(t, report.Results[0].Severity, openreportsv1alpha1.ResultSeverity(openreports.SeverityMedium))
 		assert.Equal(t, report.Results[0].Category, "Pod Security Standards (Restricted)")
@@ -381,5 +433,5 @@ func TestNamespacedPolicyReportGeneration(t *testing.T) {
 
 	report := namespaced[0]
 	assert.Equal(t, report.GetNamespace(), policy.GetNamespace())
-	assert.Equal(t, report.Kind, "PolicyReport")
+	assert.Equal(t, report.Kind, "Report")
 }
