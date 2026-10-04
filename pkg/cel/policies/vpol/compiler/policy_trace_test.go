@@ -241,3 +241,63 @@ func TestEvaluate_TracingOn_MatchesTracingOffOutcome(t *testing.T) {
 		assert.Equal(t, off.Error != nil, on.Error != nil)
 	}
 }
+
+// TestEvaluate_TracingKeepsTheCostLimit is the review repro for --explain turning a cost-limit
+// error into a decision: state tracking disables cost-limit enforcement in cel-go, so the
+// expression must be decided by the untracked program in every position it can appear, and the
+// trace must report the same error rather than an outcome the untraced run never reaches.
+func TestEvaluate_TracingKeepsTheCostLimit(t *testing.T) {
+	const items = "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]"
+	costly := items + ".all(a, " + items + ".all(b, " + items + ".all(c, " + items + ".all(d, " + items + ".all(e, a+b+c+d+e > 0)))))"
+	tests := map[string]func(p *policiesv1beta1.ValidatingPolicy){
+		"in a validation": func(p *policiesv1beta1.ValidatingPolicy) {
+			p.Spec.Validations = []admissionregistrationv1.Validation{{Expression: costly}}
+		},
+		"in a variable": func(p *policiesv1beta1.ValidatingPolicy) {
+			p.Spec.Variables = []admissionregistrationv1.Variable{{Name: "everything", Expression: costly}}
+			p.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "variables.everything"}}
+		},
+		"in a match condition": func(p *policiesv1beta1.ValidatingPolicy) {
+			p.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "expensive", Expression: costly}}
+			p.Spec.Validations = []admissionregistrationv1.Validation{{Expression: "true"}}
+		},
+	}
+	for name, configure := range tests {
+		t.Run(name, func(t *testing.T) {
+			policy := buildTracePolicy()
+			configure(policy)
+			evaluate := func(traced bool) (*EvaluationResult, error) {
+				compiler := NewCompiler()
+				if traced {
+					compiler = NewCompilerWithTrace(true)
+				}
+				p, errs := compiler.Compile(policy, nil)
+				require.Empty(t, errs)
+				return p.Evaluate(context.Background(), podObject("prod", map[string]any{"team": "a"}), nil, nil, nil, nil, nil)
+			}
+			// the error surfaces as Evaluate's error (match condition) or as result.Error (the rest)
+			outcome := func(result *EvaluationResult, err error) error {
+				if err != nil {
+					return err
+				}
+				require.NotNil(t, result)
+				return result.Error
+			}
+
+			untraced, untracedErr := evaluate(false)
+			traced, tracedErr := evaluate(true)
+			untracedOutcome := outcome(untraced, untracedErr)
+			tracedOutcome := outcome(traced, tracedErr)
+
+			require.Error(t, untracedOutcome, "the cost limit must stop the expression")
+			require.Error(t, tracedOutcome, "tracing must not lift the cost limit")
+			assert.Equal(t, untracedOutcome.Error(), tracedOutcome.Error())
+			assert.Contains(t, tracedOutcome.Error(), "cost limit exceeded")
+
+			require.NotNil(t, traced)
+			require.NotNil(t, traced.Trace)
+			assert.Equal(t, trace.VerdictError, traced.Trace.Verdict.Status)
+			assert.Contains(t, traced.Trace.Verdict.Message, "cost limit exceeded")
+		})
+	}
+}

@@ -7,6 +7,9 @@ import (
 type Validation struct {
 	Message           string
 	MessageExpression cel.Program
-	Program           cel.Program
-	AST               *cel.Ast
+	// Program decides the validation. Traced and AST are only set when compiled for tracing:
+	// Traced is the explain-only tracking twin of Program, see TracedProgram for why they differ.
+	Program cel.Program
+	Traced  cel.Program
+	AST     *cel.Ast
 }

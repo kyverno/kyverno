@@ -1,63 +1,99 @@
 package compiler
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/gobwas/glob"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/interpreter"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// TracedProgram is a program built with cel.OptTrackState, together with the retained AST that
-// trace.Build needs to map traced node ids back to source text.
+// TracedProgram holds the two programs built for one traced expression, and the retained AST
+// that trace.Build needs to map traced node ids back to source text.
+//
+// Program is built exactly as it is without tracing and is the only one whose result decides
+// anything. Traced is the same expression built with cel.OptTrackState; it is only ever re-run,
+// through TraceDetails, to collect per-node values for an explanation. The two must not be merged:
+// in cel-go v0.31 any state tracking switches off enforcement of the per-call cost limit, so a
+// tracking program can finish (and pass) an expression the normal program stops with an error.
 type TracedProgram struct {
 	Name    string
 	Program cel.Program
+	Traced  cel.Program
 	AST     *cel.Ast
 }
 
-func programOptions(trace bool) []cel.ProgramOption {
-	if trace {
-		return []cel.ProgramOption{cel.EvalOptions(cel.OptTrackState)}
+// tracingProgram builds the explain-only twin of a program: same AST, with state tracking on.
+func tracingProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
+	return env.Program(ast, cel.EvalOptions(cel.OptTrackState))
+}
+
+// TraceDetails re-runs traced on the same activation to collect the per-node values for a trace.
+// Call it only after the normal program has decided, passing the error that run returned: the
+// re-run never decides anything, and it is skipped when the decision was cancelled (the cost
+// limit, or a cancelled context), since the tracking program does not enforce the cost limit and
+// would run that expression to completion. An expression that finished under the limit costs the
+// same the second time, so the re-run is bounded. Returns nil when there is nothing to trace,
+// which trace.Build handles by showing only the result.
+func TraceDetails(ctx context.Context, traced cel.Program, activation any, decidedErr error) *cel.EvalDetails {
+	if traced == nil {
+		return nil
 	}
-	return nil
+	var cancelled interpreter.EvalCancelledError
+	if errors.As(decidedErr, &cancelled) {
+		return nil
+	}
+	_, details, _ := traced.ContextEval(ctx, activation)
+	return details
 }
 
 func CompileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition) (cel.Program, field.ErrorList) {
-	prog, _, errs := compileMatchCondition(path, env, matchCondition, false)
-	return prog, errs
+	traced, errs := compileMatchCondition(path, env, matchCondition, false)
+	return traced.Program, errs
 }
 
-func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition, trace bool) (cel.Program, *cel.Ast, field.ErrorList) {
+// compileMatchCondition always builds the normal program; with trace it also builds the
+// explain-only tracking twin and keeps the AST (see TracedProgram).
+func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admissionregistrationv1.MatchCondition, trace bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
 		ast, issues := env.Compile(matchCondition.Expression)
 		if err := issues.Err(); err != nil {
-			return nil, nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
-			return nil, nil, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
 		}
-		prog, err := env.Program(ast, programOptions(trace)...)
+		prog, err := env.Program(ast)
 		if err != nil {
-			return nil, nil, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
-		return prog, ast, allErrs
+		compiled := TracedProgram{Name: matchCondition.Name, Program: prog}
+		if trace {
+			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
+				return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
+			}
+			compiled.AST = ast
+		}
+		return compiled, allErrs
 	}
 }
 
 // CompileMatchConditionsWithTrace is the tracing-aware entry point for match conditions. With
 // trace false it is exactly CompileMatchConditions and the traced result is nil. With trace true
-// every program is built with state tracking on, so its evaluation yields non-nil EvalDetails,
-// and the retained ASTs come back index-aligned in the traced result for trace.Build. Policy
-// kinds that support tracing should call this with their own trace flag; callers that don't
-// trace keep using CompileMatchConditions.
+// the returned programs are still the normal ones that decide; the traced result, index-aligned
+// with them, adds each condition's explain-only tracking program and AST (see TracedProgram).
+// Policy kinds that support tracing should call this with their own trace flag; callers that
+// don't trace keep using CompileMatchConditions.
 func CompileMatchConditionsWithTrace(path *field.Path, env *cel.Env, trace bool, matchConditions ...admissionregistrationv1.MatchCondition) ([]cel.Program, []TracedProgram, field.ErrorList) {
 	if !trace {
 		programs, errs := CompileMatchConditions(path, env, matchConditions...)
@@ -76,10 +112,10 @@ func compileMatchConditionsTraced(path *field.Path, env *cel.Env, matchCondition
 		return nil, nil
 	}
 	for i, matchCondition := range matchConditions {
-		prog, ast, errs := compileMatchCondition(path.Index(i), env, matchCondition, true)
+		compiled, errs := compileMatchCondition(path.Index(i), env, matchCondition, true)
 		allErrs = append(allErrs, errs...)
-		if prog != nil {
-			result = append(result, TracedProgram{Name: matchCondition.Name, Program: prog, AST: ast})
+		if compiled.Program != nil {
+			result = append(result, compiled)
 		}
 	}
 	return result, allErrs
@@ -100,30 +136,39 @@ func CompileMatchConditions(path *field.Path, env *cel.Env, matchConditions ...a
 }
 
 func CompileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable) (cel.Program, field.ErrorList) {
-	prog, _, errs := compileVariable(path, env, VariablesProvider, variable, false)
-	return prog, errs
+	traced, errs := compileVariable(path, env, VariablesProvider, variable, false)
+	return traced.Program, errs
 }
 
-func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable, trace bool) (cel.Program, *cel.Ast, field.ErrorList) {
+// compileVariable always builds the normal program; with trace it also builds the explain-only
+// tracking twin and keeps the AST (see TracedProgram).
+func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, variable admissionregistrationv1.Variable, trace bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
 		ast, issues := env.Compile(variable.Expression)
 		if err := issues.Err(); err != nil {
-			return nil, nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
 		VariablesProvider.RegisterField(variable.Name, ast.OutputType())
-		prog, err := env.Program(ast, programOptions(trace)...)
+		prog, err := env.Program(ast)
 		if err != nil {
-			return nil, nil, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
-		return prog, ast, allErrs
+		compiled := TracedProgram{Name: variable.Name, Program: prog}
+		if trace {
+			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
+				return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
+			}
+			compiled.AST = ast
+		}
+		return compiled, allErrs
 	}
 }
 
 // CompileVariablesWithTrace is the variable equivalent of CompileMatchConditionsWithTrace: with
-// trace false it is exactly CompileVariables; with trace true the traced result holds each
-// variable's program and retained AST, keyed by name.
+// trace false it is exactly CompileVariables; with trace true the returned programs are still the
+// normal ones, and the traced result adds each variable's tracking program and AST, keyed by name.
 func CompileVariablesWithTrace(path *field.Path, env *cel.Env, VariablesProvider *VariablesProvider, trace bool, variables ...admissionregistrationv1.Variable) (map[string]cel.Program, map[string]TracedProgram, field.ErrorList) {
 	if !trace {
 		programs, errs := CompileVariables(path, env, VariablesProvider, variables...)
@@ -143,10 +188,10 @@ func compileVariablesTraced(path *field.Path, env *cel.Env, VariablesProvider *V
 	}
 	result = make(map[string]TracedProgram, len(variables))
 	for i, variable := range variables {
-		prog, ast, errs := compileVariable(path.Index(i), env, VariablesProvider, variable, true)
+		compiled, errs := compileVariable(path.Index(i), env, VariablesProvider, variable, true)
 		allErrs = append(allErrs, errs...)
-		if prog != nil {
-			result[variable.Name] = TracedProgram{Name: variable.Name, Program: prog, AST: ast}
+		if compiled.Program != nil {
+			result[variable.Name] = compiled
 		}
 	}
 	return result, allErrs
@@ -235,12 +280,16 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
 		}
-		program, err := env.Program(ast, programOptions(trace)...)
+		program, err := env.Program(ast)
 		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
 		compiled.Program = program
 		if trace {
+			// explain-only twin; Program above still decides (see TracedProgram)
+			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
+				return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
+			}
 			compiled.AST = ast
 		}
 	}

@@ -11,11 +11,13 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -1480,4 +1482,30 @@ func Test_Apply_ExplainFlagCombinations(t *testing.T) {
 			assert.Empty(t, stdout.String(), "a rejected combination must fail before writing any output")
 		})
 	}
+}
+
+// Test_Apply_ExplainKeepsTheCostLimit runs the review repro through the apply command: a policy
+// that exceeds the CEL cost limit is an error without --explain and must stay an error with it,
+// rather than being decided by the trace-only program, which does not enforce the limit.
+func Test_Apply_ExplainKeepsTheCostLimit(t *testing.T) {
+	const dir = "../../../../../test/cli/test-validating-policy/explain-cost-limit/"
+	run := func(explain bool) (*processor.ResultCounts, string) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{dir + "policy.yaml"},
+			ResourcePaths: []string{dir + "resource.yaml"},
+			Explain:       explain,
+		}
+		var out bytes.Buffer
+		rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+		require.NoError(t, err)
+		return rc, out.String()
+	}
+	plain, _ := run(false)
+	explained, output := run(true)
+
+	assert.Equal(t, 1, plain.Error, "the cost limit stops the expression without --explain")
+	assert.Equal(t, 0, plain.Pass)
+	assert.Equal(t, plain, explained, "--explain must not change the result")
+	assert.Contains(t, output, "VERDICT    ERROR")
+	assert.Contains(t, output, "cost limit exceeded")
 }

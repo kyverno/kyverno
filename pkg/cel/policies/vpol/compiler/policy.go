@@ -150,13 +150,16 @@ func (p *Policy) evaluateWithData(
 		AllowedValues: allowedValues,
 	}
 	var matchTraces, variableTraces []trace.NamedExpressionTrace
-	var recordMatch func(int, ref.Val, *cel.EvalDetails, error)
+	var recordMatch func(int, ref.Val, error)
 	if p.trace {
-		recordMatch = func(i int, out ref.Val, details *cel.EvalDetails, err error) {
+		// out and err are the deciding evaluation's; the tracking twin is only re-run here to
+		// collect node values for the trace (see compiler.TracedProgram)
+		recordMatch = func(i int, out ref.Val, err error) {
 			if i >= len(p.tracedMatchConditions) {
 				return
 			}
 			t := p.tracedMatchConditions[i]
+			details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
 			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
 				Name:            t.Name,
 				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
@@ -189,9 +192,12 @@ func (p *Policy) evaluateWithData(
 	dataNew[compiler.VariablesKey] = vars
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
-			out, details, err := variable.ContextEval(ctx, dataNew)
+			out, _, err := variable.ContextEval(ctx, dataNew)
 			if p.trace {
 				if t, ok := p.tracedVariables[name]; ok {
+					// out is still the deciding program's value; the twin only explains it. Any
+					// variable the re-run reads comes from this same lazy map, so it matches.
+					details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
 					// variables are lazy, so this records them in the order they are first read
 					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
 						Name:            name,
@@ -218,8 +224,9 @@ func (p *Policy) evaluateWithData(
 		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Verdict: verdict}
 	}
 	for index, validation := range p.validations {
-		out, details, err := validation.Program.ContextEval(ctx, dataNew)
+		out, _, err := validation.Program.ContextEval(ctx, dataNew)
 		if p.trace {
+			details := compiler.TraceDetails(ctx, validation.Traced, dataNew, err)
 			verdict = trace.VerdictTrace{
 				Status:          trace.VerdictPass,
 				ExpressionTrace: buildExpressionTrace(validation.AST, out, details, err),
@@ -363,14 +370,14 @@ func (p *Policy) match(
 	ctx context.Context,
 	data map[string]any,
 	matchConditions []cel.Program,
-	record func(index int, out ref.Val, details *cel.EvalDetails, err error),
+	record func(index int, out ref.Val, err error),
 ) (bool, error) {
 	var errs []error
 	for i, matchCondition := range matchConditions {
 		// evaluate the condition
-		out, details, err := matchCondition.ContextEval(ctx, data)
+		out, _, err := matchCondition.ContextEval(ctx, data)
 		if record != nil {
-			record(i, out, details, err)
+			record(i, out, err)
 		}
 		// check error
 		if err != nil {
