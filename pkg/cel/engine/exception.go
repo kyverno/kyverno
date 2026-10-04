@@ -69,16 +69,25 @@ func ListExceptions(lister PolicyExceptionLister, kind, name string) ([]*policie
 	if err != nil {
 		return nil, err
 	}
+	return MatchExceptions(exceptions, kind, name), nil
+}
+
+// MatchExceptions returns the exceptions in exceptions that apply to the policy
+// identified by kind and name. Expired exceptions are never returned: spec.expiresAt
+// is documented as retiring an exception, so every path that selects exceptions must
+// agree with the admission path about which ones are still live.
+func MatchExceptions(exceptions []*policiesv1beta1.PolicyException, kind, name string) []*policiesv1beta1.PolicyException {
 	var out []*policiesv1beta1.PolicyException
 	for _, exception := range exceptions {
-		if exception.IsExpired() {
+		if exception == nil || exception.IsExpired() {
 			continue
 		}
 		for _, ref := range exception.Spec.PolicyRefs {
 			if ref.Name == name && ref.Kind == kind {
 				out = append(out, exception)
+				break
 			}
 		}
 	}
-	return out, nil
+	return out
 }
