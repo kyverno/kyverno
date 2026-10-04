@@ -380,10 +380,10 @@ func (c *controller) startWatcher(ctx context.Context, logger logr.Logger, gvr s
 					continue
 				}
 
-				logger.Error(statusErr, fmt.Sprintf("watch error for gvr: %s", gvr))
+				logger.Error(statusErr, "watch error for gvr", "gvr", gvr.String())
 				// status gone error will signal for a watcher restart to the admin goroutine
 				if statusErr.ErrStatus.Code == http.StatusGone {
-					logger.V(2).Info(fmt.Sprintf("watcher for gvr %s got resource version too old, restarting", gvr))
+					logger.V(2).Info("watcher for gvr got resource version too old, restarting", "gvr", gvr.String())
 					watchInterface.Stop()
 					errChan <- gvr
 					return
