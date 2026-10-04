@@ -19,7 +19,7 @@ func registerPolicyChangesMetric(
 		policyNamespace = "-"
 	}
 	metricsManager := metrics.GetManager()
-if metricsManager.Config().CheckNamespace(policyNamespace) {
+	if metricsManager.Config().CheckNamespace(policyNamespace) {
 		metricsManager.RecordPolicyChanges(ctx, policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, string(policyChangeType))
 	}
 }
