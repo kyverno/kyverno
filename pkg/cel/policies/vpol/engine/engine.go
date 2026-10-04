@@ -290,10 +290,27 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			result.Trace.Scope = scope
 			response.Trace = result.Trace
 		case result != nil && len(result.Exceptions) > 0:
-			response.Trace = &trace.Decision{Scope: scope, Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "exempted by a policy exception"}}
+			response.Trace = &trace.Decision{Scope: scope, Verdict: exceptionVerdict(response.Rules)}
 		}
 	}
 	return response
+}
+
+// exceptionVerdict mirrors the rule reported for an exempted resource: the selected exception's
+// reportResult decides between pass and skip, and the rule's message names the exceptions.
+func exceptionVerdict(rules []engineapi.RuleResponse) trace.VerdictTrace {
+	verdict := trace.VerdictTrace{Status: trace.VerdictSkip, Message: "exempted by a policy exception"}
+	if len(rules) == 0 {
+		return verdict
+	}
+	rule := rules[len(rules)-1]
+	if rule.Status() == engineapi.RuleStatusPass {
+		verdict.Status = trace.VerdictPass
+	}
+	if message := rule.Message(); message != "" {
+		verdict.Message = message
+	}
+	return verdict
 }
 
 // evaluateExtracted implements ExtractionMode: instead of evaluating

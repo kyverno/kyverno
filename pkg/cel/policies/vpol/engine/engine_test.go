@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -680,4 +681,69 @@ func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
 		}
 	}
 	assert.True(t, sawError, "the failing condition should show which sub-expression errored")
+}
+
+// TestHandle_TracedExceptionFollowsReportResult: an exempted resource is reported as a pass or a
+// skip depending on the selected exception's reportResult, and the trace must say the same thing
+// the summary counts, naming the exceptions.
+func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
+	withReportResult := func(ex *policiesv1beta1.PolicyException, reportResult string) *policiesv1beta1.PolicyException {
+		ex.Spec.ReportResult = reportResult
+		return ex
+	}
+	withPriority := func(ex *policiesv1beta1.PolicyException, priority string) *policiesv1beta1.PolicyException {
+		ex.Labels = map[string]string{reportutils.LabelPolicyExceptionPriority: priority}
+		return ex
+	}
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		ruleStatus engineapi.RuleStatus
+		verdict    string
+		names      []string
+	}{{
+		name:       "reportResult pass",
+		exceptions: []*policiesv1beta1.PolicyException{withReportResult(buildException("default", "polex", "compensating-controls"), "pass")},
+		ruleStatus: engineapi.RuleStatusPass,
+		verdict:    trace.VerdictPass,
+		names:      []string{"default/polex"},
+	}, {
+		name:       "reportResult unset",
+		exceptions: []*policiesv1beta1.PolicyException{buildException("default", "polex", "compensating-controls")},
+		ruleStatus: engineapi.RuleStatusSkip,
+		verdict:    trace.VerdictSkip,
+		names:      []string{"default/polex"},
+	}, {
+		name: "the highest-priority exception decides",
+		exceptions: []*policiesv1beta1.PolicyException{
+			buildException("default", "low", "compensating-controls"),
+			withPriority(withReportResult(buildException("default", "high", "compensating-controls"), "pass"), "10"),
+		},
+		ruleStatus: engineapi.RuleStatusPass,
+		verdict:    trace.VerdictPass,
+		names:      []string{"default/low", "default/high"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{denyingPolicy()}, tt.exceptions)
+			require.NoError(t, err)
+			resp, err := NewEngine(provider, nil, nil).Handle(
+				context.Background(),
+				celengine.RequestFromJSON(nil, &unstructured.Unstructured{Object: map[string]any{}}),
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, resp.Policies, 1)
+			require.Len(t, resp.Policies[0].Rules, 1)
+			assert.Equal(t, tt.ruleStatus, resp.Policies[0].Rules[0].Status())
+
+			d := resp.Policies[0].Trace
+			require.NotNil(t, d)
+			assert.Equal(t, tt.verdict, d.Verdict.Status, "the trace must agree with the reported result")
+			assert.Equal(t, resp.Policies[0].Rules[0].Message(), d.Verdict.Message)
+			for _, name := range tt.names {
+				assert.Contains(t, d.Verdict.Message, name, "the trace names every matched exception")
+			}
+		})
+	}
 }
