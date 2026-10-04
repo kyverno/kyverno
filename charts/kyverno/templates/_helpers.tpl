@@ -62,6 +62,9 @@
 {{- with .forceFailurePolicyIgnore -}}
   {{- $flags = append $flags (print "--forceFailurePolicyIgnore=" .enabled) -}}
 {{- end -}}
+{{- with .webhookAuthentication -}}
+  {{- $flags = append $flags (print "--webhookAuthentication=" .enabled) -}}
+{{- end -}}
 {{- with .blockLegacyPolicyAPIs -}}
   {{- $flags = append $flags (print "--blockLegacyPolicyAPIs=" .enabled) -}}
 {{- end -}}
