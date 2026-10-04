@@ -1288,3 +1288,110 @@ func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
 	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }
+
+// TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger pins CLI/admission parity
+// for MutatingPolicies that declare active targetMatchConstraints: such a policy is
+// excluded from inline mutation of the trigger that matched it (see
+// NoTargetMatchConstraintPolicy and pkg/webhooks/resource/mpol/handler.go) and is instead
+// evaluated against its targets alone. The CLI passed a nil predicate to Engine.Handle, so
+// the policy was also evaluated against the trigger and the *target-shaped* patch was
+// applied to the trigger itself.
+//
+// The fixture's own `results` cannot express this invariant: the mutation legitimate for
+// the target is exactly the mutation the defect applies to the trigger, so both runs pass.
+// The invariant is observable only on the engine responses, hence a Go test.
+func TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-existing")
+
+	// The fixture is checked in and is what proves the regression, so its absence is a
+	// failure rather than a skip.
+	require.DirExists(t, testDir, "mutate-existing fixture is required to prove the regression")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	const (
+		policyName = "mutate-existing-configmap"
+		labelKey   = "mutated"
+		// Identity of the resources in the fixture: the Deployment triggers the policy and
+		// the ConfigMap is the resource the policy's mutations are meant to reach.
+		triggerAPIVersion = "apps/v1"
+		triggerKind       = "Deployment"
+		triggerNamespace  = "test-ns"
+		triggerName       = "test-deploy"
+		targetAPIVersion  = "v1"
+		targetKind        = "ConfigMap"
+		targetNamespace   = "test-ns"
+		targetName        = "test-configmap"
+		targetLabel       = "true"
+	)
+
+	// resourceKey renders a resource identity in the same shape the test harness uses to
+	// key its response maps (see generateResourceKey), so the trigger can be told apart
+	// from a patched target carried on the same response.
+	resourceKey := func(apiVersion, kind, namespace, name string) string {
+		return apiVersion + "," + kind + "," + namespace + "," + name
+	}
+	describe := func(u unstructured.Unstructured) string {
+		if u.Object == nil {
+			return "<nil>"
+		}
+		return resourceKey(u.GetAPIVersion(), u.GetKind(), u.GetNamespace(), u.GetName())
+	}
+	triggerIdentity := resourceKey(triggerAPIVersion, triggerKind, triggerNamespace, triggerName)
+	targetIdentity := resourceKey(targetAPIVersion, targetKind, targetNamespace, targetName)
+
+	t.Run("trigger response carries the unmutated trigger and the mutated target", func(t *testing.T) {
+		responses := testResponse.Trigger[triggerIdentity]
+		require.Len(t, responses, 1, "expected exactly one engine response for trigger %s", triggerIdentity)
+
+		response := responses[0]
+		require.Equal(t, policyName, response.Policy().GetName())
+		assert.Equal(t, triggerIdentity, describe(response.Resource),
+			"trigger response must be produced for the trigger resource")
+
+		// The trigger must not be patched at all. PatchedResource is the engine's patch
+		// output, so the strongest statement is that it carries no object; the trigger's
+		// own labels are checked too, so the target-shaped mutation cannot hide there.
+		assert.Nil(t, response.PatchedResource.Object,
+			"trigger %s must not carry a patched resource", triggerIdentity)
+		assert.NotContains(t, response.Resource.GetLabels(), labelKey,
+			"trigger %s was mutated with the target-shaped patch", triggerIdentity)
+
+		// The mutate-existing flow does legitimately carry the target's patch on this
+		// response, but only as a patched target naming the ConfigMap, never the trigger.
+		require.Len(t, response.PolicyResponse.Rules, 1, "expected one rule response on trigger %s", triggerIdentity)
+		patchedTarget, _, _ := response.PolicyResponse.Rules[0].PatchedTarget()
+		require.NotNil(t, patchedTarget, "expected rule %s to carry a patched target",
+			response.PolicyResponse.Rules[0].Name())
+		assert.Equal(t, targetIdentity, describe(*patchedTarget),
+			"patched target must name the target ConfigMap")
+		assert.Equal(t, targetLabel, patchedTarget.GetLabels()[labelKey],
+			"patched target must carry the intended mutation")
+		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget),
+			"rule patched target must not be the trigger itself")
+	})
+
+	t.Run("target response names the mutated target and is not the trigger", func(t *testing.T) {
+		responses := testResponse.Target[targetIdentity]
+		require.Len(t, responses, 1, "expected exactly one engine response for target %s", targetIdentity)
+
+		response := responses[0]
+		assert.Equal(t, policyName, response.Policy().GetName())
+		require.Len(t, response.PolicyResponse.Rules, 1, "expected one rule response for target")
+		patchedTarget, _, _ := response.PolicyResponse.Rules[0].PatchedTarget()
+		require.NotNil(t, patchedTarget, "expected target rule to carry a patched target")
+		assert.Equal(t, targetIdentity, describe(*patchedTarget))
+		assert.Equal(t, targetLabel, patchedTarget.GetLabels()[labelKey],
+			"expected target ConfigMap to receive mutated=%s", targetLabel)
+		assert.NotEqual(t, triggerIdentity, describe(*patchedTarget), "target response must not be the trigger")
+	})
+}
