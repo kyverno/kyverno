@@ -222,6 +222,30 @@ spec:
 `),
 			wantKinds: nil,
 		},
+		{
+			name: "wildcard apiVersions",
+			policy: []byte(`
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: "policy-wildcard"
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups:   [""]
+        apiVersions: ["*"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["pods"]
+      - apiGroups:   ["apps"]
+        apiVersions: ["*"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["deployments"]
+  validations:
+    - expression: "true"
+`),
+			wantKinds: []string{"v1/Pod", "apps/v1/Deployment"},
+		},
 	}
 
 	for _, tt := range tests {
