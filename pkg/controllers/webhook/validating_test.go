@@ -324,8 +324,7 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				vpols,
-				expressionCache,
-			)
+				expressionCache, 15)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks))
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -340,6 +339,9 @@ func TestBuildWebhookRules_ValidatingPolicy(t *testing.T) {
 				}
 				if expect.TimeoutSeconds != nil {
 					assert.Equal(t, expect.TimeoutSeconds, webhooks[i].TimeoutSeconds)
+				} else {
+					assert.NotNil(t, webhooks[i].TimeoutSeconds)
+					assert.Equal(t, int32(15), *webhooks[i].TimeoutSeconds)
 				}
 				if expect.ClientConfig.Service != nil {
 					assert.Equal(t, *webhooks[i].ClientConfig.Service.Path, *expect.ClientConfig.Service.Path)
@@ -452,8 +454,7 @@ func TestBuildWebhookRules_NamespacedValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				nvpols,
-				expressionCache,
-			)
+				expressionCache, 10)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -512,8 +513,7 @@ func TestBuildWebhookRules_FineGrained_DeterministicOrdering(t *testing.T) {
 		return buildWebhookRules(
 			config.NewDefaultConfiguration(false),
 			"", webhookName, queryPath,
-			0, nil, generic, cache,
-		)
+			0, nil, generic, cache, 10)
 	}
 	vpolA := engineapi.NewValidatingPolicy(&policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "policy-aardvark"},
@@ -773,8 +773,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy(t *testing.T) {
 				0,
 				nil,
 				ivpols,
-				expressionCache,
-			)
+				expressionCache, 10)
 			assert.Equal(t, len(tt.expectedWebhooks), len(webhooks), tt.name)
 			for i, expect := range tt.expectedWebhooks {
 				assert.Equal(t, expect.Name, webhooks[i].Name)
@@ -857,8 +856,7 @@ func TestBuildWebhookRules_ImageValidatingPolicy_EphemeralContainers(t *testing.
 			0,
 			nil,
 			ivpols,
-			expressionCache,
-		)
+			expressionCache, 10)
 		if len(webhooks) != 1 {
 			t.Fatalf("expected exactly one webhook, got %d", len(webhooks))
 		}
@@ -1036,8 +1034,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		0,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
-		expressionCache,
-	)
+		expressionCache, 10)
 	ngpolWebhooks := buildWebhookRules(
 		config.NewDefaultConfiguration(false),
 		"",
@@ -1046,8 +1043,7 @@ func TestBuildWebhookRules_GeneratingPolicyWebhookNamesDoNotCollide(t *testing.T
 		0,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedGeneratingPolicy(ngpol)},
-		expressionCache,
-	)
+		expressionCache, 10)
 
 	assert.Len(t, gpolWebhooks, 1)
 	assert.Len(t, ngpolWebhooks, 1)
@@ -1122,8 +1118,7 @@ func TestBuildWebhookRules_GeneratingPolicyMatchConditionsOnlyFilterCreate(t *te
 				0,
 				nil,
 				[]engineapi.GenericPolicy{engineapi.NewGeneratingPolicy(gpol)},
-				expressionCache,
-			)
+				expressionCache, 10)
 			assert.Len(t, webhooks, 1)
 			assert.Len(t, webhooks[0].MatchConditions, 1)
 			assert.Equal(t, "opt-in", webhooks[0].MatchConditions[0].Name)
@@ -1184,9 +1179,9 @@ func TestBuildWebhookRules_MutatingPolicyWebhookNamesDoNotCollide(t *testing.T) 
 	cfg := config.NewDefaultConfiguration(false)
 
 	mpolWebhooks := buildWebhookRules(cfg, "", config.MutatingPolicyWebhookName, "/mpol", 0, nil,
-		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache)
+		[]engineapi.GenericPolicy{engineapi.NewMutatingPolicy(mpol)}, expressionCache, 10)
 	nmpolWebhooks := buildWebhookRules(cfg, "", config.NamespacedMutatingPolicyWebhookName, "/nmpol", 0, nil,
-		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache)
+		[]engineapi.GenericPolicy{engineapi.NewNamespacedMutatingPolicy(nmpol)}, expressionCache, 10)
 
 	assert.Len(t, mpolWebhooks, 1)
 	assert.Len(t, nmpolWebhooks, 1)
@@ -1268,8 +1263,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInDifferentNamespaces(t *testing.T)
 		config.NewDefaultConfiguration(false),
 		"", config.NamespacedValidatingPolicyWebhookName, "/nvpol", 0, nil,
 		[]engineapi.GenericPolicy{teamA, teamB},
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	assert.Len(t, webhooks, 2, "each namespaced policy needs its own webhook")
 	pinned := map[string]bool{}
@@ -1328,8 +1322,7 @@ func TestBuildWebhookRules_PoliciesWithDifferentSelectorsGetSeparateWebhooks(t *
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	assert.Len(t, webhooks, 2, "policies with different selectors need their own webhook")
 	environments := make([]string, 0, len(webhooks))
@@ -1387,8 +1380,7 @@ func TestBuildWebhookRules_PoliciesSharingSelectorsShareAWebhook(t *testing.T) {
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	// three distinct selectors (none, production, payments) means three webhooks, not six.
 	assert.Len(t, webhooks, 3, "policies sharing a selector should share a webhook")
@@ -1438,8 +1430,7 @@ func TestBuildWebhookRules_NamespacedPoliciesInSameNamespaceShareAWebhook(t *tes
 		0,
 		nil,
 		policies,
-		NewExpressionCache(),
-	)
+		NewExpressionCache(), 10)
 
 	// two namespaces means two webhooks, not three
 	assert.Len(t, webhooks, 2, "policies in the same namespace should share a webhook")
