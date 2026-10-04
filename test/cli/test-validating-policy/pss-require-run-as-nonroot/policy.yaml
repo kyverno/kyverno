@@ -3,12 +3,13 @@ kind: ValidatingPolicy
 metadata:
   name: require-run-as-nonroot
 spec:
+  validationActions: [Deny]
   matchConstraints:
     resourceRules:
-    - apiGroups:   [""]
-      apiVersions: ["v1"]
-      operations:  ["CREATE", "UPDATE"]
-      resources:   ["pods"]
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
   variables:
     - name: ctnrs
       expression: >-
@@ -18,12 +19,15 @@ spec:
   validations:
     - expression: |-
         object.spec.?hostUsers.orValue(true) == false ||
-        (object.spec.?securityContext.?runAsNonRoot.orValue(false) == true
-        && variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(true) == true))
-        || variables.ctnrs.all(c, c.?securityContext.?runAsNonRoot.orValue(false) == true)
+        (object.spec.?securityContext.?runAsNonRoot.orValue(true) == true &&
+        variables.ctnrs.all(c,
+          c.?securityContext.?runAsNonRoot.orValue(
+            object.spec.?securityContext.?runAsNonRoot.orValue(false)) == true))
       message: >-
-        Running as root is not allowed. Either the field spec.securityContext.runAsNonRoot
-        must be set to `true`, or the fields spec.containers[*].securityContext.runAsNonRoot,
-        spec.initContainers[*].securityContext.runAsNonRoot, and spec.ephemeralContainers[*].securityContext.runAsNonRoot
-        must be set to `true`.
+        Running as root is not allowed. The field spec.securityContext.runAsNonRoot
+        must be unset or set to `true`, and the fields
+        spec.containers[*].securityContext.runAsNonRoot,
+        spec.initContainers[*].securityContext.runAsNonRoot, and
+        spec.ephemeralContainers[*].securityContext.runAsNonRoot must be set to `true` when
+        spec.securityContext.runAsNonRoot is unset.
         This policy does not apply to Pods that set spec.hostUsers to `false`.
