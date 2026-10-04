@@ -72,6 +72,8 @@ func NewManager(
 
 func (m *manager) Run(ctx context.Context, worker int) {
 	defer func() {
+		m.lock.Lock()
+		defer m.lock.Unlock()
 		// Stop all informers and wait for them to finish
 		for gvr := range m.resController {
 			logger := m.logger.WithValues("gvr", gvr)
@@ -89,7 +91,6 @@ func (m *manager) Run(ctx context.Context, worker int) {
 		case <-ticker.C:
 			if err := m.reconcile(ctx, worker); err != nil {
 				m.logger.Error(err, "reconciliation failed")
-				return
 			}
 		}
 	}
@@ -106,6 +107,8 @@ func (m *manager) getDesiredState() (sets.Set[schema.GroupVersionResource], erro
 }
 
 func (m *manager) getObservedState() (sets.Set[schema.GroupVersionResource], error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 	observedState := sets.New[schema.GroupVersionResource]()
 	for resource := range m.resController {
 		observedState.Insert(resource)
