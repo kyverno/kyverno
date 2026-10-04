@@ -64,10 +64,19 @@ func getTriggerForDeleteOperation(client dclient.Interface, spec kyvernov2.Updat
 	// downstream (e.g. by another webhook) and generation must not proceed.
 	// NotFound confirms the deletion; other lookup errors are retried so a transient
 	// API failure cannot make a rejected deletion appear persisted.
+	// Forbidden is the exception: delete-triggered generation does not require read
+	// access to the trigger kind, and retrying would never succeed. The check is skipped
+	// and the oldObject is used, as it was before the check was introduced.
+	// See https://github.com/kyverno/kyverno/issues/17822.
 	live, err := client.GetResource(context.TODO(), oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName())
 	if err != nil && !errors.IsNotFound(err) {
-		return nil, fmt.Errorf("failed to verify deletion of trigger resource %s/%s %s/%s with uid %s: %w",
-			oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID(), err)
+		if !errors.IsForbidden(err) {
+			return nil, fmt.Errorf("failed to verify deletion of trigger resource %s/%s %s/%s with uid %s: %w",
+				oldResource.GetAPIVersion(), oldResource.GetKind(), oldResource.GetNamespace(), oldResource.GetName(), oldResource.GetUID(), err)
+		}
+		logger.V(2).Info("warning: insufficient permissions to verify the deletion of the trigger resource, skipping the check; grant the background controller get access to the trigger kind to enable it",
+			"apiVersion", oldResource.GetAPIVersion(), "kind", oldResource.GetKind(), "namespace", oldResource.GetNamespace(), "name", oldResource.GetName(), "uid", oldResource.GetUID(), "error", err.Error())
+		return &oldResource, nil
 	}
 	if live != nil && live.GetUID() == oldResource.GetUID() && live.GetDeletionTimestamp() == nil {
 		return nil, fmt.Errorf("trigger resource %s/%s %s/%s with uid %s still exists in the cluster, the delete request may have been rejected by the API server",
