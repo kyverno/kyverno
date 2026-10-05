@@ -31,11 +31,13 @@ func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *V
 	}
 }
 
-// buildCheckOptsWithBundleDetection builds CheckOpts and auto-detects cosign v3 bundle format
-func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (*cosign.CheckOpts, error) {
-	cOpts, err := checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
+// buildCheckOptsWithBundleDetection builds CheckOpts and auto-detects cosign v3 bundle format.
+// When it detects bundles it also returns the legacy-format options, for
+// verifyWithLegacyFallback; otherwise legacy is nil.
+func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attestor *policiesv1beta1.Cosign, image *imagedataloader.ImageData) (cOpts, legacy *cosign.CheckOpts, err error) {
+	cOpts, err = checkOptions(ctx, attestor, image.RemoteOpts(), image.NameOpts(), v.secretLister)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Auto-detect if new bundle format (cosign v3) is actually present
@@ -47,12 +49,33 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 		v.log.V(4).Info("bundle discovery failed, assuming legacy format", "image", image.Image, "error", err)
 		bundleDetected = false
 	}
-	cOpts.NewBundleFormat = bundleDetected
-	if bundleDetected && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
+	if !bundleDetected {
+		return cOpts, nil, nil
+	}
+	legacyOpts := *cOpts
+	cOpts.NewBundleFormat = true
+	if shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
 	}
 
-	return cOpts, nil
+	return cOpts, &legacyOpts, nil
+}
+
+// verifyWithLegacyFallback runs verify with the format detection chose and, when
+// that was the bundle format but cosign could load no bundle at all, once more
+// with the legacy options. Detection decides from the referrer manifests without
+// reading the bundles, so it counts a referrer whose blob turns out unreadable or
+// invalid; the cosign.GetBundles call it replaced did not, and verified such an
+// image on the legacy path. Falling back in exactly that case keeps the outcome
+// unchanged. It returns the options the result came from.
+func (v *Verifier) verifyWithLegacyFallback(cOpts, legacy *cosign.CheckOpts, verify func(*cosign.CheckOpts) ([]oci.Signature, bool, error)) (*cosign.CheckOpts, []oci.Signature, bool, error) {
+	sigs, verified, err := verify(cOpts)
+	if legacy == nil || !noValidBundles(err) {
+		return cOpts, sigs, verified, err
+	}
+	v.log.V(4).Info("no valid bundle found, verifying the legacy format", "error", err)
+	sigs, verified, err = verify(legacy)
+	return legacy, sigs, verified, err
 }
 
 // bundleMediaTypePrefix is the media type cosign gives a sigstore bundle, both
@@ -142,6 +165,18 @@ func hasSigstoreBundles(img *imagedataloader.ImageData, cOpts *cosign.CheckOpts)
 	return false, nil
 }
 
+// noValidBundles reports whether err is cosign finding no sigstore bundle it can
+// load, as opposed to finding bundles that then fail verification. GetBundles
+// returns it when every referrer it read was unreadable or not a valid bundle --
+// the case in which the GetBundles call detection replaced left verification on
+// the legacy path. cosign gives both cases the same error type, so only the
+// message tells them apart; were it to change, the legacy fallback would stop and
+// the check fail closed. TestNoValidBundlesMatchesCosign pins it.
+func noValidBundles(err error) bool {
+	var noMatch *cosign.ErrNoMatchingAttestations
+	return errors.As(err, &noMatch) && strings.Contains(err.Error(), "no valid bundles exist in registry")
+}
+
 // shouldUseSignedTimestamps reports whether a detected Sigstore bundle (format
 // v0.3, used e.g. by GitHub Actions) should be verified using its embedded
 // RFC 3161 signed timestamp instead of the current time.
@@ -172,30 +207,24 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestor", attestor.Name)
 	logger.V(2).Info("verifying cosign image signature", "image", image.Image)
 
-	cOpts, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
+	cOpts, legacy, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to build cosign verification opts")
 		logger.Error(err, "image verification failed")
 		return err
 	}
 
-	// Set appropriate claim verifier based on format
-	if cOpts.NewBundleFormat {
-		// cosign checks these against the subject annotations of each bundle it verified
-		cOpts.Annotations = toAnnotationsOpt(attestor.Cosign.Annotations)
-		cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
-	} else {
+	cOpts, sigs, verified, err := v.verifyWithLegacyFallback(cOpts, legacy, func(cOpts *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+		// Set appropriate claim verifier based on format
+		if cOpts.NewBundleFormat {
+			// cosign checks these against the subject annotations of each bundle it verified
+			cOpts.Annotations = toAnnotationsOpt(attestor.Cosign.Annotations)
+			cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
+			return cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+		}
 		cOpts.ClaimVerifier = cosign.SimpleClaimVerifier
-	}
-
-	var sigs []oci.Signature
-	var verified bool
-
-	if cOpts.NewBundleFormat {
-		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
-	} else {
-		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
-	}
+		return cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
+	})
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
@@ -242,18 +271,19 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	logger := v.log.WithValues("image", image.Image, "digest", image.Digest, "attestation", attestation.Name, "attestor", attestor.Name)
 	logger.V(2).Info("verifying cosign attestation signature", "image", image.Image)
 
-	cOpts, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
+	cOpts, legacy, err := v.buildCheckOptsWithBundleDetection(ctx, attestor.Cosign, image)
 	if err != nil {
 		err := errors.Wrapf(err, "failed to build cosign verification opts")
 		logger.Error(err, "image verification failed")
 		return err
 	}
 
-	// Attestations always use IntotoSubjectClaimVerifier
-	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
-	cOpts.Annotations = toAnnotationsOpt(attestor.Cosign.Annotations)
-
-	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+	_, sigs, verified, err := v.verifyWithLegacyFallback(cOpts, legacy, func(cOpts *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+		// Attestations always use IntotoSubjectClaimVerifier
+		cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
+		cOpts.Annotations = toAnnotationsOpt(attestor.Cosign.Annotations)
+		return cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
+	})
 	if err != nil {
 		err := errors.Wrapf(err, "failed to verify cosign signatures")
 		logger.Error(err, "image verification failed")
