@@ -85,7 +85,6 @@ type PolicyDiagnostic struct {
 }
 
 type ApplyCommandConfig struct {
-	context                   context.Context
 	deferredMutationOutputs   []func() error
 	KubeConfig                string
 	Context                   string
@@ -278,7 +277,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
 	c.deferredMutationOutputs = nil
-	c.context = ctx
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -477,6 +475,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 
 	rc, resources1, responses1, err := c.applyPolicies(
+		ctx,
 		out,
 		&store,
 		variables,
@@ -593,6 +592,7 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
 }
 
 func (c *ApplyCommandConfig) applyPolicies(
+	ctx context.Context,
 	out io.Writer,
 	store *store.Store,
 	vars *variables.Variables,
@@ -692,7 +692,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	for _, resource := range jsonPayloads {
 		processor := processor.PolicyProcessor{
-			Context:                           c.context,
 			Store:                             store,
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       vaps,
@@ -723,7 +722,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := processor.ApplyPoliciesOnResourceWithContext(ctx)
 		if err != nil {
 			if c.ContinueOnFail {
 				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on JSON document %s (%s)\n", resource.Name, err.Error()))

@@ -13,14 +13,13 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 )
 
-func (p *PolicyProcessor) applyPoliciesOnJSON() ([]engineapi.EngineResponse, error) {
+func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.EngineResponse, error) {
 	if p.Out == nil {
 		p.Out = io.Discard
 	}
 	if p.Rc == nil {
 		p.Rc = &ResultCounts{}
 	}
-	ctx := p.Context
 	if ctx == nil {
 		ctx = context.Background()
 	}

@@ -72,7 +72,6 @@ import (
 )
 
 type PolicyProcessor struct {
-	Context                           context.Context
 	Store                             *store.Store
 	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
@@ -126,8 +125,14 @@ type PolicyProcessor struct {
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
+	return p.ApplyPoliciesOnResourceWithContext(context.Background())
+}
+
+// ApplyPoliciesOnResourceWithContext is ApplyPoliciesOnResource with a caller
+// supplied context, used to bound JSON document mutation.
+func (p *PolicyProcessor) ApplyPoliciesOnResourceWithContext(ctx context.Context) ([]engineapi.EngineResponse, error) {
 	if p.JSONDocument != nil {
-		return p.applyPoliciesOnJSON()
+		return p.applyPoliciesOnJSON(ctx)
 	}
 	kubernetesPolicies := make([]policiesv1beta1.MutatingPolicyLike, 0, len(p.MutatingPolicies))
 	for _, policy := range p.MutatingPolicies {

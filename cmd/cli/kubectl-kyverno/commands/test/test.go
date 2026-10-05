@@ -617,7 +617,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
-			Context:                           ctx,
 			Store:                             &store,
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
@@ -648,7 +647,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			CrdPaths:                          crdPaths,
 			RESTMapper:                        restMapper,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := processor.ApplyPoliciesOnResourceWithContext(ctx)
 		if err != nil {
 			hasErrorResult := false
 			for _, response := range ers {

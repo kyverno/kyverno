@@ -1,27 +1,30 @@
 apiVersion: cli.kyverno.io/v1alpha1
+jsonPayloads:
+- input.json
 kind: Test
 metadata:
   name: json-root-transitions
 policies:
 - policy.yaml
-jsonPayloads:
-- input.json
 results:
-- policy: to-array
-  isMutatingPolicy: true
-  resources:
-  - input.json
+- isMutatingPolicy: true
+  kind: ""
   patchedResources: array.json
-  result: pass
-- policy: to-scalar
-  isMutatingPolicy: true
+  policy: to-array
   resources:
   - input.json
-  patchedResources: scalar.json
   result: pass
-- policy: to-null
-  isMutatingPolicy: true
-  resources:
-  - input.json
+- isMutatingPolicy: true
+  kind: ""
   patchedResources: null.json
+  policy: to-null
+  resources:
+  - input.json
+  result: pass
+- isMutatingPolicy: true
+  kind: ""
+  patchedResources: scalar.json
+  policy: to-scalar
+  resources:
+  - input.json
   result: pass
