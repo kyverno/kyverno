@@ -2,6 +2,7 @@ package patch
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -260,5 +261,21 @@ func Test_PolicyDeserilize(t *testing.T) {
 
 	if !assertnew.Equal(t, string(eb), string(out)) {
 		t.FailNow()
+	}
+}
+
+func TestMergePatchControlCharacters(t *testing.T) {
+	// encoding/json leaves these unescaped
+	for _, c := range []string{"\u007f", "\u0080", "\u0085", "\u009f", "\ufffe", "a\u007fb", "\u00a0"} {
+		t.Run(fmt.Sprintf("%+q", c), func(t *testing.T) {
+			value, err := json.Marshal(c)
+			assert.NilError(t, err)
+			base := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"p"},"spec":{"containers":[{"name":"c","env":[{"name":"X","value":` + string(value) + `}]}]}}`
+			overlay := `{"metadata":{"labels":{"foo":"bar","baz":` + string(value) + `}}}`
+			expected := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"p","labels":{"foo":"bar","baz":` + string(value) + `}},"spec":{"containers":[{"name":"c","env":[{"name":"X","value":` + string(value) + `}]}]}}`
+			out, err := strategicMergePatch(logr.Discard(), base, overlay)
+			assert.NilError(t, err)
+			assert.DeepEqual(t, toJSON(t, []byte(expected)), toJSON(t, out))
+		})
 	}
 }
