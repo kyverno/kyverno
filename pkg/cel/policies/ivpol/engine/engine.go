@@ -510,10 +510,14 @@ func (e *engineImpl) evaluatePolicies(
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
 	// leave remote and name options blank, each compiled policy will provide
 	// its own credentials or the default global ones.
-	ictx, err := e.newImageContext()
-	if err != nil {
-		return nil, err
-	}
+	// NOTE: Each policy gets its OWN image context below (inside the goroutine).
+	// Before #17496, policies were evaluated sequentially, so one shared ictx was fine.
+	// Now that policies run concurrently, sharing one ictx creates a data race:
+	// the notary and cosign verifiers mutate the cached image data in place,
+	// and kyverno/sdk has no synchronization on those values — only on the map key.
+	// Concurrent goroutines reading/writing the same image data cause:
+	//   - "fatal error: concurrent map writes" → admission controller crash
+	//   - spurious verification denials as one policy overwrites another's cache
 	// Built at most once for the whole evaluation: the thunk is only invoked
 	// when a policy's Evaluate reaches prepareK8sData, and memoized so every
 	// policy after the first reuses the same map.
@@ -560,6 +564,14 @@ func (e *engineImpl) evaluatePolicies(
 
 			if evaluation.compiled == nil {
 				evaluation.err = fmt.Errorf("compiled policy is missing")
+				return
+			}
+
+			// Each goroutine gets its own image context to avoid concurrent mutation
+			// of cached image data (notary/cosign verifiers write in place).
+			ictx, err := e.newImageContext()
+			if err != nil {
+				evaluation.err = err
 				return
 			}
 
