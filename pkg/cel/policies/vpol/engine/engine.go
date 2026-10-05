@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -254,11 +255,13 @@ func (e *engineImpl) handlePolicy(ctx context.Context, policy Policy, jsonPayloa
 			)
 		}
 	} else {
-		ruleName := "validation"
+		// a failing or erroring result is named after its validation (its identifier, or its
+		// index without one), so the name stays stable when validations are reordered
+		ruleName := autogen.RuleName(result.Identifier, result.Index)
 		if result.Error != nil {
 			response.Rules = append(response.Rules, *engineapi.RuleError(ruleName, engineapi.Validation, "error", result.Error, withValidationIndex(nil, result.Index)))
 		} else if result.Result {
-			response.Rules = append(response.Rules, *engineapi.RulePass(ruleName, engineapi.Validation, "success", result.AuditAnnotations))
+			response.Rules = append(response.Rules, *engineapi.RulePass("validation", engineapi.Validation, "success", result.AuditAnnotations))
 		} else if refused := result.RefusedException; refused != nil {
 			// an exception matched but its controls were not satisfied, and the policy then
 			// failed. Report what the exception required: nowhere else does the submitter learn

@@ -266,7 +266,7 @@ func (p *Policy) evaluateWithData(
 		if err != nil {
 			ran(index, trace.VerdictError)
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
-			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
+			return &EvaluationResult{Error: err, Index: index, Identifier: validation.Identifier, Trace: decision()}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
 			ran(index, trace.VerdictFail)
@@ -275,12 +275,13 @@ func (p *Policy) evaluateWithData(
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
 				verdict.Status, verdict.Message = trace.VerdictError, err.Error()
-				return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
+				return &EvaluationResult{Error: err, Index: index, Identifier: validation.Identifier, Trace: decision()}, nil
 			}
 			return &EvaluationResult{
 				Result:           outcome,
 				Message:          message,
 				Index:            index,
+				Identifier:       validation.Identifier,
 				AuditAnnotations: auditAnnotations,
 				RefusedException: refused,
 				Trace:            decision(),
@@ -288,7 +289,7 @@ func (p *Policy) evaluateWithData(
 		} else if err != nil {
 			ran(index, trace.VerdictError)
 			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
-			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
+			return &EvaluationResult{Error: err, Index: index, Identifier: validation.Identifier, Trace: decision()}, nil
 		}
 		ran(index, trace.VerdictPass)
 	}
