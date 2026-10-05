@@ -231,36 +231,43 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	hasExplicitTarget := len(targetConstraints.ResourceRules) > 0 || targetConstraints.Expression != ""
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
-		if target && hasExplicitTarget {
-			if len(targetConstraints.ResourceRules) > 0 {
-				constraints = targetConstraints.MatchResources
-				// Normalize target resource-rule operations to OperationAll.
-				// Target matching is not an admission-operation filter: the
-				// background controller synthesizes Update for every scan request,
-				// and the CLI uses an empty operation. Without this normalization,
-				// a target rule limited to CREATE would be silently rejected even
-				// though the target was already selected for mutation.
+		if target {
+			if hasExplicitTarget {
+				if len(targetConstraints.ResourceRules) > 0 {
+					constraints = targetConstraints.MatchResources
+				} else if targetConstraints.Expression != "" {
+					// Expression-only targets: the CEL expression (e.g. resource.get(...))
+					// resolves the target set directly. Use the targetMatchConstraints'
+					// MatchResources (which may carry NamespaceSelector/ObjectSelector)
+					// but clear ResourceRules to avoid falling
+					// back to the trigger's matchConstraints for resource-rule matching.
+					// We preserve ExcludeResourceRules so exclusion logic still applies.
+					constraints = targetConstraints.MatchResources
+					constraints.ResourceRules = nil
+				}
+			}
+
+			// Normalize target resource-rule operations to OperationAll.
+			// Target matching is not an admission-operation filter: the
+			// background controller synthesizes Update for every scan request,
+			// and the CLI uses an empty operation. Without this normalization,
+			// a target rule limited to CREATE would be silently rejected even
+			// though the target was already selected for mutation.
+			if len(constraints.ResourceRules) > 0 {
 				normalizedRules := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ResourceRules))
 				for i, r := range constraints.ResourceRules {
 					normalizedRules[i] = r
 					normalizedRules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
 				}
 				constraints.ResourceRules = normalizedRules
+			}
+			if len(constraints.ExcludeResourceRules) > 0 {
 				normalizedExclude := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ExcludeResourceRules))
 				for i, r := range constraints.ExcludeResourceRules {
 					normalizedExclude[i] = r
 					normalizedExclude[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
 				}
 				constraints.ExcludeResourceRules = normalizedExclude
-			} else if targetConstraints.Expression != "" {
-				// Expression-only targets: the CEL expression (e.g. resource.get(...))
-				// resolves the target set directly. Use the targetMatchConstraints'
-				// MatchResources (which may carry NamespaceSelector/ObjectSelector)
-				// but clear ResourceRules and ExcludeResourceRules to avoid falling
-				// back to the trigger's matchConstraints for resource-rule matching.
-				constraints = targetConstraints.MatchResources
-				constraints.ResourceRules = nil
-				constraints.ExcludeResourceRules = nil
 			}
 		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)

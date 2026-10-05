@@ -1191,11 +1191,11 @@ func TestEvaluate_NilMatcherSkipsNamespaceSelector(t *testing.T) {
 func TestEvaluate_TargetOperationNormalization(t *testing.T) {
 	mutateExisting := true
 
-	// Policy: trigger = configmaps/CREATE, target = deployments with CREATE-only rule.
+	// Policy 1: trigger = configmaps/CREATE, target = deployments with CREATE-only rule.
 	// The target attr will carry an empty operation (""), simulating the CLI path.
 	// Without the fix the matcher would reject the target because "" ∉ {CREATE}.
-	mpol := &policiesv1beta1.MutatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "op-norm"},
+	mpol1 := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "op-norm-1"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
 			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
 				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
@@ -1238,7 +1238,21 @@ func TestEvaluate_TargetOperationNormalization(t *testing.T) {
 		},
 	}
 
-	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
+	// Policy 2: same as above but with an ExcludeResourceRule matching the target
+	mpol2 := mpol1.DeepCopy()
+	mpol2.Name = "op-norm-2"
+	mpol2.Spec.TargetMatchConstraints.MatchResources.ExcludeResourceRules = []admissionregistrationv1.NamedRuleWithOperations{{
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{"CREATE"},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{"apps"},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"deployments"},
+			},
+		},
+	}}
+
+	pols := []policiesv1beta1.MutatingPolicyLike{mpol1, mpol2}
 	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
 	assert.NoError(t, err)
 
@@ -1286,38 +1300,35 @@ func TestEvaluate_TargetOperationNormalization(t *testing.T) {
 			}, predicate)
 
 			assert.NoError(t, err)
-			// The target's CREATE-only resourceRule must NOT block evaluation when the
-			// operation in attr is different (empty or Update). OperationAll normalisation
-			// ensures the rule still matches and the mutation is applied.
-			if assert.Len(t, resp.Policies, 1) {
+
+			// We expect mpol1 to pass (target rule matches, operation normalized)
+			// and mpol2 to have no rules (exclusion matched, operation normalized)
+			if assert.Len(t, resp.Policies, 2) {
+				assert.Equal(t, "op-norm-1", resp.Policies[0].Policy.GetName())
 				if assert.NotEmpty(t, resp.Policies[0].Rules,
 					"target CREATE-only rule must not be filtered out by operation mismatch") {
 					assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Rules[0].Status(),
 						"mutation must succeed after operation normalisation")
 				}
+
+				assert.Equal(t, "op-norm-2", resp.Policies[1].Policy.GetName())
+				assert.Empty(t, resp.Policies[1].Rules,
+					"matching CREATE exclusion must reject the target despite operation mismatch")
 			}
 		})
 	}
 }
 
-// TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher is a regression test
-// for the case where targetMatchConstraints uses an expression (e.g.
-// resource.get(...)) with no resourceRules. Previously, wiring a real matcher
-// caused handlePolicy to fall back to the trigger's matchConstraints, which
-// would incorrectly filter out the resolved target (e.g. a ConfigMap) because
-// it doesn't match the trigger resource (e.g. secrets/CREATE).
-//
-// The fix skips constraint matching when targetMatchConstraints has an
-// expression but no resourceRules, since the expression itself resolves
-// the target set.
 func TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher(t *testing.T) {
 	mutateExisting := true
 
-	// Policy: trigger = secrets/CREATE, target = expression-only (no resourceRules).
-	// This mirrors the conformance test at
-	// test/conformance/chainsaw/mutating-policies/existing/expression/get/policy.yaml
+	// Policy: trigger = configmaps, target = expression resolves to deployments.
+	// Since there are no target ResourceRules, it should NOT fall back to checking
+	// the target (deployments) against the trigger constraints (configmaps) because
+	// expression targets bypass trigger-constraint matching. However, exclusions
+	// and selectors from targetMatchConstraints SHOULD still apply.
 	mpol := &policiesv1beta1.MutatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "expression-target"},
+		ObjectMeta: metav1.ObjectMeta{Name: "expr-only"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
 			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
 				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
@@ -1327,136 +1338,68 @@ func TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher(t *testing.T) {
 			MatchConstraints: &admissionregistrationv1.MatchResources{
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{"CREATE"},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"secrets"},
-						},
+						Operations: []admissionregistrationv1.OperationType{"CREATE", "UPDATE"},
+						Rule:       admissionregistrationv1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"}},
 					},
 				}},
 			},
-			// Expression-only targetMatchConstraints — no ResourceRules.
 			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
-				Expression: `resource.get("v1", "configmaps", object.metadata.namespace, "test-cm")`,
+				Expression: `resource.get("v1", "configmaps", "default", "target")`,
 			},
 			Mutations: []admissionregistrationv1alpha1.Mutation{{
 				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
 				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-					Expression: `Object{metadata: Object.metadata{labels: {"patched": "yes"}}}`,
+					Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
 				},
 			}},
 		},
 	}
 
-	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
+	// Policy 2: same as above, but with a NamespaceSelector that doesn't match
+	mpol2 := mpol.DeepCopy()
+	mpol2.Name = "expr-only-nomatch"
+	mpol2.Spec.TargetMatchConstraints.MatchResources.NamespaceSelector = &metav1.LabelSelector{
+		MatchLabels: map[string]string{"env": "production"},
+	}
+
+	pols := []policiesv1beta1.MutatingPolicyLike{mpol, mpol2}
 	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
 	assert.NoError(t, err)
 
-	nsResolverDefault := func(ns string) *corev1.Namespace {
-		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	nsResolver := func(ns string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"env": "staging"}}}
 	}
 
-	// Simulate evaluating a ConfigMap target — this is the resolved target, NOT a secret.
-	target := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "v1", "kind": "ConfigMap",
-		"metadata": map[string]interface{}{"name": "test-cm", "namespace": "default"},
+	targetDeploy := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1", "kind": "Deployment",
+		"metadata": map[string]interface{}{"name": "nginx", "namespace": "default"},
 	}}
 	attr := admission.NewAttributesRecord(
-		target, nil,
-		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
-		"default", "test-cm",
-		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
+		targetDeploy, nil,
+		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		"default", "nginx",
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
 		"", admission.Update, nil, false, &user.DefaultInfo{},
 	)
 
-	eng := NewEngine(provider, nsResolverDefault, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
 	resp, err := eng.Evaluate(ctx, attr, admissionv1.AdmissionRequest{
 		Operation: admissionv1.Update,
-		Name:      "test-cm",
+		Name:      "nginx",
 		Namespace: "default",
 	}, predicate)
-
-	assert.NoError(t, err)
-	// The policy must NOT be filtered out — expression-only targets should
-	// bypass the matcher's constraint check.
-	if assert.Len(t, resp.Policies, 1) {
-		assert.NotEmpty(t, resp.Policies[0].Rules,
-			"expression-only target should not be filtered by trigger matchConstraints")
-	}
-}
-
-// TestEvaluate_ExpressionOnlyTargetNamespaceSelectorFilters verifies that even
-// for expression-only targetMatchConstraints (no resourceRules), a
-// NamespaceSelector on the targetMatchConstraints is still evaluated by the
-// matcher. A target whose namespace does NOT carry the required label must be
-// filtered out (empty Rules).
-func TestEvaluate_ExpressionOnlyTargetNamespaceSelectorFilters(t *testing.T) {
-	mutateExisting := true
-
-	mpol := &policiesv1beta1.MutatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "expression-ns-selector"},
-		Spec: policiesv1beta1.MutatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
-				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
-					Enabled: &mutateExisting,
-				},
-			},
-			MatchConstraints: &admissionregistrationv1.MatchResources{
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{"CREATE"},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"secrets"},
-						},
-					},
-				}},
-			},
-			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
-				MatchResources: admissionregistrationv1.MatchResources{
-					NamespaceSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"env": "production"},
-					},
-				},
-				Expression: `resource.get("v1", "configmaps", object.metadata.namespace, "test-cm")`,
-			},
-			Mutations: []admissionregistrationv1alpha1.Mutation{{
-				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-					Expression: `Object{metadata: Object.metadata{labels: {"patched": "yes"}}}`,
-				},
-			}},
-		},
-	}
-
-	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
-	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
 	assert.NoError(t, err)
 
-	nsResolverNoLabel := func(ns string) *corev1.Namespace {
-		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
-	}
+	if assert.Len(t, resp.Policies, 2) {
+		assert.Equal(t, "expr-only", resp.Policies[0].Policy.GetName())
+		if assert.NotEmpty(t, resp.Policies[0].Rules,
+			"expression-only target must not be filtered out by trigger constraints") {
+			assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Rules[0].Status(),
+				"mutation must succeed for expression-only target")
+		}
 
-	target := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "v1", "kind": "ConfigMap",
-		"metadata": map[string]interface{}{"name": "test-cm", "namespace": "default"},
-	}}
-	attr := admission.NewAttributesRecord(
-		target, nil,
-		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"},
-		"default", "test-cm",
-		schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"},
-		"", admission.Update, nil, false, &user.DefaultInfo{},
-	)
-
-	eng := NewEngine(provider, nsResolverNoLabel, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
-	resp, err := eng.Evaluate(ctx, attr, admissionv1.AdmissionRequest{
-		Operation: admissionv1.Update,
-		Name:      "test-cm",
-		Namespace: "default",
-	}, predicate)
-
-	assert.NoError(t, err)
-	if assert.Len(t, resp.Policies, 1) {
-		assert.Empty(t, resp.Policies[0].Rules,
-			"expression-only target with non-matching NamespaceSelector should be filtered out")
+		assert.Equal(t, "expr-only-nomatch", resp.Policies[1].Policy.GetName())
+		assert.Empty(t, resp.Policies[1].Rules,
+			"expression-only target must be filtered out if its namespaceSelector doesn't match")
 	}
 }
