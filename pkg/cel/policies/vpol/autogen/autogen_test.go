@@ -52,6 +52,8 @@ func TestValidateUniqueIdentifiers(t *testing.T) {
 		name        string
 		identifiers []string
 		wantErrs    int
+		// wantAt, when set, is the field the single expected error must point at
+		wantAt string
 	}{
 		{
 			name:        "all validations have unique identifiers",
@@ -83,11 +85,32 @@ func TestValidateUniqueIdentifiers(t *testing.T) {
 			identifiers: []string{"", "check-privileged", ""},
 			wantErrs:    0,
 		},
+		{
+			// "validate-1" names its rule autogen-validate-1, which index 1 also gets positionally
+			name:        "identifier collides with a later positional name",
+			identifiers: []string{"validate-1", ""},
+			wantErrs:    1,
+			wantAt:      "spec.validations[0].identifier",
+		},
+		{
+			name:        "identifier collides with an earlier positional name",
+			identifiers: []string{"", "validate-0"},
+			wantErrs:    1,
+			wantAt:      "spec.validations[1].identifier",
+		},
+		{
+			name:        "positional-looking identifier with no validation at that index",
+			identifiers: []string{"validate-5", ""},
+			wantErrs:    0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			errs := ValidateUniqueIdentifiers(path, tt.identifiers)
 			assert.Len(t, errs, tt.wantErrs)
+			if tt.wantAt != "" && len(errs) == 1 {
+				assert.Equal(t, tt.wantAt, errs[0].Field, "the error points at the validation that carries the identifier")
+			}
 		})
 	}
 }

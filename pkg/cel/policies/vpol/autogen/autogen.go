@@ -47,22 +47,28 @@ func RuleName(identifier string, index int) string {
 	return fmt.Sprintf("autogen-validate-%d", index)
 }
 
-// ValidateUniqueIdentifiers reports a Duplicate error for every non-empty
-// identifier (by index into identifiers) that repeats an identifier already
-// seen at an earlier index. Empty identifiers are ignored since they fall
-// back to positional naming in RuleName and never collide.
+// ValidateUniqueIdentifiers reports every validation whose rule name (see RuleName) is already
+// taken by an earlier validation. Checking the names rather than the identifiers also catches an
+// identifier that collides with a positional fallback: an identifier "validate-1" names its rule
+// "autogen-validate-1", the same name the validation at index 1 gets when it has no identifier.
+// The error is reported on the validation that carries the identifier, since that is the one to
+// rename; two validations without identifiers never collide, their indexes differ.
 func ValidateUniqueIdentifiers(path *field.Path, identifiers []string) field.ErrorList {
 	var allErrs field.ErrorList
-	seen := sets.New[string]()
+	firstIndex := make(map[string]int, len(identifiers))
 	for i, identifier := range identifiers {
+		name := RuleName(identifier, i)
+		first, taken := firstIndex[name]
+		if !taken {
+			firstIndex[name] = i
+			continue
+		}
+		at, value, other := i, identifier, first
 		if identifier == "" {
-			continue
+			at, value, other = first, identifiers[first], i
 		}
-		if seen.Has(identifier) {
-			allErrs = append(allErrs, field.Duplicate(path.Index(i).Child("identifier"), identifier))
-			continue
-		}
-		seen.Insert(identifier)
+		allErrs = append(allErrs, field.Invalid(path.Index(at).Child("identifier"), value,
+			fmt.Sprintf("rule name %q is also the rule name of validations[%d]", name, other)))
 	}
 	return allErrs
 }

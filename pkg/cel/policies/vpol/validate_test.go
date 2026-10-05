@@ -116,6 +116,19 @@ func TestValidate_Identifiers(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			// the identifier names its rule autogen-validate-1, which the second validation,
+			// having no identifier, also gets from its position
+			name: "identifier collides with a positional rule name",
+			annotations: map[string]string{
+				autogen.IdentifiersAnnotation: `{"object.spec.privileged == false":"validate-1"}`,
+			},
+			validations: []admissionregistrationv1.Validation{
+				{Expression: "object.spec.privileged == false"},
+				{Expression: "object.spec.hostNetwork == false"},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
