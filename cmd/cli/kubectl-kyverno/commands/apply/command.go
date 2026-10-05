@@ -721,6 +721,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
+			DeferredMutationOutputs:           &c.deferredMutationOutputs,
 		}
 		ers, err := processor.ApplyPoliciesOnResourceWithContext(ctx)
 		if err != nil {

@@ -295,13 +295,40 @@ func jsonRat(value any) (*big.Rat, bool) {
 	return nil, false
 }
 
+func jsonFloat(value any) (float64, bool) {
+	switch value := value.(type) {
+	case json.Number:
+		f, err := strconv.ParseFloat(string(value), 64)
+		return f, err == nil
+	case int64:
+		return float64(value), true
+	case uint64:
+		return float64(value), true
+	case float64:
+		return value, true
+	}
+	return 0, false
+}
+
 // jsonEqual implements RFC 6902 test equality: numbers compare by numeric
 // value regardless of representation, objects by key set and member equality,
 // arrays by order, and null only equals null.
 func jsonEqual(actual, expected any) bool {
 	if a, ok := jsonRat(actual); ok {
 		b, ok := jsonRat(expected)
-		return ok && a.Cmp(b) == 0
+		if !ok {
+			return false
+		}
+		// A CEL double cannot represent most decimal literals exactly, so a
+		// comparison involving one uses double precision on both sides.
+		_, actualFloat := actual.(float64)
+		_, expectedFloat := expected.(float64)
+		if actualFloat || expectedFloat {
+			af, aok := jsonFloat(actual)
+			bf, bok := jsonFloat(expected)
+			return aok && bok && af == bf
+		}
+		return a.Cmp(b) == 0
 	}
 	switch actual := actual.(type) {
 	case nil:
