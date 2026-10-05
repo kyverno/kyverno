@@ -74,9 +74,7 @@ area/image-verify:
         - any-glob-to-any-file:
             - pkg/engine/image_verify.go
             - pkg/engine/image_verify_test.go
-            - pkg/imageverification/**
-            - pkg/imageverifycache/**
-            - pkg/images/**
+            - pkg/image/**
 
 area/cosign:
   color: 3F51B5
@@ -84,7 +82,8 @@ area/cosign:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/cosign/**
+            - pkg/image/verifiers/cpol/cosign/**
+            - pkg/image/verifiers/ivpol/cosign/**
 
 area/notary:
   color: 3F51B5
@@ -92,7 +91,8 @@ area/notary:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/notary/**
+            - pkg/image/verifiers/cpol/notary/**
+            - pkg/image/verifiers/ivpol/notary/**
 
 # ── Area: CEL (cyan #00BCD4) ─────────────────────────────────────────────────
 # ── CEL ─────────────────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ area/registry:
   rules:
     - changed-files:
         - any-glob-to-any-file:
-            - pkg/registryclient/**
+            - pkg/engine/factories/registryclientfactory.go
             - cmd/internal/registry.go
 
 # ── Area: Infrastructure (blue-grey #607D8B) ────────────────────────────────
@@ -463,7 +463,6 @@ kind/documentation:
             - README.md
             - ROADMAP.md
             - SECURITY.md
-            - Kyverno_Architecture_Roadmap.md
 
 # ── Kind: CI & Build (dark magenta #8E24AA) ─────────────────────────────────
 kind/ci:
@@ -485,7 +484,6 @@ kind/codegen:
         - any-glob-to-any-file:
             - hack/**
             - scripts/**
-            - cmd/tools/**
 
 # ── Kind: Dependencies (brown #795548) ──────────────────────────────────────
 kind/dependencies:
@@ -524,3 +522,60 @@ spam:
 merge-conflicts:
   color: E65100
   description: PR has merge conflicts
+
+# ── E2E gate (.github/workflows/e2e-gate.yaml) ───────────────────────────────
+e2e-failure:
+  color: B60205
+  description: Post-merge tests are failing on a branch; the E2E gate blocks PRs to it
+
+e2e-gate-bypass:
+  color: FBCA04
+  description: Lets this PR through the E2E gate, e.g. the PR that fixes the branch
+
+# Applied by .coderabbit.yaml's reviews.slop_detection.
+ai-generated:
+  color: 8B5CF6
+  description: Flagged by CodeRabbit's slop detection as likely low-quality AI-generated content
+
+# Applied and removed automatically by .github/workflows/pr-readiness-check.yaml.
+needs-author-action:
+  color: B60205
+  description: Failing DCO or CI, a merge conflict, or unresolved review threads on this PR
+
+# Applied and removed automatically by pr-readiness-check.yaml (human PRs) and dependabot-merge-triage.yaml
+# (Dependabot PRs).
+ready-for-review:
+  color: 0E8A16
+  description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
+
+# Applied and removed automatically by pr-readiness-check.yaml.
+workflow-approval-required:
+  color: FBCA04
+  description: This PR's workflows are waiting for a maintainer's approval to run
+
+# Applied automatically by pr-readiness-check.yaml during its sweep, never removed. Purely informational —
+# marks a PR as closing an open "Kyverno Release ..." milestone issue.
+milestone-pr:
+  color: "0075ca"
+  description: Closes an open Kyverno Release milestone issue
+
+# Applied and removed automatically by dependabot-merge-triage.yaml
+needs-review:
+  color: FBCA04
+  description: Not safe to auto-merge — failing CI, a conflict, or Copilot didn't recommend approval
+
+# Applied automatically by dependabot-merge-triage.yaml. Purely informational (a permanent fact about the bump,
+# never removed) — always paired with needs-review.
+major-bump:
+  color: "5319E7"
+  description: A major-semver Dependabot bump — needs a human to check for breaking changes
+
+# Managed by pr-stale-author-action.yaml; don't set by hand.
+stale:
+  color: CFD3D7
+  description: Waiting on the author with no activity from them for 14 days
+
+# Set by a maintainer. Exempts a PR from pr-stale-author-action.yaml (no stale label, no review nudge).
+no-stale:
+  color: C2E0C6
+  description: Exempt from the stale-author and idle-review reminders

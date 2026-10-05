@@ -99,6 +99,13 @@ func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportRe
 						accumulator[key] = result
 					}
 				}
+			// Legacy kyverno.io source (ClusterPolicy/Policy): deprecated in
+			// 1.20, removed in 1.21 (#17491). Still aggregated for reporting
+			// continuity via the shared default body below. Removing this case
+			// in 1.21 is not enough on its own; "kyverno" would still fall into
+			// default, so the default branch must change then too.
+			case reportutils.SourceKyverno:
+				fallthrough
 			default:
 				currentPolicy := maps.Pol[result.Policy]
 				if currentPolicy.Rules != nil && currentPolicy.Rules.Has(result.Rule) {

@@ -49,4 +49,8 @@ spec:
     - expression: >-
         size(images.containers) > 0
       message: deployment must reference at least one image
+    # Images matched by matchImageReferences must be verified, or the digest check denies them.
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.notary])).all(e, e > 0)
+      message: failed to verify image with notary cert
 
