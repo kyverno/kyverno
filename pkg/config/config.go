@@ -6,8 +6,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	valid "github.com/asaskevich/govalidator"
+	"github.com/go-openapi/strfmt"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -624,8 +627,21 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	if !ok {
 		logger.V(2).Info("updateRequestCleanupTTL not set")
 	} else {
-		cd.updateRequestCleanupTTL = ttl
-		logger.V(2).Info("updateRequestCleanupTTL configured")
+		// Validate the TTL format
+		_, err := strfmt.ParseDuration(ttl)
+		if err != nil {
+			_, err = time.Parse(kyverno.ValueTtlDateTimeLayout, ttl)
+			if err != nil {
+				_, err = time.Parse(kyverno.ValueTtlDateLayout, ttl)
+			}
+		}
+
+		if err != nil {
+			logger.Error(err, "invalid updateRequestCleanupTTL format", "ttl", ttl)
+		} else {
+			cd.updateRequestCleanupTTL = ttl
+			logger.V(2).Info("updateRequestCleanupTTL configured")
+		}
 	}
 	// load maxContextSize (supports Kubernetes quantity format: 100Mi, 2Gi, etc.)
 	cd.maxContextSize = DefaultMaxContextSize
