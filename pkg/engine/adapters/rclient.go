@@ -10,6 +10,9 @@ import (
 	"github.com/kyverno/sdk/extensions/registryclient"
 )
 
+// an attacker-authored config descriptor otherwise sizes this read
+const maxConfigSize = int64(10 * 1000 * 1000)
+
 type rclientAdapter struct {
 	registryclient.Client
 }
@@ -42,6 +45,13 @@ func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.Ima
 	rawManifest, err := image.RawManifest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
+	}
+	manifest, err := image.Manifest()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
+	}
+	if manifest.Config.Size > maxConfigSize {
+		return nil, fmt.Errorf("config size %d exceeds %d for image reference: %s", manifest.Config.Size, maxConfigSize, ref)
 	}
 	rawConfig, err := image.RawConfigFile()
 	if err != nil {
