@@ -282,3 +282,33 @@ func TestWithTweakListOptions_AppliesToFallback(t *testing.T) {
 		t.Fatal("dynamic informer never listed")
 	}
 }
+
+// TestWaitForCacheSync_OneOfManyFallbackInformersFails registers two fallback GVRs where
+// only one initial list fails, and asserts the aggregate is NOT synced, i.e. a healthy
+// informer never masks an unsynced one.
+func TestWaitForCacheSync_OneOfManyFallbackInformersFails(t *testing.T) {
+	t.Parallel()
+	dynClient := dynamicfake.NewSimpleDynamicClient(newDeploymentScheme(t), newDeployment("default", "d1"))
+	dynClient.PrependReactor("list", "statefulsets", func(clienttesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("boom")
+	})
+	factory := NewExtendedSharedInformerFactory(versionedfake.NewSimpleClientset(), dynClient, 0)
+	for _, gvr := range []schema.GroupVersionResource{
+		deploymentsGVR,
+		{Group: "apps", Version: "v1", Resource: "statefulsets"},
+	} {
+		if _, err := factory.ForResource(gvr); err != nil {
+			t.Fatalf("unexpected error for %s: %v", gvr, err)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	factory.Start(ctx.Done())
+
+	synced := factory.WaitForCacheSync(ctx.Done())
+	if ok, found := synced[dynamicInformerType]; !found || ok {
+		t.Fatalf("expected aggregate NOT synced when one fallback informer fails, got %v", synced)
+	}
+	factory.Shutdown()
+}
