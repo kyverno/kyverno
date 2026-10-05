@@ -1,16 +1,21 @@
 package informers
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	appsv1 "k8s.io/api/apps/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
+	clienttesting "k8s.io/client-go/testing"
 )
 
 // newTestFactory returns an ExtendedSharedInformerFactory wired with fakes.
@@ -119,9 +124,161 @@ func TestNewExtendedSharedInformerFactory_WithOptions(t *testing.T) {
 		kyvernoClient,
 		dynClient,
 		10*time.Minute,
-		kyvernoinformer.WithNamespace("kyverno"),
+		WithNamespace("kyverno"),
 	)
 	if factory == nil {
 		t.Fatal("expected non-nil factory")
+	}
+}
+
+var deploymentsGVR = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+func newDeployment(namespace, name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]any{"name": name, "namespace": namespace},
+	}}
+}
+
+func newDeploymentScheme(t *testing.T) *runtime.Scheme {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add appsv1 to scheme: %v", err)
+	}
+	return scheme
+}
+
+// TestLifecycle_FallbackInformerStartsSyncsAndStops registers a fallback informer and
+// asserts that Start populates its cache, WaitForCacheSync covers it, and Shutdown returns.
+func TestLifecycle_FallbackInformerStartsSyncsAndStops(t *testing.T) {
+	t.Parallel()
+	dynClient := dynamicfake.NewSimpleDynamicClient(newDeploymentScheme(t), newDeployment("default", "d1"))
+	factory := NewExtendedSharedInformerFactory(versionedfake.NewSimpleClientset(), dynClient, 0)
+
+	inf, err := factory.ForResource(deploymentsGVR)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	stopCh := make(chan struct{})
+	factory.Start(stopCh)
+
+	synced := factory.WaitForCacheSync(stopCh)
+	if ok, found := synced[dynamicInformerType]; !found || !ok {
+		t.Fatalf("expected dynamic informers to be reported as synced, got %v", synced)
+	}
+	objs, err := inf.Lister().List(labels.Everything())
+	if err != nil {
+		t.Fatalf("unexpected list error: %v", err)
+	}
+	if len(objs) != 1 {
+		t.Fatalf("expected 1 object in the fallback informer cache, got %d", len(objs))
+	}
+
+	close(stopCh)
+	done := make(chan struct{})
+	go func() {
+		factory.Shutdown()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Shutdown did not return, dynamic informers were not stopped")
+	}
+}
+
+// TestWaitForCacheSync_FallbackInitialListFails makes the initial list fail and asserts
+// that WaitForCacheSync reports the dynamic informers as not synced.
+func TestWaitForCacheSync_FallbackInitialListFails(t *testing.T) {
+	t.Parallel()
+	dynClient := dynamicfake.NewSimpleDynamicClient(newDeploymentScheme(t))
+	dynClient.PrependReactor("list", "deployments", func(clienttesting.Action) (bool, runtime.Object, error) {
+		return true, nil, errors.New("boom")
+	})
+	factory := NewExtendedSharedInformerFactory(versionedfake.NewSimpleClientset(), dynClient, 0)
+	if _, err := factory.ForResource(deploymentsGVR); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	factory.Start(ctx.Done())
+
+	synced := factory.WaitForCacheSync(ctx.Done())
+	if ok, found := synced[dynamicInformerType]; !found || ok {
+		t.Fatalf("expected dynamic informers to be reported as NOT synced, got %v", synced)
+	}
+	factory.Shutdown()
+}
+
+// TestWithNamespace_AppliesToFallback asserts the namespace filter reaches the dynamic factory.
+func TestWithNamespace_AppliesToFallback(t *testing.T) {
+	t.Parallel()
+	dynClient := dynamicfake.NewSimpleDynamicClient(newDeploymentScheme(t),
+		newDeployment("kyverno", "in-scope"),
+		newDeployment("other", "out-of-scope"),
+	)
+	factory := NewExtendedSharedInformerFactory(versionedfake.NewSimpleClientset(), dynClient, 0, WithNamespace("kyverno"))
+	inf, err := factory.ForResource(deploymentsGVR)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	stopCh := make(chan struct{})
+	defer func() {
+		close(stopCh)
+		factory.Shutdown()
+	}()
+	factory.Start(stopCh)
+	factory.WaitForCacheSync(stopCh)
+
+	objs, err := inf.Lister().List(labels.Everything())
+	if err != nil {
+		t.Fatalf("unexpected list error: %v", err)
+	}
+	if len(objs) != 1 {
+		t.Fatalf("expected only the object in namespace kyverno, got %d", len(objs))
+	}
+}
+
+// TestWithTweakListOptions_AppliesToFallback asserts the list-option tweak reaches the dynamic factory.
+func TestWithTweakListOptions_AppliesToFallback(t *testing.T) {
+	t.Parallel()
+	dynClient := dynamicfake.NewSimpleDynamicClient(newDeploymentScheme(t))
+	selectors := make(chan string, 8)
+	dynClient.PrependReactor("list", "deployments", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		if la, ok := action.(clienttesting.ListAction); ok {
+			select {
+			case selectors <- la.GetListRestrictions().Labels.String():
+			default:
+			}
+		}
+		return false, nil, nil
+	})
+	factory := NewExtendedSharedInformerFactory(versionedfake.NewSimpleClientset(), dynClient, 0,
+		WithTweakListOptions(func(o *metav1.ListOptions) { o.LabelSelector = "app=kyverno" }),
+	)
+	if _, err := factory.ForResource(deploymentsGVR); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	stopCh := make(chan struct{})
+	defer func() {
+		close(stopCh)
+		factory.Shutdown()
+	}()
+	factory.Start(stopCh)
+	factory.WaitForCacheSync(stopCh)
+
+	select {
+	case got := <-selectors:
+		if got != "app=kyverno" {
+			t.Fatalf("expected label selector app=kyverno on the dynamic list, got %q", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("dynamic informer never listed")
 	}
 }
