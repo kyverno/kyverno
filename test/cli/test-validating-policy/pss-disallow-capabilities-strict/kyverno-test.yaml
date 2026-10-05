@@ -6,6 +6,7 @@ policies:
 - policy.yaml
 resources:
 - pods.yaml
+- resources.yaml
 results:
 - isValidatingPolicy: true
   kind: Pod
@@ -18,6 +19,11 @@ results:
   - drop-all-add-sys-admin
   - init-container-no-security-context
   - ephemeral-container-drop-net-raw
+  - linux-drop-net-raw
+  - linux-add-sys-admin
+  - linux-init-add-sys-admin
+  - linux-ephemeral-add-sys-admin
+  - linux-explicit-os-add-sys-admin
   result: fail
 - isValidatingPolicy: true
   kind: Pod
@@ -26,4 +32,7 @@ results:
   - drop-all
   - drop-all-add-net-bind-service
   - all-scopes-drop-all
+  - linux-drop-all
+  - linux-drop-all-add-net-bind
+  - windows-no-security-context
   result: pass

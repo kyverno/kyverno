@@ -45,6 +45,8 @@ spec:
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           args:
             - scale-deploy
+            - --namespace={{ template "kyverno.namespace" . }}
+            - --label=app.kubernetes.io/part-of={{ template "kyverno.fullname" . }}
           {{- with .Values.webhooksCleanup.resources }}
           resources:
             {{- tpl (toYaml .) $ | nindent 12 }}

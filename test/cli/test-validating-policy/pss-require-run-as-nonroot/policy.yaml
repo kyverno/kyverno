@@ -25,9 +25,10 @@ spec:
             object.spec.?securityContext.?runAsNonRoot.orValue(false)) == true))
       message: >-
         Running as root is not allowed. The field spec.securityContext.runAsNonRoot
-        must be unset or set to `true`, and the fields
+        must be unset or set to `true`. The fields
         spec.containers[*].securityContext.runAsNonRoot,
         spec.initContainers[*].securityContext.runAsNonRoot, and
-        spec.ephemeralContainers[*].securityContext.runAsNonRoot must be set to `true` when
-        spec.securityContext.runAsNonRoot is unset.
+        spec.ephemeralContainers[*].securityContext.runAsNonRoot must be unset or set to
+        `true` when the pod-level field is `true`, and must be set to `true` when the
+        pod-level field is unset.
         This policy does not apply to Pods that set spec.hostUsers to `false`.

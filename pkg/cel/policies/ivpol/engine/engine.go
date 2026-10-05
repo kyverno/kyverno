@@ -236,7 +236,6 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	rt := &imageverify.Runtime{ImageContext: ictx, Cache: imageverifycache.DisabledImageVerifyCache()}
 
 	// Built at most once for the whole loop, lazily: matching happens per policy
 	// inside the loop below (matchPolicy), before MutateDigest is ever called, so
@@ -288,7 +287,7 @@ func (e *engineImpl) handleMutation(
 			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, rt, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -330,7 +329,9 @@ func (e *engineImpl) handleMutation(
 func (e *engineImpl) evaluateExtractedIv(
 	ctx context.Context,
 	compiled eval.CompiledPolicy,
-	rt *imageverify.Runtime,
+	imgCtx imagedataloader.ImageContext,
+	cache imageverifycache.Client,
+	results *imageverify.ImageVerificationResults,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
@@ -390,7 +391,7 @@ func (e *engineImpl) evaluateExtractedIv(
 		// is still exactly one build per template -- Evaluate calls prepareK8sData
 		// once per call -- not one per (matchConditions + exceptions) as it would
 		// be if match still assembled its own data.
-		result, err := compiled.Evaluate(ctx, rt, synthAttr, synthRequest, namespace, true, nil, libctx)
+		result, err := compiled.Evaluate(ctx, imgCtx, cache, results, synthAttr, synthRequest, namespace, true, nil, libctx)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
@@ -513,42 +514,80 @@ func (e *engineImpl) evaluatePolicies(
 	if err != nil {
 		return nil, err
 	}
-	// Built at most once for the whole loop, lazily: the thunk is only
-	// invoked when a policy's Evaluate reaches prepareK8sData, and memoized
-	// so every policy after the first reuses the same map. Never passed to
-	// extraction-mode policies (evaluateExtractedIv builds per template) --
-	// their synthesized requests embed a different object/oldObject than the
-	// outer request.
+	// Built at most once for the whole evaluation: the thunk is only invoked
+	// when a policy's Evaluate reaches prepareK8sData, and memoized so every
+	// policy after the first reuses the same map.
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(request)
 	})
 	// Shared by every policy evaluated below, so required sees cross-policy evidence.
 	verifications := imageverify.NewImageVerificationResults()
-	rt := &imageverify.Runtime{ImageContext: ictx, Cache: e.ivCache, Results: verifications}
-	// resolved after the loop: evidence may come from a policy evaluated later
+
+	type evaluation struct {
+		response  eval.ImageVerifyPolicyResponse
+		compiled  eval.CompiledPolicy
+		result    *eval.EvaluationResult
+		err       error
+		startTime time.Time
+	}
+
+	results := make([]evaluation, len(policies))
+
+	// Evaluate all already-compiled policies concurrently.
+	//
+	// Each policy gets its own result slot. Responses and pendingRequired are
+	// processed sequentially below to preserve deterministic ordering and map
+	// writes.
+	var wg sync.WaitGroup
+
+	for i, ivpol := range policies {
+		results[i] = evaluation{
+			response: eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+			},
+			compiled:  ivpol.CompiledPolicy,
+			startTime: time.Now(),
+		}
+
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			ivpol := policies[i]
+			evaluation := &results[i]
+
+			if evaluation.compiled == nil {
+				evaluation.err = fmt.Errorf("compiled policy is missing")
+				return
+			}
+
+			if ivpol.ExtractionMode {
+				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
+			} else {
+				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, requestMapFn, libctx)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Process results sequentially so response ordering and map writes remain
+	// deterministic, and required enforcement happens only after every policy
+	// has contributed its verification evidence.
 	var pendingRequired []pendingRequiredCheck
-	for _, ivpol := range policies {
-		response := eval.ImageVerifyPolicyResponse{
-			Policy:     ivpol.Policy,
-			Actions:    ivpol.Actions,
-			Exceptions: ivpol.Exceptions,
-		}
-		startTime := time.Now()
-		compiled := ivpol.CompiledPolicy
-		var result *eval.EvaluationResult
-		if compiled == nil {
-			err = fmt.Errorf("compiled policy is missing")
-		} else if ivpol.ExtractionMode {
-			result, err = e.evaluateExtractedIv(ctx, compiled, rt, attr, request, namespace, libctx)
-		} else {
-			result, err = compiled.Evaluate(ctx, rt, attr, request, namespace, true, requestMapFn, libctx)
-		}
-		if err != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
+	for i, ivpol := range policies {
+		evaluation := results[i]
+		response := evaluation.response
+		startTime := evaluation.startTime
+
+		if evaluation.err != nil {
+			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", evaluation.err, nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 			responses[ivpol.Policy.GetName()] = response
 			continue
 		}
+		result := evaluation.result
 		if result == nil {
 			continue
 		}
@@ -575,7 +614,7 @@ func (e *engineImpl) evaluatePolicies(
 				response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
 				pendingRequired = append(pendingRequired, pendingRequiredCheck{
 					name:             ivpol.Policy.GetName(),
-					compiled:         compiled,
+					compiled:         evaluation.compiled,
 					images:           result.MatchedImages,
 					auditAnnotations: result.AuditAnnotations,
 					startTime:        startTime,

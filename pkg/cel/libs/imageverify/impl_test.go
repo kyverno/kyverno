@@ -95,7 +95,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	}
 
 	data := map[string]any{
-		RuntimeKey:  NewFactory(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil).Bind(&Runtime{ImageContext: imgCtx, Results: NewImageVerificationResults()}),
+		RuntimeKey:  NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -135,7 +135,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	}
 
 	data := map[string]any{
-		RuntimeKey:  NewFactory(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil).Bind(&Runtime{ImageContext: imgCtx, Results: NewImageVerificationResults()}),
+		RuntimeKey:  NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -175,7 +175,7 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 
 	// imgCtx is left nil on purpose: if the cache is bypassed, fetching image data errors
 	// out, and the test fails, proving a cache hit skips the registry round trip entirely.
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,
 		policy:         pol,
 		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
@@ -230,7 +230,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,
 		imgCtx:         imgCtx,
 		policy:         pol,
@@ -306,7 +306,7 @@ func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -410,7 +410,7 @@ func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -524,7 +524,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -660,7 +660,7 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -711,8 +711,7 @@ func Test_impl_getImageData(t *testing.T) {
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 
-	runtime := NewFactory(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil).
-		Bind(&Runtime{ImageContext: imgCtx, Results: NewImageVerificationResults()})
+	runtime := NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
 
 	out, _, err := prog.Eval(map[string]any{RuntimeKey: runtime})
 	assert.NoError(t, err, "getImageData on a real image must not fail at evaluation time")
@@ -743,8 +742,7 @@ func Test_impl_getImageData_errors(t *testing.T) {
 			assert.Nil(t, issues.Err())
 			prog, err := env.Program(ast)
 			assert.NoError(t, err)
-			runtime := NewFactory(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil).
-				Bind(&Runtime{ImageContext: imgCtx, Results: NewImageVerificationResults()})
+			runtime := NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
 
 			_, _, err = prog.Eval(map[string]any{RuntimeKey: runtime})
 			assert.ErrorContains(t, err, "failed to get imagedata")
