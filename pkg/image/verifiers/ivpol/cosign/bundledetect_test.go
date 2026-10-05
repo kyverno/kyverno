@@ -2,6 +2,7 @@ package cosign
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -19,10 +21,16 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 const emptyConfigMediaType = "application/vnd.oci.empty.v1+json"
@@ -74,15 +82,23 @@ func (r rawManifest) MediaType() (types.MediaType, error) { return types.OCIMani
 // entry that says nothing about its contents (kyverno#16664).
 func attachReferrer(t *testing.T, subject name.Digest, artifactType, layerMediaType, payload string, opts ...remote.Option) {
 	t.Helper()
+	attachReferrerIn(t, subject.Repository, subject, artifactType, layerMediaType, payload, opts...)
+}
+
+// attachReferrerIn is attachReferrer writing the referrer into repo rather than
+// the subject's own repository, as cosign does for an attestor that configures a
+// signature repository.
+func attachReferrerIn(t *testing.T, repo name.Repository, subject name.Digest, artifactType, layerMediaType, payload string, opts ...remote.Option) {
+	t.Helper()
 	layer := static.NewLayer([]byte(payload), types.MediaType(layerMediaType))
-	require.NoError(t, remote.WriteLayer(subject.Repository, layer, opts...))
+	require.NoError(t, remote.WriteLayer(repo, layer, opts...))
 	layerDigest, err := layer.Digest()
 	require.NoError(t, err)
 	layerSize, err := layer.Size()
 	require.NoError(t, err)
 
 	config := static.NewLayer([]byte("{}"), types.MediaType(emptyConfigMediaType))
-	require.NoError(t, remote.WriteLayer(subject.Repository, config, opts...))
+	require.NoError(t, remote.WriteLayer(repo, config, opts...))
 	configDigest, err := config.Digest()
 	require.NoError(t, err)
 	configSize, err := config.Size()
@@ -103,7 +119,7 @@ func attachReferrer(t *testing.T, subject name.Digest, artifactType, layerMediaT
 	require.NoError(t, err)
 	digest, _, err := v1.SHA256(strings.NewReader(string(body)))
 	require.NoError(t, err)
-	require.NoError(t, remote.Put(subject.Repository.Digest(digest.String()), rawManifest(body), opts...))
+	require.NoError(t, remote.Put(repo.Digest(digest.String()), rawManifest(body), opts...))
 }
 
 // TestHasSigstoreBundlesReadsNoBlobs is the regression test for #17833: bundle
@@ -332,6 +348,90 @@ func TestDetectionAgreesWithGetBundlesOverPlainHTTP(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, bundles, "GetBundles reads the referrer over HTTPS, otherwise this test proves nothing")
 	require.False(t, detected, "detection must not find bundles that verification cannot read")
+}
+
+// TestDetectionReadsTheSignatureRepository pins that detection looks for bundles
+// where verification will: in the attestor's signature repository, reached with
+// the credentials its signaturePullSecrets name. The options come from
+// checkOptions, as in production, and the image repository carries no
+// referrers, so only a read of the signature repository can find the bundle.
+func TestDetectionReadsTheSignatureRepository(t *testing.T) {
+	var requireAuth atomic.Bool
+	inner := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// the image repository is open; the signature repository only accepts
+		// the credentials of its pull secret
+		if user, password, ok := r.BasicAuth(); requireAuth.Load() && strings.HasPrefix(r.URL.Path, "/v2/signatures/") &&
+			(!ok || user != "sig" || password != "pw") {
+			w.Header().Set("WWW-Authenticate", `Basic realm="registry"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		inner.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	image := fmt.Sprintf("%s/test/image:tag", host)
+	ref, err := name.ParseReference(image, name.Insecure)
+	require.NoError(t, err)
+	pushed, err := random.Image(256, 1)
+	require.NoError(t, err)
+	require.NoError(t, remote.Write(ref, pushed))
+	digest, err := pushed.Digest()
+	require.NoError(t, err)
+	signatures, err := name.NewRepository(host+"/signatures", name.Insecure)
+	require.NoError(t, err)
+	attachReferrerIn(t, signatures, ref.Context().Digest(digest.String()), "", bundleMediaTypePrefix+".v0.3+json", `{"mediaType":"test-bundle"}`)
+	requireAuth.Store(true)
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	require.NoError(t, indexer.Add(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "signatures", Namespace: config.KyvernoNamespace()},
+		Type:       corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(fmt.Sprintf(`{"auths":{%q:{"auth":%q}}}`,
+			host, base64.StdEncoding.EncodeToString([]byte("sig:pw"))))},
+	}))
+
+	idf, err := imagedataloader.New(nil, nil, nil)
+	require.NoError(t, err)
+	img, err := idf.FetchImageData(context.Background(), image, nil, []name.Option{name.Insecure})
+	require.NoError(t, err)
+
+	tests := []struct {
+		name        string
+		pullSecrets []corev1.LocalObjectReference
+		want        bool
+		wantErr     bool
+	}{{
+		name:        "found in the signature repository with its pull secret",
+		pullSecrets: []corev1.LocalObjectReference{{Name: "signatures"}},
+		want:        true,
+	}, {
+		// the index read is rejected, so detection reports an error and
+		// verification stays on the legacy path, as it did when GetBundles failed
+		name:    "without the pull secret the signature repository is not read",
+		wantErr: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cosignCfg := &v1beta1.Cosign{
+				Key:    &v1beta1.Key{Data: testPublicKey},
+				CTLog:  &v1beta1.CTLog{InsecureIgnoreTlog: true},
+				Source: &v1beta1.Source{Repository: signatures.String(), SignaturePullSecrets: tt.pullSecrets},
+			}
+			cOpts, err := checkOptions(context.Background(), cosignCfg, img.RemoteOpts(), img.NameOpts(), corev1listers.NewSecretLister(indexer))
+			require.NoError(t, err)
+
+			got, err := hasSigstoreBundles(img, cOpts)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.want, got)
+		})
+	}
 }
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)
