@@ -90015,6 +90015,14 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - updaterequests
+    verbs:
+      - list
+      - watch
+      - delete
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

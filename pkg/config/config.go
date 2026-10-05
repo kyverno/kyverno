@@ -9,7 +9,6 @@ import (
 	"time"
 
 	valid "github.com/asaskevich/govalidator"
-	"k8s.io/kube-openapi/pkg/validation/strfmt"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
@@ -18,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/kube-openapi/pkg/validation/strfmt"
 )
 
 // These constants MUST be equal to the corresponding names in service definition in definitions/install.yaml
