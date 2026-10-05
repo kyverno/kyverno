@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	extendedinformer "github.com/kyverno/kyverno/pkg/clients/informers"
 	metaclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	"github.com/kyverno/kyverno/pkg/config"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
@@ -404,7 +405,7 @@ func main() {
 			os.Exit(1)
 		}
 		// informer factories
-		kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
+		kyvernoInformer := extendedinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
@@ -502,7 +503,7 @@ func main() {
 				// create leader factories
 				kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 				kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-				kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
+				kyvernoInformer := extendedinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 				metadataInformer := metadatainformers.NewSharedInformerFactory(setup.MetadataClient, setup.ResyncPeriod)
 				// create leader controllers
 				leaderControllers, warmup, err := createrLeaderControllers(

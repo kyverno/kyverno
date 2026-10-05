@@ -1,4 +1,4 @@
-package externalversions
+package informers
 
 import (
 	"testing"
@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -118,7 +119,7 @@ func TestNewExtendedSharedInformerFactory_WithOptions(t *testing.T) {
 		kyvernoClient,
 		dynClient,
 		10*time.Minute,
-		WithNamespace("kyverno"),
+		kyvernoinformer.WithNamespace("kyverno"),
 	)
 	if factory == nil {
 		t.Fatal("expected non-nil factory")

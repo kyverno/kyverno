@@ -1,13 +1,14 @@
-package externalversions
+package informers
 
 import (
 	"time"
 
+	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-
-	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"k8s.io/client-go/tools/cache"
 )
 
 // ExtendedSharedInformerFactory wraps the generated SharedInformerFactory and adds
@@ -18,8 +19,10 @@ import (
 // etc.). For anything else — native Kubernetes resources such as Deployments, or
 // third-party CRDs — this wrapper falls back to a dynamicinformer.DynamicSharedInformerFactory
 // backed by a dynamic.Interface client, fulfilling the TODO left in generic.go.
+//
+// It lives outside pkg/client because that directory is regenerated (and wiped) by codegen.
 type ExtendedSharedInformerFactory struct {
-	SharedInformerFactory
+	kyvernoinformer.SharedInformerFactory
 	dynFactory dynamicinformer.DynamicSharedInformerFactory
 }
 
@@ -30,10 +33,10 @@ func NewExtendedSharedInformerFactory(
 	client versioned.Interface,
 	dynClient dynamic.Interface,
 	defaultResync time.Duration,
-	options ...SharedInformerOption,
+	options ...kyvernoinformer.SharedInformerOption,
 ) *ExtendedSharedInformerFactory {
 	return &ExtendedSharedInformerFactory{
-		SharedInformerFactory: NewSharedInformerFactoryWithOptions(client, defaultResync, options...),
+		SharedInformerFactory: kyvernoinformer.NewSharedInformerFactoryWithOptions(client, defaultResync, options...),
 		dynFactory:            dynamicinformer.NewDynamicSharedInformerFactory(dynClient, defaultResync),
 	}
 }
@@ -44,7 +47,7 @@ func NewExtendedSharedInformerFactory(
 // which covers all Kyverno CRD types efficiently. If the resource is not found there
 // (i.e. it is a native Kubernetes resource or an external CRD), it falls back to the
 // dynamic informer factory, satisfying the original TODO in generic.go.
-func (f *ExtendedSharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
+func (f *ExtendedSharedInformerFactory) ForResource(resource schema.GroupVersionResource) (kyvernoinformer.GenericInformer, error) {
 	if inf, err := f.SharedInformerFactory.ForResource(resource); err == nil {
 		return inf, nil
 	}
@@ -65,4 +68,20 @@ func (f *ExtendedSharedInformerFactory) Start(stopCh <-chan struct{}) {
 func (f *ExtendedSharedInformerFactory) Shutdown() {
 	f.SharedInformerFactory.Shutdown()
 	f.dynFactory.Shutdown()
+}
+
+// genericInformer mirrors the unexported type of the same name in the generated package.
+type genericInformer struct {
+	informer cache.SharedIndexInformer
+	resource schema.GroupResource
+}
+
+// Informer returns the SharedIndexInformer.
+func (f *genericInformer) Informer() cache.SharedIndexInformer {
+	return f.informer
+}
+
+// Lister returns the GenericLister.
+func (f *genericInformer) Lister() cache.GenericLister {
+	return cache.NewGenericLister(f.Informer().GetIndexer(), f.resource)
 }

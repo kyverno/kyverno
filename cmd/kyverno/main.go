@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	extendedinformer "github.com/kyverno/kyverno/pkg/clients/informers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
@@ -517,7 +518,7 @@ func main() {
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-		kyvernoInformer := kyvernoinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
+		kyvernoInformer := extendedinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 		informerHealth := health.NewTracker(setup.Logger.WithName("informer-health"), clock.RealClock{})
 		registerAdmissionInformers(kyvernoInformer, setup.KyvernoClient, informerHealth, internal.PolicyExceptionEnabled())
 		certRenewer := tls.NewCertRenewer(
