@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -16,8 +17,10 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -117,4 +120,47 @@ func testJSONModeDeletesGeneratedMAP(t *testing.T, authChecker checker.AuthCheck
 	require.NoError(t, err)
 	assert.False(t, updated.Status.Generated)
 	assert.Contains(t, updated.Status.GetConditionStatus().Message, "JSON evaluation mode")
+}
+
+// A failing MAP delete must surface the error (so the item is requeued) and must
+// not clear status.generated while the generated MAP may still be enforced.
+func TestHandleMAPGeneration_JSONModeDeleteFailure(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "json-policy"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+		},
+		Status: policiesv1beta1.MutatingPolicyStatus{Generated: true},
+	}
+	mapName := "mpol-" + mpol.Name
+	bindingName := constructBindingName(mapName)
+	existingMAP := &admissionregistrationv1.MutatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: mapName, ResourceVersion: "1"}}
+	existingBinding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: bindingName, ResourceVersion: "1"}}
+
+	kubeClient := kubefake.NewSimpleClientset(existingMAP, existingBinding)
+	deleteErr := errors.New("delete failed")
+	kubeClient.PrependReactor("delete", "mutatingadmissionpolicies", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, deleteErr
+	})
+	kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+	mapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, mapIndexer.Add(existingMAP))
+	require.NoError(t, bindingIndexer.Add(existingBinding))
+	c := &controller{
+		client:             kubeClient,
+		kyvernoClient:      kyvernoClient,
+		checker:            permissiveAuthChecker{},
+		mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
+		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
+	}
+
+	require.ErrorIs(t, c.handleMAPGeneration(ctx, mpol), deleteErr)
+	_, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	require.NoError(t, err, "MAP must remain after a failed delete")
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, updated.Status.Generated, "status.generated must not be cleared on failure")
 }
