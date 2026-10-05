@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -426,6 +427,32 @@ func TestJSONEnginePartialException(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, `{"allowed":["one","two"]}`, compactJSON(t, response.Document))
 	require.Equal(t, JSONPolicyApplied, response.Policies[0].Status)
+}
+
+func TestJSONEngineIgnoresExpiredException(t *testing.T) {
+	t.Parallel()
+	policy := jsonMutationPolicy("test", `[JSONPatch{op:"add",path:"/ok",value:true}]`)
+	expired := &policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "test", Kind: "MutatingPolicy"}},
+			ExpiresAt:  &metav1.Time{Time: time.Now().Add(-time.Hour)},
+		},
+	}
+	engine, err := NewJSONEngine([]policiesv1beta1.MutatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{expired})
+	require.NoError(t, err)
+	response, err := engine.HandleJSON(context.Background(), json.RawMessage(`{}`))
+	require.NoError(t, err)
+	require.Equal(t, `{"ok":true}`, compactJSON(t, response.Document))
+	require.Equal(t, JSONPolicyApplied, response.Policies[0].Status)
+
+	active := expired.DeepCopy()
+	active.Spec.ExpiresAt = &metav1.Time{Time: time.Now().Add(time.Hour)}
+	engine, err = NewJSONEngine([]policiesv1beta1.MutatingPolicyLike{policy}, []*policiesv1beta1.PolicyException{active})
+	require.NoError(t, err)
+	response, err = engine.HandleJSON(context.Background(), json.RawMessage(`{}`))
+	require.NoError(t, err)
+	require.Equal(t, `{}`, compactJSON(t, response.Document))
+	require.NotEqual(t, JSONPolicyApplied, response.Policies[0].Status)
 }
 
 func TestJSONEngineConstructionAndFailure(t *testing.T) {

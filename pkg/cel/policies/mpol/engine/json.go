@@ -64,6 +64,9 @@ func NewJSONEngine(policies []policiesv1beta1.MutatingPolicyLike, exceptions []*
 			if exception == nil {
 				return nil, fmt.Errorf("nil policy exception")
 			}
+			if exception.IsExpired() {
+				continue
+			}
 			for _, ref := range exception.Spec.PolicyRefs {
 				if ref.Name == policy.GetName() && ref.Kind == policy.GetKind() {
 					matched = append(matched, exception)
