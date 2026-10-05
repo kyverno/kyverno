@@ -456,7 +456,11 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 		// signaturePullSecrets name needs.
 		namespace := kubeutils.CredentialNamespace(secretLister, config.KyvernoNamespace())
 		kc := imagecredentials.NewSecretsKeychain(secretLister, namespace, logging.GlobalLogger(), signaturePullSecrets...)
-		opts = append(opts, remote.WithAuthFromKeychain(kc))
+		// The image's options may carry a puller bound to the policy's own
+		// credentials (imageverify reuses one per evaluation). A puller
+		// authenticates with the options it was built from and ignores a keychain
+		// appended after it, so clear it for this keychain to take effect.
+		opts = append(opts, remote.WithAuthFromKeychain(kc), remote.Reuse((*remote.Puller)(nil)))
 	}
 	return opts, nil
 }
