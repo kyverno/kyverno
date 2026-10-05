@@ -200,7 +200,9 @@ Out-of-range integer literals and overflowing doubles return errors instead of
 silently rounding. Fractional/exponent-form values use CEL doubles; arithmetic
 therefore follows IEEE 754 semantics. Untouched numeric lexemes retain their
 precision through patching; patch values serialize native CEL integers directly,
-without protobuf Value's float64 conversion.
+without protobuf Value's float64 conversion. When the CLI hands a mutated
+document to JSON validation, it applies the same rules: integer literals stay
+exact `int64` values, and out-of-range numbers are rejected rather than rounded.
 
 Duplicate object keys currently follow the JSON decoder's last-key-wins behavior.
 Whitespace and property ordering are not preserved as a public contract.
@@ -228,7 +230,7 @@ Whitespace and property ordering are not preserved as a public contract.
    inapplicable. Already queued background requests fail explicitly rather than
    performing document policies against cluster resources.
 4. **Documentation and release.** Update the website policy comparison and JSON
-   examples, generate affected schemas/manifests if necessary, and publish
+   examples (MutatingPolicy JSON-mode docs: kyverno/website#2188), generate affected schemas/manifests if necessary, and publish
    end-to-end CLI examples. SDK/HTTP service integration is a later project.
 
 Core acceptance includes every root type, root-type transitions, all patch

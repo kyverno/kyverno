@@ -20,5 +20,5 @@ spec:
   validationActions:
   - Deny
   validations:
-  - expression: 'object.region == "west"'
-    message: Mutation must run before validation.
+  - expression: 'object.region == "west" && object.id % 2 == 1'
+    message: Mutation must run before validation and integers must stay exact.

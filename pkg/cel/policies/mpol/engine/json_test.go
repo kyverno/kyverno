@@ -237,6 +237,23 @@ func TestJSONEngineInvalidPolicies(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+	// The JSON environment is pure: libraries that reach the network, cluster
+	// state or registries must stay undeclared so a JSON policy cannot be used
+	// for SSRF or data exfiltration.
+	for _, expression := range []string{
+		`[JSONPatch{op:"add",path:"/x",value:http.Get("https://example.invalid/", {"Accept":"application/json"})}]`,
+		`[JSONPatch{op:"add",path:"/x",value:http.Post("https://example.invalid/", {}, {})}]`,
+		`[JSONPatch{op:"add",path:"/x",value:globalContext.Get("entry","")}]`,
+		`[JSONPatch{op:"add",path:"/x",value:image.GetMetadata("nginx")}]`,
+		`[JSONPatch{op:"add",path:"/x",value:resource.List("v1","pods","default")}]`,
+		`[JSONPatch{op:"add",path:"/x",value:oldObject}]`,
+	} {
+		t.Run(expression, func(t *testing.T) {
+			t.Parallel()
+			_, err := NewJSONEngine([]policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy("test", expression)}, nil)
+			require.ErrorContains(t, err, "undeclared reference")
+		})
+	}
 	for _, setting := range []string{"mode", "apply", "autogen", "map", "target", "ssa", "reinvocation", "empty"} {
 		t.Run(setting, func(t *testing.T) {
 			t.Parallel()
