@@ -46,10 +46,23 @@ type Compiler interface {
 }
 
 func NewCompiler(lister corev1listers.SecretLister) Compiler {
-	return &compilerImpl{lister: lister}
+	return NewCompilerWithTrace(lister, false)
 }
 
-type compilerImpl struct{ lister corev1listers.SecretLister }
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on, for
+// `kyverno apply --explain`: when trace is true, match conditions, variables and validations
+// also get an explain-only tracking program and keep their AST (see compiler.TracedProgram), so
+// each evaluation can record what every expression resolved to. It is a separate constructor so
+// that NewCompiler, which admission, background and reports use, can never turn tracing on by
+// accident.
+func NewCompilerWithTrace(lister corev1listers.SecretLister, trace bool) Compiler {
+	return &compilerImpl{lister: lister, trace: trace}
+}
+
+type compilerImpl struct {
+	lister corev1listers.SecretLister
+	trace  bool
+}
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
 	var allErrs field.ErrorList
@@ -74,13 +87,15 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 
 	path := field.NewPath("spec")
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []engine.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := engine.CompileMatchConditions(path, env, spec.MatchConditions...)
+		programs, traced, errs := engine.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 	matchImageEnv, err := engine.NewMatchImageEnv()
 	if err != nil {
@@ -101,7 +116,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, append(allErrs, errs...)
 	}
 
-	variables, errs := engine.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := engine.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -120,7 +135,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := engine.CompileValidation(path, env, rule, false)
+			program, errs := engine.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -158,22 +173,25 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	}
 
 	return &compiledPolicy{
-		namespace:            ivpolicy.GetNamespace(),
-		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		verifyDigest:         spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
-		matchConditions:      matchConditions,
-		matchImageReferences: matchImageReferences,
-		validations:          validations,
-		auditAnnotations:     auditAnnotations,
-		imageExtractors:      imageExtractors,
-		attestors:            compiledAttestors,
-		attestationList:      getAttestations(spec.Attestations),
-		nameOpts:             nameOpts,
-		authOpts:             authOpts,
-		exceptions:           compiledExceptions,
-		variables:            variables,
-		validationConfig:     spec.ValidationConfigurations,
-		ivFuncs:              imageverify.NewIvFuncs(logging.WithName("ivpol/imageverify").WithValues("policy", ivpolicy.GetName(), "namespace", ivpolicy.GetNamespace()), ivpolicy, c.lister, env.CELTypeAdapter(), matchImageReferences),
+		namespace:             ivpolicy.GetNamespace(),
+		failurePolicy:         ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		verifyDigest:          spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
+		matchConditions:       matchConditions,
+		matchImageReferences:  matchImageReferences,
+		validations:           validations,
+		auditAnnotations:      auditAnnotations,
+		imageExtractors:       imageExtractors,
+		attestors:             compiledAttestors,
+		attestationList:       getAttestations(spec.Attestations),
+		nameOpts:              nameOpts,
+		authOpts:              authOpts,
+		exceptions:            compiledExceptions,
+		variables:             variables,
+		validationConfig:      spec.ValidationConfigurations,
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
+		ivFuncs:               imageverify.NewIvFuncs(logging.WithName("ivpol/imageverify").WithValues("policy", ivpolicy.GetName(), "namespace", ivpolicy.GetNamespace()), ivpolicy, c.lister, env.CELTypeAdapter(), matchImageReferences),
 	}, nil
 }
 

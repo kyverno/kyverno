@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
@@ -46,6 +47,14 @@ type EvaluationResult struct {
 	// MatchedImages is the set matchImageReferences selected -- what EnforceRequired
 	// checks, once every policy in the request has been evaluated.
 	MatchedImages []string
+	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
+	// with tracing on (NewCompilerWithTrace), so callers must nil-check it. The policy/resource
+	// header and Scope are unknown at this level and are left for the caller to fill in.
+	Trace *trace.Decision
+	// Skipped is set when a match condition excluded the resource. Without tracing that case
+	// returns a nil result, and it still does; a non-nil skipped result is only returned when
+	// tracing is on, so the match traces are not lost. Consumers must treat it exactly like nil.
+	Skipped bool
 }
 
 type CompiledPolicy interface {
@@ -54,6 +63,8 @@ type CompiledPolicy interface {
 	// EnforceRequired on every passing policy only after all have evaluated.
 	Evaluate(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
 	EnforceRequired(images []string, verifications *imageverify.ImageVerificationResults) error
+	// Tracing reports whether Evaluate fills EvaluationResult.Trace.
+	Tracing() bool
 	MutateDigest(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
 }
 
@@ -74,6 +85,15 @@ type compiledPolicy struct {
 	variables            map[string]cel.Program
 	validationConfig     policiesv1alpha1.ValidationConfiguration
 	ivFuncs              *imageverify.IvFuncs
+	// trace is whether this policy was compiled for decision tracing. tracedMatchConditions is
+	// index-aligned with matchConditions and, like tracedVariables, is empty when trace is off.
+	trace                 bool
+	tracedMatchConditions []engine.TracedProgram
+	tracedVariables       map[string]engine.TracedProgram
+}
+
+func (c *compiledPolicy) Tracing() bool {
+	return c.trace
 }
 
 func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *imageverify.ImageVerificationResults, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
