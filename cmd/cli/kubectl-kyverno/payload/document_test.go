@@ -3,6 +3,7 @@ package payload
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -79,12 +80,12 @@ func TestDocumentObjectRequiresObjectRoot(t *testing.T) {
 
 func TestDocumentObjectPreservesIntegerPrecision(t *testing.T) {
 	t.Parallel()
-	document := &Document{Name: "doc.json", Raw: []byte(`{"id":9007199254740993,"ratio":1.5,"huge":18446744073709551616,"list":[9007199254740993,{"n":-9223372036854775808}]}`)}
+	document := &Document{Name: "doc.json", Raw: []byte(`{"id":9007199254740993,"ratio":1.5,"huge":1.8446744073709552e19,"list":[9007199254740993,{"n":-9223372036854775808}]}`)}
 	object, err := document.Object()
 	require.NoError(t, err)
 	require.Equal(t, int64(9007199254740993), object.Object["id"])
 	require.Equal(t, 1.5, object.Object["ratio"])
-	require.Equal(t, float64(18446744073709551616), object.Object["huge"])
+	require.Equal(t, 1.8446744073709552e19, object.Object["huge"])
 	list := object.Object["list"].([]any)
 	require.Equal(t, int64(9007199254740993), list[0])
 	require.Equal(t, int64(-9223372036854775808), list[1].(map[string]any)["n"])
@@ -96,4 +97,12 @@ func TestDocumentObjectRejectsOutOfRangeNumbers(t *testing.T) {
 	t.Parallel()
 	_, err := (&Document{Name: "doc.json", Raw: []byte(`{"a":[1e400]}`)}).Object()
 	require.ErrorContains(t, err, "out of range")
+	for _, integer := range []string{"9223372036854775808", "-9223372036854775809"} {
+		_, err = (&Document{Name: "doc.json", Raw: []byte(`{"a":` + integer + `}`)}).Object()
+		require.ErrorContains(t, err, "outside the int64 range", integer)
+	}
+	object, err := (&Document{Name: "doc.json", Raw: []byte(`{"a":1e20,"b":1.5}`)}).Object()
+	require.NoError(t, err)
+	assert.Equal(t, 1e20, object.Object["a"])
+	assert.Equal(t, 1.5, object.Object["b"])
 }

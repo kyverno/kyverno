@@ -53,6 +53,7 @@ func TestJSONEngineDocuments(t *testing.T) {
 		{"test root", `null`, `[JSONPatch{op:"test",path:"",value:null},JSONPatch{op:"replace",path:"",value:"ok"}]`, `"ok"`},
 		{"empty patch", `{"a":1}`, `[JSONPatch{op:"add",path:"/unused",value:1}].filter(x, false)`, `{"a":1}`},
 		{"large int value", `{"id":9007199254740993}`, `[JSONPatch{op:"add",path:"/copy",value:object.id}]`, `{"id":9007199254740993,"copy":9007199254740993}`},
+		{"uint value in int64 range", `{}`, `[JSONPatch{op:"add",path:"/u",value:9223372036854775807u}]`, `{"u":9223372036854775807}`},
 		{"unchanged decimal", `{"decimal":0.1234567890123456789012345}`, `[JSONPatch{op:"add",path:"/ok",value:true}]`, `{"decimal":0.1234567890123456789012345,"ok":true}`},
 	}
 	for _, tt := range tests {
@@ -480,6 +481,12 @@ func TestJSONEngineLimitsAndCancellation(t *testing.T) {
 	require.Equal(t, JSONPolicyApplied, atLimit.Policies[0].Status)
 	response, err = limited.HandleJSON(context.Background(), json.RawMessage("["+strings.Repeat("0,", compiler.MaxJSONPatchOperations)+"0]"))
 	require.ErrorContains(t, err, "patch operations")
+	require.Nil(t, response.Document)
+
+	overflow, err := NewJSONEngine([]policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy("uint", `[JSONPatch{op:"add",path:"/u",value:9223372036854775808u}]`)}, nil)
+	require.NoError(t, err)
+	response, err = overflow.HandleJSON(context.Background(), json.RawMessage(`{}`))
+	require.ErrorContains(t, err, "outside the int64 range")
 	require.Nil(t, response.Document)
 
 	large, err := NewJSONEngine([]policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy("large", `[JSONPatch{op:"copy",from:"/x",path:"/y"}]`)}, nil)

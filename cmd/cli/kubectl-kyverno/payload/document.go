@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kyverno/pkg/ext/file"
 	"go.yaml.in/yaml/v3"
@@ -94,6 +95,9 @@ func normalizeNumbers(value any) (any, error) {
 	case json.Number:
 		if i, err := typed.Int64(); err == nil {
 			return i, nil
+		}
+		if !strings.ContainsAny(typed.String(), ".eE") {
+			return nil, fmt.Errorf("integer %s is outside the int64 range", typed)
 		}
 		f, err := typed.Float64()
 		if err != nil {

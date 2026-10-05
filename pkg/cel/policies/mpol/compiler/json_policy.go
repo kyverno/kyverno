@@ -393,7 +393,10 @@ func jsonNativeValue(value ref.Val, remaining *int) (any, error) {
 	case types.Int:
 		return int64(value), nil
 	case types.Uint:
-		return uint64(value), nil
+		if uint64(value) > math.MaxInt64 {
+			return nil, fmt.Errorf("unsigned integer %d is outside the int64 range", uint64(value))
+		}
+		return int64(value), nil
 	case types.Double:
 		return float64(value), nil
 	case traits.Lister:

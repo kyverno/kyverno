@@ -7,8 +7,10 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/require"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
 func jsonMutationPolicy(t *testing.T, expression string) *policiesv1beta1.MutatingPolicy {
@@ -120,4 +122,30 @@ func TestJSONMutationExceptionResult(t *testing.T) {
 	require.Equal(t, "null", string(document.Raw))
 	require.Equal(t, 1, rc.Skip)
 	require.Len(t, responses[0].PolicyResponse.Rules[0].Exceptions(), 1)
+}
+
+// Policy families other than CEL MutatingPolicies keep running through the
+// existing object-root JSON payload pipeline after JSON mutation.
+func TestJSONMutationKeepsOtherPolicyFamilies(t *testing.T) {
+	t.Parallel()
+	var vap admissionregistrationv1.ValidatingAdmissionPolicy
+	require.NoError(t, json.Unmarshal([]byte(`{"metadata":{"name":"vap"},"spec":{"validations":[{"expression":"true"}]}}`), &vap))
+	newProcessor := func(raw string) PolicyProcessor {
+		return PolicyProcessor{
+			Store: &store.Store{}, JSONDocument: &payload.Document{Name: "input.json", Raw: json.RawMessage(raw)}, Rc: &ResultCounts{}, Out: io.Discard,
+			MutatingPolicies:            []policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy(t, `[JSONPatch{op: "add", path: "/-", value: 1}]`)},
+			ValidatingAdmissionPolicies: []admissionregistrationv1.ValidatingAdmissionPolicy{vap},
+		}
+	}
+	// An object root reaches the VAP evaluation, which, as before JSON mutation
+	// support, cannot resolve a GVR for a document without Kubernetes identity.
+	processor := newProcessor(`{"list":[]}`)
+	processor.MutatingPolicies = []policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy(t, `[JSONPatch{op: "add", path: "/list/-", value: 1}]`)}
+	_, err := processor.ApplyPoliciesOnResource()
+	require.ErrorContains(t, err, "failed to map gvk to gvr")
+	// Resource-oriented families cannot address a non-object document, so only mutation applies.
+	processor = newProcessor(`[]`)
+	_, err = processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+	require.Equal(t, `[1]`, string(processor.JSONDocument.Raw))
 }

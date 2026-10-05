@@ -87,28 +87,35 @@ func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.
 	for _, outcome := range result.Policies {
 		p.JSONPatchedDocuments[outcome.Policy] = &payload.Document{Name: p.JSONDocument.Name, Raw: outcome.Document}
 	}
-	// The existing validation engines require object roots. Do not synthesize
-	// Kubernetes identity or turn arrays/scalars into objects for those engines.
-	if len(p.ValidatingPolicies) > 0 {
-		object, err := p.JSONDocument.Object()
-		if err != nil {
-			p.Rc.IncrementError(1)
-			return responses, err
+	// Every other policy family keeps the existing object-root JSON payload
+	// pipeline, now running on the mutated document. Kubernetes-mode
+	// MutatingPolicies were already reported as skipped above.
+	hasOtherPolicies := len(p.ValidatingPolicies) > 0 || len(p.Policies) > 0 ||
+		len(p.ValidatingAdmissionPolicies) > 0 || len(p.MutatingAdmissionPolicies) > 0 ||
+		len(p.GeneratingPolicies) > 0
+	if !hasOtherPolicies {
+		return responses, nil
+	}
+	// The existing engines require object roots. Do not synthesize Kubernetes
+	// identity or turn arrays/scalars into objects for them.
+	object, err := p.JSONDocument.Object()
+	if err != nil {
+		if len(p.ValidatingPolicies) == 0 {
+			// Only resource-oriented families remain; none can address a non-object document.
+			return responses, nil
 		}
-		validation := *p
-		validation.JSONDocument = nil
-		validation.JsonPayload = *object
-		validation.MutatingPolicies = nil
-		validation.Policies = nil
-		validation.ValidatingAdmissionPolicies = nil
-		validation.MutatingAdmissionPolicies = nil
-		validation.GeneratingPolicies = nil
-		validated, err := validation.ApplyPoliciesOnResource()
-		responses = append(responses, validated...)
-		if err != nil {
-			p.Rc.IncrementError(1)
-			return responses, err
-		}
+		p.Rc.IncrementError(1)
+		return responses, err
+	}
+	pipeline := *p
+	pipeline.JSONDocument = nil
+	pipeline.JsonPayload = *object
+	pipeline.MutatingPolicies = nil
+	processed, err := pipeline.ApplyPoliciesOnResourceWithContext(ctx)
+	responses = append(responses, processed...)
+	if err != nil {
+		p.Rc.IncrementError(1)
+		return responses, err
 	}
 	return responses, nil
 }
