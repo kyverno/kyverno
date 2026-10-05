@@ -20,9 +20,13 @@ import (
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/require"
+	"gomodules.xyz/jsonpatch/v2"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/utils/ptr"
 )
 
@@ -131,6 +135,84 @@ func TestEvaluationReusesRegistryAuth(t *testing.T) {
 			require.True(t, result.Result, result.Message)
 			require.Equal(t, tt.wantPings, handler.pings.Load(), "expected a single /v2/ ping for the whole evaluation")
 			require.Equal(t, tt.wantPings, handler.tokens.Load(), "expected a single token exchange for the whole evaluation")
+		})
+	}
+}
+
+// TestMutateDigestReusesRegistryAuth is the MutateDigest counterpart of
+// TestEvaluationReusesRegistryAuth: pinning every image of a resource against one
+// request must cost a single registry auth handshake per repository.
+func TestMutateDigestReusesRegistryAuth(t *testing.T) {
+	handler := &tokenRegistry{inner: registry.New(registry.Logger(log.New(io.Discard, "", 0)))}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	handler.url = func() string { return server.URL }
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	// three tags in one repository, one container each
+	containers := make([]any, 0, 3)
+	pinned := make([]jsonpatch.JsonPatchOperation, 0, 3)
+	for i, tag := range []string{"one", "two", "three"} {
+		image := fmt.Sprintf("%s/test/image:%s", host, tag)
+		ref, err := name.ParseReference(image, name.Insecure)
+		require.NoError(t, err)
+		pushed, err := random.Image(256, 2)
+		require.NoError(t, err)
+		require.NoError(t, remote.Write(ref, pushed, remote.WithAuth(authn.Anonymous)))
+		digest, err := pushed.Digest()
+		require.NoError(t, err)
+		containers = append(containers, map[string]any{"name": tag, "image": image})
+		pinned = append(pinned, jsonpatch.JsonPatchOperation{
+			Operation: "replace",
+			Path:      fmt.Sprintf("/spec/containers/%d/image", i),
+			Value:     image + "@" + digest.String(),
+		})
+	}
+
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			Credentials: &policiesv1beta1.Credentials{AllowInsecureRegistry: true},
+		},
+	}
+	compiled, errs := NewCompiler(nil).Compile(policy, nil)
+	require.Empty(t, errs)
+	request, attr, pod := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
+	require.NoError(t, unstructured.SetNestedSlice(pod.Object, containers, "spec", "containers"))
+
+	tests := []struct {
+		name        string
+		rejectToken bool
+		wantErr     bool
+		wantPatches []jsonpatch.JsonPatchOperation
+		wantPings   int64
+	}{{
+		name:        "one handshake pins every image in the repository",
+		wantPatches: pinned,
+		wantPings:   1,
+	}, {
+		// reusing a fetcher must not mask a rejection: every image fails to resolve
+		name:        "a rejected token exchange fails every image",
+		rejectToken: true,
+		wantErr:     true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler.rejectToken.Store(tt.rejectToken)
+			// a fresh context per case: its cache is request scoped
+			ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
+			require.NoError(t, err)
+
+			handler.pings.Store(0)
+			handler.tokens.Store(0)
+			patches, err := compiled.MutateDigest(context.Background(), ictx, nil, imageverify.NewImageVerificationResults(), attr, request, nil, pod, nil, config.NewDefaultConfiguration(false), nil)
+			require.ElementsMatch(t, tt.wantPatches, patches)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantPings, handler.pings.Load(), "expected a single /v2/ ping for the whole mutation")
+			require.Equal(t, tt.wantPings, handler.tokens.Load(), "expected a single token exchange for the whole mutation")
 		})
 	}
 }
