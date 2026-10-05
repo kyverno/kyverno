@@ -189,8 +189,8 @@ func Test_validateActions_SharesAuthCacheAcrossRules(t *testing.T) {
 	client, counts := sarCountingClient(t)
 	cache := auth.NewResultCache() // one cache for the whole pass, as Validate() does
 
-	cm := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"ConfigMap"}}}
-	secret := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Secret"}}}
+	cm := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"v1/ConfigMap"}}}
+	secret := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"v1/Secret"}}}
 
 	rules := []*kyvernov1.Rule{
 		// validate on ConfigMap
