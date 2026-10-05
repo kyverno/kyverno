@@ -38,7 +38,8 @@ spec:
         (!has(object.metadata) || 
          !has(object.metadata.annotations) ||
          object.metadata.annotations.filter(k, k.startsWith('container.apparmor.security.beta.kubernetes.io/')).all(k, 
-           object.metadata.annotations[k] in ['', 'runtime/default', 'localhost/*'])) &&
+           object.metadata.annotations[k] in ['', 'runtime/default'] ||
+           object.metadata.annotations[k].startsWith('localhost/'))) &&
         (!has(object.spec.securityContext) || 
          !has(object.spec.securityContext.appArmorProfile) || 
          !has(object.spec.securityContext.appArmorProfile.type) || 
@@ -59,14 +60,14 @@ spec:
           !has(c.securityContext.appArmorProfile.type) || 
           c.securityContext.appArmorProfile.type in ['RuntimeDefault', 'Localhost']))
       message: >-
-        AppArmor profiles must be restricted. The fields
-        metadata.annotations['container.apparmor.security.beta.kubernetes.io/*'],
+        AppArmor profiles must be restricted. The annotation
+        metadata.annotations['container.apparmor.security.beta.kubernetes.io/*'] must be empty,
+        `runtime/default`, or start with `localhost/`, and
         spec.securityContext.appArmorProfile.type,
         spec.containers[*].securityContext.appArmorProfile.type,
         spec.initContainers[*].securityContext.appArmorProfile.type, and
-        spec.ephemeralContainers[*].securityContext.appArmorProfile.type must be unset or set to allowed values.
+        spec.ephemeralContainers[*].securityContext.appArmorProfile.type must be unset, `RuntimeDefault`, or `Localhost`.
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}
 {{- end }}
-

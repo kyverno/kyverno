@@ -9,7 +9,9 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -563,6 +565,185 @@ func TestNewProvider_CompensatingControlCannotReferencePolicyScopedIdentifiers(t
 				[]*policiesv1beta1.PolicyException{polex})
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "exception[prod/needs-ticket].spec.validations[0].expression")
+		})
+	}
+}
+
+// TestHandle_ExtractionMode_AllTemplatesSkippedStillCarriesTrace verifies the evaluateExtracted
+// fix: when every synthesized pod template is excluded by a match condition (so evaluateExtracted
+// would previously fall through to nil, nil), the trace of the last skipped template is still
+// surfaced instead of being silently discarded. The JobSet fixture has exactly one pod template,
+// so "all" and "the last" are the same template here.
+func TestHandle_ExtractionMode_AllTemplatesSkippedStillCarriesTrace(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
+		Name:       "never",
+		Expression: "object.metadata.name != object.metadata.name", // always false
+	}}
+	provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	noopNsResolver := func(string) *corev1.Namespace { return nil }
+	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
+
+	req := celengine.Request(
+		nil,
+		schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+		schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+		"",
+		"latest-tag-jobset",
+		"default",
+		admissionv1.Create,
+		authenticationv1.UserInfo{},
+		jobSetWithImage("bash:1.0"),
+		nil,
+		false,
+		nil,
+	)
+	resp, err := eng.Handle(context.Background(), req, nil)
+	require.NoError(t, err)
+
+	var fired []celengine.ValidatingPolicyResponse
+	for _, p := range resp.Policies {
+		if len(p.Rules) > 0 {
+			fired = append(fired, p)
+		}
+	}
+	require.Len(t, fired, 1, "the extraction-mode JobSet target should still produce a (skipped) rule")
+	assert.Equal(t, engineapi.RuleStatusSkip, fired[0].Rules[0].Status())
+
+	require.NotNil(t, fired[0].Trace, "the match-condition trace of the only (skipped) template must not be silently lost")
+	assert.Equal(t, trace.VerdictSkip, fired[0].Trace.Verdict.Status)
+	require.Len(t, fired[0].Trace.Match, 1)
+	assert.Equal(t, "never", fired[0].Trace.Match[0].Name)
+	assert.Equal(t, "false", fired[0].Trace.Match[0].Result)
+}
+
+// TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace covers the extraction-mode error path: a
+// match condition that errors on a synthesized pod must still hand its match trace up to --explain,
+// labelled with the pod template path, while the rule outcome stays exactly what it is untraced.
+func TestHandle_ExtractionMode_MatchConditionErrorKeepsTrace(t *testing.T) {
+	policy := buildDisallowLatestTagPolicy()
+	// the synthesized pod has no labels, so this lookup is a runtime error; with the default
+	// failurePolicy (Fail) the error is returned rather than treated as a non-match
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{
+		Name:       "owner-is-platform",
+		Expression: "object.metadata.labels.owner == 'platform'",
+	}}
+	handle := func(traced bool) celengine.ValidatingPolicyResponse {
+		provider, err := NewProvider(compiler.NewCompilerWithTrace(traced), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+		require.NoError(t, err)
+		eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+			schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+			"",
+			"latest-tag-jobset",
+			"default",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			jobSetWithImage("bash:1.0"),
+			nil,
+			false,
+			nil,
+		)
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+		require.Len(t, fired, 1)
+		return fired[0]
+	}
+
+	untraced := handle(false)
+	traced := handle(true)
+
+	// the rule outcome is the same either way
+	assert.Equal(t, engineapi.RuleStatusError, untraced.Rules[0].Status())
+	assert.Equal(t, untraced.Rules[0].Status(), traced.Rules[0].Status())
+	assert.Equal(t, untraced.Rules[0].Message(), traced.Rules[0].Message())
+	assert.Nil(t, untraced.Trace)
+
+	// with tracing, the failing condition is kept instead of a bare ERROR
+	require.NotNil(t, traced.Trace)
+	assert.Equal(t, trace.VerdictError, traced.Trace.Verdict.Status)
+	assert.Contains(t, traced.Trace.Verdict.Message, "pod template at spec.replicatedJobs[0].template.spec.template")
+	require.Len(t, traced.Trace.Match, 1)
+	assert.Equal(t, "owner-is-platform", traced.Trace.Match[0].Name)
+	var sawError bool
+	for _, n := range traced.Trace.Match[0].Nodes {
+		if n.Error != "" {
+			sawError = true
+		}
+	}
+	assert.True(t, sawError, "the failing condition should show which sub-expression errored")
+}
+
+// TestHandle_TracedExceptionFollowsReportResult: an exempted resource is reported as a pass or a
+// skip depending on the selected exception's reportResult, and the trace must say the same thing
+// the summary counts, naming the exceptions.
+func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
+	withReportResult := func(ex *policiesv1beta1.PolicyException, reportResult string) *policiesv1beta1.PolicyException {
+		ex.Spec.ReportResult = reportResult
+		return ex
+	}
+	withPriority := func(ex *policiesv1beta1.PolicyException, priority string) *policiesv1beta1.PolicyException {
+		ex.Labels = map[string]string{reportutils.LabelPolicyExceptionPriority: priority}
+		return ex
+	}
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		ruleStatus engineapi.RuleStatus
+		verdict    string
+		names      []string
+	}{{
+		name:       "reportResult pass",
+		exceptions: []*policiesv1beta1.PolicyException{withReportResult(buildException("default", "polex", "compensating-controls"), "pass")},
+		ruleStatus: engineapi.RuleStatusPass,
+		verdict:    trace.VerdictPass,
+		names:      []string{"default/polex"},
+	}, {
+		name:       "reportResult unset",
+		exceptions: []*policiesv1beta1.PolicyException{buildException("default", "polex", "compensating-controls")},
+		ruleStatus: engineapi.RuleStatusSkip,
+		verdict:    trace.VerdictSkip,
+		names:      []string{"default/polex"},
+	}, {
+		name: "the highest-priority exception decides",
+		exceptions: []*policiesv1beta1.PolicyException{
+			buildException("default", "low", "compensating-controls"),
+			withPriority(withReportResult(buildException("default", "high", "compensating-controls"), "pass"), "10"),
+		},
+		ruleStatus: engineapi.RuleStatusPass,
+		verdict:    trace.VerdictPass,
+		names:      []string{"default/low", "default/high"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider, err := NewProvider(compiler.NewCompilerWithTrace(true), []policiesv1beta1.ValidatingPolicyLike{denyingPolicy()}, tt.exceptions)
+			require.NoError(t, err)
+			resp, err := NewEngine(provider, nil, nil).Handle(
+				context.Background(),
+				celengine.RequestFromJSON(nil, &unstructured.Unstructured{Object: map[string]any{}}),
+				nil,
+			)
+			require.NoError(t, err)
+			require.Len(t, resp.Policies, 1)
+			require.Len(t, resp.Policies[0].Rules, 1)
+			assert.Equal(t, tt.ruleStatus, resp.Policies[0].Rules[0].Status())
+
+			d := resp.Policies[0].Trace
+			require.NotNil(t, d)
+			assert.Equal(t, tt.verdict, d.Verdict.Status, "the trace must agree with the reported result")
+			assert.Equal(t, resp.Policies[0].Rules[0].Message(), d.Verdict.Message)
+			for _, name := range tt.names {
+				assert.Contains(t, d.Verdict.Message, name, "the trace names every matched exception")
+			}
 		})
 	}
 }

@@ -48,11 +48,22 @@ type Compiler interface {
 	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
+// NewCompiler builds a vpol compiler with tracing off, as admission, background and reports use
+// it. For `kyverno apply --explain`, see NewCompilerWithTrace.
 func NewCompiler() Compiler {
-	return &compilerImpl{}
+	return NewCompilerWithTrace(false)
 }
 
-type compilerImpl struct{}
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on, for
+// `kyverno apply --explain`: when trace is true, match conditions, variables and validations keep
+// their ASTs so each evaluation can record what every expression resolved to. It is a separate
+// constructor so that NewCompiler, which admission, background and reports use, can never turn
+// tracing on by accident.
+func NewCompilerWithTrace(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
+}
+
+type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
@@ -81,16 +92,18 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -100,7 +113,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, env, rule)
+			program, errs := compiler.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -116,14 +129,17 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		return nil, append(allErrs, errs...)
 	}
 	return &Policy{
-		mode:             policieskyvernoio.EvaluationModeKubernetes,
-		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		matchConstraints: spec.MatchConstraints,
-		matchConditions:  matchConditions,
-		variables:        variables,
-		validations:      validations,
-		auditAnnotations: auditAnnotations,
-		exceptions:       compiledExceptions,
+		mode:                  policieskyvernoio.EvaluationModeKubernetes,
+		failurePolicy:         policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConstraints:      spec.MatchConstraints,
+		matchConditions:       matchConditions,
+		variables:             variables,
+		validations:           validations,
+		auditAnnotations:      auditAnnotations,
+		exceptions:            compiledExceptions,
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
 	}, nil
 }
 
@@ -143,13 +159,15 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	spec := policy.GetValidatingPolicySpec()
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 
 	env, err = env.Extend(
@@ -159,7 +177,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -169,7 +187,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, env, rule)
+			program, errs := compiler.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -183,12 +201,15 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	}
 
 	return &Policy{
-		mode:            policieskyvernoio.EvaluationModeJSON,
-		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		matchConditions: matchConditions,
-		variables:       variables,
-		validations:     validations,
-		exceptions:      compiledExceptions,
+		mode:                  policieskyvernoio.EvaluationModeJSON,
+		failurePolicy:         policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConditions:       matchConditions,
+		variables:             variables,
+		validations:           validations,
+		exceptions:            compiledExceptions,
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
 	}, nil
 }
 
