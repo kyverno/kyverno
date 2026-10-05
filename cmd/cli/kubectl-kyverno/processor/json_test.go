@@ -143,9 +143,10 @@ func TestJSONMutationKeepsOtherPolicyFamilies(t *testing.T) {
 	processor.MutatingPolicies = []policiesv1beta1.MutatingPolicyLike{jsonMutationPolicy(t, `[JSONPatch{op: "add", path: "/list/-", value: 1}]`)}
 	_, err := processor.ApplyPoliciesOnResource()
 	require.ErrorContains(t, err, "failed to map gvk to gvr")
-	// Resource-oriented families cannot address a non-object document, so only mutation applies.
+	// These families require an object root, so a non-object result is an
+	// explicit error rather than silently skipping them.
 	processor = newProcessor(`[]`)
 	_, err = processor.ApplyPoliciesOnResource()
-	require.NoError(t, err)
-	require.Equal(t, `[1]`, string(processor.JSONDocument.Raw))
+	require.ErrorContains(t, err, "requires an object root")
+	require.Equal(t, 1, processor.Rc.Error)
 }

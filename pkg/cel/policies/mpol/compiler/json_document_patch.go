@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -289,25 +290,15 @@ func jsonRat(value any) (*big.Rat, bool) {
 	case uint64:
 		return new(big.Rat).SetUint64(value), true
 	case float64:
-		rat := new(big.Rat).SetFloat64(value)
-		return rat, rat != nil
+		// A CEL double stands for the decimal literal it was written as, so use
+		// its shortest round-trip form: 0.1 is 1/10, not float64(0.1)'s binary
+		// expansion, while integers stay exact.
+		if math.IsInf(value, 0) || math.IsNaN(value) {
+			return nil, false
+		}
+		return new(big.Rat).SetString(strconv.FormatFloat(value, 'g', -1, 64))
 	}
 	return nil, false
-}
-
-func jsonFloat(value any) (float64, bool) {
-	switch value := value.(type) {
-	case json.Number:
-		f, err := strconv.ParseFloat(string(value), 64)
-		return f, err == nil
-	case int64:
-		return float64(value), true
-	case uint64:
-		return float64(value), true
-	case float64:
-		return value, true
-	}
-	return 0, false
 }
 
 // jsonEqual implements RFC 6902 test equality: numbers compare by numeric
@@ -316,19 +307,7 @@ func jsonFloat(value any) (float64, bool) {
 func jsonEqual(actual, expected any) bool {
 	if a, ok := jsonRat(actual); ok {
 		b, ok := jsonRat(expected)
-		if !ok {
-			return false
-		}
-		// A CEL double cannot represent most decimal literals exactly, so a
-		// comparison involving one uses double precision on both sides.
-		_, actualFloat := actual.(float64)
-		_, expectedFloat := expected.(float64)
-		if actualFloat || expectedFloat {
-			af, aok := jsonFloat(actual)
-			bf, bok := jsonFloat(expected)
-			return aok && bok && af == bf
-		}
-		return a.Cmp(b) == 0
+		return ok && a.Cmp(b) == 0
 	}
 	switch actual := actual.(type) {
 	case nil:

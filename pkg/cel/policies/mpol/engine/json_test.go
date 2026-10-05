@@ -323,6 +323,8 @@ func TestJSONEngineTestOperation(t *testing.T) {
 		{"fractional decimal equals double", `{"n":0.1}`, `[JSONPatch{op:"test",path:"/n",value:0.1},JSONPatch{op:"add",path:"/ok",value:true}]`, `{"n":0.1,"ok":true}`, ""},
 		{"fractional decimal from object", `{"m":[0.1],"n":0.1}`, `[JSONPatch{op:"test",path:"/m/0",value:object.n},JSONPatch{op:"add",path:"/ok",value:true}]`, `{"m":[0.1],"n":0.1,"ok":true}`, ""},
 		{"fractional decimals differ", `{"n":0.1}`, `[JSONPatch{op:"test",path:"/n",value:0.2},JSONPatch{op:"add",path:"/ok",value:true}]`, ``, ""},
+		{"large integer is not a nearby double", `{"n":9007199254740993}`, `[JSONPatch{op:"test",path:"/n",value:9007199254740992.0},JSONPatch{op:"add",path:"/ok",value:true}]`, ``, ""},
+		{"large integer equals exact double", `{"n":9007199254740992}`, `[JSONPatch{op:"test",path:"/n",value:9007199254740992.0},JSONPatch{op:"add",path:"/ok",value:true}]`, `{"n":9007199254740992,"ok":true}`, ""},
 		{"large integer exact", `{"n":9007199254740993}`, `[JSONPatch{op:"test",path:"/n",value:9007199254740993},JSONPatch{op:"add",path:"/ok",value:true}]`, `{"n":9007199254740993,"ok":true}`, ""},
 		{"large integer not rounded", `{"n":9007199254740993}`, `[JSONPatch{op:"test",path:"/n",value:9007199254740992},JSONPatch{op:"add",path:"/ok",value:true}]`, ``, ""},
 		{"numbers differ", `{"n":1}`, `[JSONPatch{op:"test",path:"/n",value:2},JSONPatch{op:"add",path:"/ok",value:true}]`, ``, ""},

@@ -100,10 +100,6 @@ func (p *PolicyProcessor) applyPoliciesOnJSON(ctx context.Context) ([]engineapi.
 	// identity or turn arrays/scalars into objects for them.
 	object, err := p.JSONDocument.Object()
 	if err != nil {
-		if len(p.ValidatingPolicies) == 0 {
-			// Only resource-oriented families remain; none can address a non-object document.
-			return responses, nil
-		}
 		p.Rc.IncrementError(1)
 		return responses, err
 	}
