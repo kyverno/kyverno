@@ -9,7 +9,7 @@ import (
 	"time"
 
 	valid "github.com/asaskevich/govalidator"
-	"github.com/go-openapi/strfmt"
+	"k8s.io/kube-openapi/pkg/validation/strfmt"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
