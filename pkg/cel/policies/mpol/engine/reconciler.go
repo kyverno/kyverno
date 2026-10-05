@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -81,7 +82,10 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	if policy.GetStatus().Generated {
+	// Generated policies are enforced by a native MutatingAdmissionPolicy and
+	// JSON policies have no admission trigger at all: neither belongs in the
+	// admission/mutate-existing policy set this reconciler serves.
+	if policy.GetStatus().Generated || policies.IsJSONMutatingPolicy(policy) {
 		r.lock.Lock()
 		delete(r.policies, req.NamespacedName.String())
 		r.lock.Unlock()

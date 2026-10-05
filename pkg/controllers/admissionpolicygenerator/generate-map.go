@@ -6,6 +6,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -158,6 +159,12 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 // generated MAP (which becomes the sole admission path once status.generated is set) would drop the
 // mutation. Pod-controller autogen is likewise incompatible with MAP generation.
 func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) (string, error) {
+	// Checked before the per-policy switch because the cluster-wide
+	// GenerateMutatingAdmissionPolicy toggle reaches this function for every
+	// MutatingPolicy, and a JSON document policy has no admission equivalent.
+	if celpolicies.IsJSONMutatingPolicy(mpol) {
+		return "skip generating MutatingAdmissionPolicy: JSON evaluation mode has no admission equivalent.", nil
+	}
 	if !mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 		return "skip generating MutatingAdmissionPolicy: not enabled.", nil
 	}

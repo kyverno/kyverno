@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -106,6 +107,11 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	mpol, err := p.GetPolicy(ur)
 	if mpol == nil {
 		return err
+	}
+	// A JSON policy is never compiled by the Kubernetes engine, so without this
+	// check a stray UpdateRequest would retry as "not compiled yet" forever.
+	if celpolicies.IsJSONMutatingPolicy(mpol) {
+		return updateURStatus(p.statusControl, *ur, fmt.Errorf("mutating policy %s uses JSON evaluation mode and cannot mutate existing resources", ur.Spec.GetPolicyKey()), nil)
 	}
 	// The request for a new policy can arrive before the engine has compiled that policy; return an
 	// error so it is retried with backoff, since evaluating now would match nothing and complete it

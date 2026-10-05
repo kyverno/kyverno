@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -62,7 +61,8 @@ import (
 )
 
 type TestResponse struct {
-	Trigger map[string][]engineapi.EngineResponse
+	Trigger       map[string][]engineapi.EngineResponse
+	JSONDocuments map[string]map[string]*payload.Document
 	// TriggerByOperation holds the responses of the additional evaluation runs
 	// performed for test results that declare an explicit admission operation.
 	// The outer key is the operation (CREATE, UPDATE or DELETE), the inner key
@@ -191,39 +191,29 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		uniquesObjectArr = append(uniquesObjectArr, t)
 	}
 
-	type jsonPayloadEntry struct {
-		name string
-		data map[string]any
-	}
-	var jsonPayloads []jsonPayloadEntry
+	var jsonPayloads []*payload.Document
 	if len(testCase.Test.JSONPayloads) > 0 {
 		fmt.Fprintln(out, "  Loading JSON payloads", "...")
 		jsonFullPaths := path.GetFullPaths(testCase.Test.JSONPayloads, testDir, isGit)
 		for i, jp := range jsonFullPaths {
-			var data any
+			var document *payload.Document
 			var loadErr error
 
 			if isGit {
 				var fileBytes []byte
 				fileBytes, loadErr = common.ReadFile(testCase.Fs, filepath.Join(testDir, jp))
 				if loadErr == nil {
-					loadErr = json.Unmarshal(fileBytes, &data)
+					document, loadErr = payload.ParseDocument(testCase.Test.JSONPayloads[i], fileBytes)
 				}
 			} else {
-				data, loadErr = payload.Load(jp)
+				document, loadErr = payload.LoadDocument(jp)
 			}
 
 			if loadErr != nil {
 				return nil, fmt.Errorf("error: failed to load JSON payload %s (%s)", testCase.Test.JSONPayloads[i], loadErr)
 			}
-			if data == nil {
-				return nil, fmt.Errorf("error: JSON payload %s is empty or nil", testCase.Test.JSONPayloads[i])
-			}
-			dataMap, ok := data.(map[string]any)
-			if !ok {
-				return nil, fmt.Errorf("error: JSON payload %s must be a top-level object (map)", testCase.Test.JSONPayloads[i])
-			}
-			jsonPayloads = append(jsonPayloads, jsonPayloadEntry{name: testCase.Test.JSONPayloads[i], data: dataMap})
+			document.Name = testCase.Test.JSONPayloads[i]
+			jsonPayloads = append(jsonPayloads, document)
 		}
 	}
 	httpPayloads := make(map[string]*authzhttp.CheckRequest, 0)
@@ -400,8 +390,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 
 	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
-	resourceCount := len(uniques)
-	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
+	resourceCount := len(uniques) + len(jsonPayloads)
+	resourcePlural := pluralize.Pluralize(resourceCount, "resource", "resources")
 	if polexLoader != nil {
 		exceptionCount := len(polexLoader.Exceptions)
 		exceptionCount += len(polexLoader.CELExceptions)
@@ -487,6 +477,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	var resultCounts processor.ResultCounts
 	testResponse := TestResponse{
 		Trigger:            map[string][]engineapi.EngineResponse{},
+		JSONDocuments:      map[string]map[string]*payload.Document{},
 		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
 		Target:             map[string][]engineapi.EngineResponse{},
 		SkippedPolicies:    skippedPolicyNames,
@@ -626,6 +617,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
+			Context:                           ctx,
 			Store:                             &store,
 			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
@@ -636,7 +628,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			GeneratingPolicies:                results.GeneratingPolicies,
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
-			JsonPayload:                       unstructured.Unstructured{Object: jp.data},
+			JSONDocument:                      jp,
 			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
@@ -658,12 +650,32 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
-			return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
+			hasErrorResult := false
+			for _, response := range ers {
+				for _, rule := range response.PolicyResponse.Rules {
+					hasErrorResult = hasErrorResult || rule.Status() == engineapi.RuleStatusError
+				}
+			}
+			if !hasErrorResult {
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %s (%w)", jp.Name, err)
+			}
+			testResponse.Trigger[jp.Name] = ers
+			testResponse.JSONDocuments[jp.Name] = map[string]*payload.Document{}
+			engineResponses = append(engineResponses, ers...)
+			continue
+		}
+		testResponse.JSONDocuments[jp.Name] = processor.JSONPatchedDocuments
+		var jsonObjects []*unstructured.Unstructured
+		if len(results.ImageValidatingPolicies) > 0 || len(results.DeletingPolicies) > 0 {
+			jsonObjects, err = payload.Objects([]*payload.Document{jp})
+			if err != nil {
+				return nil, err
+			}
 		}
 		if len(results.ImageValidatingPolicies) != 0 {
 			ivpols, err := applyImageValidatingPolicies(
 				results.ImageValidatingPolicies,
-				[]*unstructured.Unstructured{{Object: jp.data}},
+				jsonObjects,
 				nil,
 				polexLoader.CELExceptions,
 				vars.Namespace,
@@ -680,7 +692,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				"",
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.name, err)
+				return nil, fmt.Errorf("failed to apply validating policies on JSON payload %s (%w)", jp.Name, err)
 			}
 			ers = append(ers, ivpols...)
 		}
@@ -688,7 +700,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		if len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
-				[]*unstructured.Unstructured{{Object: jp.data}},
+				jsonObjects,
 				polexLoader.CELExceptions,
 				vars.Namespace,
 				&resultCounts,
@@ -701,12 +713,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				gceMap,
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
+				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.Name, err)
 			}
 			ers = append(ers, dpols...)
 		}
 
-		testResponse.Trigger[jp.name] = append(testResponse.Trigger[jp.name], ers...)
+		testResponse.Trigger[jp.Name] = append(testResponse.Trigger[jp.Name], ers...)
 		engineResponses = append(engineResponses, ers...)
 	}
 

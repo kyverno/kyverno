@@ -30,6 +30,13 @@ extra care and check both the CEL and legacy image-verification paths.
 
 ## Compilation and evaluation
 
+`mpol/compiler.CompileJSON` and `mpol/engine.NewJSONEngine` provide a separate,
+document-native JSON mutation core used by CLI apply/test. The shared
+`policies.IsJSONMutatingPolicy` gate isolates these policies from Kubernetes
+compilation, providers, autogen, webhook rules, reporting scans, and background
+mutation. Never route JSON documents through admission attributes.
+See [the JSON mutation proposal](../../docs/designs/json-mutation.md) for the contract.
+
 Four of the five kinds have their own `compiler` package building a dedicated CEL `cel.Env` (`ivpol` is the outlier
 — see above); each is wired to Kyverno's CEL extension
 libraries (`github.com/kyverno/sdk/extensions/cel/libs/*` — globalcontext, gzip, hash, http, image, imagedata, json,

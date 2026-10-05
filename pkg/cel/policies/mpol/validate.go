@@ -3,6 +3,7 @@ package mpol
 import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -23,18 +24,28 @@ func Validate(mpol v1beta1.MutatingPolicyLike) ([]string, error) {
 		return warnings, err.ToAggregate()
 	}
 
-	c := mpolcompiler.NewCompiler()
-	_, errList := c.Compile(mpol, nil)
-	if len(errList) > 0 {
-		err = errList
-	}
+	if policies.IsJSONMutatingPolicy(mpol) {
+		// JSON policies transform documents supplied by a caller (CLI today), so
+		// they have no trigger resources and never register in admission; the
+		// Kubernetes-only requirements below do not apply to them.
+		_, errList := mpolcompiler.CompileJSON(mpol, nil)
+		if len(errList) > 0 {
+			err = errList
+		}
+	} else {
+		c := mpolcompiler.NewCompiler()
+		_, errList := c.Compile(mpol, nil)
+		if len(errList) > 0 {
+			err = errList
+		}
 
-	if spec.MatchConstraints == nil || len(spec.MatchConstraints.ResourceRules) == 0 {
-		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
-	}
+		if spec.MatchConstraints == nil || len(spec.MatchConstraints.ResourceRules) == 0 {
+			err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
+		}
 
-	if !spec.AdmissionEnabled() && !spec.MutateExistingEnabled() {
-		err = append(err, field.Forbidden(field.NewPath("spec").Child("evaluation"), "disabling both admission and mutateExisting evaluation modes is not allowed"))
+		if !spec.AdmissionEnabled() && !spec.MutateExistingEnabled() {
+			err = append(err, field.Forbidden(field.NewPath("spec").Child("evaluation"), "disabling both admission and mutateExisting evaluation modes is not allowed"))
+		}
 	}
 
 	if mpol.GetNamespace() != "" {

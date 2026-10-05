@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: json-document-mutation
+policies:
+- policy.yaml
+jsonPayloads:
+- input.json
+- nested/input.json
+results:
+- policy: add-region
+  isMutatingPolicy: true
+  resources:
+  - input.json
+  patchedResources: expected.json
+  result: pass
+- policy: add-region
+  isMutatingPolicy: true
+  resources:
+  - nested/input.json
+  patchedResources: nested/expected.json
+  result: pass
+- policy: require-region
+  resources:
+  - input.json
+  - nested/input.json
+  result: pass

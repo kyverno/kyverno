@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -317,6 +318,10 @@ func FetchMutatingPolicies(mpolLister policiesv1beta1listers.MutatingPolicyListe
 		return nil, err
 	} else {
 		for _, pol := range pols {
+			// JSON policies have no cluster resources to scan or report on.
+			if celpolicies.IsJSONMutatingPolicy(pol) {
+				continue
+			}
 			policies = append(policies, *pol)
 		}
 	}
@@ -339,6 +344,9 @@ func FetchNamespacedMutatingPolicies(nmpolLister policiesv1beta1listers.Namespac
 	}
 	policies := make([]policiesv1beta1.NamespacedMutatingPolicy, 0, len(pols))
 	for _, pol := range pols {
+		if celpolicies.IsJSONMutatingPolicy(pol) {
+			continue
+		}
 		policies = append(policies, *pol)
 	}
 	return policies, nil

@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test/filter"
@@ -219,11 +220,19 @@ func checkResult(
 	rule engineapi.RuleResponse,
 	actualResource unstructured.Unstructured,
 	removeColor bool,
+	jsonDocument ...*payload.Document,
 ) (bool, string, string) {
 	expected := test.Result
 	expectedPatchResources := test.PatchedResources
 	if expectedPatchResources != "" {
-		equals, diff, err := getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
+		var equals bool
+		var diff string
+		var err error
+		if len(jsonDocument) > 0 {
+			equals, diff, err = compareJSONDocument(jsonDocument[0], fs, filepath.Join(resourcePath, expectedPatchResources))
+		} else {
+			equals, diff, err = getAndCompareResource(actualResource, fs, filepath.Join(resourcePath, expectedPatchResources), "PatchedResources")
+		}
 		if err != nil {
 			return false, err.Error(), "Resource error"
 		}
