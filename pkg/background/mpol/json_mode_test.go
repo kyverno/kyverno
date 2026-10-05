@@ -16,9 +16,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// An UpdateRequest that points at a JSON mode policy must be failed terminally
-// instead of retrying forever as "not compiled yet" or touching the engine.
-func TestProcess_JSONModePolicyFailsTerminally(t *testing.T) {
+// An UpdateRequest that points at a JSON mode policy must be skipped, a terminal
+// state, instead of failing (which is retried) or touching the engine.
+func TestProcess_JSONModePolicySkipsTerminally(t *testing.T) {
 	kyvernoClient := fake.NewSimpleClientset(&policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "json"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -42,7 +42,7 @@ func TestProcess_JSONModePolicyFailsTerminally(t *testing.T) {
 		Spec:       kyvernov2.UpdateRequestSpec{Policy: "json"},
 	})
 	assert.NoError(t, err)
-	assert.True(t, status.failedCalled)
-	assert.False(t, status.successCalled)
+	assert.True(t, status.skipCalled)
+	assert.False(t, status.failedCalled)
 	engine.AssertNotCalled(t, "Evaluate")
 }

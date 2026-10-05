@@ -110,8 +110,11 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 	// A JSON policy is never compiled by the Kubernetes engine, so without this
 	// check a stray UpdateRequest would retry as "not compiled yet" forever.
+	// Skip is terminal; Failed would be reset to Pending and retried.
 	if celpolicies.IsJSONMutatingPolicy(mpol) {
-		return updateURStatus(p.statusControl, *ur, fmt.Errorf("mutating policy %s uses JSON evaluation mode and cannot mutate existing resources", ur.Spec.GetPolicyKey()), nil)
+		logger.V(2).Info("skipping update request: mutating policy uses JSON evaluation mode and cannot mutate existing resources", "ur", ur.GetName(), "mpol", ur.Spec.GetPolicyKey())
+		_, err := p.statusControl.Skip(ur.GetName(), nil)
+		return err
 	}
 	// The request for a new policy can arrive before the engine has compiled that policy; return an
 	// error so it is retried with backoff, since evaluating now would match nothing and complete it

@@ -227,8 +227,10 @@ Whitespace and property ordering are not preserved as a public contract.
    generation, reporting resource scans, and background mutation. Reconciliation
    evicts policies switched to JSON mode from the Kubernetes provider. Status
    reconciliation treats webhook configuration and cluster mutation RBAC as
-   inapplicable. Already queued background requests fail explicitly rather than
-   performing document policies against cluster resources.
+   inapplicable. Already queued background requests are skipped (a terminal
+   state, so they are not retried) rather than performing document policies
+   against cluster resources. Generated MutatingAdmissionPolicies are removed
+   regardless of the admission-policy generation toggle or controller RBAC.
 4. **Documentation and release.** Update the website policy comparison and JSON
    examples (MutatingPolicy JSON-mode docs: kyverno/website#2188), generate affected schemas/manifests if necessary, and publish
    end-to-end CLI examples. SDK/HTTP service integration is a later project.

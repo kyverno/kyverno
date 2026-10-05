@@ -4,10 +4,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -40,16 +43,21 @@ func TestMapGenerationSkipReason_JSONMode(t *testing.T) {
 // Switching a policy with a generated MutatingAdmissionPolicy to JSON mode
 // deletes the generated MAP and binding and clears status.generated, so the
 // policy is no longer enforced at admission. Cleanup must also happen when the
-// controller lacks the RBAC needed to generate admission policies.
+// controller lacks the RBAC needed to generate admission policies, and when the
+// generation toggle (off by default) is off and the policy no longer opts in.
 func TestHandleMAPGeneration_JSONModeDeletesGeneratedMAP(t *testing.T) {
 	t.Parallel()
-	for name, authChecker := range map[string]checker.AuthChecker{
-		"permissive":        permissiveAuthChecker{},
-		"generation denied": denyingAuthChecker{},
+	for name, tc := range map[string]struct {
+		authChecker  checker.AuthChecker
+		viaReconcile bool
+	}{
+		"permissive":                       {authChecker: permissiveAuthChecker{}},
+		"generation denied":                {authChecker: denyingAuthChecker{}},
+		"toggle off without policy opt-in": {authChecker: permissiveAuthChecker{}, viaReconcile: true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			testJSONModeDeletesGeneratedMAP(t, authChecker)
+			testJSONModeDeletesGeneratedMAP(t, tc.authChecker, tc.viaReconcile)
 		})
 	}
 }
@@ -61,7 +69,7 @@ func (denyingAuthChecker) Check(ctx context.Context, group, version, resource, s
 	return &checker.AuthResult{Allowed: false}, nil
 }
 
-func testJSONModeDeletesGeneratedMAP(t *testing.T, authChecker checker.AuthChecker) {
+func testJSONModeDeletesGeneratedMAP(t *testing.T, authChecker checker.AuthChecker, viaReconcile bool) {
 	ctx := context.Background()
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "json-policy"},
@@ -90,7 +98,16 @@ func testJSONModeDeletesGeneratedMAP(t *testing.T, authChecker checker.AuthCheck
 		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
 	}
 
-	require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+	if viaReconcile {
+		mpol.Spec.AutogenConfiguration = nil
+		mpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		require.NoError(t, mpolIndexer.Add(mpol))
+		c.mpolLister = policiesv1beta1listers.NewMutatingPolicyLister(mpolIndexer)
+		require.False(t, toggle.FromContext(ctx).GenerateMutatingAdmissionPolicy())
+		require.NoError(t, c.reconcile(ctx, logr.Discard(), "MutatingPolicy/"+mpol.Name, "", mpol.Name))
+	} else {
+		require.NoError(t, c.handleMAPGeneration(ctx, mpol))
+	}
 
 	_, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
 	assert.True(t, apierrors.IsNotFound(err), "generated MAP must be deleted")
