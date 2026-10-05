@@ -388,8 +388,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
-				p.Rc.addMutateResponse(response)
-
+				// Line 951 already does p.Rc.addMutateResponse(response),
+				// so calling it here would count this mutation twice.
 				err = p.processMutateEngineResponse(response, resPath)
 				if err != nil {
 					return responses, fmt.Errorf("failed to print mutated result (%w)", err)
