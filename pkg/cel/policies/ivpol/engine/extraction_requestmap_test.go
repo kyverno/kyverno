@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -29,6 +31,19 @@ import (
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/utils/ptr"
 )
+
+// fakeImageContext stands in for a real image context so these tests do not
+// reach a registry. On main it lives in engine_test.go (#17427); release-1.19
+// has no such fixture, so it is defined here for the backport.
+type fakeImageContext struct{}
+
+func (fakeImageContext) AddImages(context.Context, []string, []remote.Option, []name.Option) error {
+	return nil
+}
+
+func (fakeImageContext) Get(context.Context, string, []remote.Option, []name.Option) (*imagedataloader.ImageData, error) {
+	return &imagedataloader.ImageData{}, nil
+}
 
 // jobSetWithImage mirrors vpol's fixture of the same name (same shape as the
 // repro used against issue #16477): a minimal JobSet with one pod-template
