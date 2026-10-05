@@ -48,6 +48,16 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 
 func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, version admissionpolicy.MutatingAdmissionPolicyVersion) error {
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
+	mapName := "mpol-" + mpol.GetName()
+	mapBindingName := constructBindingName(mapName)
+
+	// A policy switched to JSON mode must not keep enforcing through a previously generated MAP,
+	// so cleanup runs before the generation permission gates below can return early.
+	if celpolicies.IsJSONMutatingPolicy(mpol) {
+		reason, _ := mapGenerationSkipReason(mpol)
+		return c.dispatchMAPVersion(ctx, mpol, version, mapName, mapBindingName, true, reason, genericPolicy)
+	}
+
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
 		c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
@@ -59,15 +69,14 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 		return nil
 	}
 
-	mapName := "mpol-" + mpol.GetName()
-	mapBindingName := constructBindingName(mapName)
-
 	reason, err := mapGenerationSkipReason(mpol)
 	if err != nil {
 		return fmt.Errorf("failed to compute autogen configs for %s: %w", mpol.GetName(), err)
 	}
-	shouldDelete := reason != ""
+	return c.dispatchMAPVersion(ctx, mpol, version, mapName, mapBindingName, reason != "", reason, genericPolicy)
+}
 
+func (c *controller) dispatchMAPVersion(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, version admissionpolicy.MutatingAdmissionPolicyVersion, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
 	switch version {
 	case admissionpolicy.MutatingAdmissionPolicyVersionV1:
 		return c.handleMAPV1(ctx, mpol, mapName, mapBindingName, shouldDelete, reason, genericPolicy)

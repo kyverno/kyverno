@@ -6,6 +6,7 @@ import (
 
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -38,8 +39,29 @@ func TestMapGenerationSkipReason_JSONMode(t *testing.T) {
 
 // Switching a policy with a generated MutatingAdmissionPolicy to JSON mode
 // deletes the generated MAP and binding and clears status.generated, so the
-// policy is no longer enforced at admission.
+// policy is no longer enforced at admission. Cleanup must also happen when the
+// controller lacks the RBAC needed to generate admission policies.
 func TestHandleMAPGeneration_JSONModeDeletesGeneratedMAP(t *testing.T) {
+	t.Parallel()
+	for name, authChecker := range map[string]checker.AuthChecker{
+		"permissive":        permissiveAuthChecker{},
+		"generation denied": denyingAuthChecker{},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testJSONModeDeletesGeneratedMAP(t, authChecker)
+		})
+	}
+}
+
+// denyingAuthChecker denies every permission check.
+type denyingAuthChecker struct{}
+
+func (denyingAuthChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
+	return &checker.AuthResult{Allowed: false}, nil
+}
+
+func testJSONModeDeletesGeneratedMAP(t *testing.T, authChecker checker.AuthChecker) {
 	ctx := context.Background()
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "json-policy"},
@@ -63,7 +85,7 @@ func TestHandleMAPGeneration_JSONModeDeletesGeneratedMAP(t *testing.T) {
 	c := &controller{
 		client:             kubeClient,
 		kyvernoClient:      kyvernoClient,
-		checker:            permissiveAuthChecker{},
+		checker:            authChecker,
 		mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
 		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
 	}
