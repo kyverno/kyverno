@@ -17,3 +17,7 @@
   {{- print (required "An image repository is required" .image.repository) ":" $tag -}}
 {{- end -}}
 {{- end -}}
+
+{{- define "kyverno.webhooksCleanup.image" -}}
+{{- template "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag)) -}}
+{{- end -}}

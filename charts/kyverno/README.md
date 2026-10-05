@@ -901,7 +901,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
-| webhooksCleanup.image.registry | string | `"ghcr.io"` | Image registry |
+| webhooksCleanup.image.registry | string | `nil` | Image registry |
+| webhooksCleanup.image.defaultRegistry | string | `"ghcr.io"` | Fallback registry used when registry and global.image.registry are unset |
 | webhooksCleanup.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
 | webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
@@ -927,7 +928,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | test.sleep | int | `20` | Sleep time before running test |
-| test.image.registry | string | `"ghcr.io"` | Image registry |
+| test.image.registry | string | `nil` | Image registry |
+| test.image.defaultRegistry | string | `"ghcr.io"` | Fallback registry used when registry and global.image.registry are unset |
 | test.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
 | test.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | test.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
