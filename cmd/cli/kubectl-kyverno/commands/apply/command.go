@@ -85,7 +85,10 @@ type PolicyDiagnostic struct {
 }
 
 type ApplyCommandConfig struct {
-	deferredMutationOutputs   []func() error
+	deferredMutationOutputs []func() error
+	// continuedAfterError records an error swallowed by --continue-on-fail, which
+	// may not be reflected in the result counts but must still block staged output.
+	continuedAfterError       bool
 	KubeConfig                string
 	Context                   string
 	Namespace                 string
@@ -277,6 +280,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
 	c.deferredMutationOutputs = nil
+	c.continuedAfterError = false
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -551,7 +555,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	for _, policy := range mps {
 		hasJSONMutation = hasJSONMutation || celpolicies.IsJSONMutatingPolicy(policy)
 	}
-	if len(c.JSONPaths) > 0 && (hasJSONMutation || len(c.deferredMutationOutputs) > 0) && rc.Fail == 0 && rc.Error == 0 {
+	if len(c.JSONPaths) > 0 && (hasJSONMutation || len(c.deferredMutationOutputs) > 0) && c.evaluationSucceeded(rc) {
 		if filepath.Ext(c.MutateLogPath) == ".json" && (len(jsonPayloads) > 1 || len(c.deferredMutationOutputs) > 0) {
 			return rc, resources1, skippedInvalidPolicies, responses, fmt.Errorf("multiple documents or Kubernetes mutation output require an output directory or a .yaml output stream, not a single .json file")
 		}
@@ -581,6 +585,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		}
 	}
 	return rc, resources1, skippedInvalidPolicies, responses, nil
+}
+
+// evaluationSucceeded reports whether staged mutation output may be published:
+// no failures or errors were counted, and none were swallowed by --continue-on-fail.
+func (c *ApplyCommandConfig) evaluationSucceeded(rc *processor.ResultCounts) bool {
+	return rc.Fail == 0 && rc.Error == 0 && !c.continuedAfterError
 }
 
 func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
@@ -683,6 +693,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
 				continue
 			}
@@ -726,6 +737,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		ers, err := processor.ApplyPoliciesOnResourceWithContext(ctx)
 		if err != nil {
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on JSON document %s (%s)\n", resource.Name, err.Error()))
 				continue
 			}
@@ -803,6 +815,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if err != nil {
 			log.Log.Error(err, "failed to map gvk to gvr", "gkv", gvk)
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				continue
 			}
 			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
@@ -830,6 +843,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
@@ -861,6 +875,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
 				continue
 			}
@@ -942,6 +957,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				rc.AddValidatingPolicyResponse(response)
 
 				if c.ContinueOnFail {
+					c.continuedAfterError = true
 					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
 					continue
 				}
@@ -1030,6 +1046,7 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 				responses = append(responses, response)
 			}
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				continue
 			}
 			return responses, err

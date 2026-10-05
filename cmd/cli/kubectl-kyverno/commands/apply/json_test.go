@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,6 +92,18 @@ func TestJSONMutationApplyOutput(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, files, "partial multi-input output must not be written to a directory")
 
+	// Errors swallowed by --continue-on-fail must still block staged output.
+	config.ContinueOnFail = true
+	config.MutateLogPath = filepath.Join(dir, "continued.json")
+	require.NoError(t, os.WriteFile(config.MutateLogPath, []byte("original"), 0o600))
+	_, _, _, _, err = config.applyCommandHelper(context.Background(), &out)
+	require.NoError(t, err)
+	content, err = os.ReadFile(config.MutateLogPath)
+	require.NoError(t, err)
+	require.Equal(t, "original", string(content), "output must not be written after a continued error")
+	require.True(t, config.continuedAfterError)
+	config.ContinueOnFail = false
+
 	invalid := filepath.Join(dir, "invalid.json")
 	require.NoError(t, os.WriteFile(invalid, []byte("null null"), 0o600))
 	config.JSONPaths = []string{invalid}
@@ -111,4 +124,16 @@ func TestJSONMutationApplyOutput(t *testing.T) {
 	content, err = os.ReadFile(config.MutateLogPath)
 	require.NoError(t, err)
 	require.Equal(t, "original", string(content), "failed validation must not write partial mutation output")
+}
+
+func TestEvaluationSucceeded(t *testing.T) {
+	t.Parallel()
+	c := &ApplyCommandConfig{}
+	require.True(t, c.evaluationSucceeded(&processor.ResultCounts{Pass: 1}))
+	require.False(t, c.evaluationSucceeded(&processor.ResultCounts{Fail: 1}))
+	require.False(t, c.evaluationSucceeded(&processor.ResultCounts{Error: 1}))
+	// An error swallowed by --continue-on-fail need not be counted (for example
+	// image validating policy evaluation errors on JSON payloads).
+	c.continuedAfterError = true
+	require.False(t, c.evaluationSucceeded(&processor.ResultCounts{Pass: 1}))
 }
