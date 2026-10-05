@@ -841,3 +841,72 @@ func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
 		})
 	}
 }
+
+// TestHandle_RuleNameKeepsIdentifierOnAutogenController: for a Deployment, autogen rewrites a Pod
+// validation (object.spec.containers becomes object.spec.template.spec.containers), so the
+// identifiers annotation, written against the Pod expression, must still name the generated
+// rule. Without that the Deployment's failure falls back to a positional name.
+func TestHandle_RuleNameKeepsIdentifierOnAutogenController(t *testing.T) {
+	const noLatest = "object.spec.containers.all(c, !c.image.endsWith(':latest'))"
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "disallow-latest",
+			Annotations: map[string]string{autogen.IdentifiersAnnotation: `{"` + noLatest + `":"no-latest"}`},
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule:       admissionregistrationv1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"pods"}},
+					},
+				}},
+			},
+			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+				PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{Controllers: []string{"deployments"}},
+			},
+			// the named validation is second, so a positional fallback would be autogen-validate-1
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true", Message: "always passes"},
+				{Expression: noLatest, Message: "no latest tags"},
+			},
+		},
+	}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	containers := []any{map[string]any{"name": "app", "image": "nginx:latest"}}
+	tests := []struct {
+		name   string
+		gvk    schema.GroupVersionKind
+		gvr    schema.GroupVersionResource
+		object map[string]any
+	}{{
+		name:   "pod, the source policy",
+		gvk:    schema.GroupVersionKind{Version: "v1", Kind: "Pod"},
+		gvr:    schema.GroupVersionResource{Version: "v1", Resource: "pods"},
+		object: map[string]any{"apiVersion": "v1", "kind": "Pod", "metadata": map[string]any{"name": "web", "namespace": "default"}, "spec": map[string]any{"containers": containers}},
+	}, {
+		name: "deployment, the autogen variant",
+		gvk:  schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		gvr:  schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "web", "namespace": "default"},
+			"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": containers}}}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := celengine.Request(nil, tt.gvk, tt.gvr, "", "web", "default", admissionv1.Create, authenticationv1.UserInfo{},
+				&unstructured.Unstructured{Object: tt.object}, nil, false, nil)
+			resp, err := eng.Handle(context.Background(), req, nil)
+			require.NoError(t, err)
+			var rules []engineapi.RuleResponse
+			for _, p := range resp.Policies {
+				rules = append(rules, p.Rules...)
+			}
+			require.Len(t, rules, 1, "exactly one variant of the policy applies")
+			assert.Equal(t, engineapi.RuleStatusFail, rules[0].Status())
+			assert.Equal(t, "autogen-no-latest", rules[0].Name())
+		})
+	}
+}

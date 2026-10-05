@@ -95,7 +95,47 @@ func IdentifiersFromAnnotations(annotations map[string]string) (map[string]strin
 	if err := json.Unmarshal([]byte(raw), &identifiers); err != nil {
 		return nil, fmt.Errorf("failed to parse %s annotation: %w", IdentifiersAnnotation, err)
 	}
+	if identifiers == nil {
+		// json.Unmarshal accepts null and leaves the map nil, which would read as "no
+		// annotation" and silently fall back to positional names
+		return nil, fmt.Errorf("%s annotation must be a JSON object mapping validation expressions to identifiers, got null", IdentifiersAnnotation)
+	}
 	return identifiers, nil
+}
+
+// GeneratedPolicy returns policy with its spec replaced by generated, ready to compile as an
+// autogen variant. Autogen rewrites validation expressions (object.spec becomes
+// object.spec.template.spec for a Deployment), so the identifiers annotation, keyed by the
+// source expressions, would no longer find them and every generated rule would fall back to a
+// positional name. Generated validations keep the source order, so the annotation is re-keyed by
+// position onto the generated expressions.
+func GeneratedPolicy(policy policiesv1beta1.ValidatingPolicyLike, generated policiesv1beta1.ValidatingPolicyAutogen) policiesv1beta1.ValidatingPolicyLike {
+	out := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
+	*out.GetValidatingPolicySpec() = *generated.Spec
+	identifiers, err := IdentifiersFromAnnotations(policy.GetAnnotations())
+	if err != nil || len(identifiers) == 0 {
+		// nothing to carry over; a malformed annotation is reported when the source compiles
+		return out
+	}
+	source := policy.GetValidatingPolicySpec().Validations
+	target := generated.Spec.Validations
+	if len(source) != len(target) {
+		return out
+	}
+	remapped := make(map[string]string, len(identifiers))
+	for i := range source {
+		if identifier, ok := identifiers[source[i].Expression]; ok {
+			remapped[target[i].Expression] = identifier
+		}
+	}
+	raw, err := json.Marshal(remapped)
+	if err != nil {
+		return out
+	}
+	annotations := maps.Clone(out.GetAnnotations())
+	annotations[IdentifiersAnnotation] = string(raw)
+	out.SetAnnotations(annotations)
+	return out
 }
 
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {

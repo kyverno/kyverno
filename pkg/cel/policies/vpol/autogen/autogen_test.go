@@ -151,6 +151,12 @@ func TestIdentifiersFromAnnotations(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			// valid JSON, but not an object: must not be read as "no annotation"
+			name:        "null is rejected",
+			annotations: map[string]string{IdentifiersAnnotation: `null`},
+			wantErr:     true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -813,4 +819,46 @@ func TestGenerateCronJobRule(t *testing.T) {
 			assert.Equal(t, tt.generatedRule, genRule)
 		})
 	}
+}
+
+func TestGeneratedPolicy_RekeysIdentifiersByPosition(t *testing.T) {
+	source := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+			"other":               "kept",
+			IdentifiersAnnotation: `{"object.spec.containers.size() > 0":"has-containers"}`,
+		}},
+		Spec: policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{
+			{Expression: "true"},
+			{Expression: "object.spec.containers.size() > 0"},
+		}},
+	}
+	generated := policiesv1beta1.ValidatingPolicyAutogen{Spec: &policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{
+		{Expression: "true"},
+		{Expression: "object.spec.template.spec.containers.size() > 0"},
+	}}}
+
+	out := GeneratedPolicy(source, generated)
+
+	assert.Equal(t, generated.Spec.Validations, out.GetValidatingPolicySpec().Validations)
+	identifiers, err := IdentifiersFromAnnotations(out.GetAnnotations())
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]string{"object.spec.template.spec.containers.size() > 0": "has-containers"}, identifiers,
+		"the identifier follows its validation to the rewritten expression")
+	assert.Equal(t, "kept", out.GetAnnotations()["other"])
+	// the source policy is left untouched
+	assert.Equal(t, `{"object.spec.containers.size() > 0":"has-containers"}`, source.GetAnnotations()[IdentifiersAnnotation])
+	assert.Equal(t, "object.spec.containers.size() > 0", source.Spec.Validations[1].Expression)
+}
+
+func TestGeneratedPolicy_WithoutIdentifiersOnlySwapsTheSpec(t *testing.T) {
+	source := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"other": "kept"}},
+		Spec:       policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{{Expression: "true"}}},
+	}
+	generated := policiesv1beta1.ValidatingPolicyAutogen{Spec: &policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{{Expression: "false"}}}}
+
+	out := GeneratedPolicy(source, generated)
+
+	assert.Equal(t, generated.Spec.Validations, out.GetValidatingPolicySpec().Validations)
+	assert.Equal(t, map[string]string{"other": "kept"}, out.GetAnnotations())
 }
