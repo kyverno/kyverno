@@ -1065,19 +1065,22 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 
 // TestEvaluate_NilMatcherSkipsNamespaceSelector is a regression test for
 // https://github.com/kyverno/kyverno/issues/16953.
-// When the engine is constructed with a nil matcher (as the background controller
-// formerly did), handlePolicy skips the matchConstraints block entirely — including
-// namespaceSelector evaluation. This means policies that should be scoped to
-// specific namespaces end up applying everywhere.
 //
-// The fix wires matching.NewMatcher() into the background controller and CLI
-// mutate-existing engine construction so namespaceSelector is honoured.
+// This test isolates the NamespaceSelector path specifically by using a policy
+// whose ResourceRules DO match the attr (apps/v1/deployments + CREATE), so any
+// filtering is purely caused by the NamespaceSelector. When the engine is
+// constructed with a nil matcher the matchConstraints block is skipped entirely,
+// so the namespace label is never checked and the mutation runs. After the fix,
+// the real matcher rejects the policy because the resolved namespace lacks the
+// required label.
 func TestEvaluate_NilMatcherSkipsNamespaceSelector(t *testing.T) {
 	mutateExisting := true
 
-	// Policy with a namespaceSelector that requires label "env=production".
-	// The resolved namespace ("default") will NOT have this label, so the
-	// policy should be filtered out when a real matcher is used.
+	// Policy whose ResourceRules match mockAttributes (apps/v1/deployments CREATE)
+	// but whose NamespaceSelector requires "env=production". The resolved namespace
+	// ("default") does NOT carry that label, so a real matcher must filter the policy
+	// out. Using OperationAll so that only the selector, not the operation, decides
+	// the outcome.
 	mpol := &policiesv1beta1.MutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "ns-scoped"},
 		Spec: policiesv1beta1.MutatingPolicySpec{
@@ -1090,13 +1093,15 @@ func TestEvaluate_NilMatcherSkipsNamespaceSelector(t *testing.T) {
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"env": "production"},
 				},
+				// ResourceRules: use wildcard (*) so the resource-rule check always
+				// passes and the selector is the only reason for filtering.
 				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
 					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll},
 						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"apps"},
-							APIVersions: []string{"v1"},
-							Resources:   []string{"deployments"},
+							APIGroups:   []string{"*"},
+							APIVersions: []string{"*"},
+							Resources:   []string{"*"},
 						},
 					},
 				}},
@@ -1114,36 +1119,185 @@ func TestEvaluate_NilMatcherSkipsNamespaceSelector(t *testing.T) {
 	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
 	assert.NoError(t, err)
 
-	// nsResolver returns a namespace WITHOUT the "env=production" label.
-	nsResolverNoLabel := func(ns string) *corev1.Namespace {
+	// Namespace "default" does NOT have the "env=production" label.
+	nsNoLabel := func(ns string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
+	}
+	// Namespace "default" WITH the "env=production" label.
+	nsWithLabel := func(ns string) *corev1.Namespace {
+		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			Name:   ns,
+			Labels: map[string]string{"env": "production"},
+		}}
+	}
+
+	t.Run("nil matcher skips selector — policy evaluates regardless", func(t *testing.T) {
+		eng := NewEngine(provider, nsNoLabel, nil, &fakeTypeConverter{}, &libs.FakeContextProvider{})
+		resp, err := eng.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+
+		assert.NoError(t, err)
+		// Nil matcher skips the entire matchConstraints block, so namespaceSelector
+		// is never checked. The policy must reach CEL evaluation and produce a Pass rule.
+		if assert.Len(t, resp.Policies, 1) {
+			if assert.Len(t, resp.Policies[0].Rules, 1) {
+				assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Rules[0].Status(),
+					"nil matcher: policy must evaluate (CEL mutation should pass)")
+			}
+		}
+	})
+
+	t.Run("real matcher filters when namespace lacks required label", func(t *testing.T) {
+		eng := NewEngine(provider, nsNoLabel, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+		resp, err := eng.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+
+		assert.NoError(t, err)
+		// Real matcher evaluates the namespaceSelector. The resolved namespace
+		// has no "env=production" label, so handlePolicy must return early.
+		if assert.Len(t, resp.Policies, 1) {
+			assert.Empty(t, resp.Policies[0].Rules,
+				"real matcher: policy must be filtered out when namespaceSelector doesn't match")
+		}
+	})
+
+	t.Run("real matcher passes when namespace carries required label", func(t *testing.T) {
+		eng := NewEngine(provider, nsWithLabel, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+		resp, err := eng.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+
+		assert.NoError(t, err)
+		// Namespace now has the required label — the selector must pass and the
+		// policy must evaluate successfully.
+		if assert.Len(t, resp.Policies, 1) {
+			if assert.Len(t, resp.Policies[0].Rules, 1) {
+				assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Rules[0].Status(),
+					"real matcher: policy must evaluate when namespaceSelector matches")
+			}
+		}
+	})
+}
+
+// TestEvaluate_TargetOperationNormalization is a regression test for the
+// operation-mismatch bug described in Copilot review comments
+// discussion_r4178758568 / discussion_r4178758589 / discussion_r4178758602.
+//
+// When handlePolicy evaluates a target resource, the attr carries an artificial
+// operation: the background controller synthesises Update for every scan, and the
+// CLI uses an empty "". Without normalization, a targetMatchConstraints whose
+// ResourceRules only list CREATE would be rejected by the matcher even though the
+// target was already selected for mutation.
+//
+// The fix normalises all target ResourceRules operations to OperationAll before
+// calling matcher.Match, so resource-type and selector evaluation still occur but
+// operation filtering does not.
+func TestEvaluate_TargetOperationNormalization(t *testing.T) {
+	mutateExisting := true
+
+	// Policy: trigger = configmaps/CREATE, target = deployments with CREATE-only rule.
+	// The target attr will carry an empty operation (""), simulating the CLI path.
+	// Without the fix the matcher would reject the target because "" ∉ {CREATE}.
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "op-norm"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+				MutateExistingConfiguration: &policiesv1beta1.MutateExistingConfiguration{
+					Enabled: &mutateExisting,
+				},
+			},
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}},
+			},
+			// targetMatchConstraints with CREATE-only rule for deployments.
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				MatchResources: admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{"CREATE"},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"apps"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"deployments"},
+							},
+						},
+					}},
+				},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: `Object{metadata: Object.metadata{labels: {"mutated": "true"}}}`,
+				},
+			}},
+		},
+	}
+
+	pols := []policiesv1beta1.MutatingPolicyLike{mpol}
+	provider, err := NewProvider(compiler.NewCompiler(), pols, nil, libs.NewFakeContextProvider())
+	assert.NoError(t, err)
+
+	nsResolver := func(ns string) *corev1.Namespace {
 		return &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}}
 	}
 
-	t.Run("nil matcher ignores namespaceSelector (pre-fix bug path)", func(t *testing.T) {
-		eng := NewEngine(provider, nsResolverNoLabel, nil, &fakeTypeConverter{}, &libs.FakeContextProvider{})
-		resp, err := eng.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+	// target attr simulates a deployment with an empty operation (""), as
+	// the CLI policy_processor builds it for mutateExisting targets.
+	targetDeploy := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "apps/v1", "kind": "Deployment",
+		"metadata": map[string]interface{}{"name": "nginx", "namespace": "default"},
+	}}
+	attrEmptyOp := admission.NewAttributesRecord(
+		targetDeploy, nil,
+		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		"default", "nginx",
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		"", admission.Operation("") /* CLI path: empty operation */, nil, false, &user.DefaultInfo{},
+	)
 
-		assert.NoError(t, err)
-		// With nil matcher the matchConstraints block is skipped entirely,
-		// so the policy evaluates even though namespaceSelector doesn't match.
-		// handlePolicy always appends a policy response; check that rules were actually produced.
-		if assert.Len(t, resp.Policies, 1) {
-			assert.NotEmpty(t, resp.Policies[0].Rules, "nil matcher should evaluate the policy and produce rule responses")
-		}
-	})
+	// target attr simulates the background controller's synthetic Update.
+	attrUpdateOp := admission.NewAttributesRecord(
+		targetDeploy, nil,
+		schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		"default", "nginx",
+		schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		"", admission.Update /* background path: synthetic Update */, nil, false, &user.DefaultInfo{},
+	)
 
-	t.Run("real matcher honours namespaceSelector", func(t *testing.T) {
-		eng := NewEngine(provider, nsResolverNoLabel, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
-		resp, err := eng.Evaluate(ctx, &mockAttributes{}, admissionv1.AdmissionRequest{}, predicate)
+	for _, tc := range []struct {
+		name string
+		attr admission.Attributes
+	}{
+		{"CLI empty operation", attrEmptyOp},
+		{"background synthetic Update", attrUpdateOp},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			eng := NewEngine(provider, nsResolver, matching.NewMatcher(), &fakeTypeConverter{}, &libs.FakeContextProvider{})
+			resp, err := eng.Evaluate(ctx, tc.attr, admissionv1.AdmissionRequest{
+				Operation: admissionv1.Update,
+				Name:      "nginx",
+				Namespace: "default",
+			}, predicate)
 
-		assert.NoError(t, err)
-		// With a real matcher the namespaceSelector is evaluated and the
-		// namespace lacks the "env=production" label. handlePolicy returns
-		// early with an empty Rules slice, proving the policy was filtered out.
-		if assert.Len(t, resp.Policies, 1) {
-			assert.Empty(t, resp.Policies[0].Rules, "real matcher should filter out policy when namespaceSelector doesn't match")
-		}
-	})
+			assert.NoError(t, err)
+			// The target's CREATE-only resourceRule must NOT block evaluation when the
+			// operation in attr is different (empty or Update). OperationAll normalisation
+			// ensures the rule still matches and the mutation is applied.
+			if assert.Len(t, resp.Policies, 1) {
+				if assert.NotEmpty(t, resp.Policies[0].Rules,
+					"target CREATE-only rule must not be filtered out by operation mismatch") {
+					assert.Equal(t, engineapi.RuleStatusPass, resp.Policies[0].Rules[0].Status(),
+						"mutation must succeed after operation normalisation")
+				}
+			}
+		})
+	}
 }
 
 // TestEvaluate_ExpressionOnlyTargetNotFilteredByMatcher is a regression test
