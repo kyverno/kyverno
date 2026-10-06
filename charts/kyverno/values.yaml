@@ -550,7 +550,7 @@ config:
   enableUpdateRequestCleanup: false
 
   # -- Defines the TTL for UpdateRequests if cleanup is enabled.
-  # Format is a duration string (e.g. 1h, 24h, 7d).
+  # Format is a duration string (e.g. 1h, 24h, 168h).
   updateRequestCleanupTTL: ""
 
   # -- Defines the `namespaceSelector`/`objectSelector` in the webhook configurations.

@@ -374,7 +374,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.updateRequestThreshold | int | `1000` | Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies. |
 | config.enableUpdateRequestCleanup | bool | `false` | Enable cleanup of UpdateRequests. |
-| config.updateRequestCleanupTTL | string | `""` | Defines the TTL for UpdateRequests if cleanup is enabled. Format is a duration string (e.g. 1h, 24h, 7d). |
+| config.updateRequestCleanupTTL | string | `""` | Defines the TTL for UpdateRequests if cleanup is enabled. Format is a duration string (e.g. 1h, 24h, 168h). |
 | config.webhooks | object | `{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kube-system"]}]}}` | Defines the `namespaceSelector`/`objectSelector` in the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
 | config.webhookAnnotations | object | `{"admissions.enforcer/disabled":"true"}` | Defines annotations to set on webhook configurations. |
 | config.webhookLabels | object | `{}` | Defines labels to set on webhook configurations. |
