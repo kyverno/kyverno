@@ -2,9 +2,10 @@
 #
 # Daily sweep with two once-per-PR nudges. Nothing is closed.
 #
-# 1. Stale author: a `needs-author-action` PR whose author has not pushed a commit for STALE_DAYS gets `stale` and
-#    one comment pinging its reviewers. `stale` is removed once the PR no longer needs the author, the author pushes
-#    a commit, or `no-stale` is set. Replies don't count either way.
+# 1. Stale author: a `needs-author-action` PR with no new commit (from anyone) for STALE_DAYS gets `stale` and one
+#    comment pinging its reviewers. If the PR has `merge-conflicts`, the days count from the later of the last
+#    commit and when that label was applied. `stale` is removed once the PR no longer needs the author, a commit is
+#    pushed, or `no-stale` is set. Replies don't count either way.
 # 2. Maintainer nudge: a `ready-for-review` PR with no new commit or maintainer activity for NUDGE_DAYS gets one
 #    comment (per head commit) pinging its reviewers.
 #
@@ -72,17 +73,15 @@ jobs:
 
           # One GraphQL call per PR, normalised into small files (PR data is arbitrary text, so never bash variables).
           # Only the newest 100 commits, comments, reviews and label events are read, which is enough for the
-          # newest-activity clocks. `truncated` flags a PR with more than 100 commits, whose author commit may be
-          # out of view. Helpers return non-zero on failure.
+          # newest-activity clocks. Helpers return non-zero on failure.
           pr_query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
                 pullRequest(number: $number) {
-                  createdAt
                   headRefOid
                   author { login }
                   labels(first: 100) { nodes { name } }
-                  commits(last: 100) { totalCount nodes { commit { committedDate author { user { login } } } } }
+                  commits(last: 100) { nodes { commit { committedDate } } }
                   assignees(first: 20) { nodes { login } }
                   reviewRequests(first: 50) { nodes { requestedReviewer {
                     __typename
@@ -106,10 +105,8 @@ jobs:
             done
             jq '.data.repository.pullRequest
               | {author: {login: (.author.login // "ghost")}, headRefOid,
-                 created: (.createdAt | fromdateiso8601),
-                 truncated: (.commits.totalCount > 100),
                  labels: .labels.nodes,
-                 commits: [.commits.nodes[].commit | {committedDate, login: .author.user.login}],
+                 commits: [.commits.nodes[].commit | {committedDate}],
                  assignees: .assignees.nodes,
                  reviewRequests: [.reviewRequests.nodes[].requestedReviewer
                    | select(. != null and (.login or .combinedSlug))
@@ -135,9 +132,9 @@ jobs:
             jq --arg l "$1" '[.[] | select(.l == $l) | .at | fromdateiso8601] | max // 0' label-events.json
           }
 
-          # Epoch of the author's latest commit; commits with no linked account count as theirs, maintainers' don't.
-          author_commit() {
-            jq --arg a "$1" '[.commits[] | select(.login == $a or .login == null) | .committedDate | fromdateiso8601] | max // 0' pr.json
+          # Epoch of the latest commit, from anyone: a maintainer or a second account pushing is activity too.
+          last_commit() {
+            jq '[.commits[].committedDate | fromdateiso8601] | max // 0' pr.json
           }
 
           # Epoch the PR started waiting on reviewers: newest of label time ($2), the last commit (anyone's, since a
@@ -164,13 +161,12 @@ jobs:
 
           date_of() { jq -rn --argjson t "$1" '$t | strftime("%Y-%m-%d")'; }
 
-          # PRs carrying `stale`: clear it once it no longer applies. Only a new commit from the author counts: a reply
-          # (for example "I can't continue") must not clear it.
+          # PRs carrying `stale`: clear it once it no longer applies. Only a new commit counts: a reply (for example
+          # "I can't continue") must not clear it.
           handle_stale_label() {
-            local n="$1" author last stale_at
+            local n="$1" last stale_at
             fetch "$n" || return 1
-            author=$(jq -r '.author.login' pr.json)
-            last=$(author_commit "$author") || return 1
+            last=$(last_commit) || return 1
             stale_at=$(label_time stale) || return 1
             # Unknown when the label event is outside the fetched history; leave the label alone.
             [[ "$stale_at" -eq 0 ]] && { echo "::warning::PR #$n: stale label time not found — skipping."; return 0; }
@@ -180,20 +176,18 @@ jobs:
             fi
           }
 
-          # needs-author-action PRs: mark stale after STALE_DAYS without an author commit.
+          # needs-author-action PRs: mark stale after STALE_DAYS without a new commit.
           handle_needs_author() {
-            local n="$1" author last idle marker
+            local n="$1" author last conflicted idle marker
             fetch "$n" || return 1
             author=$(jq -r '.author.login' pr.json)
-            last=$(author_commit "$author") || return 1
-            if [[ "$last" -eq 0 ]]; then
-              # No author commit in view: if more than 100 commits hide theirs, don't decide; otherwise the author's
-              # last activity is opening the PR.
-              if jq -e '.truncated' pr.json > /dev/null; then
-                echo "::warning::PR #$n: author commit not in the newest 100 — skipping."
-                return 0
-              fi
-              last=$(jq '.created' pr.json)
+            last=$(last_commit) || return 1
+            # Merge conflicts appear without any author action, so the author can't be idle for longer than the PR has
+            # conflicted: the clock starts at the later of the last commit and when `merge-conflicts` was applied
+            # (0 if outside the history). Other reasons for needs-author-action keep the commit-only clock.
+            if has_label merge-conflicts; then
+              conflicted=$(label_time merge-conflicts) || return 1
+              [[ "$conflicted" -gt "$last" ]] && last="$conflicted"
             fi
             idle=$((now - last))
             [[ "$idle" -lt "$stale_secs" ]] && return 0
@@ -202,7 +196,7 @@ jobs:
             if ! has_marker "$marker"; then
               {
                 printf '%s\n' "$marker"
-                printf '@%s there has been no activity from you on this PR for %s days (last: %s), and it is still waiting on you (`needs-author-action`), so it is now marked `stale`.\n\n' \
+                printf '@%s there has been no new commit on this PR for %s days (last: %s), and it is still waiting on you (`needs-author-action`), so it is now marked `stale`.\n\n' \
                   "$author" "$((idle / 86400))" "$(date_of "$last")"
                 printf -- '- Still working on it? Push a commit; the label clears automatically.\n'
                 printf -- '- Stuck or unsure? Say what you are stuck on and a reviewer will help.\n'
