@@ -95,7 +95,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	}
 
 	data := map[string]any{
-		RuntimeKey:  NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
+		RuntimeKey:  NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -135,7 +135,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	}
 
 	data := map[string]any{
-		RuntimeKey:  NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
+		RuntimeKey:  NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -711,7 +711,7 @@ func Test_impl_getImageData(t *testing.T) {
 	prog, err := env.Program(ast)
 	assert.NoError(t, err)
 
-	runtime := NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+	runtime := NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
 
 	out, _, err := prog.Eval(map[string]any{RuntimeKey: runtime})
 	assert.NoError(t, err, "getImageData on a real image must not fail at evaluation time")
@@ -742,7 +742,7 @@ func Test_impl_getImageData_errors(t *testing.T) {
 			assert.Nil(t, issues.Err())
 			prog, err := env.Program(ast)
 			assert.NoError(t, err)
-			runtime := NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+			runtime := NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
 
 			_, _, err = prog.Eval(map[string]any{RuntimeKey: runtime})
 			assert.ErrorContains(t, err, "failed to get imagedata")

@@ -96,7 +96,7 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 					results := NewImageVerificationResults()
 					cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 					require.NoError(t, err)
-					r := NewRuntimeForPolicy(ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
+					r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
 					verifier := &diagnosticVerifier{err: cause}
 					r.functions.cosignVerifier = verifier
 					attestors := []policiesv1beta1.Attestor{{Name: "invalid", Cosign: &policiesv1beta1.Cosign{}}, {Name: "valid", Cosign: &policiesv1beta1.Cosign{}}}
@@ -129,7 +129,7 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 					require.NoError(t, err)
 					require.False(t, found, "partial verification must not be cached")
 					require.Nil(t, ivFuncs.diagnostics)
-					other := NewRuntimeForPolicy(ivFuncs, nil, nil, nil)
+					other := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil)
 					require.Empty(t, other.VerificationDiagnostics())
 				})
 			}
@@ -149,7 +149,7 @@ func TestVerificationDiagnosticsCacheHit(t *testing.T) {
 	stored, err := cache.Set(context.Background(), policy, attestorCacheRule(signatureCacheRule, "", attestors), "image", true)
 	require.NoError(t, err)
 	require.True(t, stored)
-	r := NewRuntimeForPolicy(ivFuncs, nil, cache, nil)
+	r := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, cache, nil)
 	r.functions.diagnostics.record("previous", "invalid", "", context.Canceled)
 	r.BeginValidation()
 	ast, issues := env.Compile(`verifyImageSignatures("image",attestors) > 0`)
@@ -171,7 +171,7 @@ func TestCosignVerificationDiagnosticsFailureUncached(t *testing.T) {
 	cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	results := NewImageVerificationResults()
-	r := NewRuntimeForPolicy(ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
+	r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
 	verifier := &diagnosticVerifier{err: context.Canceled}
 	r.functions.cosignVerifier = verifier
 	attestors := []policiesv1beta1.Attestor{{Name: "invalid", Cosign: &policiesv1beta1.Cosign{}}}

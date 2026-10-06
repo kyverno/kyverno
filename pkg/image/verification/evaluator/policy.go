@@ -81,7 +81,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	if err != nil {
 		return nil, err
 	}
-	boundRuntime := imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results)
+	boundRuntime := imageverify.NewRuntimeForPolicy(ctx, c.ivFuncs, imgCtx, cache, results)
 	data[imageverify.RuntimeKey] = boundRuntime
 	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
 	if context != nil {
@@ -180,7 +180,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	// Prefetch image data through Get() one image at a time to avoid triggering
 	// racy concurrent map writes in the SDK AddImages() implementation.
 	for _, image := range imgList {
-		if _, err := imgCtx.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+		if _, err := imgCtx.Get(ctx, image, imageverify.WithRequestContext(ctx, c.authOpts), c.nameOpts); err != nil {
 			return nil, err
 		}
 	}
@@ -321,7 +321,7 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
-	data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results)
+	data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(ctx, c.ivFuncs, imgCtx, cache, results)
 	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
 	if libctx != nil {
 		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
@@ -371,7 +371,7 @@ func (c *compiledPolicy) MutateDigest(
 			} else if !apply {
 				continue
 			}
-			data, err := imgCtx.Get(ctx, image, c.authOpts, c.nameOpts)
+			data, err := imgCtx.Get(ctx, image, imageverify.WithRequestContext(ctx, c.authOpts), c.nameOpts)
 			if err != nil {
 				// Record the failure and carry on: an image that cannot be resolved must not
 				// cost the images that can their digest. ClusterPolicy pins each image
