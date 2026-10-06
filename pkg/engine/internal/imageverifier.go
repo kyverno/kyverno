@@ -2,13 +2,15 @@ package internal
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
-	"net/http"
+	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -69,6 +71,28 @@ func (iv *imageVerifier) Verify(
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
+	// rule.VerifyImages is a slice and every entry verifies under the same
+	// rule name, so the cache scope must also bind what this entry requires.
+	// Without it a permissive entry's pass is served to a stricter entry in
+	// the same rule, within a single admission.
+	cacheScope, err := VerifyImagesCacheScope(iv.rule.Name, imageVerify)
+	useCache := imageVerify.UseCache && err == nil
+	if err != nil {
+		iv.logger.Error(err, "failed to derive cache scope, caching disabled for this rule entry", "ruleName", iv.rule.Name)
+	}
+	// A hit returns a pass without running verifyImage, which is where the
+	// gates that read the request live. Those depend on the resource, not on
+	// this entry, so no key can separate two resources that differ only in
+	// what the gate would say. Verify every time instead.
+	if useCache && hasResourceDependentGate(iv.rule, imageVerify) {
+		iv.logger.V(2).Info("caching disabled: entry declares a gate evaluated against the request", "ruleName", iv.rule.Name)
+		useCache = false
+	}
+	if useCache && hasUnbindableKeyMaterial(imageVerify) {
+		iv.logger.V(2).Info("caching disabled: entry verifies with key material the cache key cannot bind", "ruleName", iv.rule.Name)
+		useCache = false
+	}
+
 	for _, imageInfo := range matchedImageInfos {
 		image := imageInfo.String()
 
@@ -81,7 +105,7 @@ func (iv *imageVerifier) Verify(
 		// to optimize away: skipping it would let a moved tag serve a stale
 		// cache hit.
 		cacheInfo := imageInfo
-		if cacheInfo.Digest == "" && iv.ivCache != nil && imageVerify.UseCache {
+		if cacheInfo.Digest == "" && iv.ivCache != nil && useCache {
 			if desc, err := iv.rclient.FetchImageDescriptor(ctx, image); err == nil {
 				cacheInfo.Digest = desc.Digest.String()
 			} else {
@@ -92,7 +116,7 @@ func (iv *imageVerifier) Verify(
 
 		isInCache := false
 		if iv.ivCache != nil {
-			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), iv.rule.Name, cacheKey, imageVerify.UseCache)
+			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), cacheScope, cacheKey, useCache)
 			if err != nil {
 				iv.logger.Error(err, "error occurred during cache get", "image", cacheKey)
 			} else {
@@ -121,7 +145,7 @@ func (iv *imageVerifier) Verify(
 						setInfo.Digest = digest
 					}
 					setKey := setInfo.String()
-					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), iv.rule.Name, setKey, imageVerify.UseCache)
+					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), cacheScope, setKey, useCache)
 					if err != nil {
 						iv.logger.Error(err, "error occurred during cache set", "image", setKey)
 					} else {
@@ -155,6 +179,122 @@ func (iv *imageVerifier) Verify(
 		}
 	}
 	return patches, responses
+}
+
+// hasUnbindableKeyMaterial reports whether any attestor verifies with key
+// material the cache key cannot bind. keys.secret, keys.kms, and a publicKeys
+// value that is a reference rather than an inline PEM all name material that is
+// fetched during verification, after the key is derived, so rotating what sits
+// behind the name leaves the hash unchanged and the old verdict live.
+//
+// The key binds the reference, which is the right thing for everything the
+// policy author wrote, but it cannot bind bytes it never sees. Rather than
+// serve a verdict whose inputs are only partly keyed, skip the cache for these
+// entries: a value that cannot be bound should not be cached.
+func hasUnbindableKeyMaterial(imageVerify kyvernov1.ImageVerification) bool {
+	for _, attestorSet := range imageVerify.Attestors {
+		if attestorSetHasUnbindableKeyMaterial(attestorSet) {
+			return true
+		}
+	}
+	for _, attestation := range imageVerify.Attestations {
+		for _, attestorSet := range attestation.Attestors {
+			if attestorSetHasUnbindableKeyMaterial(attestorSet) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func attestorSetHasUnbindableKeyMaterial(attestorSet kyvernov1.AttestorSet) bool {
+	for _, entry := range attestorSet.Entries {
+		// Walk nested attestor sets the same way verifyAttestorSet does, or a
+		// reference one level down is verified against but never inspected here.
+		if entry.Attestor != nil {
+			nested, err := kyvernov1.AttestorSetUnmarshal(entry.Attestor)
+			if err != nil {
+				// Unreadable here but verifyAttestorSet will try to read it too.
+				// Treat it as unbindable rather than assume it holds nothing.
+				return true
+			}
+			if attestorSetHasUnbindableKeyMaterial(*nested) {
+				return true
+			}
+			continue
+		}
+		if entry.Keys == nil {
+			continue
+		}
+		if entry.Keys.Secret != nil || entry.Keys.KMS != "" {
+			return true
+		}
+		// An inline key carries its own material; anything else (k8s://, a KMS
+		// url) only names it. Use the same test the verifier uses to decide
+		// whether to treat this as inline, or a KMS alias that merely contains
+		// the PEM header would be loaded as a reference and keyed as inline.
+		if entry.Keys.PublicKeys != "" &&
+			!strings.HasPrefix(strings.TrimSpace(entry.Keys.PublicKeys), "-----BEGIN PUBLIC KEY-----") {
+			return true
+		}
+	}
+	return false
+}
+
+// hasResourceDependentGate reports whether a cached pass for this entry could
+// skip a check that is evaluated against the admission request rather than
+// against the image alone. Such a check reads the request from the JSON
+// context, so a verdict cached for one resource says nothing about the next.
+//
+// The two gates have different scopes. Attestation conditions belong to the
+// entry declaring them. validate.deny does not: verifyImage runs it in a loop
+// over every entry of the rule, so the entry that executes a deny need not be
+// the one that declares it, and an entry with no attestations never reaches
+// that loop at all. Any deny anywhere in the rule therefore makes the whole
+// rule uncacheable.
+func hasResourceDependentGate(rule kyvernov1.Rule, imageVerify kyvernov1.ImageVerification) bool {
+	for _, entry := range rule.VerifyImages {
+		if entry.Validation.Deny != nil {
+			return true
+		}
+	}
+	if imageVerify.Validation.Deny != nil {
+		return true
+	}
+	for _, attestation := range imageVerify.Attestations {
+		if len(attestation.Conditions) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// VerifyImagesCacheScope binds a cache entry to the verification requirements
+// of one verifyImages entry, not merely to the rule containing it.
+//
+// Attestor material reaches this point already variable-substituted, so
+// rotating a key supplied through a {{ }} reference changes the scope and
+// invalidates the prior verdict. Material named by reference does not: keys.secret
+// and keys.kms are dereferenced during verification, after this hash is taken,
+// so rotating the Secret or the KMS key leaves the scope unchanged and the old
+// verdict usable until the entry expires.
+func VerifyImagesCacheScope(ruleName string, imageVerify kyvernov1.ImageVerification) (string, error) {
+	// Bind everything by default and subtract only what must not participate,
+	// so a newly added verification field is bound without anyone remembering
+	// to update this list.
+	scoped := *imageVerify.DeepCopy()
+	// Not a verification input, and MutateDigest can differ between the
+	// mutating and validating stages; binding either would break key symmetry
+	// and silently disable the cache rather than scope it.
+	scoped.MutateDigest = false
+	scoped.UseCache = false
+
+	encoded, err := json.Marshal(scoped)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(encoded)
+	return ruleName + ";" + hex.EncodeToString(sum[:]), nil
 }
 
 func (iv *imageVerifier) addImageVerificationMetadata(image string, status engineapi.ImageVerificationMetadataStatus) {
@@ -201,6 +341,12 @@ func (iv *imageVerifier) verifyImage(
 			imageInfo.Digest = cosignResp.Digest
 		}
 		if len(imageVerify.Attestations) == 0 {
+			// The rule's validate.deny gates live past verifyAttestations,
+			// which an entry with no attestations never reaches. Run them
+			// here or a deny on such an entry is accepted and never applied.
+			if resp, handled := iv.runValidationGates(ctx); handled {
+				return resp, cosignResp.Digest
+			}
 			return ruleResp, cosignResp.Digest
 		}
 	}
@@ -233,32 +379,19 @@ func (iv *imageVerifier) verifyAttestors(
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), cosignResponse
 }
 
-// isInfrastructureError reports whether err reflects an inability to reach or
-// authenticate with the registry, rather than a genuine verification
-// rejection. A configured constraint that could not be checked must map to
-// Error, not Fail: reporting Fail here would claim a check happened when it
-// didn't.
+// isInfrastructureError reports whether err reflects an inability to reach the
+// registry at all. Registry HTTP responses are deliberately excluded: Error
+// only blocks under failurePolicy Fail, so treating an auth or 5xx response as
+// Error would admit the image under failurePolicy Ignore.
 func isInfrastructureError(err error) bool {
 	if err == nil {
 		return false
 	}
 	var netErr *net.OpError
-	if errors.As(err, &netErr) {
-		return true
-	}
-	var transportErr *transport.Error
-	if errors.As(err, &transportErr) {
-		switch transportErr.StatusCode {
-		case http.StatusUnauthorized, http.StatusForbidden,
-			http.StatusInternalServerError, http.StatusBadGateway,
-			http.StatusServiceUnavailable, http.StatusGatewayTimeout:
-			return true
-		}
-	}
-	return false
+	return errors.As(err, &netErr)
 }
 
-// handle registry network/auth errors as a rule error (instead of a policy failure)
+// handle registry network errors as a rule error (instead of a policy failure)
 func (iv *imageVerifier) handleRegistryErrors(image string, err error) *engineapi.RuleResponse {
 	msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
 	if isInfrastructureError(err) {
@@ -367,21 +500,32 @@ func (iv *imageVerifier) verifyAttestations(
 		iv.logger.V(4).Info("attestation checks passed", "path", path, "image", imageInfo.String(), "type", attestation.Type)
 	}
 
-	if iv.rule.HasValidateImageVerification() {
-		for _, imageVerify := range iv.rule.VerifyImages {
-			if err := iv.validate(imageVerify, ctx); err != nil {
-				msg := fmt.Sprintf("validation in verifyImages failed: %v", err)
-				iv.logger.Error(err, "validation in verifyImages failed")
-				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
-			}
-		}
-		msg := fmt.Sprintf("verifyImages validation is passed in %v rule", iv.rule.Name)
-		return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
+	if resp, handled := iv.runValidationGates(ctx); handled {
+		return resp, imageInfo.Digest
 	}
 
 	msg := fmt.Sprintf("verified image attestations for %s", image)
 	iv.logger.V(2).Info(msg)
 	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), imageInfo.Digest
+}
+
+// runValidationGates evaluates validate.deny for every entry of the rule, not
+// just the one being verified: a deny is declared on an entry but applies to
+// the rule. Reports whether the rule declares any validation at all, so a
+// caller can fall back to its own response when it does not.
+func (iv *imageVerifier) runValidationGates(ctx context.Context) (*engineapi.RuleResponse, bool) {
+	if !iv.rule.HasValidateImageVerification() {
+		return nil, false
+	}
+	for _, imageVerify := range iv.rule.VerifyImages {
+		if err := iv.validate(imageVerify, ctx); err != nil {
+			msg := fmt.Sprintf("validation in verifyImages failed: %v", err)
+			iv.logger.Error(err, "validation in verifyImages failed")
+			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), true
+		}
+	}
+	msg := fmt.Sprintf("verifyImages validation is passed in %v rule", iv.rule.Name)
+	return engineapi.RulePass(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), true
 }
 
 func (iv *imageVerifier) verifyAttestorSet(

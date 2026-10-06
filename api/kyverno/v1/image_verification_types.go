@@ -552,6 +552,10 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 	copy.Issuer = ""
 	copy.Subject = ""
 	copy.Roots = ""
+	// Clearing Key keeps Convert idempotent. Without it a second call appends
+	// a duplicate attestor set, so the mutate and validate paths disagree on
+	// the attestors for any rule using the deprecated key shorthand.
+	copy.Key = ""
 
 	if iv.Image != "" {
 		copy.ImageReferences = append(copy.ImageReferences, iv.Image)
@@ -576,15 +580,16 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		}
 
 		attestorSet.Entries = append(attestorSet.Entries, attestor)
-		if len(iv.Attestations) > 0 {
-			for i := range iv.Attestations {
-				copy.Attestations[i].Attestors = append(copy.Attestations[i].Attestors, attestorSet)
+		if len(copy.Attestations) > 0 {
+			for i := range copy.Attestations {
+				// Deep copy per attestation: Attestor holds pointers, so sharing
+				// one set would alias every attestation's key material.
+				copy.Attestations[i].Attestors = append(copy.Attestations[i].Attestors, *attestorSet.DeepCopy())
 			}
 		} else {
 			copy.Attestors = append(copy.Attestors, attestorSet)
 		}
 	}
 
-	copy.Attestations = iv.Attestations
 	return copy
 }

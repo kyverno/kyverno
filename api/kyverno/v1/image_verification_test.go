@@ -376,3 +376,71 @@ func Test_Enforce_VerifyImageRule(t *testing.T) {
 		}
 	}
 }
+
+// TestConvertKeepsSynthesizedAttestorOnAttestations pins that the attestor
+// Convert builds from the deprecated key shorthand survives onto the
+// attestations it was attached to. It used to be discarded by a trailing
+// reassignment, which left the entry with no attestor anywhere: verification
+// then ran against an empty attestor set, which resolves to the public Fulcio
+// roots with no issuer or subject constraint, so a rule that named a specific
+// public key accepted anything signed through public Sigstore.
+func TestConvertKeepsSynthesizedAttestorOnAttestations(t *testing.T) {
+	const publicKey = "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE\n-----END PUBLIC KEY-----"
+
+	iv := ImageVerification{
+		ImageReferences: []string{"ghcr.io/example/*"},
+		Key:             publicKey,
+		Attestations: []Attestation{
+			{Type: "https://slsa.dev/provenance/v0.2"},
+			{Type: "https://example.com/custom"},
+		},
+	}
+
+	converted := iv.Convert()
+
+	assert.Equal(t, 0, len(converted.Attestors), "the attestor belongs to the attestations, not to the entry")
+	assert.Equal(t, len(iv.Attestations), len(converted.Attestations))
+
+	for i, attestation := range converted.Attestations {
+		assert.Assert(t, len(attestation.Attestors) > 0,
+			"attestation %d (%s) must carry the attestor synthesized from key", i, attestation.Type)
+		entries := attestation.Attestors[0].Entries
+		assert.Assert(t, len(entries) > 0, "attestation %d has an empty attestor set", i)
+		assert.Assert(t, entries[0].Keys != nil, "attestation %d lost the static key attestor", i)
+		assert.Equal(t, publicKey, entries[0].Keys.PublicKeys, "attestation %d has the wrong key", i)
+	}
+
+	// Each attestation must own its attestor: Attestor holds pointers, so one
+	// shared set would make a later edit to one attestation change the others.
+	first := converted.Attestations[0].Attestors[0].Entries[0].Keys
+	second := converted.Attestations[1].Attestors[0].Entries[0].Keys
+	assert.Assert(t, first != second, "attestations must not share one StaticKeyAttestor")
+	first.PublicKeys = "mutated"
+	assert.Equal(t, publicKey, second.PublicKeys, "editing one attestation's key changed another")
+
+	// Positive control: with no attestations the attestor still lands on the
+	// entry itself, which is the path that already worked.
+	entryOnly := ImageVerification{ImageReferences: []string{"ghcr.io/example/*"}, Key: publicKey}
+	convertedEntry := entryOnly.Convert()
+	assert.Equal(t, 1, len(convertedEntry.Attestors))
+	assert.Equal(t, publicKey, convertedEntry.Attestors[0].Entries[0].Keys.PublicKeys)
+}
+
+// TestConvertIsIdempotent pins that Convert can run twice without duplicating
+// the attestor it synthesises. The mutate and validate paths convert a
+// different number of times, so a non-idempotent Convert makes them disagree
+// on the attestors for any rule using the deprecated key shorthand.
+func TestConvertIsIdempotent(t *testing.T) {
+	iv := ImageVerification{
+		ImageReferences: []string{"ghcr.io/example/*"},
+		Key:             "-----BEGIN PUBLIC KEY-----\nabc\n-----END PUBLIC KEY-----",
+	}
+
+	once := iv.Convert()
+	twice := once.Convert()
+
+	assert.Equal(t, 1, len(once.Attestors))
+	assert.Equal(t, len(once.Attestors), len(twice.Attestors), "a second Convert must not append another attestor set")
+	assert.Equal(t, "", once.Key, "Key must be cleared once it has been folded into an attestor")
+	assert.DeepEqual(t, once.Attestors, twice.Attestors)
+}

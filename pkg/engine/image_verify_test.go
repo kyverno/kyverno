@@ -1871,7 +1871,11 @@ func Test_CrossPathCacheKeySymmetry(t *testing.T) {
 	// entry the mutate side just wrote.
 	patchedImageInfo, err := apiimage.GetImageInfo(patchedImage, cfg)
 	assert.NilError(t, err)
-	found, err := ivCache.Get(context.TODO(), mutateCtx.Policy(), "check-image", patchedImageInfo.String(), true)
+	// The scope binds the entry's own requirements, so derive it the same way
+	// production does rather than assuming the bare rule name.
+	cacheScope, err := internal.VerifyImagesCacheScope("check-image", *mutateCtx.Policy().GetSpec().Rules[0].VerifyImages[0].Convert())
+	assert.NilError(t, err)
+	found, err := ivCache.Get(context.TODO(), mutateCtx.Policy(), cacheScope, patchedImageInfo.String(), true)
 	assert.NilError(t, err)
 	assert.Assert(t, found, "the key the validate side derives from the patched resource must hit the entry the mutate side wrote")
 
@@ -2094,4 +2098,95 @@ func Test_UpdateDoesNotTrustPriorStageMetadataOnUnchangedImage(t *testing.T) {
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResponse.PolicyResponse.Rules[0].Message())
 	assert.Assert(t, strings.Contains(engineResponse.PolicyResponse.Rules[0].Message(), "verified image signatures"),
 		"the pass must come from a genuine signature check, not from the old resource's verification metadata: %s", engineResponse.PolicyResponse.Rules[0].Message())
+}
+
+// Test_VerifyImagesEntryScopeIsolatesEntries pins that two verifyImages entries
+// under a single rule cannot share a cached verdict. rule.VerifyImages is a
+// slice and every entry verifies under the same rule name, so before the scope
+// bound the entry's own requirements, a pass written by a permissive entry was
+// served to a stricter entry in the same rule, within one admission.
+func Test_VerifyImagesEntryScopeIsolatesEntries(t *testing.T) {
+	const ruleName = "check-image"
+	const pinned = "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	entry := func(publicKey string) kyvernov1.ImageVerification {
+		return kyvernov1.ImageVerification{
+			ImageReferences: []string{"*"},
+			Attestors: []kyvernov1.AttestorSet{{
+				Entries: []kyvernov1.Attestor{{
+					Keys: &kyvernov1.StaticKeyAttestor{PublicKeys: publicKey},
+				}},
+			}},
+		}
+	}
+
+	permissive := entry("-----BEGIN PUBLIC KEY-----\npermissive\n-----END PUBLIC KEY-----")
+	strict := entry("-----BEGIN PUBLIC KEY-----\nstrict\n-----END PUBLIC KEY-----")
+
+	permissiveScope, err := internal.VerifyImagesCacheScope(ruleName, permissive)
+	assert.NilError(t, err)
+	strictScope, err := internal.VerifyImagesCacheScope(ruleName, strict)
+	assert.NilError(t, err)
+	assert.Assert(t, permissiveScope != strictScope, "entries with different attestors must not share a cache scope")
+
+	// 24h, not a bare 600: WithTTLDuration takes a Duration, so 600 would be
+	// 600ns and every entry would expire before the lookup.
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24*time.Hour),
+	)
+	assert.NilError(t, err)
+
+	policyContext := buildContext(t, cacheSymmetryPolicy, testResource, "")
+	policy := policyContext.Policy()
+
+	stored, err := ivCache.Set(context.TODO(), policy, permissiveScope, pinned, true)
+	assert.NilError(t, err)
+	assert.Assert(t, stored)
+
+	found, err := ivCache.Get(context.TODO(), policy, strictScope, pinned, true)
+	assert.NilError(t, err)
+	assert.Assert(t, !found, "a pass written by the permissive entry must not be served to the stricter entry")
+
+	found, err = ivCache.Get(context.TODO(), policy, permissiveScope, pinned, true)
+	assert.NilError(t, err)
+	assert.Assert(t, found, "the entry that wrote the verdict must still hit it")
+
+	// Required test 4 is "binds all security-relevant inputs", not just the
+	// attestors: anything that changes what verification means must scope too.
+	base := entry("-----BEGIN PUBLIC KEY-----\nbase\n-----END PUBLIC KEY-----")
+	baseScope, err := internal.VerifyImagesCacheScope(ruleName, base)
+	assert.NilError(t, err)
+
+	variants := map[string]func(*kyvernov1.ImageVerification){
+		"type":                 func(v *kyvernov1.ImageVerification) { v.Type = kyvernov1.Notary },
+		"repository":           func(v *kyvernov1.ImageVerification) { v.Repository = "ghcr.io/attacker/sigs" },
+		"skipImageReferences":  func(v *kyvernov1.ImageVerification) { v.SkipImageReferences = []string{"ghcr.io/skipped/*"} },
+		"additionalExtensions": func(v *kyvernov1.ImageVerification) { v.AdditionalExtensions = map[string]string{"k": "v"} },
+		"imageRegistryCredentials": func(v *kyvernov1.ImageVerification) {
+			v.ImageRegistryCredentials = &kyvernov1.ImageRegistryCredentials{AllowInsecureRegistry: true}
+		},
+		"imageReferences": func(v *kyvernov1.ImageVerification) { v.ImageReferences = []string{"ghcr.io/other/*"} },
+	}
+	for name, mutate := range variants {
+		variant := *base.DeepCopy()
+		mutate(&variant)
+		scope, err := internal.VerifyImagesCacheScope(ruleName, variant)
+		assert.NilError(t, err)
+		assert.Assert(t, scope != baseScope, "changing %s must change the cache scope", name)
+	}
+
+	// Cache-control and stage-variable fields must NOT scope, or the mutate and
+	// validate sides would derive different keys and caching would silently die.
+	for name, mutate := range map[string]func(*kyvernov1.ImageVerification){
+		"mutateDigest": func(v *kyvernov1.ImageVerification) { v.MutateDigest = !v.MutateDigest },
+		"useCache":     func(v *kyvernov1.ImageVerification) { v.UseCache = !v.UseCache },
+	} {
+		variant := *base.DeepCopy()
+		mutate(&variant)
+		scope, err := internal.VerifyImagesCacheScope(ruleName, variant)
+		assert.NilError(t, err)
+		assert.Equal(t, baseScope, scope, "%s must not affect the cache scope", name)
+	}
 }

@@ -68,7 +68,9 @@ func SubstituteRuleVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterfac
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 		}
-		if hasValidateImageVerification {
+		// Deny is optional per entry, while hasValidateImageVerification is
+		// true when ANY entry carries a validate block, message-only included.
+		if hasValidateImageVerification && ruleCopy.VerifyImages[i].Validation.Deny != nil {
 			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = nil
 		}
 	}
@@ -83,7 +85,9 @@ func SubstituteRuleVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterfac
 		for j := range ruleCopy.VerifyImages[i].Attestations {
 			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
 		}
-		if hasValidateImageVerification {
+		if hasValidateImageVerification &&
+			ruleCopy.VerifyImages[i].Validation.Deny != nil &&
+			rule.VerifyImages[i].Validation.Deny != nil {
 			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = rule.VerifyImages[i].Validation.Deny.RawAnyAllConditions
 		}
 	}
