@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 )
 

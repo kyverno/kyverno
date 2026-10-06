@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,6 +23,25 @@ type EvaluationResult struct {
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
 	PatchedResource  unstructured.Unstructured
+	RefusedException *RefusedException
+	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
+	// with tracing on, so callers must nil-check it. Only Match, Variables and Verdict are
+	// filled here; the policy/resource header and Scope are unknown at this level and are left
+	// for the caller to fill in.
+	Trace *trace.Decision
+	// Skipped is set when a match condition excluded the resource. Without tracing that case
+	// returns a nil result, and it still does; a non-nil skipped result is only returned when
+	// tracing is on, so the match traces are not lost. Consumers must treat it exactly like nil.
+	Skipped bool
+}
+
+// RefusedException records an exception that matched but whose compensating controls did not
+// hold. It rides alongside the policy's own outcome: a compliant resource needs no exception and
+// must not be denied by one, so this is only reported, as the message, once the policy failed.
+type RefusedException struct {
+	Exception *policiesv1beta1.PolicyException
+	Message   string
+	Error     error
 }
 
 type evaluationData struct {
@@ -32,10 +53,21 @@ type evaluationData struct {
 	Variables *lazy.MapValue
 }
 
+// prepareK8sData assembles the CEL activation data for a single evaluation.
+// requestMapFn lazily builds the `request` value: the caller (see
+// compiler.BuildRawRequestMap) wraps it once per admission request in a
+// memoizing func (for example sync.OnceValues) so it is built at most once
+// even though it is threaded into every policy's evaluation - but only if
+// some policy actually reaches this function, since matching happens before
+// prepareK8sData is ever called. A request matching zero policies therefore
+// never pays the request-map build cost. When requestMapFn is nil (raw
+// payload callers, or the synthetic-request carve-out for ExtractionMode),
+// the map is built locally from request instead.
 func prepareK8sData(
 	attr admission.Attributes,
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
+	requestMapFn func() (map[string]any, error),
 	context libs.Context,
 ) (evaluationData, error) {
 	if attr == nil {
@@ -53,7 +85,12 @@ func prepareK8sData(
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
 	}
-	requestVal, err := utils.ConvertObjectToUnstructured(request)
+	var requestMap map[string]any
+	if requestMapFn != nil {
+		requestMap, err = requestMapFn()
+	} else {
+		requestMap, err = compiler.BuildRawRequestMap(request)
+	}
 	if err != nil {
 		return evaluationData{}, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
 	}
@@ -61,7 +98,7 @@ func prepareK8sData(
 		Namespace: namespaceVal,
 		Object:    objectVal,
 		OldObject: oldObjectVal,
-		Request:   requestVal.Object,
+		Request:   requestMap,
 		Context:   context,
 	}, nil
 }

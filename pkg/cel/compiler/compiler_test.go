@@ -223,7 +223,7 @@ func TestCompileValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env, err := NewBaseEnv()
 			assert.NoError(t, err)
-			got, errs := CompileValidation(nil, env, tt.rule)
+			got, errs := CompileValidation(nil, env, tt.rule, false)
 			assert.Equal(t, tt.wantErrs, errs)
 			assert.Equal(t, tt.wantMessage, got.Message)
 			assert.Equal(t, tt.wantMessageExpr, got.MessageExpression != nil)

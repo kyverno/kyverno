@@ -54,6 +54,7 @@ kyverno apply [flags]
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
       --exceptions-within-policies         Evaluate policy exceptions from the policies path
       --exceptions-within-resources        Evaluate policy exceptions from the resources path
+      --explain                            Print how each ValidatingPolicy reached its result: whether it applied, its match conditions, variables and validations (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive
       --generate-exceptions                Generate policy exceptions for each violation
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
@@ -82,6 +83,7 @@ kyverno apply [flags]
   -f, --values-file string                 File containing values for policy variables
       --warn-exit-code int                 Set the exit code for warnings; if failures or errors are found, will exit 1
       --warn-no-pass                       Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag
+      --warnings-as-errors                 Treat deprecation warnings as errors
 ```
 
 ### Options inherited from parent commands

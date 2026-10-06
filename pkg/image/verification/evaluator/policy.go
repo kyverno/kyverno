@@ -3,28 +3,33 @@ package evaluator
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/admission"
@@ -38,20 +43,28 @@ type EvaluationResult struct {
 	Result           bool
 	AuditAnnotations map[string]string
 	Exceptions       []*policiesv1beta1.PolicyException
+	// MatchedImages is the set matchImageReferences selected -- what EnforceRequired
+	// checks, once every policy in the request has been evaluated.
+	MatchedImages []string
 }
 
 type CompiledPolicy interface {
-	Evaluate(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, bool, libs.Context) (*EvaluationResult, error)
-	MutateDigest(context.Context, imagedataloader.ImageContext, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, config.Configuration) ([]jsonpatch.JsonPatchOperation, error)
+	// Evaluate does not enforce validationConfigurations.required: the evidence may
+	// still come from another policy later in the same request. Call
+	// EnforceRequired on every passing policy only after all have evaluated.
+	Evaluate(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
+	EnforceRequired(images []string, verifications *imageverify.ImageVerificationResults) error
+	MutateDigest(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
 }
 
 type compiledPolicy struct {
+	namespace            string
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	verifyDigest         bool
 	matchConditions      []cel.Program
 	matchImageReferences []engine.MatchImageReference
 	validations          []engine.Validation
-	imageExtractors      map[string]engine.ImageExtractor
+	imageExtractors      engine.ImageExtractorProfiles
 	attestors            []*variables.CompiledAttestor
 	attestationList      map[string]string
 	auditAnnotations     map[string]cel.Program
@@ -59,10 +72,22 @@ type compiledPolicy struct {
 	nameOpts             []name.Option
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
+	validationConfig     policiesv1alpha1.ValidationConfiguration
+	ivFuncs              *imageverify.IvFuncs
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.ImageContext, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, context libs.Context) (*EvaluationResult, error) {
-	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
+func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *imageverify.ImageVerificationResults, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
+	data, err := prepareK8sData(attr, request, namespace, isK8s, requestMapFn)
+	if err != nil {
+		return nil, err
+	}
+	boundRuntime := imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results)
+	data[imageverify.RuntimeKey] = boundRuntime
+	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
+	if context != nil {
+		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), context.GetHTTPMocks())}
+	}
+	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
 	}
@@ -72,20 +97,32 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	// check if the resource matches an exception
 	if len(c.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
+		fullExemptionFound := false
 		for _, polex := range c.exceptions {
-			match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+			match, err := c.match(ctx, data, polex.MatchConditions)
 			if err != nil {
+				if fullExemptionFound {
+					// exception already granted; a broken later exception must not negate it
+					continue
+				}
 				return nil, err
 			}
 			if match {
+				// ImageValidatingPolicy does not yet expose exceptions.allowedImages /
+				// exceptions.allowedValues to CEL the way vpol/gpol/mpol do. A partial
+				// exception (Images or AllowedValues set) must not fully skip evaluation
+				// or every image on the resource is exempted, including ones never listed.
+				if len(polex.Exception.Spec.Images) > 0 || len(polex.Exception.Spec.AllowedValues) > 0 {
+					continue
+				}
 				matchedExceptions = append(matchedExceptions, polex.Exception)
+				fullExemptionFound = true
 			}
 		}
-		if len(matchedExceptions) > 0 {
+		if fullExemptionFound {
 			return &EvaluationResult{Exceptions: matchedExceptions}, nil
 		}
 	}
-	data := map[string]any{}
 	vars := lazy.NewMapValue(engine.VariablesType)
 	for name, variable := range c.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
@@ -100,35 +137,19 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		})
 	}
 	if isK8s {
-		namespaceVal, err := objectToResolveVal(namespace)
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-		}
-		requestVal, err := convertObjectToUnstructured(request)
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		}
-		objectVal, err := objectToResolveVal(attr.GetObject())
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-		}
-		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
-		if err != nil {
-			return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-		}
-		data[engine.NamespaceObjectKey] = namespaceVal
-		data[engine.RequestKey] = requestVal.Object
-		data[engine.ObjectKey] = objectVal
-		data[engine.OldObjectKey] = oldObjectVal
 		data[engine.VariablesKey] = vars
-		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: context}
+		// The activation overrides the Lib's cel.Globals binding, so confine here too
+		// or a namespaced policy would reach the raw context at evaluation time.
+		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(context, c.namespace)}
 		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
-	} else {
-		data[engine.ObjectKey] = request
 	}
 
-	images, err := engine.ExtractImages(data, c.imageExtractors)
+	var gvr *metav1.GroupVersionResource
+	if req, ok := request.(*admissionv1.AdmissionRequest); ok {
+		gvr = req.RequestResource
+	}
+	images, err := engine.ExtractImages(data, c.imageExtractors.ForResource(gvr))
 	if err != nil {
 		return nil, err
 	}
@@ -146,6 +167,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		}
 	}
 
+	// not reset: verification results are shared across the request, an earlier
+	// policy's verification must stay visible to the catch-all required policy
+
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
 	result, err := c.checkDigests(imgList)
@@ -153,8 +177,12 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return result, err
 	}
 
-	if err := ictx.AddImages(ctx, imgList, c.authOpts, c.nameOpts); err != nil {
-		return nil, err
+	// Prefetch image data through Get() one image at a time to avoid triggering
+	// racy concurrent map writes in the SDK AddImages() implementation.
+	for _, image := range imgList {
+		if _, err := imgCtx.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+			return nil, err
+		}
 	}
 
 	data[engine.ImagesKey] = filteredImages
@@ -172,7 +200,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	data[engine.AttestorsKey] = attestors
 
 	for i, v := range c.validations {
+		boundRuntime.BeginValidation()
 		out, _, err := v.Program.ContextEval(ctx, data)
+		diagnostics := boundRuntime.VerificationDiagnostics()
 		if err != nil {
 			return nil, err
 		}
@@ -192,6 +222,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 			if message == "" {
 				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
+			message += diagnostics
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
 				return nil, err
@@ -202,16 +233,19 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 				AuditAnnotations: auditAnnotations,
 				Index:            i,
 				Error:            err,
+				MatchedImages:    imgList,
 			}, nil
 		} else if err != nil {
 			return &EvaluationResult{Error: err}, nil
 		}
 	}
+
 	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
 		return nil, err
 	}
-	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+	// required is enforced by the caller via EnforceRequired, not here
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, MatchedImages: imgList}, nil
 }
 
 func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, error) {
@@ -236,6 +270,28 @@ func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, erro
 	return nil, nil
 }
 
+// EnforceRequired checks images (the policy's own matched set) against the
+// request-scoped verification results, so the evidence can come from any policy
+// in the request -- the catch-all model. Must be called only after every policy
+// in the request has evaluated, or a catch-all run first would deny images a
+// later policy verifies.
+func (c *compiledPolicy) EnforceRequired(images []string, verifications *imageverify.ImageVerificationResults) error {
+	if c.validationConfig.Required != nil && !*c.validationConfig.Required {
+		return nil
+	}
+	for _, image := range images {
+		verified, attempted := verifications.Status(image)
+		if verified {
+			continue
+		}
+		if attempted {
+			return fmt.Errorf("image %s failed signature or attestation verification", image)
+		}
+		return fmt.Errorf("image %s is not verified: no policy performed a signature or attestation check on it", image)
+	}
+	return nil
+}
+
 // MutateDigest pins the tag of every image matched by the policy's matchImageReferences
 // to its resolved digest, provided the image does not already carry a digest. It only
 // applies to images extracted from well-known container fields (containers, initContainers,
@@ -250,28 +306,45 @@ func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, erro
 // digest, matching how ClusterPolicy pins each image independently.
 func (c *compiledPolicy) MutateDigest(
 	ctx context.Context,
-	ictx imagedataloader.ImageContext,
+	imgCtx imagedataloader.ImageContext,
+	cache imageverifycache.Client,
+	results *imageverify.ImageVerificationResults,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
 	resource unstructured.Unstructured,
+	requestMapFn func() (map[string]any, error),
 	cfg config.Configuration,
+	libctx libs.Context,
 ) ([]jsonpatch.JsonPatchOperation, error) {
-	matched, err := c.match(ctx, attr, request, namespace, c.matchConditions)
+	data, err := prepareK8sData(attr, request, namespace, isK8s(request), requestMapFn)
+	if err != nil {
+		return nil, err
+	}
+	data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results)
+	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
+	if libctx != nil {
+		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
+	}
+	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
 	}
 	if !matched {
 		return nil, nil
 	}
-	// skip mutation if the resource matches an exception; the validating webhook
-	// will skip the corresponding validation for the same resource
+	// skip mutation only for a full exemption (no Images / AllowedValues). Partial
+	// exceptions must not skip digest pinning for the whole resource — same rule as
+	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
-		match, err := c.match(ctx, attr, request, namespace, polex.MatchConditions)
+		match, err := c.match(ctx, data, polex.MatchConditions)
 		if err != nil {
 			return nil, err
 		}
 		if match {
+			if len(polex.Exception.Spec.Images) > 0 || len(polex.Exception.Spec.AllowedValues) > 0 {
+				continue
+			}
 			return nil, nil
 		}
 	}
@@ -298,7 +371,7 @@ func (c *compiledPolicy) MutateDigest(
 			} else if !apply {
 				continue
 			}
-			data, err := ictx.Get(ctx, image, c.authOpts, c.nameOpts)
+			data, err := imgCtx.Get(ctx, image, c.authOpts, c.nameOpts)
 			if err != nil {
 				// Record the failure and carry on: an image that cannot be resolved must not
 				// cost the images that can their digest. ClusterPolicy pins each image
@@ -334,38 +407,16 @@ func (c *compiledPolicy) evaluateAuditAnnotations(ctx context.Context, data map[
 	return auditAnnotations, nil
 }
 
+// match evaluates matchConditions against activation data assembled once by the
+// caller (Evaluate or MutateDigest, via prepareK8sData) -- it does not build or
+// convert anything itself, so it can be called once for the policy's own
+// matchConditions and once per exception without repeating the request-map
+// build or the object/oldObject conversion.
 func (p *compiledPolicy) match(
 	ctx context.Context,
-	attr admission.Attributes,
-	request interface{},
-	namespace runtime.Object,
+	data map[string]any,
 	matchConditions []cel.Program,
 ) (bool, error) {
-	data := make(map[string]any)
-	if isK8s(request) {
-		namespaceVal, err := objectToResolveVal(namespace)
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
-		}
-		requestVal, err := convertObjectToUnstructured(request)
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
-		}
-		objectVal, err := objectToResolveVal(attr.GetObject())
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
-		}
-		oldObjectVal, err := objectToResolveVal(attr.GetOldObject())
-		if err != nil {
-			return false, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
-		}
-		data[engine.NamespaceObjectKey] = namespaceVal
-		data[engine.RequestKey] = requestVal.Object
-		data[engine.ObjectKey] = objectVal
-		data[engine.OldObjectKey] = oldObjectVal
-	} else {
-		data[engine.ObjectKey] = request
-	}
 	var errs []error
 	for _, matchCondition := range matchConditions {
 		// evaluate the condition
@@ -396,24 +447,52 @@ func (p *compiledPolicy) match(
 	}
 }
 
-func convertObjectToUnstructured(obj interface{}) (*unstructured.Unstructured, error) {
-	if obj == nil || reflect.ValueOf(obj).IsNil() {
-		return &unstructured.Unstructured{Object: nil}, nil
+// prepareK8sData assembles CEL activation data once per Evaluate/MutateDigest call.
+// requestMapFn is a memoized request-map builder shared across every policy in the
+// admission request; pass nil to build the map from request instead (JSON mode,
+// ExtractionMode synthetic requests). The request map MUST be treated as immutable.
+//
+// TODO(#17586): this helper is a twin of vpol's prepareK8sData
+// (pkg/cel/policies/vpol/compiler/eval.go). Both should move behind a shared
+// choke point in pkg/cel/compiler so a fourth engine cannot reintroduce the
+// per-policy rebuild this design eliminates here and in #17572.
+func prepareK8sData(
+	attr admission.Attributes,
+	request interface{},
+	namespace runtime.Object,
+	isK8s bool,
+	requestMapFn func() (map[string]any, error),
+) (map[string]any, error) {
+	data := map[string]any{}
+	if !isK8s {
+		data[engine.ObjectKey] = request
+		return data, nil
 	}
-	ret, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	namespaceVal, err := utils.ObjectToResolveVal(namespace)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to prepare namespace variable for evaluation: %w", err)
 	}
-	return &unstructured.Unstructured{Object: ret}, nil
-}
-
-func objectToResolveVal(r runtime.Object) (interface{}, error) {
-	if r == nil || reflect.ValueOf(r).IsNil() {
-		return nil, nil
-	}
-	v, err := convertObjectToUnstructured(r)
+	objectVal, err := utils.ObjectToResolveVal(attr.GetObject())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to prepare object variable for evaluation: %w", err)
 	}
-	return v.Object, nil
+	oldObjectVal, err := utils.ObjectToResolveVal(attr.GetOldObject())
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare oldObject variable for evaluation: %w", err)
+	}
+	var requestMap map[string]any
+	if requestMapFn != nil {
+		requestMap, err = requestMapFn()
+	} else {
+		admissionReq, _ := request.(*admissionv1.AdmissionRequest)
+		requestMap, err = engine.BuildRawRequestMap(admissionReq)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare request variable for evaluation: %w", err)
+	}
+	data[engine.NamespaceObjectKey] = namespaceVal
+	data[engine.RequestKey] = requestMap
+	data[engine.ObjectKey] = objectVal
+	data[engine.OldObjectKey] = oldObjectVal
+	return data, nil
 }

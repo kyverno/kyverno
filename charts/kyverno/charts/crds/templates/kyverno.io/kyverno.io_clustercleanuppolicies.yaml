@@ -10,6 +10,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: clustercleanuppolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -31,6 +32,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    deprecated: true
+    deprecationWarning: kyverno.io/v2 ClusterCleanupPolicy is deprecated and will
+      be removed in a future release; migrate to DeletingPolicy (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2
     schema:
       openAPIV3Schema:
@@ -1325,6 +1330,9 @@ spec:
       name: Age
       type: date
     deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 ClusterCleanupPolicy is deprecated and
+      will be removed in a future release; migrate to DeletingPolicy (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2beta1
     schema:
       openAPIV3Schema:

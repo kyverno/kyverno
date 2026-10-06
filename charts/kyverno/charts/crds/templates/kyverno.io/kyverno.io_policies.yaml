@@ -10,6 +10,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -60,6 +61,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v1 Policy is deprecated and will be removed in
+      a future release; migrate to NamespacedValidatingPolicy and the other namespaced
+      policy types (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v1
     schema:
       openAPIV3Schema:
@@ -10365,6 +10370,10 @@ spec:
     - jsonPath: .status.conditions[?(@.type == "Ready")].message
       name: MESSAGE
       type: string
+    deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 Policy is deprecated and will be removed
+      in a future release; migrate to NamespacedValidatingPolicy and the other namespaced
+      policy types (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2beta1
     schema:
       openAPIV3Schema:
