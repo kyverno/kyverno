@@ -107,25 +107,96 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	if context != nil {
 		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), context.GetHTTPMocks())}
 	}
-	matched, err := c.match(ctx, data, c.matchConditions)
+	// The traces below are only appended to when c.trace is set, and decision() returns nil
+	// otherwise, so with tracing off nothing here changes what Evaluate returns.
+	var matchTraces, variableTraces []trace.NamedExpressionTrace
+	var validationTraces []trace.ValidationTrace
+	// excludedBy is the match condition that came out false, if any; erroredMatches are the ones
+	// that errored or did not return a bool. With failurePolicy Ignore, errors alone skip the
+	// policy after every condition has run, so the skip message needs these.
+	var excludedBy string
+	var erroredMatches []string
+	// validating is set once the validations start, so only then are the ones never reached
+	// listed as not run
+	var validating bool
+	// verdict tracks the validation that decides the outcome, or the step that failed before any
+	// validation ran
+	verdict := trace.VerdictTrace{Status: trace.VerdictPass}
+	decision := func() *trace.Decision {
+		if !c.trace {
+			return nil
+		}
+		validations := validationTraces
+		if validating {
+			// evaluation stops at the first validation that does not pass; the rest are listed so
+			// the reader sees them, but they are never evaluated just for the trace
+			for i := len(validationTraces); i < len(c.validations); i++ {
+				validations = append(validations, trace.ValidationTrace{
+					Index:           i,
+					Status:          trace.VerdictNotRun,
+					ExpressionTrace: buildExpressionTrace(c.validations[i].AST, nil, nil, nil),
+				})
+			}
+		}
+		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Validations: validations, Verdict: verdict}
+	}
+	// failed is every error return from here on: unchanged without tracing, and with tracing the
+	// error stays the second return value while the result carries what was traced before it
+	failed := func(err error) (*EvaluationResult, error) {
+		if !c.trace {
+			return nil, err
+		}
+		verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+		return &EvaluationResult{Trace: decision()}, err
+	}
+	var recordMatch func(int, ref.Val, error)
+	if c.trace {
+		// out and err are the deciding evaluation's; the tracking twin is only re-run to collect
+		// node values for the trace (see compiler.TracedProgram)
+		recordMatch = func(i int, out ref.Val, err error) {
+			if i >= len(c.tracedMatchConditions) {
+				return
+			}
+			t := c.tracedMatchConditions[i]
+			details := engine.TraceDetails(ctx, t.Traced, data, err)
+			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
+				Name:            t.Name,
+				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+			})
+			if err != nil {
+				erroredMatches = append(erroredMatches, t.Name)
+			} else if result, err := utils.ConvertToNative[bool](out); err != nil {
+				erroredMatches = append(erroredMatches, t.Name)
+			} else if !result {
+				excludedBy = t.Name
+			}
+		}
+	}
+	matched, err := c.match(ctx, data, c.matchConditions, recordMatch)
 	if err != nil {
-		return nil, err
+		return failed(err)
 	}
 	if !matched {
-		return nil, nil
+		if !c.trace {
+			return nil, nil
+		}
+		return &EvaluationResult{Skipped: true, Trace: &trace.Decision{
+			Match:   matchTraces,
+			Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(len(matchTraces), excludedBy, erroredMatches)},
+		}}, nil
 	}
 	// check if the resource matches an exception
 	if len(c.exceptions) > 0 {
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range c.exceptions {
-			match, err := c.match(ctx, data, polex.MatchConditions)
+			match, err := c.match(ctx, data, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
 					// exception already granted; a broken later exception must not negate it
 					continue
 				}
-				return nil, err
+				return failed(err)
 			}
 			if match {
 				// ImageValidatingPolicy does not yet expose exceptions.allowedImages /
@@ -140,13 +211,26 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 			}
 		}
 		if fullExemptionFound {
-			return &EvaluationResult{Exceptions: matchedExceptions}, nil
+			verdict = trace.VerdictTrace{Status: trace.VerdictSkip, Message: exemptMessage(matchedExceptions)}
+			return &EvaluationResult{Exceptions: matchedExceptions, Trace: decision()}, nil
 		}
 	}
 	vars := lazy.NewMapValue(engine.VariablesType)
 	for name, variable := range c.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, data)
+			if c.trace {
+				if t, ok := c.tracedVariables[name]; ok {
+					// out is still the deciding program's value; the twin only explains it. Any
+					// variable the re-run reads comes from this same lazy map, so it matches.
+					details := engine.TraceDetails(ctx, t.Traced, data, err)
+					// variables are lazy, so this records them in the order they are first read
+					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
+						Name:            name,
+						ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+					})
+				}
+			}
 			if out != nil {
 				return out
 			}
@@ -171,7 +255,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	}
 	images, err := engine.ExtractImages(data, c.imageExtractors.ForResource(gvr))
 	if err != nil {
-		return nil, err
+		return failed(err)
 	}
 	filteredImages := make(map[string][]string, len(images))
 	imgList := []string{}
@@ -179,7 +263,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
 		for _, img := range imgs {
 			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
-				return nil, err
+				return failed(err)
 			} else if apply {
 				filteredImages[category] = append(filteredImages[category], img)
 				imgList = append(imgList, img)
@@ -193,15 +277,20 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	// when we get here, we will be initialized with the global opts from the compiled policy
 	// or from the credentials configured on the policy itself. the latter replaces the first
 	result, err := c.checkDigests(imgList)
-	if result != nil || err != nil {
-		return result, err
+	if err != nil {
+		return failed(err)
+	}
+	if result != nil {
+		verdict.Status, verdict.Message = trace.VerdictFail, result.Message
+		result.Trace = decision()
+		return result, nil
 	}
 
 	// Prefetch image data through Get() one image at a time to avoid triggering
 	// racy concurrent map writes in the SDK AddImages() implementation.
 	for _, image := range imgList {
 		if _, err := imgCtx.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
-			return nil, err
+			return failed(err)
 		}
 	}
 
@@ -219,12 +308,29 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	}
 	data[engine.AttestorsKey] = attestors
 
+	validating = true
+	ran := func(index int, status string) {
+		if c.trace {
+			validationTraces = append(validationTraces, trace.ValidationTrace{Index: index, Status: status, ExpressionTrace: verdict.ExpressionTrace})
+		}
+	}
 	for i, v := range c.validations {
 		boundRuntime.BeginValidation()
 		out, _, err := v.Program.ContextEval(ctx, data)
 		diagnostics := boundRuntime.VerificationDiagnostics()
+		if c.trace {
+			// diagnostics are already snapshotted, so the explain-only re-run cannot add to them,
+			// and an expression that verifies images has no twin at all (see
+			// withoutVerificationTwin), so it is never re-run
+			details := engine.TraceDetails(ctx, v.Traced, data, err)
+			verdict = trace.VerdictTrace{
+				Status:          trace.VerdictPass,
+				ExpressionTrace: buildExpressionTrace(v.AST, out, details, err),
+			}
+		}
 		if err != nil {
-			return nil, err
+			ran(i, trace.VerdictError)
+			return failed(err)
 		}
 		// evaluate only when rule fails
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
@@ -243,9 +349,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 				message = fmt.Sprintf("CEL expression validation failed at index %d", i)
 			}
 			message += diagnostics
+			ran(i, trace.VerdictFail)
+			verdict.Status, verdict.Message = trace.VerdictFail, message
 			auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 			if err != nil {
-				return nil, err
+				return failed(err)
 			}
 			return &EvaluationResult{
 				Result:           outcome,
@@ -254,18 +362,22 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 				Index:            i,
 				Error:            err,
 				MatchedImages:    imgList,
+				Trace:            decision(),
 			}, nil
 		} else if err != nil {
-			return &EvaluationResult{Error: err}, nil
+			ran(i, trace.VerdictError)
+			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+			return &EvaluationResult{Error: err, Trace: decision()}, nil
 		}
+		ran(i, trace.VerdictPass)
 	}
 
 	auditAnnotations, err := c.evaluateAuditAnnotations(ctx, data)
 	if err != nil {
-		return nil, err
+		return failed(err)
 	}
 	// required is enforced by the caller via EnforceRequired, not here
-	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, MatchedImages: imgList}, nil
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, MatchedImages: imgList, Trace: decision()}, nil
 }
 
 func (c *compiledPolicy) checkDigests(imgList []string) (*EvaluationResult, error) {
@@ -346,7 +458,7 @@ func (c *compiledPolicy) MutateDigest(
 	if libctx != nil {
 		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
 	}
-	matched, err := c.match(ctx, data, c.matchConditions)
+	matched, err := c.match(ctx, data, c.matchConditions, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -357,7 +469,7 @@ func (c *compiledPolicy) MutateDigest(
 	// exceptions must not skip digest pinning for the whole resource — same rule as
 	// Evaluate, so validating and mutating paths stay aligned.
 	for _, polex := range c.exceptions {
-		match, err := c.match(ctx, data, polex.MatchConditions)
+		match, err := c.match(ctx, data, polex.MatchConditions, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -436,11 +548,15 @@ func (p *compiledPolicy) match(
 	ctx context.Context,
 	data map[string]any,
 	matchConditions []cel.Program,
+	record func(index int, out ref.Val, err error),
 ) (bool, error) {
 	var errs []error
-	for _, matchCondition := range matchConditions {
+	for i, matchCondition := range matchConditions {
 		// evaluate the condition
 		out, _, err := matchCondition.ContextEval(ctx, data)
+		if record != nil {
+			record(i, out, err)
+		}
 		// check error
 		if err != nil {
 			errs = append(errs, err)
