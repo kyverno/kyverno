@@ -5,12 +5,20 @@ metadata:
 policies:
 - policy.yaml
 resources:
+- pods.yaml
 - resources.yaml
 results:
 - isValidatingPolicy: true
   kind: Pod
   policy: disallow-capabilities-strict
   resources:
+  - no-security-context
+  - security-context-no-capabilities
+  - capabilities-no-drop
+  - drop-net-raw
+  - drop-all-add-sys-admin
+  - init-container-no-security-context
+  - ephemeral-container-drop-net-raw
   - linux-drop-net-raw
   - linux-add-sys-admin
   - linux-init-add-sys-admin
@@ -21,6 +29,9 @@ results:
   kind: Pod
   policy: disallow-capabilities-strict
   resources:
+  - drop-all
+  - drop-all-add-net-bind-service
+  - all-scopes-drop-all
   - linux-drop-all
   - linux-drop-all-add-net-bind
   - windows-no-security-context
