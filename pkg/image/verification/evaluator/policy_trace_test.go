@@ -309,3 +309,114 @@ func TestCallsImageVerification(t *testing.T) {
 	assert.False(t, callsImageVerification(nil))
 	assert.Equal(t, engine.TracedProgram{}, withoutVerificationTwin(engine.TracedProgram{}))
 }
+
+// jsonTracePolicy is a JSON-mode policy over {"app": <image>}, checking ghcr.io images without
+// verifying any signature, so nothing reaches a registry.
+func jsonTracePolicy(name string, required bool, validations ...admissionregistrationv1.Validation) *policiesv1beta1.ImageValidatingPolicy {
+	return &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration:  &policiesv1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{VerifyDigest: ptr.To(false), Required: ptr.To(required)},
+			MatchImageReferences:     []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			ImageExtractors:          []policiesv1beta1.ImageExtractor{{Name: "app", Expression: "[object.app]"}},
+			Validations:              validations,
+		},
+	}
+}
+
+func TestEvaluateWithTrace_JSONPayload(t *testing.T) {
+	payload := map[string]any{"app": "ghcr.io/x/app:1.0"}
+	tests := []struct {
+		name        string
+		policy      *policiesv1beta1.ImageValidatingPolicy
+		wantResult  bool
+		wantVerdict string
+		wantMessage string
+	}{{
+		name:        "passes",
+		policy:      jsonTracePolicy("passes", false, admissionregistrationv1.Validation{Expression: "images.app.size() == 1"}),
+		wantResult:  true,
+		wantVerdict: trace.VerdictPass,
+	}, {
+		name:        "fails",
+		policy:      jsonTracePolicy("fails", false, admissionregistrationv1.Validation{Expression: "images.app.size() == 0", Message: "no images allowed"}),
+		wantVerdict: trace.VerdictFail,
+		wantMessage: "no images allowed",
+	}, {
+		// the validation passes, but nothing verified the image
+		name:        "required turns a pass into a failure",
+		policy:      jsonTracePolicy("required", true, admissionregistrationv1.Validation{Expression: "true"}),
+		wantVerdict: trace.VerdictFail,
+		wantMessage: "every validation passed, but validationConfigurations.required failed: image ghcr.io/x/app:1.0 is not verified",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ivpols := []*CompiledImageValidatingPolicy{{Policy: tt.policy}}
+			// both runs use a fake image context, so the matched image is never fetched from a
+			// registry; Evaluate itself is evaluateWith(false) with a real one
+			untraced, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, false)
+			require.NoError(t, err)
+			traced, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, true)
+			require.NoError(t, err)
+
+			u, tr := untraced[tt.policy.Name], traced[tt.policy.Name]
+			require.NotNil(t, u)
+			require.NotNil(t, tr)
+			assert.Equal(t, tt.wantResult, u.Result)
+			assert.Equal(t, u.Result, tr.Result, "tracing must not change the result")
+			assert.Equal(t, u.Message, tr.Message)
+			assert.Nil(t, u.Trace)
+
+			require.NotNil(t, tr.Trace)
+			assert.Equal(t, tt.policy.Name, tr.Trace.PolicyName)
+			assert.Equal(t, "ImageValidatingPolicy", tr.Trace.PolicyKind)
+			assert.True(t, tr.Trace.Scope.Applied)
+			assert.Equal(t, "evaluated against a JSON payload, so no matchConstraints apply", tr.Trace.Scope.Reason)
+			assert.Equal(t, tt.wantVerdict, tr.Trace.Verdict.Status)
+			if tt.wantMessage != "" {
+				assert.Contains(t, tr.Trace.Verdict.Message, tt.wantMessage)
+			}
+		})
+	}
+}
+
+func TestEvaluateWithTrace_MatchConditionSkip(t *testing.T) {
+	policy := jsonTracePolicy("skipped", false, admissionregistrationv1.Validation{Expression: "false"})
+	policy.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{{Name: "is-prod", Expression: "object.?env.orValue('') == 'prod'"}}
+	ivpols := []*CompiledImageValidatingPolicy{{Policy: policy}}
+	payload := map[string]any{"app": "ghcr.io/x/app:1.0"}
+
+	untraced, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, false)
+	require.NoError(t, err)
+	assert.Nil(t, untraced[policy.Name], "tracing off: a skip is still a nil result")
+
+	traced, err := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, true)
+	require.NoError(t, err)
+	got := traced[policy.Name]
+	require.NotNil(t, got)
+	assert.True(t, got.Skipped)
+	require.NotNil(t, got.Trace)
+	assert.Equal(t, trace.VerdictSkip, got.Trace.Verdict.Status)
+	assert.Equal(t, policy.Name, got.Trace.PolicyName)
+}
+
+func TestEvaluateWithTrace_ErrorKeepsThePartialTrace(t *testing.T) {
+	policy := jsonTracePolicy("errors", false, admissionregistrationv1.Validation{Expression: "object.missing == 'x'"})
+	ivpols := []*CompiledImageValidatingPolicy{{Policy: policy}}
+	payload := map[string]any{"app": "ghcr.io/x/app:1.0"}
+
+	untraced, untracedErr := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, false)
+	require.Error(t, untracedErr)
+	assert.Contains(t, untracedErr.Error(), "no such key: missing", "the validation's own error, not a registry one")
+	assert.Nil(t, untraced, "tracing off: unchanged, no results and the error")
+
+	traced, tracedErr := evaluateWith(context.Background(), countingImages{gets: &atomic.Int32{}}, ivpols, payload, nil, nil, nil, true)
+	require.Error(t, tracedErr)
+	assert.Equal(t, untracedErr.Error(), tracedErr.Error(), "the same error is returned")
+	got := traced[policy.Name]
+	require.NotNil(t, got, "tracing on: the failing policy's partial trace comes back with the error")
+	require.NotNil(t, got.Trace)
+	assert.Equal(t, trace.VerdictError, got.Trace.Verdict.Status)
+	assert.Equal(t, policy.Name, got.Trace.PolicyName)
+}
