@@ -455,6 +455,24 @@ func TestFulcioRootsFromTrustedRoot(t *testing.T) {
 	assert.NotNil(t, intermediates)
 }
 
+func TestFulcioRootsFromTrustedRoot_Expired(t *testing.T) {
+	tr := newTestTrustedRoot(t)
+	// Modify the CA to be retired (expired validity period)
+	// but leave the X.509 certificate itself valid (from newTestTrustedRoot).
+	// This tests that retired CAs are not trusted for legacy verification.
+	cas := tr.FulcioCertificateAuthorities()
+	for _, ca := range cas {
+		fca := ca.(*root.FulcioCertificateAuthority)
+		fca.ValidityPeriodEnd = time.Now().Add(-1 * time.Hour)
+	}
+
+	roots, intermediates, err := fulcioRootsFromTrustedRoot(tr)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "no Fulcio root certificates found in trusted root")
+	assert.Nil(t, roots)
+	assert.Nil(t, intermediates)
+}
+
 // TestGetRekor_InsecureIgnoreTlog_NoURL covers the fix for private Sigstore
 // deployments (e.g. GitHub Actions' fulcio.githubapp.com) that set
 // insecureIgnoreTlog: true without providing a Rekor URL: getRekor must not
@@ -958,6 +976,155 @@ func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 	assert.Nil(t, opts.RekorPubKeys)
 	assert.Nil(t, opts.CTLogPubKeys)
 	assert.Nil(t, opts.TrustedMaterial)
+}
+
+// TestCheckOptions_Keyless_InlineTrustedRoot_SkipsTUF verifies the fix for
+// https://github.com/kyverno/kyverno/issues/17883: a keyless attestor that
+// provides an inline trustedRoot (att.TrustedRoot.Value) and no custom TUF
+// config must not call initTUFAndFetch at all, so that air-gapped clusters
+// with no route to tuf-repo-cdn.sigstore.dev can still verify attestations.
+// It also asserts that Fulcio roots are populated from the inline root.
+func TestCheckOptions_Keyless_InlineTrustedRoot_SkipsTUF(t *testing.T) {
+	// Load the real-world GitHub trusted-root fixture used by other tests.
+	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	noFulcioJSON, err := os.ReadFile("testdata/no-fulcio.json")
+	require.NoError(t, err)
+
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	tests := []struct {
+		name               string
+		trustedRoot        string
+		keylessRoots       string
+		tsaCertChain       string
+		ctLog              *v1beta1.CTLog
+		expectError        bool
+		expectedError      string
+		expectedIgnoreTlog bool
+		expectedIgnoreSCT  bool
+		expectRekorClient  bool
+		expectedRootCount  int
+	}{
+		{
+			name:        "valid inline trusted root, disabled checks",
+			trustedRoot: string(validJSON),
+			ctLog: &v1beta1.CTLog{
+				InsecureIgnoreTlog: true,
+				InsecureIgnoreSCT:  true,
+			},
+			expectedIgnoreTlog: true,
+			expectedIgnoreSCT:  true,
+			expectedRootCount:  1,
+		},
+		{
+			name:               "valid inline trusted root, nil CTLog",
+			trustedRoot:        string(validJSON),
+			ctLog:              nil,
+			expectedIgnoreTlog: false,
+			expectedIgnoreSCT:  false,
+			expectedRootCount:  1,
+		},
+		{
+			name:        "valid inline trusted root, configured CTLog URL",
+			trustedRoot: string(validJSON),
+			ctLog: &v1beta1.CTLog{
+				URL: "https://rekor.sigstore.dev",
+			},
+			expectedIgnoreTlog: false,
+			expectedIgnoreSCT:  false,
+			expectRekorClient:  true,
+			expectedRootCount:  1,
+		},
+		{
+			name:              "explicit roots overrides missing fulcio ca",
+			trustedRoot:       string(noFulcioJSON),
+			keylessRoots:      testTSACertChain,
+			expectedRootCount: 1,
+		},
+		{
+			name:          "inline root missing fulcio ca fails without keyless roots",
+			trustedRoot:   string(noFulcioJSON),
+			expectError:   true,
+			expectedError: "failed to extract Fulcio roots from inline trustedRoot: no certificate authority in trusted root",
+		},
+		{
+			name:          "invalid inline trusted root",
+			trustedRoot:   "not-json",
+			expectError:   true,
+			expectedError: "failed to resolve trusted material",
+		},
+		{
+			name:               "valid inline trusted root with TSA overrides maintains Fulcio roots",
+			trustedRoot:        string(validJSON),
+			ctLog:              &v1beta1.CTLog{InsecureIgnoreTlog: true, InsecureIgnoreSCT: true},
+			tsaCertChain:       testTSACertChain,
+			expectedIgnoreTlog: true,
+			expectedIgnoreSCT:  true,
+			expectedRootCount:  1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Arrange: TUF init must never be called.  If it is, the test will fail.
+			tufCalled := false
+			origTufInit := tufInitializeFn
+			tufInitializeFn = func(_ context.Context, _ string, _ []byte) error {
+				tufCalled = true
+				return fmt.Errorf("network unreachable (air-gapped)")
+			}
+			t.Cleanup(func() { tufInitializeFn = origTufInit })
+
+			cosignCfg := &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Roots: tt.keylessRoots,
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  testIssuer,
+							Subject: testSubject,
+						},
+					},
+				},
+				CTLog:       tt.ctLog,
+				TrustedRoot: &v1beta1.StringOrExpression{Value: tt.trustedRoot},
+				// TUF is intentionally nil — no custom mirror configured.
+			}
+			if tt.tsaCertChain != "" {
+				if cosignCfg.CTLog == nil {
+					cosignCfg.CTLog = &v1beta1.CTLog{}
+				}
+				cosignCfg.CTLog.TSACertChain = tt.tsaCertChain
+			}
+
+			opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedError)
+				assert.Nil(t, opts)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, opts)
+				assert.NotNil(t, opts.TrustedMaterial, "TrustedMaterial must be populated from the inline root")
+				assert.NotNil(t, opts.RootCerts, "RootCerts must be populated from the inline Fulcio CA")
+				// Expired roots are excluded from the legacy RootCerts pool, but are retained in TrustedMaterial for bundle verification.
+				// Note: github-trusted-root.json contains 1 active authority and 3 expired ones.
+				assert.Len(t, opts.RootCerts.Subjects(), tt.expectedRootCount, "Expected exactly %d unique active root certificate in the pool", tt.expectedRootCount)
+				assert.Equal(t, tt.expectedIgnoreTlog, opts.IgnoreTlog, "IgnoreTlog mismatch")
+				assert.Equal(t, tt.expectedIgnoreSCT, opts.IgnoreSCT, "IgnoreSCT mismatch")
+
+				if tt.expectRekorClient {
+					assert.NotNil(t, opts.RekorClient, "RekorClient should be configured when URL is provided")
+				}
+				if tt.ctLog == nil || tt.ctLog.InsecureIgnoreTlog {
+					assert.Nil(t, opts.RekorClient, "RekorClient should be nil when CTLog is nil or ignored")
+				}
+			}
+			assert.False(t, tufCalled, "initTUFAndFetch must not be called when an inline trustedRoot is provided")
+		})
+	}
 }
 
 // TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL reproduces the reported

@@ -85,9 +85,13 @@ func countPEMCertBlocks(pem []byte) int {
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
 	// Key/certificate verification with the transparency log ignored needs no
 	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
+	// Keyless verification with an inline trustedRoot and no custom TUF config
+	// also skips TUF: the inline root already carries all trust material.
 	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
 	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
-	skipSigstoreInfra := keyOrCert && ignoreTlog
+	isDefaultTUF := att.TUF == nil || (att.TUF.Root.Path == "" && att.TUF.Root.Data == "" && att.TUF.Mirror == "")
+	hasOfflineRoot := att.TrustedRoot != nil && att.TrustedRoot.Value != "" && isDefaultTUF
+	skipSigstoreInfra := (keyOrCert && ignoreTlog) || hasOfflineRoot
 	cosignRemoteOpts := []ociremote.Option{}
 
 	if att.Source != nil {
@@ -146,6 +150,35 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
 		}
 		opts.TrustedMaterial = trustedMaterial
+	} else if hasOfflineRoot {
+		// No TUF was initialised; resolve trusted material directly from the
+		// inline root so that opts.TrustedMaterial is populated for keyless
+		// verification and the TSA cert-chain block below.
+		trustedMaterial, err := resolveTrustedMaterial(att, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
+		}
+		opts.TrustedMaterial = trustedMaterial
+
+		var rekorKeys, ctlogKeys *cosign.TrustedTransparencyLogPubKeys
+		if tr, ok := trustedMaterial.(*root.TrustedRoot); ok {
+			// Ignore errors here: an inline root might legitimately lack Rekor/CTLog keys.
+			// If they are missing but required for verification, Cosign will fail appropriately later.
+			rekorKeys, _ = rekorPubsFromTrustedRoot(tr)
+			ctlogKeys, _ = ctLogPubsFromTrustedRoot(tr)
+		}
+
+		rekorClient, rekorPubKeys, ctlogPubKey, err := getRekor(ctx, att.CTLog, rekorKeys, ctlogKeys)
+		if err != nil {
+			return nil, fmt.Errorf("getting Rekor public keys:  %w", err)
+		}
+		opts.RekorClient = rekorClient
+		opts.RekorPubKeys = rekorPubKeys
+		opts.CTLogPubKeys = ctlogPubKey
+
+		if opts.RekorClient == nil {
+			opts.Offline = true
+		}
 	}
 
 	if att.CTLog != nil {
@@ -201,10 +234,22 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		if err := applyAdditionalExtensions(opts, att.Keyless.AdditionalExtensions); err != nil {
 			return nil, err
 		}
-		// trust is always non-nil when att.Keyless != nil because
-		// skipSigstoreInfra requires keyOrCert=true (att.Keyless==nil).
-		opts.RootCerts = trust.fulcioRoots
-		opts.IntermediateCerts = trust.fulcioIntermediates
+		// trust is non-nil unless we skipped TUF because an inline trustedRoot
+		// was provided (hasOfflineRoot). In that case Fulcio roots are derived
+		// from the already-resolved opts.TrustedMaterial.
+		if trust != nil {
+			opts.RootCerts = trust.fulcioRoots
+			opts.IntermediateCerts = trust.fulcioIntermediates
+		} else if hasOfflineRoot {
+			tm, _ := resolveTrustedMaterial(att, nil)
+			tr := tm.(*root.TrustedRoot)
+			roots, intermediates, err := fulcioRootsFromTrustedRoot(tr)
+			if err != nil && att.Keyless.Roots == "" {
+				return nil, fmt.Errorf("failed to extract Fulcio roots from inline trustedRoot: %w", err)
+			}
+			opts.RootCerts = roots
+			opts.IntermediateCerts = intermediates
+		}
 		if att.Keyless.Roots != "" {
 			cp, err := certPoolFromBytes([]byte(att.Keyless.Roots))
 			if err != nil {
