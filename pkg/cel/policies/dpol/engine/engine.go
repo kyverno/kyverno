@@ -113,18 +113,23 @@ func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources
 		return false, nil
 	}
 
+	// a scheduled deletion scan is not an admission request, operations must not filter
+	// anything out, neither in the match rules nor in the exclude rules
 	copy := constraints.DeepCopy()
-	for i, rule := range copy.ResourceRules {
-		rule.Operations = []admissionregistrationv1.OperationType{
-			admissionregistrationv1.OperationAll,
-		}
-
-		copy.ResourceRules[i] = rule
-	}
+	matchAllOperations(copy.ResourceRules)
+	matchAllOperations(copy.ExcludeResourceRules)
 
 	matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: copy}, attr, namespace)
 	if err != nil {
 		return false, err
 	}
 	return matches, nil
+}
+
+func matchAllOperations(rules []admissionregistrationv1.NamedRuleWithOperations) {
+	for i := range rules {
+		rules[i].Operations = []admissionregistrationv1.OperationType{
+			admissionregistrationv1.OperationAll,
+		}
+	}
 }
