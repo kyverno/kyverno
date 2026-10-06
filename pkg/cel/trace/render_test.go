@@ -211,3 +211,41 @@ func TestRender_ValidationsList(t *testing.T) {
 		assert.Contains(t, sb.String(), "VERDICT    PASS     a  ->  true")
 	})
 }
+
+func TestRender_Images(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{
+		Images: &ImagesTrace{Found: []ImageTrace{
+			{Category: "containers", Image: "ghcr.io/x/app:1.0", Checked: true},
+			{Category: "containers", Image: "docker.io/busybox:1", Checked: false},
+		}},
+		Verdict: VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "true", Result: "true"}},
+	})
+	out := sb.String()
+	assert.Contains(t, out, "IMAGES     checked  containers: ghcr.io/x/app:1.0")
+	assert.Contains(t, out, "IMAGES     skipped  containers: docker.io/busybox:1  (not matched by matchImageReferences)")
+
+	sb.Reset()
+	Render(&sb, &Decision{Images: &ImagesTrace{}, Verdict: VerdictTrace{Status: VerdictPass}})
+	assert.Contains(t, sb.String(), "IMAGES              no images found on the resource")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{Status: VerdictPass}})
+	assert.NotContains(t, sb.String(), "IMAGES", "no IMAGES layer for policy kinds that do not extract images")
+}
+
+func TestRender_NoBreakdownNote(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictFail,
+		ExpressionTrace: ExpressionTrace{Source: "verify(x) > 0", Result: "false", NoBreakdown: "it verifies images"},
+	}})
+	assert.Contains(t, sb.String(), "(no breakdown: it verifies images)")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictPass,
+		ExpressionTrace: ExpressionTrace{Source: "verify(x) > 0", Result: "true", NoBreakdown: "it verifies images"},
+	}})
+	assert.NotContains(t, sb.String(), "no breakdown", "a pass shows no breakdown, so no note either")
+}

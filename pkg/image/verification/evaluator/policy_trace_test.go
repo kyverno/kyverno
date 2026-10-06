@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
@@ -131,6 +133,56 @@ func TestEvaluate_TracingOn_VerificationIsNeverRunTwice(t *testing.T) {
 			assert.Equal(t, "false", failing.Result)
 		})
 	}
+}
+
+func TestEvaluate_TracingOn_VerificationExpressionSaysWhyNoBreakdown(t *testing.T) {
+	traced, err, _ := evaluateTraced(t, true, traceTestPolicy(admissionregistrationv1.Validation{Expression: verifyBad + " > 0"}))
+	require.NoError(t, err)
+	require.NotNil(t, traced.Trace)
+	assert.Empty(t, traced.Trace.Verdict.Nodes)
+	assert.Equal(t, "it verifies images, and verification is never run a second time", traced.Trace.Verdict.NoBreakdown)
+
+	plain, err, _ := evaluateTraced(t, true, traceTestPolicy(admissionregistrationv1.Validation{Expression: "variables.podName == 'other'"}))
+	require.NoError(t, err)
+	assert.Empty(t, plain.Trace.Verdict.NoBreakdown, "an expression that verifies nothing has its breakdown")
+	assert.NotEmpty(t, plain.Trace.Verdict.Nodes)
+}
+
+func TestEvaluate_TracingOn_ImagesShowWhatWasChecked(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "images-trace"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration:  &policiesv1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{VerifyDigest: ptr.To(false), Required: ptr.To(false)},
+			MatchImageReferences:     []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{Name: "workloads", Expression: "[object.app, object.sidecar]"},
+				{Name: "init", Expression: "[object.init]"},
+			},
+			Validations: []admissionregistrationv1.Validation{{Expression: "images.workloads.size() == 1"}},
+		},
+	}
+	payload := map[string]any{"app": "ghcr.io/x/app:1.0", "sidecar": "docker.io/library/busybox:1", "init": "ghcr.io/x/init:2.0"}
+	evaluate := func(traced bool) *EvaluationResult {
+		compiled, errs := NewCompilerWithTrace(nil, traced).Compile(policy, nil)
+		require.Empty(t, errs)
+		result, err := compiled.Evaluate(context.Background(), countingImages{gets: &atomic.Int32{}}, nil, imageverify.NewImageVerificationResults(), nil, payload, nil, false, nil, nil)
+		require.NoError(t, err)
+		return result
+	}
+
+	untraced := evaluate(false)
+	traced := evaluate(true)
+	assert.Equal(t, untraced.Result, traced.Result)
+	assert.True(t, traced.Result, "only the ghcr.io workload image is checked")
+	assert.Nil(t, untraced.Trace)
+	require.NotNil(t, traced.Trace)
+	require.NotNil(t, traced.Trace.Images)
+	assert.Equal(t, []trace.ImageTrace{
+		{Category: "init", Image: "ghcr.io/x/init:2.0", Checked: true},
+		{Category: "workloads", Image: "ghcr.io/x/app:1.0", Checked: true},
+		{Category: "workloads", Image: "docker.io/library/busybox:1", Checked: false},
+	}, traced.Trace.Images.Found, "categories in a stable order, each extractor's own order kept")
 }
 
 func TestEvaluate_TracingOn_MatchConditionFalseSkips(t *testing.T) {

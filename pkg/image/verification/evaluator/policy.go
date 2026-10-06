@@ -3,6 +3,8 @@ package evaluator
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -111,6 +113,8 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	// otherwise, so with tracing off nothing here changes what Evaluate returns.
 	var matchTraces, variableTraces []trace.NamedExpressionTrace
 	var validationTraces []trace.ValidationTrace
+	// imagesTrace is set once images are extracted, so a failure before that shows no IMAGES
+	var imagesTrace *trace.ImagesTrace
 	// excludedBy is the match condition that came out false, if any; erroredMatches are the ones
 	// that errored or did not return a bool. With failurePolicy Ignore, errors alone skip the
 	// policy after every condition has run, so the skip message needs these.
@@ -138,7 +142,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 				})
 			}
 		}
-		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Validations: validations, Verdict: verdict}
+		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Images: imagesTrace, Validations: validations, Verdict: verdict}
 	}
 	// failed is every error return from here on: unchanged without tracing, and with tracing the
 	// error stays the second return value while the result carries what was traced before it
@@ -262,13 +266,29 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	for category, imgs := range images {
 		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
 		for _, img := range imgs {
-			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
+			apply, err := matching.MatchImage(img, c.matchImageReferences...)
+			if err != nil {
 				return failed(err)
-			} else if apply {
+			}
+			if c.trace {
+				if imagesTrace == nil {
+					imagesTrace = &trace.ImagesTrace{}
+				}
+				imagesTrace.Found = append(imagesTrace.Found, trace.ImageTrace{Category: category, Image: img, Checked: apply})
+			}
+			if apply {
 				filteredImages[category] = append(filteredImages[category], img)
 				imgList = append(imgList, img)
 			}
 		}
+	}
+	if c.trace {
+		if imagesTrace == nil {
+			imagesTrace = &trace.ImagesTrace{}
+		}
+		// images is a map, so put the categories in a stable order; within one, keep the
+		// extractor's own order
+		slices.SortStableFunc(imagesTrace.Found, func(a, b trace.ImageTrace) int { return strings.Compare(a.Category, b.Category) })
 	}
 
 	// not reset: verification results are shared across the request, an earlier

@@ -43,6 +43,18 @@ func Render(w io.Writer, d *Decision) {
 	for _, v := range d.Variables {
 		row(w, "VARIABLES", "", named(v))
 	}
+	if d.Images != nil {
+		if len(d.Images.Found) == 0 {
+			row(w, "IMAGES", "", "no images found on the resource")
+		}
+		for _, img := range d.Images.Found {
+			if img.Checked {
+				row(w, "IMAGES", "checked", img.Category+": "+img.Image)
+				continue
+			}
+			row(w, "IMAGES", "skipped", img.Category+": "+img.Image+"  (not matched by matchImageReferences)")
+		}
+	}
 	// with a single validation the list would only repeat the verdict line
 	listed := len(d.Validations) > 1
 	if listed {
@@ -114,6 +126,9 @@ func printNodes(w io.Writer, et ExpressionTrace) {
 	}
 	if et.LoopValuesOmitted {
 		fmt.Fprintf(w, "%-10s %-8s (values inside loops such as all() and exists() are not shown: CEL keeps only the last item's)\n", "", "")
+	}
+	if et.NoBreakdown != "" {
+		fmt.Fprintf(w, "%-10s %-8s (no breakdown: %s)\n", "", "", et.NoBreakdown)
 	}
 }
 
