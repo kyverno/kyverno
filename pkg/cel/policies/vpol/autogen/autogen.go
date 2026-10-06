@@ -3,12 +3,14 @@ package autogen
 import (
 	"cmp"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"slices"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
@@ -31,6 +33,109 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 		actualControllers = sets.New(spec.AutogenConfiguration.PodControllers.Controllers...)
 	}
 	return generateRuleForControllers(*spec, actualControllers)
+}
+
+// RuleName returns the stable autogen rule name for a validation.
+// If identifier is set, it is used directly (autogen-{identifier}), giving a
+// name that survives reordering of spec.validations. Otherwise it falls back
+// to the position-based name (autogen-validate-{index}) for backward
+// compatibility with validations that don't set an identifier.
+func RuleName(identifier string, index int) string {
+	if identifier != "" {
+		return "autogen-" + identifier
+	}
+	return fmt.Sprintf("autogen-validate-%d", index)
+}
+
+// ValidateUniqueIdentifiers reports every validation whose rule name (see RuleName) is already
+// taken by an earlier validation. Checking the names rather than the identifiers also catches an
+// identifier that collides with a positional fallback: an identifier "validate-1" names its rule
+// "autogen-validate-1", the same name the validation at index 1 gets when it has no identifier.
+// The error is reported on the validation that carries the identifier, since that is the one to
+// rename; two validations without identifiers never collide, their indexes differ.
+func ValidateUniqueIdentifiers(path *field.Path, identifiers []string) field.ErrorList {
+	var allErrs field.ErrorList
+	firstIndex := make(map[string]int, len(identifiers))
+	for i, identifier := range identifiers {
+		name := RuleName(identifier, i)
+		first, taken := firstIndex[name]
+		if !taken {
+			firstIndex[name] = i
+			continue
+		}
+		at, value, other := i, identifier, first
+		if identifier == "" {
+			at, value, other = first, identifiers[first], i
+		}
+		allErrs = append(allErrs, field.Invalid(path.Index(at).Child("identifier"), value,
+			fmt.Sprintf("rule name %q is also the rule name of validations[%d]", name, other)))
+	}
+	return allErrs
+}
+
+// IdentifiersAnnotation is the optional annotation used to assign stable
+// identifiers to validations. It holds a JSON object mapping a validation's
+// CEL expression to its identifier. Keying by expression (rather than
+// position) is what lets identifiers survive reordering of spec.validations.
+//
+// This exists because ValidatingPolicySpec.Validations is typed as the
+// upstream admissionregistrationv1.Validation, which has no identifier field
+// of its own; the annotation is a stopgap until that becomes available.
+const IdentifiersAnnotation = "validate.policies.kyverno.io/identifiers"
+
+// IdentifiersFromAnnotations parses the IdentifiersAnnotation, if present,
+// into a map from validation expression to identifier. Returns a nil map and
+// no error when the annotation is absent or empty.
+func IdentifiersFromAnnotations(annotations map[string]string) (map[string]string, error) {
+	raw, ok := annotations[IdentifiersAnnotation]
+	if !ok || raw == "" {
+		return nil, nil
+	}
+	identifiers := map[string]string{}
+	if err := json.Unmarshal([]byte(raw), &identifiers); err != nil {
+		return nil, fmt.Errorf("failed to parse %s annotation: %w", IdentifiersAnnotation, err)
+	}
+	if identifiers == nil {
+		// json.Unmarshal accepts null and leaves the map nil, which would read as "no
+		// annotation" and silently fall back to positional names
+		return nil, fmt.Errorf("%s annotation must be a JSON object mapping validation expressions to identifiers, got null", IdentifiersAnnotation)
+	}
+	return identifiers, nil
+}
+
+// GeneratedPolicy returns policy with its spec replaced by generated, ready to compile as an
+// autogen variant. Autogen rewrites validation expressions (object.spec becomes
+// object.spec.template.spec for a Deployment), so the identifiers annotation, keyed by the
+// source expressions, would no longer find them and every generated rule would fall back to a
+// positional name. Generated validations keep the source order, so the annotation is re-keyed by
+// position onto the generated expressions.
+func GeneratedPolicy(policy policiesv1beta1.ValidatingPolicyLike, generated policiesv1beta1.ValidatingPolicyAutogen) policiesv1beta1.ValidatingPolicyLike {
+	out := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
+	*out.GetValidatingPolicySpec() = *generated.Spec
+	identifiers, err := IdentifiersFromAnnotations(policy.GetAnnotations())
+	if err != nil || len(identifiers) == 0 {
+		// nothing to carry over; a malformed annotation is reported when the source compiles
+		return out
+	}
+	source := policy.GetValidatingPolicySpec().Validations
+	target := generated.Spec.Validations
+	if len(source) != len(target) {
+		return out
+	}
+	remapped := make(map[string]string, len(identifiers))
+	for i := range source {
+		if identifier, ok := identifiers[source[i].Expression]; ok {
+			remapped[target[i].Expression] = identifier
+		}
+	}
+	raw, err := json.Marshal(remapped)
+	if err != nil {
+		return out
+	}
+	annotations := maps.Clone(out.GetAnnotations())
+	annotations[IdentifiersAnnotation] = string(raw)
+	out.SetAnnotations(annotations)
+	return out
 }
 
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {

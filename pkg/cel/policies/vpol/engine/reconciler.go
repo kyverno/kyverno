@@ -101,8 +101,7 @@ func (r *reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 	for config, generatedPolicy := range generated {
-		autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.ValidatingPolicyLike)
-		*autogenPolicy.GetValidatingPolicySpec() = *generatedPolicy.Spec
+		autogenPolicy := autogen.GeneratedPolicy(policy, generatedPolicy)
 
 		compiled, errs := r.compiler.Compile(autogenPolicy, exceptions)
 		if len(errs) > 0 {

@@ -8,6 +8,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -26,8 +27,14 @@ import (
 // buildJSONPolicy creates a ValidatingPolicy in JSON evaluation mode with the
 // given validation expressions for use in unit tests.
 func buildJSONPolicy(name string, validations []admissionregistrationv1.Validation) *policiesv1beta1.ValidatingPolicy {
+	return buildJSONPolicyWithAnnotations(name, nil, validations)
+}
+
+// buildJSONPolicyWithAnnotations is like buildJSONPolicy but also sets the
+// given annotations on the policy, e.g. autogen.IdentifiersAnnotation.
+func buildJSONPolicyWithAnnotations(name string, annotations map[string]string, validations []admissionregistrationv1.Validation) *policiesv1beta1.ValidatingPolicy {
 	return &policiesv1beta1.ValidatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Annotations: annotations},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
 			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
 				Mode: policieskyvernoio.EvaluationModeJSON,
@@ -311,6 +318,93 @@ func TestHandle_ExtractionMode_RefusedExceptionCarriesTemplatePath(t *testing.T)
 		assert.Equal(t, engineapi.RuleStatusError, rule.Status())
 		assert.Contains(t, rule.Message(), "pod template at "+templatePath)
 	})
+}
+
+func TestHandle_RuleNameFallsBackToPositionalName(t *testing.T) {
+	// No identifiers annotation set: the failing rule name must be the
+	// positional autogen-validate-{index} name.
+	policy := buildJSONPolicy("test-rule-name-fallback", []admissionregistrationv1.Validation{
+		{Expression: "object.name == 'allowed'", Message: "index 0: passes"},
+		{Expression: "object.name == 'forbidden'", Message: "index 1: fails"},
+	})
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+
+	eng := NewEngine(provider, nil, nil)
+	payload := &unstructured.Unstructured{Object: map[string]any{"name": "allowed"}}
+
+	resp, err := eng.Handle(context.Background(), celengine.RequestFromJSON(nil, payload), nil)
+	require.NoError(t, err)
+	require.Len(t, resp.Policies, 1)
+	require.Len(t, resp.Policies[0].Rules, 1)
+
+	rule := resp.Policies[0].Rules[0]
+	assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+	assert.Equal(t, "autogen-validate-1", rule.Name())
+}
+
+func TestHandle_RuleNameUsesIdentifierFromAnnotation(t *testing.T) {
+	// The identifiers annotation maps the failing expression to a stable
+	// identifier; the rule name must reflect it instead of the index.
+	failingExpr := "object.name == 'forbidden'"
+	policy := buildJSONPolicyWithAnnotations(
+		"test-rule-name-identifier",
+		map[string]string{
+			autogen.IdentifiersAnnotation: `{"` + failingExpr + `":"check-name"}`,
+		},
+		[]admissionregistrationv1.Validation{
+			{Expression: "object.name == 'allowed'", Message: "index 0: passes"},
+			{Expression: failingExpr, Message: "index 1: fails"},
+		},
+	)
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+
+	eng := NewEngine(provider, nil, nil)
+	payload := &unstructured.Unstructured{Object: map[string]any{"name": "allowed"}}
+
+	resp, err := eng.Handle(context.Background(), celengine.RequestFromJSON(nil, payload), nil)
+	require.NoError(t, err)
+	require.Len(t, resp.Policies, 1)
+	require.Len(t, resp.Policies[0].Rules, 1)
+
+	rule := resp.Policies[0].Rules[0]
+	assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+	assert.Equal(t, "autogen-check-name", rule.Name())
+}
+
+func TestHandle_RuleNameReorderingIsStable(t *testing.T) {
+	// Reordering validations must not change the rule name for the
+	// identified validation, unlike the positional fallback. This is the
+	// actual bug from kyverno/kyverno#16000.
+	failingExpr := "object.name == 'forbidden'"
+	annotations := map[string]string{
+		autogen.IdentifiersAnnotation: `{"` + failingExpr + `":"check-name"}`,
+	}
+	payload := &unstructured.Unstructured{Object: map[string]any{"name": "allowed"}}
+
+	original := buildJSONPolicyWithAnnotations("test-reorder-original", annotations, []admissionregistrationv1.Validation{
+		{Expression: failingExpr, Message: "fails"},
+		{Expression: "object.name == 'allowed'", Message: "passes"},
+	})
+	reordered := buildJSONPolicyWithAnnotations("test-reorder-reordered", annotations, []admissionregistrationv1.Validation{
+		{Expression: "object.name == 'allowed'", Message: "passes"},
+		{Expression: failingExpr, Message: "fails"},
+	})
+
+	for _, policy := range []*policiesv1beta1.ValidatingPolicy{original, reordered} {
+		provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+		require.NoError(t, err)
+		eng := NewEngine(provider, nil, nil)
+		resp, err := eng.Handle(context.Background(), celengine.RequestFromJSON(nil, payload), nil)
+		require.NoError(t, err)
+		require.Len(t, resp.Policies, 1)
+		require.Len(t, resp.Policies[0].Rules, 1)
+		assert.Equal(t, "autogen-check-name", resp.Policies[0].Rules[0].Name(),
+			"identifier-based rule name must survive reordering of spec.validations")
+	}
 }
 
 func TestWithValidationIndex(t *testing.T) {
@@ -744,6 +838,75 @@ func TestHandle_TracedExceptionFollowsReportResult(t *testing.T) {
 			for _, name := range tt.names {
 				assert.Contains(t, d.Verdict.Message, name, "the trace names every matched exception")
 			}
+		})
+	}
+}
+
+// TestHandle_RuleNameKeepsIdentifierOnAutogenController: for a Deployment, autogen rewrites a Pod
+// validation (object.spec.containers becomes object.spec.template.spec.containers), so the
+// identifiers annotation, written against the Pod expression, must still name the generated
+// rule. Without that the Deployment's failure falls back to a positional name.
+func TestHandle_RuleNameKeepsIdentifierOnAutogenController(t *testing.T) {
+	const noLatest = "object.spec.containers.all(c, !c.image.endsWith(':latest'))"
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "disallow-latest",
+			Annotations: map[string]string{autogen.IdentifiersAnnotation: `{"` + noLatest + `":"no-latest"}`},
+		},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						Rule:       admissionregistrationv1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"pods"}},
+					},
+				}},
+			},
+			AutogenConfiguration: &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+				PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{Controllers: []string{"deployments"}},
+			},
+			// the named validation is second, so a positional fallback would be autogen-validate-1
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "true", Message: "always passes"},
+				{Expression: noLatest, Message: "no latest tags"},
+			},
+		},
+	}
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+	eng := NewEngine(provider, func(string) *corev1.Namespace { return nil }, matching.NewMatcher())
+
+	containers := []any{map[string]any{"name": "app", "image": "nginx:latest"}}
+	tests := []struct {
+		name   string
+		gvk    schema.GroupVersionKind
+		gvr    schema.GroupVersionResource
+		object map[string]any
+	}{{
+		name:   "pod, the source policy",
+		gvk:    schema.GroupVersionKind{Version: "v1", Kind: "Pod"},
+		gvr:    schema.GroupVersionResource{Version: "v1", Resource: "pods"},
+		object: map[string]any{"apiVersion": "v1", "kind": "Pod", "metadata": map[string]any{"name": "web", "namespace": "default"}, "spec": map[string]any{"containers": containers}},
+	}, {
+		name: "deployment, the autogen variant",
+		gvk:  schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+		gvr:  schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+		object: map[string]any{"apiVersion": "apps/v1", "kind": "Deployment", "metadata": map[string]any{"name": "web", "namespace": "default"},
+			"spec": map[string]any{"template": map[string]any{"spec": map[string]any{"containers": containers}}}},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := celengine.Request(nil, tt.gvk, tt.gvr, "", "web", "default", admissionv1.Create, authenticationv1.UserInfo{},
+				&unstructured.Unstructured{Object: tt.object}, nil, false, nil)
+			resp, err := eng.Handle(context.Background(), req, nil)
+			require.NoError(t, err)
+			var rules []engineapi.RuleResponse
+			for _, p := range resp.Policies {
+				rules = append(rules, p.Rules...)
+			}
+			require.Len(t, rules, 1, "exactly one variant of the policy applies")
+			assert.Equal(t, engineapi.RuleStatusFail, rules[0].Status())
+			assert.Equal(t, "autogen-no-latest", rules[0].Name())
 		})
 	}
 }

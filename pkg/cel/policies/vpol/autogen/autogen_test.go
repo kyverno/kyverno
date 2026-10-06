@@ -10,7 +10,166 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+func TestRuleName(t *testing.T) {
+	tests := []struct {
+		name       string
+		identifier string
+		index      int
+		want       string
+	}{
+		{
+			name:       "with identifier",
+			identifier: "check-privileged",
+			index:      3,
+			want:       "autogen-check-privileged",
+		},
+		{
+			name:       "without identifier falls back to numeric index",
+			identifier: "",
+			index:      0,
+			want:       "autogen-validate-0",
+		},
+		{
+			name:       "without identifier at a later index",
+			identifier: "",
+			index:      2,
+			want:       "autogen-validate-2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, RuleName(tt.identifier, tt.index))
+		})
+	}
+}
+
+func TestValidateUniqueIdentifiers(t *testing.T) {
+	path := field.NewPath("spec").Child("validations")
+	tests := []struct {
+		name        string
+		identifiers []string
+		wantErrs    int
+		// wantAt, when set, is the field the single expected error must point at
+		wantAt string
+	}{
+		{
+			name:        "all validations have unique identifiers",
+			identifiers: []string{"check-privileged", "check-run-as-non-root", "check-read-only-fs"},
+			wantErrs:    0,
+		},
+		{
+			name:        "no identifiers set, purely positional",
+			identifiers: []string{"", "", ""},
+			wantErrs:    0,
+		},
+		{
+			name:        "mix of identifiers and empty entries",
+			identifiers: []string{"check-privileged", "", "check-read-only-fs", ""},
+			wantErrs:    0,
+		},
+		{
+			name:        "duplicate identifier is rejected",
+			identifiers: []string{"check-privileged", "check-run-as-non-root", "check-privileged"},
+			wantErrs:    1,
+		},
+		{
+			name:        "multiple duplicate identifiers are all reported",
+			identifiers: []string{"a", "a", "a"},
+			wantErrs:    2,
+		},
+		{
+			name:        "empty identifiers never collide with each other",
+			identifiers: []string{"", "check-privileged", ""},
+			wantErrs:    0,
+		},
+		{
+			// "validate-1" names its rule autogen-validate-1, which index 1 also gets positionally
+			name:        "identifier collides with a later positional name",
+			identifiers: []string{"validate-1", ""},
+			wantErrs:    1,
+			wantAt:      "spec.validations[0].identifier",
+		},
+		{
+			name:        "identifier collides with an earlier positional name",
+			identifiers: []string{"", "validate-0"},
+			wantErrs:    1,
+			wantAt:      "spec.validations[1].identifier",
+		},
+		{
+			name:        "positional-looking identifier with no validation at that index",
+			identifiers: []string{"validate-5", ""},
+			wantErrs:    0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateUniqueIdentifiers(path, tt.identifiers)
+			assert.Len(t, errs, tt.wantErrs)
+			if tt.wantAt != "" && len(errs) == 1 {
+				assert.Equal(t, tt.wantAt, errs[0].Field, "the error points at the validation that carries the identifier")
+			}
+		})
+	}
+}
+
+func TestIdentifiersFromAnnotations(t *testing.T) {
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		want        map[string]string
+		wantErr     bool
+	}{
+		{
+			name:        "nil annotations",
+			annotations: nil,
+			want:        nil,
+		},
+		{
+			name:        "annotation not present",
+			annotations: map[string]string{"other": "value"},
+			want:        nil,
+		},
+		{
+			name:        "annotation present but empty",
+			annotations: map[string]string{IdentifiersAnnotation: ""},
+			want:        nil,
+		},
+		{
+			name: "valid mapping",
+			annotations: map[string]string{
+				IdentifiersAnnotation: `{"object.spec.privileged == false":"check-privileged"}`,
+			},
+			want: map[string]string{"object.spec.privileged == false": "check-privileged"},
+		},
+		{
+			name: "malformed json",
+			annotations: map[string]string{
+				IdentifiersAnnotation: `{not valid json`,
+			},
+			wantErr: true,
+		},
+		{
+			// valid JSON, but not an object: must not be read as "no annotation"
+			name:        "null is rejected",
+			annotations: map[string]string{IdentifiersAnnotation: `null`},
+			wantErr:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := IdentifiersFromAnnotations(tt.annotations)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
 
 func TestGenerateRuleForControllers(t *testing.T) {
 	tests := []struct {
@@ -660,4 +819,46 @@ func TestGenerateCronJobRule(t *testing.T) {
 			assert.Equal(t, tt.generatedRule, genRule)
 		})
 	}
+}
+
+func TestGeneratedPolicy_RekeysIdentifiersByPosition(t *testing.T) {
+	source := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{
+			"other":               "kept",
+			IdentifiersAnnotation: `{"object.spec.containers.size() > 0":"has-containers"}`,
+		}},
+		Spec: policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{
+			{Expression: "true"},
+			{Expression: "object.spec.containers.size() > 0"},
+		}},
+	}
+	generated := policiesv1beta1.ValidatingPolicyAutogen{Spec: &policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{
+		{Expression: "true"},
+		{Expression: "object.spec.template.spec.containers.size() > 0"},
+	}}}
+
+	out := GeneratedPolicy(source, generated)
+
+	assert.Equal(t, generated.Spec.Validations, out.GetValidatingPolicySpec().Validations)
+	identifiers, err := IdentifiersFromAnnotations(out.GetAnnotations())
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]string{"object.spec.template.spec.containers.size() > 0": "has-containers"}, identifiers,
+		"the identifier follows its validation to the rewritten expression")
+	assert.Equal(t, "kept", out.GetAnnotations()["other"])
+	// the source policy is left untouched
+	assert.Equal(t, `{"object.spec.containers.size() > 0":"has-containers"}`, source.GetAnnotations()[IdentifiersAnnotation])
+	assert.Equal(t, "object.spec.containers.size() > 0", source.Spec.Validations[1].Expression)
+}
+
+func TestGeneratedPolicy_WithoutIdentifiersOnlySwapsTheSpec(t *testing.T) {
+	source := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"other": "kept"}},
+		Spec:       policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{{Expression: "true"}}},
+	}
+	generated := policiesv1beta1.ValidatingPolicyAutogen{Spec: &policiesv1beta1.ValidatingPolicySpec{Validations: []admissionregistrationv1.Validation{{Expression: "false"}}}}
+
+	out := GeneratedPolicy(source, generated)
+
+	assert.Equal(t, generated.Spec.Validations, out.GetValidatingPolicySpec().Validations)
+	assert.Equal(t, map[string]string{"other": "kept"}, out.GetAnnotations())
 }
