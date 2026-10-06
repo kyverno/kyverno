@@ -802,6 +802,18 @@ func TestSortedRules(t *testing.T) {
 			admissionregistrationv1.Update,
 		},
 	}
+	// CEL policies may omit the scope; it must sort as the "*" default.
+	rule_apps_pods_omitted := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+			admissionregistrationv1.Update,
+		},
+	}
 	rule_apps_pods_all := admissionregistrationv1.RuleWithOperations{
 		Rule: admissionregistrationv1.Rule{
 			APIGroups:   []string{"apps"},
@@ -880,6 +892,11 @@ func TestSortedRules(t *testing.T) {
 			name:          "Sorted by scope",
 			input:         []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_apps_pods_cluster},
 			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_cluster, rule_apps_pods},
+		},
+		{
+			name:          "Omitted scope sorted as all scopes",
+			input:         []admissionregistrationv1.RuleWithOperations{rule_apps_pods, rule_apps_pods_cluster, rule_apps_pods_omitted},
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule_apps_pods_omitted, rule_apps_pods_cluster, rule_apps_pods},
 		},
 	}
 	for _, tc := range testCases {

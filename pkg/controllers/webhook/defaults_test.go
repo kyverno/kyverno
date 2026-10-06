@@ -3,18 +3,24 @@ package webhook
 import (
 	"context"
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
@@ -238,5 +244,104 @@ func TestReconcileWebhookConfigurationDefaults(t *testing.T) {
 				require.Empty(t, client.Actions(), "subsequent watchdog ticks must not send updates")
 			})
 		}
+	}
+}
+
+// TestReconcileResourceWebhooksWithOmittedRuleScope runs the complete resource
+// builders for CEL policies whose otherwise identical rules differ only in an
+// omitted versus explicit scope. Both must reconcile without panicking, collapse
+// into one defaulted rule, and stay unchanged on later watchdog ticks.
+func TestReconcileResourceWebhooksWithOmittedRuleScope(t *testing.T) {
+	t.Parallel()
+	rule := func(scope *admissionregistrationv1.ScopeType) *admissionregistrationv1.MatchResources {
+		return &admissionregistrationv1.MatchResources{ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+				Rule: admissionregistrationv1.Rule{
+					APIGroups: []string{"apps"}, APIVersions: []string{"v1"}, Resources: []string{"deployments"}, Scope: scope,
+				},
+			},
+		}}}
+	}
+	newIndexer := func(objs ...any) cache.Indexer {
+		indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+		for _, obj := range objs {
+			require.NoError(t, indexer.Add(obj))
+		}
+		return indexer
+	}
+	newController := func(t *testing.T, client *fake.Clientset, webhooks cache.Indexer) *controller {
+		return &controller{
+			autoUpdateWebhooks: true,
+			configuration:      config.NewDefaultConfiguration(false),
+			caSecretName:       "root-ca",
+			secretLister: corev1listers.NewSecretLister(newIndexer(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "root-ca", Namespace: config.KyvernoNamespace()},
+				Data:       map[string][]byte{corev1.TLSCertKey: []byte("ca")},
+			})),
+			leaseLister: coordinationv1listers.NewLeaseLister(newIndexer(&coordinationv1.Lease{ObjectMeta: metav1.ObjectMeta{
+				Name: "kyverno-health", Namespace: config.KyvernoNamespace(),
+				Annotations: map[string]string{AnnotationLastRequestTime: time.Now().Format(time.RFC3339)},
+			}})),
+			cpolLister:        kyvernov1listers.NewClusterPolicyLister(newIndexer()),
+			polLister:         kyvernov1listers.NewPolicyLister(newIndexer()),
+			clusterroleLister: rbacv1listers.NewClusterRoleLister(newIndexer()),
+			vpolLister: policiesv1beta1listers.NewValidatingPolicyLister(newIndexer(
+				&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "omitted-scope"}, Spec: policiesv1beta1.ValidatingPolicySpec{MatchConstraints: rule(nil)}},
+				&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "explicit-scope"}, Spec: policiesv1beta1.ValidatingPolicySpec{MatchConstraints: rule(ptr.To(admissionregistrationv1.AllScopes))}},
+			)),
+			mpolLister: policiesv1beta1listers.NewMutatingPolicyLister(newIndexer(
+				&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "omitted-scope"}, Spec: policiesv1beta1.MutatingPolicySpec{MatchConstraints: rule(nil)}},
+				&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "explicit-scope"}, Spec: policiesv1beta1.MutatingPolicySpec{MatchConstraints: rule(ptr.To(admissionregistrationv1.AllScopes))}},
+			)),
+			nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(newIndexer()),
+			gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(newIndexer()),
+			ngpolLister:        policiesv1beta1listers.NewNamespacedGeneratingPolicyLister(newIndexer()),
+			ivpolLister:        policiesv1beta1listers.NewImageValidatingPolicyLister(newIndexer()),
+			nivpolLister:       policiesv1beta1listers.NewNamespacedImageValidatingPolicyLister(newIndexer()),
+			nmpolLister:        policiesv1beta1listers.NewNamespacedMutatingPolicyLister(newIndexer()),
+			vwcLister:          admissionregistrationv1listers.NewValidatingWebhookConfigurationLister(webhooks),
+			mwcLister:          admissionregistrationv1listers.NewMutatingWebhookConfigurationLister(webhooks),
+			vwcClient:          client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+			mwcClient:          client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+			stateRecorder:      NewStateRecorder(nil),
+			celExpressionCache: NewExpressionCache(),
+		}
+	}
+	for _, kind := range []string{"validating", "mutating"} {
+		t.Run(kind, func(t *testing.T) {
+			t.Parallel()
+			client := fake.NewSimpleClientset()
+			webhooks := newIndexer()
+			c := newController(t, client, webhooks)
+			reconcile := c.reconcileResourceValidatingWebhookConfiguration
+			if kind == "mutating" {
+				reconcile = c.reconcileResourceMutatingWebhookConfiguration
+			}
+			require.NotPanics(t, func() { require.NoError(t, reconcile(t.Context())) })
+			actions := client.Actions()
+			require.Len(t, actions, 1)
+			require.Equal(t, "create", actions[0].GetVerb())
+			written := actions[0].(clienttesting.CreateAction).GetObject()
+			var rules []admissionregistrationv1.RuleWithOperations
+			switch obj := written.(type) {
+			case *admissionregistrationv1.ValidatingWebhookConfiguration:
+				require.Len(t, obj.Webhooks, 1)
+				rules = obj.Webhooks[0].Rules
+			case *admissionregistrationv1.MutatingWebhookConfiguration:
+				require.Len(t, obj.Webhooks, 1)
+				rules = obj.Webhooks[0].Rules
+			}
+			require.Len(t, rules, 1, "omitted and explicit default scopes must deduplicate")
+			require.Equal(t, ptr.To(admissionregistrationv1.AllScopes), rules[0].Scope)
+
+			// Simulate the informer observing the write before the next tick.
+			require.NoError(t, webhooks.Add(written.DeepCopyObject()))
+			client.ClearActions()
+			for range 3 {
+				require.NoError(t, reconcile(t.Context()))
+			}
+			require.Empty(t, client.Actions(), "subsequent watchdog ticks must not send updates")
+		})
 	}
 }
