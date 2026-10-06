@@ -158,8 +158,8 @@ func Test_ImageVerifyEngine_ConcurrentEvaluationDoesNotShareImageData(t *testing
 
 // Test_ImageVerifyEngine_ImageContextConstructionErrorFailsRequest pins the error
 // contract: when the image context cannot be built, the whole request fails (the
-// webhook's failure policy then decides) rather than the error being downgraded
-// to a per-policy result, which for a Warn policy would admit.
+// webhook rejects it) rather than the error being downgraded to a per-policy
+// result, which for a Warn policy would admit.
 func Test_ImageVerifyEngine_ImageContextConstructionErrorFailsRequest(t *testing.T) {
 	provider := multiPolicyProvider(sameImageIvpol("ivpol-a"), sameImageIvpol("ivpol-b"))
 
