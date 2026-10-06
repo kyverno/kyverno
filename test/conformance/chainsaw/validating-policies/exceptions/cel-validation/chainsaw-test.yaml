@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policy-exception-cel-validation
+spec:
+  concurrent: false
+  steps:
+  - name: reject-invalid-create-for-every-served-version
+    try:
+    - script:
+        content: kubectl apply -n "$NAMESPACE" -f invalid-v1alpha1.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.matchConditions[0].expression')): true
+          (contains($stderr, 'endsWithTYPO')): true
+    - script:
+        content: kubectl apply -n "$NAMESPACE" -f invalid-v1beta1.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.matchConditions[0].expression')): true
+          (contains($stderr, 'endsWithTYPO')): true
+    - script:
+        content: kubectl apply -n "$NAMESPACE" -f invalid-v1.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.matchConditions[0].expression')): true
+          (contains($stderr, 'endsWithTYPO')): true
+  - name: accept-valid-create
+    try:
+    - apply:
+        file: valid-v1beta1.yaml
+  - name: reject-valid-to-invalid-update
+    try:
+    - script:
+        content: kubectl apply -n "$NAMESPACE" -f invalid-update-v1beta1.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'spec.matchConditions[0].expression')): true
+          (contains($stderr, 'totally')): true
+    - script:
+        content: kubectl get -n "$NAMESPACE" policyexceptions.policies.kyverno.io valid-exception -o jsonpath='{.spec.matchConditions[0].expression}'
+        check:
+          ($error == null): true
+          (trim_space($stdout)): object.metadata.name == 'allowed-pod'

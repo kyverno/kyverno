@@ -243,7 +243,37 @@ func (c *controller) updateUR(_, cur interface{}) {
 	if curUr.Status.State == kyvernov2.Skip || curUr.Status.State == kyvernov2.Completed {
 		return
 	}
+	// A retry (a Failed UR, or a Pending one with RetryCount > 0) backs off
+	// instead of an immediate re-enqueue.
+	if curUr.Status.State == kyvernov2.Failed || curUr.Status.RetryCount > 0 {
+		key, err := cache.MetaNamespaceKeyFunc(curUr)
+		if err != nil {
+			logger.Error(err, "failed to extract name")
+			return
+		}
+		delay := defaultRetryBackoff(curUr.Status.RetryCount)
+		logger.V(3).Info("retrying update request with backoff", "key", key, "retryCount", curUr.Status.RetryCount, "delay", delay)
+		c.queue.AddAfter(key, delay)
+		return
+	}
 	c.enqueueUpdateRequest(curUr)
+}
+
+// defaultRetryBackoff paces UR retries (300ms, 600ms, 1.2s..., capped at
+// 10s) against retryOrDeleteOnFailure's RetryCount>3 delete threshold.
+func defaultRetryBackoff(retryCount int) time.Duration {
+	const (
+		base     = 300 * time.Millisecond
+		maxDelay = 10 * time.Second
+	)
+	d := base
+	for i := 1; i < retryCount; i++ {
+		d *= 2
+		if d >= maxDelay {
+			return maxDelay
+		}
+	}
+	return d
 }
 
 func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
@@ -256,10 +286,10 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.engine, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger, c.jp)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.CELGenerate:
-		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.eventGen, logger)
+		ctrl := gpol.NewCELGenerateController(c.client, c.kyvernoClient, c.context, c.gpolEngine, c.gpolProvider, c.watchManager, statusControl, c.eventGen, logger, c.configuration)
 		return ctrl.ProcessUR(ur)
 	case kyvernov2.CELMutate:
-		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl, c.eventGen)
+		processor := mpol.NewProcessor(c.client, c.kyvernoClient, c.mpolEngine, c.restMapper, c.context, statusControl, c.eventGen, c.configuration)
 		return processor.Process(ur)
 	}
 	return nil

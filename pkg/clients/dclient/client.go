@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
@@ -80,9 +79,7 @@ func NewClient(
 		rest: disco.RESTClient(),
 	}
 	// Set discovery client
-	discoveryClient := &serverResources{
-		cachedClient: memory.NewMemCacheClient(disco),
-	}
+	discoveryClient := NewServerResourcesDiscovery(disco).(*serverResources)
 	// client will invalidate registered resources cache every x seconds,
 	// As there is no way to identify if the registered resource is available or not
 	// we will be invalidating the local cache, so the next request get a fresh cache

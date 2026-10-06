@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
@@ -22,7 +22,7 @@ import (
 
 func TestGetClient_NilSecretsLister(t *testing.T) {
 	// Create a factory with nil secretsLister (simulating CLI usage)
-	rclient := registryclient.New(nil, "", "", "", false)
+	rclient := registryclient.New()
 	factory := DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil)
 
 	tests := []struct {

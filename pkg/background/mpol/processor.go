@@ -21,6 +21,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -52,6 +53,7 @@ type processor struct {
 	mapper        meta.RESTMapper
 	context       libs.Context
 	statusControl common.StatusControlInterface
+	configuration config.Configuration
 
 	eventGen event.Interface
 }
@@ -76,6 +78,7 @@ func NewProcessor(client dclient.Interface,
 	context libs.Context,
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
+	configuration config.Configuration,
 ) *processor {
 	return &processor{
 		client:        client,
@@ -85,6 +88,7 @@ func NewProcessor(client dclient.Interface,
 		context:       context,
 		statusControl: statusControl,
 		eventGen:      eventGen,
+		configuration: configuration,
 	}
 }
 
@@ -102,6 +106,13 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	mpol, err := p.GetPolicy(ur)
 	if mpol == nil {
 		return err
+	}
+	// The request for a new policy can arrive before the engine has compiled that policy; return an
+	// error so it is retried with backoff, since evaluating now would match nothing and complete it
+	// silently. The lookup also matches bare names, so check the compiled policy is this one.
+	key := mpolengine.PolicyKey(mpol)
+	if compiled, err := p.engine.GetCompiledPolicy(key); err != nil || (compiled.Policy != nil && mpolengine.PolicyKey(compiled.Policy) != key) {
+		return fmt.Errorf("mutating policy %s is not compiled yet", key)
 	}
 
 	targetConstraints := mpol.GetMatchConstraints()
@@ -173,54 +184,59 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 	for _, target := range targets {
 		object := &target.object
+		if p.configuration != nil && p.configuration.ToFilter(object.GroupVersionKind(), target.subresource, object.GetNamespace(), object.GetName()) {
+			logger.V(4).Info("target resource is filtered out by resource filters", "kind", object.GetKind(), "namespace", object.GetNamespace(), "name", object.GetName(), "mpol", ur.Spec.GetPolicyKey())
+			continue
+		}
+		evaluate := func(object *unstructured.Unstructured) (mpolengine.EngineResponse, error) {
+			// Build the AdmissionRequest for this target. For background-only scans there is no
+			// real admission request, so we construct a synthetic one from the target resource.
+			// Operation is Update (background scans mutate already-existing resources).
+			// Object.Raw, Kind, Resource, Namespace and Name are populated so that request.*
+			// CEL variables (request.object, request.namespace, etc.) reflect the actual target.
+			ar := baseAR
+			if ar == nil {
+				raw, err := json.Marshal(object.Object)
+				if err != nil {
+					return mpolengine.EngineResponse{}, fmt.Errorf("failed to marshal target object: %w", err)
+				}
+				gvk := object.GroupVersionKind()
+				ar = &admissionv1.AdmissionRequest{
+					Operation: admissionv1.Update,
+					Kind: metav1.GroupVersionKind{
+						Group:   gvk.Group,
+						Version: gvk.Version,
+						Kind:    gvk.Kind,
+					},
+					Resource: metav1.GroupVersionResource{
+						Group:    target.parentResource.Group,
+						Version:  target.parentResource.Version,
+						Resource: target.parentResource.Resource,
+					},
+					SubResource: target.subresource,
+					Namespace:   object.GetNamespace(),
+					Name:        object.GetName(),
+					Object:      runtime.RawExtension{Raw: raw},
+				}
+			}
 
-		// Build the AdmissionRequest for this target. For background-only scans there is no
-		// real admission request, so we construct a synthetic one from the target resource.
-		// Operation is Update (background scans mutate already-existing resources).
-		// Object.Raw, Kind, Resource, Namespace and Name are populated so that request.*
-		// CEL variables (request.object, request.namespace, etc.) reflect the actual target.
-		ar := baseAR
-		if ar == nil {
-			raw, err := json.Marshal(object.Object)
-			if err != nil {
-				failures = append(failures, fmt.Errorf("failed to marshal target object for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
-				continue
-			}
-			gvk := object.GroupVersionKind()
-			ar = &admissionv1.AdmissionRequest{
-				Operation: admissionv1.Update,
-				Kind: metav1.GroupVersionKind{
-					Group:   gvk.Group,
-					Version: gvk.Version,
-					Kind:    gvk.Kind,
-				},
-				Resource: metav1.GroupVersionResource{
-					Group:    target.parentResource.Group,
-					Version:  target.parentResource.Version,
-					Resource: target.parentResource.Resource,
-				},
-				SubResource: target.subresource,
-				Namespace:   object.GetNamespace(),
-				Name:        object.GetName(),
-				Object:      runtime.RawExtension{Raw: raw},
-			}
+			attr := admission.NewAttributesRecord(
+				object,
+				nil,
+				object.GroupVersionKind(),
+				object.GetNamespace(),
+				object.GetName(),
+				target.parentResource,
+				target.subresource,
+				admission.Operation(ar.Operation),
+				nil,
+				false,
+				admissionpolicy.NewUser(ar.UserInfo),
+			)
+			return p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
 		}
 
-		attr := admission.NewAttributesRecord(
-			object,
-			nil,
-			object.GroupVersionKind(),
-			object.GetNamespace(),
-			object.GetName(),
-			target.parentResource,
-			target.subresource,
-			admission.Operation(ar.Operation),
-			nil,
-			false,
-			admissionpolicy.NewUser(ar.UserInfo),
-		)
-
-		response, err := p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
+		response, err := evaluate(object)
 		if err != nil {
 			failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 			continue
@@ -235,6 +251,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				}
 				continue
 			}
+			listedResourceVersion := object.GetResourceVersion()
 			object, err = p.client.GetResource(context.TODO(), object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName())
 			if err != nil {
 				// The target may have been deleted between resolution and update
@@ -244,6 +261,24 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				}
 				failures = append(failures, fmt.Errorf("failed to refresh target resource for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 				continue
+			}
+			// The patch above was computed from the listed copy of the target; if the target has
+			// changed since, re-apply the policy to the live object so that change is not overwritten.
+			if object.GetResourceVersion() != listedResourceVersion {
+				response, err = evaluate(object)
+				if err != nil {
+					failures = append(failures, fmt.Errorf("failed to evaluate mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+					continue
+				}
+				if response.PatchedResource == nil {
+					continue
+				}
+				if apiequality.Semantic.DeepEqual(response.PatchedResource.Object, object.Object) {
+					if err := p.audit(object, &response); err != nil {
+						logger.Error(err, "failed to create reports for mpol", "mpol", ur.Spec.GetPolicyKey())
+					}
+					continue
+				}
 			}
 			new := response.PatchedResource
 			new.SetResourceVersion(object.GetResourceVersion())
@@ -496,7 +531,10 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 		false,
 		admissionpolicy.NewUser(ar.UserInfo),
 	)
-	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, p.context) {
+	// Single-shot: each UpdateRequest resolves to exactly one mpol (GetPolicy
+	// above), so there is no per-loop hoist benefit here - nil lets
+	// MatchesConditions build the request map locally.
+	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, nil, p.context) {
 		return nil, nil
 	}
 	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil)

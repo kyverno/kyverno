@@ -68,7 +68,7 @@ func (l *contextLoader) Load(
 	client engineapi.RawClient,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
-	jsonContext enginecontext.Interface,
+	jsonContext engineapi.Interface,
 ) error {
 	if err := l.runInitializers(jsonContext); err != nil {
 		return err
@@ -76,7 +76,7 @@ func (l *contextLoader) Load(
 	return l.loadContextEntries(ctx, jp, client, rclientFactory, contextEntries, jsonContext)
 }
 
-func (l *contextLoader) runInitializers(jsonContext enginecontext.Interface) error {
+func (l *contextLoader) runInitializers(jsonContext engineapi.Interface) error {
 	for _, init := range l.initializers {
 		if err := init(jsonContext); err != nil {
 			return err
@@ -91,7 +91,7 @@ func (l *contextLoader) loadContextEntries(
 	client engineapi.RawClient,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
-	jsonContext enginecontext.Interface,
+	jsonContext engineapi.Interface,
 ) error {
 	for _, entry := range contextEntries {
 		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext, l.gctxStore)
@@ -114,7 +114,7 @@ func (l *contextLoader) loadContextEntries(
 }
 
 // RunContextLoaderInitializers runs WithInitializer callbacks registered on the context loader.
-func RunContextLoaderInitializers(l engineapi.ContextLoader, jsonContext enginecontext.Interface) error {
+func RunContextLoaderInitializers(l engineapi.ContextLoader, jsonContext engineapi.Interface) error {
 	cl, ok := l.(*contextLoader)
 	if !ok {
 		return fmt.Errorf("unexpected context loader type %T; expected *contextLoader from DefaultContextLoaderFactory", l)
@@ -130,7 +130,7 @@ func LoadContextLoaderEntriesWithoutInitializers(
 	client engineapi.RawClient,
 	rclientFactory engineapi.RegistryClientFactory,
 	contextEntries []kyvernov1.ContextEntry,
-	jsonContext enginecontext.Interface,
+	jsonContext engineapi.Interface,
 ) error {
 	cl, ok := l.(*contextLoader)
 	if !ok {
@@ -145,9 +145,9 @@ func (l *contextLoader) newLoader(
 	client engineapi.RawClient,
 	rclientFactory engineapi.RegistryClientFactory,
 	entry kyvernov1.ContextEntry,
-	jsonContext enginecontext.Interface,
+	jsonContext engineapi.Interface,
 	gctx loaders.Store,
-) (enginecontext.DeferredLoader, error) {
+) (engineapi.DeferredLoader, error) {
 	if entry.ConfigMap != nil {
 		if l.cmResolver != nil {
 			ldr := loaders.NewConfigMapLoader(ctx, l.logger, entry, l.cmResolver, jsonContext, l.policyNamespace)
@@ -166,7 +166,7 @@ func (l *contextLoader) newLoader(
 		}
 	} else if entry.GlobalReference != nil {
 		if gctx != nil {
-			ldr := loaders.NewGCTXLoader(ctx, l.logger, entry, jsonContext, jp, gctx)
+			ldr := loaders.NewGCTXLoader(ctx, l.logger, entry, jsonContext, jp, gctx, l.policyNamespace)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.V(3).Info("disabled loading of GlobalContext context entry", "name", entry.Name)

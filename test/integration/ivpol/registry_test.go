@@ -1,9 +1,9 @@
 //go:build integration && registry
 
-// These tests drive the mutating phase against real container registries, so they perform the actual
-// cosign and notary verification instead of reading a pre-stamped outcome. They are kept behind the
-// extra "registry" build tag because they need outbound network (ghcr.io, and Rekor for keyless), and
-// each one costs a registry round trip. Run them with:
+// These tests drive the validating phase against real container registries, so they perform the
+// actual cosign and notary verification. They are kept behind the extra "registry" build tag because
+// they need outbound network (ghcr.io, and Rekor for keyless), and each one costs a registry round
+// trip. Run them with:
 //
 //	go test -tags="integration registry" ./test/integration/ivpol/...
 //
@@ -13,10 +13,11 @@ package ivpol_test
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	ivpol "github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
@@ -28,7 +29,9 @@ import (
 )
 
 const (
-	// Images published by the kyverno test image repositories.
+	// Images published by the kyverno test image repositories. These are real images the
+	// registry-tagged tests pull and verify; the hermetic tests use an unresolvable reference instead
+	// (see unverifiableImage in handler_test.go).
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
 	unsignedImage = "ghcr.io/kyverno/test-verify-image:unsigned"
 
@@ -72,17 +75,6 @@ ByCEQNhtHgN6V20b8KU2oLBZ9vyB8V010dQz0NRTDLhkcvJig00535/LUylECYAJ
 uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 -----END CERTIFICATE-----`
 
-// applyOutcomePatch applies the JSON patch the mutating phase produced to the raw pod, the way the
-// API server applies an admission patch before handing the object to the next webhook.
-func applyOutcomePatch(t *testing.T, raw []byte, patch []byte) []byte {
-	t.Helper()
-	decoded, err := jsonpatch.DecodePatch(patch)
-	require.NoError(t, err)
-	patched, err := decoded.Apply(raw)
-	require.NoError(t, err)
-	return patched
-}
-
 // requireImageReachable skips the test when the registry cannot be reached, matching the convention
 // the in-tree cosign verifier tests use so a developer without egress (or a transient registry
 // outage) sees a skip instead of a spurious failure.
@@ -125,75 +117,74 @@ func cosignKeylessPolicy(name, issuer, subject string) *policiesv1beta1.ImageVal
 	return policy
 }
 
-// mutatePod runs the mutating webhook route for a pod carrying the given image and returns the
-// admission response, which holds the verification outcome the phase recorded.
-func mutatePod(t *testing.T, policyName, podName, namespace, image string) (bool, string) {
+// validatePod runs the validating webhook route for a pod carrying the given image and returns
+// whether the request was admitted along with any warnings. Verification happens entirely in this
+// phase (issue #16336): a signed image is admitted, an unsigned or untrusted one is denied.
+func validatePod(t *testing.T, policyName, podName, namespace, image string) (bool, []string) {
 	t.Helper()
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 	raw := podRawWithImage(t, podName, namespace, image)
 	ctx := framework.ContextWithPolicies(context.Background(), policyName)
-	resp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest(podName, namespace, raw), "", time.Now())
-	return resp.Allowed, outcomeStatusFor(t, resp.Patch, policyName)
+	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest(podName, namespace, raw), "", time.Now())
+	return resp.Allowed, resp.Warnings
 }
 
-// TestMutate_CosignSignedImage_VerifiesSuccessfully is the end to end signature check: a real signed
-// image is pulled from the registry, verified against the policy key, and recorded as passing.
-func TestMutate_CosignSignedImage_VerifiesSuccessfully(t *testing.T) {
+// TestValidate_CosignSignedImage_Admits is the end to end signature check: a real signed image is
+// pulled from the registry, verified against the policy key, and admitted.
+func TestValidate_CosignSignedImage_Admits(t *testing.T) {
 	requireImageReachable(t, signedImage)
 
 	createIvpolWithCleanup(t, cosignKeyedPolicy("cosign-signed", cosignPubKey))
 	waitForPolicyReady(t, "cosign-signed", "")
 
-	allowed, status := mutatePod(t, "cosign-signed", "signed-pod", "default", signedImage)
+	allowed, warnings := validatePod(t, "cosign-signed", "signed-pod", "default", signedImage)
 
 	assert.True(t, allowed, "a correctly signed image must be admitted")
-	assert.Equal(t, "pass", status, "a correctly signed image must record a passing verification")
+	assert.Empty(t, warnings, "a passing verification must not warn")
 }
 
-// TestMutate_UnsignedImage_FailsVerification is the negative control for the check above: the same
-// policy against an unsigned image records a failure.
-func TestMutate_UnsignedImage_FailsVerification(t *testing.T) {
+// TestValidate_UnsignedImage_Denies is the negative control for the check above: the same policy
+// against an unsigned image denies the pod.
+func TestValidate_UnsignedImage_Denies(t *testing.T) {
 	requireImageReachable(t, unsignedImage)
 
 	createIvpolWithCleanup(t, cosignKeyedPolicy("cosign-unsigned", cosignPubKey))
 	waitForPolicyReady(t, "cosign-unsigned", "")
 
-	_, status := mutatePod(t, "cosign-unsigned", "unsigned-pod", "default", unsignedImage)
+	allowed, _ := validatePod(t, "cosign-unsigned", "unsigned-pod", "default", unsignedImage)
 
-	assert.Equal(t, "fail", status, "an unsigned image must record a failed verification")
+	assert.False(t, allowed, "an unsigned image must be denied")
 }
 
-// TestMutate_CosignKeyedOrgImage_VerifiesSuccessfully covers the key based images published by the
-// kyverno test-images repository, which are signed with a different key than test-verify-image.
-func TestMutate_CosignKeyedOrgImage_VerifiesSuccessfully(t *testing.T) {
+// TestValidate_CosignKeyedOrgImage_Admits covers the key based images published by the kyverno
+// test-images repository, which are signed with a different key than test-verify-image.
+func TestValidate_CosignKeyedOrgImage_Admits(t *testing.T) {
 	requireImageReachable(t, keyedOrgImage)
 
 	createIvpolWithCleanup(t, cosignKeyedPolicy("cosign-org-keyed", orgCosignPubKey))
 	waitForPolicyReady(t, "cosign-org-keyed", "")
 
-	allowed, status := mutatePod(t, "cosign-org-keyed", "org-keyed-pod", "default", keyedOrgImage)
+	allowed, _ := validatePod(t, "cosign-org-keyed", "org-keyed-pod", "default", keyedOrgImage)
 
 	assert.True(t, allowed, "an image signed with the org key must be admitted")
-	assert.Equal(t, "pass", status, "an image signed with the org key must record a passing verification")
 }
 
-// TestMutate_CosignKeylessImage_VerifiesSuccessfully covers keyless (OIDC) signing, which also
-// consults the Rekor transparency log.
-func TestMutate_CosignKeylessImage_VerifiesSuccessfully(t *testing.T) {
+// TestValidate_CosignKeylessImage_Admits covers keyless (OIDC) signing, which also consults the Rekor
+// transparency log.
+func TestValidate_CosignKeylessImage_Admits(t *testing.T) {
 	requireImageReachable(t, keylessOrgImage)
 
 	createIvpolWithCleanup(t, cosignKeylessPolicy("cosign-keyless", githubActionsIssuer, githubWorkflowID))
 	waitForPolicyReady(t, "cosign-keyless", "")
 
-	allowed, status := mutatePod(t, "cosign-keyless", "keyless-pod", "default", keylessOrgImage)
+	allowed, _ := validatePod(t, "cosign-keyless", "keyless-pod", "default", keylessOrgImage)
 
 	assert.True(t, allowed, "a keyless signed image from the expected workflow must be admitted")
-	assert.Equal(t, "pass", status, "a keyless signed image must record a passing verification")
 }
 
-// TestMutate_KeylessWrongIdentity_FailsVerification proves the keyless identity is actually enforced:
-// the image is signed, but by a different workflow than the policy trusts.
-func TestMutate_KeylessWrongIdentity_FailsVerification(t *testing.T) {
+// TestValidate_KeylessWrongIdentity_Denies proves the keyless identity is actually enforced: the
+// image is signed, but by a different workflow than the policy trusts.
+func TestValidate_KeylessWrongIdentity_Denies(t *testing.T) {
 	requireImageReachable(t, keylessOrgImage)
 
 	policy := cosignKeylessPolicy("cosign-wrong-identity", githubActionsIssuer,
@@ -201,38 +192,28 @@ func TestMutate_KeylessWrongIdentity_FailsVerification(t *testing.T) {
 	createIvpolWithCleanup(t, policy)
 	waitForPolicyReady(t, "cosign-wrong-identity", "")
 
-	_, status := mutatePod(t, "cosign-wrong-identity", "wrong-identity-pod", "default", keylessOrgImage)
+	allowed, _ := validatePod(t, "cosign-wrong-identity", "wrong-identity-pod", "default", keylessOrgImage)
 
-	assert.NotEqual(t, "pass", status, "an image signed by another workflow identity must not pass")
+	assert.False(t, allowed, "an image signed by another workflow identity must be denied")
 }
 
-// TestMutateThenValidate_TwoPhaseFlowAdmitsVerifiedPod wires both webhook phases together the way the
-// API server does: the mutating phase verifies the image and stamps the outcome, and the validating
-// phase reads that stamp and admits the pod. Neither phase is meaningful on its own.
-func TestMutateThenValidate_TwoPhaseFlowAdmitsVerifiedPod(t *testing.T) {
+// TestValidate_SignedImage_AdmitsInSinglePhase confirms the post-#16336 single-phase model: the pod
+// carries no pre-stamped outcome annotation, so the validating phase verifies the image on its own
+// and admits it, with no mutating phase involved.
+func TestValidate_SignedImage_AdmitsInSinglePhase(t *testing.T) {
 	requireImageReachable(t, signedImage)
 
-	createIvpolWithCleanup(t, cosignKeyedPolicy("two-phase", cosignPubKey))
-	waitForPolicyReady(t, "two-phase", "")
+	createIvpolWithCleanup(t, cosignKeyedPolicy("single-phase", cosignPubKey))
+	waitForPolicyReady(t, "single-phase", "")
 
-	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
-	ctx := framework.ContextWithPolicies(context.Background(), "two-phase")
+	allowed, warnings := validatePod(t, "single-phase", "single-phase-pod", "default", signedImage)
 
-	// Phase 1: verify the image and collect the outcomes the API server would apply to the object.
-	raw := podRawWithImage(t, "two-phase-pod", "default", signedImage)
-	mutateResp := h.MutateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("two-phase-pod", "default", raw), "", time.Now())
-	require.True(t, mutateResp.Allowed, "the mutating phase must admit the pod")
-	require.Equal(t, "pass", outcomeStatusFor(t, mutateResp.Patch, "two-phase"), "the mutating phase must verify the image")
-
-	// Apply the patch, as the API server does, then run the validating phase on the patched pod.
-	patched := applyOutcomePatch(t, raw, mutateResp.Patch)
-	validateResp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest("two-phase-pod", "default", patched), "", time.Now())
-
-	assert.True(t, validateResp.Allowed, "the validating phase must admit a pod the mutating phase verified")
+	assert.True(t, allowed, "the validating phase must verify and admit a signed image on its own")
+	assert.Empty(t, warnings, "a passing verification must not warn")
 }
 
-// TestMutate_NotarySignedImage_VerifiesSuccessfully covers the other supported signature format.
-func TestMutate_NotarySignedImage_VerifiesSuccessfully(t *testing.T) {
+// TestValidate_NotarySignedImage_Admits covers the other supported signature format.
+func TestValidate_NotarySignedImage_Admits(t *testing.T) {
 	requireImageReachable(t, signedImage)
 
 	policy := newIvpol("notary-signed")
@@ -247,8 +228,71 @@ func TestMutate_NotarySignedImage_VerifiesSuccessfully(t *testing.T) {
 	createIvpolWithCleanup(t, policy)
 	waitForPolicyReady(t, "notary-signed", "")
 
-	allowed, status := mutatePod(t, "notary-signed", "notary-pod", "default", signedImage)
+	allowed, _ := validatePod(t, "notary-signed", "notary-pod", "default", signedImage)
 
 	assert.True(t, allowed, "a notary signed image must be admitted")
-	assert.Equal(t, "pass", status, "a notary signed image must record a passing verification")
+}
+
+// TestMutate_PinsDigestAndStampsNothingElse is the success path of digest pinning, and the reason
+// issue #16808 was filed: mutateDigest defaults to true but the mutating handler used to be a stub,
+// so tags were never pinned. A real image is resolved here and the route must emit exactly one
+// replace patch, targeting the container image field and carrying the resolved digest.
+//
+// The patch is also asserted to be the only one, which is the issue #16336 invariant on the path
+// where mutation actually succeeds: the route must not additionally stamp an image verification
+// outcome annotation for the validating route to trust.
+func TestMutate_PinsDigestAndStampsNothingElse(t *testing.T) {
+	requireImageReachable(t, signedImage)
+
+	createIvpolWithCleanup(t, cosignKeyedPolicy("mutate-pin-digest", cosignPubKey))
+	waitForPolicyReady(t, "mutate-pin-digest", "")
+
+	resp := mutatePod(t, "mutate-pin-digest", "pinned-pod", "default", signedImage)
+	require.True(t, resp.Allowed, "a resolvable image must be admitted by the mutating route")
+	require.NotEmpty(t, resp.Patch, "mutateDigest is enabled, so the tag must be pinned (issue #16808)")
+
+	var patches []map[string]any
+	require.NoError(t, json.Unmarshal(resp.Patch, &patches))
+	require.Len(t, patches, 1, "digest pinning must be the only mutation the route performs")
+
+	assert.Equal(t, "replace", patches[0]["op"])
+	assert.Equal(t, "/spec/containers/0/image", patches[0]["path"],
+		"the patch must target the image field, not an annotation (issue #16336)")
+
+	value, ok := patches[0]["value"].(string)
+	require.True(t, ok, "the patched image must be a string")
+	assert.True(t, strings.HasPrefix(value, signedImage+"@sha256:"),
+		"the image must keep its original reference and gain a digest, got %q", value)
+}
+
+// TestMutate_PinsResolvableImageDespiteUnresolvableOne proves digest pinning is per image. A pod
+// with one resolvable and one unresolvable image still gets the resolvable one pinned: abandoning
+// every patch because a single image could not be resolved would leave images unpinned that the
+// policy was perfectly able to pin. ClusterPolicy resolves each image independently for the same
+// reason. The policy only warns here, so the failure does not block and the partial patch is
+// observable in the response.
+func TestMutate_PinsResolvableImageDespiteUnresolvableOne(t *testing.T) {
+	requireImageReachable(t, signedImage)
+
+	policy := cosignKeyedPolicy("mutate-partial-pin", cosignPubKey)
+	policy.Spec.ValidationAction = []admissionregistrationv1.ValidationAction{admissionregistrationv1.Warn}
+	createIvpolWithCleanup(t, policy)
+	waitForPolicyReady(t, "mutate-partial-pin", "")
+
+	raw := podRawWithImages(t, "partial-pod", "default", signedImage, unverifiableImage)
+	resp := mutatePodRaw(t, "mutate-partial-pin", "partial-pod", "default", raw)
+
+	require.True(t, resp.Allowed, "a warn only policy must not block on a digest pinning failure")
+	assert.NotEmpty(t, resp.Warnings, "the image that could not be resolved must still be reported")
+
+	var patches []map[string]any
+	require.NoError(t, json.Unmarshal(resp.Patch, &patches))
+	require.Len(t, patches, 1, "the resolvable image must still be pinned")
+
+	assert.Equal(t, "/spec/containers/0/image", patches[0]["path"],
+		"only the resolvable container must be patched")
+	value, ok := patches[0]["value"].(string)
+	require.True(t, ok, "the patched image must be a string")
+	assert.True(t, strings.HasPrefix(value, signedImage+"@sha256:"),
+		"the resolvable image must gain a digest, got %q", value)
 }

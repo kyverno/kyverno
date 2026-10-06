@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -57,7 +57,8 @@ func Test_MatchResources(t *testing.T) {
 			errors: []string{
 				"Can't specify any and all together",
 			},
-		}}
+		},
+	}
 
 	path := field.NewPath("dummy")
 	for _, testCase := range testCases {

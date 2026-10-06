@@ -1,0 +1,66 @@
+# Checks pr-readiness-check.yaml reports on open PRs in the active release milestone. Each key becomes a possible
+# finding; `test` and `message` are both jq expressions evaluated against the PR object that workflow's GraphQL
+# query fetches (see its `query` variable for the exact shape), with `$author` bound to the PR author's login —
+# `message` can name specifics from the PR's own data, not just return a fixed string. To add a check: add an
+# entry here — pr-readiness-check.yaml itself never needs to change.
+
+# Every terminal-but-unsuccessful check conclusion GitHub defines — not just FAILURE/ERROR — so a timed-out or
+# cancelled check doesn't slip through as "ready." NEUTRAL and SKIPPED are excluded: GitHub treats those as
+# successful outcomes, not something the author owes a fix for.
+dco:
+  message: '"fix the DCO"'
+  test: |
+    [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.name // .context) == "DCO") | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
+
+# Excludes DCO (own message above) and the infra checks below.
+ci:
+  message: |
+    "fix the failing check(s): " + (
+      [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+        | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status", "Upload coverage to Codecov"] | any(. == $n) | not)
+        | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
+        | (.name // .context)]
+      | join(", ")
+    )
+  test: |
+    [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status", "Upload coverage to Codecov"] | any(. == $n) | not) | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
+
+# Non-blocking FYI, never needs-author-action: checks that fail outside the PR's diff. Keep the names in sync with
+# the exclusion in `ci` above. The Codecov upload runs after the unit tests pass and only ships coverage.
+infra_checks:
+  message: |
+    "no action needed from you on these red check(s), they are not caused by this PR:\n" + (
+      [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+        | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
+        | (.name // .context) as $n
+        | {"E2E Gate": "base-branch or CI-infrastructure issue",
+           "Sync E2E Gate status": "base-branch or CI-infrastructure issue",
+           "Upload coverage to Codecov": "the unit tests passed; only the upload to Codecov failed, usually a Codecov outage or rejected upload"}[$n]
+        | select(. != null) as $why
+        | "- `" + $n + "`: " + $why]
+      | unique | join("\n")
+    ) + "\nA maintainer can re-run the failed job once the service recovers."
+  test: |
+    [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+      | select((.name // .context) as $n | ["E2E Gate", "Sync E2E Gate status", "Upload coverage to Codecov"] | any(. == $n)) | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
+
+conflicts:
+  message: '"fix the merge conflicts"'
+  test: |
+    [.labels.nodes[].name] | any(. == "merge-conflicts")
+
+# Per unresolved thread, not a global timestamp comparison: the author owes a response unless the LAST comment
+# in that specific thread is already theirs (a fix pushed without replying still counts as owing a response —
+# matches the real nudge this mirrors: "mark it resolved, or leave a response").
+threads:
+  message: '"resolve all review comments — mark each thread resolved, or leave a response if you are not sure what to do"'
+  test: |
+    [.reviewThreads.nodes[]
+      | select(.isResolved | not)
+      | select(.comments.nodes[0].author.login != $author)
+    ] | length > 0

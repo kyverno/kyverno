@@ -62,6 +62,9 @@
 {{- with .forceFailurePolicyIgnore -}}
   {{- $flags = append $flags (print "--forceFailurePolicyIgnore=" .enabled) -}}
 {{- end -}}
+{{- with .blockLegacyPolicyAPIs -}}
+  {{- $flags = append $flags (print "--blockLegacyPolicyAPIs=" .enabled) -}}
+{{- end -}}
 {{- with .generateValidatingAdmissionPolicy -}}
   {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}
@@ -74,6 +77,7 @@
 {{- with .globalContext -}}
   {{- $flags = append $flags (print "--maxAPICallResponseLength=" (int .maxApiCallResponseLength)) -}}
   {{- $flags = append $flags (print "--apiCallTimeout=" .apiCallTimeout) -}}
+  {{- $flags = append $flags (print "--maxGlobalContextEntries=" (int .maxGlobalContextEntries)) -}}
 {{- end -}}
 {{- with .logging -}}
   {{- $flags = append $flags (print "--loggingFormat=" .format) -}}

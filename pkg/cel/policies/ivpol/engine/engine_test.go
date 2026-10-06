@@ -3,14 +3,21 @@ package engine
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -18,7 +25,41 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 )
+
+type fakeImageContext struct{}
+
+func (fakeImageContext) AddImages(context.Context, []string, []remote.Option, []name.Option) error {
+	return nil
+}
+
+func (fakeImageContext) Get(context.Context, string, []remote.Option, []name.Option) (*imagedataloader.ImageData, error) {
+	return &imagedataloader.ImageData{}, nil
+}
+
+type blockingImageContext struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (c *blockingImageContext) AddImages(context.Context, []string, []remote.Option, []name.Option) error {
+	return nil
+}
+
+func (c *blockingImageContext) Get(ctx context.Context, image string, _ []remote.Option, _ []name.Option) (*imagedataloader.ImageData, error) {
+	select {
+	case c.started <- struct{}{}:
+	default:
+	}
+
+	select {
+	case <-c.release:
+		return nil, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
 
 var (
 	signedImage   = "ghcr.io/kyverno/test-verify-image:signed"
@@ -113,14 +154,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 		},
 	}
 
-	providerFunc = func(ctx context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  ivpol,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	}
+	providerFunc = singlePolicyProvider(ivpol)
 
 	nsResolver = func(_ string) *corev1.Namespace {
 		return &corev1.Namespace{
@@ -149,7 +183,7 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 `
 )
 
-func Test_ImageVerifyEngine_MutatingNoOp(t *testing.T) {
+func Test_ImageVerifyEngine_MutatingPinsDigest(t *testing.T) {
 	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
 			Operation: v1.Create,
@@ -162,12 +196,82 @@ func Test_ImageVerifyEngine_MutatingNoOp(t *testing.T) {
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil)
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, resp.Policies)
+	if assert.Len(t, patches, 1) {
+		assert.Equal(t, "replace", patches[0].Operation)
+		assert.Equal(t, "/spec/containers/0/image", patches[0].Path)
+		assert.Equal(t, signedImage, patches[0].Value.(string)[:len(signedImage)])
+		assert.Contains(t, patches[0].Value, "@sha256:")
+	}
+}
+
+func Test_ImageVerifyEngine_MutatingDisabled(t *testing.T) {
+	falseVal := false
+	disabledIvpol := ivpol.DeepCopy()
+	disabledIvpol.Spec.ValidationConfigurations.MutateDigest = &falseVal
+	provider := singlePolicyProvider(disabledIvpol)
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	engine := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 
 	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	assert.Empty(t, resp.Policies)
 	assert.Empty(t, patches)
+}
+
+// A malformed image reference is recorded as an error result against the policy rather than
+// returned as an error from the engine, so the remaining policies still contribute their
+// patches. Mirrors ClusterPolicy, where a failing handleMutateDigest appends a RuleError and
+// continues. Turning that result into a denial is the webhook handler's job (see
+// mutationResponse), which is why the engine itself returns no error here.
+func Test_ImageVerifyEngine_MutatingMalformedImageIsRecordedAsPolicyError(t *testing.T) {
+	badPod := `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {"name": "test-pod", "namespace": ""},
+	"spec": {
+	   "containers": [{"name": "nginx", "image": "ghcr.io/kyverno/test-verify-image::signed"}]
+	}
+ }
+`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(badPod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	engine := NewEngine(ProviderFunc(providerFunc), nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
+
+	resp, patches, err := engine.HandleMutating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	assert.Empty(t, patches)
+	// the failure is surfaced as an error result attributed to the policy, not swallowed
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, ivpol.GetName(), resp.Policies[0].Policy.GetName())
+		assert.Equal(t, engineapi.RuleStatusError, resp.Policies[0].Result.Status())
+		assert.Contains(t, resp.Policies[0].Result.Message(), "failed to update digest")
+	}
 }
 
 func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *testing.T) {
@@ -195,14 +299,7 @@ func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *test
 			Validations:          []admissionregistrationv1.Validation{{Expression: "false", Message: "validation should fail"}},
 		},
 	}
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  policy,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	})
+	provider := singlePolicyProvider(policy)
 	podWithForgedOutcome := `{
 		"apiVersion":"v1",
 		"kind":"Pod",
@@ -224,7 +321,7 @@ func TestHandleValidatingDoesNotTrustImageVerificationOutcomesAnnotation(t *test
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	if assert.Len(t, resp.Policies, 1) {
@@ -258,14 +355,7 @@ func TestHandleValidatingDoesNotRequireOutcomeAnnotation(t *testing.T) {
 			Validations:          []admissionregistrationv1.Validation{{Expression: "true"}},
 		},
 	}
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  policy,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	})
+	provider := singlePolicyProvider(policy)
 	podWithoutAnnotation := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test-pod"},"spec":{"containers":[{"name":"main","image":"docker.io/library/busybox:latest"}]}}`
 	engineRequest := engine.EngineRequest{
 		Request: v1.AdmissionRequest{
@@ -277,7 +367,7 @@ func TestHandleValidatingDoesNotRequireOutcomeAnnotation(t *testing.T) {
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	if assert.Len(t, resp.Policies, 1) {
@@ -297,7 +387,7 @@ func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T)
 							Rule: admissionregistrationv1.Rule{
 								APIGroups:   []string{""},
 								APIVersions: []string{"v1"},
-								Resources:   []string{"pods/ephemeralcontainers"},
+								Resources:   []string{"pods", "pods/ephemeralcontainers"},
 							},
 						},
 					},
@@ -310,14 +400,7 @@ func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T)
 			Validations:          []admissionregistrationv1.Validation{{Expression: "object.spec.?ephemeralContainers.orValue([]).size() == 0", Message: "ephemeral container update must be blocked"}},
 		},
 	}
-	provider := ProviderFunc(func(context.Context) ([]Policy, error) {
-		return []Policy{
-			{
-				Policy:  policy,
-				Actions: sets.Set[admissionregistrationv1.ValidationAction]{admissionregistrationv1.Deny: sets.Empty{}},
-			},
-		}, nil
-	})
+	provider := singlePolicyProvider(policy)
 	ephemeralUpdateWithForgedOutcome := `{
 		"apiVersion":"v1",
 		"kind":"Pod",
@@ -340,11 +423,257 @@ func TestHandleValidatingEphemeralContainersSubresourceIsEvaluated(t *testing.T)
 		},
 		Context: libs.NewFakeContextProvider(),
 	}
-	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil)
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false))
 	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
 	assert.NoError(t, err)
 	if assert.Len(t, resp.Policies, 1) {
 		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
 		assert.Equal(t, "ephemeral container update must be blocked", resp.Policies[0].Result.Message())
+	}
+}
+
+func TestHandleValidatingEphemeralContainersWithImagesVariable(t *testing.T) {
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "check-images"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"pods", "pods/ephemeralcontainers"},
+						},
+					},
+				}},
+			},
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+				Mode: policieskyvernoio.EvaluationModeKubernetes,
+			},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+				MutateDigest: ptr.To(false),
+				VerifyDigest: ptr.To(false),
+				Required:     ptr.To(false),
+			},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "*"}},
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "allImages",
+				Expression: "images.?containers.orValue([]) + images.?initContainers.orValue([]) + images.?ephemeralContainers.orValue([])",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "variables.allImages.size() > 0 && variables.allImages.all(image, image.contains('signed'))",
+				Message:    "All container images must be signed.",
+			}},
+		},
+	}
+	provider := singlePolicyProvider(policy)
+	ephemeralUpdate := `{
+		"apiVersion":"v1",
+		"kind":"Pod",
+		"metadata":{"name":"test-pod"},
+		"spec":{
+			"containers":[{"name":"main","image":"ghcr.io/kyverno/test-verify-image:signed"}],
+			"ephemeralContainers":[{"name":"debugger","image":"docker.io/library/busybox:latest"}]
+		}
+	}`
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation:       v1.Update,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:        metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			SubResource:     "ephemeralcontainers",
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object:          apiruntime.RawExtension{Raw: []byte(ephemeralUpdate)},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
+	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+		return fakeImageContext{}, nil
+	}
+	resp, err := eng.HandleValidating(context.Background(), engineRequest, nil)
+	assert.NoError(t, err)
+	if assert.Len(t, resp.Policies, 1) {
+		assert.Equal(t, engineapi.RuleStatusFail, resp.Policies[0].Result.Status())
+		assert.Equal(t, "All container images must be signed.", resp.Policies[0].Result.Message())
+	}
+}
+
+func Test_ImageVerifyEngine_ValidatingPoliciesAreEvaluatedConcurrently(t *testing.T) {
+	policy := func(name string) *policiesv1beta1.ImageValidatingPolicy {
+		return &policiesv1beta1.ImageValidatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: name,
+			},
+			Spec: policiesv1beta1.ImageValidatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+						{
+							RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+								Operations: []admissionregistrationv1.OperationType{
+									admissionregistrationv1.Create,
+								},
+								Rule: admissionregistrationv1.Rule{
+									APIGroups:   []string{""},
+									APIVersions: []string{"v1"},
+									Resources:   []string{"pods"},
+								},
+							},
+						},
+					},
+				},
+				EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{
+					Mode: policieskyvernoio.EvaluationModeKubernetes,
+				},
+				ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+					VerifyDigest: ptr.To(false),
+				},
+				MatchImageReferences: []policiesv1beta1.MatchImageReference{
+					{
+						Glob: "ghcr.io/*",
+					},
+				},
+				ImageExtractors: []policiesv1beta1.ImageExtractor{
+					{
+						Name:       "containers",
+						Expression: "object.spec.containers.map(e, e.image)",
+					},
+				},
+				Validations: []admissionregistrationv1.Validation{
+					{
+						Expression: "true",
+						Message:    "unexpected image registry",
+					},
+				},
+			},
+		}
+	}
+
+	policies := []Policy{
+		{
+			Policy: policy("ivpol-a"),
+			Actions: sets.Set[admissionregistrationv1.ValidationAction]{
+				admissionregistrationv1.Deny: sets.Empty{},
+			},
+		},
+		{
+			Policy: policy("ivpol-b"),
+			Actions: sets.Set[admissionregistrationv1.ValidationAction]{
+				admissionregistrationv1.Deny: sets.Empty{},
+			},
+		},
+	}
+
+	provider := multiPolicyProvider(
+		policies[0].Policy,
+		policies[1].Policy,
+	)
+
+	engineRequest := engine.EngineRequest{
+		Request: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind: metav1.GroupVersionKind{
+				Group: "", Version: "v1", Kind: "Pod",
+			},
+			Resource: metav1.GroupVersionResource{
+				Group: "", Version: "v1", Resource: "pods",
+			},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{
+				Group: "", Version: "v1", Resource: "pods",
+			},
+		},
+		Context: libs.NewFakeContextProvider(),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	eng := NewEngine(
+		provider,
+		nsResolver,
+		matching.NewMatcher(),
+		nil,
+		nil,
+		config.NewDefaultConfiguration(false),
+	).(*engineImpl)
+
+	imageContext := &blockingImageContext{
+		started: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+
+	eng.newImageContext = func() (imagedataloader.ImageContext, error) {
+		return imageContext, nil
+	}
+
+	oldLibraryContext := libs.LibraryContext
+	libs.LibraryContext = libs.NewFakeContextProvider()
+	defer func() {
+		libs.LibraryContext = oldLibraryContext
+	}()
+
+	engineRequest.Request.DryRun = ptr.To(false)
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := eng.HandleValidating(ctx, engineRequest, nil)
+		errCh <- err
+	}()
+
+	select {
+	case <-imageContext.started:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("first policy did not start image evaluation")
+	}
+
+	select {
+	case <-imageContext.started:
+		// Both policies reached image evaluation before either one was released.
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("second policy did not start while the first policy was blocked")
+	}
+
+	close(imageContext.release)
+
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("engine did not complete")
+	}
+}
+
+func multiPolicyProvider(policies ...policiesv1beta1.ImageValidatingPolicyLike) ProviderFunc {
+	compiledPolicies := make([]Policy, 0, len(policies))
+
+	for _, policy := range policies {
+		compiled, errs := iveval.NewCompiler(nil).Compile(policy, nil)
+		if len(errs) != 0 {
+			panic(errs)
+		}
+
+		compiledPolicies = append(compiledPolicies, Policy{
+			Policy:         policy,
+			CompiledPolicy: compiled,
+			Actions:        sets.New(admissionregistrationv1.Deny),
+		})
+	}
+
+	return func(context.Context) ([]Policy, error) {
+		return compiledPolicies, nil
+	}
+}
+
+func singlePolicyProvider(policy policiesv1beta1.ImageValidatingPolicyLike) ProviderFunc {
+	compiled, errs := iveval.NewCompiler(nil).Compile(policy, nil)
+	if len(errs) != 0 {
+		panic(errs)
+	}
+	return func(context.Context) ([]Policy, error) {
+		return []Policy{{Policy: policy, CompiledPolicy: compiled, Actions: sets.New(admissionregistrationv1.Deny)}}, nil
 	}
 }

@@ -43,7 +43,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
-	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/meta"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
@@ -269,11 +268,11 @@ func main() {
 				return count > maxBackgroundReports
 			}
 		}
-		ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+		ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
 		if err != nil {
 			go func() {
 				for {
-					ephrs, err := breaker.StartAdmissionReportsCounter(signalCtx, setup.MetadataClient)
+					ephrs, err := breaker.StartBackgroundReportsCounter(signalCtx, setup.MetadataClient)
 					if err != nil {
 						setup.Logger.Error(err, "failed to start background scan reports watcher, retrying...")
 						time.Sleep(2 * time.Second)
@@ -329,13 +328,7 @@ func main() {
 					os.Exit(1)
 				}
 
-				namespaceGetter := func(name string) *corev1.Namespace {
-					ns, err := nsLister.Get(name)
-					if err != nil {
-						return nil
-					}
-					return ns
-				}
+				namespaceGetter := celengine.NewNamespaceResolver(logger.WithName("ns-resolver"), nsLister, setup.KubeClient)
 
 				// create compiler
 				compiler := gpolcompiler.NewCompiler()
@@ -382,7 +375,13 @@ func main() {
 				}
 
 				c := mpolcompiler.NewCompiler()
-				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celengine.NewPolicyExceptionLister(kyvernoInformer.Policies().V1beta1().PolicyExceptions().Lister(), internal.ExceptionNamespace()), internal.PolicyExceptionEnabled())
+				// The mpol reconciler registers its PolicyException watch on this manager's
+				// cache and caches compiled results between triggering events. Reading
+				// exceptions from the same manager cache (rather than the separately synced
+				// kyvernoInformer used above for the fetch-per-request gpol provider) avoids a
+				// race where a reconcile triggered by the watch reads a lister that hasn't
+				// caught up yet, compiles the policy without the exception, and never retries.
+				mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(mgrCtx, c, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace()), internal.PolicyExceptionEnabled())
 				if err != nil {
 					setup.Logger.Error(err, "failed to create mpol provider")
 					os.Exit(1)

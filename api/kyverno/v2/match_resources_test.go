@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )

@@ -10,7 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -609,7 +609,6 @@ func Test_handleMutateExisting_withDeleteOperation(t *testing.T) {
 	policies := []kyvernov1.PolicyInterface{&policy}
 
 	h.handleMutateExisting(ctx, logger, request, policies, time.Now())
-
 }
 
 func Test_handleMutateExisting_noPolicyWithMutateExisting(t *testing.T) {

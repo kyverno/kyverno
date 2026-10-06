@@ -904,6 +904,36 @@ func TestCheckOptions_TSACertChain_UseSignedTimestamps(t *testing.T) {
 	}
 }
 
+func TestCheckOptions_Keyless_TSACertChainTrustedMaterial(t *testing.T) {
+	stubTufWithFixture(t)
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{{
+				Issuer:  testIssuer,
+				Subject: testSubject,
+			}},
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+			TSACertChain:       testTSACertChain,
+		},
+	}
+
+	opts, err := checkOptions(context.Background(), cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	require.NotNil(t, opts.TrustedMaterial)
+
+	timestampingAuthorities := opts.TrustedMaterial.TimestampingAuthorities()
+	require.NotEmpty(t, timestampingAuthorities)
+	configuredTSA, ok := timestampingAuthorities[len(timestampingAuthorities)-1].(*root.SigstoreTimestampingAuthority)
+	require.True(t, ok)
+	require.Len(t, opts.TSARootCertificates, 1)
+	assert.True(t, configuredTSA.Root.Equal(opts.TSARootCertificates[0]))
+}
+
 func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
@@ -994,4 +1024,73 @@ func TestCheckOptions_FallbackViaInitTUFAndFetch(t *testing.T) {
 	assert.NotNil(t, opts.RootCerts)
 	assert.NotNil(t, opts.RekorPubKeys)
 	assert.NotNil(t, opts.TrustedMaterial)
+}
+
+func TestApplyAdditionalExtensions(t *testing.T) {
+	t.Run("maps names and OIDs onto check options", func(t *testing.T) {
+		opts := &cosign.CheckOpts{}
+		err := applyAdditionalExtensions(opts, map[string]string{
+			"githubWorkflowTrigger":                      "push",
+			cosign.CertExtensionGithubWorkflowSha:        "abc123",
+			"githubWorkflowName":                         "release",
+			cosign.CertExtensionGithubWorkflowRepository: "kyverno/kyverno",
+			"githubWorkflowRef":                          "refs/heads/main",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "push", opts.CertGithubWorkflowTrigger)
+		assert.Equal(t, "abc123", opts.CertGithubWorkflowSha)
+		assert.Equal(t, "release", opts.CertGithubWorkflowName)
+		assert.Equal(t, "kyverno/kyverno", opts.CertGithubWorkflowRepository)
+		assert.Equal(t, "refs/heads/main", opts.CertGithubWorkflowRef)
+	})
+	t.Run("nil map is a no-op", func(t *testing.T) {
+		opts := &cosign.CheckOpts{}
+		require.NoError(t, applyAdditionalExtensions(opts, nil))
+		assert.Equal(t, cosign.CheckOpts{}, *opts)
+	})
+	t.Run("unknown key is rejected", func(t *testing.T) {
+		err := applyAdditionalExtensions(&cosign.CheckOpts{}, map[string]string{"bogus": "x"})
+		require.ErrorContains(t, err, "invalid certificate extension")
+	})
+	t.Run("oidc issuer is rejected", func(t *testing.T) {
+		err := applyAdditionalExtensions(&cosign.CheckOpts{}, map[string]string{"oidcIssuer": "x"})
+		require.ErrorContains(t, err, "identities")
+	})
+}
+
+func TestCheckOptions_KeylessAdditionalExtensions(t *testing.T) {
+	stubTufWithFixture(t)
+	baseROpts, baseNOpts := baseOpts()
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities:           []v1beta1.Identity{{Issuer: testIssuer, Subject: testSubject}},
+			AdditionalExtensions: map[string]string{"githubWorkflowRepository": "kyverno/kyverno"},
+		},
+		CTLog: &v1beta1.CTLog{URL: "https://rekor.sigstore.dev", InsecureIgnoreSCT: true},
+	}
+	opts, err := checkOptions(context.TODO(), cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "kyverno/kyverno", opts.CertGithubWorkflowRepository)
+}
+
+func TestApplyAdditionalExtensions_Aliases(t *testing.T) {
+	t.Run("name and OID with the same value are accepted", func(t *testing.T) {
+		opts := &cosign.CheckOpts{}
+		err := applyAdditionalExtensions(opts, map[string]string{
+			"githubWorkflowRepository":                   "kyverno/kyverno",
+			cosign.CertExtensionGithubWorkflowRepository: "kyverno/kyverno",
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "kyverno/kyverno", opts.CertGithubWorkflowRepository)
+	})
+	t.Run("name and OID with different values are rejected", func(t *testing.T) {
+		for range 20 {
+			opts := &cosign.CheckOpts{}
+			err := applyAdditionalExtensions(opts, map[string]string{
+				"githubWorkflowRepository":                   "kyverno/kyverno",
+				cosign.CertExtensionGithubWorkflowRepository: "someone/else",
+			})
+			require.ErrorContains(t, err, "conflicting values")
+		}
+	})
 }

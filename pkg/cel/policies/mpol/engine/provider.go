@@ -5,11 +5,13 @@ import (
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	"github.com/kyverno/kyverno/pkg/logging"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/admission"
@@ -25,7 +27,14 @@ import (
 
 type Provider interface {
 	Fetch(context.Context, bool) []Policy
-	MatchesMutateExisting(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, *corev1.Namespace) []string
+	// MatchesMutateExisting checks every mutate-existing policy's match
+	// constraints/conditions against a single admission request.
+	// requestMapFn lazily builds the `request` CEL activation value once
+	// per call (see compiler.BuildNormalizedRequestMap and sync.OnceValues
+	// at the caller, engineImpl.MatchedMutateExistingPolicies) and is
+	// threaded into each policy's MatchesConditions check, instead of each
+	// candidate policy rebuilding it independently.
+	MatchesMutateExisting(context.Context, admission.Attributes, *admissionv1.AdmissionRequest, *corev1.Namespace, func() (map[string]any, error)) []string
 }
 
 func NewKubeProvider(
@@ -37,6 +46,13 @@ func NewKubeProvider(
 	polexLister engine.PolicyExceptionLister,
 	polexEnabled bool,
 ) (Provider, patch.TypeConverterManager, error) {
+	// Lets an unrecognized bare controller name (e.g. "jobsets") resolve via
+	// live discovery instead of requiring the explicit
+	// "<resource>.<version>.<group>" format - see autogen.BareNameResolver.
+	// Also corrects the explicit format's best-effort Kind guess (see
+	// autogen.KindResolver) for irregular plurals like "jobsets" -> "JobSet".
+	celautogen.BareNameResolver = celautogen.RESTMapperBareNameResolver(mgr.GetRESTMapper())
+	celautogen.KindResolver = celautogen.RESTMapperKindResolver(mgr.GetRESTMapper())
 	typeConverter := patch.NewTypeConverterManager(nil, c)
 	go typeConverter.Run(ctx)
 
@@ -45,50 +61,7 @@ func NewKubeProvider(
 	nmpolBuilder := ctrl.NewControllerManagedBy(mgr).For(&policiesv1beta1.NamespacedMutatingPolicy{})
 
 	if polexEnabled {
-		polexHandler := &handler.Funcs{
-			CreateFunc: func(
-				ctx context.Context,
-				tce event.TypedCreateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tce.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-			UpdateFunc: func(
-				ctx context.Context,
-				tce event.TypedUpdateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tce.ObjectNew.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-			DeleteFunc: func(
-				ctx context.Context,
-				tde event.TypedDeleteEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tde.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-		}
+		polexHandler := newPolicyExceptionHandler(mgr.GetClient())
 		mpolBuilder.Watches(&policiesv1beta1.PolicyException{}, polexHandler)
 		nmpolBuilder.Watches(&policiesv1beta1.PolicyException{}, polexHandler)
 	}
@@ -102,22 +75,71 @@ func NewKubeProvider(
 	return reconciler, typeConverter, nil
 }
 
+type policyExceptionQueue = workqueue.TypedRateLimitingInterface[reconcile.Request]
+
+// newPolicyExceptionHandler requeues the policies a PolicyException refers to.
+// Policy refs carry no namespace, so a ref to a namespaced policy requeues every
+// NamespacedMutatingPolicy with that name.
+func newPolicyExceptionHandler(c client.Client) *handler.Funcs {
+	enqueue := func(ctx context.Context, obj client.Object, q policyExceptionQueue) {
+		polex, ok := obj.(*policiesv1beta1.PolicyException)
+		if !ok {
+			return
+		}
+		for _, ref := range polex.Spec.PolicyRefs {
+			switch ref.Kind {
+			case "MutatingPolicy":
+				q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Name: ref.Name}})
+			case "NamespacedMutatingPolicy":
+				var policies policiesv1beta1.NamespacedMutatingPolicyList
+				if err := c.List(ctx, &policies); err != nil {
+					logging.Error(err, "failed to list namespaced mutating policies", "policy", ref.Name)
+					continue
+				}
+				for _, policy := range policies.Items {
+					if policy.Name == ref.Name {
+						q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Namespace: policy.Namespace, Name: policy.Name}})
+					}
+				}
+			}
+		}
+	}
+	return &handler.Funcs{
+		CreateFunc: func(ctx context.Context, e event.TypedCreateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+		UpdateFunc: func(ctx context.Context, e event.TypedUpdateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.ObjectNew, q)
+			enqueue(ctx, e.ObjectOld, q)
+		},
+		DeleteFunc: func(ctx context.Context, e event.TypedDeleteEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+	}
+}
+
 type staticProvider struct {
 	policies []Policy
 	libCxt   libs.Context
 }
 
+// Fetch mirrors the cluster reconciler's Fetch: mutateExisting=false returns
+// every policy (a mutate-existing policy still runs on admission by default),
+// while mutateExisting=true returns only the mutate-existing policies. Filtering
+// the false case down to non-mutate-existing policies would drop them from the
+// CLI admission path and from the background reports scanner, both of which build
+// this provider and call Fetch(ctx, false).
 func (p *staticProvider) Fetch(ctx context.Context, mutateExisting bool) []Policy {
 	var filtered []Policy
 	for _, pol := range p.policies {
-		if mutateExisting == pol.Policy.GetSpec().MutateExistingEnabled() {
+		if !mutateExisting || pol.Policy.GetSpec().MutateExistingEnabled() {
 			filtered = append(filtered, pol)
 		}
 	}
 	return filtered
 }
 
-func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) []string {
+func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error)) []string {
 	policies := r.Fetch(ctx, true)
 	matchedPolicies := []string{}
 	for _, mpol := range policies {
@@ -132,7 +154,7 @@ func (r *staticProvider) MatchesMutateExisting(ctx context.Context, attr admissi
 		}
 
 		if mpol.Policy.GetSpec().MatchConditions != nil {
-			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, r.libCxt) {
+			if !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, requestMapFn, r.libCxt) {
 				continue
 			}
 		}
@@ -169,7 +191,7 @@ func NewProvider(
 		if err != nil {
 			return nil, err
 		}
-		for _, gen := range generated {
+		for config, gen := range generated {
 			// Create a copy of the policy with autogenerated spec
 			autogenPolicy := policy.DeepCopyObject().(policiesv1beta1.MutatingPolicyLike)
 			*autogenPolicy.GetSpec() = *gen.Spec
@@ -181,6 +203,7 @@ func NewProvider(
 			out = append(out, Policy{
 				Policy:         autogenPolicy,
 				CompiledPolicy: compiled,
+				ExtractionMode: config == autogen.ExtractionReplacementsRef,
 			})
 		}
 	}
