@@ -62,7 +62,11 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	et := trace.Build(source, ast, out, details)
+	if callsImageVerification(ast) {
+		et.NoBreakdown = "it verifies images, and verification is never run a second time"
+	}
+	return et
 }
 
 // skipMessage says why the match conditions skipped the policy: either one came out false (match
