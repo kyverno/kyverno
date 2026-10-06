@@ -909,7 +909,7 @@ bench-baseline: ## Regenerate scripts/bench/thresholds.txt ceilings from a fresh
 test-cli: test-cli-local ## Run all CLI tests
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-ruleless ## Run local CLI tests
+test-cli-local: test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-ruleless test-cli-local-result-kind ## Run local CLI tests
 
 .PHONY: test-cli-local-ruleless
 test-cli-local-ruleless: $(CLI_BIN) ## Run local CLI ruleless policy tests
@@ -956,6 +956,11 @@ test-cli-local-vaps: $(CLI_BIN) ## Run local CLI VAP tests
 test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 	@echo Running local cli MAP tests... >&2
 	@$(CLI_BIN) test ./test/cli/test-mutating-admission-policy
+
+.PHONY: test-cli-local-result-kind
+test-cli-local-result-kind: $(CLI_BIN) ## Run local CLI test result kind matching tests
+	@echo Running local cli test result kind tests... >&2
+	@$(CLI_BIN) test ./test/cli/test-result-kind
 
 #############
 # HELM TEST #

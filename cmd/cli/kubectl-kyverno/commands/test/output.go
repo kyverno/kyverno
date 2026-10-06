@@ -192,7 +192,10 @@ func printTestResult(
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
-						nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
+						nameParts := strings.Split(resourceGVKAndName, ",")
+						if !kindMatches(test.Kind, nameParts) {
+							continue
+						}
 						nsAndName := strings.Split(r, "/")
 						if len(nsAndName) == 1 {
 							if r == nameParts[len(nameParts)-1] {
@@ -210,8 +213,8 @@ func printTestResult(
 			for _, resourceSpec := range test.ResourceSpecs {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
-						nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
-						if len(nameParts) < 4 {
+						nameParts := strings.Split(resourceGVKAndName, ",")
+						if !kindMatches(resourceSpec.Kind, nameParts) {
 							continue
 						}
 						if resourceSpec.Group == "" {
@@ -650,4 +653,15 @@ func escapeXML(s string) string {
 
 func escapeCDATA(s string) string {
 	return strings.ReplaceAll(s, "]]>", "]]]]><![CDATA[>")
+}
+
+// reports whether the key's kind equals expected; an empty expected kind matches any kind
+func kindMatches(expected string, nameParts []string) bool {
+	if expected == "" {
+		return true
+	}
+	if len(nameParts) < 3 {
+		return false
+	}
+	return expected == nameParts[len(nameParts)-3]
 }
