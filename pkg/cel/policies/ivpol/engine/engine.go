@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -533,10 +534,10 @@ func (e *engineImpl) evaluatePolicies(
 	// goroutines below would race on, and corrupt, the cached data when several
 	// policies verify the same image. The contexts are built here, before
 	// evaluation starts, so a construction failure is still returned as a
-	// request-level error and handled by the webhook's failure policy, rather
-	// than being downgraded to a per-policy result. Credentials and name options
-	// are left blank; each compiled policy supplies its own or the default global
-	// ones.
+	// request-level error, which rejects the request, rather than being
+	// downgraded to a per-policy result that a Warn or Audit policy would admit.
+	// Credentials and name options are left blank; each compiled policy supplies
+	// its own or the default global ones.
 	imageContexts := make([]imagedataloader.ImageContext, len(policies))
 	for i := range policies {
 		ictx, err := e.newImageContext()
@@ -570,6 +571,17 @@ func (e *engineImpl) evaluatePolicies(
 
 			ivpol := policies[i]
 			evaluation := &results[i]
+
+			// An unrecovered panic in this goroutine would terminate the whole
+			// process, not just this request. Record it as this policy's
+			// evaluation error instead, so it is reported like any other failure
+			// to evaluate the policy and the other policies keep their results.
+			defer func() {
+				if r := recover(); r != nil {
+					evaluation.err = fmt.Errorf("panic while evaluating policy: %v", r)
+					logging.WithName("ivpol/evaluatePolicies").Error(evaluation.err, "recovered from a panic", "policy", ivpol.Policy.GetName(), "stack", string(debug.Stack()))
+				}
+			}()
 
 			if evaluation.compiled == nil {
 				evaluation.err = fmt.Errorf("compiled policy is missing")
