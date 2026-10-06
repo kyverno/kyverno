@@ -95,7 +95,9 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
-		tracedMatchConditions = traced
+		for _, t := range traced {
+			tracedMatchConditions = append(tracedMatchConditions, withoutVerificationTwin(t))
+		}
 	}
 	matchImageEnv, err := engine.NewMatchImageEnv()
 	if err != nil {
@@ -120,6 +122,9 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
+	for name, t := range tracedVariables {
+		tracedVariables[name] = withoutVerificationTwin(t)
+	}
 
 	var compiledAttestors []*ivpolvar.CompiledAttestor
 	{
@@ -138,6 +143,10 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 			program, errs := engine.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
+			}
+			if callsImageVerification(program.AST) {
+				// see withoutVerificationTwin: never re-run an expression that verifies images
+				program.Traced = nil
 			}
 			validations = append(validations, program)
 		}
