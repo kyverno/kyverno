@@ -85,9 +85,12 @@ func countPEMCertBlocks(pem []byte) int {
 func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.Option, baseNOpts []name.Option, secretLister corev1listers.SecretLister) (*cosign.CheckOpts, error) {
 	// Key/certificate verification with the transparency log ignored needs no
 	// Sigstore infrastructure (TUF, Rekor, CTLog), mirroring cosign.
+	// Keyless verification with an inline trustedRoot and no custom TUF config
+	// also skips TUF: the inline root already carries all trust material.
 	ignoreTlog := att.CTLog != nil && att.CTLog.InsecureIgnoreTlog
 	keyOrCert := att.Keyless == nil && (att.Key != nil || att.Certificate != nil)
-	skipSigstoreInfra := keyOrCert && ignoreTlog
+	hasOfflineRoot := att.TrustedRoot != nil && att.TrustedRoot.Value != "" && att.TUF == nil
+	skipSigstoreInfra := (keyOrCert && ignoreTlog) || hasOfflineRoot
 	cosignRemoteOpts := []ociremote.Option{}
 
 	if att.Source != nil {
@@ -142,6 +145,15 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		}
 
 		trustedMaterial, err := resolveTrustedMaterial(att, trust.trustedRoot)
+		if err != nil {
+			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
+		}
+		opts.TrustedMaterial = trustedMaterial
+	} else if hasOfflineRoot {
+		// No TUF was initialised; resolve trusted material directly from the
+		// inline root so that opts.TrustedMaterial is populated for keyless
+		// verification and the TSA cert-chain block below.
+		trustedMaterial, err := resolveTrustedMaterial(att, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve trusted material: %w", err)
 		}
@@ -201,10 +213,20 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 		if err := applyAdditionalExtensions(opts, att.Keyless.AdditionalExtensions); err != nil {
 			return nil, err
 		}
-		// trust is always non-nil when att.Keyless != nil because
-		// skipSigstoreInfra requires keyOrCert=true (att.Keyless==nil).
-		opts.RootCerts = trust.fulcioRoots
-		opts.IntermediateCerts = trust.fulcioIntermediates
+		// trust is non-nil unless we skipped TUF because an inline trustedRoot
+		// was provided (hasOfflineRoot). In that case derive Fulcio roots from
+		// the already-resolved opts.TrustedMaterial instead.
+		if trust != nil {
+			opts.RootCerts = trust.fulcioRoots
+			opts.IntermediateCerts = trust.fulcioIntermediates
+		} else if tr, ok := opts.TrustedMaterial.(*root.TrustedRoot); ok {
+			roots, intermediates, err := fulcioRootsFromTrustedRoot(tr)
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract Fulcio roots from inline trustedRoot: %w", err)
+			}
+			opts.RootCerts = roots
+			opts.IntermediateCerts = intermediates
+		}
 		if att.Keyless.Roots != "" {
 			cp, err := certPoolFromBytes([]byte(att.Keyless.Roots))
 			if err != nil {

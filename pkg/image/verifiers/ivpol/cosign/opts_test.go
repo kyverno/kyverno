@@ -960,6 +960,56 @@ func TestCheckOptions_KeyBased_AirGapped(t *testing.T) {
 	assert.Nil(t, opts.TrustedMaterial)
 }
 
+// TestCheckOptions_Keyless_InlineTrustedRoot_SkipsTUF verifies the fix for
+// https://github.com/kyverno/kyverno/issues/17883: a keyless attestor that
+// provides an inline trustedRoot (att.TrustedRoot.Value) and no custom TUF
+// config must not call initTUFAndFetch at all, so that air-gapped clusters
+// with no route to tuf-repo-cdn.sigstore.dev can still verify attestations.
+// It also asserts that Fulcio roots are populated from the inline root.
+func TestCheckOptions_Keyless_InlineTrustedRoot_SkipsTUF(t *testing.T) {
+	// Load the real-world GitHub trusted-root fixture used by other tests.
+	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+
+	// Arrange: TUF init must never be called.  If it is, the test will fail.
+	tufCalled := false
+	origTufInit := tufInitializeFn
+	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error {
+		tufCalled = true
+		return fmt.Errorf("network unreachable (air-gapped)")
+	}
+	t.Cleanup(func() { tufInitializeFn = origTufInit })
+
+	ctx := context.TODO()
+	baseROpts, baseNOpts := baseOpts()
+
+	cosignCfg := &v1beta1.Cosign{
+		Keyless: &v1beta1.Keyless{
+			Identities: []v1beta1.Identity{
+				{
+					Issuer:  testIssuer,
+					Subject: testSubject,
+				},
+			},
+		},
+		CTLog: &v1beta1.CTLog{
+			InsecureIgnoreTlog: true,
+			InsecureIgnoreSCT:  true,
+		},
+		TrustedRoot: &v1beta1.StringOrExpression{Value: string(validJSON)},
+		// TUF is intentionally nil — no custom mirror configured.
+	}
+
+	opts, err := checkOptions(ctx, cosignCfg, baseROpts, baseNOpts, nil)
+	require.NoError(t, err)
+	assert.False(t, tufCalled, "initTUFAndFetch must not be called when an inline trustedRoot is provided")
+	assert.NotNil(t, opts)
+	assert.NotNil(t, opts.TrustedMaterial, "TrustedMaterial must be populated from the inline root")
+	assert.NotNil(t, opts.RootCerts, "RootCerts must be populated from the inline Fulcio CA")
+	assert.True(t, opts.IgnoreTlog)
+	assert.True(t, opts.IgnoreSCT)
+}
+
 // TestCheckOptions_Keyless_InsecureIgnoreTlog_NoURL reproduces the reported
 // bug: a keyless attestor backed by a private Sigstore deployment (e.g.
 // GitHub Actions' fulcio.githubapp.com) that sets insecureIgnoreTlog: true
