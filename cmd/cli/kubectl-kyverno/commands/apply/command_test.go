@@ -2,67 +2,24 @@ package apply
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-// fakeCloner returns a CloneFunc that populates the provided billy.Filesystem
-// with files from a local fixture directory instead of cloning over the network.
-// This allows tests to exercise the full git-URL policy loading code path
-// (URL parsing, branch extraction, filesystem listing, policy loading)
-// without requiring network access.
-func fakeCloner(t *testing.T, fixtureDir string) func(string, billy.Filesystem, string, http.BasicAuth) (*git.Repository, error) {
-	t.Helper()
-	return func(_ string, fs billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
-		return nil, copyFixturesToFS(t, fixtureDir, "/", fs)
-	}
-}
-
-// copyFixturesToFS recursively copies files from a local directory into a billy.Filesystem.
-func copyFixturesToFS(t *testing.T, srcDir string, destPrefix string, fs billy.Filesystem) error {
-	t.Helper()
-	entries, err := os.ReadDir(srcDir)
-	if err != nil {
-		return fmt.Errorf("failed to read fixture directory %s: %w", srcDir, err)
-	}
-	for _, entry := range entries {
-		srcPath := filepath.Join(srcDir, entry.Name())
-		destPath := filepath.Join(destPrefix, entry.Name())
-		if entry.IsDir() {
-			if err := fs.MkdirAll(destPath, 0o755); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
-			}
-			if err := copyFixturesToFS(t, srcPath, destPath, fs); err != nil {
-				return err
-			}
-		} else {
-			data, err := os.ReadFile(srcPath)
-			if err != nil {
-				return fmt.Errorf("failed to read fixture file %s: %w", srcPath, err)
-			}
-			if err := util.WriteFile(fs, destPath, data, 0o644); err != nil {
-				return fmt.Errorf("failed to write file %s to filesystem: %w", destPath, err)
-			}
-		}
-	}
-	return nil
-}
 
 func TestMain(m *testing.M) {
 	log.SetLogger(logr.Discard())
@@ -96,199 +53,7 @@ func Test_Apply(t *testing.T) {
 		config          ApplyCommandConfig
 		stdinFile       string
 	}
-	// copy disallow_latest_tag.yaml to local path
-	localFileName, err := copyFileToThisDir("../../../../../test/best_practices/disallow_latest_tag.yaml")
-	assert.NoError(t, err)
-	defer func() { _ = os.Remove(localFileName) }()
-
 	testcases := []*TestCase{
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:              []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
-				ResourcePaths:            []string{"../../../../../test/cli/apply/exception-within-policy/res"},
-				exceptionsWithinPolicies: true,
-				PolicyReport:             true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  1,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-resource/pol"},
-				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-resource/res"},
-				exceptionsWithinResources: true,
-				PolicyReport:              true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  1,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/pol"},
-				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/res"},
-				exceptionsWithinResources: true,
-				exceptionsWithinPolicies:  true,
-				PolicyReport:              true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  2,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{localFileName},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resource"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  2,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"-"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
-				warnExitCode:  3,
-			},
-			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"-"},
-				PolicyReport:  true,
-				AuditWarn:     true,
-			},
-			stdinFile: "../../../../../test/resources/pod_with_latest_tag.yaml",
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies-set"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resources-set"},
-				Variables:     []string{"request.operation=UPDATE"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
@@ -482,64 +247,6 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			// Same as the above test case but the policy paths are reordered
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths: []string{
-					"../../../../../test/cli/apply/type/policy1.yaml",
-					"../../../../../test/cli/apply/type/policy2.yaml",
-					"../../../../../test/cli/apply/type/policy3.yaml",
-				},
-				ResourcePaths: []string{"../../../../../test/cli/apply/type/resource.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  3,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
 	}
 
 	compareSummary := func(expected openreportsv1alpha1.ReportSummary, actual openreportsv1alpha1.ReportSummary, desc string) {
@@ -565,7 +272,7 @@ func Test_Apply(t *testing.T) {
 		}
 		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
 
-		_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
+		_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), os.Stdout)
 		assert.NoError(t, err, desc)
 
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
@@ -910,7 +617,7 @@ func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
 		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
 		PolicyReport: true,
 	}
-	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
 	assert.NoError(t, err, "should not crash with segfault")
 	// K8s-mode policy should be skipped for JSON payloads, so no responses expected
 	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
@@ -1108,67 +815,6 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	}
 }
 
-func Test_Apply_CleanupPolicies(t *testing.T) {
-	type testCase struct {
-		name      string
-		config    ApplyCommandConfig
-		wantPass  int
-		wantFail  int
-		wantRules int
-	}
-
-	testcases := []*testCase{
-		{
-			name: "namespaced-cleanup-policy-match-vs-nomatch",
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
-				PolicyReport:  true,
-			},
-			wantPass:  1, // cleanup-pod-1 would be deleted
-			wantFail:  1, // cleanup-pod-2 would NOT be deleted
-			wantRules: 2,
-		},
-		{
-			name: "cluster-cleanup-policy-match-only",
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
-				PolicyReport:  true,
-			},
-			wantPass:  1,
-			wantFail:  0,
-			wantRules: 1,
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, responses, err := tc.config.applyCommandHelper(io.Discard)
-			assert.NoError(t, err)
-
-			passCount := 0
-			failCount := 0
-			rulesCount := 0
-			for _, resp := range responses {
-				for _, rule := range resp.PolicyResponse.Rules {
-					rulesCount++
-					switch rule.Status() {
-					case engineapi.RuleStatusPass:
-						passCount++
-					case engineapi.RuleStatusFail:
-						failCount++
-					}
-				}
-			}
-
-			assert.Equal(t, tc.wantRules, rulesCount, "rule count should match resource count for fixture")
-			assert.Equal(t, tc.wantPass, passCount, "matched resources should be reported as would-delete (Pass)")
-			assert.Equal(t, tc.wantFail, failCount, "unmatched resources should be reported as would-not-delete (Fail)")
-		})
-	}
-}
-
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -1319,7 +965,7 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 		strings.Join(tc.config.JSONPaths, ","),
 	)
 
-	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err, desc)
 
 	clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
@@ -1341,17 +987,6 @@ func copyFileToThisDir(sourceFile string) (string, error) {
 	}
 
 	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0o644)
-}
-
-func TestCommand(t *testing.T) {
-	cmd := Command()
-	cmd.SetArgs([]string{
-		"../../_testdata/apply/test-1/policy.yaml",
-		"--resource",
-		"../../_testdata/apply/test-1/resources.yaml",
-	})
-	err := cmd.Execute()
-	assert.NoError(t, err)
 }
 
 func TestCommandWithInvalidArg(t *testing.T) {
@@ -1395,27 +1030,16 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
-func TestCommandWarnExitCode(t *testing.T) {
-	warnExitCode := 3
-
-	cmd := Command()
-	cmd.SetArgs([]string{
-		"../../_testdata/apply/test-2/policy.yaml",
-		"--resource",
-		"../../_testdata/apply/test-2/resources.yaml",
-		"--audit-warn",
-		"--warn-exit-code",
-		strconv.Itoa(warnExitCode),
-	})
-	err := cmd.Execute()
-	if err != nil {
-		switch e := err.(type) {
-		case WarnExitCodeError:
-			assert.Equal(t, warnExitCode, e.ExitCode)
-		default:
-			assert.Fail(t, "Expecting WarnExitCodeError")
-		}
+func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
+	blocked := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/resources.yaml"},
+		PolicyReport:  true,
 	}
+	_, _, _, _, err := blocked.applyCommandHelper(context.TODO(), io.Discard)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
 }
 
 func TestCommandHelp(t *testing.T) {
@@ -1438,7 +1062,7 @@ func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
 		PolicyReport:  true,
 	}
 
-	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err)
 
 	// Check the responses for the correct message
@@ -1465,7 +1089,7 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 		PolicyReport:  true,
 	}
 
-	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err)
 
 	// Check the responses for the correct message
@@ -1763,107 +1387,6 @@ func TestCommandWithInvalidEnvoyPayloadPath(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to parse envoy payload from")
 }
 
-func Test_Apply_LocalApiCall(t *testing.T) {
-	testcases := []*TestCase{
-		{
-			// GET by name: web-app has ConfigMap with environment=production (passes),
-			// api-server has ConfigMap with environment=staging (fails).
-			// Validates that GET-style apiCall context entries resolve against
-			// local resources supplied via --resource.
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall/res"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass: 1,
-					Fail: 1,
-				},
-			}},
-		},
-		{
-			// LIST-based apiCall (the require-pdb use case from issue #8615):
-			// web-app Deployment has a matching PDB (passes),
-			// api-server Deployment has no PDB (fails).
-			// Validates that LIST-style apiCall context entries resolve
-			// against local resources without hitting the Kubernetes API server.
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-list/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-list/res"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass: 1,
-					Fail: 1,
-				},
-			}},
-		},
-		{
-			// Cross-resource GET: deploy-using-approved-sa uses ServiceAccount
-			// approved-sa (label approved=yes → passes). deploy-using-regular-sa
-			// uses ServiceAccount regular-sa (label approved=no → fails).
-			// Validates that apiCall can look up a related namespaced resource
-			// referenced by a field on the evaluated resource (Deployment →
-			// ServiceAccount), exercising cross-resource resolution without a
-			// running cluster.
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-clusterscoped/res"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass: 1,
-					Fail: 1,
-				},
-			}},
-		},
-		{
-			// Cross-resource type GET: app-with-tls-secret Deployment references
-			// Secret tls-secret (type=kubernetes.io/tls → passes).
-			// app-with-opaque-secret references Secret opaque-secret
-			// (type=Opaque → fails).
-			// Both Secrets exist so the apiCall always succeeds; validates that
-			// the resolved context variable correctly reflects each resource's
-			// field value.
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-default/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-default/res"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass: 1,
-					Fail: 1,
-				},
-			}},
-		},
-		{
-			// GlobalContextEntry: policy uses globalReference to read cached
-			// ConfigMaps. Both Deployments should pass because "app-config"
-			// ConfigMap exists in the default namespace.
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/local-apicall-globalcontext/pol"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/local-apicall-globalcontext/res"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass: 2,
-					Fail: 0,
-				},
-			}},
-		},
-	}
-	for i, tc := range testcases {
-		t.Run(fmt.Sprintf("local-apicall-%d", i), func(t *testing.T) {
-			verifyTestcase(t, tc, compareSummary)
-		})
-	}
-}
-
 func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1914,4 +1437,75 @@ func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
 			assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
 		})
 	}
+}
+
+// Test_Apply_ExplainFlagCombinations checks that --explain is rejected next to every flag whose
+// stdout is meant for another program, before anything is written, while the combinations whose
+// output is for humans keep working.
+func Test_Apply_ExplainFlagCombinations(t *testing.T) {
+	const (
+		policy   = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+		resource = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"
+	)
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string // empty means the command must succeed
+	}{
+		{name: "explain with policy report", args: []string{"--explain", "--policy-report"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with policy report short flag", args: []string{"--explain", "-p"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with json policy report", args: []string{"--explain", "--policy-report", "--output-format", "json"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with generate exceptions", args: []string{"--explain", "--generate-exceptions"}, wantErr: "--explain cannot be used with --generate-exceptions"},
+		{name: "explain with stdin", args: []string{"--explain", "--stdin"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain with stdin short flag", args: []string{"--explain", "-i"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain alone", args: []string{"--explain"}},
+		{name: "explain with table", args: []string{"--explain", "--table"}},
+		{name: "policy report without explain", args: []string{"--policy-report"}},
+		{name: "generate exceptions without explain", args: []string{"--generate-exceptions"}},
+		{name: "stdin without explain", args: []string{"--stdin"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(append([]string{policy, "--resource", resource}, tt.args...))
+
+			err := cmd.Execute()
+
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tt.wantErr)
+			assert.Empty(t, stdout.String(), "a rejected combination must fail before writing any output")
+		})
+	}
+}
+
+// Test_Apply_ExplainKeepsTheCostLimit runs the review repro through the apply command: a policy
+// that exceeds the CEL cost limit is an error without --explain and must stay an error with it,
+// rather than being decided by the trace-only program, which does not enforce the limit.
+func Test_Apply_ExplainKeepsTheCostLimit(t *testing.T) {
+	const dir = "../../../../../test/cli/test-validating-policy/explain-cost-limit/"
+	run := func(explain bool) (*processor.ResultCounts, string) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{dir + "policy.yaml"},
+			ResourcePaths: []string{dir + "resource.yaml"},
+			Explain:       explain,
+		}
+		var out bytes.Buffer
+		rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+		require.NoError(t, err)
+		return rc, out.String()
+	}
+	plain, _ := run(false)
+	explained, output := run(true)
+
+	assert.Equal(t, 1, plain.Error, "the cost limit stops the expression without --explain")
+	assert.Equal(t, 0, plain.Pass)
+	assert.Equal(t, plain, explained, "--explain must not change the result")
+	assert.Contains(t, output, "VERDICT    ERROR")
+	assert.Contains(t, output, "cost limit exceeded")
 }

@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -78,20 +79,19 @@ func (h validateImageHandler) Process(
 
 	skippedImages := make([]string, 0)
 	passedImages := make([]string, 0)
+	failedErrors := make([]string, 0)
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
 			for _, imageInfo := range infoMap {
 				image := imageInfo.String()
-
 				if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
 					logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
 					continue
 				}
-
 				logger.V(4).Info("validating image", "image", image)
 				if v, err := validateImage(policyContext, rule.Name, imageVerify, imageInfo, logger); err != nil {
-					return resource, handlers.WithFail(rule, engineapi.ImageVerify, err.Error())
+					failedErrors = append(failedErrors, err.Error())
 				} else if v == engineapi.ImageVerificationSkip {
 					skippedImages = append(skippedImages, image)
 				} else if v == engineapi.ImageVerificationPass {
@@ -99,6 +99,19 @@ func (h validateImageHandler) Process(
 				}
 			}
 		}
+	}
+	if len(failedErrors) > 0 {
+		seen := make(map[string]struct{}, len(failedErrors))
+		uniq := make([]string, 0, len(failedErrors))
+		for _, e := range failedErrors {
+			if _, ok := seen[e]; ok {
+				continue
+			}
+			seen[e] = struct{}{}
+			uniq = append(uniq, e)
+		}
+		sort.Strings(uniq)
+		return resource, handlers.WithFail(rule, engineapi.ImageVerify, strings.Join(uniq, "; "))
 	}
 
 	logger.V(4).Info("validated image", "rule", rule.Name)
@@ -117,8 +130,12 @@ func validateImage(ctx engineapi.PolicyContext, rule string, imageVerify *kyvern
 	var err error
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
-		log.V(2).Info("missing digest", "image", imageInfo.String())
-		return engineapi.ImageVerificationFail, fmt.Errorf("missing digest for %s", image)
+		if !imageVerify.MutateDigest {
+			log.V(4).Info("skipping missing digest check since mutateDigest is false", "image", imageInfo.String())
+		} else {
+			log.V(2).Info("missing digest", "image", imageInfo.String())
+			return engineapi.ImageVerificationFail, fmt.Errorf("missing digest for %s", image)
+		}
 	}
 	newResource := ctx.NewResource()
 	if imageVerify.Required && newResource.Object != nil {

@@ -23,7 +23,6 @@ import (
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
-	"k8s.io/apimachinery/pkg/util/validation/field"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -32,7 +31,7 @@ const (
 	attestationCacheRule = "verifyAttestationSignatures"
 )
 
-type ivfuncs struct {
+type IvFuncs struct {
 	types.Adapter
 
 	logger          logr.Logger
@@ -41,12 +40,13 @@ type ivfuncs struct {
 	creds           *v1beta1.Credentials
 	imgRules        []compiler.MatchImageReference
 	attestationList map[string]v1beta1.Attestation
-	cosignVerifier  *cosign.Verifier
+	cosignVerifier  cosignImageVerifier
 	notaryVerifier  *notary.Verifier
 	ivCache         imageverifycache.Client
 	authOpts        []remote.Option
 	nameOpts        []name.Option
 	verifications   *ImageVerificationResults
+	diagnostics     *verificationDiagnostics
 
 	// pendingIntotoRestores holds intoto payloads read back from the cache on
 	// a verifyAttestationSignatures() hit, keyed by "<image>\x00<attestation>".
@@ -63,51 +63,61 @@ type ivfuncs struct {
 	pendingIntotoRestores map[string]map[string][]byte
 }
 
-func ImageVerifyCELFuncs(
+// cosignImageVerifier exists only so tests can swap in a fake verifier;
+// production always uses *cosign.Verifier.
+type cosignImageVerifier interface {
+	VerifyImageSignature(context.Context, *imagedataloader.ImageData, *v1beta1.Attestor) error
+	VerifyAttestationSignature(context.Context, *imagedataloader.ImageData, *v1beta1.Attestation, *v1beta1.Attestor) error
+}
+
+// Runtime holds state owned by a single request. NewRuntimeForPolicy creates a
+// policy-local function implementation, so deferred payload restoration is never shared.
+type Runtime struct {
+	functions *IvFuncs
+}
+
+// NewRuntimeForPolicy copies the policy's IvFuncs and attaches request-owned
+// state to the copy. This is needed because the same compiled policy can be used
+// by two admission requests, and those shouldn't replace stateful fields in IvFuncs
+// that belong to eachother
+func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
+	newFuncs := *f
+	newFuncs.imgCtx = imgCtx
+	newFuncs.ivCache = cache
+	newFuncs.verifications = results
+	newFuncs.pendingIntotoRestores = map[string]map[string][]byte{}
+	newFuncs.diagnostics = &verificationDiagnostics{}
+
+	return Runtime{functions: &newFuncs}
+}
+
+func NewIvFuncs(
 	logger logr.Logger,
-	imgCtx imagedataloader.ImageContext,
 	ivpol v1beta1.ImageValidatingPolicyLike,
 	lister corev1listers.SecretLister,
-	ivCache imageverifycache.Client,
 	adapter types.Adapter,
-	verifications *ImageVerificationResults,
-) (*ivfuncs, error) {
-	if ivpol == nil {
-		return nil, fmt.Errorf("nil image verification policy")
-	}
-	env, err := compiler.NewMatchImageEnv()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
-	}
-
+	imgRules []compiler.MatchImageReference,
+) *IvFuncs {
 	spec := ivpol.GetSpec()
-	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, spec.MatchImageReferences...)
-	if errs != nil {
-		return nil, fmt.Errorf("failed to compile matches: %v", errs.ToAggregate())
-	}
 
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
+		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace(), logger)
 	}
 
-	return &ivfuncs{
-		Adapter:               adapter,
-		logger:                logger,
-		imgCtx:                imgCtx,
-		policy:                ivpol,
-		creds:                 spec.Credentials,
-		imgRules:              imgRules,
-		attestationList:       attestationMap(ivpol),
-		cosignVerifier:        cosign.NewVerifier(lister, logger),
-		notaryVerifier:        notary.NewVerifier(logger),
-		ivCache:               ivCache,
-		nameOpts:              nameOpts,
-		authOpts:              authOpts[:],
-		verifications:         verifications,
-		pendingIntotoRestores: map[string]map[string][]byte{},
-	}, nil
+	return &IvFuncs{
+		Adapter:         adapter,
+		logger:          logger,
+		policy:          ivpol,
+		creds:           spec.Credentials,
+		imgRules:        imgRules,
+		attestationList: attestationMap(ivpol),
+		nameOpts:        nameOpts,
+		authOpts:        authOpts,
+		cosignVerifier:  cosign.NewVerifier(lister, logger),
+		notaryVerifier:  notary.NewVerifier(logger),
+	}
 }
 
 // build a cache key from a CEL function name, a qualifier (attestation name in practice)
@@ -137,7 +147,7 @@ func pendingKey(image, attestation string) string {
 	return image + "\x00" + attestation
 }
 
-func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
+func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
 	ctx := context.TODO()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
@@ -176,6 +186,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyImageSignature(ctx, img, &attestor); err != nil {
+					f.diagnostics.record(image, attestor.Name, "", err)
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "cosign", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "cosign")
@@ -211,7 +222,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 	}
 }
 
-func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
+func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
 	ctx := context.TODO()
 	if len(args) != 3 {
 		return types.NewErr("function usage: <image> <attestation> <attestor list>")
@@ -272,6 +283,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			if attestor.IsCosign() {
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
 				if err := f.cosignVerifier.VerifyAttestationSignature(ctx, img, &attest, &attestor); err != nil {
+					f.diagnostics.record(image, attestor.Name, attestation, err)
 					f.logger.V(6).Info("attestation signature verification failed", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign", "error", err)
 				} else {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "cosign")
@@ -348,7 +360,7 @@ func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Atte
 	return map[string][]byte{attest.InToto.Type: b}
 }
 
-func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
+func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
 	ctx := context.TODO()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
@@ -384,7 +396,7 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 	}
 }
 
-func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
+func (f *IvFuncs) get_image_data_string(image ref.Val) ref.Val {
 	ctx := context.TODO()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
@@ -393,6 +405,12 @@ func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
-		return f.NativeToValue(*img)
+		// Convert through JSON: since cel-go v0.31 (#17067) NativeToValue only converts
+		// registered native types, and imagedataloader.ImageData is not one.
+		data, err := utils.GetValue(img.Data())
+		if err != nil {
+			return types.NewErr("failed to convert imagedata: %v", err)
+		}
+		return f.NativeToValue(data)
 	}
 }

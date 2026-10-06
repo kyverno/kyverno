@@ -105,12 +105,13 @@ func CompileAttestors(path *field.Path, att []v1beta1.Attestor, env *cel.Env) ([
 }
 
 func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
+	value := c.val.DeepCopy()
 	if c.keyProg != nil {
 		result, err := evalProgramString(c.Key, c.keyProg, data)
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert key in compiled attestor: %s, error: %w", c.Key, err)
 		}
-		c.val.Cosign.Key.Data = result
+		value.Cosign.Key.Data = result
 	}
 
 	if c.certProg != nil {
@@ -118,7 +119,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
-		c.val.Cosign.Certificate.Certificate.Value = result
+		value.Cosign.Certificate.Certificate.Value = result
 	}
 
 	if c.certChainProg != nil {
@@ -126,7 +127,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert cert chain in compiled attestor: %s, error: %w", c.Key, err)
 		}
-		c.val.Cosign.Certificate.CertificateChain.Value = result
+		value.Cosign.Certificate.CertificateChain.Value = result
 	}
 
 	if c.notaryCertProg != nil {
@@ -134,7 +135,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert notary cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
-		c.val.Notary.Certs.Value = result
+		value.Notary.Certs.Value = result
 	}
 
 	if c.notaryTSACertProg != nil {
@@ -142,7 +143,7 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert notary tsa cert in compiled attestor: %s, error: %w", c.Key, err)
 		}
-		c.val.Notary.TSACerts.Value = result
+		value.Notary.TSACerts.Value = result
 	}
 
 	if c.trustedRootProg != nil {
@@ -150,10 +151,10 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert trustedRoot in compiled attestor: %s, error: %w", c.Key, err)
 		}
-		c.val.Cosign.TrustedRoot.Value = result
+		value.Cosign.TrustedRoot.Value = result
 	}
 
-	return c.val, nil
+	return *value, nil
 }
 
 func evalProgramString(key string, e cel.Program, data any) (string, error) {

@@ -20,6 +20,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -29,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -43,6 +45,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -95,6 +98,7 @@ type ApplyCommandConfig struct {
 	Stdin                     bool
 	RegistryAccess            bool
 	AuditWarn                 bool
+	Explain                   bool
 	ResourcePaths             []string
 	PolicyPaths               []string
 	TargetResourcePaths       []string
@@ -104,6 +108,7 @@ type ApplyCommandConfig struct {
 	GitPassword               string
 	warnExitCode              int
 	warnNoPassed              bool
+	warningsAsErrors          bool
 	Exception                 []string
 	ContinueOnFail            bool
 	inlineExceptions          bool
@@ -120,6 +125,7 @@ type ApplyCommandConfig struct {
 	ContinueOnError           bool
 	ShowPerformance           bool
 	CrdPaths                  []string
+	deprecationWarnings       []string
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -151,7 +157,7 @@ func Command() *cobra.Command {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
-			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(out)
+			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				return err
 			}
@@ -236,9 +242,11 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy reached its result: whether it applied, its match conditions, variables and validations (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
+	cmd.Flags().BoolVar(&applyCommandConfig.warningsAsErrors, "warnings-as-errors", false, "Treat deprecation warnings as errors")
 	cmd.Flags().BoolVar(&removeColor, "remove-color", false, "Remove any color from output")
 	cmd.Flags().BoolVar(&detailedResults, "detailed-results", false, "If set to true, display detailed results")
 	cmd.Flags().BoolVarP(&table, "table", "t", false, "Show results in table format")
@@ -263,8 +271,9 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
+	c.deprecationWarnings = nil
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -297,8 +306,11 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies()
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
 	if err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
+	}
+	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps)+len(cps))
@@ -379,19 +391,31 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 
 	var exceptions []*kyvernov2.PolicyException
 	var celExceptions []*policiesv1beta1.PolicyException
+	// `kyverno apply` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
 	if c.exceptionsWithinResources || c.inlineExceptions {
-		results := exception.SelectFrom(resources)
+		results, err := exception.SelectFrom(resources, false)
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
+		}
 		exceptions = results.Exceptions
 		celExceptions = results.CELExceptions
 	} else {
-		results, err := exception.Load(c.Exception...)
+		results, err := exception.Load(false, c.Exception...)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 		}
 		if results != nil {
+			for _, warning := range results.Warnings {
+				msg := fmt.Sprintf("Warning: %s", warning)
+				fmt.Fprintln(out, msg)
+				c.deprecationWarnings = append(c.deprecationWarnings, msg)
+			}
 			exceptions = results.Exceptions
 			celExceptions = results.CELExceptions
 		}
+	}
+	if err := c.failOnDeprecationWarnings(); err != nil {
+		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 
 	if c.exceptionsWithinPolicies {
@@ -595,6 +619,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -636,6 +661,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -673,10 +699,6 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if len(ivps) == 0 {
 		return nil, nil
 	}
-	provider, err := ivpolengine.NewProvider(ivps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
 
 	var lister corev1listers.SecretLister
 	if dclient != nil {
@@ -687,19 +709,12 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		// This informer will automatically die at the end of this function and thats ok,
 		// we don't care about it past applying image validating policies anyways
 		defer close(stopCh)
+		secretsInformer := informerFactory.Core().V1().Secrets()
 		informerFactory.Start(stopCh)
 		informerFactory.WaitForCacheSync(stopCh)
 
-		lister = informerFactory.Core().V1().Secrets().Lister()
+		lister = secretsInformer.Lister()
 	}
-	engine := ivpolengine.NewEngine(
-		provider,
-		namespaceProvider,
-		matching.NewMatcher(),
-		lister,
-		imageverifycache.DisabledImageVerifyCache(),
-		config.NewDefaultConfiguration(false),
-	)
 
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
@@ -709,6 +724,21 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	if err != nil {
 		return nil, err
 	}
+
+	// Compilation captures the CLI library defaults, so initialize them first.
+	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
+	if err != nil {
+		return nil, err
+	}
+
+	engine := ivpolengine.NewEngine(
+		provider,
+		namespaceProvider,
+		matching.NewMatcher(),
+		lister,
+		imageverifycache.DisabledImageVerifyCache(),
+		config.NewDefaultConfiguration(false),
+	)
 
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
@@ -1072,7 +1102,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies() (
+func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
@@ -1107,6 +1137,14 @@ func (c *ApplyCommandConfig) loadPolicies() (
 	var envoyPols []*policiesv1beta1.ValidatingPolicy
 	var httpPols []*policiesv1beta1.ValidatingPolicy
 	for _, path := range c.PolicyPaths {
+		if source.IsOCI(path) {
+			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), pull.NewKeychain())
+			if err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
+			}
+			defer cleanup()
+			path = tmpDir
+		}
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
@@ -1136,15 +1174,19 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				loaderResults, err := policy.Load(fs, "", policyYaml)
+				loaderResults, err := policy.Load(fs, "", false, policyYaml)
 				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 					for _, err := range loaderResults.NonFatalErrors {
 						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 					}
 				}
 				if err != nil {
+					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+					}
 					continue
 				}
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1162,15 +1204,19 @@ func (c *ApplyCommandConfig) loadPolicies() (
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		} else {
-			loaderResults, err := policy.Load(nil, "", path)
+			loaderResults, err := policy.Load(nil, "", false, path)
 			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 				for _, err := range loaderResults.NonFatalErrors {
 					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 				}
 			}
+			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+			}
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
+				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
@@ -1195,6 +1241,21 @@ func (c *ApplyCommandConfig) loadPolicies() (
 		}
 	}
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
+}
+
+func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {
+	for _, warning := range warnings {
+		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
+		fmt.Fprintln(out, msg)
+		c.deprecationWarnings = append(c.deprecationWarnings, msg)
+	}
+}
+
+func (c *ApplyCommandConfig) failOnDeprecationWarnings() error {
+	if c.warningsAsErrors && len(c.deprecationWarnings) > 0 {
+		return fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(c.deprecationWarnings))
+	}
+	return nil
 }
 
 func (c *ApplyCommandConfig) initStoreAndClusterClient(store *store.Store, targetResources ...*unstructured.Unstructured) (dclient.Interface, error) {
@@ -1266,6 +1327,30 @@ func hasStdinPath(paths []string) bool {
 	return false
 }
 
+// checkExplainCompatible rejects --explain alongside the flags whose stdout is meant for another
+// program (a policy report or generated exceptions to parse, or a mutated resource to pipe into
+// kubectl). The trace is human-readable text written to the same stdout, so mixing the two would
+// leave that output unparseable. These are the same modes that already suppress the
+// "Applying N policy rule(s)" banner.
+func (c *ApplyCommandConfig) checkExplainCompatible() error {
+	if !c.Explain {
+		return nil
+	}
+	for _, f := range []struct {
+		set  bool
+		name string
+	}{
+		{c.PolicyReport, "--policy-report"},
+		{c.GenerateExceptions, "--generate-exceptions"},
+		{c.Stdin, "--stdin"},
+	} {
+		if f.set {
+			return fmt.Errorf("--explain cannot be used with %s: %s output must stay machine-readable, and the trace would be mixed into it", f.name, f.name)
+		}
+	}
+	return nil
+}
+
 func (c *ApplyCommandConfig) checkArguments() error {
 	if c.ValuesFile != "" && c.Variables != nil {
 		return fmt.Errorf("pass the values either using set flag or values_file flag")
@@ -1275,6 +1360,9 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	}
 	if hasStdinPath(c.PolicyPaths) && hasStdinPath(c.ResourcePaths) {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
+	}
+	if err := c.checkExplainCompatible(); err != nil {
+		return err
 	}
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
 		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
@@ -1303,11 +1391,21 @@ func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
 }
 
+func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	return resource.FlattenResources(resources)
+}
+
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
 	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
 	allResources = append(allResources, resources...)
 	allResources = append(allResources, targetResources...)
 	allResources = append(allResources, parameterResources...)
+
+	flatResources, err := flattenResources(allResources)
+	if err != nil {
+		return nil, err
+	}
+	allResources = flatResources
 
 	gvrToListKind := make(map[schema.GroupVersionResource]string)
 	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from

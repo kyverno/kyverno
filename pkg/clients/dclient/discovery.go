@@ -16,7 +16,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	metadatainformer "k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -57,6 +59,7 @@ type IDiscovery interface {
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	CachedDiscoveryInterface() discovery.CachedDiscoveryInterface
+	RESTMapper() meta.RESTMapper
 	OnChanged(callback func())
 }
 
@@ -72,6 +75,42 @@ type serverResources struct {
 	mapper       meta.ResettableRESTMapper
 	mux          sync.RWMutex
 	callbacks    []func()
+
+	refetchMux  sync.Mutex
+	lastRefetch time.Time
+}
+
+// NewServerResourcesDiscovery builds an IDiscovery over the given delegate,
+// the same memory-cached wiring NewClient uses for a real connection.
+func NewServerResourcesDiscovery(delegate discovery.DiscoveryInterface) IDiscovery {
+	cachedClient := memory.NewMemCacheClient(delegate)
+	return &serverResources{
+		cachedClient: cachedClient,
+		mapper:       restmapper.NewDeferredDiscoveryRESTMapper(cachedClient),
+	}
+}
+
+// missRefetchInterval spaces the forced discovery refetches of one client.
+const missRefetchInterval = time.Second
+
+// refetchOnMiss reports whether a lookup that just missed should drop the
+// cache and try once more: always when it is stale, else at most once per
+// missRefetchInterval.
+func (c *serverResources) refetchOnMiss() bool {
+	if !c.cachedClient.Fresh() {
+		return true
+	}
+	c.refetchMux.Lock()
+	defer c.refetchMux.Unlock()
+	if !c.lastRefetch.IsZero() && time.Since(c.lastRefetch) < missRefetchInterval {
+		return false
+	}
+	c.lastRefetch = time.Now()
+	return true
+}
+
+func (c *serverResources) RESTMapper() meta.RESTMapper {
+	return c.mapper
 }
 
 func (c *serverResources) OnChanged(callback func()) {
@@ -182,7 +221,7 @@ func (c *serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.Gro
 		if err == nil {
 			return mapping.Resource, nil
 		}
-		if !c.cachedClient.Fresh() {
+		if c.refetchOnMiss() {
 			c.cachedClient.Invalidate()
 			c.mapper.Reset()
 			mapping, err = c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
@@ -207,7 +246,7 @@ func (c *serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema
 		if err == nil {
 			return gvk, nil
 		}
-		if !c.cachedClient.Fresh() {
+		if c.refetchOnMiss() {
 			c.cachedClient.Invalidate()
 			c.mapper.Reset()
 			gvk, err = c.mapper.KindFor(gvr)
@@ -221,7 +260,7 @@ func (c *serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema
 		return gvk, nil
 	}
 
-	if !c.cachedClient.Fresh() {
+	if c.refetchOnMiss() {
 		c.cachedClient.Invalidate()
 		if c.mapper != nil {
 			c.mapper.Reset()
@@ -264,7 +303,7 @@ func (c *serverResources) FindResource(groupVersion string, kind string) (apiRes
 		return r, pr, gvr, nil
 	}
 
-	if !c.cachedClient.Fresh() {
+	if c.refetchOnMiss() {
 		c.cachedClient.Invalidate()
 		if c.mapper != nil {
 			c.mapper.Reset()
