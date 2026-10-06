@@ -11,11 +11,13 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -1435,4 +1437,75 @@ func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
 			assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
 		})
 	}
+}
+
+// Test_Apply_ExplainFlagCombinations checks that --explain is rejected next to every flag whose
+// stdout is meant for another program, before anything is written, while the combinations whose
+// output is for humans keep working.
+func Test_Apply_ExplainFlagCombinations(t *testing.T) {
+	const (
+		policy   = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+		resource = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"
+	)
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string // empty means the command must succeed
+	}{
+		{name: "explain with policy report", args: []string{"--explain", "--policy-report"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with policy report short flag", args: []string{"--explain", "-p"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with json policy report", args: []string{"--explain", "--policy-report", "--output-format", "json"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with generate exceptions", args: []string{"--explain", "--generate-exceptions"}, wantErr: "--explain cannot be used with --generate-exceptions"},
+		{name: "explain with stdin", args: []string{"--explain", "--stdin"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain with stdin short flag", args: []string{"--explain", "-i"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain alone", args: []string{"--explain"}},
+		{name: "explain with table", args: []string{"--explain", "--table"}},
+		{name: "policy report without explain", args: []string{"--policy-report"}},
+		{name: "generate exceptions without explain", args: []string{"--generate-exceptions"}},
+		{name: "stdin without explain", args: []string{"--stdin"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(append([]string{policy, "--resource", resource}, tt.args...))
+
+			err := cmd.Execute()
+
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tt.wantErr)
+			assert.Empty(t, stdout.String(), "a rejected combination must fail before writing any output")
+		})
+	}
+}
+
+// Test_Apply_ExplainKeepsTheCostLimit runs the review repro through the apply command: a policy
+// that exceeds the CEL cost limit is an error without --explain and must stay an error with it,
+// rather than being decided by the trace-only program, which does not enforce the limit.
+func Test_Apply_ExplainKeepsTheCostLimit(t *testing.T) {
+	const dir = "../../../../../test/cli/test-validating-policy/explain-cost-limit/"
+	run := func(explain bool) (*processor.ResultCounts, string) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{dir + "policy.yaml"},
+			ResourcePaths: []string{dir + "resource.yaml"},
+			Explain:       explain,
+		}
+		var out bytes.Buffer
+		rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+		require.NoError(t, err)
+		return rc, out.String()
+	}
+	plain, _ := run(false)
+	explained, output := run(true)
+
+	assert.Equal(t, 1, plain.Error, "the cost limit stops the expression without --explain")
+	assert.Equal(t, 0, plain.Pass)
+	assert.Equal(t, plain, explained, "--explain must not change the result")
+	assert.Contains(t, output, "VERDICT    ERROR")
+	assert.Contains(t, output, "cost limit exceeded")
 }
