@@ -31,7 +31,7 @@ on:
         type: boolean
         default: true
       stale_days:
-        description: "Days without author activity before a needs-author-action PR is marked stale"
+        description: "Days without a new commit before a needs-author-action PR is marked stale"
         default: "14"
       review_nudge_days:
         description: "Days without maintainer activity before a ready-for-review PR is nudged"
@@ -196,14 +196,14 @@ jobs:
             if ! has_marker "$marker"; then
               {
                 printf '%s\n' "$marker"
-                printf '@%s there has been no new commit on this PR for %s days (last: %s), and it is still waiting on you (`needs-author-action`), so it is now marked `stale`.\n\n' \
+                printf '@%s there has been no new commit on this PR for %s days (since: %s), and it is still waiting on you (`needs-author-action`), so it is now marked `stale`.\n\n' \
                   "$author" "$((idle / 86400))" "$(date_of "$last")"
                 printf -- '- Still working on it? Push a commit; the label clears automatically.\n'
                 printf -- '- Stuck or unsure? Say what you are stuck on and a reviewer will help.\n'
                 printf -- '- Cannot continue? Say so here; the label stays and a maintainer can pick it up.\n\n'
                 # Old PRs: author only, no reviewer ping.
                 if [[ "$idle" -lt "$backlog_secs" ]]; then
-                  printf '%s no author response for %s days; this may need a nudge, a hand-off, or closing.' \
+                  printf '%s no new commit for %s days; this may need a nudge, a hand-off, or closing.' \
                     "$(reviewers "$author")" "$((idle / 86400))"
                   if has_label milestone-pr; then
                     printf '\n\nThis PR closes an issue in an open release milestone, so maintainers: consider taking it over or reassigning it.'
@@ -213,7 +213,7 @@ jobs:
               [[ "$DRY_RUN" == "true" ]] && { echo "PR #$n would get:"; cat body.md; echo; }
               act gh pr comment "$n" --repo "$repo" --body-file body.md || return 1
             fi
-            echo "PR #$n: no author activity for $((idle / 86400)) days — marking stale."
+            echo "PR #$n: no new commit for $((idle / 86400)) days — marking stale."
             act gh pr edit "$n" --repo "$repo" --add-label stale
           }
 
