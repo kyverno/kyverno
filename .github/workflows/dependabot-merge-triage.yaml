@@ -98,9 +98,9 @@ jobs:
             grep -qF "### 🟢 Approved" <<< "$verdict" && copilot_approved=true
 
             # gh pr checks exits non-zero on a failing/pending check — don't let set -e kill the loop over it.
-            # E2E Gate + its sync job are excluded, same reasoning as pr-readiness-check.yaml.
+            # E2E Gate, its sync job and the Codecov upload are excluded, as in pr-readiness-check.yaml.
             not_green=$(gh pr checks "$pr" --repo "${GITHUB_REPOSITORY}" --json name,bucket \
-              --jq '[.[] | select(.name != "E2E Gate" and .name != "Sync E2E Gate status") | select(.bucket == "fail" or .bucket == "pending" or .bucket == "cancel")] | length') || true
+              --jq '[.[] | select(.name != "E2E Gate" and .name != "Sync E2E Gate status" and .name != "Upload coverage to Codecov") | select(.bucket == "fail" or .bucket == "pending" or .bucket == "cancel")] | length') || true
 
             mergeable_state=$(gh pr view "$pr" --repo "${GITHUB_REPOSITORY}" --json mergeStateStatus --jq '.mergeStateStatus')
             has_conflict=false
