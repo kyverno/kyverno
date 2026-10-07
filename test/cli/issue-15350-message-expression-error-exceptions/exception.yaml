@@ -1,0 +1,13 @@
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: test-exception
+spec:
+  policyRefs:
+  - name: require-department-annotation
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: match-pod
+    expression: "object.metadata.name == 'invalid-pod-no-annotations'"
+  validations:
+  - expression: "false"
