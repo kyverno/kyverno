@@ -11,6 +11,7 @@ import (
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -341,6 +342,66 @@ func TestReconcile_DeletedNamespacedValidatingPolicy(t *testing.T) {
 
 	// nothing left to delete is not an error
 	require.NoError(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""))
+}
+
+// vapGenerationOff turns off ValidatingAdmissionPolicy generation and keeps the other defaults.
+type vapGenerationOff struct {
+	toggle.Toggles
+}
+
+func (vapGenerationOff) GenerateValidatingAdmissionPolicy() bool { return false }
+
+func TestReconcile_NamespacedValidatingPolicyGenerationDisabled(t *testing.T) {
+	t.Parallel()
+	ctx := toggle.NewContext(context.Background(), vapGenerationOff{toggle.FromContext(context.Background())})
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo"}}
+	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo-binding"}}
+	tests := []struct {
+		name   string
+		nvpols []*policiesv1beta1.NamespacedValidatingPolicy
+	}{
+		{name: "policy still exists", nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{newNvpol("team-a", "foo", "denied")}},
+		{name: "policy deleted"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c, kubeClient := newNvpolTestController(t, tt.nvpols, vap.DeepCopy(), binding.DeepCopy())
+
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""))
+
+			_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vap.Name, metav1.GetOptions{})
+			assert.True(t, apierrors.IsNotFound(err), "the generated VAP must be deleted: got err=%v", err)
+			_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+			assert.True(t, apierrors.IsNotFound(err), "the generated binding must be deleted: got err=%v", err)
+		})
+	}
+}
+
+// A generated VAP whose policy was deleted while the controller was down is listed again on startup,
+// requeues its policy and is removed.
+func TestOrphanedGeneratedVAPIsRemoved(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	annotations := map[string]string{
+		admissionpolicy.AnnotationSourcePolicyNamespace: "team-a",
+		admissionpolicy.AnnotationSourcePolicyName:      "foo",
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo", Annotations: annotations}}
+	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo-binding", Annotations: annotations}}
+	c, kubeClient := newNvpolTestController(t, nil, vap, binding)
+
+	c.addVAP(vap)
+	items := drainQueue(c.queue)
+	require.Len(t, items, 1)
+	key, ok := items[0].(cache.ExplicitKey)
+	require.True(t, ok)
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), string(key), "", ""))
+
+	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, vap.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "the orphaned VAP must be deleted: got err=%v", err)
+	_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "the orphaned binding must be deleted: got err=%v", err)
 }
 
 func TestEnqueueCELException_NamespacedValidatingPolicy(t *testing.T) {

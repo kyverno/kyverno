@@ -267,22 +267,24 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 	} else if polType == "NamespacedValidatingPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-		if !generateValidatingAdmissionPolicy {
-			return nil
-		}
 		var ok bool
 		namespace, name, ok = parseNamespacedPolicyKey(key)
 		if !ok {
 			logger.Error(nil, "invalid namespaced validating policy key")
 			return nil
 		}
+		// the generated VAP and binding are cluster-scoped and cannot be garbage collected through the
+		// namespaced policy, so delete them explicitly when generation is turned off or the policy is gone.
+		// Generated objects are listed again on startup and requeue their policy, which also removes the
+		// ones left behind while the controller was down.
+		vapName := admissionpolicy.ValidatingPolicyVAPName(namespace, name)
+		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() {
+			return c.deleteGeneratedVAP(ctx, vapName)
+		}
 		nvpol, err := c.getNamespacedValidatingPolicy(namespace, name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				// the generated VAP and binding are cluster-scoped and cannot be garbage collected
-				// through the namespaced policy, so delete them explicitly.
-				return c.deleteGeneratedVAP(ctx, admissionpolicy.ValidatingPolicyVAPName(namespace, name))
+				return c.deleteGeneratedVAP(ctx, vapName)
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
