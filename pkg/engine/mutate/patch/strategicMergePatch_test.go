@@ -279,3 +279,12 @@ func TestMergePatchControlCharacters(t *testing.T) {
 		})
 	}
 }
+
+func TestMergePatchMalformed(t *testing.T) {
+	valid := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"p"}}`
+	malformed := `{"metadata": [}`
+	_, err := strategicMergePatch(logr.Discard(), valid, malformed)
+	assert.ErrorContains(t, err, "failed to preProcess rule")
+	_, err = strategicMergePatch(logr.Discard(), malformed, valid)
+	assert.ErrorContains(t, err, "failed to preProcess rule")
+}
