@@ -356,11 +356,13 @@ func TestReconcile_NamespacedValidatingPolicyGenerationDisabled(t *testing.T) {
 	ctx := toggle.NewContext(context.Background(), vapGenerationOff{toggle.FromContext(context.Background())})
 	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo"}}
 	binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo-binding"}}
+	generated := newNvpol("team-a", "foo", "denied")
+	generated.Status.Generated = true
 	tests := []struct {
 		name   string
 		nvpols []*policiesv1beta1.NamespacedValidatingPolicy
 	}{
-		{name: "policy still exists", nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{newNvpol("team-a", "foo", "denied")}},
+		{name: "policy still exists", nvpols: []*policiesv1beta1.NamespacedValidatingPolicy{generated}},
 		{name: "policy deleted"},
 	}
 	for _, tt := range tests {
@@ -374,6 +376,11 @@ func TestReconcile_NamespacedValidatingPolicyGenerationDisabled(t *testing.T) {
 			assert.True(t, apierrors.IsNotFound(err), "the generated VAP must be deleted: got err=%v", err)
 			_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, binding.Name, metav1.GetOptions{})
 			assert.True(t, apierrors.IsNotFound(err), "the generated binding must be deleted: got err=%v", err)
+			if len(tt.nvpols) > 0 {
+				updated, err := c.kyvernoClient.PoliciesV1beta1().NamespacedValidatingPolicies("team-a").Get(ctx, "foo", metav1.GetOptions{})
+				require.NoError(t, err)
+				assert.False(t, updated.Status.Generated, "the policy must no longer report a generated VAP")
+			}
 		})
 	}
 }

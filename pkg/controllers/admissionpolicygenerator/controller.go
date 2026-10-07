@@ -278,9 +278,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		// Generated objects are listed again on startup and requeue their policy, which also removes the
 		// ones left behind while the controller was down.
 		vapName := admissionpolicy.ValidatingPolicyVAPName(namespace, name)
-		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() {
-			return c.deleteGeneratedVAP(ctx, vapName)
-		}
 		nvpol, err := c.getNamespacedValidatingPolicy(namespace, name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -288,6 +285,15 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err
+		}
+		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() {
+			if err := c.deleteGeneratedVAP(ctx, vapName); err != nil {
+				return err
+			}
+			if nvpol.Status.Generated {
+				c.updatePolicyStatus(ctx, engineapi.NewNamespacedValidatingPolicy(nvpol), false, "skip generating ValidatingAdmissionPolicy: generation is disabled.")
+			}
+			return nil
 		}
 		policy = engineapi.NewNamespacedValidatingPolicy(nvpol)
 		err = c.handleVAPGeneration(ctx, polType, policy)
