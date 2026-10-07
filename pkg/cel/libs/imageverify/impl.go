@@ -202,6 +202,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				}
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, "", err)
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "notary")
@@ -302,6 +303,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, attestation, err)
 					f.logger.V(6).Info("attestation signature verification failed", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")

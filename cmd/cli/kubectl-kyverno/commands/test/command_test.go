@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -138,6 +139,8 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	tests := []struct {
 		name           string
 		ruleStatus     engineapi.RuleStatus
+		ruleProperties map[string]string
+		msgExprErr     error
 		expectedResult string
 		wantOk         bool
 		wantReason     string
@@ -177,6 +180,25 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			wantOk:         false,
 			wantReason:     "Want fail, got error",
 		},
+		{
+			// Regression test for https://github.com/kyverno/kyverno/issues/15350
+			//
+			// Before the fix: when a CEL messageExpression threw a runtime error
+			// (e.g. "no such key: annotations"), Kyverno converted the error to a
+			// human-readable string and returned RuleFail. Because the test expected
+			// "fail", checkResult saw a match and reported PASS — silently hiding the
+			// broken messageExpression from the policy author.
+			//
+			// After the fix: the engine also writes MessageExpressionErrorKey into the
+			// RuleResponse properties. checkResult detects the key and returns false,
+			// surfacing the authoring error regardless of the expected result.
+			name:           "expect fail and got fail with messageExpression error - should surface the error",
+			ruleStatus:     engineapi.RuleStatusFail,
+			msgExprErr:     errors.New("no such key: annotations"),
+			expectedResult: openreports.StatusFail,
+			wantOk:         false,
+			wantReason:     "messageExpression evaluation error",
+		},
 	}
 
 	for _, tt := range tests {
@@ -184,11 +206,11 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			var rule engineapi.RuleResponse
 			switch tt.ruleStatus {
 			case engineapi.RuleStatusPass:
-				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			case engineapi.RuleStatusFail:
-				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			case engineapi.RuleStatusError:
-				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, nil)
+				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			}
 
 			response := engineapi.NewEngineResponse(
@@ -615,6 +637,49 @@ func TestRunTest_CELHTTPPostMock(t *testing.T) {
 	assert.True(t, found, "expected engine response for policy check-pod-admission")
 }
 
+func TestRunTest_MessageExpressionError(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDirs := []string{
+		filepath.Join(rootDir, "test", "cli", "issue-15350-message-expression-error"),
+		filepath.Join(rootDir, "test", "cli", "issue-15350-message-expression-error-exceptions"),
+	}
+
+	for _, testDir := range testDirs {
+		t.Run(filepath.Base(testDir), func(t *testing.T) {
+
+			if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+				t.Fatalf("Test directory not found: %s", testDir)
+			}
+
+			testFile := filepath.Join(testDir, "kyverno-test.yaml")
+			testCases := test.LoadTest(nil, testFile)
+			require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+			testCase := testCases[0]
+			// Wire the fixture with result set to fail to verify the error path
+			testCase.Test.Results[0].Result = openreportsv1alpha1.Result(openreports.StatusFail)
+
+			out := &bytes.Buffer{}
+			testResponse, err := runTest(context.TODO(), out, testCase, false)
+			require.NoError(t, err, "runTest should not return an execution error, just test failures")
+
+			var found bool
+			for _, responses := range testResponse.Trigger {
+				for _, response := range responses {
+					for _, rule := range response.PolicyResponse.Rules {
+						found = true
+						ok, _, reason := checkRuleResultOnly(testCase.Test.Results[0], response, rule)
+						assert.False(t, ok, "checkRuleResultOnly should return false due to mismatched result")
+						assert.Contains(t, reason, "messageExpression evaluation error: no such key: annotations", "CLI should report the messageExpression evaluation error reason")
+					}
+				}
+			}
+			assert.True(t, found, "Expected to find at least one rule evaluation")
+		})
+	}
+}
 func TestRunTest_CELHTTPPostMockDeny(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err)
