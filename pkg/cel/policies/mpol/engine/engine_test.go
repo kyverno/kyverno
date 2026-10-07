@@ -1174,8 +1174,10 @@ func TestHandlePolicy_ExtractionMode(t *testing.T) {
 
 		// the template never had metadata.name/namespace - confirm they
 		// still don't exist after the mutation (no spurious add/remove).
-		_, found, _ = unstructured.NestedString(rj, "template", "metadata", "name")
+		_, found, _ = unstructured.NestedString(rj, "template", "spec", "template", "metadata", "name")
 		assert.False(t, found, "metadata.name should not have been synthesized into the real object")
+		_, found, _ = unstructured.NestedString(rj, "template", "spec", "template", "metadata", "namespace")
+		assert.False(t, found, "metadata.namespace should not have been synthesized into the real object")
 	})
 }
 

@@ -406,24 +406,44 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: expected synthesized Pod, got %T", tpl.Path, synthAttr.GetObject())}
 		}
 
-		beforeForDiff := beforeUnstr.DeepCopy()
-		if m, hadMetadata := tpl.Template["metadata"].(map[string]any); !hadMetadata {
-			unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "name")
-			unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "namespace")
-		} else {
-			if _, ok := m["name"]; !ok {
-				unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "name")
+		// extract.buildPod injects placeholder metadata.name/namespace
+		// (borrowed from the parent) whenever the real template declared
+		// neither. Those placeholders must not appear in the diff in
+		// either direction: present only on "before" looks like a
+		// removal, present only on "after" looks like an add. Strip the
+		// placeholder from whichever side still carries its exact
+		// placeholder value, so only changes the policy actually made
+		// show up in podPatch.
+		placeholderName, placeholderNamespace := attr.GetName(), attr.GetNamespace()
+		stripSyntheticMetadata := func(u *unstructured.Unstructured) *unstructured.Unstructured {
+			out := u.DeepCopy()
+			m, hadMetadata := tpl.Template["metadata"].(map[string]any)
+			_, declaredName := m["name"]
+			_, declaredNamespace := m["namespace"]
+			if !hadMetadata {
+				declaredName, declaredNamespace = false, false
 			}
-			if _, ok := m["namespace"]; !ok {
-				unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "namespace")
+			if !declaredName {
+				if name, _, _ := unstructured.NestedString(out.Object, "metadata", "name"); name == placeholderName {
+					unstructured.RemoveNestedField(out.Object, "metadata", "name")
+				}
 			}
+			if !declaredNamespace {
+				if ns, _, _ := unstructured.NestedString(out.Object, "metadata", "namespace"); ns == placeholderNamespace {
+					unstructured.RemoveNestedField(out.Object, "metadata", "namespace")
+				}
+			}
+			return out
 		}
+
+		beforeForDiff := stripSyntheticMetadata(beforeUnstr)
+		afterForDiff := stripSyntheticMetadata(result.PatchedResource)
 
 		beforeBytes, err := beforeForDiff.MarshalJSON()
 		if err != nil {
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: %w", tpl.Path, err)}
 		}
-		afterBytes, err := result.PatchedResource.MarshalJSON()
+		afterBytes, err := afterForDiff.MarshalJSON()
 		if err != nil {
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: %w", tpl.Path, err)}
 		}
