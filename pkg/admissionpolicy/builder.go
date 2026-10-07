@@ -1,6 +1,8 @@
 package admissionpolicy
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -26,14 +28,30 @@ const (
 	AnnotationSourcePolicyName      = "policies.kyverno.io/source-policy-name"
 )
 
+// maxGeneratedNameLength leaves room for the "-binding" suffix of the generated binding name within the
+// 253 character limit of metadata.name.
+const maxGeneratedNameLength = 253 - len("-binding")
+
 // ValidatingPolicyVAPName returns the name of the ValidatingAdmissionPolicy generated from a ValidatingPolicy
 // or, when namespace is set, a NamespacedValidatingPolicy. Namespace names cannot contain dots, so the "."
 // separator keeps names unique across namespace and policy name combinations.
 func ValidatingPolicyVAPName(namespace, name string) string {
 	if namespace != "" {
-		return "nvpol-" + namespace + "." + name
+		return boundGeneratedName("nvpol-"+namespace+"."+name, namespace+"/"+name)
 	}
-	return "vpol-" + name
+	return boundGeneratedName("vpol-"+name, name)
+}
+
+// boundGeneratedName shortens a name over maxGeneratedNameLength to a readable prefix followed by a hash of
+// key, so long names stay valid and distinct.
+func boundGeneratedName(name, key string) string {
+	if len(name) <= maxGeneratedNameLength {
+		return name
+	}
+	sum := sha256.Sum256([]byte(key))
+	suffix := hex.EncodeToString(sum[:])[:16]
+	prefix := strings.TrimRight(name[:maxGeneratedNameLength-len(suffix)-1], "-.")
+	return prefix + "-" + suffix
 }
 
 // setSourcePolicy links a generated cluster-scoped object to its policy. Cluster-scoped policies become the
@@ -146,16 +164,18 @@ func BuildValidatingAdmissionPolicy(
 		spec := vpol.GetSpec()
 		matchResources = *spec.MatchConstraints
 		// a namespaced policy only applies to its own namespace, so pin the cluster-scoped VAP to it
+		// while keeping any namespace selector of the policy
 		if ns := vpol.GetNamespace(); ns != "" {
-			matchResources.NamespaceSelector = &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{
-						Key:      "kubernetes.io/metadata.name",
-						Operator: metav1.LabelSelectorOpIn,
-						Values:   []string{ns},
-					},
-				},
+			namespaceSelector := &metav1.LabelSelector{}
+			if matchResources.NamespaceSelector != nil {
+				namespaceSelector = matchResources.NamespaceSelector.DeepCopy()
 			}
+			namespaceSelector.MatchExpressions = append(namespaceSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+				Key:      "kubernetes.io/metadata.name",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{ns},
+			})
+			matchResources.NamespaceSelector = namespaceSelector
 		}
 		matchConditions = spec.MatchConditions
 		validations = spec.Validations

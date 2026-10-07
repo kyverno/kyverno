@@ -216,6 +216,29 @@ func TestReconcile_NamespacedValidatingPolicy(t *testing.T) {
 	assert.Empty(t, binding.OwnerReferences)
 }
 
+func TestReconcile_NamespacedValidatingPolicyKeepsNamespaceSelector(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	nvpol := newNvpol("team-a", "foo", "denied")
+	nvpol.Spec.MatchConstraints.NamespaceSelector = &metav1.LabelSelector{MatchLabels: map[string]string{"env": "prod"}}
+	c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{nvpol})
+
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""))
+
+	vap, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "nvpol-team-a.foo", metav1.GetOptions{})
+	require.NoError(t, err)
+	selector := vap.Spec.MatchConstraints.NamespaceSelector
+	require.NotNil(t, selector)
+	assert.Equal(t, map[string]string{"env": "prod"}, selector.MatchLabels)
+	assert.Equal(t, []metav1.LabelSelectorRequirement{{
+		Key:      "kubernetes.io/metadata.name",
+		Operator: metav1.LabelSelectorOpIn,
+		Values:   []string{"team-a"},
+	}}, selector.MatchExpressions)
+	// the source policy is left untouched
+	assert.Empty(t, nvpol.Spec.MatchConstraints.NamespaceSelector.MatchExpressions)
+}
+
 func TestReconcile_DeletedNamespacedValidatingPolicy(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
