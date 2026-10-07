@@ -48,11 +48,13 @@ var (
 
 type fakeStatusControl struct {
 	failedCalled  bool
+	failedMsg     string
 	successCalled bool
 }
 
 func (f *fakeStatusControl) Failed(name, msg string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	f.failedCalled = true
+	f.failedMsg = msg
 	return &kyvernov2.UpdateRequest{}, nil
 }
 func (f *fakeStatusControl) Success(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
@@ -413,9 +415,10 @@ func TestResolveTargetRoute_Subresource(t *testing.T) {
 		}},
 	}
 
-	resource, subresource, err := p.resolveTargetRoute(pod, constraints)
+	resource, subresource, scope, err := p.resolveTargetRoute(pod, constraints)
 
 	assert.NoError(t, err)
+	assert.Equal(t, meta.RESTScopeNameNamespace, scope)
 	assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, resource)
 	assert.Equal(t, "resize", subresource)
 }
@@ -442,7 +445,7 @@ func TestResolveTargetRoute_RejectsTraversalSubresource(t *testing.T) {
 		}},
 	}
 
-	_, _, err := p.resolveTargetRoute(pod, constraints)
+	_, _, _, err := p.resolveTargetRoute(pod, constraints)
 
 	assert.Error(t, err)
 }
@@ -674,4 +677,364 @@ func TestProcess_TargetExpressionInvalidURMarksFailed(t *testing.T) {
 	err := p.Process(ur)
 	assert.NoError(t, err)
 	assert.True(t, sc.failedCalled, "expected UR to be marked failed for invalid expression input")
+}
+
+// fakeNSClient answers GetResource("v1", "Namespace", ...) so collectGVK's namespace-existence
+// lookup succeeds for a namespaced policy, without needing a fully scheme-registered fake dynamic client.
+type fakeNSClient struct {
+	dclient.Interface
+}
+
+func (f *fakeNSClient) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	if kind == "Namespace" {
+		ns := &unstructured.Unstructured{}
+		ns.SetAPIVersion("v1")
+		ns.SetKind("Namespace")
+		ns.SetName(name)
+		return ns, nil
+	}
+	return f.Interface.GetResource(ctx, apiVersion, kind, namespace, name, subresources...)
+}
+
+// TestCollectGVK_RejectsClusterScopedKindForNamespacedPolicy verifies that a namespaced policy's
+// resource rules never resolve a cluster-scoped kind (e.g. Namespace), which would otherwise be
+// relisted across the whole cluster instead of being confined to the policy's own namespace.
+
+// TestCollectGVK_RejectsClusterScopedKindForNamespacedPolicy verifies that a namespaced policy's
+// resource rules never resolve a cluster-scoped kind (e.g. Namespace), which would otherwise be
+// relisted across the whole cluster instead of being confined to the policy's own namespace.
+func TestCollectGVK_RejectsClusterScopedKindForNamespacedPolicy(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"configmaps", "namespaces"},
+				},
+			},
+		}},
+	}
+
+	result, _ := collectGVK(&fakeNSClient{Interface: dclient.NewEmptyFakeClient()}, mapper, constraints, "ns1")
+
+	assert.Contains(t, result, "ns1")
+	assert.Len(t, result["ns1"], 1, "only the namespace-scoped ConfigMap kind should be resolved for a namespaced policy")
+	for item := range result["ns1"] {
+		assert.Equal(t, "ConfigMap", item.gvk.Kind)
+	}
+}
+
+// TestProcess_RejectsExpressionTargetInAnotherNamespace verifies that a NamespacedMutatingPolicy
+// whose targetMatchConstraints.expression resolves a target reporting a different namespace is
+// rejected, rather than patched.
+//
+// The target-expression compiler (both the real one in pkg/cel/policies/mpol/compiler and the
+// getResourcesFromExpression fallback used here) requires the expression's static output type to
+// be exactly map(string, google.protobuf.Any) - the return type the resource.Get/List/Post CEL
+// bindings declare. A hand-written map literal infers as map(string, dyn) and is rejected at
+// compile time, so the only expressions that can compile at all return a resource.Get/List/Post
+// result verbatim. Those bindings' namespaced implementation (namespacedImpl in the kyverno/sdk
+// resource CEL library) always substitutes the policy's own namespace for the query, so this test
+// cannot reproduce a live cross-namespace *query*; instead it registers the fake fetch target's
+// own self-reported metadata.namespace as "ns2" while still being found by the "ns1"-scoped query,
+// modelling a context provider (a different implementation, a bug, or a resource whose storage
+// key doesn't match its own reported metadata) that doesn't keep the two in lockstep. The guard
+// must not trust the resolved object's self-reported fields without checking them.
+func TestProcess_RejectsExpressionTargetInAnotherNamespace(t *testing.T) {
+	oldLibCtx := libs.LibraryContext
+	libCtx := libs.NewFakeContextProvider()
+	libs.LibraryContext = libCtx
+	defer func() {
+		libs.LibraryContext = oldLibCtx
+	}()
+
+	// Register the fake fetch target under "ns1" - the key the namespaced resource.Get binding
+	// will query with (it always substitutes the policy's own namespace, "ns1" here) - then mutate
+	// its own metadata.namespace to "ns2" afterwards, without changing where it's stored. This
+	// models a context provider whose storage key and the object's self-reported namespace can
+	// disagree; Process must reject based on the object's own field, not trust the query context.
+	target := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "other-ns-cm",
+			"namespace": "ns1",
+		},
+	}}
+	assert.NoError(t, libCtx.AddResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}, target))
+	target.Object["metadata"].(map[string]any)["namespace"] = "ns2"
+
+	m := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	m.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mypol", Namespace: "ns1"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				Expression: "resource.Get('v1', 'configmaps', 'other-ns-cm')",
+			},
+		},
+	}
+
+	trigger := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "trigger-cm",
+			"namespace": "ns1",
+		},
+	}
+	raw, err := json.Marshal(trigger)
+	assert.NoError(t, err)
+
+	sc := &fakeStatusControl{}
+	p := NewProcessor(
+		dclient.NewEmptyFakeClient(),
+		fake.NewSimpleClientset(nmpol),
+		&fakeEngine{},
+		m,
+		&libs.FakeContextProvider{},
+		sc,
+		event.NewFake(),
+		nil,
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-cross-ns", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "ns1/mypol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Delete,
+						OldObject: runtime.RawExtension{Raw: raw},
+					},
+					Operation: admissionv1.Delete,
+				},
+			},
+		},
+	}
+
+	err = p.Process(ur)
+	assert.NoError(t, err)
+	assert.True(t, sc.failedCalled, "expected cross-namespace expression target to be rejected")
+	assert.Contains(t, sc.failedMsg, "outside policy namespace")
+}
+
+// TestProcess_RejectsExpressionTargetClusterScoped verifies that a NamespacedMutatingPolicy
+// whose targetMatchConstraints.expression resolves a cluster-scoped target is rejected. As in
+// TestProcess_RejectsExpressionTargetInAnotherNamespace, the expression must return a
+// resource.Get/List/Post result verbatim to compile at all, so the fetch target is registered
+// under the fake context provider and returned via resource.Get.
+
+// TestProcess_RejectsExpressionTargetClusterScoped verifies that a NamespacedMutatingPolicy
+// whose targetMatchConstraints.expression resolves a cluster-scoped target is rejected. As in
+// TestProcess_RejectsExpressionTargetInAnotherNamespace, the expression must return a
+// resource.Get/List/Post result verbatim to compile at all, so the fetch target is registered
+// under the fake context provider and returned via resource.Get.
+func TestProcess_RejectsExpressionTargetClusterScoped(t *testing.T) {
+	oldLibCtx := libs.LibraryContext
+	libCtx := libs.NewFakeContextProvider()
+	libs.LibraryContext = libCtx
+	defer func() {
+		libs.LibraryContext = oldLibCtx
+	}()
+
+	target := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "Namespace",
+		"metadata": map[string]any{
+			"name":      "ns2",
+			"namespace": "ns1",
+		},
+	}}
+	assert.NoError(t, libCtx.AddResource(schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}, target))
+
+	m := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	m.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+	m.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mypol", Namespace: "ns1"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				Expression: "resource.Get('v1', 'namespaces', 'ns2')",
+			},
+		},
+	}
+
+	trigger := map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]any{
+			"name":      "trigger-cm",
+			"namespace": "ns1",
+		},
+	}
+	raw, err := json.Marshal(trigger)
+	assert.NoError(t, err)
+
+	sc := &fakeStatusControl{}
+	p := NewProcessor(
+		dclient.NewEmptyFakeClient(),
+		fake.NewSimpleClientset(nmpol),
+		&fakeEngine{},
+		m,
+		&libs.FakeContextProvider{},
+		sc,
+		event.NewFake(),
+		nil,
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-cluster-scoped", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "ns1/mypol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{
+					AdmissionRequest: &admissionv1.AdmissionRequest{
+						Operation: admissionv1.Delete,
+						OldObject: runtime.RawExtension{Raw: raw},
+					},
+					Operation: admissionv1.Delete,
+				},
+			},
+		},
+	}
+
+	err = p.Process(ur)
+	assert.NoError(t, err)
+	assert.True(t, sc.failedCalled, "expected cluster-scoped expression target to be rejected")
+	assert.Contains(t, sc.failedMsg, "cluster-scoped")
+}
+
+// TestProcess_RejectsMutationThatRedirectsTargetIdentity verifies that Process does not write a
+// mutation whose patch changes the resolved target's own namespace/kind/apiVersion/name - the
+// confinement checks above only validate the *resolved* target, so the write path must
+// independently confirm the mutation didn't redirect itself to a different object before calling
+// UpdateResource.
+
+// TestProcess_RejectsMutationThatRedirectsTargetIdentity verifies that Process does not write a
+// mutation whose patch changes the resolved target's own namespace/kind/apiVersion/name - the
+// confinement checks above only validate the *resolved* target, so the write path must
+// independently confirm the mutation didn't redirect itself to a different object before calling
+// UpdateResource.
+func TestProcess_RejectsMutationThatRedirectsTargetIdentity(t *testing.T) {
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMapList"}, &unstructured.UnstructuredList{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "NamespaceList"}, &unstructured.UnstructuredList{})
+	cm := &unstructured.Unstructured{}
+	cm.SetAPIVersion("v1")
+	cm.SetKind("ConfigMap")
+	cm.SetNamespace("ns1")
+	cm.SetName("target-cm")
+	// collectGVK looks up the policy's own namespace object to confine the target list -
+	// register it so the namespaced policy's target resolution succeeds.
+	ns1 := &unstructured.Unstructured{}
+	ns1.SetAPIVersion("v1")
+	ns1.SetKind("Namespace")
+	ns1.SetName("ns1")
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "configmaps"}: "ConfigMapList",
+		{Group: "", Version: "v1", Resource: "namespaces"}: "NamespaceList",
+	}
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, cm, ns1)
+	assert.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mypol", Namespace: "ns1"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+						Rule: admissionregistrationv1alpha1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"configmaps"},
+						},
+					},
+				}},
+			},
+		},
+	}
+	kyvernoClient := fake.NewSimpleClientset(nmpol)
+
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	restMapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+
+	// The mutation redirects the patched object into a different namespace - this must never
+	// be written, regardless of the fact that the originally-resolved target ("ns1/target-cm")
+	// was itself perfectly in-bounds.
+	redirected := cm.DeepCopy()
+	redirected.SetNamespace("ns2")
+
+	engine := &fakeEngine{}
+	engine.On("Evaluate").Return(mpolengine.EngineResponse{
+		Resource:        cm,
+		PatchedResource: redirected,
+	}, nil)
+
+	sc := &fakeStatusControl{}
+	updateCalled := false
+	mockClient := &mockUpdateTrackingClient{
+		Interface: fakeClient,
+		updateResource: func(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+			updateCalled = true
+			return nil, nil
+		},
+	}
+
+	p := NewProcessor(
+		mockClient,
+		kyvernoClient,
+		engine,
+		restMapper,
+		&libs.FakeContextProvider{},
+		sc,
+		event.NewFake(),
+		nil,
+	)
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-redirect", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Policy: "ns1/mypol",
+			Context: kyvernov2.UpdateRequestSpecContext{
+				AdmissionRequestInfo: kyvernov2.AdmissionRequestInfoObject{},
+			},
+		},
+	}
+
+	err = p.Process(ur)
+	assert.NoError(t, err)
+	assert.False(t, updateCalled, "UpdateResource must not be called when the patch redirects the target's identity")
+	assert.True(t, sc.failedCalled)
+	assert.Contains(t, sc.failedMsg, "changed the target's identity")
+}
+
+// mockUpdateTrackingClient overrides UpdateResource to observe whether it was called, while
+// delegating everything else (including the initial ListResource/GetResource calls) to a real
+// fake dclient.Interface.
+
+// mockUpdateTrackingClient overrides UpdateResource to observe whether it was called, while
+// delegating everything else (including the initial ListResource/GetResource calls) to a real
+// fake dclient.Interface.
+type mockUpdateTrackingClient struct {
+	dclient.Interface
+	updateResource func(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error)
+}
+
+func (m *mockUpdateTrackingClient) UpdateResource(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	if m.updateResource != nil {
+		return m.updateResource(ctx, apiVersion, kind, namespace, obj, dryRun, subresources...)
+	}
+	return m.Interface.UpdateResource(ctx, apiVersion, kind, namespace, obj, dryRun, subresources...)
 }
