@@ -10,8 +10,13 @@ import (
 )
 
 const (
-	defaultTTL     = 1 * time.Hour
-	defaultMaxSize = 1000
+	defaultTTL = 1 * time.Hour
+	// DefaultMaxSize is the default cache budget in bytes (10 MiB).
+	DefaultMaxSize = 10 << 20
+	// expectedEntryCost is the average entry cost assumed when sizing
+	// ristretto's admission counters: presence-only entries cost far less,
+	// entries carrying attestation payloads usually a few times more.
+	expectedEntryCost = 1 << 10
 )
 
 type cache struct {
@@ -33,7 +38,7 @@ func New(options ...Option) (Client, error) {
 	}
 	config := ristretto.Config[string, any]{
 		MaxCost:     cache.maxSize,
-		NumCounters: 10 * cache.maxSize,
+		NumCounters: numCounters(cache.maxSize),
 		BufferItems: 64,
 	}
 	rcache, err := ristretto.NewCache(&config)
@@ -42,6 +47,13 @@ func New(options ...Option) (Client, error) {
 	}
 	cache.cache = rcache
 	return cache, nil
+}
+
+// numCounters follows ristretto's advice of ten counters per entry the cache is
+// expected to hold. Ten counters per unit of the byte budget would allocate far
+// more memory up front than the budget itself.
+func numCounters(maxCost int64) int64 {
+	return 10 * max(maxCost/expectedEntryCost, 100)
 }
 
 func DisabledImageVerifyCache() Client {
@@ -70,7 +82,7 @@ func WithCacheEnableFlag(b bool) Option {
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
 		if s == 0 {
-			s = defaultMaxSize
+			s = DefaultMaxSize
 		}
 		c.maxSize = s
 		return nil
@@ -110,12 +122,13 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
-	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
+	c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
 	c.cache.Wait()
-	if stored {
-		return true, nil
-	}
-	return false, nil
+	// SetWithTTL returning true only means ristretto queued the write. Its
+	// policy can still drop the entry afterwards, for example when the entry
+	// costs more than the whole budget, so report what the cache holds.
+	_, stored := c.cache.GetTTL(key)
+	return stored, nil
 }
 
 func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, map[string][]byte, error) {
@@ -137,8 +150,9 @@ func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 
 // payloadCost estimates the memory footprint of a cache entry so ristretto's
 // MaxCost (--imageVerifyCacheMaxSize) bounds actual memory rather than just
-// entry count: a presence-only entry (nil payloads) still costs 1, while an
-// entry carrying attestation payload bytes costs roughly its real size.
+// entry count: a presence-only entry (nil payloads) costs 1, while an entry
+// carrying attestation payload bytes costs roughly its real size. ristretto
+// adds its own per-item cost on top of both.
 func payloadCost(payloads map[string][]byte) int64 {
 	cost := int64(1)
 	for _, v := range payloads {
