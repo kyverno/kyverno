@@ -27,7 +27,7 @@ type rawManifest struct {
 	mediaType types.MediaType
 }
 
-func (m rawManifest) RawManifest() ([]byte, error)         { return m.body, nil }
+func (m rawManifest) RawManifest() ([]byte, error)        { return m.body, nil }
 func (m rawManifest) MediaType() (types.MediaType, error) { return m.mediaType, nil }
 
 type testReferrer struct {
