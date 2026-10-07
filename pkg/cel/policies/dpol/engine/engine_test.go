@@ -447,6 +447,8 @@ func TestHandleError(t *testing.T) {
 	assert.False(t, resp.PolicyMatched)
 }
 
+// TestHandleExcludeResourceRules checks that exclude rules apply whatever operations they list,
+// since a deletion scan is not an admission request, and that they exclude nothing more.
 func TestHandleExcludeResourceRules(t *testing.T) {
 	configMapMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
 	configMapMapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
