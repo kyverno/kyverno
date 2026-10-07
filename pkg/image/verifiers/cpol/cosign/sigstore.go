@@ -154,7 +154,7 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 
 // clientKeychain returns the credentials of a registry client that exposes them, like the Kyverno registry
 // client, which also uses regcreds.DefaultTransport. It returns nil for other clients, whose transport and
-// authentication are only available through their remote options.
+// authentication are only available through their remote options, which cannot bound a manifest read.
 func clientKeychain(client verifiers.Client) authn.Keychain {
 	if c, ok := client.(interface{ Keychain() authn.Keychain }); ok {
 		return c.Keychain()
@@ -164,30 +164,6 @@ func clientKeychain(client verifiers.Client) authn.Keychain {
 
 // errManifestTooLarge reports a referrer manifest over the probe limit.
 var errManifestTooLarge = errors.New("manifest too large")
-
-// fetchProbeManifest downloads a referrer manifest of at most limit bytes. With the client's keychain the
-// response read itself is bounded; other clients may configure their own transport and authentication, so
-// their remote options are used instead, checking the size the registry reports before downloading.
-func fetchProbeManifest(ctx context.Context, ref name.Digest, keychain authn.Keychain, remoteOpts []remote.Option, limit int64) ([]byte, error) {
-	if keychain != nil {
-		return fetchManifestBounded(ctx, ref, keychain, limit)
-	}
-	head, err := remote.Head(ref, remoteOpts...)
-	if err != nil {
-		return nil, err
-	}
-	if head.Size > limit {
-		return nil, errManifestTooLarge
-	}
-	desc, err := remote.Get(ref, remoteOpts...)
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(desc.Manifest)) > limit {
-		return desc.Manifest, errManifestTooLarge
-	}
-	return desc.Manifest, nil
-}
 
 // fetchManifestBounded downloads a referrer manifest reading at most limit bytes and checks it against the
 // requested digest. go-containerregistry reads up to 100 MiB per manifest, far more than the probe allows,
@@ -237,28 +213,34 @@ func fetchManifestBounded(ctx context.Context, ref name.Digest, keychain authn.K
 	return data, nil
 }
 
-// resolveFallbackBundle checks whether an untyped referrer holds a sigstore bundle. The manifest and the
-// first layer are read within the shared probe budget, and the layer must parse as a bundle whether or not
-// the manifest artifact type or layer media type already claim it is one. It returns the referrer image and
-// the bundle content, or nil when it is not a bundle. Failing to fetch the referrer is an error, as on the
-// typed path; content that is too large or does not parse as a bundle is not a bundle.
-func resolveFallbackBundle(ctx context.Context, ref name.Digest, desc v1.Descriptor, keychain authn.Keychain, remoteOpts []remote.Option, probeBudget *int64) (v1.Image, []byte, error) {
+// resolveFallbackBundle checks whether an untyped referrer holds a sigstore bundle and returns its content,
+// or nil when it is not one. Every read is bounded and charged to the shared probe budget: the manifest is
+// read with fetchManifestBounded and the first layer blob is streamed through readLayer, so nothing is
+// downloaded beyond the probe limits. The layer must parse as a bundle whether or not the manifest artifact
+// type or layer media type already claim it is one. The bounded manifest request needs the client's
+// keychain; without it untyped referrers are not probed, as before fallback resolution existed. Failing to
+// fetch the referrer is an error, as on the typed path; content that is too large or does not parse as a
+// bundle is not a bundle.
+func resolveFallbackBundle(ctx context.Context, ref name.Digest, desc v1.Descriptor, keychain authn.Keychain, remoteOpts []remote.Option, probeBudget *int64) ([]byte, error) {
+	if keychain == nil {
+		return nil, nil
+	}
 	manifestLimit := min(maxProbeManifestSize, *probeBudget)
 	// skip manifests too large to be a bundle before fetching them
 	if manifestLimit <= 0 || desc.Size > manifestLimit {
-		return nil, nil, nil
+		return nil, nil
 	}
-	rawManifest, err := fetchProbeManifest(ctx, ref, keychain, remoteOpts, manifestLimit)
+	rawManifest, err := fetchManifestBounded(ctx, ref, keychain, manifestLimit)
 	*probeBudget -= int64(len(rawManifest))
 	if errors.Is(err, errManifestTooLarge) {
-		return nil, nil, nil
+		return nil, nil
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	manifest, err := v1.ParseManifest(bytes.NewReader(rawManifest))
 	if err != nil || len(manifest.Layers) == 0 {
-		return nil, nil, nil
+		return nil, nil
 	}
 	layerDesc := manifest.Layers[0]
 	typed := isSigstoreBundleType(manifest.ArtifactType) || isSigstoreBundleType(string(layerDesc.MediaType))
@@ -266,40 +248,33 @@ func resolveFallbackBundle(ctx context.Context, ref name.Digest, desc v1.Descrip
 	if !typed {
 		for _, prefix := range nonBundleLayerMediaTypePrefixes {
 			if strings.HasPrefix(string(layerDesc.MediaType), prefix) {
-				return nil, nil, nil
+				return nil, nil
 			}
 		}
 		layerLimit = min(maxProbeLayerSize, *probeBudget)
 	}
 	if layerLimit <= 0 || layerDesc.Size > layerLimit {
-		return nil, nil, nil
+		return nil, nil
 	}
-	// the manifest is pinned by digest and already checked, so this fetch is bounded too
-	img, err := remote.Image(ref, remoteOpts...)
+	// stream the layer blob directly instead of fetching the manifest a second time
+	layer, err := remote.Layer(ref.Context().Digest(layerDesc.Digest.String()), remoteOpts...)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	layers, err := img.Layers()
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(layers) == 0 {
-		return nil, nil, nil
-	}
-	data, err := readLayer(layers[0], layerLimit)
+	data, err := readLayer(layer, layerLimit)
 	// charge at least the compressed size, which is what was downloaded
 	*probeBudget -= max(int64(len(data)), layerDesc.Size)
 	if errors.Is(err, errLayerTooLarge) {
-		return nil, nil, nil
+		return nil, nil
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	b := &bundle.Bundle{}
 	if err := b.UnmarshalJSON(data); err != nil || b.Bundle == nil {
-		return nil, nil, nil
+		return nil, nil
 	}
-	return img, data, nil
+	return data, nil
 }
 
 func fetchBundles(ctx context.Context, ref name.Reference, limit int, predicateType string, keychain authn.Keychain, remoteOpts []remote.Option) ([]*verificationBundle, *v1.Descriptor, error) {
@@ -323,18 +298,17 @@ func fetchBundles(ctx context.Context, ref name.Reference, limit int, predicateT
 	probeBudget := maxProbeTotalSize
 	for _, manifestDesc := range referrersDescs.Manifests {
 		artifactType := manifestDesc.ArtifactType
-		var refImg v1.Image
 		var bundleBytes []byte
 
 		// registries without the referrers API serve a fallback tag index whose descriptors may not
 		// carry the artifact type, so resolve it from the referrer itself
 		if !isSigstoreBundleType(artifactType) && (artifactType == "" || artifactType == ociEmptyArtifactType) {
 			var err error
-			refImg, bundleBytes, err = resolveFallbackBundle(ctx, ref.Context().Digest(manifestDesc.Digest.String()), manifestDesc, keychain, remoteOpts, &probeBudget)
+			bundleBytes, err = resolveFallbackBundle(ctx, ref.Context().Digest(manifestDesc.Digest.String()), manifestDesc, keychain, remoteOpts, &probeBudget)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
 			}
-			if refImg != nil {
+			if bundleBytes != nil {
 				artifactType = sigstoreBundleArtifactType
 			}
 		}
@@ -343,14 +317,11 @@ func fetchBundles(ctx context.Context, ref name.Reference, limit int, predicateT
 			continue
 		}
 
-		if refImg == nil {
-			var err error
-			refImg, err = remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
+		if bundleBytes == nil {
+			refImg, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
 			}
-		}
-		if bundleBytes == nil {
 			layers, err := refImg.Layers()
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to fetch referrer layer: %w", err)

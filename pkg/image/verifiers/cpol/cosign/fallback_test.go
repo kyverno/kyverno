@@ -283,25 +283,22 @@ func TestReadLayerLimits(t *testing.T) {
 	assert.Equal(t, int64(len(got)), limit+1)
 }
 
-// Clients that do not expose a keychain use their own remote options for the manifest probe.
-func TestFetchBundlesFallbackWithClientOptions(t *testing.T) {
+// Without the client's keychain no bounded manifest read is possible, so untyped referrers are not probed.
+func TestFetchBundlesFallbackWithoutKeychain(t *testing.T) {
 	t.Parallel()
 	bundleJSON, err := os.ReadFile("testdata/bundle.json")
 	assert.NilError(t, err)
-	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
 	ref := setupFallbackRegistry(t, []testReferrer{{
 		layerMediaType: "application/json",
 		layerData:      bundleJSON,
 	}, {
-		// the registry reports the real size, so the understated index entry does not help
-		manifestArtifactType: bundleMediaType,
-		layerMediaType:       bundleMediaType,
-		layerData:            bundleJSON,
-		descriptorSize:       100,
-		manifestPadding:      int(maxProbeManifestSize),
+		descriptorArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+		layerMediaType:         "application/vnd.dev.sigstore.bundle.v0.3+json",
+		layerData:              bundleJSON,
 	}})
 	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
 	assert.NilError(t, err)
+	// only the referrer typed in the index is used
 	assert.Equal(t, len(bundles), 1)
 }
 
