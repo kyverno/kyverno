@@ -1,5 +1,6 @@
 {{- $name := "disallow-host-probes" }}
-{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+{{- /* PSA added this check in Kubernetes 1.34. */}}
+{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") (semverCompare ">=1.34.0-0" .Capabilities.KubeVersion.Version) }}
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
