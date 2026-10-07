@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func TestValidatingPolicyVAPName(t *testing.T) {
@@ -23,4 +24,17 @@ func TestValidatingPolicyVAPName(t *testing.T) {
 	assert.Equal(t, long, ValidatingPolicyVAPName(longNamespace, longName), "names must be deterministic")
 	assert.NotEqual(t, long, ValidatingPolicyVAPName(longNamespace, longName[:252]+"q"), "long names must stay distinct")
 	assert.LessOrEqual(t, len(ValidatingPolicyVAPName("", longName)+"-binding"), 253)
+
+	// the API server validates VAP and binding names as DNS subdomains
+	for _, tc := range []struct{ namespace, name string }{
+		{"team-a", "foo"},
+		{longNamespace, "foo"},
+		{longNamespace, longName},
+		{"", longName},
+		{longNamespace, strings.Repeat("a", 63) + "." + strings.Repeat("b", 63)},
+	} {
+		vapName := ValidatingPolicyVAPName(tc.namespace, tc.name)
+		assert.Empty(t, validation.IsDNS1123Subdomain(vapName), "invalid VAP name %q", vapName)
+		assert.Empty(t, validation.IsDNS1123Subdomain(vapName+"-binding"), "invalid binding name %q", vapName+"-binding")
+	}
 }

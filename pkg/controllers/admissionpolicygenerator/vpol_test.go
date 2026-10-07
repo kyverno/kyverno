@@ -91,6 +91,14 @@ func newNvpolTestController(t *testing.T, nvpols []*policiesv1beta1.NamespacedVa
 	}
 	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 	vapBindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	for _, obj := range kubeObjects {
+		switch obj.(type) {
+		case *admissionregistrationv1.ValidatingAdmissionPolicy:
+			require.NoError(t, vapIndexer.Add(obj))
+		case *admissionregistrationv1.ValidatingAdmissionPolicyBinding:
+			require.NoError(t, vapBindingIndexer.Add(obj))
+		}
+	}
 	c := &controller{
 		client:           kubeClient,
 		kyvernoClient:    versionedfake.NewSimpleClientset(kyvernoObjects...),
@@ -269,30 +277,52 @@ func TestReconcile_NamespacedValidatingPolicyOnlyMatchesNamespacedResources(t *t
 	assert.Nil(t, nvpol.Spec.MatchConstraints.ResourceRules[0].Scope)
 }
 
-func TestReconcile_NamespacedValidatingPolicyWithOnlyClusterRules(t *testing.T) {
+func TestReconcile_NamespacedValidatingPolicyNotGenerated(t *testing.T) {
 	t.Parallel()
-	ctx := context.Background()
-	nvpol := newNvpol("team-a", "foo", "denied")
-	nvpol.Spec.MatchConstraints.ResourceRules[0].Scope = ptr.To(admissionregistrationv1.ClusterScope)
-	c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{nvpol})
+	clusterScoped := func(p *policiesv1beta1.NamespacedValidatingPolicy) {
+		p.Spec.MatchConstraints.ResourceRules[0].Scope = ptr.To(admissionregistrationv1.ClusterScope)
+	}
+	tests := []struct {
+		name     string
+		mutate   func(*policiesv1beta1.NamespacedValidatingPolicy)
+		existing bool
+	}{{
+		name:   "only cluster-scoped rules",
+		mutate: clusterScoped,
+	}, {
+		name:   "no match constraints",
+		mutate: func(p *policiesv1beta1.NamespacedValidatingPolicy) { p.Spec.MatchConstraints = nil },
+	}, {
+		name:     "changed to only cluster-scoped rules after a VAP was generated",
+		mutate:   clusterScoped,
+		existing: true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			nvpol := newNvpol("team-a", "foo", "denied")
+			tt.mutate(nvpol)
+			var existing []runtime.Object
+			if tt.existing {
+				existing = append(existing,
+					&admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo"}},
+					&admissionregistrationv1.ValidatingAdmissionPolicyBinding{ObjectMeta: metav1.ObjectMeta{Name: "nvpol-team-a.foo-binding"}},
+				)
+			}
+			c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{nvpol}, existing...)
 
-	assert.ErrorContains(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""), "no namespaced resource rules")
+			require.NoError(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""))
 
-	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "nvpol-team-a.foo", metav1.GetOptions{})
-	assert.True(t, apierrors.IsNotFound(err), "no VAP expected: got err=%v", err)
-}
-
-func TestReconcile_NamespacedValidatingPolicyWithoutMatchConstraints(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-	nvpol := newNvpol("team-a", "foo", "denied")
-	nvpol.Spec.MatchConstraints = nil
-	c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{nvpol})
-
-	assert.ErrorContains(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""), "no match constraints")
-
-	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "nvpol-team-a.foo", metav1.GetOptions{})
-	assert.True(t, apierrors.IsNotFound(err), "no VAP expected: got err=%v", err)
+			_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "nvpol-team-a.foo", metav1.GetOptions{})
+			assert.True(t, apierrors.IsNotFound(err), "no VAP expected: got err=%v", err)
+			_, err = kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(ctx, "nvpol-team-a.foo-binding", metav1.GetOptions{})
+			assert.True(t, apierrors.IsNotFound(err), "no binding expected: got err=%v", err)
+			updated, err := c.kyvernoClient.PoliciesV1beta1().NamespacedValidatingPolicies("team-a").Get(ctx, "foo", metav1.GetOptions{})
+			require.NoError(t, err)
+			assert.False(t, updated.Status.Generated)
+		})
+	}
 }
 
 func TestReconcile_DeletedNamespacedValidatingPolicy(t *testing.T) {

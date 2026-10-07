@@ -54,6 +54,36 @@ func boundGeneratedName(name, key string) string {
 	return prefix + "-" + suffix
 }
 
+// namespacedResourceRules returns the resource rules of a namespaced policy that a generated VAP can enforce.
+// A namespace selector does not restrict cluster-scoped resources, so rules scoped to the cluster are dropped
+// and the others are limited to namespaced resources.
+func namespacedResourceRules(rules []admissionregistrationv1.NamedRuleWithOperations) []admissionregistrationv1.NamedRuleWithOperations {
+	namespacedScope := admissionregistrationv1.NamespacedScope
+	out := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Scope != nil && *rule.Scope == admissionregistrationv1.ClusterScope {
+			continue
+		}
+		rule = *rule.DeepCopy()
+		rule.Scope = &namespacedScope
+		out = append(out, rule)
+	}
+	return out
+}
+
+// CanGenerateFromValidatingPolicy reports whether a ValidatingAdmissionPolicy can be built from the match
+// constraints of a ValidatingPolicy or NamespacedValidatingPolicy, and the reason when it cannot.
+func CanGenerateFromValidatingPolicy(policy policiesv1beta1.ValidatingPolicyLike) (bool, string) {
+	spec := policy.GetSpec()
+	if spec.MatchConstraints == nil {
+		return false, "the policy has no match constraints."
+	}
+	if policy.GetNamespace() != "" && len(namespacedResourceRules(spec.MatchConstraints.ResourceRules)) == 0 {
+		return false, "the namespaced policy has no namespaced resource rules."
+	}
+	return true, ""
+}
+
 // setSourcePolicy links a generated cluster-scoped object to its policy. Cluster-scoped policies become the
 // owner; namespaced policies are recorded in annotations because the owner reference would be invalid.
 func setSourcePolicy(obj metav1.Object, policy engineapi.GenericPolicy) {
@@ -161,28 +191,15 @@ func BuildValidatingAdmissionPolicy(
 		auditAnnotations = rule.Validation.CEL.AuditAnnotations
 		variables = rule.Validation.CEL.Variables
 	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
-		spec := vpol.GetSpec()
-		if spec.MatchConstraints == nil {
-			return fmt.Errorf("policy %s has no match constraints", vpol.GetName())
+		if ok, msg := CanGenerateFromValidatingPolicy(vpol); !ok {
+			return fmt.Errorf("cannot generate a ValidatingAdmissionPolicy from policy %s: %s", vpol.GetName(), msg)
 		}
+		spec := vpol.GetSpec()
 		matchResources = *spec.MatchConstraints.DeepCopy()
 		// a namespaced policy only applies to resources in its own namespace, so pin the cluster-scoped VAP
 		// to it. The engine still checks the policy's own namespace selector, so keep it alongside the pin.
 		if ns := vpol.GetNamespace(); ns != "" {
-			// a namespace selector does not restrict cluster-scoped resources, so only keep namespaced rules
-			namespacedScope := admissionregistrationv1.NamespacedScope
-			resourceRules := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(matchResources.ResourceRules))
-			for _, rule := range matchResources.ResourceRules {
-				if rule.Scope != nil && *rule.Scope == admissionregistrationv1.ClusterScope {
-					continue
-				}
-				rule.Scope = &namespacedScope
-				resourceRules = append(resourceRules, rule)
-			}
-			if len(resourceRules) == 0 {
-				return fmt.Errorf("namespaced policy %s/%s has no namespaced resource rules", ns, vpol.GetName())
-			}
-			matchResources.ResourceRules = resourceRules
+			matchResources.ResourceRules = namespacedResourceRules(matchResources.ResourceRules)
 
 			namespaceSelector := &metav1.LabelSelector{}
 			if matchResources.NamespaceSelector != nil {

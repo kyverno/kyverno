@@ -94,7 +94,11 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 				return fmt.Errorf("failed to compute autogen configs for %s: %w", pol.GetName(), err)
 			}
 			isAutogen := len(autogenConfigs) > 0
-			if isAutogen {
+			if ok, msg := admissionpolicy.CanGenerateFromValidatingPolicy(pol); !ok {
+				// also removes a VAP generated before the policy was changed
+				shouldDelete = true
+				reason = "skip generating ValidatingAdmissionPolicy: " + msg
+			} else if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
 			} else if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
