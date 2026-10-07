@@ -239,6 +239,49 @@ func TestReconcile_NamespacedValidatingPolicyKeepsNamespaceSelector(t *testing.T
 	assert.Empty(t, nvpol.Spec.MatchConstraints.NamespaceSelector.MatchExpressions)
 }
 
+func TestReconcile_NamespacedValidatingPolicyOnlyMatchesNamespacedResources(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	nvpol := newNvpol("team-a", "foo", "denied")
+	nvpol.Spec.MatchConstraints.ResourceRules = append(nvpol.Spec.MatchConstraints.ResourceRules, admissionregistrationv1.NamedRuleWithOperations{
+		RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+			Rule: admissionregistrationv1.Rule{
+				APIGroups:   []string{""},
+				APIVersions: []string{"v1"},
+				Resources:   []string{"nodes"},
+				Scope:       ptr.To(admissionregistrationv1.ClusterScope),
+			},
+		},
+	})
+	c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{nvpol})
+
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""))
+
+	vap, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "nvpol-team-a.foo", metav1.GetOptions{})
+	require.NoError(t, err)
+	rules := vap.Spec.MatchConstraints.ResourceRules
+	require.Len(t, rules, 1, "the cluster-scoped rule must be dropped")
+	assert.Equal(t, []string{"configmaps"}, rules[0].Resources)
+	require.NotNil(t, rules[0].Scope)
+	assert.Equal(t, admissionregistrationv1.NamespacedScope, *rules[0].Scope)
+	// the source policy is left untouched
+	assert.Nil(t, nvpol.Spec.MatchConstraints.ResourceRules[0].Scope)
+}
+
+func TestReconcile_NamespacedValidatingPolicyWithOnlyClusterRules(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	nvpol := newNvpol("team-a", "foo", "denied")
+	nvpol.Spec.MatchConstraints.ResourceRules[0].Scope = ptr.To(admissionregistrationv1.ClusterScope)
+	c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{nvpol})
+
+	assert.ErrorContains(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""), "no namespaced resource rules")
+
+	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "nvpol-team-a.foo", metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "no VAP expected: got err=%v", err)
+}
+
 func TestReconcile_DeletedNamespacedValidatingPolicy(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
