@@ -4,22 +4,39 @@ import (
 	"bytes"
 )
 
-// protectedSuffixes lists field paths that must remain anchored to the
+// protectedFields are the metadata fields that must remain anchored to the
 // workload object's own metadata and must never be rewritten into a pod
 // template path. For example, `object.metadata.namespace` and
 // `object.metadata.name` must stay as-is because pod templates (e.g. on
 // Deployments) usually do not carry those fields, which would otherwise
 // break match conditions and message expressions.
-var protectedSuffixes = [][]byte{
-	[]byte(".namespace"),
-	[]byte(".name"),
-	[]byte("['name']"),
-	[]byte("[\"name\"]"),
-	[]byte("[\\\"name\\\"]"),
-	[]byte("['namespace']"),
-	[]byte("[\"namespace\"]"),
-	[]byte("[\\\"namespace\\\"]"), // Handle JSON-escaped namespace paths
-}
+var protectedFields = []string{"namespace", "name"}
+
+// protectedSuffixes holds the CEL spellings of an access to a protected
+// field: plain and optional select (`.f`, `.?f`), and plain and optional
+// index (`['f']`, `[?'f']`) with each string literal form of the key (single,
+// double and triple quotes, with or without an r/R raw prefix). Forms that
+// contain `"` are listed a second time JSON-escaped, because Apply runs on the
+// json.Marshal'ed policy spec, where `"` becomes `\"`. Whitespace or a
+// comment inside the access, as in `[ 'f' ]`, is not matched.
+var protectedSuffixes = func() [][]byte {
+	var out [][]byte
+	for _, f := range protectedFields {
+		out = append(out, []byte("."+f), []byte(".?"+f))
+		for _, opt := range []string{"", "?"} {
+			for _, prefix := range []string{"", "r", "R"} {
+				for _, q := range []string{`'`, `"`, `'''`, `"""`} {
+					key := []byte("[" + opt + prefix + q + f + q + "]")
+					out = append(out, key)
+					if bytes.ContainsRune(key, '"') {
+						out = append(out, bytes.ReplaceAll(key, []byte(`"`), []byte(`\"`)))
+					}
+				}
+			}
+		}
+	}
+	return out
+}()
 
 type Replacement struct {
 	From string
