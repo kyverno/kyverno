@@ -162,21 +162,34 @@ func clientKeychain(client verifiers.Client) authn.Keychain {
 	return nil
 }
 
+// countingReader counts the bytes read through it.
+type countingReader struct {
+	r io.Reader
+	n int64
+}
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n += int64(n)
+	return n, err
+}
+
 // errManifestTooLarge reports a referrer manifest over the probe limit.
 var errManifestTooLarge = errors.New("manifest too large")
 
 // fetchManifestBounded downloads a referrer manifest reading at most limit bytes and checks it against the
 // requested digest. go-containerregistry reads up to 100 MiB per manifest, far more than the probe allows,
 // and neither the fallback index nor the registry's Content-Length can be trusted to bound it. It uses the
-// same transport as the Kyverno registry client.
-func fetchManifestBounded(ctx context.Context, ref name.Digest, keychain authn.Keychain, limit int64) ([]byte, error) {
+// same transport as the Kyverno registry client. It also returns how many response bytes were read, error
+// responses included, so the caller can charge them to the probe budget.
+func fetchManifestBounded(ctx context.Context, ref name.Digest, keychain authn.Keychain, limit int64) ([]byte, int64, error) {
 	auth, err := authn.Resolve(ctx, keychain, ref.Context())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	rt, err := transport.NewWithContext(ctx, ref.Context().Registry, auth, regcreds.DefaultTransport, []string{ref.Scope(transport.PullScope)})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	u := url.URL{
 		Scheme: ref.Context().Registry.Scheme(),
@@ -185,35 +198,36 @@ func fetchManifestBounded(ctx context.Context, ref name.Digest, keychain authn.K
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	req.Header.Set("Accept", strings.Join([]string{string(types.OCIManifestSchema1), string(types.DockerManifestSchema2)}, ","))
 	resp, err := (&http.Client{Transport: rt}).Do(req)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer resp.Body.Close()
-	// bound the body before anything reads it, including the error parsing of a non-200 response
-	body := io.LimitReader(resp.Body, limit+1)
+	// bound the body before anything reads it, including the error parsing of a non-200 response, and count
+	// what is read
+	body := &countingReader{r: io.LimitReader(resp.Body, limit+1)}
 	resp.Body = io.NopCloser(body)
 	if err := transport.CheckError(resp, http.StatusOK); err != nil {
-		return nil, err
+		return nil, body.n, err
 	}
 	data, err := io.ReadAll(body)
 	if err != nil {
-		return data, err
+		return data, body.n, err
 	}
 	if int64(len(data)) > limit {
-		return data, errManifestTooLarge
+		return data, body.n, errManifestTooLarge
 	}
 	digest, _, err := v1.SHA256(bytes.NewReader(data))
 	if err != nil {
-		return data, err
+		return data, body.n, err
 	}
 	if digest.String() != ref.DigestStr() {
-		return data, fmt.Errorf("manifest digest %s does not match %s", digest, ref.DigestStr())
+		return data, body.n, fmt.Errorf("manifest digest %s does not match %s", digest, ref.DigestStr())
 	}
-	return data, nil
+	return data, body.n, nil
 }
 
 // resolveFallbackBundle checks whether an untyped referrer holds a sigstore bundle and returns its content,
@@ -233,8 +247,8 @@ func resolveFallbackBundle(ctx context.Context, ref name.Digest, desc v1.Descrip
 	if manifestLimit <= 0 || desc.Size > manifestLimit {
 		return nil, nil
 	}
-	rawManifest, err := fetchManifestBounded(ctx, ref, keychain, manifestLimit)
-	*probeBudget -= int64(len(rawManifest))
+	rawManifest, consumed, err := fetchManifestBounded(ctx, ref, keychain, manifestLimit)
+	*probeBudget -= consumed
 	if errors.Is(err, errManifestTooLarge) {
 		return nil, nil
 	}
