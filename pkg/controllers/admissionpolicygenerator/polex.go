@@ -61,6 +61,8 @@ func (c *controller) updateCELException(old, obj *policiesv1beta1.PolicyExceptio
 		return
 	}
 	logger.V(2).Info("policy exception updated", "uid", obj.GetUID(), "kind", obj.GetKind(), "name", obj.GetName())
+	// requeue the policies the exception no longer references too, their VAPs still include it
+	c.enqueueCELException(old)
 	c.enqueueCELException(obj)
 }
 

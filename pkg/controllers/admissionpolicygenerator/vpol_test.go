@@ -429,6 +429,40 @@ func TestEnqueueCELException_NamespacedValidatingPolicy(t *testing.T) {
 	}, drainQueue(c.queue))
 }
 
+func TestUpdateCELException_RequeuesOldAndNewReferences(t *testing.T) {
+	t.Parallel()
+	c, _ := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{
+		newNvpol("team-a", "foo", ""),
+		newNvpol("team-a", "bar", ""),
+	})
+	polex := func(policy string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: policy, Kind: "NamespacedValidatingPolicy"}},
+			},
+		}
+	}
+	c.updateCELException(polex("foo"), polex("bar"))
+	assert.ElementsMatch(t, []any{
+		cache.ExplicitKey("NamespacedValidatingPolicy/team-a/foo"),
+		cache.ExplicitKey("NamespacedValidatingPolicy/team-a/bar"),
+	}, drainQueue(c.queue))
+}
+
+func TestReconcile_NamespacedValidatingPolicyWithoutVAPAPI(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{newNvpol("team-a", "foo", "denied")})
+	c.vapLister = nil
+	c.vapbindingLister = nil
+
+	require.NoError(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""))
+
+	vaps, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err)
+	assert.Empty(t, vaps.Items)
+}
+
 func TestEnqueueVAP_SourceNamespacedPolicy(t *testing.T) {
 	t.Parallel()
 	annotations := map[string]string{

@@ -273,6 +273,10 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			logger.Error(nil, "invalid namespaced validating policy key")
 			return nil
 		}
+		// without the ValidatingAdmissionPolicy API there is nothing to generate or clean up
+		if c.vapLister == nil || c.vapbindingLister == nil {
+			return nil
+		}
 		// the generated VAP and binding are cluster-scoped and cannot be garbage collected through the
 		// namespaced policy, so delete them explicitly when generation is turned off or the policy is gone.
 		// Generated objects are listed again on startup and requeue their policy, which also removes the
