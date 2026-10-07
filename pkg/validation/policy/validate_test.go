@@ -3614,6 +3614,17 @@ func Test_validateGlobalReference_WithName_Allowed(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func Test_validateRuleContext_NamespacedPolicyRejectsGlobalReference(t *testing.T) {
+	rule := kyverno.Rule{
+		Context: []kyverno.ContextEntry{{
+			Name:            "gctx",
+			GlobalReference: &kyverno.GlobalContextEntryReference{Name: "entry"},
+		}},
+	}
+	err := validateRuleContext(rule, true)
+	assert.ErrorContains(t, err, "globalReference is not allowed in namespaced policies")
+}
+
 func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {
 	entry := kyverno.ContextEntry{
 		Name: "gctx",

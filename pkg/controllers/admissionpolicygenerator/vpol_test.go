@@ -5,6 +5,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -74,7 +75,7 @@ func TestHandlersVP_NamespacedValidatingPolicy(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
-			Validations: []policiesv1beta1.Validation{
+			Validations: []admissionregistrationv1.Validation{
 				{Message: "msg1"},
 			},
 		},
@@ -85,7 +86,7 @@ func TestHandlersVP_NamespacedValidatingPolicy(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: policiesv1beta1.ValidatingPolicySpec{
-			Validations: []policiesv1beta1.Validation{
+			Validations: []admissionregistrationv1.Validation{
 				{Message: "msg2"},
 			},
 		},

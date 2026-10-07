@@ -3,6 +3,7 @@ package imageverify
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -69,7 +70,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil, NewImageVerificationResults()),
+		Lib(),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -94,6 +95,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	}
 
 	data := map[string]any{
+		RuntimeKey:  NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -107,7 +109,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil, logr.Discard(), nil, NewImageVerificationResults()),
+		Lib(),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -133,6 +135,7 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	}
 
 	data := map[string]any{
+		RuntimeKey:  NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -172,7 +175,7 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 
 	// imgCtx is left nil on purpose: if the cache is bypassed, fetching image data errors
 	// out, and the test fails, proving a cache hit skips the registry round trip entirely.
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,
 		policy:         pol,
 		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
@@ -227,7 +230,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,
 		imgCtx:         imgCtx,
 		policy:         pol,
@@ -303,7 +306,7 @@ func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -407,7 +410,7 @@ func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -521,7 +524,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -657,7 +660,7 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -693,4 +696,56 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
 	assert.False(t, types.IsError(payload), "extractPayload should succeed after fallback re-verification: %v", payload)
 	assert.NotNil(t, payload.Value())
+}
+
+// Test_impl_getImageData evaluates getImageData() against a real registry image, which failed
+// to convert to a CEL value after cel-go v0.31.
+func Test_impl_getImageData(t *testing.T) {
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	env, err := cel.NewEnv(Lib())
+	assert.NoError(t, err)
+	ast, issues := env.Compile(`getImageData("ghcr.io/kyverno/test-verify-image:signed")`)
+	assert.Nil(t, issues.Err())
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+
+	runtime := NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+
+	out, _, err := prog.Eval(map[string]any{RuntimeKey: runtime})
+	assert.NoError(t, err, "getImageData on a real image must not fail at evaluation time")
+	if err == nil {
+		asMap, ok := out.Value().(map[string]any)
+		assert.True(t, ok, "getImageData result must convert to a CEL map, got %T", out.Value())
+		assert.Equal(t, "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", asMap["digest"])
+	}
+}
+
+// Test_impl_getImageData_errors covers getImageData() failures that need no registry: a
+// reference that does not parse, and a registry nothing listens on.
+func Test_impl_getImageData_errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+	}{
+		{name: "invalid image reference", image: "not a valid::image"},
+		{name: "unreachable registry", image: "localhost:1/missing/image:v1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+			assert.NoError(t, err)
+			env, err := cel.NewEnv(Lib())
+			assert.NoError(t, err)
+			ast, issues := env.Compile(fmt.Sprintf("getImageData(%q)", tt.image))
+			assert.Nil(t, issues.Err())
+			prog, err := env.Program(ast)
+			assert.NoError(t, err)
+			runtime := NewRuntimeForPolicy(NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+
+			_, _, err = prog.Eval(map[string]any{RuntimeKey: runtime})
+			assert.ErrorContains(t, err, "failed to get imagedata")
+		})
+	}
 }

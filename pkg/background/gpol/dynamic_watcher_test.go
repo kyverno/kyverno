@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kyverno/kyverno/api/kyverno"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -59,8 +60,11 @@ func (m *mockRESTMapper) ResourceSingularizer(resource string) (string, error) {
 
 type MockClient struct {
 	deleted  []string
+	created  []string
+	updated  []string
 	err      error
 	deleteFn func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
+	createFn func(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 }
 
 func (m *MockClient) GetKubeClient() kubernetes.Interface {
@@ -105,12 +109,17 @@ func (m *MockClient) DeleteResource(ctx context.Context, apiVersion string, kind
 	return m.err
 }
 func (m *MockClient) CreateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
+	m.created = append(m.created, fmt.Sprintf("%s/%s", kind, namespace))
+	if m.createFn != nil {
+		return m.createFn(ctx, apiVersion, kind, namespace, obj, dryRun)
+	}
 	return nil, nil
 }
 func (m *MockClient) UpdateResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool, subresource ...string) (*unstructured.Unstructured, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
+	m.updated = append(m.updated, fmt.Sprintf("%s/%s", kind, namespace))
 	return makeUnstructured("", "", "", "", "", "", "", nil), nil
 }
 func (m *MockClient) UpdateStatusResource(ctx context.Context, apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error) {
@@ -155,6 +164,7 @@ func TestSyncWatchers(t *testing.T) {
 		setupWM            func() *WatchManager
 		generatedResources []*unstructured.Unstructured
 		wantErr            bool
+		assert             func(*testing.T, *WatchManager)
 	}{
 		{
 			name:    "RESTMapping error",
@@ -193,6 +203,41 @@ func TestSyncWatchers(t *testing.T) {
 			},
 			generatedResources: []*unstructured.Unstructured{makeUnstructured("", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
 			wantErr:            false,
+		},
+		{
+			name:    "refreshes invalidated cache entry",
+			polName: "p1",
+			setupWM: func() *WatchManager {
+				resource := makeUnstructured("1", "g", "v1", "Kind", "n", "ns", "uid1", nil)
+				return &WatchManager{
+					log:    logging.WithName("test"),
+					client: &MockClient{},
+					restMapper: &mockRESTMapper{fn: func(_ schema.GroupKind, _ string) (*meta.RESTMapping, error) {
+						return &meta.RESTMapping{Resource: gvr}, nil
+					}},
+					dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+						gvr: {
+							watcher: watch.MockWatcher{StopFunc: func() {}},
+							metadataCache: map[types.UID]Resource{
+								resource.GetUID(): {
+									Name:      resource.GetName(),
+									Namespace: resource.GetNamespace(),
+									Hash:      "",
+									Data:      resource,
+								},
+							},
+						},
+					},
+					policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr}},
+					refCount:   map[schema.GroupVersionResource]int{gvr: 1},
+				}
+			},
+			generatedResources: []*unstructured.Unstructured{makeUnstructured("2", "g", "v1", "Kind", "n", "ns", "uid1", nil)},
+			wantErr:            false,
+			assert: func(t *testing.T, wm *WatchManager) {
+				cached := wm.dynamicWatchers[gvr].metadataCache["uid1"]
+				assert.NotEmpty(t, cached.Hash)
+			},
 		},
 		{
 			name: "startWatcher error",
@@ -332,6 +377,9 @@ func TestSyncWatchers(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
+			}
+			if tc.assert != nil {
+				tc.assert(t, wm)
 			}
 		})
 	}
@@ -1135,6 +1183,124 @@ func TestHandleDelete_SourceDeleted(t *testing.T) {
 	}
 }
 
+func TestHandleDelete_InvalidatedDownstreamDoesNotRecreate(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp}
+	downstream := makeUnstructured("1", "", "v1", "ConfigMap", "test-cm", "default", "downstream-uid", labels)
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: client,
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr: {
+				metadataCache: map[types.UID]Resource{
+					downstream.GetUID(): {
+						Name:      downstream.GetName(),
+						Namespace: downstream.GetNamespace(),
+						Labels:    downstream.GetLabels(),
+						Data:      downstream,
+					},
+				},
+			},
+		},
+	}
+
+	wm.handleDelete(downstream, gvr)
+
+	assert.Empty(t, client.created)
+}
+
+// TestHandleDelete_DownstreamRecreatedAfterRepeatedDeletions is the regression test
+// for https://github.com/kyverno/kyverno/issues/17265: the metadata cache is keyed by
+// UID, and the API server assigns a fresh UID every time the downstream is recreated.
+// If the cache entry is not re-registered under the new UID after a recreation, the
+// second user deletion looks up the new UID, misses the cache, and the resource is
+// never recreated again.
+func TestHandleDelete_DownstreamRecreatedAfterRepeatedDeletions(t *testing.T) {
+	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{
+		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:     "test-policy",
+		common.GenerateTriggerUIDLabel: "trigger-uid",
+	}
+	downstream := makeUnstructured("1", "", "v1", "ConfigMap", "test-cm", "default", "uid-1", labels)
+
+	newWatchManager := func(client dclient.Interface, cache map[types.UID]Resource) *WatchManager {
+		return &WatchManager{
+			log:    logging.WithName("test"),
+			client: client,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {metadataCache: cache},
+			},
+		}
+	}
+	seedCache := func() map[types.UID]Resource {
+		return map[types.UID]Resource{
+			downstream.GetUID(): {
+				Name:      downstream.GetName(),
+				Namespace: downstream.GetNamespace(),
+				Labels:    downstream.GetLabels(),
+				Hash:      reportutils.CalculateResourceHash(*downstream),
+				Data:      downstream,
+			},
+		}
+	}
+
+	t.Run("cache is re-keyed to the new UID and every deletion is reverted", func(t *testing.T) {
+		uidCounter := 1
+		client := &MockClient{
+			createFn: func(_ context.Context, _, _, _ string, obj interface{}, _ bool) (*unstructured.Unstructured, error) {
+				// mimic the API server assigning a fresh UID on each creation
+				uidCounter++
+				created := obj.(*unstructured.Unstructured).DeepCopy()
+				created.SetUID(types.UID(fmt.Sprintf("uid-%d", uidCounter)))
+				return created, nil
+			},
+		}
+		wm := newWatchManager(client, seedCache())
+		cache := wm.dynamicWatchers[gvr].metadataCache
+
+		// 1st user deletion: the downstream is recreated with a new UID (uid-2)
+		wm.handleDelete(downstream, gvr)
+		assert.Len(t, client.created, 1)
+		assert.NotContains(t, cache, types.UID("uid-1"), "stale UID must be dropped from the cache")
+		require.Contains(t, cache, types.UID("uid-2"), "cache must be re-keyed to the recreated resource UID")
+		assert.Equal(t, "test-cm", cache["uid-2"].Name)
+
+		// 2nd user deletion: the watch delivers the delete event for the
+		// recreated resource (uid-2); it must be recreated again
+		recreated := downstream.DeepCopy()
+		recreated.SetUID("uid-2")
+		wm.handleDelete(recreated, gvr)
+		assert.Len(t, client.created, 2, "the downstream must be recreated after every deletion")
+		assert.NotContains(t, cache, types.UID("uid-2"))
+		assert.Contains(t, cache, types.UID("uid-3"))
+	})
+
+	t.Run("create failure keeps the cache entry under the old UID", func(t *testing.T) {
+		client := &MockClient{
+			createFn: func(_ context.Context, _, _, _ string, _ interface{}, _ bool) (*unstructured.Unstructured, error) {
+				return nil, fmt.Errorf("api server unavailable")
+			},
+		}
+		wm := newWatchManager(client, seedCache())
+		cache := wm.dynamicWatchers[gvr].metadataCache
+
+		wm.handleDelete(downstream, gvr)
+		assert.Contains(t, cache, types.UID("uid-1"), "cache entry must be kept when recreation fails")
+	})
+
+	t.Run("nil created object keeps the cache entry under the old UID", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newWatchManager(client, seedCache())
+		cache := wm.dynamicWatchers[gvr].metadataCache
+
+		wm.handleDelete(downstream, gvr)
+		assert.Len(t, client.created, 1)
+		assert.Contains(t, cache, types.UID("uid-1"))
+	})
+}
+
 // fullMockClient is a purpose-built mock that allows controlling both
 // ListResource and DeleteResource return values independently.
 type fullMockClient struct {
@@ -1249,6 +1415,175 @@ func TestHandleUpdate(t *testing.T) {
 
 		obj := makeObj("uid", "pod", "default", nil)
 		wm.handleUpdate(obj, gvr)
+	})
+
+	t.Run("invalidated downstream does not revert", func(t *testing.T) {
+		policyName := "test-policy"
+		labels := map[string]string{
+			kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+			common.GeneratePolicyLabel: policyName,
+		}
+		old := makeObj("down-uid", "down-pod", "default", labels)
+		old.Object["data"] = map[string]any{"value": "old"}
+		updated := old.DeepCopy()
+		updated.Object["data"] = map[string]any{"value": "new"}
+		client := &MockClient{}
+		wm := &WatchManager{
+			client: client,
+			policyRefs: map[string][]schema.GroupVersionResource{
+				policyName: {gvr},
+			},
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {
+					metadataCache: map[types.UID]Resource{
+						old.GetUID(): {
+							Name:      old.GetName(),
+							Namespace: old.GetNamespace(),
+							Labels:    old.GetLabels(),
+							Hash:      reportutils.CalculateResourceHash(*old),
+							Data:      old,
+						},
+					},
+				},
+			},
+		}
+
+		wm.InvalidateDownstreams(policyName, nil)
+		wm.handleUpdate(updated, gvr)
+		assert.Empty(t, client.updated)
+	})
+
+	// The write ProcessUR makes to a downstream lands before SyncWatchers can
+	// refresh the cache with its hash, so a watch event for that write can reach
+	// handleUpdate while the cache is stale. BeginGenerate marks that window so
+	// the mismatch is not reverted as a user edit.
+	newWM := func(policyName string, triggerUID types.UID) (*WatchManager, *MockClient, *unstructured.Unstructured) {
+		labels := map[string]string{
+			common.GeneratePolicyLabel:     policyName,
+			common.GenerateTriggerUIDLabel: string(triggerUID),
+		}
+		cached := makeObj("down-uid", "down-pod", "default", labels)
+		client := &MockClient{}
+		wm := &WatchManager{
+			log:    logging.WithName("test"),
+			client: client,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {metadataCache: map[types.UID]Resource{
+					"down-uid": {Name: cached.GetName(), Namespace: cached.GetNamespace(), Labels: labels, Hash: reportutils.CalculateResourceHash(*cached), Data: cached},
+				}},
+			},
+		}
+		return wm, client, cached
+	}
+	withAnnotation := func(obj *unstructured.Unstructured, key, value string) *unstructured.Unstructured {
+		out := obj.DeepCopy()
+		out.SetAnnotations(map[string]string{key: value})
+		return out
+	}
+	// refreshCache mimics SyncWatchers recording obj as the desired state.
+	refreshCache := func(wm *WatchManager, obj *unstructured.Unstructured) {
+		wm.lock.Lock()
+		defer wm.lock.Unlock()
+		entry := wm.dynamicWatchers[gvr].metadataCache[obj.GetUID()]
+		entry.Hash = reportutils.CalculateResourceHash(*obj)
+		entry.Data = obj
+		wm.dynamicWatchers[gvr].metadataCache[obj.GetUID()] = entry
+	}
+
+	t.Run("in-flight generate write is not reverted", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		own := withAnnotation(cached, "tier", "free")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(own, gvr)
+		assert.Empty(t, client.updated, "a write Kyverno is still making for this trigger must not be reverted")
+		refreshCache(wm, own)
+		end()
+		assert.Empty(t, client.updated, "the write is now the cached state, there is nothing to revert")
+	})
+
+	t.Run("edit made while a generate write is in flight is reverted when it ends", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		own := withAnnotation(cached, "tier", "free")
+		edited := withAnnotation(cached, "tier", "premium")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(own, gvr)
+		wm.handleUpdate(edited, gvr)
+		assert.Empty(t, client.updated, "nothing is reverted while the write is in flight")
+		refreshCache(wm, own)
+		end()
+		assert.Len(t, client.updated, 1, "the edit skipped inside the window must be reverted when it closes")
+	})
+
+	t.Run("only the latest event skipped in the window is checked", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		own := withAnnotation(cached, "tier", "free")
+		edited := withAnnotation(cached, "tier", "premium")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(edited, gvr)
+		wm.handleUpdate(own, gvr)
+		refreshCache(wm, own)
+		end()
+		assert.Empty(t, client.updated, "the edit was undone before the window closed")
+	})
+
+	t.Run("skipped event is dropped when its cache entry is gone at the end", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(withAnnotation(cached, "tier", "premium"), gvr)
+		wm.lock.Lock()
+		delete(wm.dynamicWatchers[gvr].metadataCache, "down-uid")
+		wm.lock.Unlock()
+		end()
+		assert.Empty(t, client.updated)
+	})
+
+	t.Run("revert still applies once the generate write completes", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end()
+		wm.handleUpdate(withAnnotation(cached, "tampered", "true"), gvr)
+		assert.NotEmpty(t, client.updated, "once the generate write is no longer in flight, real drift must still be reverted")
+	})
+
+	t.Run("a write in flight for another trigger does not suppress the revert", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-2")
+		wm.handleUpdate(withAnnotation(cached, "tampered", "true"), gvr)
+		end()
+		assert.NotEmpty(t, client.updated)
+	})
+
+	t.Run("BeginGenerate ref-counts overlapping writes for the same trigger", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		tampered := withAnnotation(cached, "tampered", "true")
+
+		end1 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end2 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end1()
+		wm.handleUpdate(tampered, gvr)
+		assert.Empty(t, client.updated, "still in flight: one BeginGenerate call is still outstanding")
+		end2()
+		assert.Len(t, client.updated, 1, "both calls have ended: the skipped edit is reverted")
+		wm.handleUpdate(tampered, gvr)
+		assert.Len(t, client.updated, 2, "no longer in flight: drift is reverted immediately")
+	})
+
+	t.Run("ending a generate window twice does not end an overlapping one", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end1 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end2 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end1()
+		end1()
+		wm.handleUpdate(withAnnotation(cached, "tampered", "true"), gvr)
+		assert.Empty(t, client.updated, "the second window is still open")
+		end2()
 	})
 }
 

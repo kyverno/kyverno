@@ -1,0 +1,26 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-disallow-privilege-escalation
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-privilege-escalation
+  resources:
+  - linux-unset
+  - linux-true
+  - linux-init-unset
+  - linux-ephemeral-unset
+  - linux-explicit-os-unset
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-privilege-escalation
+  resources:
+  - linux-false
+  - windows-unset
+  result: pass
