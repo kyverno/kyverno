@@ -258,3 +258,25 @@ func TestHandleValidating_TracingExtractionMode(t *testing.T) {
 		assert.Equal(t, "JobSet", traced[0].Trace.ResourceKind)
 	})
 }
+
+// TestHandleValidating_TracingScopeWithAutogenVariants: with autogen on, a pods policy also yields
+// Deployment, Job, ... variants that share its name. The scope must be the one of the variant that
+// was evaluated, and for a resource no variant selects, the policy as written, not whichever
+// generated variant happened to be checked last.
+func TestHandleValidating_TracingScopeWithAutogenVariants(t *testing.T) {
+	policy := tracePolicy("true")
+	policy.Spec.AutogenConfiguration = nil
+
+	pod := handleTraced(t, true, policy, podRequest("Pod", "pods", "default"))
+	require.Len(t, pod, 1)
+	require.NotNil(t, pod[0].Trace)
+	assert.True(t, pod[0].Trace.Scope.Applied)
+	assert.Contains(t, pod[0].Trace.Scope.Reason, "matched kind Pod")
+	assert.Equal(t, engineapi.RuleStatusPass, pod[0].Result.Status())
+
+	configMap := handleTraced(t, true, policy, podRequest("ConfigMap", "configmaps", "default"))
+	require.Len(t, configMap, 1)
+	require.NotNil(t, configMap[0].Trace)
+	assert.False(t, configMap[0].Trace.Scope.Applied)
+	assert.Contains(t, configMap[0].Trace.Scope.Reason, `resources=["pods"]`, "the reason is the policy's own rule, not a generated variant's")
+}
