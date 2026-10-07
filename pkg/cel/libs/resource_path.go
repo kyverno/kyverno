@@ -1,9 +1,9 @@
 package libs
 
 import (
-	"fmt"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -15,20 +15,11 @@ import (
 // injects a "/") is therefore not just a malformed resource/subresource/name,
 // it can silently redirect the actual HTTP request to a different resource,
 // a different namespace, or even a different API group/version than the one
-// that was ever validated. Every value that becomes one of these path
-// segments must be checked before it reaches the dynamic client.
-
-// isUnsafePathSegment reports whether s cannot safely be used as a single
-// Kubernetes API URL path segment.
-func isUnsafePathSegment(s string) bool {
-	return s == "" || s == "." || s == ".." || strings.ContainsAny(s, "/\\")
-}
-
+// that was ever validated (GHSA-4pqm-wqq6-h9q2). validatePathSegment delegates
+// to the dclient chokepoint validator so every caller of the dynamic client
+// shares one definition of "safe path segment".
 func validatePathSegment(kind, value string) error {
-	if isUnsafePathSegment(value) {
-		return fmt.Errorf("invalid %s %q: must not be empty, \".\", \"..\", or contain a path separator", kind, value)
-	}
-	return nil
+	return dclient.ValidatePathSegment(kind, value)
 }
 
 // validateGroupVersion rejects a parsed apiVersion whose group or version
