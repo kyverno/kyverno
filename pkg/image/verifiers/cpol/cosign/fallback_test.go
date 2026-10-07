@@ -214,6 +214,35 @@ func TestReadLayerLimits(t *testing.T) {
 	assert.Equal(t, int64(len(got)), limit+1)
 }
 
+func TestFetchBundlesFallbackFetchError(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
+	t.Cleanup(server.Close)
+	repo, err := name.NewRepository(strings.TrimPrefix(server.URL, "http://") + "/test/app")
+	assert.NilError(t, err)
+	img, err := random.Image(64, 1)
+	assert.NilError(t, err)
+	ref := repo.Tag("latest")
+	assert.NilError(t, remote.Write(ref, img))
+	imgDigest, err := img.Digest()
+	assert.NilError(t, err)
+
+	// the fallback index lists an untyped referrer the registry cannot serve
+	missing, _, err := v1.SHA256(strings.NewReader("missing"))
+	assert.NilError(t, err)
+	index, err := json.Marshal(v1.IndexManifest{
+		SchemaVersion: 2,
+		MediaType:     types.OCIImageIndex,
+		Manifests:     []v1.Descriptor{{MediaType: types.OCIManifestSchema1, Digest: missing, Size: 2}},
+	})
+	assert.NilError(t, err)
+	fallbackTag := repo.Tag(fmt.Sprintf("%s-%s", imgDigest.Algorithm, imgDigest.Hex))
+	assert.NilError(t, remote.Put(fallbackTag, rawManifest{body: index, mediaType: types.OCIImageIndex}))
+
+	_, _, err = fetchBundles(ref, attestationlimit, "", nil)
+	assert.ErrorContains(t, err, "failed to fetch referrer image")
+}
+
 // understatedLayer reports a zero size, like a referrer whose descriptor does not bound its content.
 type understatedLayer struct {
 	v1.Layer
