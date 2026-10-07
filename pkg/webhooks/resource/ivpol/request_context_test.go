@@ -50,8 +50,13 @@ func TestRegistryCallsStopWhenTheAdmissionRequestIsCancelled(t *testing.T) {
 	t.Cleanup(func() { regcreds.DefaultTransport = oldTransport; transport.CloseIdleConnections() })
 	registryHandler := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
 	var hang, sawCancellation atomic.Bool
+	manifestStarted := make(chan struct{}, 1)
 	transport.RegisterProtocol("https", diagnosticTransport(func(r *http.Request) (*http.Response, error) {
 		if hang.Load() && strings.Contains(r.URL.Path, "/manifests/") {
+			select {
+			case manifestStarted <- struct{}{}:
+			default:
+			}
 			select {
 			case <-r.Context().Done():
 				sawCancellation.Store(true)
@@ -112,9 +117,22 @@ func TestRegistryCallsStopWhenTheAdmissionRequestIsCancelled(t *testing.T) {
 	}
 	request.RequestResource = &request.Resource
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	// Cancel only once the manifest request is in flight, so the test checks
+	// that an ongoing registry request is cancelled with the admission request.
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	response := h.ValidateClustered(ctx, logr.Discard(), handlers.AdmissionRequest{AdmissionRequest: request}, "", time.Now())
+	responses := make(chan handlers.AdmissionResponse, 1)
+	go func() {
+		responses <- h.ValidateClustered(ctx, logr.Discard(), handlers.AdmissionRequest{AdmissionRequest: request}, "", time.Now())
+	}()
+	select {
+	case <-manifestStarted:
+		cancel()
+	case <-time.After(10 * time.Second):
+		cancel()
+		t.Fatal("the manifest request never started")
+	}
+	response := <-responses
 
 	require.True(t, sawCancellation.Load(), "the registry request kept running after the admission request was cancelled")
 	require.False(t, response.Allowed)
