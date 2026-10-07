@@ -175,7 +175,7 @@ func TestSigstoreBundleAttestationWithoutType(t *testing.T) {
 		Subject:        "https://github.com/vishal-chdhry/artifact-attestation-example/.github/workflows/build-attested-image.yaml@refs/heads/main",
 	}
 
-	rc := registryclient.New(nil, "", "", "", false)
+	rc := registryclient.New()
 	opts.Client = rc
 
 	verifier := &verifier{}
