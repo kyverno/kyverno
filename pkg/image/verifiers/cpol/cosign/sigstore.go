@@ -27,7 +27,29 @@ import (
 var (
 	maxLayerSize     = int64(10 * 1000 * 1000) // 10 MB
 	attestationlimit = 50
+	// maxProbeLayerSize bounds a single untyped layer read only to check whether it holds a bundle.
+	// Sigstore bundles are a few KB, so this keeps unrelated referrers cheap to skip.
+	maxProbeLayerSize = int64(1000 * 1000) // 1 MB
+	// maxProbeTotalSize bounds the untyped layer bytes probed across all referrers of one image.
+	maxProbeTotalSize = int64(5 * 1000 * 1000) // 5 MB
 )
+
+const (
+	sigstoreBundleArtifactType = "application/vnd.dev.sigstore.bundle"
+	ociEmptyArtifactType       = "application/vnd.oci.empty.v1+json"
+)
+
+// nonBundleLayerMediaTypePrefixes are layer media types that never hold a sigstore bundle, so the
+// fallback probe skips them without reading the layer.
+var nonBundleLayerMediaTypePrefixes = []string{
+	"application/vnd.oci.image.layer.",
+	"application/vnd.docker.image.rootfs.",
+	"application/vnd.dev.cosign.",
+	"application/vnd.dsse.envelope.",
+	"application/vnd.in-toto",
+	"application/spdx",
+	"application/vnd.cyclonedx",
+}
 
 type verificationResult struct {
 	Bundle *verificationBundle
@@ -87,6 +109,83 @@ func verifyBundles(bundles []*verificationBundle, desc *v1.Descriptor, trustedMa
 	return verificationResults, nil
 }
 
+func isSigstoreBundleType(mediaType string) bool {
+	return strings.HasPrefix(mediaType, sigstoreBundleArtifactType)
+}
+
+// readLayer reads the uncompressed content of a layer, failing when either the compressed size or the
+// uncompressed content exceeds limit.
+func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
+	layerSize, err := layer.Size()
+	if err != nil {
+		return nil, err
+	}
+	if layerSize > limit {
+		return nil, fmt.Errorf("layer size %d exceeds %d", layerSize, limit)
+	}
+	layerBytes, err := layer.Uncompressed()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+	}
+	defer layerBytes.Close()
+	// the compressed size does not bound the uncompressed stream, so cap the read as well
+	data, err := io.ReadAll(io.LimitReader(layerBytes, limit+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("uncompressed layer size exceeds %d", limit)
+	}
+	return data, nil
+}
+
+// resolveFallbackBundle checks whether an untyped referrer holds a sigstore bundle, first from its
+// manifest artifact type and first layer media type, then by parsing a small first layer. It returns
+// the referrer image, plus the bundle content when it was read, or nil when it is not a bundle.
+func resolveFallbackBundle(ref name.Reference, remoteOpts []remote.Option, probeBudget *int64) (v1.Image, []byte) {
+	img, err := remote.Image(ref, remoteOpts...)
+	if err != nil || img == nil {
+		return nil, nil
+	}
+	manifest, err := img.Manifest()
+	if err != nil || manifest == nil {
+		return nil, nil
+	}
+	if isSigstoreBundleType(manifest.ArtifactType) {
+		return img, nil
+	}
+	if len(manifest.Layers) == 0 {
+		return nil, nil
+	}
+	layerDesc := manifest.Layers[0]
+	if isSigstoreBundleType(string(layerDesc.MediaType)) {
+		return img, nil
+	}
+	for _, prefix := range nonBundleLayerMediaTypePrefixes {
+		if strings.HasPrefix(string(layerDesc.MediaType), prefix) {
+			return nil, nil
+		}
+	}
+	limit := min(maxProbeLayerSize, *probeBudget)
+	if layerDesc.Size > limit {
+		return nil, nil
+	}
+	*probeBudget -= layerDesc.Size
+	layers, err := img.Layers()
+	if err != nil || len(layers) == 0 {
+		return nil, nil
+	}
+	data, err := readLayer(layers[0], limit)
+	if err != nil {
+		return nil, nil
+	}
+	b := &bundle.Bundle{}
+	if err := b.UnmarshalJSON(data); err != nil || b.Bundle == nil {
+		return nil, nil
+	}
+	return img, data
+}
+
 func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpts []remote.Option) ([]*verificationBundle, *v1.Descriptor, error) {
 	bundles := make([]*verificationBundle, 0)
 	desc, err := remote.Head(ref, remoteOpts...)
@@ -104,48 +203,23 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 	if len(referrersDescs.Manifests) > limit {
 		return nil, nil, fmt.Errorf("failed to fetch referrers: too many referrers found, max limit is %d", limit)
 	}
+	// remaining bytes the fallback probe may read across all referrers of this image
+	probeBudget := maxProbeTotalSize
 	for _, manifestDesc := range referrersDescs.Manifests {
 		artifactType := manifestDesc.ArtifactType
 		var refImg v1.Image
 		var bundleBytes []byte
 
-		if !strings.HasPrefix(artifactType, "application/vnd.dev.sigstore.bundle") {
-			if artifactType == "" || artifactType == "application/vnd.oci.empty.v1+json" {
-				img, err := remote.Image(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts...)
-				if err == nil && img != nil {
-					if imgManifest, err := img.Manifest(); err == nil && imgManifest != nil {
-						if strings.HasPrefix(imgManifest.ArtifactType, "application/vnd.dev.sigstore.bundle") {
-							artifactType = imgManifest.ArtifactType
-							refImg = img
-						} else if len(imgManifest.Layers) > 0 && strings.HasPrefix(string(imgManifest.Layers[0].MediaType), "application/vnd.dev.sigstore.bundle") {
-							artifactType = string(imgManifest.Layers[0].MediaType)
-							refImg = img
-						} else if len(imgManifest.Layers) > 0 {
-							layers, err := img.Layers()
-							if err == nil && len(layers) > 0 {
-								layer := layers[0]
-								if layerSize, err := layer.Size(); err == nil && layerSize <= maxLayerSize {
-									if layerBytes, err := layer.Uncompressed(); err == nil {
-										data, err := io.ReadAll(layerBytes)
-										_ = layerBytes.Close()
-										if err == nil {
-											b := &bundle.Bundle{}
-											if err := b.UnmarshalJSON(data); err == nil && b.Bundle != nil {
-												artifactType = "application/vnd.dev.sigstore.bundle"
-												refImg = img
-												bundleBytes = data
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
+		// registries without the referrers API serve a fallback tag index whose descriptors may not
+		// carry the artifact type, so resolve it from the referrer itself
+		if !isSigstoreBundleType(artifactType) && (artifactType == "" || artifactType == ociEmptyArtifactType) {
+			refImg, bundleBytes = resolveFallbackBundle(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts, &probeBudget)
+			if refImg != nil {
+				artifactType = sigstoreBundleArtifactType
 			}
 		}
 
-		if !strings.HasPrefix(artifactType, "application/vnd.dev.sigstore.bundle") {
+		if !isSigstoreBundleType(artifactType) {
 			continue
 		}
 
@@ -164,22 +238,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 			if len(layers) == 0 {
 				return nil, nil, fmt.Errorf("layers not found")
 			}
-			layer := layers[0]
-			layerSize, err := layer.Size()
-			if err != nil {
-				return nil, nil, err
-			}
-			if layerSize > maxLayerSize {
-				return nil, nil, fmt.Errorf("layer size %d exceeds %d", layerSize, maxLayerSize)
-			}
-			bundleBytes, err = func() ([]byte, error) {
-				layerBytes, err := layer.Uncompressed()
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
-				}
-				defer layerBytes.Close()
-				return io.ReadAll(layerBytes)
-			}()
+			bundleBytes, err = readLayer(layers[0], maxLayerSize)
 			if err != nil {
 				return nil, nil, err
 			}
