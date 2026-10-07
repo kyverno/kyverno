@@ -84131,6 +84131,11 @@ spec:
                 items:
                   type: string
                 type: array
+              background:
+                description: |-
+                  Background controls if exceptions are applied to existing policies during a background scan.
+                  Optional. Default value is "true".
+                type: boolean
               evaluationMode:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
@@ -84365,6 +84370,11 @@ spec:
                 items:
                   type: string
                 type: array
+              background:
+                description: |-
+                  Background controls if exceptions are applied to existing policies during a background scan.
+                  Optional. Default value is "true".
+                type: boolean
               evaluationMode:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
@@ -84598,6 +84608,11 @@ spec:
                 items:
                   type: string
                 type: array
+              background:
+                description: |-
+                  Background controls if exceptions are applied to existing policies during a background scan.
+                  Optional. Default value is "true".
+                type: boolean
               evaluationMode:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
