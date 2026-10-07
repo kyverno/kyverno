@@ -39,7 +39,12 @@ runs:
         sudo apt install gh -y
     - name: Authenticate gh
       shell: bash
-      run: gh auth setup-git
+      run: |
+        if [ -z "$GH_TOKEN" ]; then
+          echo "::error::github-token input is empty, check the workflow secrets configuration"
+          exit 1
+        fi
+        gh auth setup-git
       env:
         GH_TOKEN: ${{ inputs.github-token }}
     - name: Create cherry-pick PRs

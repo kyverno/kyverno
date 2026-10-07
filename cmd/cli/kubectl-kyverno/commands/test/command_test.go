@@ -2,6 +2,8 @@ package test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -13,12 +15,15 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -75,6 +80,20 @@ func TestCommandRequireTests(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
 }
 
+func TestCommandAggregateFilterErrors(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetErr(errBuffer)
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetArgs([]string{".", "-t", "invalid1,invalid2"})
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid1)")
+	assert.Contains(t, err.Error(), "Invalid test-case-selector argument (invalid2)")
+}
+
 func TestCommandWithInvalidFlag(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -120,6 +139,8 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 	tests := []struct {
 		name           string
 		ruleStatus     engineapi.RuleStatus
+		ruleProperties map[string]string
+		msgExprErr     error
 		expectedResult string
 		wantOk         bool
 		wantReason     string
@@ -159,6 +180,25 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			wantOk:         false,
 			wantReason:     "Want fail, got error",
 		},
+		{
+			// Regression test for https://github.com/kyverno/kyverno/issues/15350
+			//
+			// Before the fix: when a CEL messageExpression threw a runtime error
+			// (e.g. "no such key: annotations"), Kyverno converted the error to a
+			// human-readable string and returned RuleFail. Because the test expected
+			// "fail", checkResult saw a match and reported PASS — silently hiding the
+			// broken messageExpression from the policy author.
+			//
+			// After the fix: the engine also writes MessageExpressionErrorKey into the
+			// RuleResponse properties. checkResult detects the key and returns false,
+			// surfacing the authoring error regardless of the expected result.
+			name:           "expect fail and got fail with messageExpression error - should surface the error",
+			ruleStatus:     engineapi.RuleStatusFail,
+			msgExprErr:     errors.New("no such key: annotations"),
+			expectedResult: openreports.StatusFail,
+			wantOk:         false,
+			wantReason:     "messageExpression evaluation error",
+		},
 	}
 
 	for _, tt := range tests {
@@ -166,11 +206,11 @@ func TestCheckResultDetectsMismatch(t *testing.T) {
 			var rule engineapi.RuleResponse
 			switch tt.ruleStatus {
 			case engineapi.RuleStatusPass:
-				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RulePass("test-rule", engineapi.Validation, "msg", tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			case engineapi.RuleStatusFail:
-				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", nil)
+				rule = *engineapi.RuleFail("test-rule", engineapi.Validation, "msg", tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			case engineapi.RuleStatusError:
-				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, nil)
+				rule = *engineapi.RuleError("test-rule", engineapi.Validation, "msg", nil, tt.ruleProperties).WithMessageExpressionError(tt.msgExprErr)
 			}
 
 			response := engineapi.NewEngineResponse(
@@ -308,7 +348,7 @@ func Test_JSONPayload(t *testing.T) {
 
 	out := &bytes.Buffer{}
 	t.Logf("Running test with files from %s", testCase.Dir())
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 
 	t.Logf("Test output: %s", out.String())
@@ -372,7 +412,7 @@ func Test_JSONPayloads(t *testing.T) {
 	require.Len(t, testCase.Test.JSONPayloads, 2, "Expected 2 JSON payloads after loading")
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 
 	t.Run("Both payloads produce trigger responses", func(t *testing.T) {
@@ -431,7 +471,7 @@ func TestRunTest_InvalidHTTPPayloadPath(t *testing.T) {
 	testCase.Test.HTTPPayloads = []string{"./missing-http-request.json"}
 	out := &bytes.Buffer{}
 
-	_, err = runTest(out, testCase, false)
+	_, err = runTest(context.TODO(), out, testCase, false)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to load HTTP payloads from path")
 }
@@ -456,7 +496,7 @@ func TestRunTest_InvalidEnvoyPayloadPath(t *testing.T) {
 	testCase.Test.EnvoyPayloads = []string{"./missing-envoy-request.json"}
 	out := &bytes.Buffer{}
 
-	_, err = runTest(out, testCase, false)
+	_, err = runTest(context.TODO(), out, testCase, false)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "failed to load Envoy payloads from path")
 }
@@ -477,7 +517,7 @@ func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {
 		testCases := test.LoadTest(nil, testFile)
 		require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 		out := &bytes.Buffer{}
-		testResponse, err := runTest(out, testCases[0], false)
+		testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 		require.NoError(t, err, "runTest http-allow: %s", out.String())
 		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for HTTP payload")
 		var found bool
@@ -503,7 +543,7 @@ func TestRunTest_WithHTTPAndEnvoyPayloads(t *testing.T) {
 		testCases := test.LoadTest(nil, testFile)
 		require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 		out := &bytes.Buffer{}
-		testResponse, err := runTest(out, testCases[0], false)
+		testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 		require.NoError(t, err, "runTest envoy-allow: %s", out.String())
 		require.NotEmpty(t, testResponse.Trigger, "expected trigger entries for Envoy payload")
 		var found bool
@@ -535,7 +575,7 @@ func TestRunTest_CELHTTPGetMock(t *testing.T) {
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "runTest cel-http-get-mock failed: %s", out.String())
 	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-get-mock")
 
@@ -574,7 +614,7 @@ func TestRunTest_CELHTTPPostMock(t *testing.T) {
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "runTest cel-http-post-mock failed: %s", out.String())
 	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-post-mock")
 
@@ -597,6 +637,49 @@ func TestRunTest_CELHTTPPostMock(t *testing.T) {
 	assert.True(t, found, "expected engine response for policy check-pod-admission")
 }
 
+func TestRunTest_MessageExpressionError(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDirs := []string{
+		filepath.Join(rootDir, "test", "cli", "issue-15350-message-expression-error"),
+		filepath.Join(rootDir, "test", "cli", "issue-15350-message-expression-error-exceptions"),
+	}
+
+	for _, testDir := range testDirs {
+		t.Run(filepath.Base(testDir), func(t *testing.T) {
+
+			if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+				t.Fatalf("Test directory not found: %s", testDir)
+			}
+
+			testFile := filepath.Join(testDir, "kyverno-test.yaml")
+			testCases := test.LoadTest(nil, testFile)
+			require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+			testCase := testCases[0]
+			// Wire the fixture with result set to fail to verify the error path
+			testCase.Test.Results[0].Result = openreportsv1alpha1.Result(openreports.StatusFail)
+
+			out := &bytes.Buffer{}
+			testResponse, err := runTest(context.TODO(), out, testCase, false)
+			require.NoError(t, err, "runTest should not return an execution error, just test failures")
+
+			var found bool
+			for _, responses := range testResponse.Trigger {
+				for _, response := range responses {
+					for _, rule := range response.PolicyResponse.Rules {
+						found = true
+						ok, _, reason := checkRuleResultOnly(testCase.Test.Results[0], response, rule)
+						assert.False(t, ok, "checkRuleResultOnly should return false due to mismatched result")
+						assert.Contains(t, reason, "messageExpression evaluation error: no such key: annotations", "CLI should report the messageExpression evaluation error reason")
+					}
+				}
+			}
+			assert.True(t, found, "Expected to find at least one rule evaluation")
+		})
+	}
+}
 func TestRunTest_CELHTTPPostMockDeny(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err)
@@ -613,7 +696,7 @@ func TestRunTest_CELHTTPPostMockDeny(t *testing.T) {
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "runTest cel-http-post-mock-deny failed: %s", out.String())
 	require.NotEmpty(t, testResponse.Trigger, "expected engine responses for cel-http-post-mock-deny")
 
@@ -656,7 +739,7 @@ func TestMutatingPolicyContextResourceLookup(t *testing.T) {
 
 	out := &bytes.Buffer{}
 	t.Logf("Running MutatingPolicy context resource lookup test from %s", testCase.Dir())
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	t.Logf("Test output: %s", out.String())
@@ -700,7 +783,7 @@ func TestGeneratingPolicyContextResourceLookup(t *testing.T) {
 
 	out := &bytes.Buffer{}
 	t.Logf("Running GeneratingPolicy context resource lookup test from %s", testCase.Dir())
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	t.Logf("Test output: %s", out.String())
@@ -948,7 +1031,7 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	testCase := testCases[0]
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCase, false)
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
 	require.NoError(t, err, "Failed to run test")
 	t.Logf("Test output: %s", out.String())
 
@@ -966,6 +1049,44 @@ func TestRunTest_MutatingPoliciesWithCRD(t *testing.T) {
 	require.True(t, found, "expected engine response for policy set-annotations-for-widget")
 }
 
+func TestRunTest_MutatingPolicySubresourceMatch(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-pod-binding-subresource")
+
+	if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
+		t.Skip("Test directory not found, skipping test")
+		return
+	}
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
+	require.NoError(t, err, "Failed to run test: %s", out.String())
+
+	// A resourceRule of "pods/binding" only matches when the engine request
+	// carries the "binding" subresource. Before the fix, the CLI always sent
+	// an empty subresource for MutatingPolicies, so matchConstraints never
+	// matched and no rule (nor mutation) was produced for the trigger.
+	var found bool
+	for _, responses := range testResponse.Trigger {
+		for _, r := range responses {
+			if r.Policy().GetName() != "mutate-add-aws-zone-id" {
+				continue
+			}
+			found = true
+			require.NotEmpty(t, r.PolicyResponse.Rules, "expected the pods/binding matchConstraints rule to match and produce a rule response")
+			annotations := r.PatchedResource.GetAnnotations()
+			require.Equal(t, "test-az", annotations["pod-topology.k8s.aws/zone-id"], "expected the mutation to be applied to the binding resource")
+		}
+	}
+	require.True(t, found, "expected engine response for policy mutate-add-aws-zone-id")
+}
+
 func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
@@ -981,7 +1102,7 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
 
 	out := &bytes.Buffer{}
-	testResponse, err := runTest(out, testCases[0], false)
+	testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 	require.NoError(t, err, "Failed to run test: %s", out.String())
 
 	got := map[string]engineapi.RuleStatus{}
@@ -998,4 +1119,237 @@ func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T)
 	// produce any result row, matching vpol/mpol CLI behavior.
 	_, found := got["secret-skip"]
 	assert.False(t, found, "constraint-excluded resource must not produce a rule response")
+}
+
+func TestPrintTestResultExcludedResources(t *testing.T) {
+	color.Init(true)
+
+	tests := []struct {
+		name             string
+		policy           string
+		resource         string
+		deleting         map[string]struct{}
+		isDeletingPolicy bool
+		result           openreportsv1alpha1.Result
+		trigger          map[string][]engineapi.EngineResponse
+		wantSkip         int
+		wantFail         int
+	}{
+		{
+			name:             "known deleting policy is reported as skipped",
+			policy:           "cleanup-invalidated-legacy-sa-tokens",
+			resource:         "secret-skip",
+			deleting:         map[string]struct{}{"cleanup-invalidated-legacy-sa-tokens": {}},
+			isDeletingPolicy: true,
+			result:           openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Secret,default,secret-skip": {},
+			},
+			wantSkip: 1,
+			wantFail: 0,
+		},
+		{
+			name:             "unknown deleting policy remains not found",
+			policy:           "nonexistent-deleting-policy",
+			resource:         "secret-skip",
+			deleting:         map[string]struct{}{},
+			isDeletingPolicy: true,
+			result:           openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Secret,default,secret-skip": {},
+			},
+			wantSkip: 0,
+			wantFail: 1,
+		},
+		{
+			name:             "missing normal policy remains not found",
+			policy:           "missing",
+			resource:         "test",
+			deleting:         map[string]struct{}{},
+			isDeletingPolicy: false,
+			result:           openreportsv1alpha1.Result(openreports.StatusPass),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {},
+			},
+			wantSkip: 0,
+			wantFail: 1,
+		},
+		{
+			name:             "matching policy with no rule responses is reported as skipped",
+			policy:           "disallow-latest-tag",
+			resource:         "test",
+			deleting:         map[string]struct{}{},
+			isDeletingPolicy: false,
+			result:           openreportsv1alpha1.Result(openreports.StatusSkip),
+			trigger: map[string][]engineapi.EngineResponse{
+				"v1,Pod,default,test": {
+					engineapi.NewEngineResponse(
+						unstructured.Unstructured{},
+						engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "disallow-latest-tag",
+							},
+						}),
+						nil,
+					),
+				},
+			},
+			wantSkip: 1,
+			wantFail: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			responses := &TestResponse{
+				Trigger:            tt.trigger,
+				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+				Target:             map[string][]engineapi.EngineResponse{},
+				SkippedPolicies:    map[string]string{},
+				DeletingPolicies:   tt.deleting,
+			}
+
+			testResults := []v1alpha1.TestResult{
+				{
+					TestResultBase: v1alpha1.TestResultBase{
+						Policy:           tt.policy,
+						Rule:             "validate-image-tag",
+						Result:           tt.result,
+						IsDeletingPolicy: tt.isDeletingPolicy,
+					},
+					TestResultData: v1alpha1.TestResultData{
+						Resources: []string{tt.resource},
+					},
+				},
+			}
+
+			rc := &resultCounts{}
+			resultsTable := table.Table{}
+
+			err := printTestResult(
+				testResults,
+				responses,
+				rc,
+				&resultsTable,
+				nil,
+				"",
+				true,
+			)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.wantSkip, rc.Skip)
+			assert.Equal(t, tt.wantFail, rc.Fail)
+		})
+	}
+}
+
+func Test_OperationDelete(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-delete")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+	testCase := testCases[0]
+
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
+	require.NoError(t, err, "Failed to run test")
+
+	resourceKey := "v1,Pod,test-ns,protected-pod"
+
+	t.Run("DELETE run evaluates DELETE-scoped policy against oldObject", func(t *testing.T) {
+		require.Contains(t, testResponse.TriggerByOperation, "DELETE")
+		responses := testResponse.TriggerByOperation["DELETE"][resourceKey]
+		require.NotEmpty(t, responses)
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "deny-protected-deletion" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for deny-protected-deletion in the DELETE run")
+	})
+
+	t.Run("default run skips the DELETE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		require.NotEmpty(t, responses)
+		for _, response := range responses {
+			if response.Policy().GetName() == "deny-protected-deletion" {
+				assert.Empty(t, response.PolicyResponse.Rules, "DELETE-scoped policy must not match the default CREATE run")
+			}
+		}
+	})
+
+	t.Run("default run evaluates the CREATE-scoped policy", func(t *testing.T) {
+		responses := testResponse.Trigger[resourceKey]
+		var found bool
+		for _, response := range responses {
+			if response.Policy().GetName() != "require-env-label" {
+				continue
+			}
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+		assert.True(t, found, "expected a failing rule for require-env-label in the default run")
+	})
+}
+
+func Test_InvalidResultOperation(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-delete")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+	testCase := testCases[0]
+	testCase.Test.Results[0].Operation = "CONNECT"
+
+	_, err = runTest(context.TODO(), io.Discard, testCase, false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid operation")
+}
+
+func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-legacy-policies", "legacy-clusterpolicy")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
+}
+
+func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-legacy-policies", "legacy-exception")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1)
+
+	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }

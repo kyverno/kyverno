@@ -34,6 +34,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -51,7 +52,6 @@ import (
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"go.yaml.in/yaml/v3"
 	"gomodules.xyz/jsonpatch/v2"
-	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -81,12 +81,16 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	PolicyExceptions                  []*kyvernov2.PolicyException
-	CELExceptions                     []*policiesv1beta1.PolicyException
-	MutateLogPath                     string
-	MutateLogPathIsDir                bool
-	Variables                         *variables.Variables
-	ParameterResources                []runtime.Object
+	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
+	// When empty, the `request.operation` global value from the values file is
+	// honored, defaulting to CREATE.
+	Operation          string
+	PolicyExceptions   []*kyvernov2.PolicyException
+	CELExceptions      []*policiesv1beta1.PolicyException
+	MutateLogPath      string
+	MutateLogPathIsDir bool
+	Variables          *variables.Variables
+	ParameterResources []runtime.Object
 	// TODO
 	ContextFs                 billy.Filesystem
 	ContextPath               string
@@ -107,6 +111,9 @@ type PolicyProcessor struct {
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
+	// Explain compiles validating policies with tracing on and prints, for each policy, how it
+	// arrived at its result (scope, match conditions, variables and verdict).
+	Explain bool
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -126,7 +133,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	rclient := p.Store.GetRegistryClient()
 	if rclient == nil {
-		rclient = registryclient.New(nil, "", "", "", false)
+		rclient = registryclient.New()
 	}
 	isCluster := false
 	if len(p.CrdPaths) > 0 {
@@ -345,17 +352,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
 				gvr,
-				"",
+				subresource,
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				object,
+				oldObject,
 				false,
 				nil,
 			)
@@ -495,7 +503,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
-		compiler := vpolcompiler.NewCompiler()
+		compiler := vpolcompiler.NewCompilerWithTrace(p.Explain)
 		// Separate policies by evaluation mode to route them correctly.
 		// JSON-mode policies evaluate against raw JSON and must not go through the
 		// Kubernetes admission path (which requires GVK/GVR and admission attributes).
@@ -550,19 +558,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					user = p.UserInfo.AdmissionUserInfo
 				}
 				// create engine request
+				operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 				request := celengine.Request(
 					contextProvider,
 					gvk,
 					gvr,
-					// TODO: how to manage subresource ?
-					"",
+					subresource,
 					resource.GetName(),
 					resource.GetNamespace(),
-					// TODO: how to manage other operations ?
-					admissionv1.Create,
+					operation,
 					user,
-					&resource,
-					nil,
+					object,
+					oldObject,
 					false,
 					nil,
 				)
@@ -570,6 +577,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 				}
+				p.explain(reps.Policies)
 				for _, r := range reps.Policies {
 					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 						continue
@@ -597,6 +605,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, fmt.Errorf("failed to apply JSON-mode validating policies on resource %s (%w)", resource.GetName(), err)
 				}
+				p.explain(reps.Policies)
 				for _, r := range reps.Policies {
 					if len(r.Rules) == 0 {
 						continue
@@ -629,6 +638,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, err
 				}
+				p.explain(reps.Policies)
 				for _, r := range reps.Policies {
 					response := engineapi.EngineResponse{
 						Resource: *reps.Resource,
@@ -691,17 +701,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				user = p.UserInfo.AdmissionUserInfo
 			}
 			// create engine request
+			operation, object, oldObject := AdmissionRequestShape(p.resolveOperation(), &resource)
 			request := celengine.Request(
 				contextProvider,
 				gvk,
 				gvr,
-				"",
+				subresource,
 				resource.GetName(),
 				resource.GetNamespace(),
-				admissionv1.Create,
+				operation,
 				user,
-				&resource,
-				nil,
+				object,
+				oldObject,
 				false,
 				nil,
 			)
@@ -712,6 +723,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				}
 				for _, res := range engineResponse.Policies {
 					if res.Result == nil {
+						generateResponse := engineapi.EngineResponse{
+							Resource: *engineResponse.Trigger,
+						}
+						generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
+						p.Rc.addGenerateResponse(generateResponse)
+						responses = append(responses, generateResponse)
 						continue
 					}
 					generateResponse := engineapi.EngineResponse{
@@ -788,6 +805,22 @@ func (p *PolicyProcessor) makePolicyContext(
 		operation = kyvernov1.Delete
 	case "UPDATE":
 		operation = kyvernov1.Update
+	}
+	// an explicitly configured operation (e.g. from the test result entry) takes
+	// precedence over the values file
+	if p.Operation != "" {
+		switch p.Operation {
+		case "CREATE":
+			operation = kyvernov1.Create
+		case "DELETE":
+			operation = kyvernov1.Delete
+		case "UPDATE":
+			operation = kyvernov1.Update
+		}
+		if resourceValues == nil {
+			resourceValues = map[string]interface{}{}
+		}
+		resourceValues["request.operation"] = p.Operation
 	}
 
 	var newResource unstructured.Unstructured
@@ -1280,4 +1313,45 @@ func getAbsPath(path string) string {
 		absPath = filepath.Dir(absPath)
 	}
 	return absPath
+}
+
+// explain prints the decision trace of each policy that produced one. It prints nothing unless
+// Explain is set, so it is safe to call unconditionally.
+func (p *PolicyProcessor) explain(policies []celengine.ValidatingPolicyResponse) {
+	if !p.Explain {
+		return
+	}
+	for _, d := range selectTraces(policies) {
+		trace.Render(p.Out, d)
+		fmt.Fprintln(p.Out)
+	}
+}
+
+// selectTraces picks one trace per policy. A policy's autogenerated variants (Deployment,
+// CronJob, ...) come back as separate responses under the same name, and printing all of them
+// buries the answer under skipped copies. Per policy it keeps the first trace that applied to the
+// resource, or the first one (the policy itself) when none did, in the order policies appeared.
+func selectTraces(policies []celengine.ValidatingPolicyResponse) []*trace.Decision {
+	var order []string
+	chosen := map[string]*trace.Decision{}
+	for _, r := range policies {
+		if r.Trace == nil {
+			continue
+		}
+		key := r.Policy.GetNamespace() + "/" + r.Policy.GetName()
+		current, seen := chosen[key]
+		if !seen {
+			order = append(order, key)
+			chosen[key] = r.Trace
+			continue
+		}
+		if !current.Scope.Applied && r.Trace.Scope.Applied {
+			chosen[key] = r.Trace
+		}
+	}
+	selected := make([]*trace.Decision, 0, len(order))
+	for _, key := range order {
+		selected = append(selected, chosen[key])
+	}
+	return selected
 }

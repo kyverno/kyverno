@@ -91,6 +91,16 @@ rules:
       - patch
       - update
       - watch
+  # Read-only: lets kyverno-init report legacy CleanupPolicy/ClusterCleanupPolicy
+  # custom resources still present in the cluster. These kinds are otherwise owned
+  # by the cleanup-controller, which has its own read/write RBAC for them.
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - cleanuppolicies
+      - clustercleanuppolicies
+    verbs:
+      - list
   - apiGroups:
       - policies.kyverno.io
     resources:

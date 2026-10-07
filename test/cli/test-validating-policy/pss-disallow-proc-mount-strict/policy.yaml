@@ -1,0 +1,32 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-proc-mount-strict
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE", "UPDATE"]
+      resources:   ["pods"]
+  validations:
+    # No hostUsers relaxation here. Kubernetes PSA's Restricted procMount check
+    # overrides the relaxed Baseline check and stays unconditional.
+    - expression: >-
+        (!has(object.spec.containers) || object.spec.containers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.procMount) ||
+          c.securityContext.procMount == 'Default')) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.procMount) ||
+          c.securityContext.procMount == 'Default')) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.procMount) ||
+          c.securityContext.procMount == 'Default'))
+      message: >-
+        The Restricted profile does not allow a non-default /proc mask, even in a user namespace.
+        The fields spec.containers[*].securityContext.procMount,
+        spec.initContainers[*].securityContext.procMount, and
+        spec.ephemeralContainers[*].securityContext.procMount must be unset or set to `Default`.

@@ -11,6 +11,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+// ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
+// callers of this package (e.g. the engine provider) don't need to import
+// pkg/cel/autogen directly just to check it.
+const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
+
 func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
 	if policy == nil {
 		return nil, nil
@@ -28,10 +33,47 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 	return generateRuleForControllers(*spec, actualControllers)
 }
 
+// RewriteExceptions rewrites PolicyException match conditions and validations using the same
+// field-path replacements applied to the policy spec for the given autogen
+// config, so exceptions match against the autogen'd controller's shape
+// instead of the original Pod-shaped policy. Controller metadata paths are preserved.
+func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
+	replacements := autogen.ReplacementsMap[config]
+	if len(replacements) == 0 || len(exceptions) == 0 {
+		return exceptions, nil
+	}
+
+	out := make([]*policiesv1beta1.PolicyException, 0, len(exceptions))
+	for _, polex := range exceptions {
+		polex := polex.DeepCopy()
+
+		for i := range polex.Spec.MatchConditions {
+			expr := polex.Spec.MatchConditions[i].Expression
+			if expr != "" {
+				polex.Spec.MatchConditions[i].Expression = string(autogen.ApplyCEL([]byte(expr), replacements...))
+			}
+		}
+
+		for i := range polex.Spec.Validations {
+			expr := polex.Spec.Validations[i].Expression
+			if expr != "" {
+				polex.Spec.Validations[i].Expression = string(autogen.ApplyCEL([]byte(expr), replacements...))
+			}
+			msgExpr := polex.Spec.Validations[i].MessageExpression
+			if msgExpr != "" {
+				polex.Spec.Validations[i].MessageExpression = string(autogen.ApplyCEL([]byte(msgExpr), replacements...))
+			}
+		}
+
+		out = append(out, polex)
+	}
+	return out, nil
+}
+
 func generateRuleForControllers(spec policiesv1beta1.ValidatingPolicySpec, configs sets.Set[string]) (map[string]policiesv1beta1.ValidatingPolicyAutogen, error) {
 	mapping := map[string][]policiesv1beta1.Target{}
 	for config := range configs {
-		if config := autogen.ConfigsMap[config]; config != nil {
+		if config := autogen.ResolveConfig(config); config != nil {
 			targets := mapping[config.ReplacementsRef]
 			targets = append(targets, config.Target)
 			mapping[config.ReplacementsRef] = targets

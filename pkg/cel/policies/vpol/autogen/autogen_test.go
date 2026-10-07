@@ -344,6 +344,90 @@ func TestGenerateRuleForControllers(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "autogen rule for a custom CRD is extraction-mode and leaves the spec unmodified",
+			controllers: sets.New("deployments", "jobsets.v1alpha2.jobset.x-k8s.io"),
+			policySpec: []byte(`{
+				"matchConstraints": {
+					"resourceRules": [
+						{
+							"apiGroups": [""],
+							"apiVersions": ["v1"],
+							"operations": ["CREATE","UPDATE"],
+							"resources": ["pods"]
+						}
+					]
+				},
+				"validations": [
+					{
+						"expression": "object.spec.containers.all(c, !c.image.endsWith(':latest'))"
+					}
+				]
+			}`),
+			generatedRule: map[string]policiesv1beta1.ValidatingPolicyAutogen{
+				autogen.AutogenDefaults: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "apps", Version: "v1", Resource: "deployments", Kind: "Deployment"},
+					},
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"apps"},
+											APIVersions: []string{"v1"},
+											Resources:   []string{"deployments"},
+										},
+									},
+								},
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.template.spec.containers.all(c, !c.image.endsWith(':latest'))",
+							},
+						},
+					},
+				},
+				ExtractionReplacementsRef: {
+					Targets: []policiesv1beta1.Target{
+						{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets", Kind: "Jobset"},
+					},
+					// Unmodified: no "spec.template.spec" rewrite, because
+					// extraction mode discovers the pod template at
+					// evaluation time instead of at a fixed path.
+					Spec: &policiesv1beta1.ValidatingPolicySpec{
+						MatchConstraints: &admissionregistrationv1.MatchResources{
+							ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+								{
+									RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+										Operations: []admissionregistrationv1.OperationType{
+											admissionregistrationv1.Create,
+											admissionregistrationv1.Update,
+										},
+										Rule: admissionregistrationv1.Rule{
+											APIGroups:   []string{"jobset.x-k8s.io"},
+											APIVersions: []string{"v1alpha2"},
+											Resources:   []string{"jobsets"},
+										},
+									},
+								},
+							},
+						},
+						Validations: []admissionregistrationv1.Validation{
+							{
+								Expression: "object.spec.containers.all(c, !c.image.endsWith(':latest'))",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -355,6 +439,108 @@ func TestGenerateRuleForControllers(t *testing.T) {
 			assert.Equal(t, test.generatedRule, genRule)
 		})
 	}
+}
+
+func TestRewriteExceptions(t *testing.T) {
+	newException := func(expression, validationExpr, messageExpr string) *policiesv1beta1.PolicyException {
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "exception"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{Name: "policy", Kind: "ValidatingPolicy"},
+				},
+			},
+		}
+		if expression != "" {
+			polex.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
+				{Name: "match", Expression: expression},
+			}
+		}
+		if validationExpr != "" || messageExpr != "" {
+			polex.Spec.Validations = []admissionregistrationv1.Validation{
+				{Expression: validationExpr, MessageExpression: messageExpr},
+			}
+		}
+		return polex
+	}
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		config     string
+		want       []string
+	}{
+		{
+			name:       "deployments containers expression is rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.spec.template.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "cronjobs containers expression is rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")},
+			config:     autogen.AutogenCronjobs,
+			want:       []string{"object.spec.jobTemplate.spec.template.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "object.metadata.namespace is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.metadata.namespace == 'foo'", "", "")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.metadata.namespace == 'foo'"},
+		},
+		{
+			name:       "unknown config returns exceptions unmodified",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")},
+			config:     "unknown",
+			want:       []string{"object.spec.containers.exists(c, c.name == 'nginx')"},
+		},
+		{
+			name:       "validations expression and message expression are rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("", "object.spec.containers.exists(c, c.name == 'nginx')", "oldObject.spec.containers.exists(c, c.name == 'nginx') ? 'yes' : 'no'")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.spec.template.spec.containers.exists(c, c.name == 'nginx')", "oldObject.spec.template.spec.containers.exists(c, c.name == 'nginx') ? 'yes' : 'no'"},
+		},
+		{
+			name:       "path-like string literal in message is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("", "", "'object.spec'")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"'object.spec'"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rewritten, err := RewriteExceptions(test.exceptions, test.config)
+			assert.NoError(t, err)
+			got := make([]string, 0)
+			for _, polex := range rewritten {
+				if len(polex.Spec.MatchConditions) > 0 {
+					got = append(got, polex.Spec.MatchConditions[0].Expression)
+				}
+				if len(polex.Spec.Validations) > 0 {
+					if polex.Spec.Validations[0].Expression != "" {
+						got = append(got, polex.Spec.Validations[0].Expression)
+					}
+					if polex.Spec.Validations[0].MessageExpression != "" {
+						got = append(got, polex.Spec.Validations[0].MessageExpression)
+					}
+				}
+			}
+			assert.Equal(t, test.want, got)
+		})
+	}
+
+	t.Run("original exceptions are not mutated", func(t *testing.T) {
+		exceptions := []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")}
+		_, err := RewriteExceptions(exceptions, autogen.AutogenDefaults)
+		assert.NoError(t, err)
+		assert.Equal(t, "object.spec.containers.exists(c, c.name == 'nginx')", exceptions[0].Spec.MatchConditions[0].Expression)
+	})
+
+	t.Run("empty exceptions returns as-is", func(t *testing.T) {
+		rewritten, err := RewriteExceptions(nil, autogen.AutogenDefaults)
+		assert.NoError(t, err)
+		assert.Nil(t, rewritten)
+	})
 }
 
 func TestGenerateCronJobRule(t *testing.T) {

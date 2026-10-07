@@ -114,6 +114,12 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
+	// policyRule matches create and update requests for the legacy kyverno.io
+	// ClusterPolicy and Policy kinds. Keep APIVersions as "v1" and "v2beta1"
+	// unchanged in 1.20 so admission coverage of legacy writes is not altered;
+	// the engine returns the 1.20 hard error on those writes (see
+	// deprecations.BuildKindError and #17491). The legacy versions are removed
+	// in 1.21.
 	policyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies", "policies"},
 		APIGroups:   []string{"kyverno.io"},
@@ -1029,6 +1035,9 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		caBundle,
 		nmpols,
 		c.celExpressionCache)...)
+	// Only the (namespaced) MutatingPolicy webhooks are reinvoked; the image
+	// verification webhooks below keep the API default.
+	mutatingPolicyWebhooks := len(validate)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -1051,7 +1060,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 
 	validate = append(validate, buildWebhookRules(cfg,
 		c.server,
-		config.ImageValidatingPolicyMutateWebhookName,
+		config.NamespacedImageValidatingPolicyMutateWebhookName,
 		"/nivpol/mutate",
 		c.servicePort,
 		caBundle,
@@ -1059,7 +1068,11 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
-	for _, w := range validate {
+	for i, w := range validate {
+		var reinvocationPolicy *admissionregistrationv1.ReinvocationPolicyType
+		if i < mutatingPolicyWebhooks {
+			reinvocationPolicy = &ifNeeded
+		}
 		mutate = append(mutate, admissionregistrationv1.MutatingWebhook{
 			Name:                    w.Name,
 			ClientConfig:            w.ClientConfig,
@@ -1070,7 +1083,9 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			ObjectSelector:          w.ObjectSelector,
 			Rules:                   sortedRules(deDuplicatedRules(w.Rules)),
 			MatchConditions:         w.MatchConditions,
+			MatchPolicy:             w.MatchPolicy,
 			TimeoutSeconds:          w.TimeoutSeconds,
+			ReinvocationPolicy:      reinvocationPolicy,
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
@@ -1348,7 +1363,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	}
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
-		config.ImageValidatingPolicyValidateWebhookName,
+		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",
 		c.servicePort,
 		caBundle,
@@ -1564,8 +1579,15 @@ func (c *controller) getNamespacedImageValidatingPolicies() ([]engineapi.Generic
 }
 
 // ivpolsNeedingMutation filters ivpol/nivpol policies to those that actually
-// require a mutating webhook (i.e. MutateDigest or VerifyDigest is enabled).
-// Both fields default to true when nil, so an unset spec always qualifies.
+// require a mutating webhook, i.e. those with MutateDigest enabled (it defaults
+// to true when nil, so an unset spec always qualifies).
+//
+// VerifyDigest is deliberately not considered here: digest pinning is the only
+// mutation the ivpol mutating webhook performs. Asserting that an image carries
+// a digest is a validation concern handled by the validating webhook (mirroring
+// v1, where VerifyDigest is enforced in the validate_image handler), so a policy
+// with mutateDigest disabled and verifyDigest enabled would otherwise get a
+// mutating webhook that can never produce a patch.
 func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.GenericPolicy {
 	result := make([]engineapi.GenericPolicy, 0, len(policies))
 	for _, p := range policies {
@@ -1574,9 +1596,7 @@ func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.Gener
 			continue
 		}
 		spec := ivpol.GetSpec()
-		mutateDigest := spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest
-		verifyDigest := spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest
-		if mutateDigest || verifyDigest {
+		if spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest {
 			result = append(result, p)
 		}
 	}

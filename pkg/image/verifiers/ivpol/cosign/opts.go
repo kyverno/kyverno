@@ -7,12 +7,15 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/sigstore/cosign/v3/pkg/blob"
@@ -62,6 +65,15 @@ const maxTrustedRootJSONSize = 1 << 20 // 1 MiB
 // pemCertBlockHeader is the PEM block header used to count certificate blocks
 // cheaply before full ASN.1 parsing.
 var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
+
+type tsaTrustedMaterial struct {
+	*root.BaseTrustedMaterial
+	timestampingAuthority *root.SigstoreTimestampingAuthority
+}
+
+func (t tsaTrustedMaterial) TimestampingAuthorities() []root.TimestampingAuthority {
+	return []root.TimestampingAuthority{t.timestampingAuthority}
+}
 
 // countPEMCertBlocks returns the number of CERTIFICATE PEM blocks in the input
 // using a cheap byte scan, so we can reject oversized chains before doing the
@@ -161,6 +173,18 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			opts.TSAIntermediateCertificates = intermediates
 			opts.TSARootCertificates = roots
 			opts.UseSignedTimestamps = true
+			if opts.TrustedMaterial != nil && len(roots) > 0 {
+				trustedMaterials := root.TrustedMaterialCollection{opts.TrustedMaterial}
+				for _, tsaRoot := range roots {
+					tsa := &root.SigstoreTimestampingAuthority{
+						Root:          tsaRoot,
+						Intermediates: intermediates,
+						Leaf:          opts.TSACertificate,
+					}
+					trustedMaterials = append(trustedMaterials, tsaTrustedMaterial{BaseTrustedMaterial: &root.BaseTrustedMaterial{}, timestampingAuthority: tsa})
+				}
+				opts.TrustedMaterial = trustedMaterials
+			}
 		}
 	}
 
@@ -173,6 +197,9 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 					IssuerRegExp:  id.IssuerRegExp,
 					SubjectRegExp: id.SubjectRegExp,
 				})
+		}
+		if err := applyAdditionalExtensions(opts, att.Keyless.AdditionalExtensions); err != nil {
+			return nil, err
 		}
 		// trust is always non-nil when att.Keyless != nil because
 		// skipSigstoreInfra requires keyOrCert=true (att.Keyless==nil).
@@ -259,6 +286,60 @@ type sigstoreTrustMaterial struct {
 	trustedRoot         *root.TrustedRoot
 	fulcioRoots         *x509.CertPool
 	fulcioIntermediates *x509.CertPool
+}
+
+// take extensions that exist in the policy's definition and use them to populate
+// attestation opts
+func applyAdditionalExtensions(opts *cosign.CheckOpts, extensions map[string]string) error {
+	// canonicalize friendly names to OIDs so that both spellings of the same
+	// extension collapse to one entry, rejecting conflicting values
+	byOID := make(map[string]string, len(extensions))
+	for _, key := range slices.Sorted(maps.Keys(extensions)) {
+		oid, ok := canonicalExtensionOID(key) // translate a friendly key to an OID
+		if !ok {
+			return fmt.Errorf("invalid certificate extension %q in additionalExtensions", key)
+		}
+		if oid == cosign.CertExtensionOIDCIssuer {
+			return fmt.Errorf("additionalExtensions key %q is not supported, use identities issuer or issuerRegExp", key)
+		}
+		value := extensions[key]
+		if prev, isDuplicated := byOID[oid]; isDuplicated && prev != value {
+			return fmt.Errorf("additionalExtensions contains conflicting values for certificate extension %s (%s): %q and %q",
+				oid, cosign.CertExtensionMap[oid], prev, value)
+		}
+		byOID[oid] = value
+	}
+	for oid, value := range byOID {
+		switch oid {
+		case cosign.CertExtensionGithubWorkflowTrigger:
+			opts.CertGithubWorkflowTrigger = value
+		case cosign.CertExtensionGithubWorkflowSha:
+			opts.CertGithubWorkflowSha = value
+		case cosign.CertExtensionGithubWorkflowName:
+			opts.CertGithubWorkflowName = value
+		case cosign.CertExtensionGithubWorkflowRepository:
+			opts.CertGithubWorkflowRepository = value
+		case cosign.CertExtensionGithubWorkflowRef:
+			opts.CertGithubWorkflowRef = value
+		}
+	}
+	return nil
+}
+
+// canonicalExtensionOID resolves an OID or its friendly name to the OID.
+func canonicalExtensionOID(key string) (string, bool) {
+	// its an oid, return that directly
+	if _, ok := cosign.CertExtensionMap[key]; ok {
+		return key, true
+	}
+	// if its a friendly name, iterate on the extensions map and check
+	// if the value is equal to the passed key, then return that map key
+	for oid, name := range cosign.CertExtensionMap {
+		if name == key {
+			return oid, true
+		}
+	}
+	return "", false
 }
 
 // initTUFAndFetch pre-reads any file-based TUF root (pure I/O), then
@@ -363,7 +444,7 @@ func sourceRemoteOpts(secretLister corev1listers.SecretLister, src *v1beta1.Sour
 		for _, s := range src.SignaturePullSecrets {
 			signaturePullSecrets = append(signaturePullSecrets, s.Name)
 		}
-		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), signaturePullSecrets...)
+		kc := regcreds.NewSecretsKeychain(secretLister, config.KyvernoNamespace(), logging.GlobalLogger(), signaturePullSecrets...)
 		opts = append(opts, remote.WithAuthFromKeychain(kc))
 	}
 	return opts, nil
