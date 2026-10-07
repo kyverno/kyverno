@@ -37,21 +37,23 @@ const maxGeneratedNameLength = 253 - len("-binding")
 // separator keeps names unique across namespace and policy name combinations.
 func ValidatingPolicyVAPName(namespace, name string) string {
 	if namespace != "" {
-		return boundGeneratedName("nvpol-"+namespace+"."+name, namespace+"/"+name)
+		return boundGeneratedName("nvpol", namespace+"."+name, namespace+"/"+name)
 	}
-	return boundGeneratedName("vpol-"+name, name)
+	return boundGeneratedName("vpol", name, name)
 }
 
-// boundGeneratedName shortens a name over maxGeneratedNameLength to a readable prefix followed by a hash of
-// key, so long names stay valid and distinct.
-func boundGeneratedName(name, key string) string {
-	if len(name) <= maxGeneratedNameLength {
+// boundGeneratedName returns kind-readable, or when that does not leave room for the "-binding" suffix, a
+// shortened name: kind followed by "h-", a readable prefix and a hash of key. Only shortened names start with
+// "<kind>h-", so they never collide with an unshortened name, and the hash keeps shortened names distinct.
+func boundGeneratedName(kind, readable, key string) string {
+	if name := kind + "-" + readable; len(name) <= maxGeneratedNameLength {
 		return name
 	}
 	sum := sha256.Sum256([]byte(key))
 	suffix := hex.EncodeToString(sum[:])[:16]
-	prefix := strings.TrimRight(name[:maxGeneratedNameLength-len(suffix)-1], "-.")
-	return prefix + "-" + suffix
+	prefix := kind + "h-"
+	readable = strings.TrimRight(readable[:maxGeneratedNameLength-len(prefix)-len(suffix)-1], "-.")
+	return prefix + readable + "-" + suffix
 }
 
 // namespacedResourceRules returns the resource rules of a namespaced policy that a generated VAP can enforce.
@@ -212,10 +214,11 @@ func BuildValidatingAdmissionPolicy(
 			})
 			matchResources.NamespaceSelector = namespaceSelector
 		}
-		matchConditions = spec.MatchConditions
-		validations = spec.Validations
+		// clone the slices that are appended to or rewritten below, the policy comes from the informer cache
+		matchConditions = slices.Clone(spec.MatchConditions)
+		validations = slices.Clone(spec.Validations)
 		auditAnnotations = spec.AuditAnnotations
-		variables = spec.Variables
+		variables = slices.Clone(spec.Variables)
 
 		// convert celexceptions if exist
 		for _, exception := range exceptions {

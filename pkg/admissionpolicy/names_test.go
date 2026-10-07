@@ -20,7 +20,10 @@ func TestValidatingPolicyVAPName(t *testing.T) {
 
 	long := ValidatingPolicyVAPName(longNamespace, longName)
 	assert.LessOrEqual(t, len(long+"-binding"), 253)
-	assert.True(t, strings.HasPrefix(long, "nvpol-"+longNamespace+"."))
+	assert.True(t, strings.HasPrefix(long, "nvpolh-"+longNamespace+"."))
+	// a shortened name never matches the unshortened name of another policy in the same namespace
+	assert.NotEqual(t, long, ValidatingPolicyVAPName(longNamespace, strings.TrimPrefix(long, "nvpolh-"+longNamespace+".")))
+	assert.NotEqual(t, long, ValidatingPolicyVAPName(longNamespace, strings.TrimPrefix(long, "nvpol-"+longNamespace+".")))
 	assert.Equal(t, long, ValidatingPolicyVAPName(longNamespace, longName), "names must be deterministic")
 	assert.NotEqual(t, long, ValidatingPolicyVAPName(longNamespace, longName[:252]+"q"), "long names must stay distinct")
 	assert.LessOrEqual(t, len(ValidatingPolicyVAPName("", longName)+"-binding"), 253)

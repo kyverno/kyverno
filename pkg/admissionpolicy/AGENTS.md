@@ -31,6 +31,7 @@ Always use `ValidatingPolicyVAPName(namespace, name)` for both the VAP and (with
 - `vpol-<name>` for a `ValidatingPolicy`, `nvpol-<namespace>.<name>` for a `NamespacedValidatingPolicy`. Namespace
   names cannot contain dots, so the `.` separator keeps names from different namespace/name pairs distinct.
 - Names are validated by the API server as DNS-1123 subdomains (253 characters). A name that would not leave room
-  for `-binding` is shortened to a readable prefix plus a hash of the source, so it stays valid and deterministic.
+  for `-binding` is shortened to `vpolh-`/`nvpolh-`, a readable prefix and a hash of the source, so it stays valid
+  and deterministic. Only shortened names use the `h-` prefixes, so they cannot collide with an unshortened name.
 
 Changing the scheme renames generated objects in existing clusters, so the old names would need cleaning up.
