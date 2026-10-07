@@ -193,10 +193,13 @@ func fetchManifestBounded(ctx context.Context, ref name.Digest, keychain authn.K
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// bound the body before anything reads it, including the error parsing of a non-200 response
+	body := io.LimitReader(resp.Body, limit+1)
+	resp.Body = io.NopCloser(body)
 	if err := transport.CheckError(resp, http.StatusOK); err != nil {
 		return nil, err
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	data, err := io.ReadAll(body)
 	if err != nil {
 		return data, err
 	}
