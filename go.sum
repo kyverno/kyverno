@@ -162,6 +162,8 @@ github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be h1:9AeTilPcZAjCFI
 github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be/go.mod h1:ySMOLuWl6zY27l47sB3qLNK6tF2fkHG55UZxx8oIVo4=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
 github.com/antlr4-go/antlr/v4 v4.13.1/go.mod h1:GKmUxMtwp6ZgGwZSva4eWPC5mS6vUAmOABFgjdkM7Nw=
+github.com/anushkagupta200615-jpg/kyvernoapi v0.0.0-20261006175104-7d9ddcc70c38 h1:VOijPO3QmU+hkcP4SWCQRruv3JphhGdc11nH3rHCMeg=
+github.com/anushkagupta200615-jpg/kyvernoapi v0.0.0-20261006175104-7d9ddcc70c38/go.mod h1:fldpQuQfCtqRNffZAS6pvS8gdizji0Y/rFCnoQ+Bay4=
 github.com/aptible/supercronic v0.2.49 h1:2zJvzDCWhlsX5S9HcOtI46Lbz7lG5nCDu+8XHMV9oxA=
 github.com/aptible/supercronic v0.2.49/go.mod h1:nPwj1l1qr575k0Q9EpttyeVwKUI1Emq3mkEIFrKBWz0=
 github.com/aquilax/truncate v1.0.1 h1:+hqGSRxnQ0F5wdPCGbi1XW4ipQ6vzpli23V9Rd+I/mc=
