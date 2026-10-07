@@ -501,5 +501,8 @@ func autogenCoveredByVAP(policy any) bool {
 	if !ok {
 		return false
 	}
+	if !toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
+		return false
+	}
 	return vpol.Spec.GenerateValidatingAdmissionPolicyEnabled() && vpol.Status.Generated
 }

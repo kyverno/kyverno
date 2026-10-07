@@ -7,12 +7,14 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
@@ -21,9 +23,9 @@ import (
 )
 
 func TestAutogenVAPName(t *testing.T) {
-	assert.Equal(t, "vpol-check-pods-autogen-defaults", autogenVAPName("check-pods", "defaults"))
-	assert.Equal(t, "vpol-check-pods-autogen-cronjobs", autogenVAPName("check-pods", "cronjobs"))
-	assert.Equal(t, "vpol-check-pods-autogen-my-key", autogenVAPName("check-pods", "My_Key"))
+	assert.Equal(t, "autogen-vpol-check-pods-defaults", autogenVAPName("check-pods", "defaults"))
+	assert.Equal(t, "autogen-vpol-check-pods-cronjobs", autogenVAPName("check-pods", "cronjobs"))
+	assert.Equal(t, "autogen-vpol-check-pods-my-key", autogenVAPName("check-pods", "My_Key"))
 
 	long := strings.Repeat("a", 250)
 	name := autogenVAPName(long, "defaults")
@@ -35,28 +37,36 @@ func TestAutogenVAPName(t *testing.T) {
 }
 
 func TestPruneStaleAutogenVAPs(t *testing.T) {
-	pol := &policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "check-pods"}}
-	owned := map[string]string{autogenSourceLabel: pol.Name}
-	vap := func(name string, lbls map[string]string) *admissionregistrationv1.ValidatingAdmissionPolicy {
-		return &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: lbls}}
+	pol := &policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "check-pods", UID: "test-uid"}}
+	owned := map[string]string{autogenSourceLabel: labelValue(pol.Name)}
+	vap := func(name string, lbls map[string]string, ownerUID string) *admissionregistrationv1.ValidatingAdmissionPolicy {
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: lbls}}
+		if ownerUID != "" {
+			vap.OwnerReferences = []metav1.OwnerReference{{UID: types.UID(ownerUID)}}
+		}
+		return vap
 	}
-	binding := func(name, policyName string, lbls map[string]string) *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
-		return &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+	binding := func(name, policyName string, lbls map[string]string, ownerUID string) *admissionregistrationv1.ValidatingAdmissionPolicyBinding {
+		binding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Labels: lbls},
 			Spec:       admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{PolicyName: policyName},
 		}
+		if ownerUID != "" {
+			binding.OwnerReferences = []metav1.OwnerReference{{UID: types.UID(ownerUID)}}
+		}
+		return binding
 	}
 	active := autogenVAPName(pol.Name, "defaults")
 	stale := autogenVAPName(pol.Name, "cronjobs")
 	objects := []any{
-		vap(active, owned),
-		binding(constructBindingName(active), active, owned),
-		vap(stale, owned),
-		binding(constructBindingName(stale), stale, owned),
+		vap(active, owned, "test-uid"),
+		binding(constructBindingName(active), active, owned, "test-uid"),
+		vap(stale, owned, "test-uid"),
+		binding(constructBindingName(stale), stale, owned, "test-uid"),
 		// orphaned binding whose VAP is already gone; its name does not follow the convention
-		binding("orphan", "vpol-check-pods-autogen-old", owned),
+		binding("orphan", "autogen-vpol-check-pods-old", owned, "test-uid"),
 		// resources owned by another policy must never be touched
-		vap("vpol-other-autogen-defaults", map[string]string{autogenSourceLabel: "other"}),
+		vap("autogen-vpol-other-defaults", map[string]string{autogenSourceLabel: labelValue("other")}, "other-uid"),
 	}
 
 	newController := func() (*controller, *fake.Clientset) {
@@ -100,7 +110,7 @@ func TestPruneStaleAutogenVAPs(t *testing.T) {
 		c, client := newController()
 		assert.NoError(t, c.pruneStaleAutogenVAPs(context.TODO(), pol, map[string]struct{}{active: {}}))
 		vapNames, bindingNames := names(client)
-		assert.ElementsMatch(t, []string{active, "vpol-other-autogen-defaults"}, vapNames)
+		assert.ElementsMatch(t, []string{active, "autogen-vpol-other-defaults"}, vapNames)
 		assert.ElementsMatch(t, []string{constructBindingName(active)}, bindingNames)
 	})
 
@@ -108,7 +118,7 @@ func TestPruneStaleAutogenVAPs(t *testing.T) {
 		c, client := newController()
 		assert.NoError(t, c.deleteAutogenVAPs(context.TODO(), pol))
 		vapNames, bindingNames := names(client)
-		assert.ElementsMatch(t, []string{"vpol-other-autogen-defaults"}, vapNames)
+		assert.ElementsMatch(t, []string{"autogen-vpol-other-defaults"}, vapNames)
 		assert.Empty(t, bindingNames)
 	})
 
@@ -160,7 +170,7 @@ func TestReconcileAutogenVAP_Update(t *testing.T) {
 		},
 	}
 
-	vapName := "vpol-test-policy-autogen-defaults"
+	vapName := "autogen-vpol-test-policy-defaults"
 	bindingName := constructBindingName(vapName)
 
 	existingVAP := &admissionregistrationv1.ValidatingAdmissionPolicy{
@@ -201,10 +211,93 @@ func TestReconcileAutogenVAP_Update(t *testing.T) {
 	updatedVAP, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.TODO(), vapName, metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, "object.spec.replicas > 0", updatedVAP.Spec.Validations[0].Expression)
-	assert.Equal(t, pol.Name, updatedVAP.Labels[autogenSourceLabel])
+	assert.Equal(t, labelValue(pol.Name), updatedVAP.Labels[autogenSourceLabel])
 
 	updatedBinding, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.TODO(), bindingName, metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, vapName, updatedBinding.Spec.PolicyName)
-	assert.Equal(t, pol.Name, updatedBinding.Labels[autogenSourceLabel])
+	assert.Equal(t, labelValue(pol.Name), updatedBinding.Labels[autogenSourceLabel])
+}
+
+func TestReconcileAutogenVAP_Creation(t *testing.T) {
+	pol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.spec.replicas > 0"},
+			},
+		},
+	}
+	vapName := "autogen-vpol-test-policy-defaults"
+	bindingName := constructBindingName(vapName)
+
+	client := fake.NewClientset()
+	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+
+	c := &controller{
+		client:           client,
+		vapLister:        admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer),
+		vapbindingLister: admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer),
+	}
+
+	autogenConfig := policiesv1beta1.ValidatingPolicyAutogen{
+		Spec: &pol.Spec,
+	}
+
+	err := c.reconcileAutogenVAP(context.TODO(), pol, vapName, "defaults", autogenConfig, nil)
+	assert.NoError(t, err)
+
+	createdVAP, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.TODO(), vapName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, "object.spec.replicas > 0", createdVAP.Spec.Validations[0].Expression)
+
+	createdBinding, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.TODO(), bindingName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, vapName, createdBinding.Spec.PolicyName)
+}
+
+func TestReconcileAutogenVAP_Exceptions(t *testing.T) {
+	pol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+		},
+	}
+	vapName := "autogen-vpol-test-policy-cronjobs"
+
+	client := fake.NewClientset()
+	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+
+	c := &controller{
+		client:           client,
+		vapLister:        admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer),
+		vapbindingLister: admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer),
+	}
+
+	autogenConfig := policiesv1beta1.ValidatingPolicyAutogen{
+		Spec: &pol.Spec,
+	}
+
+	exceptions := []engineapi.GenericException{
+		engineapi.NewCELPolicyException(&policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-ex"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{
+					{Name: "ex1", Expression: "object.spec.template.spec.containers[0].name == 'foo'"},
+				},
+			},
+		}),
+	}
+
+	err := c.reconcileAutogenVAP(context.TODO(), pol, vapName, "cronjobs", autogenConfig, exceptions)
+	assert.NoError(t, err)
+
+	createdVAP, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.TODO(), vapName, metav1.GetOptions{})
+	assert.NoError(t, err)
+
+	assert.Len(t, createdVAP.Spec.MatchConditions, 1)
+	assert.Contains(t, createdVAP.Spec.MatchConditions[0].Expression, "jobTemplate")
 }

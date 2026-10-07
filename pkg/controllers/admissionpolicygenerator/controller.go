@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -31,6 +30,7 @@ import (
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	admissionregistrationv1alpha1listers "k8s.io/client-go/listers/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1listers "k8s.io/client-go/listers/admissionregistration/v1beta1"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -221,10 +221,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 
 	polType := strings.Split(key, "/")[0]
 	if polType == "ClusterPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-		if !generateValidatingAdmissionPolicy {
-			return nil
-		}
 		cpol, err := c.getClusterPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -238,15 +234,16 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return nil
 		}
 		policy = engineapi.NewKyvernoPolicy(cpol)
+		if cpol.Status.ValidatingAdmissionPolicy.Generated {
+			if err := c.updatePolicyStatus(ctx, policy, false, "generating ValidatingAdmissionPolicies"); err != nil {
+				return err
+			}
+		}
 		err = c.handleVAPGeneration(ctx, polType, policy)
 		if err != nil {
 			return err
 		}
 	} else if polType == "ValidatingPolicy" {
-		generateValidatingAdmissionPolicy := toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy()
-		if !generateValidatingAdmissionPolicy {
-			return nil
-		}
 		vpol, err := c.getValidatingPolicy(name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -256,6 +253,11 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		policy = engineapi.NewValidatingPolicy(vpol)
+		if vpol.Status.Generated {
+			if err := c.updatePolicyStatus(ctx, policy, false, "generating ValidatingAdmissionPolicies"); err != nil {
+				return err
+			}
+		}
 		err = c.handleVAPGeneration(ctx, polType, policy)
 		if err != nil {
 			return err
@@ -284,42 +286,51 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) {
-	if pol := policy.AsKyvernoPolicy(); pol != nil {
-		cpol := pol.(*kyvernov1.ClusterPolicy)
-		latest := cpol.DeepCopy()
-		latest.Status.ValidatingAdmissionPolicy.Generated = generated
-		latest.Status.ValidatingAdmissionPolicy.Message = msg
+func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if pol := policy.AsKyvernoPolicy(); pol != nil {
+			cpol, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, pol.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			cpol.Status.ValidatingAdmissionPolicy.Generated = generated
+			cpol.Status.ValidatingAdmissionPolicy.Message = msg
 
-		new, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
-		if err != nil {
-			logging.Error(err, "failed to update cluster policy status", "name", cpol.GetName(), "status", latest.Status)
-			return
+			newPol, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, cpol, metav1.UpdateOptions{})
+			if err != nil {
+				logging.Error(err, "failed to update cluster policy status", "name", cpol.GetName(), "status", cpol.Status)
+				return err
+			}
+			logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", newPol.Status)
+		} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
+			vp, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().Get(ctx, vpol.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			vp.Status.Generated = generated
+			vp.Status.GetConditionStatus().Message = msg
+
+			newPol, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, vp, metav1.UpdateOptions{})
+			if err != nil {
+				logging.Error(err, "failed to update validating policy status", "name", vp.GetName(), "status", vp.Status)
+				return err
+			}
+			logging.V(3).Info("updated validating policy status", "name", vp.GetName(), "status", newPol.Status)
+		} else if mpol := policy.AsMutatingPolicy(); mpol != nil {
+			mp, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			mp.Status.Generated = generated
+			mp.Status.GetConditionStatus().Message = msg
+
+			newPol, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, mp, metav1.UpdateOptions{})
+			if err != nil {
+				logging.Error(err, "failed to update mutating policy status", "name", mp.GetName(), "status", mp.Status)
+				return err
+			}
+			logging.V(3).Info("updated mutating policy status", "name", mp.GetName(), "status", newPol.Status)
 		}
-		logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", new.Status)
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		latest := vpol.DeepCopy()
-		latest.Status.Generated = generated
-		latest.Status.GetConditionStatus().Message = msg
-
-		new, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
-		if err != nil {
-			logging.Error(err, "failed to update validating policy status", "name", vpol.GetName(), "status", latest.Status)
-			return
-		}
-
-		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
-	} else if mpol := policy.AsMutatingPolicy(); mpol != nil {
-		latest := mpol.DeepCopy()
-		latest.Status.Generated = generated
-		latest.Status.GetConditionStatus().Message = msg
-
-		new, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
-		if err != nil {
-			logging.Error(err, "failed to update mutating policy status", "name", mpol.GetName(), "status", latest.Status)
-			return
-		}
-
-		logging.V(3).Info("updated mutating policy status", "name", mpol.GetName(), "status", new.Status)
-	}
+		return nil
+	})
 }

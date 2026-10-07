@@ -37,7 +37,9 @@ func (c *controller) handleMAPGeneration(ctx context.Context, mpol *policiesv1be
 		logger.V(2).Info("No MutatingAdmissionPolicy lister available, skipping MAP generation", "policy", mpol.GetName())
 		if mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 			genericPolicy := engineapi.NewMutatingPolicy(mpol)
-			c.updatePolicyStatus(ctx, genericPolicy, false, "skip generating MutatingAdmissionPolicy: requested but no MutatingAdmissionPolicy API/informers are available.")
+			if err := c.updatePolicyStatus(ctx, genericPolicy, false, "skip generating MutatingAdmissionPolicy: requested but no MutatingAdmissionPolicy API/informers are available."); err != nil {
+				return err
+			}
 		}
 		return nil
 	}
@@ -49,13 +51,11 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 	genericPolicy := engineapi.NewMutatingPolicy(mpol)
 	if !admissionpolicy.HasMutatingAdmissionPolicyPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicies")
-		c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicies")
 	}
 	if !admissionpolicy.HasMutatingAdmissionPolicyBindingPermissionForVersion(version, c.checker) {
 		logger.V(2).Info("insufficient permissions to generate MutatingAdmissionPolicyBindings")
-		c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings")
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, "insufficient permissions to generate MutatingAdmissionPolicyBindings")
 	}
 
 	mapName := "mpol-" + mpol.GetName()
@@ -94,8 +94,7 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 				return err
 			}
 		}
-		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
 	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
@@ -148,8 +147,7 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 		}
 	}
 
-	c.updatePolicyStatus(ctx, genericPolicy, true, "")
-	return nil
+	return c.updatePolicyStatus(ctx, genericPolicy, true, "")
 }
 
 // mapGenerationSkipReason returns a non-empty reason when a MutatingAdmissionPolicy must not be
@@ -191,8 +189,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 				return err
 			}
 		}
-		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
 	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
@@ -247,8 +244,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 		}
 	}
 
-	c.updatePolicyStatus(ctx, genericPolicy, true, "")
-	return nil
+	return c.updatePolicyStatus(ctx, genericPolicy, true, "")
 }
 
 func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1.MutatingPolicy, mapName, mapBindingName string, shouldDelete bool, reason string, genericPolicy engineapi.GenericPolicy) error {
@@ -266,8 +262,7 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 				return err
 			}
 		}
-		c.updatePolicyStatus(ctx, genericPolicy, false, reason)
-		return nil
+		return c.updatePolicyStatus(ctx, genericPolicy, false, reason)
 	}
 
 	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
@@ -322,6 +317,5 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 		}
 	}
 
-	c.updatePolicyStatus(ctx, genericPolicy, true, "")
-	return nil
+	return c.updatePolicyStatus(ctx, genericPolicy, true, "")
 }
