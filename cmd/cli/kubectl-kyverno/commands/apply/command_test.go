@@ -1564,3 +1564,68 @@ func Test_Apply_Explain(t *testing.T) {
 		})
 	}
 }
+
+// Test_Apply_ExplainImageValidatingPolicy runs an ImageValidatingPolicy with --explain: a pod
+// that passes, one that fails, and one a match condition skips. Its images do not match
+// matchImageReferences, so nothing is fetched or verified. The trace is printed, and the results
+// are exactly the ones without --explain.
+func Test_Apply_ExplainImageValidatingPolicy(t *testing.T) {
+	const dir = "../../../../../test/cli/test-image-validating-policy/explain/"
+	run := func(explain bool) (*processor.ResultCounts, string) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{dir + "policy.yaml"},
+			ResourcePaths: []string{dir + "resources.yaml"},
+			Explain:       explain,
+		}
+		var out bytes.Buffer
+		rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+		require.NoError(t, err)
+		return rc, out.String()
+	}
+	plain, plainOut := run(false)
+	explained, output := run(true)
+
+	assert.Equal(t, 1, plain.Pass)
+	assert.Equal(t, 1, plain.Fail)
+	assert.Equal(t, plain, explained, "--explain must not change the results")
+	assert.NotContains(t, plainOut, "VERDICT ", "no trace without --explain")
+
+	for _, want := range []string{
+		"Policy:   check-images (ImageValidatingPolicy)",
+		"Resource: Pod/with-team (namespace: prod)",
+		"IMAGES     skipped  containers: docker.io/library/nginx:1.27  (not matched by matchImageReferences)",
+		"VARIABLES           team: object.metadata.?labels.?team.orValue('')  ->  payments",
+		"VERDICT    PASS     all 2 validations passed",
+		"VALIDATION FAIL     [1] variables.team != ''  ->  false",
+		`message: "pods need a team label"`,
+		`VERDICT    SKIP     match condition "not-kube-system" did not pass, so the policy was skipped`,
+	} {
+		assert.Contains(t, output, want)
+	}
+}
+
+// Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition is a JSON payload a JSON-mode
+// policy's match condition excludes. Evaluating it returns a nil result, which the apply command
+// used to read and crash on; it must report nothing, and with --explain print the skip.
+func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
+	const dir = "../../../../../test/cli/test-image-validating-policy/explain/"
+	for _, explain := range []bool{false, true} {
+		config := ApplyCommandConfig{
+			PolicyPaths: []string{dir + "json-policy.yaml"},
+			JSONPaths:   []string{dir + "payload.json"},
+			Explain:     explain,
+		}
+		var out bytes.Buffer
+		var rc *processor.ResultCounts
+		require.NotPanics(t, func() {
+			var err error
+			rc, _, _, _, err = config.applyCommandHelper(context.TODO(), &out)
+			require.NoError(t, err)
+		})
+		assert.Equal(t, processor.ResultCounts{}, *rc, "a skipped payload is not counted (explain=%v)", explain)
+		if explain {
+			assert.Contains(t, out.String(), `VERDICT    SKIP     match condition "is-production" did not pass`)
+			assert.Contains(t, out.String(), "evaluated against a JSON payload")
+		}
+	}
+}

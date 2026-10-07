@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -42,6 +44,7 @@ import (
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -242,7 +245,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
-	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy and MutatingPolicy reached its result: whether it applied, its match conditions, variables, and either its validations or the mutations it ran (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy and ImageValidatingPolicy reached its result: whether it applied, its match conditions, variables, the images it checked, and its validations or the mutations it ran (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -489,7 +492,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
+	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -686,6 +689,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 }
 
 func (c *ApplyCommandConfig) applyImageValidatingPolicies(
+	out io.Writer,
 	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
 	resources []*unstructured.Unstructured,
@@ -726,7 +730,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
-	provider, err := ivpolengine.NewProvider(eval.NewCompiler(lister), ivps, celExceptions)
+	provider, err := ivpolengine.NewProvider(eval.NewCompilerWithTrace(lister, c.Explain), ivps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -785,6 +789,12 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		}
 
 		for _, r := range engineResponse.Policies {
+			c.printTrace(out, r.Trace)
+			if r.Result.Name() == "" {
+				// a traced policy that did not apply, or that a match condition skipped: it is only
+				// returned for its trace and has no result, like the untraced run, which omits it
+				continue
+			}
 			resp.PolicyResponse.Rules = []engineapi.RuleResponse{r.Result}
 			resp = resp.WithPolicy(engineapi.NewImageValidatingPolicyFromLike(r.Policy))
 			rc.AddValidatingPolicyResponse(resp)
@@ -802,7 +812,13 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	}
 
 	for _, json := range jsonPayloads {
-		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
+		result, err := eval.EvaluateWithTrace(context.TODO(), ivpols, json.Object, nil, nil, lister, c.Explain)
+		// before the error is handled, so a policy that errored still shows how far it got
+		for _, name := range slices.Sorted(maps.Keys(result)) {
+			if rslt := result[name]; rslt != nil {
+				c.printTrace(out, rslt.Trace)
+			}
+		}
 		if err != nil {
 			if c.ContinueOnFail {
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
@@ -815,6 +831,10 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			PolicyResponse: engineapi.PolicyResponse{},
 		}
 		for p, rslt := range result {
+			if rslt == nil || rslt.Skipped {
+				// a match condition excluded the payload, so there is nothing to report
+				continue
+			}
 			if rslt.Error != nil {
 				resp.PolicyResponse.Rules = []engineapi.RuleResponse{
 					*engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy for JSON", rslt.Error, nil),
@@ -834,6 +854,16 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		}
 	}
 	return responses, nil
+}
+
+// printTrace prints one decision trace. It prints nothing unless --explain is set and the policy
+// was traced, so it is safe to call for every response.
+func (c *ApplyCommandConfig) printTrace(out io.Writer, d *trace.Decision) {
+	if !c.Explain || d == nil {
+		return
+	}
+	trace.Render(out, d)
+	fmt.Fprintln(out)
 }
 
 func (c *ApplyCommandConfig) applyDeletingPolicies(
