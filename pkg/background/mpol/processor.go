@@ -161,10 +161,20 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		}
 		if objects != nil {
 			for _, object := range objects.Items {
-				parentResource, subresource, err := p.resolveTargetRoute(object, mpol.GetTargetMatchConstraints().MatchResources)
+				parentResource, subresource, scope, err := p.resolveTargetRoute(object, mpol.GetTargetMatchConstraints().MatchResources)
 				if err != nil {
 					failures = append(failures, fmt.Errorf("failed to resolve target route for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 					continue
+				}
+				if mpolNamespace := mpol.GetNamespace(); mpolNamespace != "" {
+					if scope != meta.RESTScopeNameNamespace {
+						failures = append(failures, fmt.Errorf("target %s %s is cluster-scoped, which is not permitted for namespaced mpol %s", object.GetKind(), object.GetName(), ur.Spec.GetPolicyKey()))
+						continue
+					}
+					if object.GetNamespace() != mpolNamespace {
+						failures = append(failures, fmt.Errorf("target %s/%s/%s is outside policy namespace %s for mpol %s", object.GetNamespace(), object.GetKind(), object.GetName(), mpolNamespace, ur.Spec.GetPolicyKey()))
+						continue
+					}
 				}
 				targets = append(targets, resolvedTarget{object: object, parentResource: parentResource, subresource: subresource})
 			}
@@ -284,6 +294,18 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				}
 			}
 			new := response.PatchedResource
+			// The mutation itself must not redirect the write to a different object than the
+			// one that was resolved, confined, and just re-fetched: patching identifying fields
+			// (namespace/kind/apiVersion/name) would otherwise let a mutation escape the
+			// confinement above via the write path instead of the read/resolve path.
+			if new.GetAPIVersion() != object.GetAPIVersion() || new.GetKind() != object.GetKind() ||
+				new.GetNamespace() != object.GetNamespace() || new.GetName() != object.GetName() {
+				failures = append(failures, fmt.Errorf("mutation for mpol %s changed the target's identity from %s/%s %s/%s to %s/%s %s/%s, which is not permitted",
+					ur.Spec.GetPolicyKey(),
+					object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName(),
+					new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.GetName()))
+				continue
+			}
 			new.SetResourceVersion(object.GetResourceVersion())
 			subresources := []string{}
 			if target.subresource != "" {
@@ -307,10 +329,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 }
 
-func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constraints admissionregistrationv1.MatchResources) (schema.GroupVersionResource, string, error) {
+func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constraints admissionregistrationv1.MatchResources) (schema.GroupVersionResource, string, meta.RESTScopeName, error) {
 	mapping, err := p.mapper.RESTMapping(object.GroupVersionKind().GroupKind(), object.GroupVersionKind().Version)
 	if err != nil {
-		return schema.GroupVersionResource{}, "", err
+		return schema.GroupVersionResource{}, "", "", err
 	}
 	for _, rule := range constraints.ResourceRules {
 		for _, group := range rule.APIGroups {
@@ -327,17 +349,17 @@ func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constra
 						if len(parts) == 2 && parts[1] != "" {
 							// policy-author-controlled, and becomes a raw path segment for UpdateResource
 							if err := dclient.ValidatePathSegment("subresource", parts[1]); err != nil {
-								return schema.GroupVersionResource{}, "", fmt.Errorf("invalid target resource %q: %w", resource, err)
+								return schema.GroupVersionResource{}, "", "", fmt.Errorf("invalid target resource %q: %w", resource, err)
 							}
-							return mapping.Resource, parts[1], nil
+							return mapping.Resource, parts[1], mapping.Scope.Name(), nil
 						}
-						return mapping.Resource, "", nil
+						return mapping.Resource, "", mapping.Scope.Name(), nil
 					}
 				}
 			}
 		}
 	}
-	return mapping.Resource, "", nil
+	return mapping.Resource, "", mapping.Scope.Name(), nil
 }
 
 func (p *processor) audit(object *unstructured.Unstructured, response *mpolengine.EngineResponse) error {
@@ -407,6 +429,13 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 					gvk, err := mapper.KindFor(gvr)
 					if err != nil {
 						continue
+					}
+					if ns != "" {
+						// Namespaced policy: never resolve a cluster-scoped target kind
+						// (e.g. Namespace, ClusterRole, PersistentVolume, Node, ...).
+						if mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version); err != nil || mapping.Scope.Name() != meta.RESTScopeNameNamespace {
+							continue
+						}
 					}
 					subresource := ""
 					if parts := strings.SplitN(resource, "/", 2); len(parts) == 2 && parts[1] != "" {
