@@ -36,6 +36,8 @@ type testReferrer struct {
 	manifestArtifactType   string
 	layerMediaType         string
 	layerData              []byte
+	// skipLayerUpload leaves the layer blob out of the registry, so reading it fails
+	skipLayerUpload bool
 }
 
 // pushReferrer pushes a single-layer manifest and returns its descriptor for the fallback index.
@@ -43,21 +45,23 @@ func pushReferrer(t *testing.T, repo name.Repository, r testReferrer) v1.Descrip
 	t.Helper()
 	config := static.NewLayer([]byte("{}"), types.MediaType(ociEmptyArtifactType))
 	layer := static.NewLayer(r.layerData, types.MediaType(r.layerMediaType))
-	descriptor := func(l v1.Layer) map[string]any {
+	descriptor := func(l v1.Layer, upload bool) map[string]any {
 		digest, err := l.Digest()
 		assert.NilError(t, err)
 		size, err := l.Size()
 		assert.NilError(t, err)
 		mediaType, err := l.MediaType()
 		assert.NilError(t, err)
-		assert.NilError(t, remote.WriteLayer(repo, l))
+		if upload {
+			assert.NilError(t, remote.WriteLayer(repo, l))
+		}
 		return map[string]any{"mediaType": mediaType, "digest": digest.String(), "size": size}
 	}
 	manifest := map[string]any{
 		"schemaVersion": 2,
 		"mediaType":     types.OCIManifestSchema1,
-		"config":        descriptor(config),
-		"layers":        []any{descriptor(layer)},
+		"config":        descriptor(config, true),
+		"layers":        []any{descriptor(layer, !r.skipLayerUpload)},
 	}
 	if r.manifestArtifactType != "" {
 		manifest["artifactType"] = r.manifestArtifactType
@@ -212,6 +216,17 @@ func TestReadLayerLimits(t *testing.T) {
 	got, err = readLayer(understatedLayer{Layer: static.NewLayer(data, types.MediaType("application/json"))}, limit)
 	assert.ErrorContains(t, err, "uncompressed layer size exceeds")
 	assert.Equal(t, int64(len(got)), limit+1)
+}
+
+func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
+	t.Parallel()
+	ref := setupFallbackRegistry(t, []testReferrer{{
+		layerMediaType:  "application/json",
+		layerData:       []byte(`{"hello":"world"}`),
+		skipLayerUpload: true,
+	}})
+	_, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	assert.ErrorContains(t, err, "failed to fetch referrer")
 }
 
 func TestFetchBundlesFallbackFetchError(t *testing.T) {

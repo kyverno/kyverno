@@ -113,15 +113,19 @@ func isSigstoreBundleType(mediaType string) bool {
 	return strings.HasPrefix(mediaType, sigstoreBundleArtifactType)
 }
 
-// readLayer reads the uncompressed content of a layer, failing when either the compressed size or the
-// uncompressed content exceeds limit. On failure it still returns what was read, for accounting.
+// errLayerTooLarge reports a layer over the read limit, as opposed to a failure to fetch it.
+var errLayerTooLarge = errors.New("layer too large")
+
+// readLayer reads the uncompressed content of a layer, failing with errLayerTooLarge when either the
+// compressed size or the uncompressed content exceeds limit. On failure it still returns what was read,
+// for accounting.
 func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 	layerSize, err := layer.Size()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
 	}
 	if layerSize > limit {
-		return nil, fmt.Errorf("layer size %d exceeds %d", layerSize, limit)
+		return nil, fmt.Errorf("%w: layer size %d exceeds %d", errLayerTooLarge, layerSize, limit)
 	}
 	layerBytes, err := layer.Uncompressed()
 	if err != nil {
@@ -134,7 +138,7 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 		return data, fmt.Errorf("failed to fetch referrer layer: %w", err)
 	}
 	if int64(len(data)) > limit {
-		return data, fmt.Errorf("uncompressed layer size exceeds %d", limit)
+		return data, fmt.Errorf("%w: uncompressed layer size exceeds %d", errLayerTooLarge, limit)
 	}
 	return data, nil
 }
@@ -142,7 +146,8 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 // resolveFallbackBundle checks whether an untyped referrer holds a sigstore bundle, first from its
 // manifest artifact type and first layer media type, then by parsing a small first layer. It returns
 // the referrer image, plus the bundle content when it was read, or nil when it is not a bundle. Failing to
-// fetch the referrer is an error, as on the typed path; a layer that cannot be probed is not a bundle.
+// fetch the referrer or its layer is an error, as on the typed path; a layer that is too large to probe or
+// does not parse as a bundle is not a bundle.
 func resolveFallbackBundle(ref name.Reference, remoteOpts []remote.Option, probeBudget *int64) (v1.Image, []byte, error) {
 	img, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
@@ -172,14 +177,20 @@ func resolveFallbackBundle(ref name.Reference, remoteOpts []remote.Option, probe
 		return nil, nil, nil
 	}
 	layers, err := img.Layers()
-	if err != nil || len(layers) == 0 {
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(layers) == 0 {
 		return nil, nil, nil
 	}
 	data, err := readLayer(layers[0], limit)
 	// charge the bytes actually read, since the descriptor size does not bound the uncompressed content
 	*probeBudget -= max(int64(len(data)), layerDesc.Size)
-	if err != nil {
+	if errors.Is(err, errLayerTooLarge) {
 		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
 	}
 	b := &bundle.Bundle{}
 	if err := b.UnmarshalJSON(data); err != nil || b.Bundle == nil {
