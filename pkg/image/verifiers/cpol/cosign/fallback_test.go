@@ -40,6 +40,8 @@ type testReferrer struct {
 	layerData              []byte
 	// skipLayerUpload leaves the layer blob out of the registry, so reading it fails
 	skipLayerUpload bool
+	// descriptorSize overrides the manifest size in the fallback tag index entry
+	descriptorSize int64
 }
 
 // pushReferrer pushes a single-layer manifest and returns its descriptor for the fallback index.
@@ -73,6 +75,9 @@ func pushReferrer(t *testing.T, repo name.Repository, r testReferrer) v1.Descrip
 	digest, size, err := v1.SHA256(bytes.NewReader(body))
 	assert.NilError(t, err)
 	assert.NilError(t, remote.Put(repo.Digest(digest.String()), rawManifest{body: body, mediaType: types.OCIManifestSchema1}))
+	if r.descriptorSize != 0 {
+		size = r.descriptorSize
+	}
 	return v1.Descriptor{
 		MediaType:    types.OCIManifestSchema1,
 		Digest:       digest,
@@ -165,6 +170,14 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 			layerData:      tooLarge,
 		},
 	}, {
+		name: "untyped manifest over the probe size limit is skipped without fetching it",
+		referrer: testReferrer{
+			manifestArtifactType: bundleMediaType,
+			layerMediaType:       bundleMediaType,
+			layerData:            bundleJSON,
+			descriptorSize:       maxProbeManifestSize + 1,
+		},
+	}, {
 		name: "typed descriptor of another artifact is skipped",
 		referrer: testReferrer{
 			descriptorArtifactType: "application/vnd.example.sbom",
@@ -199,7 +212,9 @@ func TestFetchBundlesFallbackProbeBudget(t *testing.T) {
 	ref := setupFallbackRegistry(t, referrers)
 	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
 	assert.NilError(t, err)
-	assert.Equal(t, len(bundles), int(maxProbeTotalSize/int64(len(padded))))
+	// manifests are charged to the budget too, so the last layer that would just fit is skipped
+	fit := int(maxProbeTotalSize / int64(len(padded)))
+	assert.Assert(t, len(bundles) >= fit-1 && len(bundles) <= fit, "got %d bundles, want %d or %d", len(bundles), fit-1, fit)
 }
 
 func TestReadLayerLimits(t *testing.T) {

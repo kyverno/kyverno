@@ -30,8 +30,10 @@ var (
 	// maxProbeLayerSize bounds a single untyped layer read only to check whether it holds a bundle.
 	// Sigstore bundles are a few KB, so this keeps unrelated referrers cheap to skip.
 	maxProbeLayerSize = int64(1000 * 1000) // 1 MB
-	// maxProbeTotalSize bounds the untyped layer bytes probed across all referrers of one image.
+	// maxProbeTotalSize bounds the manifest and layer bytes probed across all untyped referrers of one image.
 	maxProbeTotalSize = int64(5 * 1000 * 1000) // 5 MB
+	// maxProbeManifestSize bounds an untyped referrer manifest. Sigstore bundle manifests are under 1 KB.
+	maxProbeManifestSize = int64(64 * 1000) // 64 KB
 )
 
 const (
@@ -148,10 +150,23 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 // the referrer image, plus the bundle content when it was read, or nil when it is not a bundle. Failing to
 // fetch the referrer or its layer is an error, as on the typed path; a layer that is too large to probe or
 // does not parse as a bundle is not a bundle.
-func resolveFallbackBundle(ref name.Reference, remoteOpts []remote.Option, probeBudget *int64) (v1.Image, []byte, error) {
+func resolveFallbackBundle(ref name.Reference, desc v1.Descriptor, remoteOpts []remote.Option, probeBudget *int64) (v1.Image, []byte, error) {
+	// skip manifests too large to be a bundle before fetching them
+	if desc.Size > min(maxProbeManifestSize, *probeBudget) {
+		return nil, nil, nil
+	}
 	img, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
 		return nil, nil, err
+	}
+	rawManifest, err := img.RawManifest()
+	if err != nil {
+		return nil, nil, err
+	}
+	// the descriptor size is not trusted, so check and charge what was actually fetched
+	*probeBudget -= int64(len(rawManifest))
+	if int64(len(rawManifest)) > maxProbeManifestSize {
+		return nil, nil, nil
 	}
 	manifest, err := img.Manifest()
 	if err != nil {
@@ -227,7 +242,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		// carry the artifact type, so resolve it from the referrer itself
 		if !isSigstoreBundleType(artifactType) && (artifactType == "" || artifactType == ociEmptyArtifactType) {
 			var err error
-			refImg, bundleBytes, err = resolveFallbackBundle(ref.Context().Digest(manifestDesc.Digest.String()), remoteOpts, &probeBudget)
+			refImg, bundleBytes, err = resolveFallbackBundle(ref.Context().Digest(manifestDesc.Digest.String()), manifestDesc, remoteOpts, &probeBudget)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
 			}
