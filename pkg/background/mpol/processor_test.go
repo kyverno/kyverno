@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -946,4 +947,421 @@ func TestProcess_SameNamedPolicyFromAnotherScope_DoesNotCountAsCompiled(t *testi
 	assert.Error(t, p.Process(ur))
 	assert.False(t, sc.successCalled)
 	assert.False(t, eng.evaluated)
+}
+
+// targetTrackingClient records the namespace every target list and write was issued against,
+// so a test can assert on what the processor actually asked the API server for.
+type targetTrackingClient struct {
+	dclient.Interface
+	lists  []string
+	writes []string
+}
+
+func (c *targetTrackingClient) ListResource(ctx context.Context, apiVersion, kind, namespace string, sel *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	c.lists = append(c.lists, kind+"|"+namespace)
+	return c.Interface.ListResource(ctx, apiVersion, kind, namespace, sel)
+}
+
+func (c *targetTrackingClient) UpdateResource(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool, subresources ...string) (*unstructured.Unstructured, error) {
+	u := unstructured.Unstructured{Object: obj.(map[string]interface{})}
+	c.writes = append(c.writes, kind+"|"+namespace+"/"+u.GetName())
+	return &u, nil
+}
+
+// labellingEngine returns every target with a label added, so Process always has a real patch
+// to carry through to UpdateResource.
+type labellingEngine struct{ mpolengine.Engine }
+
+func (labellingEngine) Evaluate(ctx context.Context, adm admission.Attributes, _ admissionv1.AdmissionRequest, _ mpolengine.Predicate) (mpolengine.EngineResponse, error) {
+	in := adm.GetObject().(*unstructured.Unstructured)
+	patched := in.DeepCopy()
+	patched.SetLabels(map[string]string{"mutated": "true"})
+	return mpolengine.EngineResponse{Resource: in, PatchedResource: patched}, nil
+}
+
+func (labellingEngine) GetCompiledPolicy(string) (mpolengine.Policy, error) {
+	return mpolengine.Policy{}, nil
+}
+
+func unstructuredObj(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{}
+	u.SetAPIVersion(apiVersion)
+	u.SetKind(kind)
+	if namespace != "" {
+		u.SetNamespace(namespace)
+	}
+	u.SetName(name)
+	return u
+}
+
+func namespacedTargetPolicy(name, namespace string, groups, resources []string) *policiesv1beta1.NamespacedMutatingPolicy {
+	return &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				MatchResources: admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							Rule: admissionregistrationv1alpha1.Rule{
+								APIGroups:   groups,
+								APIVersions: []string{"v1"},
+								Resources:   resources,
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+}
+
+// TestProcess_ResourceRulesConfinesNamespacedPolicyToItsOwnNamespace drives the resource-rules
+// target arm end to end for a namespaced policy. The policy's rules name a namespace-scoped CRD
+// whose Kind is "Namespace" in a non-core group, alongside a second ordinary kind.
+//
+// Deciding whether to list cluster-wide by kind *name* rather than by REST *scope* let this CRD
+// clear the policy's namespace confinement, and because the namespace was held in the loop's own
+// range variable the cleared value then applied to every later kind in the same rule set - so the
+// ConfigMap rule listed and patched ConfigMaps in every namespace. Scope is the only oracle that
+// answers this question correctly, so both the filter and the list call must use it.
+//
+// Set iteration order decides which kind is visited first, so this runs several times.
+
+// TestProcess_ResourceRulesConfinesNamespacedPolicyToItsOwnNamespace drives the resource-rules
+// target arm end to end for a namespaced policy. The policy's rules name a namespace-scoped CRD
+// whose Kind is "Namespace" in a non-core group, alongside a second ordinary kind.
+//
+// Deciding whether to list cluster-wide by kind *name* rather than by REST *scope* let this CRD
+// clear the policy's namespace confinement, and because the namespace was held in the loop's own
+// range variable the cleared value then applied to every later kind in the same rule set - so the
+// ConfigMap rule listed and patched ConfigMaps in every namespace. Scope is the only oracle that
+// answers this question correctly, so both the filter and the list call must use it.
+//
+// Set iteration order decides which kind is visited first, so this runs several times.
+func TestProcess_ResourceRulesConfinesNamespacedPolicyToItsOwnNamespace(t *testing.T) {
+	crdGV := schema.GroupVersion{Group: "foo.example.com", Version: "v1"}
+	rbacGV := schema.GroupVersion{Group: "rbac.authorization.k8s.io", Version: "v1"}
+	scheme := runtime.NewScheme()
+	for _, gvk := range []schema.GroupVersionKind{
+		{Version: "v1", Kind: "ConfigMap"}, {Version: "v1", Kind: "Namespace"},
+		crdGV.WithKind("Namespace"), rbacGV.WithKind("ClusterRole"),
+	} {
+		scheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+		scheme.AddKnownTypeWithName(gvk.GroupVersion().WithKind(gvk.Kind+"List"), &unstructured.UnstructuredList{})
+	}
+
+	for i := 0; i < 20; i++ {
+		fakeClient, err := dclient.NewFakeClient(scheme,
+			map[schema.GroupVersionResource]string{
+				{Version: "v1", Resource: "configmaps"}:                                       "ConfigMapList",
+				{Version: "v1", Resource: "namespaces"}:                                       "NamespaceList",
+				{Group: "foo.example.com", Version: "v1", Resource: "namespaces"}:             "NamespaceList",
+				{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterroles"}: "ClusterRoleList",
+			},
+			// collectGVK confirms the policy's namespace exists before resolving any target.
+			unstructuredObj("v1", "Namespace", "", "ns1"),
+			unstructuredObj("v1", "ConfigMap", "ns1", "mine"),
+			unstructuredObj("v1", "ConfigMap", "victim-ns", "victim-cm"),
+			unstructuredObj("foo.example.com/v1", "Namespace", "ns1", "crd-instance"),
+			unstructuredObj("rbac.authorization.k8s.io/v1", "ClusterRole", "", "cluster-admin"),
+		)
+		assert.NoError(t, err)
+		fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+		tc := &targetTrackingClient{Interface: fakeClient}
+
+		m := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}, crdGV, rbacGV})
+		m.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+		// core v1 Namespace is deliberately absent from the mapper: with it, KindFor for
+		// "/v1 namespaces" is ambiguous against the CRD below and resolves to neither.
+		// genuinely namespace-scoped, so a REST-scope filter keeps it despite the name
+		m.Add(crdGV.WithKind("Namespace"), meta.RESTScopeNamespace)
+		// genuinely cluster-scoped, so it must be dropped for a namespaced policy
+		m.Add(rbacGV.WithKind("ClusterRole"), meta.RESTScopeRoot)
+
+		nmpol := namespacedTargetPolicy("confined", "ns1",
+			[]string{"foo.example.com", "", "rbac.authorization.k8s.io"},
+			[]string{"namespaces", "configmaps", "clusterroles"})
+
+		p := NewProcessor(tc, fake.NewSimpleClientset(nmpol), labellingEngine{}, m,
+			&libs.FakeContextProvider{}, &fakeStatusControl{}, event.NewFake(), nil)
+
+		assert.NoError(t, p.Process(&kyvernov2.UpdateRequest{
+			ObjectMeta: metav1.ObjectMeta{Name: "ur-confined", Namespace: "kyverno"},
+			Spec:       kyvernov2.UpdateRequestSpec{Policy: "ns1/confined"},
+		}))
+
+		// Without these the assertions below hold vacuously: an empty client or a failed
+		// namespace lookup resolves nothing, and every "all writes are in ns1" check passes.
+		assert.NotEmpty(t, tc.lists, "test resolved no targets at all, so it proves nothing")
+		assert.NotEmpty(t, tc.writes, "test wrote nothing at all, so it proves nothing")
+		for _, l := range tc.lists {
+			assert.True(t, strings.HasSuffix(l, "|ns1"),
+				"every target list must be confined to the policy namespace, got %q (all: %v)", l, tc.lists)
+		}
+		for _, w := range tc.writes {
+			assert.True(t, strings.HasPrefix(w, "ConfigMap|ns1/"),
+				"namespaced policy wrote outside its namespace: %q (all: %v)", w, tc.writes)
+		}
+	}
+}
+
+// TestProcess_ResourceRulesRecordsFailureForDroppedClusterScopedKind: dropping a cluster-scoped
+// kind from a namespaced policy's rules must be reported, not silent. Otherwise a policy whose
+// only rule is cluster-scoped resolves no targets and the UpdateRequest is marked Succeeded
+// having done nothing, leaving the operator no signal. The expression arm already records a
+// failure for the same condition.
+
+// TestProcess_ResourceRulesRecordsFailureForDroppedClusterScopedKind: dropping a cluster-scoped
+// kind from a namespaced policy's rules must be reported, not silent. Otherwise a policy whose
+// only rule is cluster-scoped resolves no targets and the UpdateRequest is marked Succeeded
+// having done nothing, leaving the operator no signal. The expression arm already records a
+// failure for the same condition.
+func TestProcess_ResourceRulesRecordsFailureForDroppedClusterScopedKind(t *testing.T) {
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Version: "v1", Kind: "NamespaceList"}, &unstructured.UnstructuredList{})
+	fakeClient, err := dclient.NewFakeClient(scheme,
+		map[schema.GroupVersionResource]string{{Version: "v1", Resource: "namespaces"}: "NamespaceList"},
+		unstructuredObj("v1", "Namespace", "", "ns1"))
+	assert.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	m := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	m.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+
+	nmpol := namespacedTargetPolicy("cluster-rule", "ns1", []string{""}, []string{"namespaces"})
+
+	sc := &fakeStatusControl{}
+	p := NewProcessor(fakeClient, fake.NewSimpleClientset(nmpol), labellingEngine{}, m,
+		&libs.FakeContextProvider{}, sc, event.NewFake(), nil)
+
+	assert.NoError(t, p.Process(&kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-dropped", Namespace: "kyverno"},
+		Spec:       kyvernov2.UpdateRequestSpec{Policy: "ns1/cluster-rule"},
+	}))
+
+	assert.True(t, sc.failedCalled, "dropping the only target rule must be reported, not silently succeed")
+	assert.False(t, sc.successCalled)
+	assert.Contains(t, sc.failedMsg, "cluster-scoped")
+}
+
+// TestProcess_ClusterScopedPolicyStillTargetsClusterScopedKinds is the regression guard for the
+// confinement above: MutatingPolicy and NamespacedMutatingPolicy share one spec type, and a
+// cluster-scoped MutatingPolicy mutating every Namespace is its legitimate job.
+
+// TestProcess_ClusterScopedPolicyStillTargetsClusterScopedKinds is the regression guard for the
+// confinement above: MutatingPolicy and NamespacedMutatingPolicy share one spec type, and a
+// cluster-scoped MutatingPolicy mutating every Namespace is its legitimate job.
+func TestProcess_ClusterScopedPolicyStillTargetsClusterScopedKinds(t *testing.T) {
+	scheme := runtime.NewScheme()
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, &unstructured.Unstructured{})
+	scheme.AddKnownTypeWithName(schema.GroupVersionKind{Version: "v1", Kind: "NamespaceList"}, &unstructured.UnstructuredList{})
+	fakeClient, err := dclient.NewFakeClient(scheme,
+		map[schema.GroupVersionResource]string{{Version: "v1", Resource: "namespaces"}: "NamespaceList"},
+		unstructuredObj("v1", "Namespace", "", "ns1"), unstructuredObj("v1", "Namespace", "", "ns2"))
+	assert.NoError(t, err)
+	fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	tc := &targetTrackingClient{Interface: fakeClient}
+
+	m := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	m.Add(schema.GroupVersionKind{Version: "v1", Kind: "Namespace"}, meta.RESTScopeRoot)
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "psa-label"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				MatchResources: admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							Rule: admissionregistrationv1alpha1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"namespaces"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	p := NewProcessor(tc, fake.NewSimpleClientset(mpol), labellingEngine{}, m,
+		&libs.FakeContextProvider{}, &fakeStatusControl{}, event.NewFake(), nil)
+
+	assert.NoError(t, p.Process(&kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-cluster", Namespace: "kyverno"},
+		Spec:       kyvernov2.UpdateRequestSpec{Policy: "psa-label"},
+	}))
+
+	assert.Equal(t, []string{"Namespace|"}, tc.lists, "cluster-scoped policy must list cluster-wide")
+	assert.Len(t, tc.writes, 2, "cluster-scoped policy must still mutate every Namespace")
+}
+
+// TestCollectGVK_FailsClosedWhenRESTScopeIsUnknown: a kind the mapper can name but cannot map
+// has an unknown REST scope, and an unknown scope must never be treated as safe to list
+// cluster-wide. It is dropped, and reported rather than dropped silently.
+
+// TestCollectGVK_FailsClosedWhenRESTScopeIsUnknown: a kind the mapper can name but cannot map
+// has an unknown REST scope, and an unknown scope must never be treated as safe to list
+// cluster-wide. It is dropped, and reported rather than dropped silently.
+func TestCollectGVK_FailsClosedWhenRESTScopeIsUnknown(t *testing.T) {
+	// unmappableMapper resolves the kind but refuses to map it, which is what a partially
+	// discovered CRD looks like to the processor.
+	mapper := &unmappableMapper{RESTMapper: meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})}
+	mapper.RESTMapper.(*meta.DefaultRESTMapper).Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+				Rule: admissionregistrationv1alpha1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"configmaps"},
+				},
+			},
+		}},
+	}
+
+	for _, policyNS := range []string{"ns1", ""} {
+		result, skipped := collectGVK(&fakeNSClient{Interface: dclient.NewEmptyFakeClient()}, mapper, constraints, policyNS)
+		for _, set := range result {
+			assert.Equal(t, 0, set.Len(), "a kind with no REST mapping must not be resolved (policy namespace %q)", policyNS)
+		}
+		assert.Error(t, skipped, "dropping a kind with an unknown REST scope must be reported")
+		assert.Contains(t, skipped.Error(), "REST scope")
+	}
+}
+
+type unmappableMapper struct {
+	meta.RESTMapper
+}
+
+func (unmappableMapper) RESTMapping(schema.GroupKind, ...string) (*meta.RESTMapping, error) {
+	return nil, errors.New("no matches for kind")
+}
+
+// TestCollectGVK_ReportsWhenNoKindResolves: resource rules are a group x version x resource
+// cross-product, so individual KindFor misses are expected and not worth reporting. But when
+// the whole rule set resolves nothing - a misspelled resource, a CRD that was never discovered -
+// the policy would otherwise resolve no targets and the UpdateRequest would report Succeeded
+// having done nothing.
+func TestCollectGVK_ReportsWhenNoKindResolves(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+				Rule: admissionregistrationv1alpha1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"widgets"}, // no such resource
+				},
+			},
+		}},
+	}
+
+	_, skipped := collectGVK(&fakeNSClient{Interface: dclient.NewEmptyFakeClient()}, mapper, constraints, "ns1")
+	assert.Error(t, skipped, "a rule set that resolves no kind at all must be reported")
+	assert.Contains(t, skipped.Error(), "no target kinds could be resolved")
+}
+
+// TestProcess_ClusterScopedKindListedOnceUnderNamespaceSelector: a cluster-scoped kind is the
+// same set of objects whichever selected namespace led to it, so a cluster policy with a
+// namespaceSelector must list it once, not once per matched namespace. Otherwise every target
+// is resolved and written once per namespace the selector matched.
+
+// TestProcess_ClusterScopedKindListedOnceUnderNamespaceSelector: a cluster-scoped kind is the
+// same set of objects whichever selected namespace led to it, so a cluster policy with a
+// namespaceSelector must list it once, not once per matched namespace. Otherwise every target
+// is resolved and written once per namespace the selector matched.
+func TestProcess_ClusterScopedKindListedOnceUnderNamespaceSelector(t *testing.T) {
+	// A stub rather than the fake dynamic client: this test is about how many times
+	// ListResource is called, and the fake discovery client cannot resolve a non-core GVR.
+	sc := &scriptedListClient{
+		Interface:    dclient.NewEmptyFakeClient(),
+		namespaces:   []string{"ns1", "ns2", "ns3"},
+		clusterRoles: []string{"cluster-admin"},
+	}
+
+	m := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}, {Group: "rbac.authorization.k8s.io", Version: "v1"}})
+	m.Add(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRole"}, meta.RESTScopeRoot)
+
+	// Cluster-scoped policy whose namespaceSelector matches three namespaces, targeting a
+	// cluster-scoped kind.
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-roles"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{
+				MatchResources: admissionregistrationv1.MatchResources{
+					NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"tier": "app"}},
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1alpha1.RuleWithOperations{
+							Rule: admissionregistrationv1alpha1.Rule{
+								APIGroups:   []string{"rbac.authorization.k8s.io"},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"clusterroles"},
+							},
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	p := NewProcessor(sc, fake.NewSimpleClientset(mpol), labellingEngine{}, m,
+		&libs.FakeContextProvider{}, &fakeStatusControl{}, event.NewFake(), nil)
+
+	assert.NoError(t, p.Process(&kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-dedupe", Namespace: "kyverno"},
+		Spec:       kyvernov2.UpdateRequestSpec{Policy: "cluster-roles"},
+	}))
+
+	assert.Equal(t, 1, sc.clusterRoleLists,
+		"a cluster-scoped kind must be listed once, not once per selected namespace")
+	assert.Equal(t, []string{"cluster-admin"}, sc.written)
+}
+
+// scriptedListClient answers just the calls this dedupe test needs, counting how many times the
+// cluster-scoped kind was listed.
+
+// scriptedListClient answers just the calls this dedupe test needs, counting how many times the
+// cluster-scoped kind was listed.
+type scriptedListClient struct {
+	dclient.Interface
+	namespaces       []string
+	clusterRoles     []string
+	clusterRoleLists int
+	written          []string
+}
+
+func (c *scriptedListClient) ListResource(_ context.Context, apiVersion, kind, namespace string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	out := &unstructured.UnstructuredList{}
+	switch kind {
+	case "Namespace":
+		for _, n := range c.namespaces {
+			out.Items = append(out.Items, *unstructuredObj("v1", "Namespace", "", n))
+		}
+	case "ClusterRole":
+		c.clusterRoleLists++
+		for _, n := range c.clusterRoles {
+			out.Items = append(out.Items, *unstructuredObj(apiVersion, "ClusterRole", "", n))
+		}
+	}
+	return out, nil
+}
+
+func (c *scriptedListClient) GetResource(_ context.Context, apiVersion, kind, namespace, name string, _ ...string) (*unstructured.Unstructured, error) {
+	return unstructuredObj(apiVersion, kind, namespace, name), nil
+}
+
+func (c *scriptedListClient) UpdateResource(_ context.Context, _, _, _ string, obj interface{}, _ bool, _ ...string) (*unstructured.Unstructured, error) {
+	u := unstructured.Unstructured{Object: obj.(map[string]interface{})}
+	c.written = append(c.written, u.GetName())
+	return &u, nil
+}
+
+func labelled(u *unstructured.Unstructured, labels map[string]string) *unstructured.Unstructured {
+	u.SetLabels(labels)
+	return u
 }
