@@ -42,6 +42,8 @@ type testReferrer struct {
 	skipLayerUpload bool
 	// descriptorSize overrides the manifest size in the fallback tag index entry
 	descriptorSize int64
+	// manifestPadding adds an annotation of this many bytes to the manifest
+	manifestPadding int
 }
 
 // pushReferrer pushes a single-layer manifest and returns its descriptor for the fallback index.
@@ -69,6 +71,9 @@ func pushReferrer(t *testing.T, repo name.Repository, r testReferrer) v1.Descrip
 	}
 	if r.manifestArtifactType != "" {
 		manifest["artifactType"] = r.manifestArtifactType
+	}
+	if r.manifestPadding > 0 {
+		manifest["annotations"] = map[string]string{"padding": strings.Repeat("x", r.manifestPadding)}
 	}
 	body, err := json.Marshal(manifest)
 	assert.NilError(t, err)
@@ -178,6 +183,15 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 			descriptorSize:       maxProbeManifestSize + 1,
 		},
 	}, {
+		name: "manifest larger than its understated index size is skipped without downloading it",
+		referrer: testReferrer{
+			manifestArtifactType: bundleMediaType,
+			layerMediaType:       bundleMediaType,
+			layerData:            bundleJSON,
+			descriptorSize:       100,
+			manifestPadding:      int(maxProbeManifestSize),
+		},
+	}, {
 		name: "typed descriptor of another artifact is skipped",
 		referrer: testReferrer{
 			descriptorArtifactType: "application/vnd.example.sbom",
@@ -213,6 +227,28 @@ func TestFetchBundlesFallbackProbeBudget(t *testing.T) {
 	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
 	assert.NilError(t, err)
 	// manifests are charged to the budget too, so the last layer that would just fit is skipped
+	fit := int(maxProbeTotalSize / int64(len(padded)))
+	assert.Assert(t, len(bundles) >= fit-1 && len(bundles) <= fit, "got %d bundles, want %d or %d", len(bundles), fit-1, fit)
+}
+
+func TestFetchBundlesFallbackTypedReferrersShareBudget(t *testing.T) {
+	t.Parallel()
+	bundleJSON, err := os.ReadFile("testdata/bundle.json")
+	assert.NilError(t, err)
+	// referrers recognized by their media type are read within the shared probe budget too
+	padded := append(bytes.Clone(bundleJSON), bytes.Repeat([]byte(" "), int(maxProbeLayerSize)-len(bundleJSON)-1)...)
+	count := int(maxProbeTotalSize/maxProbeLayerSize) + 2
+	referrers := make([]testReferrer, count)
+	for i := range referrers {
+		referrers[i] = testReferrer{
+			manifestArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+			layerMediaType:       "application/json",
+			layerData:            padded,
+		}
+	}
+	ref := setupFallbackRegistry(t, referrers)
+	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	assert.NilError(t, err)
 	fit := int(maxProbeTotalSize / int64(len(padded)))
 	assert.Assert(t, len(bundles) >= fit-1 && len(bundles) <= fit, "got %d bundles, want %d or %d", len(bundles), fit-1, fit)
 }

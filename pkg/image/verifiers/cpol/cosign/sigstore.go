@@ -155,6 +155,15 @@ func resolveFallbackBundle(ref name.Reference, desc v1.Descriptor, remoteOpts []
 	if desc.Size > min(maxProbeManifestSize, *probeBudget) {
 		return nil, nil, nil
 	}
+	// the index entry is written by the image owner, so also check the size the registry reports before
+	// downloading the manifest
+	head, err := remote.Head(ref, remoteOpts...)
+	if err != nil {
+		return nil, nil, err
+	}
+	if head.Size > min(maxProbeManifestSize, *probeBudget) {
+		return nil, nil, nil
+	}
 	img, err := remote.Image(ref, remoteOpts...)
 	if err != nil {
 		return nil, nil, err
@@ -237,6 +246,8 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		artifactType := manifestDesc.ArtifactType
 		var refImg v1.Image
 		var bundleBytes []byte
+		// referrers resolved on the fallback path are read within the probe budget
+		fromFallback := false
 
 		// registries without the referrers API serve a fallback tag index whose descriptors may not
 		// carry the artifact type, so resolve it from the referrer itself
@@ -248,6 +259,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 			}
 			if refImg != nil {
 				artifactType = sigstoreBundleArtifactType
+				fromFallback = true
 			}
 		}
 
@@ -270,7 +282,20 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 			if len(layers) == 0 {
 				return nil, nil, fmt.Errorf("layers not found")
 			}
-			bundleBytes, err = readLayer(layers[0], maxLayerSize)
+			limit := maxLayerSize
+			if fromFallback {
+				limit = min(maxLayerSize, probeBudget)
+				if limit <= 0 {
+					continue
+				}
+			}
+			bundleBytes, err = readLayer(layers[0], limit)
+			if fromFallback {
+				probeBudget -= int64(len(bundleBytes))
+				if errors.Is(err, errLayerTooLarge) {
+					continue
+				}
+			}
 			if err != nil {
 				return nil, nil, err
 			}
