@@ -2,6 +2,7 @@ package admissionpolicy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -70,12 +71,25 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 		for _, group := range rule.APIGroups {
 			for _, version := range rule.APIVersions {
 				for _, resource := range rule.Resources {
+					// these go straight into a GVR with no mapper lookup, and the dynamic
+					// client joins them into the request path with path.Join, which resolves
+					// ".." - skip rather than reinterpret, so an inert rule stays inert
+					if isUnsafeGVRSegment(group) || isUnsafeGVRSegment(version) || isUnsafeGVRSegment(resource) {
+						vapLogger.Error(errors.New("unsafe api path segment"), fmt.Sprintf("skipping resource for group %s, version %s, resource %s", group, version, resource))
+						continue
+					}
 					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: version, Resource: resource})
 				}
 			}
 		}
 	}
 	return gvrList
+}
+
+// isUnsafeGVRSegment reports whether a policy-supplied GVR component cannot be
+// used as a URL path segment. An empty component keeps its existing meaning.
+func isUnsafeGVRSegment(value string) bool {
+	return value != "" && dclient.ValidatePathSegment("resource", value) != nil
 }
 
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
