@@ -408,36 +408,33 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 
 		// extract.buildPod injects placeholder metadata.name/namespace
 		// (borrowed from the parent) whenever the real template declared
-		// neither. Those placeholders must not appear in the diff in
-		// either direction: present only on "before" looks like a
-		// removal, present only on "after" looks like an add. Strip the
-		// placeholder from whichever side still carries its exact
-		// placeholder value, so only changes the policy actually made
-		// show up in podPatch.
-		placeholderName, placeholderNamespace := attr.GetName(), attr.GetNamespace()
-		stripSyntheticMetadata := func(u *unstructured.Unstructured) *unstructured.Unstructured {
-			out := u.DeepCopy()
-			m, hadMetadata := tpl.Template["metadata"].(map[string]any)
-			_, declaredName := m["name"]
-			_, declaredNamespace := m["namespace"]
-			if !hadMetadata {
-				declaredName, declaredNamespace = false, false
-			}
-			if !declaredName {
-				if name, _, _ := unstructured.NestedString(out.Object, "metadata", "name"); name == placeholderName {
-					unstructured.RemoveNestedField(out.Object, "metadata", "name")
+		// neither. Those placeholders must never appear in the diff: a
+		// mutation that doesn't touch metadata would otherwise show up as
+		// a spurious add/remove once rebased onto the real object. Rather
+		// than guessing from the value (a deliberate mutation could
+		// coincidentally choose the same value as the placeholder), strip
+		// a field only when it's untouched on BOTH sides - i.e. present
+		// with the exact same value before and after - since any
+		// deliberate mutation changes something, even if only re-asserting
+		// the same value would be indistinguishable from a no-op anyway.
+		stripUntouchedPlaceholder := func(before, after *unstructured.Unstructured, field string) {
+			if _, hadMetadata := tpl.Template["metadata"].(map[string]any); hadMetadata {
+				if m := tpl.Template["metadata"].(map[string]any); m[field] != nil {
+					return
 				}
 			}
-			if !declaredNamespace {
-				if ns, _, _ := unstructured.NestedString(out.Object, "metadata", "namespace"); ns == placeholderNamespace {
-					unstructured.RemoveNestedField(out.Object, "metadata", "namespace")
-				}
+			beforeVal, beforeFound, _ := unstructured.NestedString(before.Object, "metadata", field)
+			afterVal, afterFound, _ := unstructured.NestedString(after.Object, "metadata", field)
+			if beforeFound && afterFound && beforeVal == afterVal {
+				unstructured.RemoveNestedField(before.Object, "metadata", field)
+				unstructured.RemoveNestedField(after.Object, "metadata", field)
 			}
-			return out
 		}
 
-		beforeForDiff := stripSyntheticMetadata(beforeUnstr)
-		afterForDiff := stripSyntheticMetadata(result.PatchedResource)
+		beforeForDiff := beforeUnstr.DeepCopy()
+		afterForDiff := result.PatchedResource.DeepCopy()
+		stripUntouchedPlaceholder(beforeForDiff, afterForDiff, "name")
+		stripUntouchedPlaceholder(beforeForDiff, afterForDiff, "namespace")
 
 		beforeBytes, err := beforeForDiff.MarshalJSON()
 		if err != nil {
