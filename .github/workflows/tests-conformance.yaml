@@ -305,7 +305,6 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1alpha1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy,legacy-policies
-          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-alpha
 
@@ -322,7 +321,6 @@ jobs:
           k8s-version: ${{ matrix.k8s-version }}
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,generate-mutating-admission-policy,legacy-policies
-          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy
 
@@ -338,7 +336,6 @@ jobs:
         with:
           k8s-version: ${{ matrix.k8s-version }}
           kyverno-configs: standard,generate-mutating-admission-policy,legacy-policies
-          quarantined-tests: applyconfiguration
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: generate-mutating-admission-policy-v1
 
