@@ -992,6 +992,9 @@ func TestCheckOptions_Keyless_InlineTrustedRoot_SkipsTUF(t *testing.T) {
 	noFulcioJSON, err := os.ReadFile("testdata/no-fulcio.json")
 	require.NoError(t, err)
 
+	retiredFulcioJSON, err := os.ReadFile("testdata/retired-fulcio.json")
+	require.NoError(t, err)
+
 	ctx := context.TODO()
 	baseROpts, baseNOpts := baseOpts()
 
@@ -1037,6 +1040,14 @@ func TestCheckOptions_Keyless_InlineTrustedRoot_SkipsTUF(t *testing.T) {
 			expectedIgnoreSCT:  false,
 			expectRekorClient:  true,
 			expectedRootCount:  1,
+		},
+		{
+			name:               "retired fulcio roots are accepted",
+			trustedRoot:        string(retiredFulcioJSON),
+			ctLog:              &v1beta1.CTLog{InsecureIgnoreTlog: true, InsecureIgnoreSCT: true},
+			expectedIgnoreTlog: true,
+			expectedIgnoreSCT:  true,
+			expectedRootCount:  0,
 		},
 		{
 			name:              "explicit roots overrides missing fulcio ca",

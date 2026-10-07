@@ -116,6 +116,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 
 	var err error
 	var trust *sigstoreTrustMaterial
+	var inlineRoot *root.TrustedRoot
 	opts := &cosign.CheckOpts{
 		RegistryClientOpts: cosignRemoteOpts,
 	}
@@ -162,6 +163,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 
 		var rekorKeys, ctlogKeys *cosign.TrustedTransparencyLogPubKeys
 		if tr, ok := trustedMaterial.(*root.TrustedRoot); ok {
+			inlineRoot = tr
 			// Ignore errors here: an inline root might legitimately lack Rekor/CTLog keys.
 			// If they are missing but required for verification, Cosign will fail appropriately later.
 			rekorKeys, _ = rekorPubsFromTrustedRoot(tr)
@@ -241,9 +243,7 @@ func checkOptions(ctx context.Context, att *v1beta1.Cosign, baseROpts []remote.O
 			opts.RootCerts = trust.fulcioRoots
 			opts.IntermediateCerts = trust.fulcioIntermediates
 		} else if hasOfflineRoot {
-			tm, _ := resolveTrustedMaterial(att, nil)
-			tr := tm.(*root.TrustedRoot)
-			roots, intermediates, err := fulcioRootsFromTrustedRoot(tr)
+			roots, intermediates, err := fulcioRootsFromTrustedRoot(inlineRoot)
 			if err != nil && att.Keyless.Roots == "" {
 				return nil, fmt.Errorf("failed to extract Fulcio roots from inline trustedRoot: %w", err)
 			}
@@ -693,9 +693,6 @@ func fulcioRootsFromTrustedRoot(tr *root.TrustedRoot) (*x509.CertPool, *x509.Cer
 				intermediates.AddCert(inter)
 			}
 		}
-	}
-	if rootsAdded == 0 {
-		return nil, nil, fmt.Errorf("no Fulcio root certificates found in trusted root")
 	}
 	return roots, intermediates, nil
 }
