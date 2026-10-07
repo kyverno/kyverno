@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: autogen-daemonset-background
+spec:
+  concurrent: false
+  steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+  - name: create policy
+    try:
+    - create:
+        file: policy.yaml
+    - assert:
+        file: policy-assert.yaml
+  - name: create privileged daemonset
+    try:
+    - create:
+        file: daemonset.yaml
+    - sleep:
+        duration: 10s
+  - name: check report for the skipped daemonset
+    try:
+    - assert:
+        file: skip-report-assert.yaml

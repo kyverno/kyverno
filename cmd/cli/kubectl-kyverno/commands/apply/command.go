@@ -30,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -97,6 +98,7 @@ type ApplyCommandConfig struct {
 	Stdin                     bool
 	RegistryAccess            bool
 	AuditWarn                 bool
+	Explain                   bool
 	ResourcePaths             []string
 	PolicyPaths               []string
 	TargetResourcePaths       []string
@@ -240,6 +242,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy reached its result: whether it applied, its match conditions, variables and validations (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -616,6 +619,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -657,6 +661,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -704,10 +709,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		// This informer will automatically die at the end of this function and thats ok,
 		// we don't care about it past applying image validating policies anyways
 		defer close(stopCh)
+		secretsInformer := informerFactory.Core().V1().Secrets()
 		informerFactory.Start(stopCh)
 		informerFactory.WaitForCacheSync(stopCh)
 
-		lister = informerFactory.Core().V1().Secrets().Lister()
+		lister = secretsInformer.Lister()
 	}
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -1321,6 +1327,30 @@ func hasStdinPath(paths []string) bool {
 	return false
 }
 
+// checkExplainCompatible rejects --explain alongside the flags whose stdout is meant for another
+// program (a policy report or generated exceptions to parse, or a mutated resource to pipe into
+// kubectl). The trace is human-readable text written to the same stdout, so mixing the two would
+// leave that output unparseable. These are the same modes that already suppress the
+// "Applying N policy rule(s)" banner.
+func (c *ApplyCommandConfig) checkExplainCompatible() error {
+	if !c.Explain {
+		return nil
+	}
+	for _, f := range []struct {
+		set  bool
+		name string
+	}{
+		{c.PolicyReport, "--policy-report"},
+		{c.GenerateExceptions, "--generate-exceptions"},
+		{c.Stdin, "--stdin"},
+	} {
+		if f.set {
+			return fmt.Errorf("--explain cannot be used with %s: %s output must stay machine-readable, and the trace would be mixed into it", f.name, f.name)
+		}
+	}
+	return nil
+}
+
 func (c *ApplyCommandConfig) checkArguments() error {
 	if c.ValuesFile != "" && c.Variables != nil {
 		return fmt.Errorf("pass the values either using set flag or values_file flag")
@@ -1330,6 +1360,9 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	}
 	if hasStdinPath(c.PolicyPaths) && hasStdinPath(c.ResourcePaths) {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
+	}
+	if err := c.checkExplainCompatible(); err != nil {
+		return err
 	}
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
 		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
@@ -1358,11 +1391,21 @@ func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
 }
 
+func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	return resource.FlattenResources(resources)
+}
+
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
 	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
 	allResources = append(allResources, resources...)
 	allResources = append(allResources, targetResources...)
 	allResources = append(allResources, parameterResources...)
+
+	flatResources, err := flattenResources(allResources)
+	if err != nil {
+		return nil, err
+	}
+	allResources = flatResources
 
 	gvrToListKind := make(map[schema.GroupVersionResource]string)
 	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from

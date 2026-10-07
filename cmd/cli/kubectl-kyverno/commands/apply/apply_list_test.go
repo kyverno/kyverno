@@ -1,0 +1,80 @@
+package apply
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestApply_KindListResource(t *testing.T) {
+	tempDir := t.TempDir()
+
+	policyPath := filepath.Join(tempDir, "policy.yaml")
+	policyContent := `apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-labels
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["services"]
+  validations:
+    - expression: "has(object.metadata.labels) && 'testlabel' in object.metadata.labels"
+      message: The label is required.
+`
+	require.NoError(t, os.WriteFile(policyPath, []byte(policyContent), 0o644))
+
+	resourcePath := filepath.Join(tempDir, "list.yaml")
+	resourceContent := `apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: list-service-test
+  spec:
+    ports:
+    - protocol: TCP
+      port: 80
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: list-deployment-test
+    labels:
+      app: list-deployment-test
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: list-deployment-test
+    template:
+      metadata:
+        labels:
+          app: list-deployment-test
+      spec:
+        containers:
+          - name: nginx
+            image: nginx
+`
+	require.NoError(t, os.WriteFile(resourcePath, []byte(resourceContent), 0o644))
+
+	c := &ApplyCommandConfig{
+		PolicyPaths:   []string{policyPath},
+		ResourcePaths: []string{resourcePath},
+	}
+
+	var out bytes.Buffer
+	rc, resources, skipped, _, err := c.applyCommandHelper(t.Context(), &out)
+	require.NoError(t, err)
+	require.NotNil(t, rc)
+	assert.Empty(t, skipped.invalid)
+	require.Len(t, resources, 2)
+	assert.Equal(t, 1, rc.Fail, "Service should fail validation for missing testlabel")
+}

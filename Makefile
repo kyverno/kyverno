@@ -47,7 +47,7 @@ REGISTER_GEN                       ?= $(TOOLS_DIR)/register-gen
 DEEPCOPY_GEN                       ?= $(TOOLS_DIR)/deepcopy-gen
 CODE_GEN_VERSION                   ?= v0.35.0
 GEN_CRD_API_REFERENCE_DOCS         ?= $(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION ?= latest
+GEN_CRD_API_REFERENCE_DOCS_VERSION ?= fca9c57bb1b2
 GENREF                             ?= $(TOOLS_DIR)/genref
 GENREF_VERSION                     ?= master
 GOIMPORTS                          ?= $(TOOLS_DIR)/goimports
@@ -971,6 +971,11 @@ helm-test: $(HELM) ## Run helm test
 verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five legacy policy CRDs keep their helm.sh/resource-policy annotation (no cluster needed)
 	@echo Verify legacy CRD retention... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
+
+.PHONY: verify-policies-sysctls
+verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)
+	@echo Verify restrict-sysctls allow-list... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-sysctls.sh
 
 .PHONY: verify-legacy-policy-gate
 verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
