@@ -1,15 +1,14 @@
-{{- if .Values.admissionController.rbac.create -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ template "kyverno.rbac.roleName" . }}:admin:updaterequests
+  name: kyverno:rbac:admin:globalcontextentries
   labels:
-    {{- include "kyverno.rbac.labels.admin" . | nindent 4 }}
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
 rules:
   - apiGroups:
       - kyverno.io
     resources:
-      - updaterequests
+      - globalcontextentries
     verbs:
       - create
       - delete
@@ -18,4 +17,3 @@ rules:
       - patch
       - update
       - watch
-{{- end -}}
