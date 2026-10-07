@@ -162,6 +162,9 @@ func BuildValidatingAdmissionPolicy(
 		variables = rule.Validation.CEL.Variables
 	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
 		spec := vpol.GetSpec()
+		if spec.MatchConstraints == nil {
+			return fmt.Errorf("policy %s has no match constraints", vpol.GetName())
+		}
 		matchResources = *spec.MatchConstraints.DeepCopy()
 		// a namespaced policy only applies to resources in its own namespace, so pin the cluster-scoped VAP
 		// to it. The engine still checks the policy's own namespace selector, so keep it alongside the pin.

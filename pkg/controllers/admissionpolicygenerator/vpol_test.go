@@ -282,6 +282,19 @@ func TestReconcile_NamespacedValidatingPolicyWithOnlyClusterRules(t *testing.T) 
 	assert.True(t, apierrors.IsNotFound(err), "no VAP expected: got err=%v", err)
 }
 
+func TestReconcile_NamespacedValidatingPolicyWithoutMatchConstraints(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	nvpol := newNvpol("team-a", "foo", "denied")
+	nvpol.Spec.MatchConstraints = nil
+	c, kubeClient := newNvpolTestController(t, []*policiesv1beta1.NamespacedValidatingPolicy{nvpol})
+
+	assert.ErrorContains(t, c.reconcile(ctx, logr.Discard(), "NamespacedValidatingPolicy/team-a/foo", "", ""), "no match constraints")
+
+	_, err := kubeClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(ctx, "nvpol-team-a.foo", metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "no VAP expected: got err=%v", err)
+}
+
 func TestReconcile_DeletedNamespacedValidatingPolicy(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
