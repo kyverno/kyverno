@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -508,12 +509,6 @@ func (e *engineImpl) evaluatePolicies(
 	libctx libs.Context,
 	responses map[string]eval.ImageVerifyPolicyResponse,
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
-	// leave remote and name options blank, each compiled policy will provide
-	// its own credentials or the default global ones.
-	ictx, err := e.newImageContext()
-	if err != nil {
-		return nil, err
-	}
 	// Built at most once for the whole evaluation: the thunk is only invoked
 	// when a policy's Evaluate reaches prepareK8sData, and memoized so every
 	// policy after the first reuses the same map.
@@ -532,6 +527,25 @@ func (e *engineImpl) evaluatePolicies(
 	}
 
 	results := make([]evaluation, len(policies))
+
+	// Each policy gets its own image context. The context caches the fetched
+	// image data and the verifiers mutate that data in place (for example
+	// ImageData.AddVerifiedIntotoPayloads), so sharing one context across the
+	// goroutines below would race on, and corrupt, the cached data when several
+	// policies verify the same image. The contexts are built here, before
+	// evaluation starts, so a construction failure is still returned as a
+	// request-level error, which rejects the request, rather than being
+	// downgraded to a per-policy result that a Warn or Audit policy would admit.
+	// Credentials and name options are left blank; each compiled policy supplies
+	// its own or the default global ones.
+	imageContexts := make([]imagedataloader.ImageContext, len(policies))
+	for i := range policies {
+		ictx, err := e.newImageContext()
+		if err != nil {
+			return nil, err
+		}
+		imageContexts[i] = ictx
+	}
 
 	// Evaluate all already-compiled policies concurrently.
 	//
@@ -558,10 +572,23 @@ func (e *engineImpl) evaluatePolicies(
 			ivpol := policies[i]
 			evaluation := &results[i]
 
+			// An unrecovered panic in this goroutine would terminate the whole
+			// process, not just this request. Record it as this policy's
+			// evaluation error instead, so it is reported like any other failure
+			// to evaluate the policy and the other policies keep their results.
+			defer func() {
+				if r := recover(); r != nil {
+					evaluation.err = fmt.Errorf("panic while evaluating policy: %v", r)
+					logging.WithName("ivpol/evaluatePolicies").Error(evaluation.err, "recovered from a panic", "policy", ivpol.Policy.GetName(), "stack", string(debug.Stack()))
+				}
+			}()
+
 			if evaluation.compiled == nil {
 				evaluation.err = fmt.Errorf("compiled policy is missing")
 				return
 			}
+
+			ictx := imageContexts[i]
 
 			if ivpol.ExtractionMode {
 				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
