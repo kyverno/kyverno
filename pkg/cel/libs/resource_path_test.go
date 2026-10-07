@@ -19,6 +19,11 @@ func TestValidatePathSegment(t *testing.T) {
 		{"..", true},
 		{"pods/status", true},
 		{"pods\\status", true},
+		// GHSA-4pqm-wqq6-h9q2: IsValidPathSegmentName also rejects "%", unlike
+		// the old hand-rolled check, so this no longer depends on client-go
+		// leaving RawPath empty to make "%2f" harmless.
+		{"pods%2f..%2fsecrets", true},
+		{"100%", true},
 	}
 	for _, tc := range cases {
 		err := validatePathSegment("resource", tc.value)
