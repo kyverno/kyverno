@@ -500,16 +500,15 @@ func (e *engineImpl) filterPolicies(
 	attr admission.Attributes,
 	namespace runtime.Object,
 	includeUnmatched bool,
-) (map[string]eval.ImageVerifyPolicyResponse, []Policy, map[string]trace.ScopeTrace) {
+) (map[string]eval.ImageVerifyPolicyResponse, []Policy, []trace.ScopeTrace) {
 	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
 	filtered := make([]Policy, 0, len(policies))
-	// scopes holds, for each policy compiled with tracing, why it did or did not apply
-	scopes := map[string]trace.ScopeTrace{}
+	// scopes is index-aligned with filtered: why each policy that is evaluated applied. It is
+	// kept per policy, not per name, because a policy's autogen variants share its name.
+	scopes := make([]trace.ScopeTrace, 0, len(policies))
 	if e.matcher == nil {
-		for _, pol := range policies {
-			if tracing(pol) {
-				scopes[pol.Policy.GetName()] = trace.ScopeTrace{Applied: true, Reason: "evaluated without a matcher, so matchConstraints were not checked here"}
-			}
+		for range policies {
+			scopes = append(scopes, trace.ScopeTrace{Applied: true, Reason: "evaluated without a matcher, so matchConstraints were not checked here"})
 		}
 		return results, policies, scopes
 	}
@@ -521,8 +520,9 @@ func (e *engineImpl) filterPolicies(
 			Exceptions: pol.Exceptions,
 		}
 		traced := tracing(pol)
+		var scope trace.ScopeTrace
 		if traced {
-			scopes[pol.Policy.GetName()] = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(pol.Policy.GetSpec().MatchConstraints, attr, namespace, matches)}
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(pol.Policy.GetSpec().MatchConstraints, attr, namespace, matches)}
 		}
 		if err != nil {
 			response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
@@ -537,17 +537,22 @@ func (e *engineImpl) filterPolicies(
 		}
 		if matches {
 			filtered = append(filtered, pol)
+			scopes = append(scopes, scope)
 			continue
 		}
-		if includeUnmatched || traced {
-			// a traced policy that did not apply is kept, with an empty Result, for its trace
-			if traced {
+		if includeUnmatched {
+			results[pol.Policy.GetName()] = response
+		} else if traced {
+			// a traced policy that did not apply is kept, with an empty Result, for its trace. Its
+			// autogen variants share its name and come after it, so keep the first: the policy as
+			// written, not a generated variant; an evaluated variant replaces it below.
+			if _, seen := results[pol.Policy.GetName()]; !seen {
 				response.Trace = withTraceHeader(&trace.Decision{
-					Scope:   scopes[pol.Policy.GetName()],
+					Scope:   scope,
 					Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"},
 				}, pol, attr)
+				results[pol.Policy.GetName()] = response
 			}
-			results[pol.Policy.GetName()] = response
 		}
 	}
 	return results, filtered, scopes
@@ -589,7 +594,7 @@ func (e *engineImpl) evaluatePolicies(
 	namespace runtime.Object,
 	libctx libs.Context,
 	responses map[string]eval.ImageVerifyPolicyResponse,
-	scopes map[string]trace.ScopeTrace,
+	scopes []trace.ScopeTrace,
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
 	// Built at most once for the whole evaluation: the thunk is only invoked
 	// when a policy's Evaluate reaches prepareK8sData, and memoized so every
@@ -695,7 +700,9 @@ func (e *engineImpl) evaluatePolicies(
 			if !traced || d == nil {
 				return
 			}
-			d.Scope = scopes[ivpol.Policy.GetName()]
+			if i < len(scopes) {
+				d.Scope = scopes[i]
+			}
 			response.Trace = withTraceHeader(d, ivpol, attr)
 		}
 
