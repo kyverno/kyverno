@@ -1,21 +1,28 @@
 package cosign
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/kyverno/kyverno/pkg/utils/data"
+	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/pkg/errors"
 	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
@@ -74,7 +81,7 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create remote opts: %v", opts.ImageRef)
 	}
-	bundles, desc, err := fetchBundles(ref, attestationlimit, opts.Type, remoteOpts)
+	bundles, desc, err := fetchBundles(ctx, ref, attestationlimit, opts.Type, opts.Client.Keychain(), remoteOpts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch bundles: %v", opts.ImageRef)
 	}
@@ -145,60 +152,100 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 	return data, nil
 }
 
-// resolveFallbackBundle checks whether an untyped referrer holds a sigstore bundle, first from its
-// manifest artifact type and first layer media type, then by parsing a small first layer. It returns
-// the referrer image, plus the bundle content when it was read, or nil when it is not a bundle. Failing to
-// fetch the referrer or its layer is an error, as on the typed path; a layer that is too large to probe or
-// does not parse as a bundle is not a bundle.
-func resolveFallbackBundle(ref name.Reference, desc v1.Descriptor, remoteOpts []remote.Option, probeBudget *int64) (v1.Image, []byte, error) {
+// errManifestTooLarge reports a referrer manifest over the probe limit.
+var errManifestTooLarge = errors.New("manifest too large")
+
+// fetchManifestBounded downloads a referrer manifest reading at most limit bytes and checks it against the
+// requested digest. go-containerregistry reads up to 100 MiB per manifest, far more than the probe allows,
+// and neither the fallback index nor the registry's Content-Length can be trusted to bound it.
+func fetchManifestBounded(ctx context.Context, ref name.Digest, keychain authn.Keychain, limit int64) ([]byte, error) {
+	auth := authn.Anonymous
+	if keychain != nil {
+		var err error
+		if auth, err = authn.Resolve(ctx, keychain, ref.Context()); err != nil {
+			return nil, err
+		}
+	}
+	rt, err := transport.NewWithContext(ctx, ref.Context().Registry, auth, regcreds.DefaultTransport, []string{ref.Scope(transport.PullScope)})
+	if err != nil {
+		return nil, err
+	}
+	u := url.URL{
+		Scheme: ref.Context().Registry.Scheme(),
+		Host:   ref.Context().RegistryStr(),
+		Path:   fmt.Sprintf("/v2/%s/manifests/%s", ref.Context().RepositoryStr(), ref.DigestStr()),
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", strings.Join([]string{string(types.OCIManifestSchema1), string(types.DockerManifestSchema2)}, ","))
+	resp, err := (&http.Client{Transport: rt}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if err := transport.CheckError(resp, http.StatusOK); err != nil {
+		return nil, err
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
+	if err != nil {
+		return data, err
+	}
+	if int64(len(data)) > limit {
+		return data, errManifestTooLarge
+	}
+	digest, _, err := v1.SHA256(bytes.NewReader(data))
+	if err != nil {
+		return data, err
+	}
+	if digest.String() != ref.DigestStr() {
+		return data, fmt.Errorf("manifest digest %s does not match %s", digest, ref.DigestStr())
+	}
+	return data, nil
+}
+
+// resolveFallbackBundle checks whether an untyped referrer holds a sigstore bundle. The manifest and the
+// first layer are read within the shared probe budget, and the layer must parse as a bundle whether or not
+// the manifest artifact type or layer media type already claim it is one. It returns the referrer image and
+// the bundle content, or nil when it is not a bundle. Failing to fetch the referrer is an error, as on the
+// typed path; content that is too large or does not parse as a bundle is not a bundle.
+func resolveFallbackBundle(ctx context.Context, ref name.Digest, desc v1.Descriptor, keychain authn.Keychain, remoteOpts []remote.Option, probeBudget *int64) (v1.Image, []byte, error) {
+	manifestLimit := min(maxProbeManifestSize, *probeBudget)
 	// skip manifests too large to be a bundle before fetching them
-	if desc.Size > min(maxProbeManifestSize, *probeBudget) {
+	if manifestLimit <= 0 || desc.Size > manifestLimit {
 		return nil, nil, nil
 	}
-	// the index entry is written by the image owner, so also check the size the registry reports before
-	// downloading the manifest
-	head, err := remote.Head(ref, remoteOpts...)
-	if err != nil {
-		return nil, nil, err
-	}
-	if head.Size > min(maxProbeManifestSize, *probeBudget) {
-		return nil, nil, nil
-	}
-	img, err := remote.Image(ref, remoteOpts...)
-	if err != nil {
-		return nil, nil, err
-	}
-	rawManifest, err := img.RawManifest()
-	if err != nil {
-		return nil, nil, err
-	}
-	// the descriptor size is not trusted, so check and charge what was actually fetched
+	rawManifest, err := fetchManifestBounded(ctx, ref, keychain, manifestLimit)
 	*probeBudget -= int64(len(rawManifest))
-	if int64(len(rawManifest)) > maxProbeManifestSize {
+	if errors.Is(err, errManifestTooLarge) {
 		return nil, nil, nil
 	}
-	manifest, err := img.Manifest()
 	if err != nil {
 		return nil, nil, err
 	}
-	if isSigstoreBundleType(manifest.ArtifactType) {
-		return img, nil, nil
-	}
-	if len(manifest.Layers) == 0 {
+	manifest, err := v1.ParseManifest(bytes.NewReader(rawManifest))
+	if err != nil || len(manifest.Layers) == 0 {
 		return nil, nil, nil
 	}
 	layerDesc := manifest.Layers[0]
-	if isSigstoreBundleType(string(layerDesc.MediaType)) {
-		return img, nil, nil
-	}
-	for _, prefix := range nonBundleLayerMediaTypePrefixes {
-		if strings.HasPrefix(string(layerDesc.MediaType), prefix) {
-			return nil, nil, nil
+	typed := isSigstoreBundleType(manifest.ArtifactType) || isSigstoreBundleType(string(layerDesc.MediaType))
+	layerLimit := min(maxLayerSize, *probeBudget)
+	if !typed {
+		for _, prefix := range nonBundleLayerMediaTypePrefixes {
+			if strings.HasPrefix(string(layerDesc.MediaType), prefix) {
+				return nil, nil, nil
+			}
 		}
+		layerLimit = min(maxProbeLayerSize, *probeBudget)
 	}
-	limit := min(maxProbeLayerSize, *probeBudget)
-	if limit <= 0 || layerDesc.Size > limit {
+	if layerLimit <= 0 || layerDesc.Size > layerLimit {
 		return nil, nil, nil
+	}
+	// the manifest is pinned by digest and already checked, so this fetch is bounded too
+	img, err := remote.Image(ref, remoteOpts...)
+	if err != nil {
+		return nil, nil, err
 	}
 	layers, err := img.Layers()
 	if err != nil {
@@ -207,8 +254,8 @@ func resolveFallbackBundle(ref name.Reference, desc v1.Descriptor, remoteOpts []
 	if len(layers) == 0 {
 		return nil, nil, nil
 	}
-	data, err := readLayer(layers[0], limit)
-	// charge the bytes actually read, since the descriptor size does not bound the uncompressed content
+	data, err := readLayer(layers[0], layerLimit)
+	// charge at least the compressed size, which is what was downloaded
 	*probeBudget -= max(int64(len(data)), layerDesc.Size)
 	if errors.Is(err, errLayerTooLarge) {
 		return nil, nil, nil
@@ -223,7 +270,7 @@ func resolveFallbackBundle(ref name.Reference, desc v1.Descriptor, remoteOpts []
 	return img, data, nil
 }
 
-func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpts []remote.Option) ([]*verificationBundle, *v1.Descriptor, error) {
+func fetchBundles(ctx context.Context, ref name.Reference, limit int, predicateType string, keychain authn.Keychain, remoteOpts []remote.Option) ([]*verificationBundle, *v1.Descriptor, error) {
 	bundles := make([]*verificationBundle, 0)
 	desc, err := remote.Head(ref, remoteOpts...)
 	if err != nil {
@@ -246,20 +293,17 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 		artifactType := manifestDesc.ArtifactType
 		var refImg v1.Image
 		var bundleBytes []byte
-		// referrers resolved on the fallback path are read within the probe budget
-		fromFallback := false
 
 		// registries without the referrers API serve a fallback tag index whose descriptors may not
 		// carry the artifact type, so resolve it from the referrer itself
 		if !isSigstoreBundleType(artifactType) && (artifactType == "" || artifactType == ociEmptyArtifactType) {
 			var err error
-			refImg, bundleBytes, err = resolveFallbackBundle(ref.Context().Digest(manifestDesc.Digest.String()), manifestDesc, remoteOpts, &probeBudget)
+			refImg, bundleBytes, err = resolveFallbackBundle(ctx, ref.Context().Digest(manifestDesc.Digest.String()), manifestDesc, keychain, remoteOpts, &probeBudget)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to fetch referrer image: %w", err)
 			}
 			if refImg != nil {
 				artifactType = sigstoreBundleArtifactType
-				fromFallback = true
 			}
 		}
 
@@ -282,20 +326,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 			if len(layers) == 0 {
 				return nil, nil, fmt.Errorf("layers not found")
 			}
-			limit := maxLayerSize
-			if fromFallback {
-				limit = min(maxLayerSize, probeBudget)
-				if limit <= 0 {
-					continue
-				}
-			}
-			bundleBytes, err = readLayer(layers[0], limit)
-			if fromFallback {
-				probeBudget -= int64(len(bundleBytes))
-				if errors.Is(err, errLayerTooLarge) {
-					continue
-				}
-			}
+			bundleBytes, err = readLayer(layers[0], maxLayerSize)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -303,6 +334,9 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 
 		b := &bundle.Bundle{}
 		err = b.UnmarshalJSON(bundleBytes)
+		if err == nil && b.Bundle == nil {
+			err = errors.New("empty bundle")
+		}
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to unmarshal bundle: %w", err)
 		}

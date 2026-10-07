@@ -2,6 +2,7 @@ package cosign
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -192,6 +193,13 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 			manifestPadding:      int(maxProbeManifestSize),
 		},
 	}, {
+		name: "layer typed as a bundle that does not parse as one is skipped",
+		referrer: testReferrer{
+			manifestArtifactType: bundleMediaType,
+			layerMediaType:       bundleMediaType,
+			layerData:            []byte(`{"hello":"world"}`),
+		},
+	}, {
 		name: "typed descriptor of another artifact is skipped",
 		referrer: testReferrer{
 			descriptorArtifactType: "application/vnd.example.sbom",
@@ -204,7 +212,7 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := setupFallbackRegistry(t, []testReferrer{tt.referrer})
-			bundles, desc, err := fetchBundles(ref, attestationlimit, "", nil)
+			bundles, desc, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
 			assert.NilError(t, err)
 			assert.Assert(t, desc != nil)
 			assert.Equal(t, len(bundles), tt.want)
@@ -224,7 +232,7 @@ func TestFetchBundlesFallbackProbeBudget(t *testing.T) {
 		referrers[i] = testReferrer{layerMediaType: "application/json", layerData: padded}
 	}
 	ref := setupFallbackRegistry(t, referrers)
-	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
 	assert.NilError(t, err)
 	// manifests are charged to the budget too, so the last layer that would just fit is skipped
 	fit := int(maxProbeTotalSize / int64(len(padded)))
@@ -247,7 +255,7 @@ func TestFetchBundlesFallbackTypedReferrersShareBudget(t *testing.T) {
 		}
 	}
 	ref := setupFallbackRegistry(t, referrers)
-	bundles, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
 	assert.NilError(t, err)
 	fit := int(maxProbeTotalSize / int64(len(padded)))
 	assert.Assert(t, len(bundles) >= fit-1 && len(bundles) <= fit, "got %d bundles, want %d or %d", len(bundles), fit-1, fit)
@@ -278,7 +286,7 @@ func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 		layerData:       []byte(`{"hello":"world"}`),
 		skipLayerUpload: true,
 	}})
-	_, _, err := fetchBundles(ref, attestationlimit, "", nil)
+	_, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer")
 }
 
@@ -316,7 +324,7 @@ func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	digest := desc.Digest.String()
 	blocked.Store(&digest)
 
-	_, _, err = fetchBundles(ref, attestationlimit, "", nil)
+	_, _, err = fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer image")
 }
 
