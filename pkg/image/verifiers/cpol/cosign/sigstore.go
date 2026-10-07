@@ -81,7 +81,7 @@ func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Option
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create remote opts: %v", opts.ImageRef)
 	}
-	bundles, desc, err := fetchBundles(ctx, ref, attestationlimit, opts.Type, opts.Client.Keychain(), remoteOpts)
+	bundles, desc, err := fetchBundles(ctx, ref, attestationlimit, opts.Type, clientKeychain(opts.Client), remoteOpts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch bundles: %v", opts.ImageRef)
 	}
@@ -150,6 +150,17 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 		return data, fmt.Errorf("%w: uncompressed layer size exceeds %d", errLayerTooLarge, limit)
 	}
 	return data, nil
+}
+
+// clientKeychain returns the credentials of a registry client that exposes them, like the Kyverno registry
+// client, and the default keychain otherwise.
+func clientKeychain(client verifiers.Client) authn.Keychain {
+	if c, ok := client.(interface{ Keychain() authn.Keychain }); ok {
+		if keychain := c.Keychain(); keychain != nil {
+			return keychain
+		}
+	}
+	return authn.DefaultKeychain
 }
 
 // errManifestTooLarge reports a referrer manifest over the probe limit.
