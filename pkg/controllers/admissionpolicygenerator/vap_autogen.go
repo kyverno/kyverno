@@ -11,6 +11,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celautogen "github.com/kyverno/kyverno/pkg/cel/autogen"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -73,7 +74,7 @@ func (c *controller) handleAutogenVAPs(ctx context.Context, pol *policiesv1beta1
 		vapName := autogenVAPName(pol.GetName(), configKey)
 		activeNames[vapName] = struct{}{}
 
-		if err := c.reconcileAutogenVAP(ctx, pol, vapName, autogenConfig, exceptions); err != nil {
+		if err := c.reconcileAutogenVAP(ctx, pol, vapName, configKey, autogenConfig, exceptions); err != nil {
 			return err
 		}
 	}
@@ -88,6 +89,7 @@ func (c *controller) reconcileAutogenVAP(
 	ctx context.Context,
 	pol *policiesv1beta1.ValidatingPolicy,
 	vapName string,
+	configKey string,
 	autogenConfig policiesv1beta1.ValidatingPolicyAutogen,
 	exceptions []engineapi.GenericException,
 ) error {
@@ -103,6 +105,23 @@ func (c *controller) reconcileAutogenVAP(
 	autogenPol.Spec.ValidationAction = pol.Spec.ValidationAction
 
 	autogenWrapper := engineapi.NewValidatingPolicy(autogenPol)
+
+	var rewrittenExceptions []engineapi.GenericException
+	for _, e := range exceptions {
+		celEx := e.AsCELException()
+		if celEx != nil {
+			clonedEx := celEx.DeepCopy()
+			for i, cond := range clonedEx.Spec.MatchConditions {
+				clonedEx.Spec.MatchConditions[i].Expression = string(celautogen.Apply(
+					[]byte(cond.Expression),
+					celautogen.ReplacementsMap[celautogen.ConfigsMap[configKey].ReplacementsRef]...,
+				))
+			}
+			rewrittenExceptions = append(rewrittenExceptions, engineapi.NewCELPolicyException(clonedEx))
+		} else {
+			rewrittenExceptions = append(rewrittenExceptions, e)
+		}
+	}
 
 	vapBindingName := constructBindingName(vapName)
 
@@ -131,7 +150,7 @@ func (c *controller) reconcileAutogenVAP(
 			observedVAP.Labels = make(map[string]string)
 		}
 		observedVAP.Labels[autogenSourceLabel] = pol.GetName()
-		if err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, autogenWrapper, exceptions); err != nil {
+		if err := admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observedVAP, autogenWrapper, rewrittenExceptions); err != nil {
 			return fmt.Errorf("failed to build autogen validatingadmissionpolicy %s: %w", vapName, err)
 		}
 		if _, err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Create(ctx, observedVAP, metav1.CreateOptions{}); err != nil {
@@ -143,7 +162,7 @@ func (c *controller) reconcileAutogenVAP(
 				observed.Labels = make(map[string]string)
 			}
 			observed.Labels[autogenSourceLabel] = pol.GetName()
-			return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, autogenWrapper, exceptions)
+			return admissionpolicy.BuildValidatingAdmissionPolicy(c.discoveryClient, observed, autogenWrapper, rewrittenExceptions)
 		}); err != nil {
 			return fmt.Errorf("failed to update autogen validatingadmissionpolicy %s: %w", vapName, err)
 		}

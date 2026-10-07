@@ -2,16 +2,21 @@ package admissionpolicygenerator
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes/fake"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -106,4 +111,100 @@ func TestPruneStaleAutogenVAPs(t *testing.T) {
 		assert.ElementsMatch(t, []string{"vpol-other-autogen-defaults"}, vapNames)
 		assert.Empty(t, bindingNames)
 	})
+
+	t.Run("ignores NotFound error on VAP delete", func(t *testing.T) {
+		c, client := newController()
+		client.PrependReactor("delete", "validatingadmissionpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, apierrors.NewNotFound(schema.GroupResource{}, action.(k8stesting.DeleteAction).GetName())
+		})
+		assert.NoError(t, c.pruneStaleAutogenVAPs(context.TODO(), pol, map[string]struct{}{active: {}}))
+	})
+
+	t.Run("propagates non-NotFound error on VAP delete", func(t *testing.T) {
+		c, client := newController()
+		expectedErr := errors.New("delete failed")
+		client.PrependReactor("delete", "validatingadmissionpolicies", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, expectedErr
+		})
+		err := c.pruneStaleAutogenVAPs(context.TODO(), pol, map[string]struct{}{active: {}})
+		assert.ErrorContains(t, err, "failed to delete stale autogen validatingadmissionpolicy")
+	})
+
+	t.Run("ignores NotFound error on VAPBinding delete", func(t *testing.T) {
+		c, client := newController()
+		client.PrependReactor("delete", "validatingadmissionpolicybindings", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, apierrors.NewNotFound(schema.GroupResource{}, action.(k8stesting.DeleteAction).GetName())
+		})
+		assert.NoError(t, c.pruneStaleAutogenVAPs(context.TODO(), pol, map[string]struct{}{active: {}}))
+	})
+
+	t.Run("propagates non-NotFound error on VAPBinding delete", func(t *testing.T) {
+		c, client := newController()
+		expectedErr := errors.New("delete binding failed")
+		client.PrependReactor("delete", "validatingadmissionpolicybindings", func(action k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, expectedErr
+		})
+		err := c.pruneStaleAutogenVAPs(context.TODO(), pol, map[string]struct{}{active: {}})
+		assert.ErrorContains(t, err, "failed to delete stale autogen validatingadmissionpolicybinding")
+	})
+}
+
+func TestReconcileAutogenVAP_Update(t *testing.T) {
+	pol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "object.spec.replicas > 0"},
+			},
+		},
+	}
+
+	vapName := "vpol-test-policy-autogen-defaults"
+	bindingName := constructBindingName(vapName)
+
+	existingVAP := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: vapName, ResourceVersion: "1"},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicySpec{
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "old expression"},
+			},
+		},
+	}
+
+	existingBinding := &admissionregistrationv1.ValidatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, ResourceVersion: "1"},
+		Spec: admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
+			PolicyName: "old-policy",
+		},
+	}
+
+	client := fake.NewClientset(existingVAP, existingBinding)
+	vapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	assert.NoError(t, vapIndexer.Add(existingVAP))
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	assert.NoError(t, bindingIndexer.Add(existingBinding))
+
+	c := &controller{
+		client:           client,
+		vapLister:        admissionregistrationv1listers.NewValidatingAdmissionPolicyLister(vapIndexer),
+		vapbindingLister: admissionregistrationv1listers.NewValidatingAdmissionPolicyBindingLister(bindingIndexer),
+	}
+
+	autogenConfig := policiesv1beta1.ValidatingPolicyAutogen{
+		Spec: &pol.Spec,
+	}
+
+	err := c.reconcileAutogenVAP(context.TODO(), pol, vapName, "defaults", autogenConfig, nil)
+	assert.NoError(t, err)
+
+	updatedVAP, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.TODO(), vapName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, "object.spec.replicas > 0", updatedVAP.Spec.Validations[0].Expression)
+	assert.Equal(t, pol.Name, updatedVAP.Labels[autogenSourceLabel])
+
+	updatedBinding, err := client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.TODO(), bindingName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, vapName, updatedBinding.Spec.PolicyName)
+	assert.Equal(t, pol.Name, updatedBinding.Labels[autogenSourceLabel])
 }
