@@ -69,6 +69,74 @@ spec:
               may reject unrecognized values.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
+          checks:
+            description: Checks are the verifications to be checked in the test
+            items:
+              properties:
+                assert:
+                  description: Assert contains an assertion to validate the relevant rule responses
+                  properties:
+                    cel:
+                      description: Structured CEL assertions.
+                      properties:
+                        expressions:
+                          items:
+                            properties:
+                              expression:
+                                description: Expression is the CEL expression to evaluate.
+                                type: string
+                              message:
+                                description: Message is the message displayed when the expression assertion fails.
+                                type: string
+                            required:
+                            - expression
+                            type: object
+                          minItems: 1
+                          type: array
+                      type: object
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                error:
+                  description: Error contains a negative assertion to validate the relevant rule responses
+                  properties:
+                    cel:
+                      description: Structured CEL assertions.
+                      properties:
+                        expressions:
+                          items:
+                            properties:
+                              expression:
+                                description: Expression is the CEL expression to evaluate.
+                                type: string
+                              message:
+                                description: Message is the message displayed when the expression assertion fails.
+                                type: string
+                            required:
+                            - expression
+                            type: object
+                          minItems: 1
+                          type: array
+                      type: object
+                  type: object
+                  x-kubernetes-preserve-unknown-fields: true
+                match:
+                  description: Match tells how to match relevant rule responses
+                  properties:
+                    policy:
+                      description: Policy filters engine responses
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    resource:
+                      description: Resource filters engine responses
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    rule:
+                      description: Rule filters rule responses
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                  type: object
+              type: object
+            type: array
           clusterResources:
             description: ClusterResources are the cluster resources to be used in
               the test
