@@ -24,5 +24,5 @@ func TestClientKeychain(t *testing.T) {
 	keychain := authn.NewMultiKeychain(authn.DefaultKeychain)
 	client := registryclient.New(registryclient.WithKeychain(keychain))
 	assert.Assert(t, clientKeychain(client) == client.Keychain(), "the registry client keychain must be used")
-	assert.Equal(t, clientKeychain(optionsOnlyClient{}), authn.DefaultKeychain)
+	assert.Assert(t, clientKeychain(optionsOnlyClient{}) == nil, "clients without a keychain use their own options")
 }

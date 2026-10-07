@@ -153,29 +153,50 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 }
 
 // clientKeychain returns the credentials of a registry client that exposes them, like the Kyverno registry
-// client, and the default keychain otherwise.
+// client, which also uses regcreds.DefaultTransport. It returns nil for other clients, whose transport and
+// authentication are only available through their remote options.
 func clientKeychain(client verifiers.Client) authn.Keychain {
 	if c, ok := client.(interface{ Keychain() authn.Keychain }); ok {
-		if keychain := c.Keychain(); keychain != nil {
-			return keychain
-		}
+		return c.Keychain()
 	}
-	return authn.DefaultKeychain
+	return nil
 }
 
 // errManifestTooLarge reports a referrer manifest over the probe limit.
 var errManifestTooLarge = errors.New("manifest too large")
 
+// fetchProbeManifest downloads a referrer manifest of at most limit bytes. With the client's keychain the
+// response read itself is bounded; other clients may configure their own transport and authentication, so
+// their remote options are used instead, checking the size the registry reports before downloading.
+func fetchProbeManifest(ctx context.Context, ref name.Digest, keychain authn.Keychain, remoteOpts []remote.Option, limit int64) ([]byte, error) {
+	if keychain != nil {
+		return fetchManifestBounded(ctx, ref, keychain, limit)
+	}
+	head, err := remote.Head(ref, remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	if head.Size > limit {
+		return nil, errManifestTooLarge
+	}
+	desc, err := remote.Get(ref, remoteOpts...)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(desc.Manifest)) > limit {
+		return desc.Manifest, errManifestTooLarge
+	}
+	return desc.Manifest, nil
+}
+
 // fetchManifestBounded downloads a referrer manifest reading at most limit bytes and checks it against the
 // requested digest. go-containerregistry reads up to 100 MiB per manifest, far more than the probe allows,
-// and neither the fallback index nor the registry's Content-Length can be trusted to bound it.
+// and neither the fallback index nor the registry's Content-Length can be trusted to bound it. It uses the
+// same transport as the Kyverno registry client.
 func fetchManifestBounded(ctx context.Context, ref name.Digest, keychain authn.Keychain, limit int64) ([]byte, error) {
-	auth := authn.Anonymous
-	if keychain != nil {
-		var err error
-		if auth, err = authn.Resolve(ctx, keychain, ref.Context()); err != nil {
-			return nil, err
-		}
+	auth, err := authn.Resolve(ctx, keychain, ref.Context())
+	if err != nil {
+		return nil, err
 	}
 	rt, err := transport.NewWithContext(ctx, ref.Context().Registry, auth, regcreds.DefaultTransport, []string{ref.Scope(transport.PullScope)})
 	if err != nil {
@@ -227,7 +248,7 @@ func resolveFallbackBundle(ctx context.Context, ref name.Digest, desc v1.Descrip
 	if manifestLimit <= 0 || desc.Size > manifestLimit {
 		return nil, nil, nil
 	}
-	rawManifest, err := fetchManifestBounded(ctx, ref, keychain, manifestLimit)
+	rawManifest, err := fetchProbeManifest(ctx, ref, keychain, remoteOpts, manifestLimit)
 	*probeBudget -= int64(len(rawManifest))
 	if errors.Is(err, errManifestTooLarge) {
 		return nil, nil, nil

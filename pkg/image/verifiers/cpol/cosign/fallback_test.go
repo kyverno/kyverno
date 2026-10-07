@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -123,6 +124,9 @@ func setupFallbackRegistry(t *testing.T, referrers []testReferrer) name.Referenc
 	return ref
 }
 
+// anonymous resolves every registry to anonymous access, so tests use the bounded manifest request.
+var anonymous = authn.NewMultiKeychain()
+
 func TestFetchBundlesFallbackTag(t *testing.T) {
 	t.Parallel()
 	bundleJSON, err := os.ReadFile("testdata/bundle.json")
@@ -212,7 +216,7 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := setupFallbackRegistry(t, []testReferrer{tt.referrer})
-			bundles, desc, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
+			bundles, desc, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
 			assert.NilError(t, err)
 			assert.Assert(t, desc != nil)
 			assert.Equal(t, len(bundles), tt.want)
@@ -232,7 +236,7 @@ func TestFetchBundlesFallbackProbeBudget(t *testing.T) {
 		referrers[i] = testReferrer{layerMediaType: "application/json", layerData: padded}
 	}
 	ref := setupFallbackRegistry(t, referrers)
-	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
+	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
 	assert.NilError(t, err)
 	// manifests are charged to the budget too, so the last layer that would just fit is skipped
 	fit := int(maxProbeTotalSize / int64(len(padded)))
@@ -255,7 +259,7 @@ func TestFetchBundlesFallbackTypedReferrersShareBudget(t *testing.T) {
 		}
 	}
 	ref := setupFallbackRegistry(t, referrers)
-	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
+	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
 	assert.NilError(t, err)
 	fit := int(maxProbeTotalSize / int64(len(padded)))
 	assert.Assert(t, len(bundles) >= fit-1 && len(bundles) <= fit, "got %d bundles, want %d or %d", len(bundles), fit-1, fit)
@@ -279,6 +283,28 @@ func TestReadLayerLimits(t *testing.T) {
 	assert.Equal(t, int64(len(got)), limit+1)
 }
 
+// Clients that do not expose a keychain use their own remote options for the manifest probe.
+func TestFetchBundlesFallbackWithClientOptions(t *testing.T) {
+	t.Parallel()
+	bundleJSON, err := os.ReadFile("testdata/bundle.json")
+	assert.NilError(t, err)
+	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
+	ref := setupFallbackRegistry(t, []testReferrer{{
+		layerMediaType: "application/json",
+		layerData:      bundleJSON,
+	}, {
+		// the registry reports the real size, so the understated index entry does not help
+		manifestArtifactType: bundleMediaType,
+		layerMediaType:       bundleMediaType,
+		layerData:            bundleJSON,
+		descriptorSize:       100,
+		manifestPadding:      int(maxProbeManifestSize),
+	}})
+	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, len(bundles), 1)
+}
+
 func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 	t.Parallel()
 	ref := setupFallbackRegistry(t, []testReferrer{{
@@ -286,7 +312,7 @@ func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 		layerData:       []byte(`{"hello":"world"}`),
 		skipLayerUpload: true,
 	}})
-	_, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
+	_, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer")
 }
 
@@ -324,7 +350,7 @@ func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	digest := desc.Digest.String()
 	blocked.Store(&digest)
 
-	_, _, err = fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
+	_, _, err = fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer image")
 }
 
