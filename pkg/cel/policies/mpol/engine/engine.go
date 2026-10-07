@@ -405,7 +405,21 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		if !ok {
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: expected synthesized Pod, got %T", tpl.Path, synthAttr.GetObject())}
 		}
-		beforeBytes, err := beforeUnstr.MarshalJSON()
+
+		beforeForDiff := beforeUnstr.DeepCopy()
+		if m, hadMetadata := tpl.Template["metadata"].(map[string]any); !hadMetadata {
+			unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "name")
+			unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "namespace")
+		} else {
+			if _, ok := m["name"]; !ok {
+				unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "name")
+			}
+			if _, ok := m["namespace"]; !ok {
+				unstructured.RemoveNestedField(beforeForDiff.Object, "metadata", "namespace")
+			}
+		}
+
+		beforeBytes, err := beforeForDiff.MarshalJSON()
 		if err != nil {
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: %w", tpl.Path, err)}
 		}

@@ -970,81 +970,213 @@ func TestMatchedMutateExistingPolicies(t *testing.T) {
 }
 
 func TestHandlePolicy_ExtractionMode(t *testing.T) {
-	jobset := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "jobset.x-k8s.io/v1alpha2",
-		"kind":       "JobSet",
-		"metadata":   map[string]interface{}{"name": "test-jobset", "namespace": "default"},
-		"spec": map[string]interface{}{
-			"replicatedJobs": []interface{}{
-				map[string]interface{}{
+	buildJobSet := func(replicatedJobs ...map[string]interface{}) *unstructured.Unstructured {
+		jobs := make([]interface{}, len(replicatedJobs))
+		for i, rj := range replicatedJobs {
+			jobs[i] = rj
+		}
+		return &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "jobset.x-k8s.io/v1alpha2",
+			"kind":       "JobSet",
+			"metadata":   map[string]interface{}{"name": "test-jobset", "namespace": "default"},
+			"spec": map[string]interface{}{
+				"replicatedJobs": jobs,
+			},
+		}}
+	}
+
+	podTemplate := func(name, image string) map[string]interface{} {
+		return map[string]interface{}{
+			"template": map[string]interface{}{
+				"spec": map[string]interface{}{
 					"template": map[string]interface{}{
 						"spec": map[string]interface{}{
-							"template": map[string]interface{}{
-								"spec": map[string]interface{}{
-									"containers": []interface{}{
-										map[string]interface{}{"name": "worker", "image": "bash:1.0"},
-									},
-								},
+							"containers": []interface{}{
+								map[string]interface{}{"name": name, "image": image},
 							},
 						},
 					},
 				},
 			},
-		},
-	}}
+		}
+	}
 
-	mpol := &policiesv1beta1.MutatingPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "add-team-label"},
-		Spec: policiesv1beta1.MutatingPolicySpec{
-			MatchConstraints: &admissionregistrationv1.MatchResources{
-				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
-					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
-						Operations: []admissionregistrationv1.OperationType{"CREATE"},
-						Rule: admissionregistrationv1.Rule{
-							APIGroups:   []string{"jobset.x-k8s.io"},
-							APIVersions: []string{"v1alpha2"},
-							Resources:   []string{"jobsets"},
+	buildPolicy := func(t *testing.T, name, expression string) *policiesv1beta1.MutatingPolicy {
+		t.Helper()
+		return &policiesv1beta1.MutatingPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConstraints: &admissionregistrationv1.MatchResources{
+					ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Operations: []admissionregistrationv1.OperationType{"CREATE"},
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{"jobset.x-k8s.io"},
+								APIVersions: []string{"v1alpha2"},
+								Resources:   []string{"jobsets"},
+							},
 						},
+					}},
+				},
+				Mutations: []admissionregistrationv1alpha1.Mutation{{
+					PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+						Expression: expression,
 					},
 				}},
 			},
-			Mutations: []admissionregistrationv1alpha1.Mutation{{
-				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
-				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
-					Expression: `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`,
-				},
-			}},
-		},
+		}
 	}
-	compiled, errs := compiler.NewCompiler().Compile(mpol, nil)
-	assert.Empty(t, errs.ToAggregate())
 
-	eng := &engineImpl{
-		matcher:         matching.NewMatcher(),
-		typeConverter:   &fakeTypeConverter{},
-		contextProvider: &libs.FakeContextProvider{},
+	runHandlePolicy := func(t *testing.T, mpol *policiesv1beta1.MutatingPolicy, jobset *unstructured.Unstructured) (MutatingPolicyResponse, *unstructured.Unstructured) {
+		t.Helper()
+		compiled, errs := compiler.NewCompiler().Compile(mpol, nil)
+		assert.Empty(t, errs.ToAggregate())
+
+		eng := &engineImpl{
+			matcher:         matching.NewMatcher(),
+			typeConverter:   &fakeTypeConverter{},
+			contextProvider: &libs.FakeContextProvider{},
+		}
+		policy := Policy{Policy: mpol, CompiledPolicy: compiled, ExtractionMode: true}
+
+		attr := admission.NewAttributesRecord(
+			jobset, nil,
+			schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+			"default", "test-jobset",
+			schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+			"", admission.Create, nil, false, &user.DefaultInfo{},
+		)
+		return eng.handlePolicy(context.Background(), policy, attr, admissionv1.AdmissionRequest{}, nil, nil, false)
 	}
-	policy := Policy{Policy: mpol, CompiledPolicy: compiled, ExtractionMode: true}
 
-	attr := admission.NewAttributesRecord(
-		jobset, nil,
-		schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
-		"default", "test-jobset",
-		schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
-		"", admission.Create, nil, false, &user.DefaultInfo{},
-	)
+	nestedReplicatedJob := func(t *testing.T, patched *unstructured.Unstructured, idx int) map[string]interface{} {
+		t.Helper()
+		replicatedJobs, found, err := unstructured.NestedSlice(patched.Object, "spec", "replicatedJobs")
+		assert.NoError(t, err)
+		if !assert.True(t, found) || !assert.Greater(t, len(replicatedJobs), idx) {
+			t.FailNow()
+		}
+		rj, ok := replicatedJobs[idx].(map[string]interface{})
+		if !assert.True(t, ok, "replicatedJobs[%d] is not a map", idx) {
+			t.FailNow()
+		}
+		return rj
+	}
 
-	ruleResponse, patched := eng.handlePolicy(context.Background(), policy, attr, admissionv1.AdmissionRequest{}, nil, nil, false)
+	t.Run("single template, successful mutation", func(t *testing.T) {
+		jobset := buildJobSet(podTemplate("worker", "bash:1.0"))
+		mpol := buildPolicy(t, "add-team-label", `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`)
 
-	assert.Len(t, ruleResponse.Rules, 1)
-	assert.Equal(t, engineapi.RuleStatusPass, ruleResponse.Rules[0].Status())
-	assert.NotNil(t, patched)
+		ruleResponse, patched := runHandlePolicy(t, mpol, jobset)
 
-	replicatedJobs, _, _ := unstructured.NestedSlice(patched.Object, "spec", "replicatedJobs")
-	rj, _ := replicatedJobs[0].(map[string]interface{})
-	labels, found, _ := unstructured.NestedStringMap(rj, "template", "spec", "template", "metadata", "labels")
-	assert.True(t, found)
-	assert.Equal(t, "platform", labels["team"])
+		assert.Len(t, ruleResponse.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusPass, ruleResponse.Rules[0].Status())
+		if !assert.NotNil(t, patched) {
+			return
+		}
+
+		rj := nestedReplicatedJob(t, patched, 0)
+		labels, found, err := unstructured.NestedStringMap(rj, "template", "spec", "template", "metadata", "labels")
+		assert.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, "platform", labels["team"])
+	})
+
+	t.Run("no pod template found produces an error rule", func(t *testing.T) {
+		jobset := &unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "jobset.x-k8s.io/v1alpha2",
+			"kind":       "JobSet",
+			"metadata":   map[string]interface{}{"name": "test-jobset", "namespace": "default"},
+			"spec": map[string]interface{}{
+				"replicatedJobs": []interface{}{},
+			},
+		}}
+		mpol := buildPolicy(t, "add-team-label", `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`)
+
+		ruleResponse, patched := runHandlePolicy(t, mpol, jobset)
+
+		if !assert.Len(t, ruleResponse.Rules, 1) {
+			return
+		}
+		assert.Equal(t, engineapi.RuleStatusError, ruleResponse.Rules[0].Status())
+		assert.Nil(t, patched)
+	})
+
+	t.Run("multiple templates all get mutated", func(t *testing.T) {
+		jobset := buildJobSet(
+			podTemplate("leader", "leader:v1"),
+			podTemplate("worker", "worker:v1"),
+		)
+		mpol := buildPolicy(t, "add-team-label", `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`)
+
+		ruleResponse, patched := runHandlePolicy(t, mpol, jobset)
+
+		assert.Len(t, ruleResponse.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusPass, ruleResponse.Rules[0].Status())
+		if !assert.NotNil(t, patched) {
+			return
+		}
+
+		for i := range 2 {
+			rj := nestedReplicatedJob(t, patched, i)
+			labels, found, err := unstructured.NestedStringMap(rj, "template", "spec", "template", "metadata", "labels")
+			assert.NoError(t, err)
+			assert.True(t, found, "replicatedJobs[%d] missing labels", i)
+			assert.Equal(t, "platform", labels["team"])
+		}
+	})
+
+	t.Run("no synthesized template matches match conditions produces a skip rule", func(t *testing.T) {
+		jobset := buildJobSet(podTemplate("worker", "bash:1.0"))
+		mpol := buildPolicy(t, "add-team-label", `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`)
+		// a matchCondition that never matches, so every synthesized Pod is
+		// rejected at the match stage inside compiler.Policy.evaluate,
+		// making Evaluate return nil for every template - evaluatedAny
+		// never becomes true, so evaluateExtractedMutation should return
+		// nil, surfacing as a skip rule in handlePolicy (not an error, and
+		// not a silently "successful" no-op pass).
+		mpol.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{
+			{Name: "never", Expression: "false"},
+		}
+
+		ruleResponse, patched := runHandlePolicy(t, mpol, jobset)
+
+		if !assert.Len(t, ruleResponse.Rules, 1) {
+			return
+		}
+		assert.Equal(t, engineapi.RuleStatusSkip, ruleResponse.Rules[0].Status())
+		assert.Nil(t, patched)
+	})
+
+	t.Run("template with no metadata and a mutation that never touches metadata produces no spurious patch", func(t *testing.T) {
+		jobset := buildJobSet(podTemplate("worker", "bash:1.0"))
+		// mutation only touches spec, never metadata - the synthesized
+		// Pod's placeholder metadata.name/namespace (borrowed from the
+		// parent JobSet, see extract.buildPod) must not leak into the real
+		// patch as a spurious remove op for fields the real template never
+		// had.
+		mpol := buildPolicy(t, "set-grace-period", `Object{spec: Object.spec{terminationGracePeriodSeconds: 30}}`)
+
+		ruleResponse, patched := runHandlePolicy(t, mpol, jobset)
+
+		assert.Len(t, ruleResponse.Rules, 1)
+		assert.Equal(t, engineapi.RuleStatusPass, ruleResponse.Rules[0].Status())
+		if !assert.NotNil(t, patched) {
+			return
+		}
+
+		rj := nestedReplicatedJob(t, patched, 0)
+		val, found, err := unstructured.NestedInt64(rj, "template", "spec", "template", "spec", "terminationGracePeriodSeconds")
+		assert.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, int64(30), val)
+
+		// the template never had metadata.name/namespace - confirm they
+		// still don't exist after the mutation (no spurious add/remove).
+		_, found, _ = unstructured.NestedString(rj, "template", "metadata", "name")
+		assert.False(t, found, "metadata.name should not have been synthesized into the real object")
+	})
 }
 
 func TestHandlePolicy_ExtractionMode_NumericFieldNotJSONNumber(t *testing.T) {
