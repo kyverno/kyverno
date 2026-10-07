@@ -2,12 +2,14 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	jsonpatchv5 "github.com/evanphx/json-patch/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
@@ -355,7 +357,6 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 	working := source.DeepCopy()
 	var mergedAudit map[string]string
 	var mergedExceptions []*policiesv1beta1.PolicyException
-	mutated := false
 
 	// evaluatedAny tracks whether *any* template actually matched
 	// match/targetMatchConditions and produced a real (non-nil) evaluation result
@@ -429,12 +430,9 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		}
 
 		rebased := extract.RebasePatch(podPatch, tpl.JSONPointerPrefix())
-		patched, err := applyRebasedPatch(working, rebased)
-		if err != nil {
+		if err := applyRebasedPatch(working, rebased); err != nil {
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: applying patch to parent: %w", tpl.Path, err)}
 		}
-		working = patched
-		mutated = true
 	}
 
 	// No template matched at all (every one returned nil from
@@ -444,149 +442,44 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		return nil
 	}
 
-	// If nothing actually mutated but templates matched an exception, report
-	// it the same way the non-extraction path does.
-	if !mutated && len(mergedExceptions) > 0 {
-		return &compiler.EvaluationResult{Exceptions: mergedExceptions}
-	}
-
-	return &compiler.EvaluationResult{PatchedResource: working, AuditAnnotations: mergedAudit}
-}
-
-// applyRebasedPatch applies a JSON Patch (already rebased onto the parent's
-// real paths by extract.RebasePatch) to a deep copy of obj.
-//
-// A strict RFC-6902 apply library requires every operation's immediate
-// parent path to already exist. That assumption breaks here: the
-// synthesized Pod (extract.buildPod) always populates a "metadata" object,
-// even when the real extracted template had none at all - so a patch
-// diffed in "fake Pod space" can say "add /metadata/labels" without ever
-// saying "add /metadata" first, since /metadata always existed in the fake
-// Pod. Replayed onto the real object, that intermediate "metadata" key may
-// genuinely be missing. This apply function auto-creates missing
-// intermediate map levels as it walks the path, exactly like a normal
-// patch/merge tool would.
-func applyRebasedPatch(obj *unstructured.Unstructured, ops []jsonpatch.JsonPatchOperation) (*unstructured.Unstructured, error) {
-	working := obj.DeepCopy()
-	root := any(working.Object)
-	for _, op := range ops {
-		tokens, err := decodeJSONPointer(op.Path)
-		if err != nil {
-			return nil, fmt.Errorf("%s %s: %w", op.Operation, op.Path, err)
-		}
-		if len(tokens) == 0 {
-			continue
-		}
-		root, err = applyPatchOp(root, tokens, op.Operation, op.Value)
-		if err != nil {
-			return nil, fmt.Errorf("%s %s: %w", op.Operation, op.Path, err)
-		}
-	}
-	newRoot, ok := root.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("patch replaced the document root with a non-object value (%T)", root)
-	}
-	working.Object = newRoot
-	return working, nil
-}
-
-// applyPatchOp applies a single add/replace/remove operation at the given
-// path tokens, auto-creating missing intermediate map levels (but never
-// auto-creating array elements - an out-of-range array index is an error,
-// since guessing array contents isn't safe). Returns the updated node;
-// callers must reassign it back into their parent (maps/slices in Go don't
-// let us mutate "in place" across a slice-growing append).
-func applyPatchOp(node any, tokens []string, op string, value any) (any, error) {
-	token, rest := tokens[0], tokens[1:]
-
-	switch v := node.(type) {
-	case map[string]any:
-		if len(rest) == 0 {
-			switch op {
-			case "add", "replace":
-				v[token] = value
-			case "remove":
-				delete(v, token)
-			default:
-				return nil, fmt.Errorf("unsupported patch operation %q", op)
-			}
-			return v, nil
-		}
-		child, exists := v[token]
-		if !exists || child == nil {
-			if op == "remove" {
-				return v, nil // nothing to remove along a path that doesn't exist
-			}
-			child = map[string]any{} // auto-vivify
-		}
-		newChild, err := applyPatchOp(child, rest, op, value)
-		if err != nil {
-			return nil, err
-		}
-		v[token] = newChild
-		return v, nil
-
-	case []any:
-		idx, err := strconv.Atoi(token)
-		if err != nil {
-			return nil, fmt.Errorf("expected an array index, got %q", token)
-		}
-		if len(rest) == 0 {
-			switch op {
-			case "remove":
-				if idx < 0 || idx >= len(v) {
-					return v, nil
-				}
-				return append(v[:idx], v[idx+1:]...), nil
-			case "add":
-				if idx < 0 || idx > len(v) {
-					return nil, fmt.Errorf("array index %d out of range (len %d)", idx, len(v))
-				}
-				out := make([]any, 0, len(v)+1)
-				out = append(out, v[:idx]...)
-				out = append(out, value)
-				return append(out, v[idx:]...), nil
-			case "replace":
-				if idx < 0 || idx >= len(v) {
-					return nil, fmt.Errorf("array index %d out of range (len %d)", idx, len(v))
-				}
-				v[idx] = value
-				return v, nil
-			default:
-				return nil, fmt.Errorf("unsupported patch operation %q", op)
-			}
-		}
-		if idx < 0 || idx >= len(v) {
-			return nil, fmt.Errorf("array index %d out of range (len %d)", idx, len(v))
-		}
-		newChild, err := applyPatchOp(v[idx], rest, op, value)
-		if err != nil {
-			return nil, err
-		}
-		v[idx] = newChild
-		return v, nil
-
-	default:
-		return nil, fmt.Errorf("cannot descend into %T at %q", node, token)
+	// Attach whatever exceptions accumulated across templates alongside the
+	// patch/audit data - a template matching an exception and a different
+	// template producing a real mutation are not mutually exclusive, so
+	// both must be visible in the same result.
+	return &compiler.EvaluationResult{
+		PatchedResource:  working,
+		AuditAnnotations: mergedAudit,
+		Exceptions:       mergedExceptions,
 	}
 }
 
-// decodeJSONPointer splits an RFC-6901 JSON Pointer into unescaped tokens.
-func decodeJSONPointer(path string) ([]string, error) {
-	if path == "" {
-		return nil, nil
+// applyRebasedPatch applies a rebased JSON Patch to obj in place, using
+// evanphx/json-patch/v5 (already vendored) instead of a hand-rolled
+// applier. EnsurePathExistsOnAdd auto-creates missing intermediate map
+// levels - needed since the synthesized Pod always has a "metadata" object
+// even when the real template doesn't, so the diff can say "add
+// /metadata/labels" without "add /metadata" first. The library's decode
+// also avoids json.Number leaking into the result.
+func applyRebasedPatch(obj *unstructured.Unstructured, ops []jsonpatch.JsonPatchOperation) error {
+	opBytes, err := json.Marshal(ops)
+	if err != nil {
+		return err
 	}
-	if !strings.HasPrefix(path, "/") {
-		return nil, fmt.Errorf("invalid JSON pointer %q", path)
+	patch, err := jsonpatchv5.DecodePatch(opBytes)
+	if err != nil {
+		return err
 	}
-	raw := strings.Split(path[1:], "/")
-	tokens := make([]string, len(raw))
-	for i, t := range raw {
-		t = strings.ReplaceAll(t, "~1", "/")
-		t = strings.ReplaceAll(t, "~0", "~")
-		tokens[i] = t
+	objBytes, err := obj.MarshalJSON()
+	if err != nil {
+		return err
 	}
-	return tokens, nil
+	patchedBytes, err := patch.ApplyWithOptions(objBytes, &jsonpatchv5.ApplyOptions{
+		EnsurePathExistsOnAdd: true,
+	})
+	if err != nil {
+		return err
+	}
+	return obj.UnmarshalJSON(patchedBytes)
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {

@@ -1046,3 +1046,104 @@ func TestHandlePolicy_ExtractionMode(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "platform", labels["team"])
 }
+
+func TestHandlePolicy_ExtractionMode_NumericFieldNotJSONNumber(t *testing.T) {
+	jobset := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "jobset.x-k8s.io/v1alpha2",
+		"kind":       "JobSet",
+		"metadata":   map[string]interface{}{"name": "test-jobset", "namespace": "default"},
+		"spec": map[string]interface{}{
+			"replicatedJobs": []interface{}{
+				map[string]interface{}{
+					"template": map[string]interface{}{
+						"spec": map[string]interface{}{
+							"template": map[string]interface{}{
+								"spec": map[string]interface{}{
+									"containers": []interface{}{
+										map[string]interface{}{"name": "worker", "image": "bash:1.0"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}}
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "set-termination-grace-period"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{"CREATE"},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{"jobset.x-k8s.io"},
+							APIVersions: []string{"v1alpha2"},
+							Resources:   []string{"jobsets"},
+						},
+					},
+				}},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{{
+				PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+				ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					// Sets a numeric field on the synthesized Pod's spec.
+					// gomodules.xyz/jsonpatch.CreatePatch (used internally to
+					// diff the Pod before/after) decodes with UseNumber(), so
+					// this value flows through evaluateExtractedMutation's
+					// podPatch as a json.Number - this test pins that the
+					// value lands in the real JobSet as a normal int64/
+					// float64, not a leaked json.Number, after
+					// applyRebasedPatch rebases and applies it.
+					Expression: `Object{spec: Object.spec{terminationGracePeriodSeconds: 30}}`,
+				},
+			}},
+		},
+	}
+	compiled, errs := compiler.NewCompiler().Compile(mpol, nil)
+	assert.Empty(t, errs.ToAggregate())
+
+	eng := &engineImpl{
+		matcher:         matching.NewMatcher(),
+		typeConverter:   &fakeTypeConverter{},
+		contextProvider: &libs.FakeContextProvider{},
+	}
+	policy := Policy{Policy: mpol, CompiledPolicy: compiled, ExtractionMode: true}
+
+	attr := admission.NewAttributesRecord(
+		jobset, nil,
+		schema.GroupVersionKind{Group: "jobset.x-k8s.io", Version: "v1alpha2", Kind: "JobSet"},
+		"default", "test-jobset",
+		schema.GroupVersionResource{Group: "jobset.x-k8s.io", Version: "v1alpha2", Resource: "jobsets"},
+		"", admission.Create, nil, false, &user.DefaultInfo{},
+	)
+
+	ruleResponse, patched := eng.handlePolicy(context.Background(), policy, attr, admissionv1.AdmissionRequest{}, nil, nil, false)
+
+	assert.Len(t, ruleResponse.Rules, 1)
+	assert.Equal(t, engineapi.RuleStatusPass, ruleResponse.Rules[0].Status())
+	if !assert.NotNil(t, patched) {
+		return
+	}
+
+	replicatedJobs, found, err := unstructured.NestedSlice(patched.Object, "spec", "replicatedJobs")
+	assert.NoError(t, err)
+	if !assert.True(t, found) || !assert.Len(t, replicatedJobs, 1) {
+		return
+	}
+	rj, ok := replicatedJobs[0].(map[string]interface{})
+	if !assert.True(t, ok) {
+		return
+	}
+
+	// NestedInt64 does a strict type assertion to int64 and fails with
+	// "is of type json.Number, expected int64" if the hand-rolled patch
+	// applier (pre-fix) wrote the raw json.Number through unmodified.
+	val, found, err := unstructured.NestedInt64(rj,
+		"template", "spec", "template", "spec", "terminationGracePeriodSeconds")
+	assert.NoError(t, err)
+	assert.True(t, found)
+	assert.Equal(t, int64(30), val)
+}
