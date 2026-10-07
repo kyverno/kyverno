@@ -106,6 +106,10 @@ func (v *verifier) FetchAttestations(ctx context.Context, opts verifiers.Options
 		if err != nil {
 			return nil, err
 		}
+		// verified bundles without an in-toto statement carry no attestation to check
+		if len(statements) == 0 {
+			return nil, fmt.Errorf("sigstore bundle verification failed: no in-toto attestations found")
+		}
 		return &verifiers.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
 	}
 	cosignOpts, err := buildCosignOptions(ctx, opts)
