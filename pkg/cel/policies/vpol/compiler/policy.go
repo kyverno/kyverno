@@ -275,10 +275,10 @@ func (p *Policy) evaluateWithData(
 			ran(index, trace.VerdictFail)
 			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
+			// an audit annotation error must not mask the failure
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
-				verdict.Status, verdict.Message = trace.VerdictError, err.Error()
-				return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
+				auditAnnotations = nil
 			}
 			return &EvaluationResult{
 				Result:                 outcome,

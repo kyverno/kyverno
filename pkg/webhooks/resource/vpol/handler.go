@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
@@ -82,7 +83,7 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 	group.Start(func() {
 		h.audit(ctx, logger, admissionRequest, request, response)
 	})
-	return h.admissionResponse(request, response)
+	return h.admissionResponse(ctx, request, response)
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request vpolengine.EngineRequest, response vpolengine.EngineResponse) {
@@ -141,17 +142,25 @@ func (h *handler) admissionEvent(_ context.Context, responses []engineapi.Engine
 	}
 }
 
-func (h *handler) admissionResponse(request vpolengine.EngineRequest, response vpolengine.EngineResponse) handlers.AdmissionResponse {
+// an error carrying a refused exception means the policy itself failed, so it blocks regardless
+func errorBlocks(rule engineapi.RuleResponse, failurePolicy admissionregistrationv1.FailurePolicyType) bool {
+	return failurePolicy == admissionregistrationv1.Fail || len(rule.Exceptions()) > 0
+}
+
+func (h *handler) admissionResponse(ctx context.Context, request vpolengine.EngineRequest, response vpolengine.EngineResponse) handlers.AdmissionResponse {
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
+		failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
 			for _, rule := range policy.Rules {
 				switch rule.Status() {
 				case engineapi.RuleStatusFail:
 					errs = append(errs, fmt.Errorf("Policy %s failed: %s", policy.Policy.GetName(), rule.Message()))
 				case engineapi.RuleStatusError:
-					errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), rule.Message()))
+					if errorBlocks(rule, failurePolicy) {
+						errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), rule.Message()))
+					}
 				}
 			}
 		}
