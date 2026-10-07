@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -123,17 +124,13 @@ func NewController(
 	}
 
 	// Set up an event handler for when validating policies change
-	if vpolInformer != nil {
-		if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
-			logger.Error(err, "failed to register event handlers")
-		}
+	if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+		logger.Error(err, "failed to register event handlers")
 	}
 
 	// Set up an event handler for when namespaced validating policies change
-	if nvpolInformer != nil {
-		if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
-			logger.Error(err, "failed to register event handlers")
-		}
+	if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+		logger.Error(err, "failed to register event handlers")
 	}
 
 	// Set up an event handler for when mutating policies change
@@ -274,10 +271,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if !generateValidatingAdmissionPolicy {
 			return nil
 		}
+		var ok bool
+		namespace, name, ok = parseNamespacedPolicyKey(key)
+		if !ok {
+			logger.Error(nil, "invalid namespaced validating policy key")
+			return nil
+		}
 		nvpol, err := c.getNamespacedValidatingPolicy(namespace, name)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				return nil
+				// the generated VAP and binding are cluster-scoped and cannot be garbage collected
+				// through the namespaced policy, so delete them explicitly.
+				return c.deleteGeneratedVAP(ctx, admissionpolicy.ValidatingPolicyVAPName(namespace, name))
 			}
 			logger.Error(err, "unable to get the policy from policy informer")
 			return err

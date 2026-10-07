@@ -8,6 +8,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // this file contains the handler functions for PolicyException resources.
@@ -81,6 +82,21 @@ func (c *controller) enqueueCELException(obj *policiesv1beta1.PolicyException) {
 				continue
 			}
 			c.enqueueVP(vpol)
+		} else if policy.Kind == "NamespacedValidatingPolicy" {
+			// policy refs carry no namespace, so requeue every namespaced policy with that name
+			if c.nvpolLister == nil {
+				continue
+			}
+			nvpols, err := c.nvpolLister.List(labels.Everything())
+			if err != nil {
+				logger.Error(err, "unable to list namespaced validating policies from informer", "name", policy.Name)
+				continue
+			}
+			for _, nvpol := range nvpols {
+				if nvpol.GetName() == policy.Name {
+					c.enqueueVP(nvpol)
+				}
+			}
 		} else if policy.Kind == "MutatingPolicy" {
 			mpol, err := c.getMutatingPolicy(policy.Name)
 			if err != nil {

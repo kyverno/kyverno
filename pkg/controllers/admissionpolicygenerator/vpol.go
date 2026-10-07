@@ -1,6 +1,8 @@
 package admissionpolicygenerator
 
 import (
+	"strings"
+
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -35,8 +37,18 @@ func (c *controller) enqueueVP(obj policiesv1beta1.ValidatingPolicyLike) {
 		return
 	}
 	if obj.GetNamespace() != "" {
-		c.queue.Add("NamespacedValidatingPolicy/" + key)
+		// the worker would reject a three-part key, so pass it through unparsed
+		c.queue.Add(cache.ExplicitKey("NamespacedValidatingPolicy/" + key))
 	} else {
 		c.queue.Add("ValidatingPolicy/" + key)
 	}
+}
+
+// parseNamespacedPolicyKey extracts the namespace and name from a NamespacedValidatingPolicy/<namespace>/<name> key.
+func parseNamespacedPolicyKey(key string) (string, string, bool) {
+	parts := strings.SplitN(key, "/", 3)
+	if len(parts) != 3 || parts[1] == "" || parts[2] == "" {
+		return "", "", false
+	}
+	return parts[1], parts[2], true
 }

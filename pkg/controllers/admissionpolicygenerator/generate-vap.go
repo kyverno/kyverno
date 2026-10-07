@@ -32,10 +32,8 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 	var vapName string
 	if polType == "ClusterPolicy" {
 		vapName = "cpol-" + policy.GetName()
-	} else if polType == "NamespacedValidatingPolicy" {
-		vapName = "nvpol-" + policy.GetNamespace() + "-" + policy.GetName()
 	} else {
-		vapName = "vpol-" + policy.GetName()
+		vapName = admissionpolicy.ValidatingPolicyVAPName(policy.GetNamespace(), policy.GetName())
 	}
 	vapBindingName := constructBindingName(vapName)
 	// get the ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding if exists.

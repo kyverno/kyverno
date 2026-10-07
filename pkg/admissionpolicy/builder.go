@@ -19,6 +19,47 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// AnnotationSourcePolicyNamespace and AnnotationSourcePolicyName identify the namespaced policy a generated
+	// cluster-scoped resource comes from. Cluster-scoped objects cannot have a namespaced owner reference.
+	AnnotationSourcePolicyNamespace = "policies.kyverno.io/source-policy-namespace"
+	AnnotationSourcePolicyName      = "policies.kyverno.io/source-policy-name"
+)
+
+// ValidatingPolicyVAPName returns the name of the ValidatingAdmissionPolicy generated from a ValidatingPolicy
+// or, when namespace is set, a NamespacedValidatingPolicy. Namespace names cannot contain dots, so the "."
+// separator keeps names unique across namespace and policy name combinations.
+func ValidatingPolicyVAPName(namespace, name string) string {
+	if namespace != "" {
+		return "nvpol-" + namespace + "." + name
+	}
+	return "vpol-" + name
+}
+
+// setSourcePolicy links a generated cluster-scoped object to its policy. Cluster-scoped policies become the
+// owner; namespaced policies are recorded in annotations because the owner reference would be invalid.
+func setSourcePolicy(obj metav1.Object, policy engineapi.GenericPolicy) {
+	if policy.GetNamespace() == "" {
+		obj.SetOwnerReferences([]metav1.OwnerReference{
+			{
+				APIVersion: policy.GetAPIVersion(),
+				Kind:       policy.GetKind(),
+				Name:       policy.GetName(),
+				UID:        policy.GetUID(),
+			},
+		})
+		return
+	}
+	obj.SetOwnerReferences(nil)
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[AnnotationSourcePolicyNamespace] = policy.GetNamespace()
+	annotations[AnnotationSourcePolicyName] = policy.GetName()
+	obj.SetAnnotations(annotations)
+}
+
 // BuildValidatingAdmissionPolicy is used to build a Kubernetes ValidatingAdmissionPolicy from a Kyverno policy
 func BuildValidatingAdmissionPolicy(
 	discoveryClient dclient.IDiscovery,
@@ -104,6 +145,18 @@ func BuildValidatingAdmissionPolicy(
 	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
 		spec := vpol.GetSpec()
 		matchResources = *spec.MatchConstraints
+		// a namespaced policy only applies to its own namespace, so pin the cluster-scoped VAP to it
+		if ns := vpol.GetNamespace(); ns != "" {
+			matchResources.NamespaceSelector = &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "kubernetes.io/metadata.name",
+						Operator: metav1.LabelSelectorOpIn,
+						Values:   []string{ns},
+					},
+				},
+			}
+		}
 		matchConditions = spec.MatchConditions
 		validations = spec.Validations
 		auditAnnotations = spec.AuditAnnotations
@@ -151,15 +204,7 @@ func BuildValidatingAdmissionPolicy(
 		}
 	}
 
-	// set owner reference
-	vap.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: policy.GetAPIVersion(),
-			Kind:       policy.GetKind(),
-			Name:       policy.GetName(),
-			UID:        policy.GetUID(),
-		},
-	}
+	setSourcePolicy(vap, policy)
 	// set policy spec
 	vap.Spec = admissionregistrationv1.ValidatingAdmissionPolicySpec{
 		MatchConstraints: &matchResources,
@@ -217,22 +262,10 @@ func BuildValidatingAdmissionPolicyBinding(
 		policyName = "cpol-" + cpol.GetName()
 	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
 		validationActions = vpol.GetSpec().ValidationActions()
-		if vpol.GetNamespace() != "" {
-			policyName = "nvpol-" + vpol.GetNamespace() + "-" + vpol.GetName()
-		} else {
-			policyName = "vpol-" + vpol.GetName()
-		}
+		policyName = ValidatingPolicyVAPName(vpol.GetNamespace(), vpol.GetName())
 	}
 
-	// set owner reference
-	vapbinding.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: policy.GetAPIVersion(),
-			Kind:       policy.GetKind(),
-			Name:       policy.GetName(),
-			UID:        policy.GetUID(),
-		},
-	}
+	setSourcePolicy(vapbinding, policy)
 	// set binding spec
 	vapbinding.Spec = admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
 		PolicyName:        policyName,

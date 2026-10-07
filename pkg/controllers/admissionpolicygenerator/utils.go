@@ -1,6 +1,7 @@
 package admissionpolicygenerator
 
 import (
+	"context"
 	"fmt"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -9,6 +10,8 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -40,6 +43,17 @@ func (c *controller) getNamespacedValidatingPolicy(namespace, name string) (*pol
 		return nil, err
 	}
 	return nvpol, nil
+}
+
+// deleteGeneratedVAP deletes a generated ValidatingAdmissionPolicy and its binding, ignoring missing objects.
+func (c *controller) deleteGeneratedVAP(ctx context.Context, vapName string) error {
+	if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, constructBindingName(vapName), metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 // getMutatingPolicy gets the Kyverno MutatingPolicy
