@@ -748,3 +748,36 @@ func TestCleanupPolicyMatchExcludeConflictSkipsOversizedAnyLists(t *testing.T) {
 	errs := spec.ValidateMatchExcludeConflict(path)
 	assert.Equal(t, len(errs), 0)
 }
+
+func Test_CleanupPolicy_GlobalReferenceDenied(t *testing.T) {
+	subject := CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: CleanupPolicySpec{
+			Schedule: "* * * * *",
+			Context: []kyvernov1.ContextEntry{{
+				Name:            "gctxEntry",
+				GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "gctxEntry"},
+			}},
+		},
+	}
+	errs := subject.Validate(nil)
+	assert.Assert(t, len(errs) == 1)
+	assert.Equal(t, errs[0].Field, "spec.context")
+	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
+	assert.Equal(t, errs[0].Detail, "globalReference is not allowed in namespaced policies")
+}
+
+func Test_ClusterCleanupPolicy_GlobalReferenceAllowed(t *testing.T) {
+	subject := ClusterCleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: CleanupPolicySpec{
+			Schedule: "* * * * *",
+			Context: []kyvernov1.ContextEntry{{
+				Name:            "gctxEntry",
+				GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "gctxEntry"},
+			}},
+		},
+	}
+	errs := subject.Validate(nil)
+	assert.Assert(t, len(errs) == 0)
+}

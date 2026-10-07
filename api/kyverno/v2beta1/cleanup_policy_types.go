@@ -240,7 +240,7 @@ type CleanupPolicyStatus struct {
 // Validate implements programmatic validation
 func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set[string], namespaced bool) (errs field.ErrorList) {
 	// Write context validation code here by following other validations.
-	errs = append(errs, ValidateContext(path.Child("context"), p.Context)...)
+	errs = append(errs, ValidateContext(path.Child("context"), p.Context, namespaced)...)
 	errs = append(errs, ValidateSchedule(path.Child("schedule"), p.Schedule)...)
 	if userInfoErrs := p.MatchResources.ValidateNoUserInfo(path.Child("match")); len(userInfoErrs) != 0 {
 		errs = append(errs, userInfoErrs...)
@@ -258,12 +258,14 @@ func (p *CleanupPolicySpec) Validate(path *field.Path, clusterResources sets.Set
 	return errs
 }
 
-func ValidateContext(path *field.Path, context []kyvernov1.ContextEntry) (errs field.ErrorList) {
+func ValidateContext(path *field.Path, context []kyvernov1.ContextEntry, namespaced bool) (errs field.ErrorList) {
 	for _, entry := range context {
 		if entry.ImageRegistry != nil {
 			errs = append(errs, field.Invalid(path, context, "ImageRegistry is not allowed in CleanUp Policy"))
 		} else if entry.ConfigMap != nil {
 			errs = append(errs, field.Invalid(path, context, "ConfigMap is not allowed in CleanUp Policy"))
+		} else if namespaced && entry.GlobalReference != nil {
+			errs = append(errs, field.Invalid(path, context, "globalReference is not allowed in namespaced policies"))
 		}
 	}
 	return errs
