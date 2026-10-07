@@ -158,6 +158,24 @@ spec:
   - name: nginx
     image: nginx
 ---
+# The host sits on an ephemeral container; every other container is clean.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bad-pod-ephemeral-container
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  ephemeralContainers:
+  - name: debug
+    image: busybox
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8080
+        host: debug.example.com
+---
 # Passing cases.
 apiVersion: v1
 kind: Pod

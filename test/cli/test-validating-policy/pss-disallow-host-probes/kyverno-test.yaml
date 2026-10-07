@@ -22,6 +22,7 @@ results:
   - bad-pod-prestop-httpget
   - bad-pod-prestop-tcpsocket
   - bad-pod-init-container
+  - bad-pod-ephemeral-container
   result: fail
 - isValidatingPolicy: true
   kind: Pod
