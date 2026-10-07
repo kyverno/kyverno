@@ -1,0 +1,88 @@
+{{- if not .Values.upgrade.allowLegacyPolicies -}}
+  {{- $lines := list -}}
+  {{- $total := 0 -}}
+  {{- $maxNames := 5 -}}
+  {{/*
+    Look up each legacy kind at whichever version the cluster actually serves. Listing at any served
+    version returns every instance, because the API server converts on read - but the version a
+    cluster serves depends on which Kyverno it is upgrading from. Older releases served only
+    v2beta1/v2alpha1 for the cleanup and exception kinds (v2 was added later), so checking a single
+    hardcoded version would miss existing resources on a first upgrade and let the gate pass. Try the
+    candidate versions in order and use the first one the cluster serves.
+    The APIVersions.Has guard is required: `lookup` on an unregistered CRD raises a template error
+    rather than returning empty, which would turn an absent CRD into a false block.
+    Namespaced kinds pass "" as the namespace so lookup lists cluster-wide; passing .Release.Namespace
+    would silently miss policies created in other namespaces.
+  */}}
+  {{- $kinds := list
+    (dict "kind" "ClusterPolicy" "namespaced" false "versions" (list "v1" "v2beta1"))
+    (dict "kind" "Policy" "namespaced" true "versions" (list "v1" "v2beta1"))
+    (dict "kind" "CleanupPolicy" "namespaced" true "versions" (list "v2" "v2beta1" "v2alpha1"))
+    (dict "kind" "ClusterCleanupPolicy" "namespaced" false "versions" (list "v2" "v2beta1" "v2alpha1"))
+    (dict "kind" "PolicyException" "namespaced" true "versions" (list "v2" "v2beta1" "v2alpha1"))
+  -}}
+  {{- range $k := $kinds -}}
+    {{- $apiVersion := "" -}}
+    {{- range $v := $k.versions -}}
+      {{- if and (eq $apiVersion "") ($.Capabilities.APIVersions.Has (printf "kyverno.io/%s/%s" $v $k.kind)) -}}
+        {{- $apiVersion = printf "kyverno.io/%s" $v -}}
+      {{- end -}}
+    {{- end -}}
+    {{- if ne $apiVersion "" -}}
+    {{- $ns := "" -}}
+    {{- $result := lookup $apiVersion $k.kind $ns "" -}}
+    {{- if and $result $result.items -}}
+      {{- $count := len $result.items -}}
+      {{- $total = add $total $count -}}
+      {{- $lines = append $lines (printf "  | - %s: %d" $k.kind $count) -}}
+      {{/*
+        Collect every name first, sort the full set, then truncate - so which names are shown is
+        deterministic (alphabetically first) rather than dependent on whatever order lookup
+        happened to return the list in.
+      */}}
+      {{- $names := list -}}
+      {{- range $item := $result.items -}}
+        {{- $name := $item.metadata.name -}}
+        {{- if and $k.namespaced $item.metadata.namespace -}}
+          {{- $name = printf "%s/%s" $item.metadata.namespace $name -}}
+        {{- end -}}
+        {{- $names = append $names $name -}}
+      {{- end -}}
+      {{- $names = sortAlpha $names -}}
+      {{- range $i, $name := $names -}}
+        {{- if lt $i $maxNames -}}
+          {{- $lines = append $lines (printf "  |     %s" $name) -}}
+        {{- end -}}
+      {{- end -}}
+      {{- if gt $count $maxNames -}}
+        {{- $lines = append $lines (printf "  |     ... and %d more" (sub $count $maxNames)) -}}
+      {{- end -}}
+    {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if gt $total 0 -}}
+    {{/*
+      The right-hand border used by validate.yaml's fixed-width box is deliberately dropped here:
+      offending resource names are unbounded in length, so a right border would either overflow or
+      require padding logic per line. Keep only the left "| " marker and the top/bottom "+---+" rules.
+    */}}
+    {{- $header := list
+      ""
+      ""
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      (printf "  | Found %d legacy kyverno.io policy resource(s) on the cluster." $total)
+      "  | Installing or upgrading Kyverno is blocked while legacy ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, or PolicyException"
+      "  | resources exist. Migrate them to the policies.kyverno.io policy types, see the guide below, then re-run this command."
+      "  |"
+    -}}
+    {{- $footer := list
+      "  |"
+      "  | Migration guide: https://kyverno.io/docs/guides/migration-to-cel/"
+      "  |"
+      "  | To bypass this check (not recommended until migration is complete), set: upgrade.allowLegacyPolicies=true"
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      ""
+    -}}
+    {{- fail (join "\n" (concat $header $lines $footer)) -}}
+  {{- end -}}
+{{- end -}}

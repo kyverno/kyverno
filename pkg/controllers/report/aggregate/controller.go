@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -87,6 +88,12 @@ type controller struct {
 	// queues
 	frontQueue workqueue.TypedRateLimitingInterface[any]
 	backQueue  workqueue.TypedRateLimitingInterface[any]
+
+	// legacyReportSourceWarnOnce throttles the legacy kyverno.io report
+	// source deprecation log (see #17491) to a single line for the life of
+	// this controller, since backReconcile runs per report, per worker, on
+	// every resync. Zero value is ready to use.
+	legacyReportSourceWarnOnce sync.Once
 }
 
 // PolicyMapEntry holds an active traditional policy and its (autogen-expanded)
@@ -818,6 +825,21 @@ func (c *controller) frontReconcile(ctx context.Context, logger logr.Logger, _, 
 	return nil
 }
 
+// warnLegacyReportSourcesOnce logs, at most once per controller lifetime and
+// only when legacy kyverno.io policies are present, that their report results
+// are still aggregated. Legacy sources are DEPRECATED in 1.20 and removed in
+// 1.21 (#17491). backReconcile runs per report across workers on every resync,
+// so the sync.Once keeps this to a single line. It adds no metric; the
+// legacy-policy-count gauge is owned by #17488.
+func (c *controller) warnLegacyReportSourcesOnce(logger logr.Logger, legacyPolicies int) {
+	if legacyPolicies == 0 {
+		return
+	}
+	c.legacyReportSourceWarnOnce.Do(func() {
+		logger.Info("deprecated legacy kyverno.io policies present; their report results are still aggregated", "source", reportutils.SourceKyverno, "legacyPolicies", legacyPolicies, "guidance", deprecations.MigrationGuideURL)
+	})
+}
+
 func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, namespace, name string) (err error) {
 	var reports []reportsv1.ReportInterface
 	// get the report
@@ -851,6 +873,7 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 	if err != nil {
 		return err
 	}
+	c.warnLegacyReportSourcesOnce(logger, len(policyMap))
 	vapMap, err := c.createVapMap()
 	if err != nil {
 		return err

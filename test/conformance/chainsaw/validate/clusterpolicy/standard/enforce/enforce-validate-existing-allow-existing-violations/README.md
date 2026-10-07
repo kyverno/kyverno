@@ -6,7 +6,7 @@ This test mainly verifies that an enforce validate policy blocks changes in old 
 
 1. A bad pod is created that violates the policy.
 2. The policy is applied.
-3. Violating changes in bad pod causes error becuase `allowExistingViolations` is set to `false`
+3. Violating changes in bad pod causes error because `allowExistingViolations` is set to `false`
 
 ## Reference Issue(s)
 

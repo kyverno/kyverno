@@ -48,11 +48,22 @@ type Compiler interface {
 	Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList)
 }
 
+// NewCompiler builds a vpol compiler with tracing off, as admission, background and reports use
+// it. For `kyverno apply --explain`, see NewCompilerWithTrace.
 func NewCompiler() Compiler {
-	return &compilerImpl{}
+	return NewCompilerWithTrace(false)
 }
 
-type compilerImpl struct{}
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on, for
+// `kyverno apply --explain`: when trace is true, match conditions, variables and validations keep
+// their ASTs so each evaluation can record what every expression resolved to. It is a separate
+// constructor so that NewCompiler, which admission, background and reports use, can never turn
+// tracing on by accident.
+func NewCompilerWithTrace(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
+}
+
+type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	switch policy.GetValidatingPolicySpec().EvaluationMode() {
@@ -65,7 +76,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.ValidatingPolicyLike, exce
 
 func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -81,16 +92,18 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -100,7 +113,7 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, env, rule)
+			program, errs := compiler.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -111,33 +124,28 @@ func (c *compilerImpl) compileForKubernetes(policy policiesv1beta1.ValidatingPol
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
-	// exceptions' match conditions
-	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
-	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		compiledExceptions = append(compiledExceptions, compiler.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
-		})
+	compiledExceptions, errs := compileExceptions(policy.GetNamespace(), exceptions)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 	return &Policy{
-		mode:             policieskyvernoio.EvaluationModeKubernetes,
-		failurePolicy:    policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		matchConstraints: spec.MatchConstraints,
-		matchConditions:  matchConditions,
-		variables:        variables,
-		validations:      validations,
-		auditAnnotations: auditAnnotations,
-		exceptions:       compiledExceptions,
+		mode:                  policieskyvernoio.EvaluationModeKubernetes,
+		failurePolicy:         policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConstraints:      spec.MatchConstraints,
+		matchConditions:       matchConditions,
+		variables:             variables,
+		validations:           validations,
+		auditAnnotations:      auditAnnotations,
+		exceptions:            compiledExceptions,
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
 	}, nil
 }
 
 func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	vpolEnvSet, variablesProvider, err := c.createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
+	vpolEnvSet, variablesProvider, err := createBaseVpolEnv(libs.GetLibsCtx(), policy.GetNamespace(), true)
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -151,13 +159,15 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 	spec := policy.GetValidatingPolicySpec()
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 
 	env, err = env.Extend(
@@ -167,7 +177,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		return nil, append(allErrs, field.InternalError(nil, err))
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
@@ -177,7 +187,7 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := compiler.CompileValidation(path, env, rule)
+			program, errs := compiler.CompileValidation(path, env, rule, c.trace)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -185,30 +195,28 @@ func (c *compilerImpl) compileForJSON(policy policiesv1beta1.ValidatingPolicyLik
 		}
 	}
 
-	// Compile exceptions' match conditions for JSON mode
-	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
-	for _, polex := range exceptions {
-		polexMatchConditions, errs := compiler.CompileMatchConditions(field.NewPath("spec").Child("matchConditions"), env, polex.Spec.MatchConditions...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
-		}
-		compiledExceptions = append(compiledExceptions, compiler.Exception{
-			Exception:       polex,
-			MatchConditions: polexMatchConditions,
-		})
+	compiledExceptions, errs := compileExceptions(policy.GetNamespace(), exceptions)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 
 	return &Policy{
-		mode:            policieskyvernoio.EvaluationModeJSON,
-		failurePolicy:   policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
-		matchConditions: matchConditions,
-		variables:       variables,
-		validations:     validations,
-		exceptions:      compiledExceptions,
+		mode:                  policieskyvernoio.EvaluationModeJSON,
+		failurePolicy:         policy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
+		matchConditions:       matchConditions,
+		variables:             variables,
+		validations:           validations,
+		exceptions:            compiledExceptions,
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
 	}, nil
 }
 
-func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
+// createBaseVpolEnv builds the environment ValidatingPolicy expressions compile against.
+// withPolicyScope declares `variables` and `exceptions`, which hold nothing until the policy runs
+// and are unknowable to the exception webhook, so exception expressions compile without them.
+func createBaseVpolEnv(libsctx libs.Context, namespace string, withPolicyScope bool) (*environment.EnvSet, *compiler.VariablesProvider, error) {
 	baseOpts := compiler.DefaultEnvOptionsWithCompat()
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
@@ -217,8 +225,10 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		cel.Variable(compiler.RequestKey, compiler.RequestType.CelType()),
 		cel.Types(compiler.NamespaceType.CelType()),
 		cel.Types(compiler.RequestType.CelType()),
-		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
+	if withPolicyScope {
+		baseOpts = append(baseOpts, cel.Variable(compiler.VariablesKey, compiler.VariablesType))
+	}
 
 	base := environment.MustBaseEnvSet(vpolCompilerVersion)
 	env, err := base.Env(environment.StoredExpressions)
@@ -239,7 +249,13 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 	// go struct type resolution
 	libEnvOpts := []cel.EnvOption{
 		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+	}
+	// must be declared here, while ext.NativeTypes' provider is the active one; appending it after
+	// the libraries below leaves the libs.Exception type unresolvable.
+	if withPolicyScope {
+		libEnvOpts = append(libEnvOpts, cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")))
+	}
+	libEnvOpts = append(libEnvOpts,
 		globalcontext.Lib(
 			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			globalcontext.Latest(),
@@ -293,7 +309,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
 			http.Latest(),
 		),
-	}
+	)
 
 	extendedBase, err := base.Extend(
 		environment.VersionedOptions{
@@ -311,4 +327,26 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 	}
 
 	return extendedBase, variablesProvider, nil
+}
+
+// NewExceptionEnv builds the environment a PolicyException's expressions compile against.
+// Exported so the webhook can reject a malformed one up front: an exception that fails to compile
+// takes down every policy it references, and writing one needs access to a single namespace.
+func NewExceptionEnv(namespace string) (*cel.Env, error) {
+	envSet, _, err := createBaseVpolEnv(libs.GetLibsCtx(), namespace, false)
+	if err != nil {
+		return nil, err
+	}
+	return envSet.Env(environment.StoredExpressions)
+}
+
+func compileExceptions(namespace string, exceptions []*policiesv1beta1.PolicyException) ([]compiler.Exception, field.ErrorList) {
+	if len(exceptions) == 0 {
+		return nil, nil
+	}
+	env, err := NewExceptionEnv(namespace)
+	if err != nil {
+		return nil, field.ErrorList{field.InternalError(nil, fmt.Errorf(compileError, err))}
+	}
+	return compiler.CompileExceptionsWithValidations(env, exceptions)
 }

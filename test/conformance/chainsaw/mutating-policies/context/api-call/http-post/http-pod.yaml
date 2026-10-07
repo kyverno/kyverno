@@ -8,20 +8,26 @@ metadata:
 spec:
   containers:
   - name: test-api
-    image: public.ecr.aws/docker/library/python:3.9-slim
-    command: ["sh", "-c"]
+    image: mirror.gcr.io/library/python:3.9-slim
+    command: [python3, -c]
     args:
     - |
-      pip install flask &&
-      echo 'from flask import Flask, jsonify, request
-      app = Flask(__name__)
-      @app.route("/", methods=["POST"])
-      def post_data():
-        json_data = request.get_json()
-        data = json_data.get("labels")
-        return jsonify({"received": data})
-      if __name__ == "__main__":
-          app.run(host="0.0.0.0", port=5000)' > app.py &&
-            python app.py
+      import http.server, json
+      class H(http.server.BaseHTTPRequestHandler):
+          def do_POST(self):
+              length = int(self.headers.get('Content-Length', 0))
+              data = json.loads(self.rfile.read(length) or b'{}')
+              self.send_response(200)
+              self.send_header('Content-Type', 'application/json')
+              self.end_headers()
+              self.wfile.write(json.dumps({'received': data.get('labels')}).encode())
+          def log_message(self, *a): pass
+      http.server.HTTPServer(('', 5000), H).serve_forever()
     ports:
     - containerPort: 5000
+    readinessProbe:
+      tcpSocket:
+        port: 5000
+      initialDelaySeconds: 1
+      periodSeconds: 2
+      failureThreshold: 15
