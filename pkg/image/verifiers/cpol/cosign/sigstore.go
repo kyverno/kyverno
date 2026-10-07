@@ -114,7 +114,7 @@ func isSigstoreBundleType(mediaType string) bool {
 }
 
 // readLayer reads the uncompressed content of a layer, failing when either the compressed size or the
-// uncompressed content exceeds limit.
+// uncompressed content exceeds limit. On failure it still returns what was read, for accounting.
 func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 	layerSize, err := layer.Size()
 	if err != nil {
@@ -131,10 +131,10 @@ func readLayer(layer v1.Layer, limit int64) ([]byte, error) {
 	// the compressed size does not bound the uncompressed stream, so cap the read as well
 	data, err := io.ReadAll(io.LimitReader(layerBytes, limit+1))
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch referrer layer: %w", err)
+		return data, fmt.Errorf("failed to fetch referrer layer: %w", err)
 	}
 	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("uncompressed layer size exceeds %d", limit)
+		return data, fmt.Errorf("uncompressed layer size exceeds %d", limit)
 	}
 	return data, nil
 }
@@ -167,15 +167,16 @@ func resolveFallbackBundle(ref name.Reference, remoteOpts []remote.Option, probe
 		}
 	}
 	limit := min(maxProbeLayerSize, *probeBudget)
-	if layerDesc.Size > limit {
+	if limit <= 0 || layerDesc.Size > limit {
 		return nil, nil
 	}
-	*probeBudget -= layerDesc.Size
 	layers, err := img.Layers()
 	if err != nil || len(layers) == 0 {
 		return nil, nil
 	}
 	data, err := readLayer(layers[0], limit)
+	// charge the bytes actually read, since the descriptor size does not bound the uncompressed content
+	*probeBudget -= max(int64(len(data)), layerDesc.Size)
 	if err != nil {
 		return nil, nil
 	}

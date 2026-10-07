@@ -203,6 +203,20 @@ func TestReadLayerLimits(t *testing.T) {
 	assert.NilError(t, err)
 	assert.DeepEqual(t, got, data)
 
+	// the size check rejects the layer before reading
 	_, err = readLayer(static.NewLayer(data, types.MediaType("application/json")), int64(len(data))-1)
 	assert.ErrorContains(t, err, "exceeds")
+
+	// a layer whose uncompressed content is larger than its size is cut off, and what was read is returned
+	limit := int64(4)
+	got, err = readLayer(understatedLayer{Layer: static.NewLayer(data, types.MediaType("application/json"))}, limit)
+	assert.ErrorContains(t, err, "uncompressed layer size exceeds")
+	assert.Equal(t, int64(len(got)), limit+1)
 }
+
+// understatedLayer reports a zero size, like a referrer whose descriptor does not bound its content.
+type understatedLayer struct {
+	v1.Layer
+}
+
+func (understatedLayer) Size() (int64, error) { return 0, nil }
