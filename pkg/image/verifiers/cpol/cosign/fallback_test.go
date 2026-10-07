@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -231,7 +233,16 @@ func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 
 func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	t.Parallel()
-	server := httptest.NewServer(registry.New(registry.Logger(log.New(io.Discard, "", 0))))
+	// the registry refuses to serve the referrer manifest, as when access is denied
+	var blocked atomic.Pointer[string]
+	handler := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if digest := blocked.Load(); digest != nil && r.Method != http.MethodPut && strings.HasSuffix(r.URL.Path, "/manifests/"+*digest) {
+			http.Error(w, "denied", http.StatusForbidden)
+			return
+		}
+		handler.ServeHTTP(w, r)
+	}))
 	t.Cleanup(server.Close)
 	repo, err := name.NewRepository(strings.TrimPrefix(server.URL, "http://") + "/test/app")
 	assert.NilError(t, err)
@@ -242,17 +253,17 @@ func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	imgDigest, err := img.Digest()
 	assert.NilError(t, err)
 
-	// the fallback index lists an untyped referrer the registry cannot serve
-	missing, _, err := v1.SHA256(strings.NewReader("missing"))
-	assert.NilError(t, err)
+	desc := pushReferrer(t, repo, testReferrer{layerMediaType: "application/json", layerData: []byte(`{}`)})
 	index, err := json.Marshal(v1.IndexManifest{
 		SchemaVersion: 2,
 		MediaType:     types.OCIImageIndex,
-		Manifests:     []v1.Descriptor{{MediaType: types.OCIManifestSchema1, Digest: missing, Size: 2}},
+		Manifests:     []v1.Descriptor{desc},
 	})
 	assert.NilError(t, err)
 	fallbackTag := repo.Tag(fmt.Sprintf("%s-%s", imgDigest.Algorithm, imgDigest.Hex))
 	assert.NilError(t, remote.Put(fallbackTag, rawManifest{body: index, mediaType: types.OCIImageIndex}))
+	digest := desc.Digest.String()
+	blocked.Store(&digest)
 
 	_, _, err = fetchBundles(ref, attestationlimit, "", nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer image")
