@@ -121,7 +121,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 
 	if mpol.GetTargetMatchConstraints().Expression == "" {
-		results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		results, err := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		if err != nil {
+			failures = append(failures, fmt.Errorf("failed to resolve target resources for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+		}
 		list := make([]resolvedTarget, 0)
 		for ns, gvks := range results {
 			for r := range gvks {
@@ -321,7 +324,11 @@ func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constra
 				for _, resource := range rule.Resources {
 					parts := strings.SplitN(resource, "/", 2)
 					if wildcard.Match(parts[0], mapping.Resource.Resource) {
-						if len(parts) == 2 {
+						if len(parts) == 2 && parts[1] != "" {
+							// policy-author-controlled, and becomes a raw path segment for UpdateResource
+							if err := dclient.ValidatePathSegment("subresource", parts[1]); err != nil {
+								return schema.GroupVersionResource{}, "", fmt.Errorf("invalid target resource %q: %w", resource, err)
+							}
 							return mapping.Resource, parts[1], nil
 						}
 						return mapping.Resource, "", nil
@@ -379,9 +386,10 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	return nil
 }
 
-func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) map[string]sets.Set[*gvkItem] {
+func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) (map[string]sets.Set[*gvkItem], error) {
 	result := make(map[string]sets.Set[*gvkItem])
 
+	var errs []error
 	gvkSet := sets.New[*gvkItem]()
 	for _, rule := range m.ResourceRules {
 		for _, group := range rule.APIGroups {
@@ -401,7 +409,12 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 						continue
 					}
 					subresource := ""
-					if parts := strings.SplitN(resource, "/", 2); len(parts) == 2 {
+					if parts := strings.SplitN(resource, "/", 2); len(parts) == 2 && parts[1] != "" {
+						// policy-author-controlled, and becomes a raw path segment for UpdateResource
+						if err := dclient.ValidatePathSegment("subresource", parts[1]); err != nil {
+							errs = append(errs, fmt.Errorf("invalid target resource %q: %w", resource, err))
+							continue
+						}
 						subresource = parts[1]
 					}
 					gvkSet.Insert(&gvkItem{gvk: gvk, parentResource: gvr, subresource: subresource, resourceNames: rule.ResourceNames})
@@ -413,14 +426,14 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 	if ns != "" {
 		namespace, err := client.GetResource(context.TODO(), "v1", "Namespace", "", ns)
 		if err != nil {
-			return result
+			return result, multierr.Combine(errs...)
 		}
 		result[namespace.GetName()] = gvkSet
-		return result
+		return result, multierr.Combine(errs...)
 	} else if m.NamespaceSelector != nil {
 		namespaces, err := client.ListResource(context.TODO(), "v1", "Namespace", "", m.NamespaceSelector)
 		if err != nil {
-			return result
+			return result, multierr.Combine(errs...)
 		}
 
 		for _, ns := range namespaces.Items {
@@ -429,7 +442,7 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 	} else {
 		result["*"] = gvkSet
 	}
-	return result
+	return result, multierr.Combine(errs...)
 }
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {

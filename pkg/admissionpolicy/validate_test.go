@@ -290,3 +290,36 @@ func Test_ValidateResourceNilMatchConstraints(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Equal(t, len(response.PolicyResponse.Rules), 1)
 }
+
+// TestGetGVRs_SkipsUnsafeResourceSegments covers GHSA-4pqm-wqq6-h9q2 for the
+// deleting controller: GetGVRs builds a GVR straight from the policy strings
+// with no mapper lookup, and the dynamic client joins that resource into the
+// request path with path.Join, so a ".." entry would turn the controller's
+// LIST into an attacker-chosen path under its own ServiceAccount.
+func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
+	rules := func(group, version string, resources ...string) *admissionregistrationv1.MatchResources {
+		return &admissionregistrationv1.MatchResources{
+			ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{group},
+						APIVersions: []string{version},
+						Resources:   resources,
+					},
+				},
+			}},
+		}
+	}
+
+	got := GetGVRs(rules("", "v1", "pods/../namespaces/kube-system/secrets", "..", ".", "configmaps"), nil)
+	assert.Equal(t, len(got), 1)
+	assert.Equal(t, got[0].Resource, "configmaps")
+
+	assert.Equal(t, len(GetGVRs(rules("..", "v1", "pods"), nil)), 0, "unsafe api group")
+	assert.Equal(t, len(GetGVRs(rules("", "..", "pods"), nil)), 0, "unsafe api version")
+
+	// wildcards and the core group must still resolve
+	wild := GetGVRs(rules("", "v1", "*"), nil)
+	assert.Equal(t, len(wild), 1)
+	assert.Equal(t, wild[0].Resource, "*")
+}

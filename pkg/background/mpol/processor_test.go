@@ -334,8 +334,9 @@ func TestCollectGVK_NoNamespaceSelector(t *testing.T) {
 		}},
 	}
 
-	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, m, "")
+	result, err := collectGVK(dclient.NewEmptyFakeClient(), mapper, m, "")
 
+	assert.NoError(t, err)
 	assert.Contains(t, result, "*")
 	assert.Equal(t, 1, len(result["*"]))
 }
@@ -356,13 +357,41 @@ func TestCollectGVK_PreservesSubresourceRoute(t *testing.T) {
 		}},
 	}
 
-	result := collectGVK(dclient.NewEmptyFakeClient(), mapper, constraints, "")
+	result, err := collectGVK(dclient.NewEmptyFakeClient(), mapper, constraints, "")
 
+	assert.NoError(t, err)
 	assert.Len(t, result["*"], 1)
 	for item := range result["*"] {
 		assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, item.parentResource)
 		assert.Equal(t, "resize", item.subresource)
 	}
+}
+
+// TestCollectGVK_RejectsTraversalSubresource covers GHSA-4pqm-wqq6-h9q2: a
+// NamespacedMutatingPolicy author controls targetMatchConstraints'
+// resources[], and the subresource remainder used to go straight into
+// UpdateResource unvalidated. The entry must be dropped with a surfaced
+// error instead of silently reaching the dclient chokepoint.
+func TestCollectGVK_RejectsTraversalSubresource(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/../../../namespaces/kube-system/pods/victim"},
+				},
+			},
+		}},
+	}
+
+	result, err := collectGVK(dclient.NewEmptyFakeClient(), mapper, constraints, "")
+
+	assert.Error(t, err)
+	assert.Empty(t, result["*"], "a traversing resources[] entry must not resolve to a target route")
 }
 
 func TestResolveTargetRoute_Subresource(t *testing.T) {
@@ -389,6 +418,33 @@ func TestResolveTargetRoute_Subresource(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, resource)
 	assert.Equal(t, "resize", subresource)
+}
+
+// TestResolveTargetRoute_RejectsTraversalSubresource covers GHSA-4pqm-wqq6-h9q2
+// at the self-mutation route: a traversing resources[] entry must fail
+// loudly instead of handing an unvalidated subresource to UpdateResource.
+func TestResolveTargetRoute_RejectsTraversalSubresource(t *testing.T) {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+	p := &processor{mapper: mapper}
+	pod := unstructured.Unstructured{}
+	pod.SetAPIVersion("v1")
+	pod.SetKind("Pod")
+	constraints := admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{""},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"pods/../../../namespaces/kube-system/pods/victim"},
+				},
+			},
+		}},
+	}
+
+	_, _, err := p.resolveTargetRoute(pod, constraints)
+
+	assert.Error(t, err)
 }
 
 // TestGetPolicy_NamespacedMutatingPolicy verifies that GetPolicy resolves a
