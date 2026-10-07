@@ -47,7 +47,7 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "runtime", UID: "runtime", ResourceVersion: "1"},
 		Spec:       policiesv1beta1.ImageValidatingPolicySpec{Attestations: []policiesv1beta1.Attestation{{Name: "proof", InToto: &policiesv1beta1.InToto{Type: "proof"}}}},
 	}
-	factory := NewFactory(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 	attestors := []policiesv1beta1.Attestor{{Name: "test"}}
 	for i := range 32 {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
@@ -66,9 +66,9 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 			images := runtimeImages{image: &imagedataloader.ImageData{}}
 			images.image.Digest = expected
 			results := NewImageVerificationResults()
-			runtime := factory.Bind(&Runtime{ImageContext: images, Cache: cache, Results: results})
+			runtime := NewRuntimeForPolicy(ivFuncs, images, cache, results)
 			activation := map[string]any{RuntimeKey: runtime, "attestors": attestors, "expected": expected}
-			_, _, err = metadata.Eval(map[string]any{RuntimeKey: factory.Bind(&Runtime{ImageContext: runtimeImages{err: fmt.Errorf("request %s", expected)}})})
+			_, _, err = metadata.Eval(map[string]any{RuntimeKey: NewRuntimeForPolicy(ivFuncs, runtimeImages{err: fmt.Errorf("request %s", expected)}, nil, nil)})
 			require.ErrorContains(t, err, "request "+expected)
 			var out ref.Val
 			out, _, err = signature.Eval(activation)
@@ -83,7 +83,7 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, true, out.Value())
 			require.Empty(t, runtime.functions.pendingIntotoRestores)
-			require.Empty(t, factory.functions.pendingIntotoRestores)
+			require.Empty(t, ivFuncs.pendingIntotoRestores)
 		})
 	}
 }

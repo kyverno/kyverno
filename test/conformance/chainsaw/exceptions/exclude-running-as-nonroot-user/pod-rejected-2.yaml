@@ -6,7 +6,7 @@ metadata:
 spec:
   containers:
   - name: busybox1
-    image: public.ecr.aws/docker/library/busybox
+    image: mirror.gcr.io/library/busybox
     args:
     - sleep
     - 1d

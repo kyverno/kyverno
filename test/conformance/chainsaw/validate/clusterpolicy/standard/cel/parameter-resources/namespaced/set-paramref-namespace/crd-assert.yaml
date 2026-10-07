@@ -8,3 +8,7 @@ status:
     plural: deploymentreplicalimits
   storedVersions:
   - v1
+  # The API is only served once the CRD is Established; creating a resource before that
+  # can fail with "no matches for rules.example.com/v1".
+  (conditions[?type == 'Established']):
+  - status: "True"
