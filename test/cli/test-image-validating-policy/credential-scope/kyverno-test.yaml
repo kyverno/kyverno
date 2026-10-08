@@ -8,20 +8,20 @@ resources:
 - pod.yaml
 results:
 - isImageValidatingPolicy: true
-  policy: tenant-bare
   kind: Pod
-  resources:
-  - scope-proof
-  result: pass
-- isImageValidatingPolicy: true
-  policy: tenant-explicit
-  kind: Pod
-  resources:
-  - scope-proof
-  result: pass
-- isImageValidatingPolicy: true
   policy: cluster-explicit
+  resources:
+  - scope-proof
+  result: pass
+- isImageValidatingPolicy: true
   kind: Pod
+  policy: tenant-bare
+  resources:
+  - scope-proof
+  result: pass
+- isImageValidatingPolicy: true
+  kind: Pod
+  policy: tenant-explicit
   resources:
   - scope-proof
   result: pass
