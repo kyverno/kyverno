@@ -59,6 +59,8 @@ var (
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
 	registryCredentialHelpers string
+	privateRegistryAllowlist  string
+	privateRegistryEgressMode string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 	// cleanupServer port and host for listening address
@@ -160,6 +162,8 @@ func initRegistryClientFlags() {
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
+	flag.StringVar(&privateRegistryAllowlist, "privateRegistryAllowlist", "", "Comma-separated exact hosts, IP addresses, or CIDRs permitted for private registry and signature services in enforce mode. Unsafe addresses remain blocked.")
+	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", "audit", "Registry egress policy: audit permits private addresses and logs enforce violations; enforce requires an allowlist. Both modes block metadata and unsafe addresses.")
 }
 
 func initImageVerifyCacheFlags() {
