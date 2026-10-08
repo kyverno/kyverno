@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ($policyKind)
+metadata:
+  name: ($name)
+spec:
+  background: false
+  rules:
+  - name: check-param
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    validate:
+      failureAction: Enforce
+      cel:
+        paramKind:
+          apiVersion: ($paramApiVersion)
+          kind: ScopeParameter
+        paramRef:
+          name: params
+          parameterNotFoundAction: Deny
+        expressions:
+        - expression: 'true'

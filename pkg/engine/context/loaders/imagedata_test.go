@@ -38,11 +38,94 @@ func (m *mockRegistryClient) NameOptions() []gcrname.Option {
 }
 
 type mockRegistryClientFactory struct {
-	client engineapi.RegistryClient
+	client            engineapi.RegistryClient
+	credentials       *kyvernov1.ImageRegistryCredentials
+	resourceNamespace string
+	calls             int
 }
 
-func (m *mockRegistryClientFactory) GetClient(context.Context, *kyvernov1.ImageRegistryCredentials, string, []string) (engineapi.RegistryClient, error) {
+func (m *mockRegistryClientFactory) GetClient(_ context.Context, credentials *kyvernov1.ImageRegistryCredentials, resourceNamespace string, _ []string) (engineapi.RegistryClient, error) {
+	m.calls++
+	m.credentials = credentials
+	m.resourceNamespace = resourceNamespace
 	return m.client, nil
+}
+
+func TestImageDataLoaderConfinesCredentialSecrets(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name            string
+		policyNamespace string
+		secrets         []string
+		expected        []string
+		errorContains   string
+	}{
+		{
+			name:            "bare secret defaults to policy namespace",
+			policyNamespace: "tenant-a",
+			secrets:         []string{"pull-secret"},
+			expected:        []string{"tenant-a/pull-secret"},
+		},
+		{
+			name:            "same namespace is allowed",
+			policyNamespace: "tenant-a",
+			secrets:         []string{"tenant-a/pull-secret"},
+			expected:        []string{"tenant-a/pull-secret"},
+		},
+		{
+			name:            "foreign namespace is rejected",
+			policyNamespace: "tenant-a",
+			secrets:         []string{"tenant-b/pull-secret"},
+			errorContains:   "instead of policy namespace",
+		},
+		{
+			name:            "installation namespace is rejected",
+			policyNamespace: "tenant-a",
+			secrets:         []string{"kyverno/pull-secret"},
+			errorContains:   "instead of policy namespace",
+		},
+		{
+			name:     "cluster policy behavior is preserved",
+			secrets:  []string{"pull-secret", "shared/pull-secret"},
+			expected: []string{"pull-secret", "shared/pull-secret"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := enginecontext.NewContext(jp)
+			factory := &mockRegistryClientFactory{client: &mockRegistryClient{}}
+			entry := kyvernov1.ContextEntry{
+				Name: "image",
+				ImageRegistry: &kyvernov1.ImageRegistry{
+					Reference: "ghcr.io/kyverno/kyverno:latest",
+					ImageRegistryCredentials: &kyvernov1.ImageRegistryCredentials{
+						Secrets: test.secrets,
+					},
+				},
+			}
+			loader := NewImageDataLoader(
+				context.Background(),
+				logging.GlobalLogger(),
+				entry,
+				ctx,
+				jp,
+				factory,
+				test.policyNamespace,
+			)
+
+			err := loader.LoadData()
+			if test.errorContains != "" {
+				assert.ErrorContains(t, err, test.errorContains)
+				assert.Equal(t, 0, factory.calls)
+				return
+			}
+			assert.NilError(t, err)
+			assert.Equal(t, 1, factory.calls)
+			assert.DeepEqual(t, factory.credentials.Secrets, test.expected)
+		})
+	}
 }
 
 func Test_fetchImageData_NonStringJMESPathDoesNotPanic(t *testing.T) {
