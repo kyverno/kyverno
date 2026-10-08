@@ -85,10 +85,61 @@ func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache 
 	newFuncs.imgCtx = imgCtx
 	newFuncs.ivCache = cache
 	newFuncs.verifications = results
+	newFuncs.authOpts = reuseRegistryAuth(f.authOpts, f.logger)
 	newFuncs.pendingIntotoRestores = map[string]map[string][]byte{}
 	newFuncs.diagnostics = &verificationDiagnostics{}
 
 	return Runtime{functions: &newFuncs}
+}
+
+// AuthOpts returns the registry options bound to this evaluation, including the
+// shared puller added by NewRuntimeForPolicy. Callers that fetch image data for
+// the same policy and request should use these rather than the options the policy
+// was compiled with, so the whole evaluation goes through one puller. It returns
+// nil for a zero Runtime.
+func (r Runtime) AuthOpts() []remote.Option {
+	if r.functions == nil {
+		return nil
+	}
+	return r.functions.authOpts
+}
+
+// reuseRegistryAuth appends a puller to authOpts so that every registry call made
+// while evaluating one policy against one request shares a single auth handshake
+// per repository. Without it go-containerregistry builds a fetcher per call, and
+// each one re-runs the /v2/ ping and token exchange, which dominates the time of
+// a check against a registry using token auth.
+//
+// The puller is built in NewRuntimeForPolicy and not in NewIvFuncs: the IvFuncs a
+// policy is compiled with outlives the request, while a puller caches the token
+// it obtained for a repository. Keeping it request-scoped is what preserves the
+// credential freshness that registryclient.GlobalOptsOrDefault protects by
+// deliberately not handing out a global puller, and that
+// TestFactoryCredentialsObserveSecretRotation covers.
+//
+// Each NewRuntimeForPolicy builds its own puller from the options it was handed,
+// so two evaluations never share one.
+//
+// That alone does not isolate policies carrying different spec.Credentials: the
+// ImageContext cache is keyed by image reference only, so the first policy to
+// fetch an image fixes the options -- keychain as much as puller -- recorded on
+// the ImageData that every later policy reuses for it. That sharing predates
+// this change and is not widened by it: the cached keychain already resolved the
+// first policy's credentials for those calls, so reusing its token alongside
+// grants no access the keychain did not already grant.
+func reuseRegistryAuth(authOpts []remote.Option, logger logr.Logger) []remote.Option {
+	puller, err := remote.NewPuller(authOpts...)
+	if err != nil {
+		// reuse is an optimisation, so fall back to the unpooled options rather
+		// than failing an evaluation that would otherwise have succeeded.
+		logger.V(4).Info("failed to build registry puller, continuing without auth reuse", "error", err)
+		return authOpts
+	}
+	// copied rather than appended in place: authOpts belongs to the policy's
+	// IvFuncs and is shared by every runtime created from it.
+	bound := make([]remote.Option, 0, len(authOpts)+1)
+	bound = append(bound, authOpts...)
+	return append(bound, remote.Reuse(puller))
 }
 
 func NewIvFuncs(
