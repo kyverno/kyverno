@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -40,7 +41,7 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 		imagePullSecrets,
 		registryCredentialHelpers, allowInsecureRegistry)
 
-	return registryClient, ms
+	return registryClient, kubeutils.WithSecretClient(ctx, ms, client.CoreV1())
 }
 
 func parseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
