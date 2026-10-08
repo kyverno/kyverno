@@ -113,7 +113,7 @@ automatically permit them.
 The setting is passed to admission, background, and reports controllers. These
 controllers support `featuresOverride.registryClient` to change it for one
 controller. Keep these settings consistent unless a difference is intentional.
-Cleanup does not use a registry client and receives no registry egress flags.
+Cleanup receives neither registry egress flag.
 
 ## HTTP and HTTPS proxies
 
