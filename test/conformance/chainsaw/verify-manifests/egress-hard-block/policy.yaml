@@ -1,0 +1,91 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: manifest-egress-hard-block
+spec:
+  background: false
+  rules:
+  - name: verify-key-loopback
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+          selector:
+            matchLabels:
+              app.kubernetes.io/instance: manifest-egress-key-loopback
+    validate:
+      failureAction: Enforce
+      manifests:
+        dryRun:
+          enable: false
+        attestors:
+        - entries:
+          - keys:
+              publicKeys: http://127.0.0.1:5000/cosign.pub
+  - name: verify-key-metadata
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+          selector:
+            matchLabels:
+              app.kubernetes.io/instance: manifest-egress-key-metadata
+    validate:
+      failureAction: Enforce
+      manifests:
+        dryRun:
+          enable: false
+        attestors:
+        - entries:
+          - keys:
+              publicKeys: http://169.254.169.254/cosign.pub
+  - name: verify-bundle-loopback
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+          selector:
+            matchLabels:
+              app.kubernetes.io/instance: manifest-egress-bundle-loopback
+    validate:
+      failureAction: Enforce
+      manifests:
+        dryRun:
+          enable: false
+        attestors:
+        - entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
+                BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
+                -----END PUBLIC KEY-----
+  - name: verify-bundle-metadata
+    match:
+      any:
+      - resources:
+          kinds:
+          - Service
+          selector:
+            matchLabels:
+              app.kubernetes.io/instance: manifest-egress-bundle-metadata
+    validate:
+      failureAction: Enforce
+      manifests:
+        dryRun:
+          enable: false
+        repository: 169.254.169.254/manifest-proof:latest
+        attestors:
+        - entries:
+          - keys:
+              publicKeys: |-
+                -----BEGIN PUBLIC KEY-----
+                MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
+                BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
+                -----END PUBLIC KEY-----
+  webhookConfiguration:
+    timeoutSeconds: 10
+    failurePolicy: Fail
