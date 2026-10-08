@@ -59,6 +59,8 @@ var (
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
 	registryCredentialHelpers string
+	privateRegistryAllowlist  string
+	privateRegistryEgressMode string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 	// cleanupServer port and host for listening address
@@ -163,6 +165,8 @@ func initRegistryClientFlags() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
 	flag.Int64Var(&imageVerifyPayloadLimit, "imageVerifyPayloadLimit", 0, "Maximum decompressed size in bytes of a signature, attestation or bundle payload read during image verification. Raise it to verify payloads larger than the 10000000 byte default, such as large SBOM attestations. 0 keeps the default.")
+	flag.StringVar(&privateRegistryAllowlist, "privateRegistryAllowlist", "", "Comma-separated exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Metadata and other unsafe addresses remain blocked.")
+	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", "audit", "Private registry egress policy: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes always block metadata and other unsafe addresses.")
 }
 
 func initImageVerifyCacheFlags() {
