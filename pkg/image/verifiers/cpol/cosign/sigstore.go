@@ -23,10 +23,7 @@ import (
 	"github.com/sigstore/sigstore/pkg/signature"
 )
 
-var (
-	maxLayerSize     = int64(10 * 1000 * 1000) // 10 MB
-	attestationlimit = 50
-)
+var attestationlimit = 50
 
 type verificationResult struct {
 	Bundle *verificationBundle
@@ -96,7 +93,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 	if err != nil {
 		return nil, nil, err
 	}
-	referrersDescs, err := referrers.IndexManifest()
+	referrersDescs, err := verifiers.ReferrersIndexManifest(referrers)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -119,7 +116,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 			return nil, nil, fmt.Errorf("layers not found")
 		}
 		layer := layers[0]
-		bundleBytes, err := verifiers.ReadLayerLimited(layer, maxLayerSize)
+		bundleBytes, err := verifiers.ReadLayerLimited(layer, verifiers.PayloadLimit())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to read referrer layer %s: %w", manifestDesc.Digest, err)
 		}

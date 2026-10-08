@@ -45,7 +45,7 @@ func (c *repositoryClient) ListSignatures(ctx context.Context, desc ocispec.Desc
 		return err
 	}
 
-	referrersDescs, err := referrers.IndexManifest()
+	referrersDescs, err := verifiers.ReferrersIndexManifest(referrers)
 	if err != nil {
 		return err
 	}
@@ -90,8 +90,8 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 	manifestDesc := manifest.Layers[0]
 
 	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
-	if manifestDesc.Size > maxPayloadSize {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size %d exceeds %d for digest %s", manifestDesc.Size, maxPayloadSize, manifestDesc.Digest)
+	if manifestDesc.Size > verifiers.PayloadLimit() {
+		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size %d exceeds %d for digest %s", manifestDesc.Size, verifiers.PayloadLimit(), manifestDesc.Digest)
 	}
 
 	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
@@ -105,7 +105,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 		return nil, ocispec.Descriptor{}, err
 	}
 
-	sigBlob, err := verifiers.ReadLayerLimited(signatureBlobLayer, maxPayloadSize)
+	sigBlob, err := verifiers.ReadLayerLimited(signatureBlobLayer, verifiers.PayloadLimit())
 	if err != nil {
 		return nil, ocispec.Descriptor{}, fmt.Errorf("failed to read signature blob for digest %s: %w", digest, err)
 	}

@@ -73,11 +73,11 @@ func TestNotaryImageVerification(t *testing.T) {
 
 func TestExtractStatementRejectsOversizedPredicate(t *testing.T) {
 	repo := newTestRegistry(t)
-	restore := maxPayloadSize
-	maxPayloadSize = 1 << 10
-	t.Cleanup(func() { maxPayloadSize = restore })
+	restore := verifiers.PayloadLimit()
+	verifiers.SetPayloadLimit(1 << 10)
+	t.Cleanup(func() { verifiers.SetPayloadLimit(restore) })
 
-	data := gzipBytes(t, int(maxPayloadSize)+1)
+	data := gzipBytes(t, int(verifiers.PayloadLimit())+1)
 	layerDigest, layerSize := pushBlob(t, repo, data, "application/vnd.in-toto+json")
 	manifest := ocispec.Manifest{
 		MediaType: ocispec.MediaTypeImageManifest,

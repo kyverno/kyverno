@@ -14,6 +14,7 @@ import (
 	kyvernocfg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsclient "github.com/openreports/reports-api/pkg/client/clientset/versioned/typed/openreports.io/v1alpha1"
@@ -75,6 +76,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 
 	if config.UsesRegistryClient() {
 		_, registrySecretLister = setupRegistryClient(ctx, logger, client)
+		verifiers.SetPayloadLimit(imageVerifyPayloadLimit)
+		logger.V(2).Info("image verification payload limit", "bytes", verifiers.PayloadLimit())
 	}
 
 	var imageVerifyCache imageverifycache.Client

@@ -62,9 +62,6 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 // bundleLayerMediaTypePrefix identifies the layer of a cosign v3 sigstore bundle referrer.
 const bundleLayerMediaTypePrefix = "application/vnd.dev.sigstore.bundle"
 
-// maxBundleLayerSize bounds how many bundle bytes detection reads per referrer.
-const maxBundleLayerSize = int64(10 * 1000 * 1000) // 10 MB
-
 // loadBundles reads and parses every cosign v3 sigstore bundle referrer attached
 // to the image, reproducing cosign.GetBundles's enumeration and acceptance
 // predicate but through a size-bounded reader, so this is the only read any
@@ -124,7 +121,14 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 		}
 		bundle, err := parseBundleLayer(layers[0])
 		if err != nil {
-			v.log.V(2).Info("skipping referrer: not a usable sigstore bundle", "digest", result.Digest.String(), "err", err.Error())
+			// A referrer refused for size carries the bundle media type, so it was
+			// meant to be a bundle: say so at a level the operator actually sees,
+			// otherwise verification just reports "no matching signatures".
+			if stderrors.Is(err, verifiers.ErrLayerTooLarge) {
+				v.log.Info("skipping bundle referrer: exceeds the payload limit, raise --imageVerifyPayloadLimit to accept it", "digest", result.Digest.String(), "err", err.Error())
+			} else {
+				v.log.V(2).Info("skipping referrer: not a usable sigstore bundle", "digest", result.Digest.String(), "err", err.Error())
+			}
 			continue
 		}
 		bundles = append(bundles, bundle)
@@ -138,7 +142,7 @@ func (v *Verifier) loadBundles(ref name.Reference, registryClientOpts []ociremot
 // then MinVersion v0.3. Keeping these steps identical keeps the bundle list this
 // loop produces in agreement with what cosign.GetBundles would have returned.
 func parseBundleLayer(layer v1.Layer) (*sgbundle.Bundle, error) {
-	bundleBytes, err := verifiers.ReadLayerLimited(layer, maxBundleLayerSize)
+	bundleBytes, err := verifiers.ReadLayerLimited(layer, verifiers.PayloadLimit())
 	if err != nil {
 		return nil, err
 	}

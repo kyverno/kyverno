@@ -24,10 +24,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-var (
-	maxReferrersCount = 50
-	maxPayloadSize    = int64(10 * 1000 * 1000) // 10 MB
-)
+var maxReferrersCount = 50
 
 type notaryVerifier struct{}
 
@@ -109,7 +106,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts verifiers.O
 		return nil, err
 	}
 
-	referrersDescs, err := referrers.IndexManifest()
+	referrersDescs, err := verifiers.ReferrersIndexManifest(referrers)
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +305,8 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 
 	predicateDesc := manifest.Layers[0]
 	digest := predicateDesc.Digest.String()
-	if predicateDesc.Size > maxPayloadSize {
-		return nil, fmt.Errorf("predicate size %d exceeds %d for digest %s", predicateDesc.Size, maxPayloadSize, digest)
+	if predicateDesc.Size > verifiers.PayloadLimit() {
+		return nil, fmt.Errorf("predicate size %d exceeds %d for digest %s", predicateDesc.Size, verifiers.PayloadLimit(), digest)
 	}
 
 	layer, err := gcrremote.Layer(ref.Context().Digest(digest), remoteOpts...)
@@ -317,7 +314,7 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 		return nil, err
 	}
 
-	predicateBytes, err := verifiers.ReadLayerLimited(layer, maxPayloadSize)
+	predicateBytes, err := verifiers.ReadLayerLimited(layer, verifiers.PayloadLimit())
 	if err != nil {
 		return nil, fmt.Errorf("failed to read predicate for digest %s: %w", digest, err)
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	notationregistry "github.com/notaryproject/notation-go/registry"
@@ -103,11 +105,11 @@ func TestFetchSignatureBlobRejectsEmptyManifest(t *testing.T) {
 
 func TestFetchSignatureBlobRejectsOversizedBlob(t *testing.T) {
 	repo := newTestRegistry(t)
-	restore := maxPayloadSize
-	maxPayloadSize = 1 << 10
-	t.Cleanup(func() { maxPayloadSize = restore })
+	restore := verifiers.PayloadLimit()
+	verifiers.SetPayloadLimit(1 << 10)
+	t.Cleanup(func() { verifiers.SetPayloadLimit(restore) })
 
-	data := gzipBytes(t, int(maxPayloadSize)+1)
+	data := gzipBytes(t, int(verifiers.PayloadLimit())+1)
 	layerDigest, layerSize := pushBlob(t, repo, data, "application/jose+json")
 	manifest := ocispec.Manifest{
 		MediaType: ocispec.MediaTypeImageManifest,
