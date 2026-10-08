@@ -1197,3 +1197,56 @@ func Test_impl_verify_referrer_attestation_cache_hit_undecodable_payload_falls_b
 	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
 	assert.True(t, types.IsError(payload), "extractPayload must not return unverified data for a corrupt Referrer cache entry: %v", payload)
 }
+
+// At the production default --imageVerifyCacheMaxSize (a byte-cost budget
+// of 1000), a typical multi-KB attestation payload does not fit, so the
+// cache write is declined. That costs a future cache hit, never
+// correctness: with nothing stored, the next evaluation has to re-verify
+// rather than trust an entry, and extractPayload must not fall back to an
+// unverified registry fetch. Sizing is tracked separately in #17575.
+func Test_impl_verify_referrer_attestation_default_capacity_rejected_write_fails_closed(t *testing.T) {
+	attestors, attestationName, pol := referrerTestFixture("referrer-attestation-defaultcap-policy", "test-uid-referrer-attestation-defaultcap")
+	image := "ghcr.io/kyverno/test-verify-image:signed"
+
+	// WithMaxSize(0) selects the production default.
+	ivCache := newTestIVCache(t, 0)
+
+	f := &IvFuncs{
+		Adapter:                    types.DefaultTypeAdapter,
+		imgCtx:                     stubImageContext{err: errors.New("registry fetch disabled")},
+		policy:                     pol,
+		attestationList:            attestationMap(pol),
+		cosignVerifier:             cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:             notary.NewVerifier(logr.Discard()),
+		ivCache:                    ivCache,
+		verifications:              NewImageVerificationResults(),
+		pendingAttestationRestores: map[string]map[string][]byte{},
+	}
+
+	components := make([]map[string]string, 0, 40)
+	for i := range 40 {
+		components = append(components, map[string]string{"type": "library", "name": fmt.Sprintf("pkg-%d", i), "version": "1.0.0"})
+	}
+	sbom, err := json.Marshal(map[string]any{"bomFormat": "CycloneDX", "specVersion": "1.5", "components": components})
+	require.NoError(t, err)
+	require.Greater(t, len(sbom), 1000, "fixture must exceed the default cost budget")
+
+	cacheRule := attestorCacheRule(attestationCacheRule, attestationName, attestors)
+	stored, err := ivCache.SetWithPayload(context.TODO(), pol, cacheRule, image, true, map[string][]byte{"sbom/cyclone-dx": sbom})
+	assert.NoError(t, err)
+	assert.False(t, stored, "a multi-KB payload must not fit the default cost budget")
+
+	found, _, err := ivCache.GetWithPayload(context.TODO(), pol, cacheRule, image, true)
+	assert.NoError(t, err)
+	assert.False(t, found, "a declined write must leave nothing behind that a later admission could trust")
+
+	out := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.True(t, types.IsError(out), "with nothing cached, verification must go back to the registry rather than succeed from cache; got: %v", out)
+
+	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
+	assert.True(t, types.IsError(payload), "extractPayload must not return unverified data when the cache holds nothing: %v", payload)
+}
