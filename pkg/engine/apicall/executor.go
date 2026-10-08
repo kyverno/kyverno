@@ -168,9 +168,11 @@ func (a *executor) addHTTPHeaders(req *http.Request, headers []kyvernov1.HTTPHea
 		req.Header.Add(header.Key, header.Value)
 	}
 
-	if req.Header.Get("Authorization") == "" {
+	// Test presence, not emptiness: a policy that sets Authorization to "" is opting
+	// out of token injection, and Get cannot tell that apart from an absent header.
+	if len(req.Header.Values("Authorization")) == 0 {
 		if token, ok := readScopedToken(); ok && token != "" {
-			req.Header.Add("Authorization", "Bearer "+token)
+			req.Header.Set("Authorization", "Bearer "+token)
 		}
 	}
 
