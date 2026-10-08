@@ -31,5 +31,5 @@ spec:
         file: pod.yaml
         expect:
           - check:
-              ($error): >-
-                admission webhook "ivpol.validate.kyverno.svc-fail" denied the request: Policy check-signed-images-forged-annotation failed: failed to verify image with notary cert
+              # the policy's message, then why Notary rejected the image
+              "(starts_with($error, 'admission webhook \"ivpol.validate.kyverno.svc-fail\" denied the request: Policy check-signed-images-forged-annotation failed: failed to verify image with notary cert; verification details: '))": true
