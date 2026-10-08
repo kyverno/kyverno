@@ -1,0 +1,22 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: cel-registry-egress-hard-block
+spec:
+  validationActions: [Deny]
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+    objectSelector:
+      matchLabels:
+        test.kyverno.io/registry-egress: "true"
+  variables:
+  - name: image
+    expression: image.GetMetadata(object.spec.containers[0].image)
+  validations:
+  - expression: variables.image != null
+    message: image metadata must be available

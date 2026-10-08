@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: ivpol-registry-egress-hard-block
+spec:
+  concurrent: false
+  steps:
+  - name: create-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-registry-egress-hard-block
+  - name: reject-unsafe-registry-addresses
+    try:
+    - create:
+        file: metadata-pod.yaml
+        expect:
+        - check:
+            (contains($error, 'connection blocked to network host')): true
+    - create:
+        file: loopback-pod.yaml
+        expect:
+        - check:
+            (contains($error, 'connection blocked to network host')): true
+  - name: preserve-unmatched-pods
+    try:
+    - create:
+        file: unmatched-pod.yaml

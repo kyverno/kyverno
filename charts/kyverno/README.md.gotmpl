@@ -412,6 +412,21 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 
 {{ template "chart.valuesTable" (dict "Values" $other) }}
 
+## Registry egress policy
+
+The registry egress guard in admission, background, and reports controllers defaults to
+`features.registryClient.privateRegistryEgressMode: audit`. Cleanup receives neither registry egress flag.
+Private registry destinations remain reachable during upgrades, while requests that
+would be blocked in `enforce` mode are logged at verbosity 2. Metadata, link-local,
+loopback, unspecified, multicast, and broadcast addresses are blocked in both modes.
+
+Before enabling `enforce`, add the exact hostnames, IP addresses, or CIDRs for your
+private registries and token services to `features.registryClient.privateRegistryAllowlist`.
+Use an empty list (`[]`) when no entries are needed; empty list elements are rejected.
+An allowlist entry never bypasses the address categories that are always blocked.
+See the [registry egress guides](../../docs/user/)
+for rollout examples and proxy behavior.
+
 ## TLS Configuration
 
 If `admissionController.createSelfSignedCert` is `true`, Helm will take care of the steps of creating an external self-signed certificate described in option 2 of the [installation documentation](https://kyverno.io/docs/installation/#option-2-use-your-own-ca-signed-certificate)

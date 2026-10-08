@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,7 +40,15 @@ func TestFactoryCredentialsObserveSecretRotation(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	host := strings.TrimPrefix(server.URL, "http://")
+	// Keep a public literal as the registry identity; this test transport routes
+	// that identity to the local fixture without relaxing production egress rules.
+	_, port, err := net.SplitHostPort(server.Listener.Addr().String())
+	require.NoError(t, err)
+	host := net.JoinHostPort("192.0.2.1", port)
+	transport := &http.Transport{DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, network, server.Listener.Addr().String())
+	}}
+	defer transport.CloseIdleConnections()
 	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	secret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "registry", Namespace: config.KyvernoNamespace()}, Type: corev1.SecretTypeDockerConfigJson}
 	update := func(password string) {
@@ -54,7 +63,7 @@ func TestFactoryCredentialsObserveSecretRotation(t *testing.T) {
 	require.NoError(t, err)
 	check := func() error {
 		opts := append([]remote.Option{}, ivFuncs.authOpts...)
-		opts = append(opts, remote.WithContext(context.Background()))
+		opts = append(opts, remote.WithContext(context.Background()), remote.WithTransport(transport))
 		_, err := remote.Head(ref, opts...)
 		return err
 	}

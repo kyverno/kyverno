@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
@@ -29,8 +30,6 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/transform"
 	"github.com/kyverno/sdk/extensions/cel/libs/user"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
-	"github.com/kyverno/sdk/extensions/regcreds"
-	"github.com/kyverno/sdk/extensions/registryclient"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
@@ -57,9 +56,9 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	spec := ivpolicy.GetSpec()
 
 	// by default, try to use the options built globally from flags
-	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
+	authOpts, nameOpts := registryclient.GlobalImageDataOptions()
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace(), logging.GlobalLogger())
+		authOpts, nameOpts = registryclient.ImageDataOptsFromImageVerificationCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace())
 	}
 
 	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts)
