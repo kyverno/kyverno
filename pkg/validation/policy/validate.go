@@ -225,6 +225,26 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		}
 	}
 
+	// Check every submitted rule's namespace boundary before any warning-only
+	// return or autogen filtering. Unknown match kinds and generate-update
+	// warnings must not skip scope validation for any rule in the policy.
+	for i, rule := range spec.Rules {
+		if err := validateRuleContext(rule, policy.IsNamespaced(), policy.GetNamespace()); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %w", i, err)
+		}
+		if err := validateNestedContextScope(rule, policy.IsNamespaced(), policy.GetNamespace()); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %w", i, err)
+		}
+		if err := validateVerifyImageRegistryCredentials(rule, policy.IsNamespaced(), policy.GetNamespace()); err != nil {
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %w", i, err)
+		}
+		if !mock {
+			if err := validateCELParamKindScope(rule, policy.IsNamespaced(), client); err != nil {
+				return warnings, fmt.Errorf("path: spec.rules[%d].validate.cel.paramKind: %w", i, err)
+			}
+		}
+	}
+
 	if warning, err := immutableGenerateFields(policy, oldPolicy); warning != "" || err != nil {
 		warnings = append(warnings, fmt.Sprintf("no synchronization will be performed to the old target resource upon policy updates: %s", warning))
 		return warnings, err
@@ -310,10 +330,6 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 		err := validateElementInForEach(rule)
 		if err != nil {
 			return warnings, err
-		}
-
-		if err := validateRuleContext(rule, policy.IsNamespaced()); err != nil {
-			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
 		if err := validateRuleImageExtractorsJMESPath(rule); err != nil {
@@ -1284,7 +1300,7 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 	return "", nil
 }
 
-func validateRuleContext(rule kyvernov1.Rule, namespaced bool) error {
+func validateRuleContext(rule kyvernov1.Rule, namespaced bool, policyNamespace string) error {
 	if len(rule.Context) == 0 {
 		return nil
 	}
@@ -1315,7 +1331,7 @@ func validateRuleContext(rule kyvernov1.Rule, namespaced bool) error {
 				err = validateGlobalReference(entry)
 			}
 		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry != nil && entry.Variable == nil {
-			err = validateImageRegistry(entry)
+			err = validateImageRegistry(entry, namespaced, policyNamespace)
 		} else if entry.ConfigMap == nil && entry.APICall == nil && entry.GlobalReference == nil && entry.ImageRegistry == nil && entry.Variable != nil {
 			err = validateVariable(entry)
 		} else {
@@ -1467,7 +1483,34 @@ func validateGlobalReference(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-func validateImageRegistry(entry kyvernov1.ContextEntry) error {
+// Validate static credential references at admission while allowing secret-name
+// variables, which are resolved and scoped again before runtime secret lookup.
+func validateImageRegistryCredentialScope(secrets []string, policyNamespace string) error {
+	resolved := make([]string, len(secrets))
+	for i, secret := range secrets {
+		resolved[i] = variables.ReplaceAllVars(secret, func(string) string { return "kyverno-secret" })
+	}
+	_, err := kubeutils.ScopeSecretReferences(resolved, policyNamespace)
+	return err
+}
+
+func validateVerifyImageRegistryCredentials(rule kyvernov1.Rule, namespaced bool, policyNamespace string) error {
+	if !namespaced {
+		return nil
+	}
+	for i, imageVerify := range rule.VerifyImages {
+		var secrets []string
+		if credentials := imageVerify.ImageRegistryCredentials; credentials != nil {
+			secrets = credentials.Secrets
+		}
+		if err := validateImageRegistryCredentialScope(secrets, policyNamespace); err != nil {
+			return fmt.Errorf("verifyImages[%d].imageRegistryCredentials: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func validateImageRegistry(entry kyvernov1.ContextEntry, namespaced bool, policyNamespace string) error {
 	if entry.ImageRegistry.Reference == "" {
 		return fmt.Errorf("a ref is required for imageRegistry context entry")
 	}
@@ -1490,6 +1533,18 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 	if !strings.Contains(jmesPath, "kyvernojmespathvariable") && entry.ImageRegistry.JMESPath != "" {
 		if _, err := jmespath.NewParser().Parse(entry.ImageRegistry.JMESPath); err != nil {
 			return fmt.Errorf("failed to parse JMESPath %s: %v", entry.ImageRegistry.JMESPath, err)
+		}
+	}
+
+	if namespaced {
+		var secrets []string
+		if credentials := entry.ImageRegistry.ImageRegistryCredentials; credentials != nil {
+			secrets = credentials.Secrets
+		}
+		// Context imageRegistry credentials are literal references; only
+		// verifyImages substitutes rule variables before loading credentials.
+		if _, err := kubeutils.ScopeSecretReferences(secrets, policyNamespace); err != nil {
+			return fmt.Errorf("imageRegistry credentials: %w", err)
 		}
 	}
 

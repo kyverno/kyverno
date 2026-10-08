@@ -21,7 +21,7 @@ func TestApplyBackgroundChecks_IsolatesRequestObjectAcrossRules(t *testing.T) {
 	cfg := config.NewDefaultConfiguration(false)
 	localJP := jmespath.New(cfg)
 	e := NewEngine(cfg, localJP, nil, nil, imageverifycache.DisabledImageVerifyCache(),
-		func(kyverno.PolicyInterface, kyverno.Rule) engineapi.ContextLoader {
+		func(engineapi.PolicyScope, kyverno.Rule) engineapi.ContextLoader {
 			return loaderFunc(func(context.Context) error { return nil })
 		}, nil, nil)
 
