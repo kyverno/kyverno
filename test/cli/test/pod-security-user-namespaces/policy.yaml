@@ -1,0 +1,40 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: psa-userns
+spec:
+  background: true
+  rules:
+  - name: baseline
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      failureAction: Enforce
+      podSecurity:
+        level: baseline
+        version: latest
+  - name: restricted
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      failureAction: Enforce
+      podSecurity:
+        level: restricted
+        version: latest
+  - name: restricted-v1-32
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    validate:
+      failureAction: Enforce
+      podSecurity:
+        level: restricted
+        version: v1.32

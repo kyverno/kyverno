@@ -1,0 +1,62 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+# user namespace pods relax runAsUser/runAsNonRoot at restricted:latest
+- policy: psa-userns
+  rule: restricted
+  kind: Pod
+  resources:
+  - userns-root
+  result: pass
+- policy: psa-userns
+  rule: restricted
+  kind: Pod
+  resources:
+  - hostusers-root
+  - userns-unmasked
+  - hostusers-unmasked
+  result: fail
+# baseline:latest allows Unmasked only in a user namespace
+- policy: psa-userns
+  rule: baseline
+  kind: Pod
+  resources:
+  - userns-root
+  - hostusers-root
+  - userns-unmasked
+  result: pass
+- policy: psa-userns
+  rule: baseline
+  kind: Pod
+  resources:
+  - hostusers-unmasked
+  result: fail
+# pinned versions before 1.35 never relax
+- policy: psa-userns
+  rule: restricted-v1-32
+  kind: Pod
+  resources:
+  - userns-root
+  - hostusers-root
+  - userns-unmasked
+  - hostusers-unmasked
+  result: fail
+# autogen carries hostUsers from the pod template
+- policy: psa-userns
+  rule: autogen-restricted
+  kind: Deployment
+  resources:
+  - userns-root-deploy
+  result: pass
+- policy: psa-userns
+  rule: autogen-restricted-v1-32
+  kind: Deployment
+  resources:
+  - userns-root-deploy
+  result: fail
