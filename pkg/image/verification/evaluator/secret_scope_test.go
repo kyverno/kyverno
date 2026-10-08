@@ -92,7 +92,7 @@ func TestCompileImagePolicyCredentialSecretScope(t *testing.T) {
 			require.Empty(t, errs)
 			transport := &forbiddenRegistryTransport{}
 			opts := append(compiled.(*compiledPolicy).authOpts, remote.WithTransport(transport))
-			_, err := remote.Get(name.MustParseReference("registry.example/test/image:latest"), opts...)
+			_, err := remote.Get(name.MustParseReference("192.0.2.1/test/image:latest"), opts...)
 			require.ErrorContains(t, err, "stop at secret lookup")
 			assert.Equal(t, []string{tc.want}, lister.references)
 			assert.Zero(t, transport.calls)
