@@ -473,10 +473,6 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 			continue // this template's mutation was a no-op
 		}
 
-		rebased := extract.RebasePatch(podPatch, tpl.JSONPointerPrefix())
-		if err := applyRebasedPatch(working, rebased); err != nil {
-			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: applying patch to parent: %w", tpl.Path, err)}
-		}
 		allOps = append(allOps, extract.RebasePatch(podPatch, tpl.JSONPointerPrefix())...)
 	}
 
