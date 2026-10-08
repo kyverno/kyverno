@@ -1,0 +1,42 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: registry-egress-hard-block
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  admission: true
+  background: false
+  failurePolicy: Fail
+  webhookTimeoutSeconds: 10
+  rules:
+  - name: verify-blocked-registry
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          selector:
+            matchLabels:
+              test.kyverno.io/registry-egress: hard-block
+    verifyImages:
+    - imageReferences:
+      - '*'
+      failureAction: Enforce
+      required: true
+      mutateDigest: true
+      verifyDigest: true
+      useCache: false
+      attestors:
+      - entries:
+        - keys:
+            publicKeys: |-
+              -----BEGIN PUBLIC KEY-----
+              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM
+              5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==
+              -----END PUBLIC KEY-----
+            signatureAlgorithm: sha256
+            ctlog:
+              ignoreSCT: true
+            rekor:
+              ignoreTlog: true

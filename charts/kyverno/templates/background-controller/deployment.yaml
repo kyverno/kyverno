@@ -138,7 +138,8 @@ spec:
               {{- join "," $secretNames -}}
             {{- end }}
             - --resyncPeriod={{ .Values.backgroundController.resyncPeriod | default .Values.global.resyncPeriod }}
-            {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.backgroundController.featuresOverride)
+            {{- $features := mergeOverwrite (deepCopy .Values.features) .Values.backgroundController.featuresOverride }}
+            {{- include "kyverno.features.flags" (pick $features
               "reporting"
               "configMapCaching"
               "deferredLoading"
@@ -148,6 +149,11 @@ spec:
               "policyExceptions"
               "controllerRuntimeMetrics"
             ) | nindent 12 }}
+            {{- include "kyverno.registryClient.validate" $features.registryClient }}
+            - --privateRegistryEgressMode={{ $features.registryClient.privateRegistryEgressMode }}
+            {{- with $features.registryClient.privateRegistryAllowlist }}
+            - --privateRegistryAllowlist={{ join "," . }}
+            {{- end }}
             {{- range $key, $value := .Values.backgroundController.extraArgs }}
             {{- if $value }}
             - --{{ $key }}={{ $value }}

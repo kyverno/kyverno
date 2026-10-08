@@ -3,7 +3,7 @@ package store
 import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/engine/context/loaders"
-	"github.com/kyverno/sdk/extensions/registryclient"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 type Context struct {
