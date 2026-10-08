@@ -1,0 +1,175 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namespaced-admission-scope
+spec:
+  concurrent: false
+  steps:
+  - name: install-parameter-kinds
+    try:
+    - create:
+        file: crds.yaml
+    - assert:
+        file: crds-assert.yaml
+  - name: reject-cluster-v1
+    bindings:
+    - name: name
+      value: reject-cluster-v1
+    - name: policyKind
+      value: Policy
+    - name: paramApiVersion
+      value: cluster.admission-scope.kyverno.test/v1
+    try:
+    - create:
+        file: parameter-policy.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'cluster-scoped paramKind is not allowed')): true
+  - name: accept-tenant-v1
+    bindings:
+    - name: name
+      value: accept-tenant-v1
+    - name: policyKind
+      value: Policy
+    - name: paramApiVersion
+      value: tenant.admission-scope.kyverno.test/v1
+    try:
+    - create:
+        file: parameter-policy.yaml
+  - name: accept-cluster-policy-v1
+    bindings:
+    - name: name
+      value: accept-cluster-policy-v1
+    - name: policyKind
+      value: ClusterPolicy
+    - name: paramApiVersion
+      value: cluster.admission-scope.kyverno.test/v1
+    try:
+    - create:
+        file: parameter-policy.yaml
+  - name: reject-cluster-v1beta1
+    bindings:
+    - name: name
+      value: reject-cluster-v1beta1
+    - name: policyKind
+      value: Policy
+    - name: paramApiVersion
+      value: cluster.admission-scope.kyverno.test/v1beta1
+    try:
+    - create:
+        file: parameter-policy.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'cluster-scoped paramKind is not allowed')): true
+  - name: accept-tenant-v1beta1
+    bindings:
+    - name: name
+      value: accept-tenant-v1beta1
+    - name: policyKind
+      value: Policy
+    - name: paramApiVersion
+      value: tenant.admission-scope.kyverno.test/v1beta1
+    try:
+    - create:
+        file: parameter-policy.yaml
+  - name: accept-cluster-policy-v1beta1
+    bindings:
+    - name: name
+      value: accept-cluster-policy-v1beta1
+    - name: policyKind
+      value: ClusterPolicy
+    - name: paramApiVersion
+      value: cluster.admission-scope.kyverno.test/v1beta1
+    try:
+    - create:
+        file: parameter-policy.yaml
+  - name: context-bare
+    bindings:
+    - name: name
+      value: context-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: context-unknown-kind.yaml
+  - name: context-local
+    bindings:
+    - name: name
+      value: context-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: context-unknown-kind.yaml
+  - name: context-foreign
+    bindings:
+    - name: name
+      value: context-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: context-unknown-kind.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: context-installation
+    bindings:
+    - name: name
+      value: context-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: context-unknown-kind.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: verify-images-bare
+    bindings:
+    - name: name
+      value: verify-images-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: verify-images-unknown-kind.yaml
+  - name: verify-images-local
+    bindings:
+    - name: name
+      value: verify-images-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: verify-images-unknown-kind.yaml
+  - name: verify-images-foreign
+    bindings:
+    - name: name
+      value: verify-images-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: verify-images-unknown-kind.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: verify-images-installation
+    bindings:
+    - name: name
+      value: verify-images-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: verify-images-unknown-kind.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
