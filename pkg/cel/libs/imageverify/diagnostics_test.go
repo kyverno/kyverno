@@ -92,7 +92,7 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 						expression = `verifyAttestationSignatures("image", "proof", attestors)`
 					}
 					policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "diagnostics", UID: "diagnostics"}, Spec: policiesv1beta1.ImageValidatingPolicySpec{Attestations: []policiesv1beta1.Attestation{{Name: "proof", InToto: &policiesv1beta1.InToto{Type: "proof"}}}}}
-					ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+					ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 					results := NewImageVerificationResults()
 					cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 					require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestVerificationDiagnosticsCacheHit(t *testing.T) {
 	env, err := cel.NewEnv(Lib(), cel.Variable("attestors", cel.ListType(cel.DynType)))
 	require.NoError(t, err)
 	policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "cached", UID: "cached"}}
-	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 	cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	attestors := []policiesv1beta1.Attestor{{Name: "valid", Cosign: &policiesv1beta1.Cosign{}}}
@@ -167,7 +167,7 @@ func TestCosignVerificationDiagnosticsFailureUncached(t *testing.T) {
 	env, err := cel.NewEnv(Lib(), cel.Variable("attestors", cel.ListType(cel.DynType)))
 	require.NoError(t, err)
 	policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "failed", UID: "failed"}}
-	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+	ivFuncs := mustNewIvFuncs(t, logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 	cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	results := NewImageVerificationResults()

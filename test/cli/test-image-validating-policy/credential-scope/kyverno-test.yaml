@@ -1,0 +1,27 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: image-policy-credential-scope
+policies:
+- policies.yaml
+resources:
+- pod.yaml
+results:
+- isImageValidatingPolicy: true
+  policy: tenant-bare
+  kind: Pod
+  resources:
+  - scope-proof
+  result: pass
+- isImageValidatingPolicy: true
+  policy: tenant-explicit
+  kind: Pod
+  resources:
+  - scope-proof
+  result: pass
+- isImageValidatingPolicy: true
+  policy: cluster-explicit
+  kind: Pod
+  resources:
+  - scope-proof
+  result: pass

@@ -12,9 +12,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/config"
+	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
@@ -52,14 +54,18 @@ func NewCompiler(lister corev1listers.SecretLister) Compiler {
 type compilerImpl struct{ lister corev1listers.SecretLister }
 
 func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (CompiledPolicy, field.ErrorList) {
-	var allErrs field.ErrorList
+	ivpolicy, allErrs := imagecredentials.ScopePolicy(ivpolicy)
+	if len(allErrs) != 0 {
+		return nil, allErrs
+	}
 
+	lister := kubeutils.ScopeSecretLister(c.lister, ivpolicy.GetNamespace())
 	spec := ivpolicy.GetSpec()
 
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(c.lister, *spec.Credentials, config.KyvernoNamespace(), logging.GlobalLogger())
+		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace(), logging.GlobalLogger())
 	}
 
 	ivpolEnvSet, variablesProvider, err := c.createBaseIvpolEnv(libs.GetLibsCtx(), ivpolicy, authOpts)
@@ -157,6 +163,11 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, allErrs
 	}
 
+	ivFuncs, err := imageverify.NewIvFuncs(logging.WithName("ivpol/imageverify").WithValues("policy", ivpolicy.GetName(), "namespace", ivpolicy.GetNamespace()), ivpolicy, lister, env.CELTypeAdapter(), matchImageReferences)
+	if err != nil {
+		return nil, field.ErrorList{field.InternalError(path, err)}
+	}
+
 	return &compiledPolicy{
 		namespace:            ivpolicy.GetNamespace(),
 		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
@@ -173,7 +184,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		exceptions:           compiledExceptions,
 		variables:            variables,
 		validationConfig:     spec.ValidationConfigurations,
-		ivFuncs:              imageverify.NewIvFuncs(logging.WithName("ivpol/imageverify").WithValues("policy", ivpolicy.GetName(), "namespace", ivpolicy.GetNamespace()), ivpolicy, c.lister, env.CELTypeAdapter(), matchImageReferences),
+		ivFuncs:              ivFuncs,
 	}, nil
 }
 
