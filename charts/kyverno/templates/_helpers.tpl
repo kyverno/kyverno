@@ -15,6 +15,18 @@
 {{- end -}}
 {{- end -}}
 
+{{/* Validate registry allowlist entries before serializing them into a CSV flag. */}}
+{{- define "kyverno.registryClient.validate" -}}
+{{- range $index, $entry := .privateRegistryAllowlist -}}
+  {{- if not (kindIs "string" $entry) -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
+  {{- end -}}
+  {{- if eq (trim $entry) "" -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "kyverno.features.flags" -}}
 {{- $flags := list -}}
 {{- with .admissionReports -}}
@@ -98,8 +110,13 @@
   {{- $flags = append $flags (print "--protectManagedResources=" .enabled) -}}
 {{- end -}}
 {{- with .registryClient -}}
+  {{- include "kyverno.registryClient.validate" . -}}
   {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}
   {{- $flags = append $flags (print "--registryCredentialHelpers=" (join "," .credentialHelpers)) -}}
+  {{- $flags = append $flags (print "--privateRegistryEgressMode=" .privateRegistryEgressMode) -}}
+  {{- with .privateRegistryAllowlist -}}
+    {{- $flags = append $flags (print "--privateRegistryAllowlist=" (join "," .)) -}}
+  {{- end -}}
 {{- end -}}
 {{- with .ttlController -}}
   {{- $flags = append $flags (print "--ttlReconciliationInterval=" .reconciliationInterval) -}}
