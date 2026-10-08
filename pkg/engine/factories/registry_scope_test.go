@@ -25,9 +25,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// A documentation IP makes credential resolution independent of DNS. These
+// keychain tests use fake Secret clients and never dial the registry.
 func scopeRegistrySecret(namespace, user string) *corev1.Secret {
 	return &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "regcred", Namespace: namespace}, Type: corev1.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{"registry.example.com":{"username":"` + user + `","password":"password"}}}`)}}
+		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{"192.0.2.1":{"username":"` + user + `","password":"password"}}}`)}}
 }
 
 func TestPolicyRegistryFactoryUsesTenantGETAndRetainsOperatorCaches(t *testing.T) {
@@ -64,7 +66,7 @@ func TestPolicyRegistryFactoryUsesTenantGETAndRetainsOperatorCaches(t *testing.T
 			require.NoError(t, err)
 			keychain, ok := registry.(interface{ Keychain() authn.Keychain })
 			require.True(t, ok)
-			ref, err := name.ParseReference("registry.example.com/image:tag")
+			ref, err := name.ParseReference("192.0.2.1/image:tag")
 			require.NoError(t, err)
 			authenticator, err := keychain.Keychain().Resolve(ref.Context())
 			if tc.forbidden {
@@ -116,10 +118,12 @@ func TestPolicyRegistryFactoryPropagatesCancellation(t *testing.T) {
 	require.NoError(t, err)
 	keychain, ok := registry.(interface{ Keychain() authn.Keychain })
 	require.True(t, ok)
-	ref, err := name.ParseReference("registry.example.com/image:tag")
+	ref, err := name.ParseReference("192.0.2.1/image:tag")
 	require.NoError(t, err)
 	done := make(chan error, 1)
-	go func() { _, err := keychain.Keychain().Resolve(ref.Context()); done <- err }()
+	// Mirror the production remote client, which passes the request context via
+	// authn.Resolve. Resolve-only SDK keychains retain the factory-bound context.
+	go func() { _, err := authn.Resolve(ctx, keychain.Keychain(), ref.Context()); done <- err }()
 	select {
 	case apiCtx := <-client.started:
 		deadline, ok := apiCtx.Deadline()
@@ -159,7 +163,7 @@ func TestPolicyRegistryFactoryKeepsResourcePullSecretsCacheOnly(t *testing.T) {
 			require.NoError(t, err)
 			keychain, ok := registry.(interface{ Keychain() authn.Keychain })
 			require.True(t, ok)
-			ref, err := name.ParseReference("registry.example.com/image:tag")
+			ref, err := name.ParseReference("192.0.2.1/image:tag")
 			require.NoError(t, err)
 			authenticator, err := keychain.Keychain().Resolve(ref.Context())
 			require.NoError(t, err)
