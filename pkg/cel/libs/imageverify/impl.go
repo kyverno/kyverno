@@ -21,11 +21,9 @@ import (
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
-	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/regcreds"
-	"github.com/kyverno/sdk/extensions/registryclient"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -90,9 +88,9 @@ func ImageVerifyCELFuncs(
 	}
 
 	// by default, try to use the options built globally from flags
-	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
+	authOpts, nameOpts := registryclient.GlobalImageDataOptions()
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace(), logging.WithName("imageverify"))
+		authOpts, nameOpts = registryclient.ImageDataOptsFromImageVerificationCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
 	}
 
 	return &ivfuncs{

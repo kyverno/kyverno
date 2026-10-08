@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	guardedregistry "github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -40,6 +41,8 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 		imagePullSecrets,
 		registryCredentialHelpers, allowInsecureRegistry)
 
+	// Guarded policy clients own a separate instance; SDK clients keep their global.
+	guardedregistry.SetupGlobalRegistryClient(ms, config.KyvernoNamespace(), imagePullSecrets, registryCredentialHelpers, allowInsecureRegistry, privateRegistryAllowlist, privateRegistryEgressMode)
 	return registryClient, ms
 }
 
@@ -51,4 +54,12 @@ func parseSecretReference(secretRef string, defaultNamespace string) (namespace 
 		return parts[0], parts[1]
 	}
 	return defaultNamespace, secretRef
+}
+
+func validateRegistryClientConfig(allowlist, mode string) error {
+	var entries []string
+	if allowlist != "" {
+		entries = strings.Split(allowlist, ",")
+	}
+	return guardedregistry.ValidateEgressConfig(entries, mode)
 }
