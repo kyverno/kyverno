@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -389,8 +390,17 @@ func Test_ForceMutateSubstituteVarsWithPatchStrategicMerge(t *testing.T) {
 }
 
 func Test_ForceMutateAutogenRules(t *testing.T) {
-	var policy kyverno.ClusterPolicy
-	assert.NilError(t, json.Unmarshal([]byte(`{
+	for _, scenario := range []struct {
+		name    string
+		anchor  string
+		mutates bool
+	}{
+		{name: "matching anchor", anchor: "*", mutates: true},
+		{name: "nonmatching anchor", anchor: "missing", mutates: false},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			var policy kyverno.ClusterPolicy
+			assert.NilError(t, json.Unmarshal([]byte(fmt.Sprintf(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
@@ -401,76 +411,80 @@ func Test_ForceMutateAutogenRules(t *testing.T) {
 			"name": "set-non-root",
 			"match": {"resources": {"kinds": ["Pod"]}},
 			"mutate": {"patchStrategicMerge": {
-				"spec": {"containers": [{"(name)": "*", "securityContext": {"runAsNonRoot": true}}]}
+				"spec": {"containers": [{"(name)": %q, "securityContext": {"runAsNonRoot": true}}]}
 			}}
 		}]}
-	}`), &policy))
-	originalPolicy := policy.DeepCopy()
-	rules := autogen.Default.ComputeRules(&policy, "")
-	assert.Equal(t, len(rules), 3)
+	}`, scenario.anchor)), &policy))
+			originalPolicy := policy.DeepCopy()
+			rules := autogen.Default.ComputeRules(&policy, "")
+			assert.Equal(t, len(rules), 3)
 
-	for _, tc := range []struct {
-		name           string
-		ruleName       string
-		resource       string
-		containersPath []string
-	}{
-		{
-			name:           "Pod",
-			ruleName:       "set-non-root",
-			resource:       `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test"},"spec":{"containers":[{"name":"app","image":"nginx"}]}}`,
-			containersPath: []string{"spec", "containers"},
-		},
-		{
-			name:           "Deployment",
-			ruleName:       "autogen-set-non-root",
-			resource:       `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"test"},"spec":{"template":{"spec":{"containers":[{"name":"app","image":"nginx"}]}}}}`,
-			containersPath: []string{"spec", "template", "spec", "containers"},
-		},
-		{
-			name:           "CronJob",
-			ruleName:       "autogen-cronjob-set-non-root",
-			resource:       `{"apiVersion":"batch/v1","kind":"CronJob","metadata":{"name":"test"},"spec":{"schedule":"* * * * *","jobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"app","image":"nginx"}]}}}}}}`,
-			containersPath: []string{"spec", "jobTemplate", "spec", "template", "spec", "containers"},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			selectedPolicy := policy.DeepCopy()
-			selectedPolicy.Spec.Rules = nil
-			for _, rule := range rules {
-				if rule.Name == tc.ruleName {
-					selectedPolicy.Spec.Rules = append(selectedPolicy.Spec.Rules, *rule.DeepCopy())
-				}
-			}
-			assert.Equal(t, len(selectedPolicy.Spec.Rules), 1)
-			originalSelectedPolicy := selectedPolicy.DeepCopy()
-
-			resource, err := kubeutils.BytesToUnstructured([]byte(tc.resource))
-			assert.NilError(t, err)
-			originalResource := resource.DeepCopy()
-			ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
-			assert.NilError(t, context.AddResource(ctx, []byte(tc.resource)))
-
-			// ForceMutate deliberately bypasses matching. Give it only the rule
-			// intended for this resource, rather than every generated rule.
-			mutatedResource, err := ForceMutate(ctx, logr.Discard(), selectedPolicy, *resource)
-			assert.NilError(t, err)
-			expectedResource := originalResource.DeepCopy()
-			assert.NilError(t, unstructured.SetNestedSlice(expectedResource.Object, []interface{}{
-				map[string]interface{}{
-					"name": "app", "image": "nginx",
-					"securityContext": map[string]interface{}{"runAsNonRoot": true},
+			for _, tc := range []struct {
+				name           string
+				ruleName       string
+				resource       string
+				containersPath []string
+			}{
+				{
+					name:           "Pod",
+					ruleName:       "set-non-root",
+					resource:       `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"test"},"spec":{"containers":[{"name":"app","image":"nginx"}]}}`,
+					containersPath: []string{"spec", "containers"},
 				},
-			}, tc.containersPath...))
-			assert.DeepEqual(t, mutatedResource.Object, expectedResource.Object)
-			if tc.name != "Pod" {
-				_, found, err := unstructured.NestedSlice(mutatedResource.Object, "spec", "containers")
-				assert.NilError(t, err)
-				assert.Equal(t, found, false)
+				{
+					name:           "Deployment",
+					ruleName:       "autogen-set-non-root",
+					resource:       `{"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"test"},"spec":{"template":{"spec":{"containers":[{"name":"app","image":"nginx"}]}}}}`,
+					containersPath: []string{"spec", "template", "spec", "containers"},
+				},
+				{
+					name:           "CronJob",
+					ruleName:       "autogen-cronjob-set-non-root",
+					resource:       `{"apiVersion":"batch/v1","kind":"CronJob","metadata":{"name":"test"},"spec":{"schedule":"* * * * *","jobTemplate":{"spec":{"template":{"spec":{"containers":[{"name":"app","image":"nginx"}]}}}}}}`,
+					containersPath: []string{"spec", "jobTemplate", "spec", "template", "spec", "containers"},
+				},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					selectedPolicy := policy.DeepCopy()
+					selectedPolicy.Spec.Rules = nil
+					for _, rule := range rules {
+						if rule.Name == tc.ruleName {
+							selectedPolicy.Spec.Rules = append(selectedPolicy.Spec.Rules, *rule.DeepCopy())
+						}
+					}
+					assert.Equal(t, len(selectedPolicy.Spec.Rules), 1)
+					originalSelectedPolicy := selectedPolicy.DeepCopy()
+
+					resource, err := kubeutils.BytesToUnstructured([]byte(tc.resource))
+					assert.NilError(t, err)
+					originalResource := resource.DeepCopy()
+					ctx := context.NewContext(jmespath.New(config.NewDefaultConfiguration(false)))
+					assert.NilError(t, context.AddResource(ctx, []byte(tc.resource)))
+
+					// ForceMutate deliberately bypasses matching. Give it only the rule
+					// intended for this resource, rather than every generated rule.
+					mutatedResource, err := ForceMutate(ctx, logr.Discard(), selectedPolicy, *resource)
+					assert.NilError(t, err)
+					expectedResource := originalResource.DeepCopy()
+					if scenario.mutates {
+						assert.NilError(t, unstructured.SetNestedSlice(expectedResource.Object, []interface{}{
+							map[string]interface{}{
+								"name": "app", "image": "nginx",
+								"securityContext": map[string]interface{}{"runAsNonRoot": true},
+							},
+						}, tc.containersPath...))
+					}
+					assert.DeepEqual(t, mutatedResource.Object, expectedResource.Object)
+					if tc.name != "Pod" {
+						_, found, err := unstructured.NestedSlice(mutatedResource.Object, "spec", "containers")
+						assert.NilError(t, err)
+						assert.Equal(t, found, false)
+					}
+					assert.DeepEqual(t, resource.Object, originalResource.Object)
+					assert.DeepEqual(t, selectedPolicy, originalSelectedPolicy)
+					assert.DeepEqual(t, &policy, originalPolicy)
+				})
 			}
-			assert.DeepEqual(t, resource.Object, originalResource.Object)
-			assert.DeepEqual(t, selectedPolicy, originalSelectedPolicy)
-			assert.DeepEqual(t, &policy, originalPolicy)
 		})
 	}
 }
