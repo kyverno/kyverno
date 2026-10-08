@@ -122,6 +122,9 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 	}
 	key := generateKey(policy, ruleName, imageRef)
 
+	// ristretto replaces an existing key without checking MaxCost, so drop the
+	// old entry first and let the new one go through the normal admission.
+	c.cache.Del(key)
 	c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
 	c.cache.Wait()
 	// SetWithTTL returning true only means ristretto queued the write. Its

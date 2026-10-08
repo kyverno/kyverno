@@ -153,3 +153,48 @@ func Test_New_accepts_a_budget_smaller_than_one_entry(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(c.(*cache).cache.Close)
 }
+
+// Test_SetWithPayload_replacing_an_entry_keeps_the_budget: ristretto updates an
+// existing key without checking MaxCost, so rewriting a presence-only entry
+// (the attestation re-verification path) could keep a payload larger than the
+// whole budget.
+func Test_SetWithPayload_replacing_an_entry_keeps_the_budget(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(100), WithTTLDuration(0))
+	require.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "replace-policy", UID: "replace-uid", ResourceVersion: "1"}
+	stored, err := c.Set(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 500)}
+	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true, payload)
+	require.NoError(t, err)
+	assert.False(t, stored)
+
+	_, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+// Test_SetWithPayload_replacing_an_entry_with_a_fitting_payload_stores_it: the
+// usual re-verification case, where a presence-only entry gets its payload.
+func Test_SetWithPayload_replacing_an_entry_with_a_fitting_payload_stores_it(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+	require.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "replace-policy", UID: "replace-uid", ResourceVersion: "1"}
+	stored, err := c.Set(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 1033)}
+	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true, payload)
+	require.NoError(t, err)
+	assert.True(t, stored)
+
+	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, payload, got)
+}
