@@ -1,0 +1,99 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-root
+spec:
+  hostUsers: false
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      runAsUser: 0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostusers-root
+spec:
+  hostUsers: true
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      runAsUser: 0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: userns-unmasked
+spec:
+  hostUsers: false
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      runAsNonRoot: true
+      procMount: Unmasked
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostusers-unmasked
+spec:
+  hostUsers: true
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: nginx
+    image: nginx
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop: ["ALL"]
+      runAsNonRoot: true
+      procMount: Unmasked
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: userns-root-deploy
+spec:
+  selector:
+    matchLabels:
+      app: userns
+  template:
+    metadata:
+      labels:
+        app: userns
+    spec:
+      hostUsers: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: nginx
+        image: nginx
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          runAsUser: 0
