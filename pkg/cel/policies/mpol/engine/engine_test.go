@@ -1028,9 +1028,9 @@ func TestHandlePolicy_ExtractionMode(t *testing.T) {
 		}
 	}
 
-	runHandlePolicy := func(t *testing.T, mpol *policiesv1beta1.MutatingPolicy, jobset *unstructured.Unstructured) (MutatingPolicyResponse, *unstructured.Unstructured) {
+	runHandlePolicy := func(t *testing.T, mpol *policiesv1beta1.MutatingPolicy, jobset *unstructured.Unstructured, exceptions ...*policiesv1beta1.PolicyException) (MutatingPolicyResponse, *unstructured.Unstructured) {
 		t.Helper()
-		compiled, errs := compiler.NewCompiler().Compile(mpol, nil)
+		compiled, errs := compiler.NewCompiler().Compile(mpol, exceptions)
 		assert.Empty(t, errs.ToAggregate())
 
 		eng := &engineImpl{
@@ -1178,6 +1178,71 @@ func TestHandlePolicy_ExtractionMode(t *testing.T) {
 		assert.False(t, found, "metadata.name should not have been synthesized into the real object")
 		_, found, _ = unstructured.NestedString(rj, "template", "spec", "template", "metadata", "namespace")
 		assert.False(t, found, "metadata.namespace should not have been synthesized into the real object")
+	})
+
+	t.Run("one template excepted and another mutated keeps the mutation and reports pass", func(t *testing.T) {
+		jobset := buildJobSet(
+			podTemplate("leader", "leader:v1"),
+			podTemplate("worker", "worker:v1"),
+		)
+		mpol := buildPolicy(t, "add-team-label", `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`)
+		// the exception only matches the synthesized Pod built from the leader template
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "except-leader", Namespace: "default"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "is-leader",
+					Expression: "object.spec.containers[0].name == 'leader'",
+				}},
+			},
+		}
+
+		ruleResponse, patched := runHandlePolicy(t, mpol, jobset, polex)
+
+		if !assert.Len(t, ruleResponse.Rules, 1) {
+			return
+		}
+		assert.Equal(t, engineapi.RuleStatusPass, ruleResponse.Rules[0].Status())
+		if !assert.NotNil(t, patched) {
+			return
+		}
+
+		// replicatedJobs[0] is the leader: excepted, so it must stay untouched
+		leader := nestedReplicatedJob(t, patched, 0)
+		_, found, _ := unstructured.NestedStringMap(leader, "template", "spec", "template", "metadata", "labels")
+		assert.False(t, found, "excepted template must not be mutated")
+
+		// replicatedJobs[1] is the worker: not excepted, so it gets the label
+		worker := nestedReplicatedJob(t, patched, 1)
+		labels, found, err := unstructured.NestedStringMap(worker, "template", "spec", "template", "metadata", "labels")
+		assert.NoError(t, err)
+		assert.True(t, found)
+		assert.Equal(t, "platform", labels["team"])
+	})
+
+	t.Run("every template excepted reports skipped and applies no mutation", func(t *testing.T) {
+		jobset := buildJobSet(
+			podTemplate("leader", "leader:v1"),
+			podTemplate("worker", "worker:v1"),
+		)
+		mpol := buildPolicy(t, "add-team-label", `Object{metadata: Object.metadata{labels: {"team": "platform"}}}`)
+		polex := &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: "except-all", Namespace: "default"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       "always",
+					Expression: "true",
+				}},
+			},
+		}
+
+		ruleResponse, patched := runHandlePolicy(t, mpol, jobset, polex)
+
+		if !assert.Len(t, ruleResponse.Rules, 1) {
+			return
+		}
+		assert.Equal(t, engineapi.RuleStatusSkip, ruleResponse.Rules[0].Status())
+		assert.Nil(t, patched)
 	})
 }
 

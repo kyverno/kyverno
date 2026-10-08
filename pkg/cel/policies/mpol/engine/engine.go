@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -286,6 +287,13 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 				}
 			}
 		}
+		if result.PatchedResource != nil {
+			ruleResponse.Rules = append(ruleResponse.Rules,
+				engineapi.RulePass("", engineapi.Mutation, "success", result.AuditAnnotations).
+					WithExceptions(exceptions).
+					WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+			return ruleResponse, result.PatchedResource
+		}
 		// determine final result based on highest-priority exception
 		selectedException := result.Exceptions[selectedIndex]
 		reportResult := selectedException.Spec.ReportResult
@@ -337,6 +345,11 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 	if len(templates) == 0 {
 		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", source.GetAPIVersion(), source.GetKind())}
 	}
+	// map iteration order is random; sort so annotation merging and
+	// error messages are deterministic across runs
+	sort.Slice(templates, func(i, j int) bool {
+		return templates[i].JSONPointerPrefix() < templates[j].JSONPointerPrefix()
+	})
 
 	other := oldObj
 	if usingOld {
@@ -357,7 +370,7 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 	working := source.DeepCopy()
 	var mergedAudit map[string]string
 	var mergedExceptions []*policiesv1beta1.PolicyException
-
+	var allOps []jsonpatch.JsonPatchOperation
 	// evaluatedAny tracks whether *any* template actually matched
 	// match/targetMatchConditions and produced a real (non-nil) evaluation result
 	evaluatedAny := false
@@ -464,6 +477,7 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		if err := applyRebasedPatch(working, rebased); err != nil {
 			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: applying patch to parent: %w", tpl.Path, err)}
 		}
+		allOps = append(allOps, extract.RebasePatch(podPatch, tpl.JSONPointerPrefix())...)
 	}
 
 	// No template matched at all (every one returned nil from
@@ -473,10 +487,20 @@ func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy,
 		return nil
 	}
 
-	// Attach whatever exceptions accumulated across templates alongside the
-	// patch/audit data - a template matching an exception and a different
-	// template producing a real mutation are not mutually exclusive, so
-	// both must be visible in the same result.
+	// Apply every template's ops in one pass. Their paths are disjoint
+	// (each sits under its own template), so this equals applying them
+	// one by one but costs a single marshal/unmarshal of the parent.
+	if len(allOps) > 0 {
+		if err := applyRebasedPatch(working, allOps); err != nil {
+			return &compiler.EvaluationResult{Error: fmt.Errorf("applying patch to parent: %w", err)}
+		}
+	}
+	mutated := len(allOps) > 0
+
+	if !mutated && len(mergedExceptions) > 0 {
+		return &compiler.EvaluationResult{Exceptions: mergedExceptions}
+	}
+
 	return &compiler.EvaluationResult{
 		PatchedResource:  working,
 		AuditAnnotations: mergedAudit,
