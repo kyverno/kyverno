@@ -213,23 +213,46 @@ func CompileVariables(path *field.Path, env *cel.Env, VariablesProvider *Variabl
 }
 
 func CompileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type) (cel.Program, field.ErrorList) {
+	traced, errs := compileMutation(path, env, expression, returnType, false)
+	return traced.Program, errs
+}
+
+// compileMutation always builds the normal program; with trace it also builds the explain-only
+// tracking twin and keeps the AST (see TracedProgram).
+func compileMutation(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (TracedProgram, field.ErrorList) {
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
 		ast, issues := env.Compile(expression)
 		if err := issues.Err(); err != nil {
-			return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(returnType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", returnType.TypeName())
-			return nil, append(allErrs, field.Invalid(path, expression, msg))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, msg))
 		}
 		prog, err := env.Program(ast)
 		if err != nil {
-			return nil, append(allErrs, field.Invalid(path, expression, err.Error()))
+			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
-		return prog, allErrs
+		compiled := TracedProgram{Program: prog}
+		if trace {
+			if compiled.Traced, err = tracingProgram(env, ast); err != nil {
+				return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
+			}
+			compiled.AST = ast
+		}
+		return compiled, allErrs
 	}
+}
+
+// CompileMutationWithTrace is the tracing-aware entry point for a mutation expression
+// (ApplyConfiguration or JSONPatch). With trace false it is exactly CompileMutation and Traced and
+// AST are nil. With trace true Program is still the normal program that decides; Traced is its
+// explain-only tracking twin and AST is retained, so trace.Build can turn a later evaluation into
+// a per-node breakdown of the mutation (see TracedProgram).
+func CompileMutationWithTrace(path *field.Path, env *cel.Env, expression string, returnType *types.Type, trace bool) (TracedProgram, field.ErrorList) {
+	return compileMutation(path, env, expression, returnType, trace)
 }
 
 func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admissionregistrationv1.AuditAnnotation) (cel.Program, field.ErrorList) {

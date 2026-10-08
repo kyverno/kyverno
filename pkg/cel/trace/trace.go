@@ -8,6 +8,7 @@ import (
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/cel-go/common/types/traits"
 )
 
 type NodeTrace struct {
@@ -23,6 +24,9 @@ type ExpressionTrace struct {
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
 	LoopValuesOmitted bool
+	// NoBreakdown is set, by the caller, when Nodes were deliberately not collected for this
+	// expression, and says why, so the missing breakdown is not mistaken for an empty one.
+	NoBreakdown string
 }
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
@@ -134,9 +138,32 @@ func referencesMacroInternal(e celast.Expr) bool {
 	return found
 }
 
+// stringify renders a CEL value for human consumption. Scalars and maps go through
+// fmt.Sprintf("%v", v.Value()) exactly as before. Lists get one extra step: Value() only unwraps
+// the outermost layer, so a list's elements can still be un-rendered CEL values -- a JSONPatch
+// mutation's result, for instance, is a list of *mutation.JSONPatchVal (from
+// k8s.io/apiserver/pkg/cel/mutation), a hand-written CEL type whose Value() just returns itself,
+// with no plain-Go form at all. Formatting that bare pointer is fine on its own (Go's fmt
+// dereferences a struct pointer passed directly to Sprintf), but not once it is nested inside a
+// slice (fmt does not dereference a pointer found while formatting a compound value's elements).
+// Recursing element by element gives each one that same direct, top-level Sprintf treatment.
 func stringify(v ref.Val) string {
 	if v == nil {
 		return ""
+	}
+	if lister, ok := v.(traits.Lister); ok {
+		var sb strings.Builder
+		sb.WriteByte('[')
+		first := true
+		for it := lister.Iterator(); it.HasNext() == types.True; {
+			if !first {
+				sb.WriteString(" ")
+			}
+			first = false
+			sb.WriteString(stringify(it.Next()))
+		}
+		sb.WriteByte(']')
+		return sb.String()
 	}
 	return fmt.Sprintf("%v", v.Value())
 }
@@ -162,6 +189,21 @@ const (
 	// that fails or errors, so the ones after it are listed but not evaluated.
 	VerdictNotRun = "NOT RUN"
 )
+
+// ImagesTrace lists the images an ImageValidatingPolicy's image extractors found on the
+// resource. Found is empty when extraction ran and found nothing.
+type ImagesTrace struct {
+	Found []ImageTrace
+}
+
+// ImageTrace is one image found on the resource. Category is the image extractor that found it
+// (e.g. containers); Checked is whether the policy's matchImageReferences kept it, which is what
+// decides whether the policy's validations see it at all.
+type ImageTrace struct {
+	Category string
+	Image    string
+	Checked  bool
+}
 
 // ValidationTrace is one validation's own outcome. Index is its position in the policy's
 // validations, since validations have no names.
@@ -190,5 +232,23 @@ type Decision struct {
 	// Validations lists every validation in order: the ones that ran with their own status, then
 	// any after a failure as VerdictNotRun. Verdict still carries the deciding one in full.
 	Validations []ValidationTrace
-	Verdict     VerdictTrace
+	// Images is what an ImageValidatingPolicy found to check; nil for every other policy kind.
+	Images  *ImagesTrace
+	Verdict VerdictTrace
+	// Mutations holds one entry per mutation expression that actually ran, in order. Unlike
+	// Verdict (vpol's single deciding validation), a MutatingPolicy has no one expression that
+	// "decides" the outcome -- every mutation that runs contributes to the result, so this is a
+	// list rather than a single ExpressionTrace. Empty for policy kinds with no mutations (vpol).
+	Mutations []MutationTrace
+}
+
+// MutationTrace is the trace of one mutation expression that ran. Name identifies it, e.g.
+// "mutations[0] (applyConfiguration)".
+type MutationTrace struct {
+	Name string
+	ExpressionTrace
+	// Error is set when evaluating or applying this specific mutation failed outright (the
+	// Go-level error Patch() returned), distinct from a Nodes[i].Error, which marks a single
+	// failing sub-expression inside an otherwise-evaluated CEL expression.
+	Error string
 }

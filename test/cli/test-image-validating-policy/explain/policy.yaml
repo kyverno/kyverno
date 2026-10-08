@@ -1,0 +1,35 @@
+# Used by Test_Apply_ExplainImageValidatingPolicy. No image on the resources matches
+# matchImageReferences, so nothing is fetched from a registry and no signature is verified.
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: check-images
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["pods"]
+  matchConditions:
+  - name: not-kube-system
+    expression: "object.metadata.namespace != 'kube-system'"
+  matchImageReferences:
+  - glob: "registry.example.com/*"
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  # an ImageValidatingPolicy needs an attestor; no validation here calls it
+  attestors:
+  - name: unused
+    cosign:
+      key:
+        data: unused
+  variables:
+  - name: team
+    expression: "object.metadata.?labels.?team.orValue('')"
+  validations:
+  - expression: "images.containers.all(i, i.startsWith('registry.example.com/'))"
+    message: "images must come from registry.example.com"
+  - expression: "variables.team != ''"
+    message: "pods need a team label"

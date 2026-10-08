@@ -74,6 +74,28 @@ func TestRender_PassHidesNodeBreakdown(t *testing.T) {
 	assert.NotContains(t, sb.String(), "message:")
 }
 
+// TestRender_MutatingPolicyPassMessage checks the source-less-verdict fallback message: a
+// MutatingPolicy has no "validations" at all, so the vpol-oriented "no validations to evaluate"
+// wording would be actively wrong here, not just imprecise. The distinguishing signal is
+// Mutations being non-empty, not the policy kind string, so this holds for any future kind that
+// also has no single deciding expression.
+func TestRender_MutatingPolicyPassMessage(t *testing.T) {
+	d := &Decision{
+		PolicyKind: "MutatingPolicy",
+		Mutations: []MutationTrace{
+			{Name: "mutations[0] (applyConfiguration)", ExpressionTrace: ExpressionTrace{Source: "Object{}", Result: "map[]"}},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+	assert.NotContains(t, out, "no validations to evaluate", "this wording is vpol-specific and wrong for a policy kind with no validations at all")
+	assert.Contains(t, out, "MUTATIONS")
+	assert.Contains(t, out, "VERDICT    PASS     completed; see MUTATIONS above for what ran",
+		"the source-less mutating verdict must point at the MUTATIONS rows, not render empty")
+}
+
 func TestRender_SkipAndErrorNodes(t *testing.T) {
 	skip := &Decision{
 		Scope:   ScopeTrace{Applied: false, Reason: "kind Pod is not covered by the policy's resourceRules"},
@@ -188,4 +210,42 @@ func TestRender_ValidationsList(t *testing.T) {
 		assert.NotContains(t, sb.String(), "VALIDATION")
 		assert.Contains(t, sb.String(), "VERDICT    PASS     a  ->  true")
 	})
+}
+
+func TestRender_Images(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{
+		Images: &ImagesTrace{Found: []ImageTrace{
+			{Category: "containers", Image: "ghcr.io/x/app:1.0", Checked: true},
+			{Category: "containers", Image: "docker.io/busybox:1", Checked: false},
+		}},
+		Verdict: VerdictTrace{Status: VerdictPass, ExpressionTrace: ExpressionTrace{Source: "true", Result: "true"}},
+	})
+	out := sb.String()
+	assert.Contains(t, out, "IMAGES     checked  containers: ghcr.io/x/app:1.0")
+	assert.Contains(t, out, "IMAGES     skipped  containers: docker.io/busybox:1  (not matched by matchImageReferences)")
+
+	sb.Reset()
+	Render(&sb, &Decision{Images: &ImagesTrace{}, Verdict: VerdictTrace{Status: VerdictPass}})
+	assert.Contains(t, sb.String(), "IMAGES              no images found on the resource")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{Status: VerdictPass}})
+	assert.NotContains(t, sb.String(), "IMAGES", "no IMAGES layer for policy kinds that do not extract images")
+}
+
+func TestRender_NoBreakdownNote(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictFail,
+		ExpressionTrace: ExpressionTrace{Source: "verify(x) > 0", Result: "false", NoBreakdown: "it verifies images"},
+	}})
+	assert.Contains(t, sb.String(), "(no breakdown: it verifies images)")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictPass,
+		ExpressionTrace: ExpressionTrace{Source: "verify(x) > 0", Result: "true", NoBreakdown: "it verifies images"},
+	}})
+	assert.NotContains(t, sb.String(), "no breakdown", "a pass shows no breakdown, so no note either")
 }

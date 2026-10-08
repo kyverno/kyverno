@@ -43,6 +43,18 @@ func Render(w io.Writer, d *Decision) {
 	for _, v := range d.Variables {
 		row(w, "VARIABLES", "", named(v))
 	}
+	if d.Images != nil {
+		if len(d.Images.Found) == 0 {
+			row(w, "IMAGES", "", "no images found on the resource")
+		}
+		for _, img := range d.Images.Found {
+			if img.Checked {
+				row(w, "IMAGES", "checked", img.Category+": "+img.Image)
+				continue
+			}
+			row(w, "IMAGES", "skipped", img.Category+": "+img.Image+"  (not matched by matchImageReferences)")
+		}
+	}
 	// with a single validation the list would only repeat the verdict line
 	listed := len(d.Validations) > 1
 	if listed {
@@ -53,6 +65,14 @@ func Render(w io.Writer, d *Decision) {
 			}
 			row(w, "VALIDATION", val.Status, fmt.Sprintf("[%d] %s", val.Index, expressionLine(val.ExpressionTrace)))
 		}
+	}
+	for _, m := range d.Mutations {
+		if m.Error == "" {
+			row(w, "MUTATIONS", "", named(NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
+			continue
+		}
+		row(w, "MUTATIONS", VerdictError, m.Name+": "+m.Error)
+		printNodes(w, m.ExpressionTrace)
 	}
 
 	v := d.Verdict
@@ -69,8 +89,15 @@ func Render(w io.Writer, d *Decision) {
 	} else {
 		message := v.Message
 		if message == "" && v.Status == VerdictPass {
-			// no validations ran to produce a verdict -- most likely the policy declares none
-			message = "no validations to evaluate; the policy passes by default"
+			switch {
+			case len(d.Mutations) > 0:
+				// a mutating policy has no single expression that decides pass/fail -- see the
+				// MUTATIONS lines above for what actually ran
+				message = "completed; see MUTATIONS above for what ran"
+			default:
+				// no validations ran to produce a verdict -- most likely the policy declares none
+				message = "no validations to evaluate; the policy passes by default"
+			}
 		}
 		row(w, "VERDICT", v.Status, message)
 		return
@@ -78,9 +105,18 @@ func Render(w io.Writer, d *Decision) {
 	if v.Message != "" && v.Status != VerdictPass {
 		fmt.Fprintf(w, "%-10s %-8s message: %q\n", "", "", v.Message)
 	}
-	if v.Status != VerdictPass && len(v.Nodes) > 0 {
+	if v.Status != VerdictPass {
+		printNodes(w, v.ExpressionTrace)
+	}
+}
+
+// printNodes prints the per-node breakdown shared by VERDICT and MUTATIONS: one indented line
+// per traced sub-expression, showing its resolved value or, if it failed, its error, then a note
+// when values inside loops were left out.
+func printNodes(w io.Writer, et ExpressionTrace) {
+	if len(et.Nodes) > 0 {
 		fmt.Fprintf(w, "%-10s %-8s evaluated:\n", "", "")
-		for _, n := range v.Nodes {
+		for _, n := range et.Nodes {
 			if n.Error != "" {
 				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, clip(n.Error))
 				continue
@@ -88,8 +124,11 @@ func Render(w io.Writer, d *Decision) {
 			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(n.Value))
 		}
 	}
-	if v.Status != VerdictPass && v.LoopValuesOmitted {
+	if et.LoopValuesOmitted {
 		fmt.Fprintf(w, "%-10s %-8s (values inside loops such as all() and exists() are not shown: CEL keeps only the last item's)\n", "", "")
+	}
+	if et.NoBreakdown != "" {
+		fmt.Fprintf(w, "%-10s %-8s (no breakdown: %s)\n", "", "", et.NoBreakdown)
 	}
 }
 
