@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: framework tests (envtest, registry)
+
+permissions: {}
+
+# The ImageValidatingPolicy registry tests (test/integration/ivpol/registry_test.go) pull and verify
+# real signed images, so they need outbound network and sit behind the "registry" build tag, outside
+# the per-PR framework matrix. This lane runs them nightly, on demand, and on PRs that change them.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '17 4 * * *' # Every day at 04:17
+  pull_request:
+    branches:
+      - main
+      - release-*
+    paths:
+      - '.github/workflows/check-framework-registry.yaml'
+      - 'test/integration/framework/ivpol.go'
+      - 'test/integration/ivpol/registry_test.go'
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  ENVTEST_VERSION: "v0.24.0" # keep in step with check-framework.yaml
+  K8S_VERSION: "1.36"
+
+jobs:
+  registry:
+    name: Registry tests (ivpol)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: false
+          haskell: false
+          large-packages: false
+          swap-storage: false
+          tool-cache: false
+      - name: Setup Go
+        id: setup-go
+        uses: ./.github/actions/go/setup
+        with:
+          gobuild-cache-prefix: ''
+
+      - name: Cache envtest binaries
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/kubebuilder-envtest
+          key: envtest-${{ env.ENVTEST_VERSION }}-${{ env.K8S_VERSION }}
+
+      - name: Install envtest
+        run: |
+          go install "sigs.k8s.io/controller-runtime/tools/setup-envtest@${ENVTEST_VERSION}"
+
+      - name: Setup envtest binaries
+        run: |
+          echo "KUBEBUILDER_ASSETS=$(setup-envtest use "$K8S_VERSION" -p path)" >> "$GITHUB_ENV"
+
+      - name: Run registry tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          pkg=./test/integration/ivpol
+
+          # The registry tests are the ones in files that only build with the registry tag. Deriving
+          # them from the build constraints keeps the gate below in step as tests are added.
+          files() {
+            go list -tags="$1" -f '{{range .TestGoFiles}}{{println .}}{{end}}{{range .XTestGoFiles}}{{println .}}{{end}}' "$pkg" | sort
+          }
+          mapfile -t registry_files < <(comm -23 <(files "integration registry") <(files integration))
+          if [ ${#registry_files[@]} -eq 0 ]; then
+            echo "::error::found no files behind the registry build tag in $pkg"
+            exit 1
+          fi
+          tests=$(cd "$pkg" && { grep -ho '^func Test[A-Za-z0-9_]*' "${registry_files[@]}" || true; } | sed 's/^func //' | paste -sd '|' -)
+          if [ -z "$tests" ]; then
+            echo "::error::found no tests in ${registry_files[*]}"
+            exit 1
+          fi
+
+          # -count=1: a cached pass would report success without contacting any registry.
+          status=0
+          go test -count=1 -tags="integration registry" -run "^(${tests})$" -json "$pkg" \
+            | tee report.json \
+            | jq -j --unbuffered 'select(.Action == "output") | .Output' || status=$?
+
+          # An unreachable registry makes a test skip rather than fail, so a green run can mean that
+          # nothing was verified. Surface every skip, and fail when no test passed at all.
+          jq -r 'select(.Test != null and (.Test | contains("/") | not) and .Action == "skip")
+            | "::warning::\(.Test) was skipped: its registry was not reachable"' report.json
+          read -r passed skipped < <(jq -rs '[.[] | select(.Test != null and (.Test | contains("/") | not))]
+            | "\(map(select(.Action == "pass")) | length) \(map(select(.Action == "skip")) | length)"' report.json)
+          echo "registry tests: ${passed} passed, ${skipped} skipped"
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::no registry test passed (${skipped} skipped), so nothing was verified against a real registry"
+            exit 1
+          fi
+
+  sync-issue:
+    if: always() && github.event_name == 'schedule'
+    needs:
+      - registry
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || job.status }}
+          needs: ${{ toJSON(needs) }}

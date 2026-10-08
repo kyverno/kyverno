@@ -78,14 +78,28 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 // requireImageReachable skips the test when the registry cannot be reached, matching the convention
 // the in-tree cosign verifier tests use so a developer without egress (or a transient registry
 // outage) sees a skip instead of a spurious failure.
-func requireImageReachable(t *testing.T, image string) {
+func requireImageReachable(t *testing.T, image string) *imagedataloader.ImageData {
 	t.Helper()
 	loader, err := imagedataloader.New(nil, nil, nil)
 	require.NoError(t, err)
-	if _, err := loader.FetchImageData(context.Background(), image, nil, nil); err != nil {
+	data, err := loader.FetchImageData(context.Background(), image, nil, nil)
+	if err != nil {
 		t.Skipf("test image %s not accessible: %v", image, err)
 	}
+	return data
 }
+
+// pinnedByDigest returns image pinned to the digest it resolves to, which is how the validating route
+// sees it in a cluster: the mutating route pins tags first, and verifyDigest (on by default) denies a
+// tag that was never pinned. It skips like requireImageReachable.
+func pinnedByDigest(t *testing.T, image string) string {
+	t.Helper()
+	return image + "@" + requireImageReachable(t, image).Digest
+}
+
+// digestDenial is the message the validating route returns for an image without a digest. A test
+// that expects a signature check to deny must not be satisfied by this one.
+const digestDenial = "does not have a digest"
 
 // cosignKeyedPolicy builds a policy that verifies images against a cosign public key. Key based
 // signatures need no transparency log lookup, so this shape only depends on the registry.
@@ -118,103 +132,110 @@ func cosignKeylessPolicy(name, issuer, subject string) *policiesv1beta1.ImageVal
 }
 
 // validatePod runs the validating webhook route for a pod carrying the given image and returns
-// whether the request was admitted along with any warnings. Verification happens entirely in this
-// phase (issue #16336): a signed image is admitted, an unsigned or untrusted one is denied.
-func validatePod(t *testing.T, policyName, podName, namespace, image string) (bool, []string) {
+// whether the request was admitted, any warnings, and the denial message. Verification happens
+// entirely in this phase (issue #16336): a signed image is admitted, an unsigned or untrusted one is
+// denied.
+func validatePod(t *testing.T, policyName, podName, namespace, image string) (bool, []string, string) {
 	t.Helper()
 	h := ivpol.New(engine, testEnv.ContextProvider, nil, false, &framework.MockEventGen{})
 	raw := podRawWithImage(t, podName, namespace, image)
 	ctx := framework.ContextWithPolicies(context.Background(), policyName)
 	resp := h.ValidateClustered(ctx, logr.Discard(), framework.PodAdmissionRequest(podName, namespace, raw), "", time.Now())
-	return resp.Allowed, resp.Warnings
+	var message string
+	if resp.Result != nil {
+		message = resp.Result.Message
+	}
+	return resp.Allowed, resp.Warnings, message
 }
 
 // TestValidate_CosignSignedImage_Admits is the end to end signature check: a real signed image is
 // pulled from the registry, verified against the policy key, and admitted.
 func TestValidate_CosignSignedImage_Admits(t *testing.T) {
-	requireImageReachable(t, signedImage)
+	image := pinnedByDigest(t, signedImage)
 
 	createIvpolWithCleanup(t, cosignKeyedPolicy("cosign-signed", cosignPubKey))
 	waitForPolicyReady(t, "cosign-signed", "")
 
-	allowed, warnings := validatePod(t, "cosign-signed", "signed-pod", "default", signedImage)
+	allowed, warnings, message := validatePod(t, "cosign-signed", "signed-pod", "default", image)
 
-	assert.True(t, allowed, "a correctly signed image must be admitted")
+	assert.True(t, allowed, "a correctly signed image must be admitted, got denial: %s", message)
 	assert.Empty(t, warnings, "a passing verification must not warn")
 }
 
 // TestValidate_UnsignedImage_Denies is the negative control for the check above: the same policy
 // against an unsigned image denies the pod.
 func TestValidate_UnsignedImage_Denies(t *testing.T) {
-	requireImageReachable(t, unsignedImage)
+	image := pinnedByDigest(t, unsignedImage)
 
 	createIvpolWithCleanup(t, cosignKeyedPolicy("cosign-unsigned", cosignPubKey))
 	waitForPolicyReady(t, "cosign-unsigned", "")
 
-	allowed, _ := validatePod(t, "cosign-unsigned", "unsigned-pod", "default", unsignedImage)
+	allowed, _, message := validatePod(t, "cosign-unsigned", "unsigned-pod", "default", image)
 
 	assert.False(t, allowed, "an unsigned image must be denied")
+	assert.NotContains(t, message, digestDenial, "the image is pinned, so the denial must come from the signature check")
 }
 
 // TestValidate_CosignKeyedOrgImage_Admits covers the key based images published by the kyverno
 // test-images repository, which are signed with a different key than test-verify-image.
 func TestValidate_CosignKeyedOrgImage_Admits(t *testing.T) {
-	requireImageReachable(t, keyedOrgImage)
+	image := pinnedByDigest(t, keyedOrgImage)
 
 	createIvpolWithCleanup(t, cosignKeyedPolicy("cosign-org-keyed", orgCosignPubKey))
 	waitForPolicyReady(t, "cosign-org-keyed", "")
 
-	allowed, _ := validatePod(t, "cosign-org-keyed", "org-keyed-pod", "default", keyedOrgImage)
+	allowed, _, message := validatePod(t, "cosign-org-keyed", "org-keyed-pod", "default", image)
 
-	assert.True(t, allowed, "an image signed with the org key must be admitted")
+	assert.True(t, allowed, "an image signed with the org key must be admitted, got denial: %s", message)
 }
 
 // TestValidate_CosignKeylessImage_Admits covers keyless (OIDC) signing, which also consults the Rekor
 // transparency log.
 func TestValidate_CosignKeylessImage_Admits(t *testing.T) {
-	requireImageReachable(t, keylessOrgImage)
+	image := pinnedByDigest(t, keylessOrgImage)
 
 	createIvpolWithCleanup(t, cosignKeylessPolicy("cosign-keyless", githubActionsIssuer, githubWorkflowID))
 	waitForPolicyReady(t, "cosign-keyless", "")
 
-	allowed, _ := validatePod(t, "cosign-keyless", "keyless-pod", "default", keylessOrgImage)
+	allowed, _, message := validatePod(t, "cosign-keyless", "keyless-pod", "default", image)
 
-	assert.True(t, allowed, "a keyless signed image from the expected workflow must be admitted")
+	assert.True(t, allowed, "a keyless signed image from the expected workflow must be admitted, got denial: %s", message)
 }
 
 // TestValidate_KeylessWrongIdentity_Denies proves the keyless identity is actually enforced: the
 // image is signed, but by a different workflow than the policy trusts.
 func TestValidate_KeylessWrongIdentity_Denies(t *testing.T) {
-	requireImageReachable(t, keylessOrgImage)
+	image := pinnedByDigest(t, keylessOrgImage)
 
 	policy := cosignKeylessPolicy("cosign-wrong-identity", githubActionsIssuer,
 		"https://github.com/wrong/repo/.github/workflows/ci.yml@refs/heads/main")
 	createIvpolWithCleanup(t, policy)
 	waitForPolicyReady(t, "cosign-wrong-identity", "")
 
-	allowed, _ := validatePod(t, "cosign-wrong-identity", "wrong-identity-pod", "default", keylessOrgImage)
+	allowed, _, message := validatePod(t, "cosign-wrong-identity", "wrong-identity-pod", "default", image)
 
 	assert.False(t, allowed, "an image signed by another workflow identity must be denied")
+	assert.NotContains(t, message, digestDenial, "the image is pinned, so the denial must come from the signature check")
 }
 
 // TestValidate_SignedImage_AdmitsInSinglePhase confirms the post-#16336 single-phase model: the pod
 // carries no pre-stamped outcome annotation, so the validating phase verifies the image on its own
 // and admits it, with no mutating phase involved.
 func TestValidate_SignedImage_AdmitsInSinglePhase(t *testing.T) {
-	requireImageReachable(t, signedImage)
+	image := pinnedByDigest(t, signedImage)
 
 	createIvpolWithCleanup(t, cosignKeyedPolicy("single-phase", cosignPubKey))
 	waitForPolicyReady(t, "single-phase", "")
 
-	allowed, warnings := validatePod(t, "single-phase", "single-phase-pod", "default", signedImage)
+	allowed, warnings, message := validatePod(t, "single-phase", "single-phase-pod", "default", image)
 
-	assert.True(t, allowed, "the validating phase must verify and admit a signed image on its own")
+	assert.True(t, allowed, "the validating phase must verify and admit a signed image on its own, got denial: %s", message)
 	assert.Empty(t, warnings, "a passing verification must not warn")
 }
 
 // TestValidate_NotarySignedImage_Admits covers the other supported signature format.
 func TestValidate_NotarySignedImage_Admits(t *testing.T) {
-	requireImageReachable(t, signedImage)
+	image := pinnedByDigest(t, signedImage)
 
 	policy := newIvpol("notary-signed")
 	policy.Spec.Attestors = []policiesv1beta1.Attestor{{
@@ -228,9 +249,9 @@ func TestValidate_NotarySignedImage_Admits(t *testing.T) {
 	createIvpolWithCleanup(t, policy)
 	waitForPolicyReady(t, "notary-signed", "")
 
-	allowed, _ := validatePod(t, "notary-signed", "notary-pod", "default", signedImage)
+	allowed, _, message := validatePod(t, "notary-signed", "notary-pod", "default", image)
 
-	assert.True(t, allowed, "a notary signed image must be admitted")
+	assert.True(t, allowed, "a notary signed image must be admitted, got denial: %s", message)
 }
 
 // TestMutate_PinsDigestAndStampsNothingElse is the success path of digest pinning, and the reason
