@@ -17,8 +17,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	imagecredentials "github.com/kyverno/kyverno/pkg/image/verification/credentials"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/kyverno/sdk/extensions/regcreds"
@@ -72,14 +74,16 @@ func ImageVerifyCELFuncs(
 	adapter types.Adapter,
 	verifications *ImageVerificationResults,
 ) (*ivfuncs, error) {
-	if ivpol == nil {
-		return nil, fmt.Errorf("nil image verification policy")
+	ivpol, scopeErrs := imagecredentials.ScopePolicy(ivpol)
+	if len(scopeErrs) != 0 {
+		return nil, scopeErrs.ToAggregate()
 	}
 	env, err := compiler.NewMatchImageEnv()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CEL image verification env: %v", err)
 	}
 
+	lister = kubeutils.ScopeSecretLister(lister, ivpol.GetNamespace())
 	spec := ivpol.GetSpec()
 	imgRules, errs := compiler.CompileMatchImageReferences(field.NewPath("spec", "MatchImageReferences"), env, spec.MatchImageReferences...)
 	if errs != nil {
@@ -144,6 +148,10 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
 		return types.WrapErr(err)
 	} else {
+		attestors, scopeErrs := imagecredentials.ScopeAttestors(f.policy, attestors)
+		if len(scopeErrs) != 0 {
+			return types.WrapErr(scopeErrs.ToAggregate())
+		}
 		count := 0
 		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
@@ -223,6 +231,10 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](args[2]); err != nil {
 		return types.WrapErr(err)
 	} else {
+		attestors, scopeErrs := imagecredentials.ScopeAttestors(f.policy, attestors)
+		if len(scopeErrs) != 0 {
+			return types.WrapErr(scopeErrs.ToAggregate())
+		}
 		count := 0
 		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
