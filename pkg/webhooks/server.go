@@ -93,6 +93,7 @@ func NewServer(
 		"/mpol/*policies",
 		handlerFunc("MUTATE", resourceHandlers.MutatingPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -106,6 +107,7 @@ func NewServer(
 		"/nmpol/*policies",
 		handlerFunc("MUTATE", resourceHandlers.NamespacedMutatingPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -120,6 +122,7 @@ func NewServer(
 		"/vpol/*policies",
 		handlerFunc("VALIDATE", resourceHandlers.ValidatingPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -133,6 +136,7 @@ func NewServer(
 		"/nvpol/*policies",
 		handlerFunc("VALIDATE", resourceHandlers.NamespacedValidatingPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -146,6 +150,7 @@ func NewServer(
 		"/ivpol/validate/*policies",
 		handlerFunc("IVPOL-VALIDATE", resourceHandlers.ImageVerificationPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -159,6 +164,7 @@ func NewServer(
 		"/ivpol/mutate/*policies",
 		handlerFunc("IVPOL-MUTATE", resourceHandlers.ImageVerificationPoliciesMutation, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -176,6 +182,7 @@ func NewServer(
 		"/nivpol/validate/*policies",
 		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.NamespacedImageVerificationPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -189,6 +196,7 @@ func NewServer(
 		"/nivpol/mutate/*policies",
 		handlerFunc("NIVPOL-MUTATE", resourceHandlers.NamespacedImageVerificationPoliciesMutation, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -203,6 +211,7 @@ func NewServer(
 		"/gpol/*policies",
 		handlerFunc("GENERATE", resourceHandlers.GeneratingPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -216,6 +225,7 @@ func NewServer(
 		"/ngpol/*policies",
 		handlerFunc("GENERATE", resourceHandlers.NamespacedGeneratingPolicies, "").
 			WithFilter(configuration).
+			WithGenerateProvenanceProtection(controllerUsernames...).
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
@@ -232,6 +242,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
+				WithGenerateProvenanceProtection(controllerUsernames...).
 				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithRoles(rbLister, crbLister).
@@ -249,6 +260,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
+				WithGenerateProvenanceProtection(controllerUsernames...).
 				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 				WithDump(debugModeOpts.DumpPayload).
 				WithRoles(rbLister, crbLister).
