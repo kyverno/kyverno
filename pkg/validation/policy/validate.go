@@ -30,6 +30,7 @@ import (
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -115,6 +116,21 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string) ([]string, error) {
+	return validatePolicy(policy, oldPolicy, client, mock, backgroundSA, reportsSA, nil)
+}
+
+// ValidateWithUserInfo validates a policy and checks generate permissions for
+// the user who submitted the admission request when the policy spec changes.
+func ValidateWithUserInfo(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string, author authenticationv1.UserInfo) ([]string, error) {
+	// An unchanged spec does not grant new generate capabilities. Retain all
+	// structural and controller permission checks for metadata-only updates.
+	if author.Username != "" && oldPolicy != nil && datautils.DeepEqual(policy.GetSpec(), oldPolicy.GetSpec()) {
+		return validatePolicy(policy, oldPolicy, client, mock, backgroundSA, reportsSA, nil)
+	}
+	return validatePolicy(policy, oldPolicy, client, mock, backgroundSA, reportsSA, &author)
+}
+
+func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, backgroundSA, reportsSA string, author *authenticationv1.UserInfo) ([]string, error) {
 	var warnings []string
 	if policy.GetKind() == "ClusterPolicy" && policy.GetNamespace() != "" {
 		warnings = append(warnings, "A clusterpolicy should not have the namespace defined")
@@ -222,6 +238,16 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	if !policy.AdmissionProcessingEnabled() {
 		if spec.HasMutate() || spec.HasGenerate() || spec.HasVerifyImages() {
 			return warnings, fmt.Errorf("disabling admission processing is only allowed with validation policies")
+		}
+	}
+
+	// Authorize every generate rule before the warning-only returns below.
+	// Those returns preserve admission of policies for CRDs installed later.
+	if !mock {
+		for i := range spec.Rules {
+			if err := validateGenerateAuthor(i, &spec.Rules[i], client, author); err != nil {
+				return warnings, err
+			}
 		}
 	}
 
@@ -344,7 +370,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
+		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA, nil)
 		if err != nil {
 			return warnings, err
 		} else if len(w) > 0 {

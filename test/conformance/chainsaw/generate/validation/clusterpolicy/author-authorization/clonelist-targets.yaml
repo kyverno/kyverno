@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: author-clonelist-targets
+spec:
+  rules:
+  - name: clone-resources
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      namespace: generate-author-authorization
+      cloneList:
+        namespace: generate-author-authorization
+        kinds:
+        - v1/ConfigMap
+        - v1/Secret
+        selector:
+          matchLabels:
+            clone: "true"

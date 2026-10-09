@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: author-foreach-variable-kind
+spec:
+  rules:
+  - name: generate-variable-kind
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      foreach:
+      - list: request.object.data.items
+        apiVersion: v1
+        kind: "{{ element.kind }}"
+        name: "{{ element.name }}"
+        namespace: generate-author-authorization
+        data:
+          data:
+            authorized: "true"

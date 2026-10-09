@@ -23,10 +23,17 @@ type Generate struct {
 	authChecker        auth.AuthChecks
 	authCheckerReports auth.AuthChecks
 	log                logr.Logger
+	offline            bool
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
 func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger) *Generate {
+	return NewGenerateFactoryWithGroups(client, rule, user, nil, reportsSA, log)
+}
+
+// NewGenerateFactoryWithGroups returns a Generate validation checker for the
+// user and groups carried by an admission request.
+func NewGenerateFactoryWithGroups(client dclient.Interface, rule *kyvernov1.Rule, user string, groups []string, reportsSA string, log logr.Logger) *Generate {
 	var authCheckerReports auth.AuthChecks
 	if reportsSA != "" {
 		authCheckerReports = auth.NewAuth(client, reportsSA, log)
@@ -35,7 +42,7 @@ func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, re
 	g := Generate{
 		user:               user,
 		rule:               rule,
-		authChecker:        auth.NewAuth(client, user, log),
+		authChecker:        auth.NewAuthWithGroups(client, user, groups, log),
 		authCheckerReports: authCheckerReports,
 		log:                log,
 	}
@@ -63,11 +70,19 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 		}
 	}
 
+	// Offline validation preserves structural checks without requiring target
+	// kinds to be resolved for admission authorization.
+	if g.offline {
+		return nil, "", nil
+	}
+
 	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
 	// kyverno uses SA 'kyverno' and has default ClusterRoles and ClusterRoleBindings
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
-	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
+	// Target kinds must be resolved during admission so authorization can be
+	// checked. A variable namespace is checked as cluster-wide access because it
+	// can resolve to any namespace at runtime.
 	if rule.Generation.ForEachGeneration != nil {
 		for _, forEach := range rule.Generation.ForEachGeneration {
 			if err := g.validateAuth(ctx, verbs, forEach.GeneratePattern); err != nil {
@@ -90,20 +105,30 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 func (g *Generate) validateAuth(ctx context.Context, verbs []string, generate kyvernov1.GeneratePattern) error {
 	if len(generate.CloneList.Kinds) != 0 {
 		for _, kind := range generate.CloneList.Kinds {
+			if regex.IsVariable(kind) {
+				return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
+			}
 			gvk, sub := parseCloneKind(kind)
-			return g.canIGenerate(ctx, verbs, gvk, generate.Namespace, sub)
+			if err := g.canIGenerate(ctx, verbs, gvk, generate.Namespace, sub); err != nil {
+				return err
+			}
 		}
+		return nil
 	} else {
 		k, sub := kubeutils.SplitSubresource(generate.Kind)
 		return g.canIGenerate(ctx, verbs, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
 	}
-	return nil
 }
 
 func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namespace, subresource string) error {
 	if regex.IsVariable(gvk) {
-		g.log.V(2).Info("resource Kind uses variables; skipping authorization checks.")
-		return nil
+		return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
+	}
+	if regex.IsVariable(namespace) {
+		// An unresolved namespace can select any namespace at runtime. Checking an
+		// empty namespace requires permissions which are not limited by a RoleBinding
+		// in one namespace.
+		namespace = ""
 	}
 
 	if verbs == nil {

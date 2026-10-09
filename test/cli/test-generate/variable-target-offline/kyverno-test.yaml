@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: variable-target-offline
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generated-resource.yaml
+  kind: Namespace
+  policy: offline-variable-target
+  resources:
+  - offline-author-check
+  result: pass
+  rule: generate-variable-target
