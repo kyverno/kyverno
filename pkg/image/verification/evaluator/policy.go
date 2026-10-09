@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
@@ -23,6 +24,7 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"go.uber.org/multierr"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -50,19 +52,9 @@ type CompiledPolicy interface {
 	// Evaluate does not enforce validationConfigurations.required: the evidence may
 	// still come from another policy later in the same request. Call
 	// EnforceRequired on every passing policy only after all have evaluated.
-	//
-	// requestMapFn is a memoized thunk over compiler.BuildRawRequestMap (see
-	// sync.OnceValues in engine.go), built once per admission request and shared
-	// across every policy evaluated for that request. Evaluate resolves it at most
-	// once per call, through prepareK8sData -- never once per matchCondition or
-	// exception. Pass nil for the JSON evaluation mode and for the ExtractionMode
-	// synthetic-request carve-out, where each synthesized pod template must build
-	// its own map from its own (different) embedded object/oldObject rather than
-	// reuse the outer request's.
-	Evaluate(context.Context, *imageverify.Runtime, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
+	Evaluate(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, bool, func() (map[string]any, error), libs.Context) (*EvaluationResult, error)
 	EnforceRequired(images []string, verifications *imageverify.ImageVerificationResults) error
-	// requestMapFn: same memoization contract as Evaluate's.
-	MutateDigest(context.Context, *imageverify.Runtime, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
+	MutateDigest(context.Context, imagedataloader.ImageContext, imageverifycache.Client, *imageverify.ImageVerificationResults, admission.Attributes, interface{}, runtime.Object, unstructured.Unstructured, func() (map[string]any, error), config.Configuration, libs.Context) ([]jsonpatch.JsonPatchOperation, error)
 }
 
 type compiledPolicy struct {
@@ -81,22 +73,20 @@ type compiledPolicy struct {
 	exceptions           []engine.Exception
 	variables            map[string]cel.Program
 	validationConfig     policiesv1alpha1.ValidationConfiguration
-	imageVerifyFactory   *imageverify.Factory
+	ivFuncs              *imageverify.IvFuncs
 }
 
-func (c *compiledPolicy) Evaluate(ctx context.Context, rt *imageverify.Runtime, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
-	if rt == nil {
-		return nil, fmt.Errorf("image verification runtime is required")
-	}
-	// Assemble activation data once, ahead of matching, so match (matchConditions
-	// and every exception's matchConditions) and the rest of Evaluate all consume
-	// the same map instead of each rebuilding it. This is what keeps a nil
-	// requestMapFn to one build per Evaluate call, never one per match/exception.
+func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *imageverify.ImageVerificationResults, attr admission.Attributes, request interface{}, namespace runtime.Object, isK8s bool, requestMapFn func() (map[string]any, error), context libs.Context) (*EvaluationResult, error) {
 	data, err := prepareK8sData(attr, request, namespace, isK8s, requestMapFn)
 	if err != nil {
 		return nil, err
 	}
-	boundRuntime := c.bindRuntime(data, rt, context)
+	boundRuntime := imageverify.NewRuntimeForPolicy(ctx, c.ivFuncs, imgCtx, cache, results)
+	data[imageverify.RuntimeKey] = boundRuntime
+	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
+	if context != nil {
+		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), context.GetHTTPMocks())}
+	}
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -190,7 +180,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, rt *imageverify.Runtime, 
 	// Prefetch image data through Get() one image at a time to avoid triggering
 	// racy concurrent map writes in the SDK AddImages() implementation.
 	for _, image := range imgList {
-		if _, err := rt.ImageContext.Get(ctx, image, c.authOpts, c.nameOpts); err != nil {
+		if _, err := imgCtx.Get(ctx, image, imageverify.WithRequestContext(ctx, c.authOpts), c.nameOpts); err != nil {
 			return nil, err
 		}
 	}
@@ -316,7 +306,9 @@ func (c *compiledPolicy) EnforceRequired(images []string, verifications *imageve
 // digest, matching how ClusterPolicy pins each image independently.
 func (c *compiledPolicy) MutateDigest(
 	ctx context.Context,
-	rt *imageverify.Runtime,
+	imgCtx imagedataloader.ImageContext,
+	cache imageverifycache.Client,
+	results *imageverify.ImageVerificationResults,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
@@ -325,17 +317,15 @@ func (c *compiledPolicy) MutateDigest(
 	cfg config.Configuration,
 	libctx libs.Context,
 ) ([]jsonpatch.JsonPatchOperation, error) {
-	if rt == nil {
-		return nil, fmt.Errorf("image verification runtime is required")
-	}
-	// Same single-assembly rule as Evaluate: build the activation data once and
-	// let both match calls (matchConditions, exception matchConditions) consume
-	// it, rather than each rebuilding it.
 	data, err := prepareK8sData(attr, request, namespace, isK8s(request), requestMapFn)
 	if err != nil {
 		return nil, err
 	}
-	c.bindRuntime(data, rt, libctx)
+	data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(ctx, c.ivFuncs, imgCtx, cache, results)
+	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
+	if libctx != nil {
+		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
+	}
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -381,7 +371,7 @@ func (c *compiledPolicy) MutateDigest(
 			} else if !apply {
 				continue
 			}
-			data, err := rt.ImageContext.Get(ctx, image, c.authOpts, c.nameOpts)
+			data, err := imgCtx.Get(ctx, image, imageverify.WithRequestContext(ctx, c.authOpts), c.nameOpts)
 			if err != nil {
 				// Record the failure and carry on: an image that cannot be resolved must not
 				// cost the images that can their digest. ClusterPolicy pins each image
@@ -457,26 +447,10 @@ func (p *compiledPolicy) match(
 	}
 }
 
-// prepareK8sData is the single place ivpol assembles CEL activation data and
-// resolves the `request` map -- both Evaluate and MutateDigest call it exactly
-// once per invocation and feed the result into match instead of match
-// re-assembling it on every call (matchConditions, then once per exception).
-// Mirrors vpol's prepareK8sData (pkg/cel/policies/vpol/compiler/eval.go).
-//
-// requestMapFn is a memoized thunk (typically sync.OnceValues over
-// compiler.BuildRawRequestMap) built once per admission request and shared
-// across every policy in that request; it is consumed here, not inline at
-// each call site, so a nil thunk costs at most one build per Evaluate/
-// MutateDigest call -- never one per match/exception. Pass nil for the JSON
-// evaluation mode (isK8s false; the request map is never built) and for the
-// ExtractionMode synthetic-request carve-out, where each synthesized pod
-// template embeds a different object/oldObject than the outer request and
-// must build its own map via compiler.BuildRawRequestMap(request) instead of
-// reusing the outer one.
-//
-// The returned map is shared for the remainder of the call (and, through the
-// thunk, across every policy evaluated for the admission request) and MUST be
-// treated as immutable: no ivpol code may write into it or its nested values.
+// prepareK8sData assembles CEL activation data once per Evaluate/MutateDigest call.
+// requestMapFn is a memoized request-map builder shared across every policy in the
+// admission request; pass nil to build the map from request instead (JSON mode,
+// ExtractionMode synthetic requests). The request map MUST be treated as immutable.
 //
 // TODO(#17586): this helper is a twin of vpol's prepareK8sData
 // (pkg/cel/policies/vpol/compiler/eval.go). Both should move behind a shared
@@ -521,18 +495,4 @@ func prepareK8sData(
 	data[engine.ObjectKey] = objectVal
 	data[engine.OldObjectKey] = oldObjectVal
 	return data, nil
-}
-
-// bindRuntime keeps request-owned state out of reusable programs, including CLI
-// HTTP mocks. Binding precedes match conditions and exceptions in both paths.
-func (c *compiledPolicy) bindRuntime(data map[string]any, rt *imageverify.Runtime, libctx libs.Context) imageverify.Runtime {
-	var bound imageverify.Runtime
-	if c.imageVerifyFactory != nil {
-		bound = c.imageVerifyFactory.Bind(rt)
-		data[imageverify.RuntimeKey] = bound
-	}
-	if libctx != nil {
-		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
-	}
-	return bound
 }

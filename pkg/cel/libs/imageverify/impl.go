@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -31,7 +32,7 @@ const (
 	attestationCacheRule = "verifyAttestationSignatures"
 )
 
-type ivfuncs struct {
+type IvFuncs struct {
 	types.Adapter
 
 	logger          logr.Logger
@@ -48,6 +49,11 @@ type ivfuncs struct {
 	verifications   *ImageVerificationResults
 	diagnostics     *verificationDiagnostics
 
+	// requestCtx is the admission request's context. CEL function bindings only
+	// receive their arguments, so the per-request copy made by
+	// NewRuntimeForPolicy carries it.
+	requestCtx context.Context //nolint:containedctx
+
 	// pendingIntotoRestores holds intoto payloads read back from the cache on
 	// a verifyAttestationSignatures() hit, keyed by "<image>\x00<attestation>".
 	// Applying them to ImageData (which needs an imgCtx.Get()) is deferred
@@ -63,45 +69,60 @@ type ivfuncs struct {
 	pendingIntotoRestores map[string]map[string][]byte
 }
 
+// cosignImageVerifier exists only so tests can swap in a fake verifier;
+// production always uses *cosign.Verifier.
 type cosignImageVerifier interface {
 	VerifyImageSignature(context.Context, *imagedataloader.ImageData, *v1beta1.Attestor) error
 	VerifyAttestationSignature(context.Context, *imagedataloader.ImageData, *v1beta1.Attestation, *v1beta1.Attestor) error
 }
 
-// Runtime holds state owned by a single request. Bind creates a policy-local
-// function implementation, so deferred payload restoration is never shared.
+// Runtime holds state owned by a single request. NewRuntimeForPolicy creates a
+// policy-local function implementation, so deferred payload restoration is never shared.
 type Runtime struct {
-	ImageContext imagedataloader.ImageContext
-	Cache        imageverifycache.Client
-	Results      *ImageVerificationResults
-	functions    *ivfuncs
+	functions *IvFuncs
 }
 
-// Factory contains only policy configuration and immutable compiled programs.
-type Factory struct {
-	functions ivfuncs
-	lister    corev1listers.SecretLister
+// NewRuntimeForPolicy copies the policy's IvFuncs and attaches request-owned
+// state to the copy. This is needed because the same compiled policy can be used
+// by two admission requests, and those shouldn't replace stateful fields in IvFuncs
+// that belong to eachother
+func NewRuntimeForPolicy(ctx context.Context, f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
+	newFuncs := *f
+	newFuncs.requestCtx = ctx
+	newFuncs.imgCtx = imgCtx
+	newFuncs.ivCache = cache
+	newFuncs.verifications = results
+	newFuncs.pendingIntotoRestores = map[string]map[string][]byte{}
+	newFuncs.diagnostics = &verificationDiagnostics{}
+
+	return Runtime{functions: &newFuncs}
 }
 
-func (f *Factory) Bind(r *Runtime) Runtime {
-	functions := f.functions
-	functions.imgCtx = r.ImageContext
-	functions.ivCache = r.Cache
-	functions.verifications = r.Results
-	functions.cosignVerifier = cosign.NewVerifier(f.lister, functions.logger)
-	functions.notaryVerifier = notary.NewVerifier(functions.logger)
-	functions.pendingIntotoRestores = map[string]map[string][]byte{}
-	functions.diagnostics = &verificationDiagnostics{}
-	return Runtime{functions: &functions}
+// requestContext returns the admission request's context, so registry and
+// verification work stops when the request is cancelled or times out.
+func (f *IvFuncs) requestContext() context.Context {
+	if f.requestCtx != nil {
+		return f.requestCtx
+	}
+	return context.Background()
 }
 
-func NewFactory(
+// WithRequestContext returns opts with remote.WithContext(ctx) appended last.
+// go-containerregistry applies options in order, so this overrides the context
+// that registryclient.GlobalOptsOrDefault puts into the options when a policy is
+// compiled. The slice is clipped first because compiled policies share their
+// options across admission requests.
+func WithRequestContext(ctx context.Context, opts []remote.Option) []remote.Option {
+	return append(slices.Clip(opts), remote.WithContext(ctx))
+}
+
+func NewIvFuncs(
 	logger logr.Logger,
 	ivpol v1beta1.ImageValidatingPolicyLike,
 	lister corev1listers.SecretLister,
 	adapter types.Adapter,
 	imgRules []compiler.MatchImageReference,
-) *Factory {
+) *IvFuncs {
 	spec := ivpol.GetSpec()
 
 	// by default, try to use the options built globally from flags
@@ -110,7 +131,7 @@ func NewFactory(
 		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace(), logger)
 	}
 
-	return &Factory{lister: lister, functions: ivfuncs{
+	return &IvFuncs{
 		Adapter:         adapter,
 		logger:          logger,
 		policy:          ivpol,
@@ -119,7 +140,9 @@ func NewFactory(
 		attestationList: attestationMap(ivpol),
 		nameOpts:        nameOpts,
 		authOpts:        authOpts,
-	}}
+		cosignVerifier:  cosign.NewVerifier(lister, logger),
+		notaryVerifier:  notary.NewVerifier(logger),
+	}
 }
 
 // build a cache key from a CEL function name, a qualifier (attestation name in practice)
@@ -149,8 +172,8 @@ func pendingKey(image, attestation string) string {
 	return image + "\x00" + attestation
 }
 
-func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
@@ -179,7 +202,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 		// Fetch image data once before the loop: the image reference and
 		// credentials are the same for every attestor.
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -204,6 +227,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				}
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, "", err)
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "notary")
@@ -224,8 +248,8 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 	}
 }
 
-func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
+	ctx := f.requestContext()
 	if len(args) != 3 {
 		return types.NewErr("function usage: <image> <attestation> <attestor list>")
 	}
@@ -276,7 +300,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 			}
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -304,6 +328,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, attestation, err)
 					f.logger.V(6).Info("attestation signature verification failed", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
@@ -362,8 +387,8 @@ func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Atte
 	return map[string][]byte{attest.InToto.Type: b}
 }
 
-func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
@@ -373,7 +398,7 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -398,12 +423,12 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 	}
 }
 
-func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) get_image_data_string(image ref.Val) ref.Val {
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}

@@ -36,7 +36,7 @@ func (v *diagnosticVerifier) VerifyAttestationSignature(ctx context.Context, img
 func TestVerificationDiagnosticsWindows(t *testing.T) {
 	t.Parallel()
 	d := &verificationDiagnostics{}
-	r := Runtime{functions: &ivfuncs{diagnostics: d}}
+	r := Runtime{functions: &IvFuncs{diagnostics: d}}
 	require.Empty(t, r.VerificationDiagnostics())
 	d.record("image", "first", "", errors.New("invalid signature"))
 	d.record("image", "first", "", errors.New("invalid signature"))
@@ -66,7 +66,7 @@ func TestVerificationDiagnosticsBounded(t *testing.T) {
 			} else {
 				d.record("image", "attestor", "", errors.New(strings.Repeat("失敗", 10000)))
 			}
-			r := Runtime{functions: &ivfuncs{diagnostics: d}}
+			r := Runtime{functions: &IvFuncs{diagnostics: d}}
 			text := r.VerificationDiagnostics()
 			require.LessOrEqual(t, len(text), diagnosticBudget)
 			require.True(t, utf8.ValidString(text))
@@ -92,11 +92,11 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 						expression = `verifyAttestationSignatures("image", "proof", attestors)`
 					}
 					policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "diagnostics", UID: "diagnostics"}, Spec: policiesv1beta1.ImageValidatingPolicySpec{Attestations: []policiesv1beta1.Attestation{{Name: "proof", InToto: &policiesv1beta1.InToto{Type: "proof"}}}}}
-					factory := NewFactory(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+					ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 					results := NewImageVerificationResults()
 					cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 					require.NoError(t, err)
-					r := factory.Bind(&Runtime{ImageContext: runtimeImages{image: &imagedataloader.ImageData{}}, Cache: cache, Results: results})
+					r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
 					verifier := &diagnosticVerifier{err: cause}
 					r.functions.cosignVerifier = verifier
 					attestors := []policiesv1beta1.Attestor{{Name: "invalid", Cosign: &policiesv1beta1.Cosign{}}, {Name: "valid", Cosign: &policiesv1beta1.Cosign{}}}
@@ -128,8 +128,8 @@ func TestCosignVerificationDiagnosticsCounts(t *testing.T) {
 					found, err := cache.Get(context.Background(), policy, rule, "image", true)
 					require.NoError(t, err)
 					require.False(t, found, "partial verification must not be cached")
-					require.Nil(t, factory.functions.diagnostics)
-					other := factory.Bind(&Runtime{})
+					require.Nil(t, ivFuncs.diagnostics)
+					other := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil)
 					require.Empty(t, other.VerificationDiagnostics())
 				})
 			}
@@ -142,14 +142,14 @@ func TestVerificationDiagnosticsCacheHit(t *testing.T) {
 	env, err := cel.NewEnv(Lib(), cel.Variable("attestors", cel.ListType(cel.DynType)))
 	require.NoError(t, err)
 	policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "cached", UID: "cached"}}
-	factory := NewFactory(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 	cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	attestors := []policiesv1beta1.Attestor{{Name: "valid", Cosign: &policiesv1beta1.Cosign{}}}
 	stored, err := cache.Set(context.Background(), policy, attestorCacheRule(signatureCacheRule, "", attestors), "image", true)
 	require.NoError(t, err)
 	require.True(t, stored)
-	r := factory.Bind(&Runtime{Cache: cache})
+	r := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, cache, nil)
 	r.functions.diagnostics.record("previous", "invalid", "", context.Canceled)
 	r.BeginValidation()
 	ast, issues := env.Compile(`verifyImageSignatures("image",attestors) > 0`)
@@ -167,11 +167,11 @@ func TestCosignVerificationDiagnosticsFailureUncached(t *testing.T) {
 	env, err := cel.NewEnv(Lib(), cel.Variable("attestors", cel.ListType(cel.DynType)))
 	require.NoError(t, err)
 	policy := &policiesv1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "failed", UID: "failed"}}
-	factory := NewFactory(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
+	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, env.CELTypeAdapter(), nil)
 	cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 	require.NoError(t, err)
 	results := NewImageVerificationResults()
-	r := factory.Bind(&Runtime{ImageContext: runtimeImages{image: &imagedataloader.ImageData{}}, Cache: cache, Results: results})
+	r := NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{image: &imagedataloader.ImageData{}}, cache, results)
 	verifier := &diagnosticVerifier{err: context.Canceled}
 	r.functions.cosignVerifier = verifier
 	attestors := []policiesv1beta1.Attestor{{Name: "invalid", Cosign: &policiesv1beta1.Cosign{}}}

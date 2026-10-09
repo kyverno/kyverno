@@ -57,7 +57,7 @@ func Evaluate(ctx context.Context, ivpols []*CompiledImageValidatingPolicy, requ
 			return nil, fmt.Errorf("failed to compile policy %v", errList)
 		}
 
-		result, err := p.Evaluate(ctx, &imageverify.Runtime{ImageContext: ictx, Cache: imageverifycache.DisabledImageVerifyCache(), Results: verifications}, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
+		result, err := p.Evaluate(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), verifications, admissionAttr, request, namespace, isAdmissionRequest, requestMapFn, nil)
 		if err != nil {
 			return nil, err
 		}
