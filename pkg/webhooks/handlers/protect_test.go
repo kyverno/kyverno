@@ -582,7 +582,7 @@ func TestWithProtection_GenerateLabels(t *testing.T) {
 				request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
 			}
 
-			response := inner.WithProtection(test.protectManagedResources)(context.Background(), logr.Discard(), request, time.Now())
+			response := inner.WithProtection(test.protectManagedResources, kyvernoUser)(context.Background(), logr.Discard(), request, time.Now())
 			assert.Equal(t, test.wantAllowed, response.Allowed)
 			assert.Equal(t, test.wantAllowed, called)
 			if !test.wantAllowed && assert.NotNil(t, response.Result) {
@@ -592,6 +592,73 @@ func TestWithProtection_GenerateLabels(t *testing.T) {
 				assert.Contains(t, response.Result.Message, test.wantError)
 			}
 		})
+	}
+}
+
+func TestWithProtection_GenerateLabelControllerIdentities(t *testing.T) {
+	t.Parallel()
+	const (
+		admission        = "system:serviceaccount:kyverno:kyverno-admission-controller"
+		background       = "system:serviceaccount:kyverno:kyverno-background-controller"
+		customAdmission  = "system:serviceaccount:policy-system:custom-admission"
+		customBackground = "system:serviceaccount:policy-system:custom-background"
+	)
+	tests := []struct {
+		name        string
+		username    string
+		controllers []string
+		wantAllowed bool
+	}{
+		{name: "configured admission controller", username: admission, controllers: []string{admission, background}, wantAllowed: true},
+		{name: "configured background controller", username: background, controllers: []string{admission, background}, wantAllowed: true},
+		{name: "unrelated account in installation namespace", username: "system:serviceaccount:kyverno:tenant", controllers: []string{admission, background}},
+		{name: "default account in installation namespace", username: "system:serviceaccount:kyverno:default", controllers: []string{admission, background}},
+		{name: "controller name in another namespace", username: "system:serviceaccount:tenant:kyverno-background-controller", controllers: []string{admission, background}},
+		{name: "controller name suffix", username: background + "-tenant", controllers: []string{admission, background}},
+		{name: "custom admission controller", username: customAdmission, controllers: []string{customAdmission, customBackground}, wantAllowed: true},
+		{name: "custom background controller", username: customBackground, controllers: []string{customAdmission, customBackground}, wantAllowed: true},
+		{name: "unconfigured default controller", username: background, controllers: []string{customAdmission, customBackground}},
+		{name: "unrelated account in custom namespace", username: "system:serviceaccount:policy-system:tenant", controllers: []string{customAdmission, customBackground}},
+		{name: "missing configuration", username: background},
+		{name: "empty controller name", username: "", controllers: []string{""}},
+	}
+	for _, test := range tests {
+		for _, operation := range []admissionv1.Operation{admissionv1.Create, admissionv1.Update} {
+			t.Run(test.name+"/"+string(operation), func(t *testing.T) {
+				t.Parallel()
+				called := false
+				inner := AdmissionHandler(func(context.Context, logr.Logger, AdmissionRequest, time.Time) AdmissionResponse {
+					called = true
+					return admissionv1.AdmissionResponse{Allowed: true}
+				})
+				request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
+					UID:       types.UID("controller-identity"),
+					Operation: operation,
+					Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+					UserInfo:  authenticationv1.UserInfo{Username: test.username},
+					Object:    runtime.RawExtension{Raw: resourceWithLabels(t, map[string]string{common.GeneratePolicyLabel: "new-policy"})},
+				}}
+				if operation == admissionv1.Update {
+					request.OldObject.Raw = resourceWithLabels(t, map[string]string{common.GeneratePolicyLabel: "old-policy"})
+				}
+				response := inner.WithProtection(false, test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
+				assert.Equal(t, test.wantAllowed, response.Allowed)
+				assert.Equal(t, test.wantAllowed, called)
+				if !test.wantAllowed && assert.NotNil(t, response.Result) {
+					assert.Contains(t, response.Result.Message, "generate labels can only be set by Kyverno")
+				}
+
+				// Ordinary metadata updates remain available to every caller, even
+				// when the caller is not a configured controller.
+				request.Operation = admissionv1.Update
+				request.OldObject = request.Object
+				request.Object.Raw = resourceWithLabels(t, map[string]string{common.GeneratePolicyLabel: "new-policy", "app": "edited"})
+				called = false
+				response = inner.WithProtection(false, test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
+				assert.True(t, response.Allowed)
+				assert.True(t, called)
+			})
+		}
 	}
 }
 

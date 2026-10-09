@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,17 +24,19 @@ const generateLabelPrefix = "generate.kyverno.io/"
 
 var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
 
-func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
-	inner = inner.withGenerateLabelProtection()
+func (inner AdmissionHandler) WithProtection(enabled bool, controllerUsernames ...string) AdmissionHandler {
+	inner = inner.withGenerateLabelProtection(controllerUsernames)
 	if !enabled {
 		return inner
 	}
 	return inner.withProtection().WithTrace("PROTECT")
 }
 
-func (inner AdmissionHandler) withGenerateLabelProtection() AdmissionHandler {
+func (inner AdmissionHandler) withGenerateLabelProtection(controllerUsernames []string) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
-		if strings.HasPrefix(request.UserInfo.Username, kyvernoUsernamePrefix) {
+		// Only configured controllers may change routing metadata. Other service
+		// accounts in the installation namespace remain ordinary callers.
+		if request.UserInfo.Username != "" && slices.Contains(controllerUsernames, request.UserInfo.Username) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {

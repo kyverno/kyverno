@@ -33,13 +33,15 @@ spec:
           metadata:
             name: trigger
             namespace: gpol-label-ownership
+            labels:
+              example.com/generate-trigger: "true"
     - assert:
         resource:
           apiVersion: v1
-          kind: ConfigMap
+          kind: Secret
           metadata:
             name: generated
-            namespace: gpol-label-ownership
+            namespace: gpol-label-ownership-target
             labels:
               app.kubernetes.io/managed-by: kyverno
               generate.kyverno.io/policy-name: gpol-label-ownership
@@ -48,7 +50,7 @@ spec:
               generate.kyverno.io/trigger-kind: ConfigMap
               generate.kyverno.io/trigger-version: v1
           data:
-            value: original
+            value: b3JpZ2luYWw=
   - name: check-user-label-edits
     try:
     - script:

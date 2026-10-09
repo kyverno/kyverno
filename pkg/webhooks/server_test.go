@@ -1,7 +1,9 @@
 package webhooks
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -18,9 +20,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -166,7 +170,7 @@ func TestNewServer(t *testing.T) {
 
 // buildTestServer wires NewServer with mock handlers, mirroring TestNewServer, and returns the
 // underlying httprouter so route registration can be asserted against the real server.
-func buildTestServer(t *testing.T) *httprouter.Router {
+func buildTestServer(t *testing.T, backgroundServiceAccountName ...string) *httprouter.Router {
 	t.Helper()
 	ctx := context.TODO()
 	dummyHandler := &mockHandler{}
@@ -198,7 +202,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, backgroundServiceAccountName...,
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")
@@ -299,4 +303,65 @@ func TestServerStopWithErrors(t *testing.T) {
 func TestServerRunDoesNotPanic(t *testing.T) {
 	s := &server{server: &http.Server{Addr: ":0"}}
 	assert.NotPanics(t, func() { s.Run(); time.Sleep(10 * time.Millisecond) })
+}
+
+func TestServerGenerationLabelProtection(t *testing.T) {
+	t.Parallel()
+	background := config.KyvernoUserName("custom-background")
+	router := buildTestServer(t, background)
+	resource := func(labels map[string]string, value string) []byte {
+		object := map[string]any{
+			"apiVersion": "v1", "kind": "Secret",
+			"metadata": map[string]any{"name": "target", "namespace": "outside-trigger-scope", "labels": labels},
+			"data":     map[string]string{"value": value},
+		}
+		data, err := json.Marshal(object)
+		require.NoError(t, err)
+		return data
+	}
+	labels := map[string]string{"generate.kyverno.io/policy-name": "policy", "app.kubernetes.io/managed-by": "kyverno"}
+	tests := []struct {
+		name                 string
+		username             string
+		operation            admissionv1.Operation
+		newLabels, oldLabels map[string]string
+		allowed              bool
+	}{
+		{name: "tenant cannot create labels", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Create, newLabels: labels},
+		{name: "unrelated installation account cannot create labels", username: config.KyvernoUserName("unrelated"), operation: admissionv1.Create, newLabels: labels},
+		{name: "unrelated installation account cannot remove labels", username: config.KyvernoUserName("unrelated"), operation: admissionv1.Update, oldLabels: labels},
+		{name: "configured background account creates labels", username: background, operation: admissionv1.Create, newLabels: labels, allowed: true},
+		{name: "configured admission account creates labels", username: config.KyvernoUserName(config.KyvernoServiceAccountName()), operation: admissionv1.Create, newLabels: labels, allowed: true},
+		{name: "background account name prefix is not trusted", username: background + "-other", operation: admissionv1.Create, newLabels: labels},
+		{name: "ordinary downstream edit retains labels", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Update, oldLabels: labels, newLabels: labels, allowed: true},
+		{name: "standalone managed-by edit remains allowed", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Create, newLabels: map[string]string{"app.kubernetes.io/managed-by": "kyverno"}, allowed: true},
+		{name: "clone-source edit remains allowed", username: "system:serviceaccount:tenant:editor", operation: admissionv1.Create, newLabels: map[string]string{"generate.kyverno.io/clone-source": ""}, allowed: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := &admissionv1.AdmissionRequest{
+				UID: "metadata-request", Namespace: "outside-trigger-scope", Operation: test.operation,
+				Kind:     metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				Resource: metav1.GroupVersionResource{Version: "v1", Resource: "secrets"},
+				UserInfo: authenticationv1.UserInfo{Username: test.username},
+				Object:   runtime.RawExtension{Raw: resource(test.newLabels, "ZWRpdGVk")},
+			}
+			if test.operation == admissionv1.Update {
+				request.OldObject = runtime.RawExtension{Raw: resource(test.oldLabels, "b3JpZ2luYWw=")}
+			}
+			body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+			require.NoError(t, err)
+			httpRequest := httptest.NewRequest(http.MethodPost, config.GenerationLabelProtectionWebhookServicePath, bytes.NewReader(body))
+			httpRequest.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			router.ServeHTTP(response, httpRequest)
+			require.Equal(t, http.StatusOK, response.Code)
+			var review admissionv1.AdmissionReview
+			require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+			require.NotNil(t, review.Response)
+			assert.Equal(t, request.UID, review.Response.UID)
+			assert.Equal(t, test.allowed, review.Response.Allowed)
+		})
+	}
 }
