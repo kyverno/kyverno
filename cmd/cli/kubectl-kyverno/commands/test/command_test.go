@@ -80,6 +80,21 @@ func TestCommandRequireTests(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
 }
 
+func TestCommandWithChecksOnly(t *testing.T) {
+	cmd := Command()
+	assert.NotNil(t, cmd)
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetErr(errBuffer)
+	outBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetArgs([]string{"../../../../../test/cli/test-validating-policy/checks-only"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+	out, err := io.ReadAll(outBuffer)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "3 tests passed and 0 tests failed")
+}
+
 func TestCommandAggregateFilterErrors(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
