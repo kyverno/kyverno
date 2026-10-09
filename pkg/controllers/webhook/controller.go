@@ -572,6 +572,13 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 		return err
 	}
 	if !autoUpdateWebhooks {
+		if desired.Name == config.ValidatingWebhookConfigurationName {
+			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
+				return nil
+			})
+			return err
+		}
 		return nil
 	}
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
@@ -1220,7 +1227,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}},
+			}, c.buildGenerationLabelProtectionWebhook(caBundle)},
 		},
 		nil
 }
@@ -1240,11 +1247,14 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
+	// Metadata protection is independent of policy selectors and bootstrap exclusions.
+	// Its association selector skips ordinary resources, including bootstrap traffic.
+	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
+	webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(caBundle))
+
 	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
 		return strings.Compare(a.Name, b.Name)
 	})
-
-	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
 
 	return webhookConfig, multierr.Combine(errs...)
 }
