@@ -4,22 +4,20 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/authn"
-	sdk "github.com/kyverno/sdk/extensions/regcreds"
 )
 
 type azureResource string
 
-func (r azureResource) String() string      { return string(r) + "/test" }
+// The invalid reference stops an accepted Azure resource before login, so the
+// provider selection test cannot contact Azure or use ambient credentials.
+func (r azureResource) String() string      { return "invalid image reference" }
 func (r azureResource) RegistryStr() string { return string(r) }
 
-type azureCountingKeychain struct{ calls int }
-
-func (k *azureCountingKeychain) Resolve(authn.Resource) (authn.Authenticator, error) {
-	k.calls++
-	return authn.Anonymous, nil
-}
-
 func TestAzureRegistryDomainBoundary(t *testing.T) {
+	configured := New(WithCredentialHelpers("azure")).(*client)
+	// Exercise the actual SDK provider selected by this consumer. The separate
+	// network guard is covered by the registry egress tests.
+	keychain := configured.keychain.(*guardedKeychain).inner
 	for _, test := range []struct {
 		host    string
 		allowed bool
@@ -31,28 +29,19 @@ func TestAzureRegistryDomainBoundary(t *testing.T) {
 		{"registryazurecr.io", false}, {"azurecr.io", false}, {"localhost", false}, {"127.0.0.1", false},
 	} {
 		t.Run(test.host, func(t *testing.T) {
-			inner := &azureCountingKeychain{}
-			_, err := (azureDomainKeychain{inner: inner}).Resolve(azureResource(test.host))
-			if err != nil {
-				t.Fatal(err)
+			authenticator, err := keychain.Resolve(azureResource(test.host))
+			if test.allowed {
+				if err == nil {
+					t.Fatal("Azure provider did not parse the invalid reference for an allowed registry")
+				}
+				return
 			}
-			if (inner.calls != 0) != test.allowed {
-				t.Fatalf("provider calls = %d, allowed = %t", inner.calls, test.allowed)
+			if err != nil {
+				t.Fatalf("Azure provider parsed a non-Azure resource: %v", err)
+			}
+			if authenticator != authn.Anonymous {
+				t.Fatal("expected anonymous authentication for a non-Azure registry")
 			}
 		})
-	}
-}
-
-func TestAzureGuardDoesNotChangeSDKProvider(t *testing.T) {
-	original := sdk.AzureKeychain
-	chains := keychainsForProviders("azure")
-	if len(chains) != 1 {
-		t.Fatalf("expected one provider, got %d", len(chains))
-	}
-	if _, ok := chains[0].(azureDomainKeychain); !ok {
-		t.Fatalf("unguarded CEL Azure provider: %T", chains[0])
-	}
-	if sdk.AzureKeychain != original {
-		t.Fatal("CEL provider changed the legacy SDK provider")
 	}
 }
