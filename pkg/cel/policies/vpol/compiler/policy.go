@@ -46,7 +46,7 @@ func (p *Policy) Evaluate(
 ) (*EvaluationResult, error) {
 	switch p.mode {
 	case policieskyvernoio.EvaluationModeJSON:
-		return p.evaluateJson(ctx, json)
+		return p.evaluateJson(ctx, json, context)
 	default:
 		return p.evaluateKubernetes(ctx, attr, request, namespace, requestMapFn, context)
 	}
@@ -55,9 +55,11 @@ func (p *Policy) Evaluate(
 func (p *Policy) evaluateJson(
 	ctx context.Context,
 	json any,
+	context libs.Context,
 ) (*EvaluationResult, error) {
 	data := evaluationData{
 		Object:    json,
+		Context:   context,
 		Variables: lazy.NewMapValue(compiler.VariablesType),
 	}
 	return p.evaluateWithData(ctx, data)
@@ -89,6 +91,7 @@ func (p *Policy) evaluateWithData(
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
+		compiler.ImageDataKey:       libs.ImageDataContext(ctx, data.Context),
 	}
 	// check if the resource matches an exception
 	if len(p.exceptions) > 0 {

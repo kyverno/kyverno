@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/libs/generator"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
@@ -19,7 +20,6 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/registryclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,7 +90,7 @@ func NewContextProvider(
 	// By default, the libraries context uses the global registry client credentials.
 	// callers who will need to pass in different authentication options (the ivpol)
 	// will simply pass different opts to the image data loader during image fetching
-	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
+	authOpts, nameOpts := registryclient.GlobalImageDataOptions()
 
 	idl, err := imagedataloader.New(secretLister, authOpts, nameOpts)
 	if err != nil {
@@ -139,6 +139,11 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 }
 
 func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	return cp.GetImageDataWithContext(context.Background(), image, remoteOpts)
+}
+
+// GetImageDataWithContext uses the evaluation deadline for registry requests.
+func (cp *contextProvider) GetImageDataWithContext(ctx context.Context, image string, remoteOpts []remote.Option) (map[string]any, error) {
 	// NOTE: we deliberately not pass name options here because there is currently only one
 	// name option we build, which is name.Insecure. This option already gets build and passed
 	// during the fetching of the global registry client options and then building the image data
@@ -146,7 +151,7 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
 	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
 	// but the if the flag is set, the registry client opts will come with the name insecure option
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
+	data, err := cp.imagedata.FetchImageData(ctx, image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}

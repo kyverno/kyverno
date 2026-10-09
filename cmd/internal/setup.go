@@ -75,6 +75,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 
 	if config.UsesRegistryClient() {
 		_, registrySecretLister = setupRegistryClient(ctx, logger, client)
+	} else if config.UsesRegistryEgress() {
+		setupRegistryEgress()
 	}
 
 	var imageVerifyCache imageverifycache.Client
