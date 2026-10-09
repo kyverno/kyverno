@@ -83,6 +83,8 @@ func Setup(config Configuration, name string, skipResourceFilters bool) (context
 		// at the default.
 		imagedataloader.SetPayloadLimit(imageVerifyPayloadLimit)
 		logger.V(2).Info("image verification payload limit", "bytes", verifiers.PayloadLimit())
+	} else if config.UsesRegistryEgress() {
+		setupRegistryEgress()
 	}
 
 	var imageVerifyCache imageverifycache.Client

@@ -359,8 +359,9 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 
 ## Registry egress policy
 
-The registry egress guard in admission, background, and reports controllers defaults to
-`features.registryClient.privateRegistryEgressMode: audit`. Cleanup receives neither registry egress flag.
+The registry egress guard in admission, background, reports, and cleanup controllers defaults to
+`features.registryClient.privateRegistryEgressMode: audit`. Cleanup applies the mode and allowlist
+without enabling registry credential helpers or image-pull Secret informers.
 Private registry destinations remain reachable during upgrades, while requests that
 would be blocked in `enforce` mode are logged at verbosity 2. Metadata, link-local,
 loopback, unspecified, multicast, and broadcast addresses are blocked in both modes.
