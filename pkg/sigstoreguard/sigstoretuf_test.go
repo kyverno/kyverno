@@ -1,66 +1,81 @@
-package sigstoreguard_test
+package sigstoreguard
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/sigstoretuf"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// TestConcurrentAccess exercises all exported sigstoretuf functions from
-// multiple goroutines simultaneously.  The test is intended to be run with
-// the race detector (-race flag) to surface data races in the shared sigstore
-// TUF singleton.  Network/TUF errors are expected in unit-test environments
-// and are intentionally ignored; only data races are failures.
+// Exercise the guarded repository state without network access. Run with -race
+// to check concurrent default snapshots and the shared cache lock.
 func TestConcurrentAccess(t *testing.T) {
-	ctx := context.Background()
+	previousMirror, previousRoot := defaultRepository()
+	defer SetDefaultRepository(previousMirror, previousRoot)
+	t.Setenv("SIGSTORE_REKOR_PUBLIC_KEY", "")
+	t.Setenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 	const goroutines = 10
-
 	var wg sync.WaitGroup
-	wg.Add(goroutines)
-
-	for i := 0; i < goroutines; i++ {
+	for i := range goroutines {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
-			// Each of these may fail with a TUF network error in unit-test
-			// environments, which is fine. What matters is the absence of
-			// data races reported by the race detector.
-			_ = sigstoretuf.Initialize(ctx, "", nil)
-			_, _ = sigstoretuf.TrustedRoot(ctx)
-			_, _ = sigstoretuf.RekorPublicKeys(ctx)
-			_, _ = sigstoretuf.CTLogPublicKeys(ctx)
-			_, _, _ = sigstoretuf.FulcioRoots()
+			for j := range 10 {
+				setting := fmt.Sprintf("mirror-%d-%d", i, j)
+				SetDefaultRepository(setting, []byte(setting))
+				mirror, rootBytes := defaultRepository()
+				assert.Equal(t, mirror, string(rootBytes), "operator mirror and root must be from the same snapshot")
+				assert.ErrorIs(t, Initialize(ctx, "", nil), context.Canceled)
+				_, err := TrustedRoot(ctx)
+				assert.ErrorIs(t, err, context.Canceled)
+				_, err = TrustedRootFor(ctx, "https://policy.example", nil)
+				assert.ErrorIs(t, err, context.Canceled)
+				_, err = VerificationMaterialFor(ctx, "", nil)
+				assert.ErrorIs(t, err, context.Canceled)
+				_, err = RekorPublicKeys(ctx)
+				assert.ErrorIs(t, err, context.Canceled)
+				_, err = CTLogPublicKeys(ctx)
+				assert.ErrorIs(t, err, context.Canceled)
+				_, _, err = FulcioRootsWithContext(ctx)
+				assert.ErrorIs(t, err, context.Canceled)
+			}
 		}()
 	}
-
 	wg.Wait()
 }
 
-// TestWithLockSerializes verifies that WithLock prevents concurrent execution
-// of the critical section by counting increments under the lock and checking
-// for the expected total with no races.
+func TestDefaultRepositoryOwnsRootSnapshots(t *testing.T) {
+	previousMirror, previousRoot := defaultRepository()
+	defer SetDefaultRepository(previousMirror, previousRoot)
+	input := []byte("root")
+	SetDefaultRepository("operator", input)
+	input[0] = 'x'
+	mirror, rootBytes := defaultRepository()
+	require.Equal(t, "operator", mirror)
+	require.Equal(t, []byte("root"), rootBytes)
+	rootBytes[0] = 'y'
+	_, again := defaultRepository()
+	require.Equal(t, []byte("root"), again)
+}
+
 func TestWithLockSerializes(t *testing.T) {
 	const goroutines = 50
 	counter := 0
-
 	var wg sync.WaitGroup
-	wg.Add(goroutines)
-	for i := 0; i < goroutines; i++ {
+	for range goroutines {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := sigstoretuf.WithLock(func() error {
-				counter++
-				return nil
-			}); err != nil {
+			if err := WithLock(func() error { counter++; return nil }); err != nil {
 				t.Errorf("WithLock returned unexpected error: %v", err)
 			}
 		}()
 	}
 	wg.Wait()
-
-	if counter != goroutines {
-		t.Errorf("expected counter=%d, got %d", goroutines, counter)
-	}
+	require.Equal(t, goroutines, counter)
 }
