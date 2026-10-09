@@ -87,3 +87,30 @@ func TestCompiledCredentialGETUsesRequestContext(t *testing.T) {
 		assert.Zero(t, transport.calls)
 	}
 }
+
+func TestCompiledCredentialOptionsRejectMissingSecretBackend(t *testing.T) {
+	libs.GetLibsCtx()
+	t.Parallel()
+	for _, namespace := range []string{"", "tenant"} {
+		t.Run("namespace="+namespace, func(t *testing.T) {
+			t.Parallel()
+			spec := policiesv1beta1.ImageValidatingPolicySpec{Credentials: &policiesv1beta1.Credentials{Secrets: []string{"registry"}}}
+			var policy policiesv1beta1.ImageValidatingPolicyLike = &policiesv1beta1.ImageValidatingPolicy{Spec: spec}
+			if namespace != "" {
+				policy = &policiesv1beta1.NamespacedImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Namespace: namespace}, Spec: spec}
+			}
+			// Offline CLI evaluation compiles policies without a Kubernetes lister.
+			compiled, errs := NewCompiler(nil).Compile(policy, nil)
+			require.Empty(t, errs)
+			transport := &requestForbiddenTransport{}
+			options := append([]remote.Option{}, compiled.(*compiledPolicy).authOpts...)
+			options = append(options, remote.WithTransport(transport), remote.WithContext(context.Background()))
+			var err error
+			require.NotPanics(t, func() {
+				_, err = remote.Get(name.MustParseReference("192.0.2.1/image:latest"), options...)
+			})
+			require.ErrorContains(t, err, "secret lister is not configured")
+			assert.Zero(t, transport.calls)
+		})
+	}
+}

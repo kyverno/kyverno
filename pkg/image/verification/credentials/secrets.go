@@ -2,6 +2,7 @@ package credentials
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -23,7 +24,8 @@ type secretsKeychain struct {
 // NewSecretsKeychain resolves fresh credentials with the registry request context.
 // Live GETs remain opt-in on the supplied namespace lister; ordinary listers
 // stay cache-only. A missing Secret permits fallback, but Forbidden and other
-// lookup errors stop it. No request context or credential data is cached.
+// lookup errors stop it. Explicit references require a configured lister.
+// No request context or credential data is cached.
 func NewSecretsKeychain(lister corev1listers.SecretLister, namespace string, logger logr.Logger, references ...string) authn.Keychain {
 	return &secretsKeychain{lister: lister, defaultNamespace: namespace, references: slices.Clone(references), logger: logger}
 }
@@ -35,6 +37,12 @@ func (k *secretsKeychain) Resolve(resource authn.Resource) (authn.Authenticator,
 }
 
 func (k *secretsKeychain) ResolveContext(ctx context.Context, resource authn.Resource) (authn.Authenticator, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if len(k.references) != 0 && k.lister == nil {
+		return nil, errors.New("secret lister is not configured")
+	}
 	var secrets []corev1.Secret
 	for _, reference := range k.references {
 		if err := ctx.Err(); err != nil {
