@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: clone-source-foreach-empty
+  namespace: clone-source-tenant
+spec:
+  rules:
+  - name: copy
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - clone-trigger
+    generate:
+      foreach:
+      - list: '`[1]`'
+        apiVersion: v1
+        kind: ConfigMap
+        name: copy
+        namespace: clone-source-tenant
+        clone:
+          name: source
+          namespace: ''
