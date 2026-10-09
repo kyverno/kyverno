@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namespaced-reference-name
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- generatedResource: generated-resource.yaml
+  kind: ConfigMap
+  policy: tenant/namespaced-reference-name
+  resources:
+  - tenant/reference-trigger
+  result: pass
+  rule: generate-configmap

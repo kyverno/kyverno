@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: offline-variable-target
+spec:
+  rules:
+  - name: generate-variable-target
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: "{{ request.object.metadata.labels.targetApiVersion }}"
+      kind: "{{ request.object.metadata.labels.targetKind }}"
+      name: generated-config
+      namespace: "{{ request.object.metadata.name }}"
+      data:
+        data:
+          authorized: "true"

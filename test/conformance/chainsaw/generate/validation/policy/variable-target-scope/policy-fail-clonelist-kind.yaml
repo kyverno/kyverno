@@ -1,0 +1,19 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-variable-clonelist-kind
+  namespace: default
+spec:
+  rules:
+  - name: clone-resources
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      namespace: default
+      cloneList:
+        kinds:
+        - "{{request.object.metadata.labels.sourceKind}}"
+        namespace: default

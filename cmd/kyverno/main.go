@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -485,6 +486,13 @@ func main() {
 			}
 		}
 
+		// The shared key persists across controller restarts and is provisioned
+		// before admission begins. Background controllers only need read access.
+		if err := provenance.EnsureKey(signalCtx, setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace())); err != nil {
+			setup.Logger.Error(err, "failed to initialize generation provenance key")
+			os.Exit(1)
+		}
+
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
 		tlsSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), tlsSecretName, setup.ResyncPeriod)
 		kyvernoDeployment := informers.NewDeploymentInformer(setup.KubeClient, config.KyvernoNamespace(), config.KyvernoDeploymentName(), setup.ResyncPeriod)
@@ -939,6 +947,7 @@ func main() {
 			setup.KyvernoDynamicClient.Discovery(),
 			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
+			backgroundServiceAccountName,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers

@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generate-author-authorization
+spec:
+  concurrent: false
+  namespace: generate-author-authorization
+  steps:
+  - name: configure policy author and controller permissions
+    try:
+    - apply:
+        file: setup.yaml
+    - script:
+        content: |
+          test "$(kubectl auth can-i create clusterpolicies.kyverno.io --as=system:serviceaccount:generate-author-authorization:policy-author)" = "yes"
+          test "$(kubectl auth can-i create cleanuppolicies.kyverno.io --namespace generate-author-authorization --as=system:serviceaccount:generate-author-authorization:policy-author)" = "yes"
+          test "$(kubectl auth can-i create configmaps --namespace generate-author-authorization --as=system:serviceaccount:generate-author-authorization:policy-author)" = "no"
+          test "$(kubectl auth can-i delete configmaps --namespace generate-author-authorization --as=system:serviceaccount:generate-author-authorization:policy-author)" = "no"
+  - name: reject static generate target without author permission
+    try:
+    - script:
+        content: |
+          if kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f static-target.yaml; then
+            exit 1
+          fi
+  - name: reject cleanup target without author permission
+    try:
+    - script:
+        content: |
+          if kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f cleanup-policy.yaml; then
+            exit 1
+          fi
+  - name: accept unchanged updates but authorize changed specs
+    try:
+    - apply:
+        file: static-target.yaml
+    - apply:
+        file: cleanup-policy.yaml
+    - script:
+        content: |
+          set -eu
+          author=system:serviceaccount:generate-author-authorization:policy-author
+          kubectl --as="$author" annotate clusterpolicy author-static-target reconciled=true
+          kubectl --as="$author" annotate cleanuppolicy author-cleanup-target --namespace generate-author-authorization reconciled=true
+          kubectl --as="$author" get clusterpolicy author-static-target -o yaml | kubectl --as="$author" replace -f -
+          kubectl --as="$author" get cleanuppolicy author-cleanup-target --namespace generate-author-authorization -o yaml | kubectl --as="$author" replace -f -
+          if output=$(kubectl --as="$author" patch clusterpolicy author-static-target --type=json -p='[{"op":"replace","path":"/spec/rules/0/generate/name","value":"changed-target"}]' 2>&1); then
+            exit 1
+          fi
+          case "$output" in
+            *"policy author"*) ;;
+            *) echo "$output"; exit 1 ;;
+          esac
+          if output=$(kubectl --as="$author" patch cleanuppolicy author-cleanup-target --namespace generate-author-authorization --type=merge -p='{"spec":{"schedule":"0 1 * * *"}}' 2>&1); then
+            exit 1
+          fi
+          case "$output" in
+            *"policy author"*) ;;
+            *) echo "$output"; exit 1 ;;
+          esac
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: author-static-target
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v2
+          kind: CleanupPolicy
+          namespace: generate-author-authorization
+          name: author-cleanup-target
+  - name: grant namespace-scoped target permissions
+    try:
+    - apply:
+        file: namespaced-target-permissions.yaml
+    - script:
+        content: |
+          test "$(kubectl auth can-i create configmaps --namespace generate-author-authorization --as=system:serviceaccount:generate-author-authorization:policy-author)" = "yes"
+          test "$(kubectl auth can-i create configmaps --all-namespaces --as=system:serviceaccount:generate-author-authorization:policy-author)" = "no"
+  - name: accept static generate and cleanup targets with author permission
+    try:
+    - script:
+        content: |
+          kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f static-target.yaml
+          kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f cleanup-policy.yaml
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: author-static-target
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v2
+          kind: CleanupPolicy
+          namespace: generate-author-authorization
+          name: author-cleanup-target
+  - name: reject variable namespace with only namespace-scoped permission
+    try:
+    - script:
+        content: |
+          if kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f variable-namespace.yaml; then
+            exit 1
+          fi
+  - name: grant cluster-wide target permissions
+    try:
+    - apply:
+        file: cluster-target-permissions.yaml
+    - script:
+        content: |
+          test "$(kubectl auth can-i create configmaps --all-namespaces --as=system:serviceaccount:generate-author-authorization:policy-author)" = "yes"
+          test "$(kubectl auth can-i create secrets --all-namespaces --as=system:serviceaccount:generate-author-authorization:policy-author)" = "no"
+  - name: accept variable namespace with cluster-wide permission
+    try:
+    - script:
+        content: kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f variable-namespace.yaml
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: author-variable-namespace
+  - name: reject unresolved target kinds
+    try:
+    - script:
+        content: |
+          if kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f variable-kind.yaml; then
+            exit 1
+          fi
+          if kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f foreach-variable-kind.yaml; then
+            exit 1
+          fi
+  - name: check every cloneList target kind
+    try:
+    - script:
+        content: |
+          if output=$(kubectl --as=system:serviceaccount:generate-author-authorization:policy-author create -f clonelist-targets.yaml 2>&1); then
+            exit 1
+          fi
+          case "$output" in
+            *"policy author"*"resource v1/Secret"*) ;;
+            *) echo "$output"; exit 1 ;;
+          esac

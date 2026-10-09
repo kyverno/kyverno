@@ -19,3 +19,9 @@ rules:
   - create
   - update
   - delete
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - patch

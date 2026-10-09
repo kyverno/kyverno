@@ -1,0 +1,29 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: generate-author-authorization-targets
+  namespace: generate-author-authorization
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: generate-author-authorization-targets
+  namespace: generate-author-authorization
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: generate-author-authorization-targets
+subjects:
+- kind: ServiceAccount
+  name: policy-author
+  namespace: generate-author-authorization

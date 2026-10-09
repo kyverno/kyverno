@@ -2,25 +2,34 @@ package generate
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
+	"strings"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/kyverno/go-jmespath"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"go.uber.org/multierr"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+var errGeneratedProvenance = errors.New("generated resource provenance failed")
+
 type generator struct {
 	client           dclient.Interface
+	provenance       *provenance.Store
+	pending          *generationRetry
 	logger           logr.Logger
 	policyContext    engineapi.PolicyContext
 	policy           kyvernov1.PolicyInterface
@@ -112,6 +121,22 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		g.logger.Error(err, "variable substitution failed for rule", "rule", g.rule.Name)
 		return nil, err
 	}
+	if err := g.validateTargetScope(pattern); err != nil {
+		return nil, err
+	}
+	if err := g.validateCloneSources(pattern); err != nil {
+		return nil, err
+	}
+
+	// Resolve the key before creating an object that needs a follow-up stamp.
+	// Controller batches already provide a snapshot, including foreach children.
+	if g.provenance != nil {
+		snapshot, err := g.provenance.Snapshot(context.TODO())
+		if err != nil {
+			return nil, fmt.Errorf("%w: sign generated resource provenance: %w", errGeneratedProvenance, err)
+		}
+		g.provenance = snapshot
+	}
 
 	target := pattern.ResourceSpec
 	logger := g.logger.WithValues("target", target.String())
@@ -131,6 +156,13 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		if response.GetError() != nil {
 			logger.Error(response.GetError(), "failed to generate resource", "mode", response.GetAction())
 			return newGenResources, response.GetError()
+		}
+
+		recovered, err := g.resumeProvenance(context.TODO(), targetMeta)
+		if err != nil {
+			return newGenResources, err
+		} else if recovered != nil {
+			newGenResources = append(newGenResources, *recovered)
 		}
 
 		if response.GetAction() == Skip {
@@ -153,17 +185,25 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 
 		newResource.SetAPIVersion(targetMeta.GetAPIVersion())
 		common.ManageLabels(newResource, g.trigger, g.policy, g.rule.Name)
+		g.preserveProvenanceAnnotation(newResource, nil)
+		var persisted *unstructured.Unstructured
 		if response.GetAction() == Create {
 			newResource.SetResourceVersion("")
 			if g.policy.GetSpec().UseServerSideApply {
-				_, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+				persisted, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
 			} else {
-				_, err = g.client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+				persisted, err = g.client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
 			}
 			if err != nil {
-				if !apierrors.IsAlreadyExists(err) {
-					return newGenResources, err
-				}
+				// A create collision did not write the existing resource. Retry the
+				// rule instead of authenticating another actor's object.
+				return newGenResources, err
+			}
+			if err := g.stampProvenance(context.TODO(), persisted, newResource.GetLabels()); err != nil {
+				return newGenResources, err
+			}
+			if persisted != nil {
+				targetMeta.UID = persisted.GetUID()
 			}
 			logger.V(2).Info("created generate target resource")
 			newGenResources = append(newGenResources, targetMeta)
@@ -172,12 +212,18 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 			if err != nil {
 				logger.V(2).Info("creating new target due to the failure when fetching", "err", err.Error())
 				if g.policy.GetSpec().UseServerSideApply {
-					_, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
+					persisted, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
 				} else {
-					_, err = g.client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
+					persisted, err = g.client.CreateResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), newResource, false)
 				}
 				if err != nil {
 					return newGenResources, err
+				}
+				if err := g.stampProvenance(context.TODO(), persisted, newResource.GetLabels()); err != nil {
+					return newGenResources, err
+				}
+				if persisted != nil {
+					targetMeta.UID = persisted.GetUID()
 				}
 				newGenResources = append(newGenResources, targetMeta)
 			} else {
@@ -192,6 +238,10 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 					effectiveNamespace = "default"
 				}
 				newResource.SetNamespace(effectiveNamespace)
+				g.preserveProvenanceAnnotation(newResource, generatedObj)
+				if recovered != nil {
+					newResource.SetResourceVersion(generatedObj.GetResourceVersion())
+				}
 
 				if !g.rule.Generation.Synchronize {
 					logger.V(4).Info("synchronize disabled, skip syncing changes")
@@ -199,6 +249,9 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				}
 				if err := validate.MatchPattern(logger, newResource.Object, generatedObj.Object); err == nil {
 					if err := validate.MatchPattern(logger, generatedObj.Object, newResource.Object); err == nil {
+						if err := g.stampProvenance(context.TODO(), generatedObj, newResource.GetLabels()); err != nil {
+							return newGenResources, err
+						}
 						logger.V(4).Info("patterns match, skipping updates")
 						continue
 					}
@@ -207,12 +260,15 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				logger.V(4).Info("updating existing resource")
 
 				if g.policy.GetSpec().UseServerSideApply {
-					_, err = g.client.ApplyResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, targetMeta.GetName(), newResource, false, "generate")
+					persisted, err = g.client.ApplyResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, targetMeta.GetName(), newResource, false, "generate")
 				} else {
-					_, err = g.client.UpdateResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, newResource, false)
+					persisted, err = g.client.UpdateResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, newResource, false)
 				}
 				if err != nil {
 					logger.Error(err, "failed to update resource")
+					return newGenResources, err
+				}
+				if err := g.stampProvenance(context.TODO(), persisted, newResource.GetLabels()); err != nil {
 					return newGenResources, err
 				}
 			}
@@ -220,6 +276,101 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		}
 	}
 	return newGenResources, nil
+}
+
+// Keep the controller-owned stamp out of policy/clone data comparisons. Only an
+// existing target's stamp may be retained; source or requested stamps are stale
+// for a newly created target. stampProvenance validates or replaces it afterward.
+func (g *generator) preserveProvenanceAnnotation(desired, existing *unstructured.Unstructured) {
+	if g.provenance == nil {
+		return
+	}
+	annotations := desired.GetAnnotations()
+	delete(annotations, provenance.Annotation)
+	if existing != nil {
+		if stamp := existing.GetAnnotations()[provenance.Annotation]; stamp != "" {
+			if annotations == nil {
+				annotations = make(map[string]string)
+			}
+			annotations[provenance.Annotation] = stamp
+		}
+	}
+	if len(annotations) == 0 {
+		desired.SetAnnotations(nil)
+	} else {
+		desired.SetAnnotations(annotations)
+	}
+}
+
+// stampProvenance only runs after an independently authorized generation rule
+// writes a target, or confirms a synchronized target already matches its output.
+func (g *generator) stampProvenance(ctx context.Context, persisted *unstructured.Unstructured, expectedLabels map[string]string) error {
+	if g.provenance == nil {
+		// The offline CLI intentionally has no installation signing key.
+		return nil
+	}
+	if persisted == nil || persisted.GetUID() == "" || persisted.GetResourceVersion() == "" {
+		return fmt.Errorf("%w: requires the persisted UID and resourceVersion", errGeneratedProvenance)
+	}
+	if !maps.Equal(generateRoutingLabels(persisted.GetLabels()), generateRoutingLabels(expectedLabels)) {
+		return fmt.Errorf("%w: routing labels changed while applying the generation rule", errGeneratedProvenance)
+	}
+	stamp, err := g.provenance.Sign(ctx, g.policy, persisted)
+	if err != nil {
+		return fmt.Errorf("%w: sign generated resource provenance: %w", errGeneratedProvenance, err)
+	}
+	if err := g.patchProvenance(ctx, persisted, stamp); err != nil {
+		if g.pending != nil {
+			// Only a failed (possibly ambiguously completed) patch needs durable
+			// recovery. Ordinary generation does not write extra request metadata.
+			receipt := generationReceipt{
+				Target: common.ResourceSpecFromUnstructured(*persisted),
+				Labels: generateRoutingLabels(persisted.GetLabels()), Stamp: stamp,
+			}
+			if saveErr := g.pending.save(ctx, receipt); saveErr != nil {
+				return multierr.Combine(err, fmt.Errorf("%w: save generated resource receipt: %w", errGeneratedProvenance, saveErr))
+			}
+		}
+		return err
+	}
+	return nil
+}
+
+// The same patch is used after the initial write and during receipt recovery.
+func (g *generator) patchProvenance(ctx context.Context, persisted *unstructured.Unstructured, stamp string) error {
+	if persisted.GetAnnotations()[provenance.Annotation] == stamp {
+		return nil
+	}
+
+	// Both tests must succeed atomically with the annotation write. A replacement
+	// object or a concurrent edit must never receive a stamp for this snapshot.
+	patch := []map[string]any{
+		{"op": "test", "path": "/metadata/uid", "value": persisted.GetUID()},
+		{"op": "test", "path": "/metadata/resourceVersion", "value": persisted.GetResourceVersion()},
+	}
+	if persisted.GetAnnotations() == nil {
+		patch = append(patch, map[string]any{"op": "add", "path": "/metadata/annotations", "value": map[string]string{provenance.Annotation: stamp}})
+	} else {
+		patch = append(patch, map[string]any{"op": "add", "path": "/metadata/annotations/generate.kyverno.io~1provenance", "value": stamp})
+	}
+	data, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("%w: marshal generated resource provenance patch: %w", errGeneratedProvenance, err)
+	}
+	if _, err := g.client.PatchResource(ctx, persisted.GetAPIVersion(), persisted.GetKind(), persisted.GetNamespace(), persisted.GetName(), data); err != nil {
+		return fmt.Errorf("%w: persist generated resource provenance: %w", errGeneratedProvenance, err)
+	}
+	return nil
+}
+
+func generateRoutingLabels(labels map[string]string) map[string]string {
+	routing := make(map[string]string)
+	for key, value := range labels {
+		if key == kyverno.LabelAppManagedBy || (strings.HasPrefix(key, "generate.kyverno.io/") && key != common.GenerateTypeCloneSourceLabel) {
+			routing[key] = value
+		}
+	}
+	return routing
 }
 
 func (g *generator) generateForeach() ([]kyvernov1.ResourceSpec, error) {
@@ -262,7 +413,7 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 			continue
 		}
 
-		gen, err := newGenerator(g.client,
+		child := newGenerator(g.client,
 			g.logger,
 			policyContext,
 			g.policy,
@@ -271,8 +422,10 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 			foreach.AnyAllConditions,
 			g.trigger,
 			foreach.GeneratePattern,
-			g.contextLoader).
-			generate()
+			g.contextLoader)
+		child.provenance = g.provenance
+		child.pending = g.pending
+		gen, err := child.generate()
 		if err != nil {
 			errors = append(errors, fmt.Errorf("failed to process %v element: %v", index, err))
 		}

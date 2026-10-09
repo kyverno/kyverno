@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
+	"github.com/kyverno/kyverno/ext/wildcard"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -97,6 +98,16 @@ func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *
 type fakeDiscoveryClient struct {
 	registeredResources []schema.GroupVersionResource
 	gvrToGVK            map[schema.GroupVersionResource]schema.GroupVersionKind
+	resourceScopes      map[schema.GroupVersionResource]bool
+	preferredVersions   map[string]string
+}
+
+// SetResourceScope supplies discovery scope for an offline resource fixture.
+func (c *fakeDiscoveryClient) SetResourceScope(gvr schema.GroupVersionResource, namespaced bool) {
+	if c.resourceScopes == nil {
+		c.resourceScopes = make(map[schema.GroupVersionResource]bool)
+	}
+	c.resourceScopes[gvr] = namespaced
 }
 
 func (c *fakeDiscoveryClient) AddGVRToGVKMapping(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) {
@@ -106,9 +117,25 @@ func (c *fakeDiscoveryClient) AddGVRToGVKMapping(gvr schema.GroupVersionResource
 	c.gvrToGVK[gvr] = gvk
 }
 
-func (c *fakeDiscoveryClient) getGVR(resource string) (schema.GroupVersionResource, error) {
+// SetPreferredVersion supplies the discovery preference used when a version is omitted.
+func (c *fakeDiscoveryClient) SetPreferredVersion(group, version string) {
+	if c.preferredVersions == nil {
+		c.preferredVersions = make(map[string]string)
+	}
+	c.preferredVersions[group] = version
+}
+
+func (c *fakeDiscoveryClient) getGVR(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	resource := strings.ToLower(gvk.Kind) + "s"
 	for _, gvr := range c.registeredResources {
-		if gvr.Resource == resource {
+		// Explicit mappings are authoritative, including irregular resource names.
+		if _, mapped := c.gvrToGVK[gvr]; mapped {
+			continue
+		}
+		if gvr.Resource == resource &&
+			(gvk.Group == "" && gvk.Version == "" || gvr.Group == gvk.Group) &&
+			(gvk.Version == "" || gvr.Version == gvk.Version) {
+			// Unmapped test fixtures retain their explicit registration-order preference.
 			return gvr, nil
 		}
 	}
@@ -153,34 +180,73 @@ func inferKindFromResourceName(resource string) string {
 }
 
 func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
-	// First try to find in reverse mapping (from gvrToGVK)
-	if c.gvrToGVK != nil {
-		for gvr, mappedGVK := range c.gvrToGVK {
-			if mappedGVK.Group == gvk.Group && mappedGVK.Version == gvk.Version && mappedGVK.Kind == gvk.Kind {
-				return gvr, nil
-			}
+	var matches []schema.GroupVersionResource
+	for gvr, mappedGVK := range c.gvrToGVK {
+		if mappedGVK.Kind == gvk.Kind &&
+			(gvk.Group == "" && gvk.Version == "" || mappedGVK.Group == gvk.Group) &&
+			(gvk.Version == "" || mappedGVK.Version == gvk.Version) {
+			matches = append(matches, gvr)
 		}
 	}
-	// Fallback: infer resource name from kind
-	resource := strings.ToLower(gvk.Kind) + "s"
-	return c.getGVR(resource)
+	if len(matches) > 1 && gvk.Group == "" && gvk.Version == "" {
+		// The runtime discovery RESTMapper gives core/v1 priority for kind-only lookups.
+		var core []schema.GroupVersionResource
+		for _, gvr := range matches {
+			if gvr.Group == "" && gvr.Version == "v1" {
+				core = append(core, gvr)
+			}
+		}
+		if len(core) != 0 {
+			matches = core
+		}
+	}
+	if len(matches) > 1 && gvk.Version == "" {
+		var preferred []schema.GroupVersionResource
+		for _, gvr := range matches {
+			if version := c.preferredVersions[gvr.Group]; version == "" || version == gvr.Version {
+				preferred = append(preferred, gvr)
+			}
+		}
+		matches = preferred
+	}
+	switch len(matches) {
+	case 0:
+		return c.getGVR(gvk)
+	case 1:
+		return matches[0], nil
+	default:
+		return schema.GroupVersionResource{}, fmt.Errorf("ambiguous resource for %s: specify a group and version", gvk)
+	}
 }
 
 func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	r := strings.ToLower(kind) + "s"
+	resources := make(map[TopLevelApiDescription]metav1.APIResource)
 	for _, resource := range c.registeredResources {
-		if resource.Resource == r {
-			return map[TopLevelApiDescription]metav1.APIResource{
-				{
-					GroupVersion: schema.GroupVersion{Group: resource.Group, Version: resource.Version},
-					Kind:         kind,
-					Resource:     r,
-					SubResource:  subresource,
-				}: {},
-			}, nil
+		if !wildcard.Match(group, resource.Group) || !wildcard.Match(version, resource.Version) {
+			continue
+		}
+		resourceKind := kind
+		matchesKind := wildcard.Match(r, resource.Resource)
+		if gvk, mapped := c.gvrToGVK[resource]; mapped {
+			resourceKind = gvk.Kind
+			matchesKind = wildcard.Match(kind, resourceKind)
+		} else if wildcard.ContainsWildcard(kind) {
+			resourceKind = inferKindFromResourceName(resource.Resource)
+		}
+		if matchesKind {
+			resources[TopLevelApiDescription{
+				GroupVersion: resource.GroupVersion(),
+				Kind:         resourceKind,
+				Resource:     resource.Resource,
+				SubResource:  subresource,
+			}] = metav1.APIResource{Namespaced: c.resourceScopes[resource]}
 		}
 	}
-	return nil, fmt.Errorf("not found")
+	if len(resources) == 0 {
+		return nil, fmt.Errorf("not found")
+	}
+	return resources, nil
 }
 
 func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {

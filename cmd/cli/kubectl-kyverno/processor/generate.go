@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -19,9 +20,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func PolicyRuleKey(policy kyvernov1.PolicyInterface, ruleName string) string {
@@ -110,12 +111,53 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 		fmt.Fprintf(out, "Failed to mock dynamic client")
 		return nil, err
 	}
-	gvrs := sets.New[schema.GroupVersionResource]()
-	for _, object := range objects {
-		gvk := object.GetObjectKind().GroupVersionKind()
-		gvrs.Insert(gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind) + "s"))
+	type resourceDescription struct {
+		gvr        schema.GroupVersionResource
+		namespaced bool
 	}
-	client.SetDiscovery(dclient.NewFakeDiscoveryClient(gvrs.UnsortedList()))
+	resourcesByKind := map[schema.GroupVersionKind]resourceDescription{}
+	for _, object := range objects {
+		metadata, err := meta.Accessor(object)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine fixture scope: %w", err)
+		}
+		gvk := object.GetObjectKind().GroupVersionKind()
+		resourcesByKind[gvk] = resourceDescription{
+			gvr: gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind) + "s"), namespaced: metadata.GetNamespace() != "",
+		}
+	}
+	// Embedded discovery supplies authoritative scopes and resource names even
+	// when a generated kind has no fixture or its plural cannot be inferred.
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load offline discovery: %w", err)
+	}
+	for _, groupResources := range apiGroupResources {
+		for version, resources := range groupResources.VersionedResources {
+			gv := schema.GroupVersion{Group: groupResources.Group.Name, Version: version}
+			for _, resource := range resources {
+				if strings.Contains(resource.Name, "/") {
+					continue
+				}
+				resourcesByKind[gv.WithKind(resource.Kind)] = resourceDescription{
+					gvr: gv.WithResource(resource.Name), namespaced: resource.Namespaced,
+				}
+			}
+		}
+	}
+	gvrs := make([]schema.GroupVersionResource, 0, len(resourcesByKind))
+	for _, resource := range resourcesByKind {
+		gvrs = append(gvrs, resource.gvr)
+	}
+	discovery := dclient.NewFakeDiscoveryClient(gvrs)
+	for _, groupResources := range apiGroupResources {
+		discovery.SetPreferredVersion(groupResources.Group.Name, groupResources.Group.PreferredVersion.Version)
+	}
+	for gvk, resource := range resourcesByKind {
+		discovery.AddGVRToGVKMapping(resource.gvr, gvk)
+		discovery.SetResourceScope(resource.gvr, resource.namespaced)
+	}
+	client.SetDiscovery(discovery)
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		cfg,

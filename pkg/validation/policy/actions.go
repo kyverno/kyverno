@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	authenticationv1 "k8s.io/api/authentication/v1"
 )
 
 // Validation provides methods to validate a rule
@@ -26,7 +27,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) (warnings []string, err error) {
+func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string, author *authenticationv1.UserInfo) (warnings []string, err error) {
 	if rule == nil {
 		return nil, nil
 	}
@@ -89,10 +90,20 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				}
 			}
 			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
-			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+			// The controller patches provenance onto the persisted target even
+			// when synchronization is disabled. Keep this permission separate
+			// from the policy author's permissions for the generated content.
+			verbs := []string{"get", "create", "patch"}
+			if rule.Generation.Synchronize {
+				verbs = append(verbs, "update", "delete")
+			}
+			if w, path, err := checker.Validate(context.TODO(), verbs); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if w != nil {
 				warnings = append(warnings, w...)
+			}
+			if err := validateGenerateAuthor(idx, rule, client, author); err != nil {
+				return nil, err
 			}
 		}
 
@@ -102,4 +113,15 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	}
 
 	return warnings, nil
+}
+
+func validateGenerateAuthor(idx int, rule *kyvernov1.Rule, client dclient.Interface, author *authenticationv1.UserInfo) error {
+	if author == nil || rule == nil || !rule.HasGenerate() {
+		return nil
+	}
+	checker := generate.NewGenerateFactoryWithGroups(client, rule, author.Username, author.Groups, "", logging.GlobalLogger())
+	if _, path, err := checker.Validate(context.TODO(), nil); err != nil {
+		return fmt.Errorf("path: spec.rules[%d].generate.%s: policy author %q is not authorized: %v", idx, path, author.Username, err)
+	}
+	return nil
 }

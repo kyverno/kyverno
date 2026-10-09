@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-reference-api-version
+  namespace: default
+spec:
+  rules:
+  - name: generate-resource
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: $(/name)
+      kind: ConfigMap
+      name: '{{request.object.metadata.labels.target}}'
+      namespace: default
