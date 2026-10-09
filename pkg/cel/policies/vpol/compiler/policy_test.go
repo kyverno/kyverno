@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -170,5 +171,30 @@ func TestEvaluateWithData_FullExemptionPrecedence(t *testing.T) {
 		assert.NotNil(t, result)
 		// Both exceptions must be present so the engine sees the complete set.
 		assert.Len(t, result.Exceptions, 2, "both exceptions must be collected by the exhaustive loop")
+	})
+
+	t.Run("records MessageExpressionError when message expression references absent field", func(t *testing.T) {
+		alwaysFail := &mockVpolProgram{retVal: types.Bool(false)}
+		errNoSuchKey := fmt.Errorf("no such key: annotations")
+		msgExprError := &mockVpolProgram{err: errNoSuchKey}
+
+		p := &Policy{
+			validations: []compiler.Validation{
+				{
+					Program:           alwaysFail,
+					MessageExpression: msgExprError,
+					Message:           "fallback message",
+				},
+			},
+		}
+
+		result, err := p.evaluateWithData(context.Background(), evaluationData{})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.False(t, result.Result, "validation should have failed")
+		assert.Equal(t, fmt.Sprintf("failed to evaluate message expression: %s", errNoSuchKey.Error()), result.Message)
+		assert.Equal(t, 0, result.Index)
+		assert.Equal(t, errNoSuchKey.Error(), result.MessageExpressionError.Error())
 	})
 }

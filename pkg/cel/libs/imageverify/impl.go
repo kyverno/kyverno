@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -48,6 +49,11 @@ type IvFuncs struct {
 	verifications   *ImageVerificationResults
 	diagnostics     *verificationDiagnostics
 
+	// requestCtx is the admission request's context. CEL function bindings only
+	// receive their arguments, so the per-request copy made by
+	// NewRuntimeForPolicy carries it.
+	requestCtx context.Context //nolint:containedctx
+
 	// pendingIntotoRestores holds intoto payloads read back from the cache on
 	// a verifyAttestationSignatures() hit, keyed by "<image>\x00<attestation>".
 	// Applying them to ImageData (which needs an imgCtx.Get()) is deferred
@@ -80,8 +86,9 @@ type Runtime struct {
 // state to the copy. This is needed because the same compiled policy can be used
 // by two admission requests, and those shouldn't replace stateful fields in IvFuncs
 // that belong to eachother
-func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
+func NewRuntimeForPolicy(ctx context.Context, f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
 	newFuncs := *f
+	newFuncs.requestCtx = ctx
 	newFuncs.imgCtx = imgCtx
 	newFuncs.ivCache = cache
 	newFuncs.verifications = results
@@ -89,6 +96,24 @@ func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache 
 	newFuncs.diagnostics = &verificationDiagnostics{}
 
 	return Runtime{functions: &newFuncs}
+}
+
+// requestContext returns the admission request's context, so registry and
+// verification work stops when the request is cancelled or times out.
+func (f *IvFuncs) requestContext() context.Context {
+	if f.requestCtx != nil {
+		return f.requestCtx
+	}
+	return context.Background()
+}
+
+// WithRequestContext returns opts with remote.WithContext(ctx) appended last.
+// go-containerregistry applies options in order, so this overrides the context
+// that registryclient.GlobalOptsOrDefault puts into the options when a policy is
+// compiled. The slice is clipped first because compiled policies share their
+// options across admission requests.
+func WithRequestContext(ctx context.Context, opts []remote.Option) []remote.Option {
+	return append(slices.Clip(opts), remote.WithContext(ctx))
 }
 
 func NewIvFuncs(
@@ -148,7 +173,7 @@ func pendingKey(image, attestation string) string {
 }
 
 func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
@@ -177,7 +202,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 		// Fetch image data once before the loop: the image reference and
 		// credentials are the same for every attestor.
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -202,6 +227,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				}
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, "", err)
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "notary")
@@ -223,7 +249,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 }
 
 func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if len(args) != 3 {
 		return types.NewErr("function usage: <image> <attestation> <attestor list>")
 	}
@@ -274,7 +300,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 			}
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -302,6 +328,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, attestation, err)
 					f.logger.V(6).Info("attestation signature verification failed", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
@@ -361,7 +388,7 @@ func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Atte
 }
 
 func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
@@ -371,7 +398,7 @@ func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -397,11 +424,11 @@ func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 }
 
 func (f *IvFuncs) get_image_data_string(image ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}

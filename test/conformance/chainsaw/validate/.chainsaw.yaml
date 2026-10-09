@@ -16,4 +16,6 @@ spec:
   timeouts:
     apply: 10s
     assert: 1m30s
+    # The 30s default has run out while a test pod was still being deleted.
+    cleanup: 1m30s
     error: 1m30s

@@ -450,6 +450,34 @@ func TestHandle_CompensatingControlsMessageExpression(t *testing.T) {
 	assert.Equal(t, "no ticket on legacy-app-1", rule.Message())
 }
 
+func TestHandle_CompensatingControlsMessageExpressionError(t *testing.T) {
+	rule := handle(t, denyingPolicy(), map[string]any{},
+		buildException("default", "polex", "compensating-controls",
+			admissionregistrationv1.Validation{
+				Expression:        "has(object.ticket)",
+				Message:           "static message",
+				MessageExpression: "'string ' + object.absent",
+			}),
+	)
+	assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+	assert.Contains(t, rule.Message(), "failed to evaluate message expression")
+	assert.NotEmpty(t, rule.MessageExpressionError())
+}
+
+func TestHandle_MessageExpressionError(t *testing.T) {
+	policy := buildJSONPolicy("msg-expr-error", []admissionregistrationv1.Validation{
+		{
+			Expression:        "false",
+			Message:           "fallback",
+			MessageExpression: "'string ' + object.absent",
+		},
+	})
+	rule := handle(t, policy, map[string]any{})
+	assert.Equal(t, engineapi.RuleStatusFail, rule.Status())
+	assert.Contains(t, rule.Message(), "failed to evaluate message expression")
+	assert.NotEmpty(t, rule.MessageExpressionError())
+}
+
 func TestHandle_CompensatingControlsFirstRefusalWins(t *testing.T) {
 	// Two matching exceptions both refuse. Exceptions are compiled in sorted order, so the
 	// reported message is the same on every request rather than following informer order.

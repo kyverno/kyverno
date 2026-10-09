@@ -66,9 +66,9 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 			images := runtimeImages{image: &imagedataloader.ImageData{}}
 			images.image.Digest = expected
 			results := NewImageVerificationResults()
-			runtime := NewRuntimeForPolicy(ivFuncs, images, cache, results)
+			runtime := NewRuntimeForPolicy(context.Background(), ivFuncs, images, cache, results)
 			activation := map[string]any{RuntimeKey: runtime, "attestors": attestors, "expected": expected}
-			_, _, err = metadata.Eval(map[string]any{RuntimeKey: NewRuntimeForPolicy(ivFuncs, runtimeImages{err: fmt.Errorf("request %s", expected)}, nil, nil)})
+			_, _, err = metadata.Eval(map[string]any{RuntimeKey: NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{err: fmt.Errorf("request %s", expected)}, nil, nil)})
 			require.ErrorContains(t, err, "request "+expected)
 			var out ref.Val
 			out, _, err = signature.Eval(activation)

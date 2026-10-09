@@ -179,6 +179,9 @@ func testCommandExecute(
 			if err := printTestResult(filteredResults, responses, rc, &resultsTable, test.Fs, resourcePath, removeColor); err != nil {
 				return fmt.Errorf("failed to print test result (%w)", err)
 			}
+			if err := printCheckResult(test.Test.Checks, *responses, rc, &resultsTable); err != nil {
+				return fmt.Errorf("failed to print test result (%w)", err)
+			}
 			fullTable.AddFailed(resultsTable.RawRows...)
 			if !failOnly {
 				if len(outputFormat) > 0 {
@@ -289,6 +292,12 @@ func compareExpectedRuleResult(
 	rule engineapi.RuleResponse,
 ) (bool, string, string) {
 	result := report.ComputePolicyReportResult(false, response, rule)
+	// A messageExpression evaluation error is a policy authoring bug that must be
+	// surfaced even when the validation result (e.g. fail) matches the expectation.
+	// Without this check, a broken messageExpression silently passes the test.
+	if errMsg := rule.MessageExpressionError(); errMsg != "" {
+		return false, result.Description, fmt.Sprintf("messageExpression evaluation error: %s", errMsg)
+	}
 	if result.Result != expected {
 		return false, result.Description, fmt.Sprintf("Want %s, got %s", expected, result.Result)
 	}
