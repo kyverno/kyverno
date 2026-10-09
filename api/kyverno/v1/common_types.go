@@ -890,6 +890,29 @@ func (g *Generation) Validate(path *field.Path, namespaced bool, policyNamespace
 
 func (g *GeneratePattern) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if namespaced {
+		// Scope must be static: references are resolved before variables and can
+		// copy a dynamic name into a scope field. Resource names remain dynamic
+		// because they cannot escape the fixed namespace and resource kind.
+		for _, target := range []struct{ name, value string }{
+			{"kind", g.Kind},
+			{"apiVersion", g.APIVersion},
+			{"namespace", g.Namespace},
+		} {
+			if regex.IsVariable(target.value) || regex.IsReference(target.value) {
+				errs = append(errs, field.Forbidden(path.Child(target.name), "variables and references are not allowed in generate target "+target.name+" for namespaced Policy"))
+			}
+		}
+		if regex.IsVariable(g.Clone.Namespace) || regex.IsReference(g.Clone.Namespace) {
+			errs = append(errs, field.Forbidden(path.Child("clone", "namespace"), "variables and references are not allowed in clone source namespace for namespaced Policy"))
+		}
+		for i, kind := range g.CloneList.Kinds {
+			if regex.IsVariable(kind) || regex.IsReference(kind) {
+				errs = append(errs, field.Forbidden(path.Child("cloneList", "kinds").Index(i), "variables and references are not allowed in cloneList kinds for namespaced Policy"))
+			}
+		}
+		if regex.IsVariable(g.CloneList.Namespace) || regex.IsReference(g.CloneList.Namespace) {
+			errs = append(errs, field.Forbidden(path.Child("cloneList", "namespace"), "variables and references are not allowed in cloneList namespace for namespaced Policy"))
+		}
 		if err := g.validateNamespacedTargetsScope(clusterResources, policyNamespace); err != nil {
 			errs = append(errs, field.Forbidden(path.Child("namespace"), fmt.Sprintf("target resource scope mismatched: %v ", err)))
 		}

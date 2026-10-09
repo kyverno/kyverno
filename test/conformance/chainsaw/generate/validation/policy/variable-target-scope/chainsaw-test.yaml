@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: variable-target-scope
+spec:
+  concurrent: false
+  steps:
+  - name: allow dynamic generated names
+    try:
+    - apply:
+        file: policy-pass-dynamic-name.yaml
+    - apply:
+        file: policy-pass-reference-name.yaml
+  - name: reject variable scope selectors
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target kind for namespaced Policy')): true
+        file: policy-fail-kind.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target apiVersion for namespaced Policy')): true
+        file: policy-fail-api-version.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target namespace for namespaced Policy')): true
+        file: policy-fail-target-namespace.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in clone source namespace for namespaced Policy')): true
+        file: policy-fail-clone-namespace.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in cloneList kinds for namespaced Policy')): true
+        file: policy-fail-clonelist-kind.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in cloneList namespace for namespaced Policy')): true
+        file: policy-fail-clonelist-namespace.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target kind for namespaced Policy')): true
+        file: policy-fail-foreach-kind.yaml
+  - name: reject reference scope selectors
+    try:
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target kind for namespaced Policy')): true
+        file: policy-fail-reference-kind.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target apiVersion for namespaced Policy')): true
+        file: policy-fail-reference-api-version.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target namespace for namespaced Policy')): true
+        file: policy-fail-reference-target-namespace.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in clone source namespace for namespaced Policy')): true
+        file: policy-fail-reference-clone-namespace.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in cloneList kinds for namespaced Policy')): true
+        file: policy-fail-reference-clonelist-kind.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in cloneList namespace for namespaced Policy')): true
+        file: policy-fail-reference-clonelist-namespace.yaml
+    - apply:
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target kind for namespaced Policy')): true
+        file: policy-fail-reference-foreach-kind.yaml

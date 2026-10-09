@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reference-trigger-generated
+  namespace: tenant
+data:
+  target: reference-trigger

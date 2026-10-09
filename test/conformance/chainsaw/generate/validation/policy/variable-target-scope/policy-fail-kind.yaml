@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-variable-kind
+  namespace: default
+spec:
+  rules:
+  - name: generate-resource
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: "{{request.object.metadata.labels.targetKind}}"
+      name: generated-resource
+      namespace: default

@@ -105,7 +105,7 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 func (g *Generate) validateAuth(ctx context.Context, verbs []string, generate kyvernov1.GeneratePattern) error {
 	if len(generate.CloneList.Kinds) != 0 {
 		for _, kind := range generate.CloneList.Kinds {
-			if regex.IsVariable(kind) {
+			if regex.IsVariable(kind) || regex.IsReference(kind) {
 				return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
 			}
 			gvk, sub := parseCloneKind(kind)
@@ -115,16 +115,22 @@ func (g *Generate) validateAuth(ctx context.Context, verbs []string, generate ky
 		}
 		return nil
 	} else {
+		// Check the raw fields before splitting subresources so a dynamic
+		// suffix cannot be separated from the kind being authorized.
+		if regex.IsVariable(generate.Kind) || regex.IsReference(generate.Kind) ||
+			regex.IsVariable(generate.APIVersion) || regex.IsReference(generate.APIVersion) {
+			return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
+		}
 		k, sub := kubeutils.SplitSubresource(generate.Kind)
 		return g.canIGenerate(ctx, verbs, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
 	}
 }
 
 func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namespace, subresource string) error {
-	if regex.IsVariable(gvk) {
+	if regex.IsVariable(gvk) || regex.IsReference(gvk) {
 		return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
 	}
-	if regex.IsVariable(namespace) {
+	if regex.IsVariable(namespace) || regex.IsReference(namespace) {
 		// An unresolved namespace can select any namespace at runtime. Checking an
 		// empty namespace requires permissions which are not limited by a RoleBinding
 		// in one namespace.
