@@ -6,13 +6,11 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // validateCloneSources runs after substitution, including for each foreach
@@ -50,30 +48,8 @@ func (g *generator) validateCloneSources(pattern *kyvernov1.GeneratePattern) err
 	}
 
 	for _, source := range kinds {
-		kind, subresource := kubeutils.SplitSubresource(source.Kind)
-		if kind == "" || subresource != "" || wildcard.ContainsWildcard(source.APIVersion+"/"+kind) {
-			return fmt.Errorf("%s requires a namespaced top-level source kind", path)
-		}
-		gv, err := schema.ParseGroupVersion(source.APIVersion)
-		if err != nil {
-			return fmt.Errorf("%s source apiVersion: %w", path, err)
-		}
-		if source.APIVersion == "" {
-			// Reads can resolve an omitted apiVersion through discovery. Require
-			// every matching kind to be namespaced before allowing that lookup.
-			gv.Group, gv.Version = "*", "*"
-		}
-		resources, err := g.client.Discovery().FindResources(gv.Group, gv.Version, kind, "")
-		if err != nil {
-			return fmt.Errorf("%s source scope: %w", path, err)
-		}
-		if len(resources) == 0 {
-			return fmt.Errorf("%s cannot determine source scope for %s/%s", path, source.APIVersion, kind)
-		}
-		for _, resource := range resources {
-			if !resource.Namespaced {
-				return fmt.Errorf("%s source %s/%s must be namespaced", path, source.APIVersion, kind)
-			}
+		if err := g.validateNamespacedKind(path, "source", source); err != nil {
+			return err
 		}
 	}
 	return nil

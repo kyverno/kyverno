@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func PolicyRuleKey(policy kyvernov1.PolicyInterface, ruleName string) string {
@@ -112,22 +111,23 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 		fmt.Fprintf(out, "Failed to mock dynamic client")
 		return nil, err
 	}
-	gvrs := sets.New[schema.GroupVersionResource]()
-	for _, object := range objects {
-		gvk := object.GetObjectKind().GroupVersionKind()
-		gvrs.Insert(gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind) + "s"))
+	type resourceDescription struct {
+		gvr        schema.GroupVersionResource
+		namespaced bool
 	}
-	discovery := dclient.NewFakeDiscoveryClient(gvrs.UnsortedList())
+	resourcesByKind := map[schema.GroupVersionKind]resourceDescription{}
 	for _, object := range objects {
 		metadata, err := meta.Accessor(object)
 		if err != nil {
 			return nil, fmt.Errorf("failed to determine fixture scope: %w", err)
 		}
 		gvk := object.GetObjectKind().GroupVersionKind()
-		discovery.SetResourceScope(gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind)+"s"), metadata.GetNamespace() != "")
+		resourcesByKind[gvk] = resourceDescription{
+			gvr: gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind) + "s"), namespaced: metadata.GetNamespace() != "",
+		}
 	}
-	// Embedded discovery supplies authoritative scopes even when a clone list
-	// has no source fixtures or a fixture omits its namespace.
+	// Embedded discovery supplies authoritative scopes and resource names even
+	// when a generated kind has no fixture or its plural cannot be inferred.
 	apiGroupResources, err := data.APIGroupResources()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load offline discovery: %w", err)
@@ -139,9 +139,20 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 				if strings.Contains(resource.Name, "/") {
 					continue
 				}
-				discovery.SetResourceScope(gv.WithResource(resource.Name), resource.Namespaced)
+				resourcesByKind[gv.WithKind(resource.Kind)] = resourceDescription{
+					gvr: gv.WithResource(resource.Name), namespaced: resource.Namespaced,
+				}
 			}
 		}
+	}
+	gvrs := make([]schema.GroupVersionResource, 0, len(resourcesByKind))
+	for _, resource := range resourcesByKind {
+		gvrs = append(gvrs, resource.gvr)
+	}
+	discovery := dclient.NewFakeDiscoveryClient(gvrs)
+	for gvk, resource := range resourcesByKind {
+		discovery.AddGVRToGVKMapping(resource.gvr, gvk)
+		discovery.SetResourceScope(resource.gvr, resource.namespaced)
 	}
 	client.SetDiscovery(discovery)
 	cfg := config.NewDefaultConfiguration(false)

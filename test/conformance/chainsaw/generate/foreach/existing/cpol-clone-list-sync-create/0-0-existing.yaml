@@ -16,6 +16,7 @@ rules:
   - create
   - update
   - delete
+  - patch
 ---
 apiVersion: v1
 kind: Namespace
