@@ -628,8 +628,12 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		logger.V(2).Info("updateRequestCleanupTTL not set")
 	} else {
 		// Validate the TTL format
-		_, err := strfmt.ParseDuration(ttl)
-		if err != nil {
+		duration, err := strfmt.ParseDuration(ttl)
+		if err == nil {
+			if duration <= 0 {
+				err = errors.New("duration must be strictly positive")
+			}
+		} else {
 			_, err = time.Parse(kyverno.ValueTtlDateTimeLayout, ttl)
 			if err != nil {
 				_, err = time.Parse(kyverno.ValueTtlDateLayout, ttl)
@@ -637,7 +641,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 		}
 
 		if err != nil {
-			logger.Error(err, "invalid updateRequestCleanupTTL format", "ttl", ttl)
+			logger.Error(err, "invalid updateRequestCleanupTTL", "ttl", ttl)
 		} else {
 			cd.updateRequestCleanupTTL = ttl
 			logger.V(2).Info("updateRequestCleanupTTL configured")
