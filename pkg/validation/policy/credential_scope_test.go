@@ -30,6 +30,7 @@ func TestValidate_VerifyImagesCredentialScope(t *testing.T) {
 		{name: "missing namespace without credentials", noCredentials: true, errorContains: "policy namespace must not be empty"},
 		{name: "bare secret variable", namespace: "tenant-a", secret: "{{ request.object.metadata.name }}"},
 		{name: "same namespace secret variable", namespace: "tenant-a", secret: "tenant-a/{{ request.object.metadata.name }}"},
+		{name: "namespace variable", namespace: "tenant-a", secret: "{{ request.object.metadata.namespace }}/pull-secret"},
 		{name: "foreign namespace secret variable", namespace: "tenant-a", secret: "tenant-b/{{ request.object.metadata.name }}", errorContains: "instead of policy namespace"},
 		{name: "cluster policy bare secret", cluster: true, secret: "pull-secret"},
 		{name: "cluster policy foreign namespace", cluster: true, secret: "tenant-b/pull-secret"},
@@ -77,6 +78,39 @@ func TestValidate_VerifyImagesCredentialScope(t *testing.T) {
 			}
 			if credentials != nil {
 				assert.Equal(t, []string{test.secret}, credentials.Secrets, "admission validation must not rewrite the policy")
+			}
+		})
+	}
+}
+
+func TestValidateImageRegistryCredentialScopeTemplates(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name          string
+		secret        string
+		errorContains string
+	}{
+		{name: "namespace variable", secret: "{{ request.namespace }}/pull-secret"},
+		{name: "partial namespace variable", secret: "tenant-{{ request.object.metadata.labels.tenant }}/pull-secret"},
+		{name: "namespace and name variables", secret: "{{ request.namespace }}/{{ request.object.metadata.name }}"},
+		{name: "complete reference variable", secret: "{{ request.object.metadata.annotations.credential }}"},
+		{name: "slash inside namespace expression", secret: `{{ request.object.metadata.labels."example.com/namespace" }}/pull-secret`},
+		{name: "slash inside name expression", secret: `tenant-a/{{ request.object.metadata.labels."example.com/secret" }}`},
+		{name: "foreign namespace with name variable", secret: "tenant-b/{{ request.object.metadata.name }}", errorContains: "instead of policy namespace"},
+		{name: "foreign namespace with slash expression", secret: `tenant-b/{{ request.object.metadata.labels."example.com/secret" }}`, errorContains: "instead of policy namespace"},
+		{name: "dynamic namespace with empty name", secret: "{{ request.namespace }}/", errorContains: "empty name"},
+		{name: "dynamic namespace with invalid name", secret: "{{ request.namespace }}/INVALID", errorContains: "invalid name"},
+		{name: "dynamic namespace with extra slash", secret: "{{ request.namespace }}/pull/secret", errorContains: "invalid name"},
+		{name: "leading slash with namespace variable", secret: "/{{ request.namespace }}/pull-secret"},
+		{name: "double leading slash remains invalid", secret: "//tenant-a/pull-secret", errorContains: "invalid name"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			err := validateImageRegistryCredentialScope([]string{test.secret}, "tenant-a")
+			if test.errorContains != "" {
+				require.ErrorContains(t, err, test.errorContains)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
