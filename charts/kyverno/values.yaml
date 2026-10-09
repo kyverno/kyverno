@@ -1029,7 +1029,7 @@ features:
   registryClient:
     # -- Allow insecure registry
     allowInsecure: false
-    # -- Registry egress policy for admission, background, and reports controllers: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes always block metadata and other unsafe addresses.
+    # -- Registry egress policy for admission, background, reports, and cleanup controllers: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes always block metadata and other unsafe addresses.
     privateRegistryEgressMode: audit
     # -- Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Entries must be non-empty strings. Metadata and other unsafe addresses remain blocked.
     privateRegistryAllowlist: []

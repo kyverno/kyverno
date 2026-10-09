@@ -91431,6 +91431,7 @@ spec:
             - --v=2
             - --protectManagedResources=false
             - --ttlReconciliationInterval=1m
+            - --privateRegistryEgressMode=audit
             
           env:
           - name: KYVERNO_DEPLOYMENT

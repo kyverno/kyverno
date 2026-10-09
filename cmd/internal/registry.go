@@ -47,6 +47,12 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 	return registryClient, ms
 }
 
+// setupRegistryEgress preserves the default image lookup credentials without
+// starting Secret informers or enabling registry credential helpers.
+func setupRegistryEgress() {
+	guardedregistry.SetupGlobalRegistryClient(nil, "", "", "", false, privateRegistryAllowlist, privateRegistryEgressMode)
+}
+
 func parseSecretReference(secretRef string, defaultNamespace string) (namespace string, name string) {
 	secretRef = strings.TrimPrefix(secretRef, "/")
 
