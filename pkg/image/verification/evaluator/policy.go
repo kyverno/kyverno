@@ -81,7 +81,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	if err != nil {
 		return nil, err
 	}
-	boundRuntime := imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results)
+	boundRuntime := imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results).WithContext(ctx)
 	data[imageverify.RuntimeKey] = boundRuntime
 	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
 	if context != nil {
@@ -321,7 +321,7 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
-	data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results)
+	data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(c.ivFuncs, imgCtx, cache, results).WithContext(ctx)
 	// override the compile-time http context so reused programs see this call's CLI HTTP mocks
 	if libctx != nil {
 		data["http"] = http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(c.namespace), libctx.GetHTTPMocks())}
