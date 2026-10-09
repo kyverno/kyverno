@@ -90,7 +90,14 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				}
 			}
 			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
-			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
+			// The controller patches provenance onto the persisted target even
+			// when synchronization is disabled. Keep this permission separate
+			// from the policy author's permissions for the generated content.
+			verbs := []string{"get", "create", "patch"}
+			if rule.Generation.Synchronize {
+				verbs = append(verbs, "update", "delete")
+			}
+			if w, path, err := checker.Validate(context.TODO(), verbs); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if w != nil {
 				warnings = append(warnings, w...)

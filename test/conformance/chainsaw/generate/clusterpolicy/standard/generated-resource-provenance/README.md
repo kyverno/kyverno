@@ -48,6 +48,15 @@ changes remain supported. A missing or invalid signing key fails closed; operato
 allow admission to create/read the key and background to read it. The default
 chart already grants these namespace-scoped permissions.
 
+Custom background-controller RBAC must also grant `patch` on every generated
+target kind, including every cloneList kind and foreach target. The controller
+adds provenance after creation using the API server's assigned identity, even
+when `synchronize` is false. Policy validation checks this permission separately
+from the author's existing generated-content permissions; policy authors do not
+need `patch` solely for the controller-owned annotation. Grant this permission
+before upgrading an installation that uses custom target-resource roles. The
+default chart already includes `patch` for its supported generated kinds.
+
 Signing and verification failures use the existing bounded UpdateRequest retry
 path. Restoring the installation's original key allows eligible synchronized
 generation and authenticated cleanup requests to retry; it does not replay work

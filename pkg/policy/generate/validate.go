@@ -76,10 +76,9 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 		return nil, "", nil
 	}
 
-	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
-	// kyverno uses SA 'kyverno' and has default ClusterRoles and ClusterRoleBindings
-	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
-	// - operations required: create/update/delete/get
+	// The caller supplies controller permissions, including patch for persisted
+	// generated metadata. Nil verbs check the generated-content permissions used
+	// for policy authors, without requiring controller-owned metadata writes.
 	// Target kinds must be resolved during admission so authorization can be
 	// checked. A variable namespace is checked as cluster-wide access because it
 	// can resolve to any namespace at runtime.
