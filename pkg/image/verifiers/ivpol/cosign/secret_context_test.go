@@ -118,3 +118,16 @@ func TestCheckOptionsPreservesSharedRemoteOptions(t *testing.T) {
 		assert.Nil(t, option, "verification changed the shared option slice's spare capacity")
 	}
 }
+
+func TestSignatureCredentialOptionsRejectMissingSecretBackend(t *testing.T) {
+	t.Parallel()
+	options, err := sourceRemoteOpts(nil, &policiesv1beta1.Source{SignaturePullSecrets: []corev1.LocalObjectReference{{Name: "registry"}}})
+	require.NoError(t, err)
+	transport := &requestForbiddenTransport{}
+	options = append(options, remote.WithTransport(transport), remote.WithContext(context.Background()))
+	require.NotPanics(t, func() {
+		_, err = remote.Get(name.MustParseReference("192.0.2.1/image:latest"), options...)
+	})
+	require.ErrorContains(t, err, "secret lister is not configured")
+	assert.Zero(t, transport.calls)
+}
