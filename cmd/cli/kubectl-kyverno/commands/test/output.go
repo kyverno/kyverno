@@ -186,56 +186,8 @@ func printTestResult(
 		if test.Operation != "" {
 			trigger = responses.TriggerByOperation[test.Operation]
 		}
-		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
-		if test.Resources != nil {
-			for _, r := range test.Resources {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
-					for resourceGVKAndName := range m {
-						nameParts := strings.Split(resourceGVKAndName, ",")
-						if !kindMatches(test.Kind, nameParts) {
-							continue
-						}
-						nsAndName := strings.Split(r, "/")
-						if len(nsAndName) == 1 {
-							if r == nameParts[len(nameParts)-1] {
-								resources = append(resources, resourceGVKAndName)
-							}
-						}
-						if len(nsAndName) == 2 && len(nameParts) >= 2 {
-							if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
-								resources = append(resources, resourceGVKAndName)
-							}
-						}
-					}
-				}
-			}
-			for _, resourceSpec := range test.ResourceSpecs {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
-					for resourceGVKAndName := range m {
-						nameParts := strings.Split(resourceGVKAndName, ",")
-						if !kindMatches(resourceSpec.Kind, nameParts) {
-							continue
-						}
-						if resourceSpec.Group == "" {
-							if resourceSpec.Version != nameParts[0] {
-								continue
-							}
-						} else {
-							if resourceSpec.Group+"/"+resourceSpec.Version != nameParts[0] {
-								continue
-							}
-						}
-						if resourceSpec.Namespace != nameParts[2] {
-							continue
-						}
-						if resourceSpec.Name == nameParts[3] {
-							resources = append(resources, resourceGVKAndName)
-						}
-					}
-				}
-			}
-		}
+		resources := selectResources(test, responses.Target, trigger)
 
 		// The test specifies no resources, check all results
 		if len(resources) == 0 {
@@ -653,6 +605,60 @@ func escapeXML(s string) string {
 
 func escapeCDATA(s string) string {
 	return strings.ReplaceAll(s, "]]>", "]]]]><![CDATA[>")
+}
+
+// selectResources returns the response keys matching the resources or resource specs a test result names.
+func selectResources(test v1alpha1.TestResult, target, trigger map[string][]engineapi.EngineResponse) []string {
+	var resources []string
+	if test.Resources != nil {
+		for _, r := range test.Resources {
+			for _, m := range []map[string][]engineapi.EngineResponse{target, trigger} {
+				for resourceGVKAndName := range m {
+					nameParts := strings.Split(resourceGVKAndName, ",")
+					if !kindMatches(test.Kind, nameParts) {
+						continue
+					}
+					nsAndName := strings.Split(r, "/")
+					if len(nsAndName) == 1 {
+						if r == nameParts[len(nameParts)-1] {
+							resources = append(resources, resourceGVKAndName)
+						}
+					}
+					if len(nsAndName) == 2 && len(nameParts) >= 2 {
+						if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
+							resources = append(resources, resourceGVKAndName)
+						}
+					}
+				}
+			}
+		}
+		for _, resourceSpec := range test.ResourceSpecs {
+			for _, m := range []map[string][]engineapi.EngineResponse{target, trigger} {
+				for resourceGVKAndName := range m {
+					nameParts := strings.Split(resourceGVKAndName, ",")
+					if !kindMatches(resourceSpec.Kind, nameParts) {
+						continue
+					}
+					if resourceSpec.Group == "" {
+						if resourceSpec.Version != nameParts[0] {
+							continue
+						}
+					} else {
+						if resourceSpec.Group+"/"+resourceSpec.Version != nameParts[0] {
+							continue
+						}
+					}
+					if resourceSpec.Namespace != nameParts[2] {
+						continue
+					}
+					if resourceSpec.Name == nameParts[3] {
+						resources = append(resources, resourceGVKAndName)
+					}
+				}
+			}
+		}
+	}
+	return resources
 }
 
 // reports whether the key's kind equals expected; an empty expected kind matches any kind
