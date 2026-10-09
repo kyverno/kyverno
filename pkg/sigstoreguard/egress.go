@@ -32,6 +32,9 @@ func NewRekorClient(serverURL string) (*client.Rekor, error) {
 }
 
 func newRekorClient(serverURL string, httpClient *http.Client) (*client.Rekor, error) {
+	if serverURL == "" {
+		serverURL = "https://" + client.DefaultHost
+	}
 	u, err := url.Parse(serverURL)
 	if err != nil {
 		return nil, err
@@ -58,6 +61,10 @@ func newRekorClient(serverURL string, httpClient *http.Client) (*client.Rekor, e
 	return client.New(rt, formats), nil
 }
 
+// Remote keys, certificate bundles, and TUF roots may contain many historical
+// entries. Allow up to 16 MiB while bounding HTTP response memory usage.
+const maxRemoteTrustMaterialBytes = 16 << 20
+
 // LoadFileOrURL preserves Cosign's file and environment references while using
 // a guarded client for URLs instead of blob.LoadFileOrURL's http.Get.
 func LoadFileOrURL(ctx context.Context, ref string) ([]byte, error) {
@@ -80,7 +87,14 @@ func loadFileOrURL(ctx context.Context, ref string, client *http.Client) ([]byte
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf("loading URL %s: server returned HTTP %d", ref, resp.StatusCode)
 	}
-	return io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxRemoteTrustMaterialBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxRemoteTrustMaterialBytes {
+		return nil, fmt.Errorf("loading URL %s: response exceeds %d bytes", ref, maxRemoteTrustMaterialBytes)
+	}
+	return data, nil
 }
 
 // PublicKeyFromKeyRefWithHashAlgo protects HTTP key references without changing

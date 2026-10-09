@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
 	"github.com/kyverno/sdk/extensions/cel/libs/resource"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -65,6 +64,7 @@ type CompiledPolicy interface {
 }
 
 type compiledPolicy struct {
+	imageContext         libs.Context
 	namespace            string
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	verifyDigest         bool
@@ -92,6 +92,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	if err != nil {
 		return nil, err
 	}
+	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, context)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -146,7 +147,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		// The activation overrides the Lib's cel.Globals binding, so confine here too
 		// or a namespaced policy would reach the raw context at evaluation time.
 		data[engine.GlobalContextKey] = globalcontext.Context{ContextInterface: engine.ConfineGlobalContext(context, c.namespace)}
-		data[engine.ImageDataKey] = imagedata.Context{ContextInterface: context} // the thing that actually does the fetching and validation of images
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	}
 
@@ -319,6 +319,7 @@ func (c *compiledPolicy) MutateDigest(
 	if err != nil {
 		return nil, err
 	}
+	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, c.imageContext)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err

@@ -32,11 +32,13 @@ func VerificationMaterialFor(ctx context.Context, mirror string, rootBytes []byt
 }
 
 func verificationMaterialFor(ctx context.Context, mirror string, rootBytes []byte, httpClient *http.Client) (*VerificationMaterial, error) {
-	mu.Lock()
-	defer mu.Unlock()
 	isolate := mirror != "" || len(rootBytes) != 0
 	if !isolate {
-		mirror, rootBytes = defaultMirror, defaultRoot
+		mirror, rootBytes = defaultRepository()
+		if err := lockSharedCache(ctx); err != nil {
+			return nil, err
+		}
+		defer unlockSharedCache()
 	}
 	opts, err := tufOptions(ctx, mirror, rootBytes, true, httpClient, isolate)
 	if err != nil {

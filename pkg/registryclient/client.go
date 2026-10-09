@@ -236,12 +236,13 @@ func (g *guardedKeychain) ResolveContext(ctx context.Context, resource authn.Res
 	if g.configErr != nil {
 		return nil, g.configErr
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if _, err := g.policy.ResolveAndValidate(ctx, resource.RegistryStr()); err != nil {
+	validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	_, err := g.policy.ResolveAndValidate(validationCtx, resource.RegistryStr())
+	cancel()
+	if err != nil {
 		return nil, err
 	}
 	return authn.Resolve(ctx, g.inner, resource)
@@ -396,7 +397,13 @@ func imageVerificationClient(lister corev1listers.SecretLister, credentials poli
 		privateAllowlist = configured.egressConfig.Allowlist
 		egressMode = configured.egressConfig.Mode
 	}
+	// Explicit policy Secrets require an available credential lookup backend.
+	var requiredSecrets authn.Keychain
+	if lister == nil && len(credentials.Secrets) != 0 {
+		requiredSecrets = NewSecretsKeychain(nil, defaultNamespace, credentials.Secrets...)
+	}
 	configured := New(
+		WithKeychain(requiredSecrets),
 		WithSecretLister(lister, defaultNamespace),
 		WithImagePullSecrets(credentials.Secrets...),
 		WithCredentialHelpers(providers...),
