@@ -149,6 +149,7 @@ func Test_fetchImageData_NonStringJMESPathDoesNotPanic(t *testing.T) {
 		ctx,
 		jp,
 		&mockRegistryClientFactory{client: &mockRegistryClient{}},
+		"",
 	)
 
 	err := loader.LoadData()
