@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reserved-labels
+  namespace: gpol-label-ownership
+  labels:
+    generate.kyverno.io/policy-name: gpol-label-ownership
