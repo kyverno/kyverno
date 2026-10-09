@@ -400,3 +400,39 @@ func TestEvaluate_TracingOn_JSONPatchTestOpThatFailsIsNotApplied(t *testing.T) {
 		})
 	}
 }
+
+// TestEvaluate_TracingOn_ChainedMutationsMatchTracingOff: mutations run in order, each on the
+// object the previous one produced. The second mutation here reads the label the first one added,
+// so it only produces the right annotation if both hand-offs between mutations happen (the object
+// the next patch is applied to, and the object the next expression reads). The trace code runs
+// between a mutation and those hand-offs, so tracing must leave the final object exactly as it is
+// without tracing.
+func TestEvaluate_TracingOn_ChainedMutationsMatchTracingOff(t *testing.T) {
+	policy := buildMutationTracePolicy(
+		applyConfigMutation(addTeamLabelExpr),
+		admissionregistrationv1alpha1.Mutation{
+			PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+			JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+				Expression: `[JSONPatch{op: "add", path: "/metadata/annotations", value: {"owner": object.metadata.labels.team}}]`,
+			},
+		},
+	)
+
+	untraced := compileMutAndEvaluate(t, false, policy, podObject("prod", nil))
+	traced := compileMutAndEvaluate(t, true, policy, podObject("prod", nil))
+	require.NotNil(t, untraced)
+	require.NotNil(t, traced)
+	require.NoError(t, untraced.Error)
+	require.NoError(t, traced.Error, "the second mutation must see the label the first one added")
+	require.NotNil(t, untraced.PatchedResource)
+	require.NotNil(t, traced.PatchedResource)
+
+	assert.Equal(t, "platform", untraced.PatchedResource.GetLabels()["team"])
+	assert.Equal(t, "platform", untraced.PatchedResource.GetAnnotations()["owner"])
+	assert.Equal(t, untraced.PatchedResource.Object, traced.PatchedResource.Object, "tracing must not change the patched object")
+
+	require.NotNil(t, traced.Trace)
+	require.Len(t, traced.Trace.Mutations, 2)
+	assert.Empty(t, traced.Trace.Mutations[1].Error)
+	assert.Equal(t, trace.VerdictPass, traced.Trace.Verdict.Status)
+}
