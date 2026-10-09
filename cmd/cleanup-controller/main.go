@@ -127,6 +127,7 @@ func main() {
 		internal.WithEventsClient(),
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
+		internal.WithRegistryEgress(),
 		internal.WithMetadataClient(),
 		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
