@@ -30,6 +30,7 @@ import (
 
 var (
 	mu            sync.Mutex
+	cacheLock     = make(chan struct{}, 1)
 	defaultMirror string
 	defaultRoot   []byte
 )
@@ -46,31 +47,32 @@ func SetDefaultRepository(mirror string, rootBytes []byte) {
 // Initialize validates the controller's configured TUF repository before
 // retaining it as the default. No global HTTP clients or transports are changed.
 func Initialize(ctx context.Context, mirror string, rootBytes []byte) error {
-	mu.Lock()
-	defer mu.Unlock()
+	if err := lockSharedCache(ctx); err != nil {
+		return err
+	}
+	defer unlockSharedCache()
 	if _, err := newTUFClient(ctx, mirror, rootBytes, false); err != nil {
 		return err
 	}
-	defaultMirror = mirror
-	defaultRoot = append([]byte(nil), rootBytes...)
+	SetDefaultRepository(mirror, rootBytes)
 	return nil
 }
 
 // TrustedRoot returns the default repository's trusted_root.json target.
 func TrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
-	mu.Lock()
-	defer mu.Unlock()
-	return trustedRoot(ctx, defaultMirror, defaultRoot, false)
+	return TrustedRootFor(ctx, "", nil)
 }
 
 // TrustedRootFor loads a policy's TUF repository without changing the default
 // repository. The modern client supports delegated and succinct-role targets.
 func TrustedRootFor(ctx context.Context, mirror string, rootBytes []byte) (*root.TrustedRoot, error) {
-	mu.Lock()
-	defer mu.Unlock()
 	isolate := mirror != "" || len(rootBytes) != 0
 	if !isolate {
-		mirror, rootBytes = defaultMirror, defaultRoot
+		mirror, rootBytes = defaultRepository()
+		if err := lockSharedCache(ctx); err != nil {
+			return nil, err
+		}
+		defer unlockSharedCache()
 	}
 	return trustedRoot(ctx, mirror, rootBytes, isolate)
 }
@@ -264,17 +266,50 @@ func FulcioRootsWithContext(ctx context.Context) (*x509.CertPool, *x509.CertPool
 // WithLock serializes access to the shared TUF cache. The callback must not call
 // another function in this package that acquires the same lock.
 func WithLock(fn func() error) error {
+	if err := lockSharedCache(context.Background()); err != nil {
+		return err
+	}
+	defer unlockSharedCache()
+	return fn()
+}
+
+// Operator defaults are copied under a short lock so isolated downloads never
+// hold up readers or configuration changes. Cache access has its own lock.
+func defaultRepository() (string, []byte) {
 	mu.Lock()
 	defer mu.Unlock()
-	return fn()
+	return defaultMirror, append([]byte(nil), defaultRoot...)
+}
+
+func lockSharedCache(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	select {
+	case cacheLock <- struct{}{}:
+		if err := ctx.Err(); err != nil {
+			unlockSharedCache()
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func unlockSharedCache() {
+	<-cacheLock
 }
 
 // defaultTargets preserves legacy repositories that publish individual PEM
 // targets instead of trusted_root.json, using the same guarded TUF client.
 func defaultTargets(ctx context.Context, usage legacytuf.UsageKind, names ...string) ([]legacytuf.TargetFile, error) {
-	mu.Lock()
-	defer mu.Unlock()
-	opts, err := tufOptions(ctx, defaultMirror, defaultRoot, true, registryclient.EgressHTTPClient(), false)
+	mirror, rootBytes := defaultRepository()
+	if err := lockSharedCache(ctx); err != nil {
+		return nil, err
+	}
+	defer unlockSharedCache()
+	opts, err := tufOptions(ctx, mirror, rootBytes, true, registryclient.EgressHTTPClient(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -352,6 +387,7 @@ func fulcioRootsFromTargets(ctx context.Context) (*x509.CertPool, *x509.CertPool
 
 func fulcioRootsFromTargetFiles(targets []legacytuf.TargetFile) (*x509.CertPool, *x509.CertPool, error) {
 	roots, intermediates := x509.NewCertPool(), x509.NewCertPool()
+	rootsAdded := 0
 	for _, target := range targets {
 		certs, err := cryptoutils.UnmarshalCertificatesFromPEM(target.Target)
 		if err != nil {
@@ -360,10 +396,14 @@ func fulcioRootsFromTargetFiles(targets []legacytuf.TargetFile) (*x509.CertPool,
 		for _, cert := range certs {
 			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
 				roots.AddCert(cert)
+				rootsAdded++
 			} else {
 				intermediates.AddCert(cert)
 			}
 		}
+	}
+	if rootsAdded == 0 {
+		return nil, nil, fmt.Errorf("no Fulcio root certificates found in legacy targets")
 	}
 	return roots, intermediates, nil
 }

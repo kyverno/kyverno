@@ -25,6 +25,7 @@ import (
 )
 
 type Policy struct {
+	imageContext          libs.Context
 	patchers              []Patcher
 	matchConditions       []cel.Program
 	targetMatchConditions []cel.Program
@@ -104,6 +105,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 		return false
 	}
 
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
 	p.appendVariables(ctx, data)
 
 	result, err := p.match(ctx, data, p.matchConditions)
@@ -128,6 +130,7 @@ func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.At
 	if err != nil {
 		return nil, err
 	}
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, p.imageContext)
 	p.appendVariables(ctx, data)
 	out, _, err := p.targetExpression.ContextEval(ctx, data)
 	if err != nil {
@@ -145,7 +148,7 @@ func (p *Policy) Evaluate(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, false)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, false)
 }
 
 func (p *Policy) EvaluateTarget(
@@ -157,7 +160,7 @@ func (p *Policy) EvaluateTarget(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, true)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, true)
 }
 
 func (p *Policy) evaluate(
@@ -167,6 +170,7 @@ func (p *Policy) evaluate(
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
 	requestMapFn func() (map[string]any, error),
+	contextProvider libs.Context,
 	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
@@ -178,6 +182,8 @@ func (p *Policy) evaluate(
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}
+
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
 
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)

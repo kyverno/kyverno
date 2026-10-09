@@ -167,7 +167,7 @@ func newVerificationFixture(t *testing.T) *verificationFixture {
 	return &verificationFixture{trustedRoot: tr, modernCA: modern, historicalCA: historical, historicalLeaf: leaf, signingTime: now.Add(-48 * time.Hour), modernID: hex.EncodeToString(modernID[:]), legacyID: hex.EncodeToString(legacyID[:]), legacyPEM: pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: legacyDER}), key: key}
 }
 
-func (f *verificationFixture) repository(t *testing.T, includeLegacy bool) ([]byte, string, *http.Client) {
+func (f *verificationFixture) repository(t *testing.T, includeLegacy bool, extra ...legacytuf.TargetFile) ([]byte, string, *http.Client) {
 	t.Helper()
 	expires := time.Now().Add(time.Hour)
 	signer, err := signature.LoadSignerVerifier(f.key, crypto.SHA256)
@@ -199,6 +199,9 @@ func (f *verificationFixture) repository(t *testing.T, includeLegacy bool) ([]by
 		addTarget("rekor-previous.pub", f.legacyPEM, "Rekor", "Expired")
 		addTarget("ctfe-previous.pub", f.legacyPEM, "CTFE", "Active")
 		addTarget("fulcio-previous.pem", pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: f.historicalCA.Raw}), "Fulcio", "Expired")
+	}
+	for _, target := range extra {
+		addTarget(target.Name, target.Target, "Fulcio", "Active")
 	}
 	type signedMetadata interface {
 		Sign(signature.Signer) (*metadata.Signature, error)
@@ -236,4 +239,18 @@ func keyStatuses(keys map[string]cosign.TransparencyLogPubKey) map[string]legacy
 		statuses[id] = key.Status
 	}
 	return statuses
+}
+
+func TestVerificationMaterialFallsBackFromIntermediateOnlyTargets(t *testing.T) {
+	t.Setenv("SIGSTORE_REKOR_PUBLIC_KEY", "")
+	t.Setenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE", "")
+	fixture := newVerificationFixture(t)
+	template := &x509.Certificate{SerialNumber: big.NewInt(3), Subject: pkix.Name{CommonName: "intermediate"}, NotBefore: fixture.modernCA.NotBefore, NotAfter: fixture.modernCA.NotAfter, IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
+	der, err := x509.CreateCertificate(rand.Reader, template, fixture.modernCA, &fixture.key.PublicKey, fixture.key)
+	require.NoError(t, err)
+	rootBytes, mirror, client := fixture.repository(t, false, legacytuf.TargetFile{Name: "fulcio_intermediate_v1.crt.pem", Target: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})})
+	material, err := verificationMaterialFor(context.Background(), mirror, rootBytes, client)
+	require.NoError(t, err)
+	_, err = fixture.modernCA.Verify(x509.VerifyOptions{Roots: material.FulcioRoots})
+	require.NoError(t, err, "intermediate-only legacy targets must not hide trusted_root.json roots")
 }

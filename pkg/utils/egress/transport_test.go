@@ -196,6 +196,69 @@ func TestReusedConnectionStillValidatesEveryRequest(t *testing.T) {
 	assert.Equal(t, int32(2), requests.Load(), "the blocked request cannot reuse an existing connection")
 }
 
+// Successful re-resolution must select a connection pinned to the current
+// addresses, while repeated answers should retain connection reuse.
+func TestTransportPoolsFollowValidatedAddresses(t *testing.T) {
+	t.Parallel()
+	for _, proxy := range []bool{false, true} {
+		t.Run(fmt.Sprintf("proxy=%t", proxy), func(t *testing.T) {
+			t.Parallel()
+			policy := testPolicy(t, Config{}, nil)
+			var generation atomic.Int32
+			policy.lookupNetIP = func(_ context.Context, _, host string) ([]netip.Addr, error) {
+				address := "192.0.2.1"
+				if host == "proxy.example" || !proxy {
+					if generation.Load() > 0 {
+						address = "192.0.2.2"
+					}
+				}
+				return []netip.Addr{netip.MustParseAddr(address)}, nil
+			}
+			var dials atomic.Int32
+			base := &http.Transport{DialContext: func(_ context.Context, _, address string) (net.Conn, error) {
+				dials.Add(1)
+				client, server := net.Pipe()
+				go func() {
+					defer server.Close()
+					reader := bufio.NewReader(server)
+					for {
+						request, err := http.ReadRequest(reader)
+						if err != nil {
+							return
+						}
+						request.Body.Close()
+						if _, err := fmt.Fprintf(server, "HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s", len(address), address); err != nil {
+							return
+						}
+					}
+				}()
+				return client, nil
+			}}
+			if proxy {
+				base.Proxy = http.ProxyURL(&url.URL{Scheme: "http", Host: "proxy.example"})
+			}
+			transport := policy.WrapTransport(base)
+			defer transport.CloseIdleConnections()
+			client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+			for _, step := range []struct {
+				generation int32
+				want       string
+			}{{0, "192.0.2.1:80"}, {0, "192.0.2.1:80"}, {1, "192.0.2.2:80"}, {1, "192.0.2.2:80"}} {
+				generation.Store(step.generation)
+				request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://registry.example/v2/", nil)
+				require.NoError(t, err)
+				response, err := client.Do(request)
+				require.NoError(t, err)
+				body, err := io.ReadAll(response.Body)
+				require.NoError(t, err)
+				require.NoError(t, response.Body.Close())
+				assert.Equal(t, step.want, string(body))
+			}
+			assert.Equal(t, int32(2), dials.Load(), "only requests with the same validated address share a connection")
+		})
+	}
+}
+
 func TestDialAddressesRacesIPv4AndIPv6(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
