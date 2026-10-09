@@ -13,6 +13,9 @@ import (
 // from re-running the expression's tracking twin (see compiler.TracedProgram), not from here.
 type MutationEval struct {
 	Result ref.Val
+	// NotApplied is set when the patch was computed but deliberately left unapplied, and says
+	// why: a JSON patch whose test operation fails leaves the object unchanged without an error.
+	NotApplied string
 }
 
 type Patcher interface {

@@ -374,6 +374,9 @@ func (p *Policy) evaluate(
 			if err != nil {
 				mt.Error = err.Error()
 			}
+			if mutEval != nil {
+				mt.NotApplied = mutEval.NotApplied
+			}
 			mutationTraces = append(mutationTraces, mt)
 		}
 		if err != nil {

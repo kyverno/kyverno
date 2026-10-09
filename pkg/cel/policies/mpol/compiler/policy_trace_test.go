@@ -355,3 +355,48 @@ func TestEvaluate_TracingOn_SkipShowsTheVariablesAMatchConditionRead(t *testing.
 		})
 	}
 }
+
+// TestEvaluate_TracingOn_JSONPatchTestOpThatFailsIsNotApplied: a JSON patch whose test operation
+// fails is not applied and the object is left unchanged, without an error. The trace must say so,
+// instead of listing the patch the same way it lists one that changed the object.
+func TestEvaluate_TracingOn_JSONPatchTestOpThatFailsIsNotApplied(t *testing.T) {
+	guarded := admissionregistrationv1alpha1.Mutation{
+		PatchType: admissionregistrationv1alpha1.PatchTypeJSONPatch,
+		JSONPatch: &admissionregistrationv1alpha1.JSONPatch{Expression: `[
+			JSONPatch{op: "test", path: "/metadata/namespace", value: "prod"},
+			JSONPatch{op: "add", path: "/metadata/labels", value: {"env": "production"}}
+		]`},
+	}
+	tests := []struct {
+		name           string
+		namespace      string
+		wantLabel      string
+		wantNotApplied string
+	}{{
+		name:      "test operation passes, the patch is applied",
+		namespace: "prod",
+		wantLabel: "production",
+	}, {
+		name:           "test operation fails, the object is left unchanged",
+		namespace:      "staging",
+		wantNotApplied: "a test operation failed, so the object was left unchanged",
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := buildMutationTracePolicy(guarded)
+			untraced := compileMutAndEvaluate(t, false, policy, podObject(tt.namespace, nil))
+			traced := compileMutAndEvaluate(t, true, policy, podObject(tt.namespace, nil))
+			require.NotNil(t, untraced)
+			require.NotNil(t, traced)
+			require.NoError(t, traced.Error)
+			require.NotNil(t, traced.PatchedResource)
+			assert.Equal(t, untraced.PatchedResource.Object, traced.PatchedResource.Object, "tracing must not change the result")
+			assert.Equal(t, tt.wantLabel, traced.PatchedResource.GetLabels()["env"])
+
+			require.NotNil(t, traced.Trace)
+			assert.Equal(t, trace.VerdictPass, traced.Trace.Verdict.Status, "a patch its test operation skips is still a pass, as reported")
+			require.Len(t, traced.Trace.Mutations, 1)
+			assert.Equal(t, tt.wantNotApplied, traced.Trace.Mutations[0].NotApplied)
+		})
+	}
+}

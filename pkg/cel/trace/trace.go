@@ -231,4 +231,7 @@ type MutationTrace struct {
 	// Go-level error Patch() returned), distinct from a Nodes[i].Error, which marks a single
 	// failing sub-expression inside an otherwise-evaluated CEL expression.
 	Error string
+	// NotApplied is set when the mutation ran but its patch was deliberately not applied, and
+	// says why, so a mutation that changed nothing is not read as one that did.
+	NotApplied string
 }

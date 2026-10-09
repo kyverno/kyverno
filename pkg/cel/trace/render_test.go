@@ -211,3 +211,17 @@ func TestRender_ValidationsList(t *testing.T) {
 		assert.Contains(t, sb.String(), "VERDICT    PASS     a  ->  true")
 	})
 }
+
+func TestRender_MutationNotApplied(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{
+		Mutations: []MutationTrace{
+			{Name: "mutations[0] (jsonPatch)", ExpressionTrace: ExpressionTrace{Source: "[...]", Result: "[...]"}, NotApplied: "a test operation failed"},
+			{Name: "mutations[1] (applyConfiguration)", ExpressionTrace: ExpressionTrace{Source: "Object{}", Result: "{}"}},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	})
+	out := sb.String()
+	assert.Contains(t, out, "(not applied: a test operation failed)")
+	assert.Equal(t, 1, strings.Count(out, "not applied"), "only the mutation that was not applied carries the note")
+}

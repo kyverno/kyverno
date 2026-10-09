@@ -68,6 +68,9 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 	if err != nil {
 		if errors.Is(err, jsonpatch.ErrTestFailed) {
 			// If a json patch fails a test operation, the patch must not be applied
+			if eval != nil {
+				eval.NotApplied = "a test operation failed, so the object was left unchanged"
+			}
 			return patchRequest.VersionedAttributes.VersionedObject, eval, nil
 		}
 		return nil, eval, fmt.Errorf("JSON Patch: %w", err)

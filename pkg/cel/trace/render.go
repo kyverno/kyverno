@@ -57,6 +57,9 @@ func Render(w io.Writer, d *Decision) {
 	for _, m := range d.Mutations {
 		if m.Error == "" {
 			row(w, "MUTATIONS", "", named(NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
+			if m.NotApplied != "" {
+				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", m.NotApplied)
+			}
 			continue
 		}
 		row(w, "MUTATIONS", VerdictError, m.Name+": "+m.Error)
