@@ -25,18 +25,18 @@ const generateLabelPrefix = "generate.kyverno.io/"
 var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
 
 func (inner AdmissionHandler) WithProtection(enabled bool, controllerUsernames ...string) AdmissionHandler {
-	inner = inner.withGenerateLabelProtection(controllerUsernames)
 	if !enabled {
 		return inner
 	}
-	return inner.withProtection().WithTrace("PROTECT")
+	return inner.withProtection(controllerUsernames).WithTrace("PROTECT")
 }
 
-func (inner AdmissionHandler) withGenerateLabelProtection(controllerUsernames []string) AdmissionHandler {
+// WithGenerateLabelProtection guards routing metadata on the dedicated generation webhook.
+func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ...string) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
 		// Only configured controllers may change routing metadata. Other service
 		// accounts in the installation namespace remain ordinary callers.
-		if request.UserInfo.Username != "" && slices.Contains(controllerUsernames, request.UserInfo.Username) {
+		if isControllerUsername(request.UserInfo.Username, controllerUsernames) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {
@@ -75,8 +75,15 @@ func generateMetadata(labels map[string]string) map[string]string {
 	return metadata
 }
 
-func (inner AdmissionHandler) withProtection() AdmissionHandler {
+func isControllerUsername(username string, controllerUsernames []string) bool {
+	return username != "" && slices.Contains(controllerUsernames, username)
+}
+
+func (inner AdmissionHandler) withProtection(controllerUsernames []string) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		if isControllerUsername(request.UserInfo.Username, controllerUsernames) {
+			return inner(ctx, logger, request, startTime)
+		}
 		// Allows deletion of namespace containing managed resources
 		if request.Operation == admissionv1.Delete && request.UserInfo.Username == namespaceControllerUsername {
 			return inner(ctx, logger, request, startTime)

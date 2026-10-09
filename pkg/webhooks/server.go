@@ -83,7 +83,7 @@ func NewServer(
 		"POST",
 		config.GenerationLabelProtectionWebhookServicePath,
 		metadataHandler.
-			WithProtection(false, controllerUsernames...).
+			WithGenerateLabelProtection(controllerUsernames...).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
 			WithAdmission(resourceLogger.WithName("generation-labels")).
 			ToHandlerFunc("GENERATION-LABELS"),
