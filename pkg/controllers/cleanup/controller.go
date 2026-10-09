@@ -171,7 +171,9 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	}
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
-	loader := ctxFactory(nil, kyvernov1.Rule{})
+	// Cleanup contexts retain their existing cluster-scoped lookups;
+	// resource selection below still uses the CleanupPolicy namespace.
+	loader := ctxFactory(&kyvernov1.ClusterPolicy{}, kyvernov1.Rule{})
 	if err := loader.Load(
 		ctx,
 		c.jp,

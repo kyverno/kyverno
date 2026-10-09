@@ -189,3 +189,35 @@ func TestRedactSecret_DockerConfigSecret(t *testing.T) {
 	assert.True(t, found)
 	assert.Equal(t, "**REDACTED**", data[".dockerconfigjson"])
 }
+
+func TestScopeSecretReferences(t *testing.T) {
+	t.Parallel()
+
+	scoped, err := ScopeSecretReferences([]string{"pull-secret", "tenant-a/second", "/third"}, "tenant-a")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"tenant-a/pull-secret", "tenant-a/second", "tenant-a/third"}, scoped)
+
+	_, err = ScopeSecretReferences([]string{"other/pull-secret"}, "tenant-a")
+	require.ErrorContains(t, err, "instead of policy namespace")
+
+	_, err = ScopeSecretReferences([]string{"tenant-a/"}, "tenant-a")
+	require.ErrorContains(t, err, "empty name")
+
+	_, err = ScopeSecretReferences([]string{"pull-secret"}, "")
+	require.ErrorContains(t, err, "policy namespace must not be empty")
+}
+
+func TestScopeSecretReferencesRejectsMalformedNames(t *testing.T) {
+	t.Parallel()
+	for _, secret := range []string{"tenant-a/name/extra", "tenant-a//name", "tenant-a/..", "tenant-a/UPPERCASE", "tenant-a/name with spaces", "//name"} {
+		t.Run(secret, func(t *testing.T) {
+			t.Parallel()
+			_, err := ScopeSecretReferences([]string{secret}, "tenant-a")
+			require.Error(t, err)
+		})
+	}
+	_, err := ScopeSecretReferences([]string{"pull-secret"}, "tenant/a")
+	require.ErrorContains(t, err, "is invalid")
+	_, err = ScopeSecretReferences(nil, "")
+	require.ErrorContains(t, err, "policy namespace must not be empty")
+}

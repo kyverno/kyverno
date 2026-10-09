@@ -132,7 +132,7 @@ func TestContextLoaderFactoryOptions_MultipleOptions(t *testing.T) {
 
 func TestContextLoader_Load_EmptyEntries(t *testing.T) {
 	factory := DefaultContextLoaderFactory(nil)
-	loader := factory(nil, kyvernov1.Rule{})
+	loader := factory(&kyvernov1.ClusterPolicy{}, kyvernov1.Rule{})
 
 	err := loader.Load(context.Background(), nil, nil, nil, []kyvernov1.ContextEntry{}, nil)
 
@@ -141,7 +141,7 @@ func TestContextLoader_Load_EmptyEntries(t *testing.T) {
 
 func TestContextLoader_Load_NilEntries(t *testing.T) {
 	factory := DefaultContextLoaderFactory(nil)
-	loader := factory(nil, kyvernov1.Rule{})
+	loader := factory(&kyvernov1.ClusterPolicy{}, kyvernov1.Rule{})
 
 	err := loader.Load(context.Background(), nil, nil, nil, nil, nil)
 
@@ -230,6 +230,36 @@ func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {
 			} else {
 				assert.NotNil(t, client)
 			}
+		})
+	}
+}
+
+func TestContextLoaderRejectsUnknownPolicyScope(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		policy kyvernov1.PolicyInterface
+		want   string
+	}{
+		{name: "nil policy", want: "policy scope must not be nil"},
+		{name: "typed nil policy", policy: (*kyvernov1.Policy)(nil), want: "policy scope must not be nil"},
+		{name: "empty Policy namespace", policy: &kyvernov1.Policy{}, want: "policy namespace must not be empty"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			initialized := false
+			loader := DefaultContextLoaderFactory(nil, WithInitializer(func(enginecontext.Interface) error {
+				initialized = true
+				return nil
+			}))(test.policy, kyvernov1.Rule{})
+			entries := []kyvernov1.ContextEntry{
+				{Name: "image", ImageRegistry: &kyvernov1.ImageRegistry{Reference: "example.com/image:tag", ImageRegistryCredentials: &kyvernov1.ImageRegistryCredentials{Secrets: []string{"kyverno/secret"}}}},
+				{Name: "global", GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "global"}},
+			}
+			require.ErrorContains(t, loader.Load(context.Background(), nil, nil, nil, entries, nil), test.want)
+			require.False(t, initialized, "invalid scope must fail before any initializer or data access")
+			require.ErrorContains(t, RunContextLoaderInitializers(loader, nil), test.want)
+			require.ErrorContains(t, LoadContextLoaderEntriesWithoutInitializers(loader, context.Background(), nil, nil, nil, entries, nil), test.want)
 		})
 	}
 }

@@ -3681,8 +3681,48 @@ func Test_validateRuleContext_NamespacedPolicyRejectsGlobalReference(t *testing.
 			GlobalReference: &kyverno.GlobalContextEntryReference{Name: "entry"},
 		}},
 	}
-	err := validateRuleContext(rule, true)
+	err := validateRuleContext(rule, true, "tenant-ns")
 	assert.ErrorContains(t, err, "globalReference is not allowed in namespaced policies")
+}
+
+func Test_validateRuleContext_NamespacedPolicyConfinesImageRegistrySecrets(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name            string
+		namespaced      bool
+		policyNamespace string
+		secret          string
+		errorContains   string
+	}{
+		{name: "bare secret", namespaced: true, policyNamespace: "tenant-a", secret: "pull-secret"},
+		{name: "same namespace", namespaced: true, policyNamespace: "tenant-a", secret: "tenant-a/pull-secret"},
+		{name: "foreign namespace", namespaced: true, policyNamespace: "tenant-a", secret: "tenant-b/pull-secret", errorContains: "instead of policy namespace"},
+		{name: "installation namespace", namespaced: true, policyNamespace: "tenant-a", secret: "kyverno/pull-secret", errorContains: "instead of policy namespace"},
+		{name: "cluster policy", secret: "tenant-b/pull-secret"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			rule := kyverno.Rule{
+				Context: []kyverno.ContextEntry{{
+					Name: "image",
+					ImageRegistry: &kyverno.ImageRegistry{
+						Reference: "ghcr.io/kyverno/kyverno:latest",
+						ImageRegistryCredentials: &kyverno.ImageRegistryCredentials{
+							Secrets: []string{test.secret},
+						},
+					},
+				}},
+			}
+			err := validateRuleContext(rule, test.namespaced, test.policyNamespace)
+			if test.errorContains != "" {
+				assert.ErrorContains(t, err, test.errorContains)
+			} else {
+				assert.Nil(t, err)
+			}
+		})
+	}
 }
 
 func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {

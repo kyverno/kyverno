@@ -19,14 +19,12 @@ type ContextLoaderFactoryOptions func(*contextLoader)
 
 func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
 	return func(policy kyvernov1.PolicyInterface, _ kyvernov1.Rule) engineapi.ContextLoader {
-		policyNamespace := ""
-		if policy != nil && policy.IsNamespaced() {
-			policyNamespace = policy.GetNamespace()
-		}
+		policyNamespace, scopeErr := engineapi.PolicyNamespace(policy)
 		cl := &contextLoader{
 			logger:          logging.WithName("DefaultContextLoaderFactory"),
 			cmResolver:      cmResolver,
 			policyNamespace: policyNamespace,
+			scopeErr:        scopeErr,
 		}
 		for _, o := range opts {
 			o(cl)
@@ -60,6 +58,7 @@ type contextLoader struct {
 	apiCallConfig   apicall.APICallConfiguration
 	gctxStore       loaders.Store
 	policyNamespace string
+	scopeErr        error
 }
 
 func (l *contextLoader) Load(
@@ -77,6 +76,9 @@ func (l *contextLoader) Load(
 }
 
 func (l *contextLoader) runInitializers(jsonContext enginecontext.Interface) error {
+	if l.scopeErr != nil {
+		return l.scopeErr
+	}
 	for _, init := range l.initializers {
 		if err := init(jsonContext); err != nil {
 			return err
@@ -93,10 +95,13 @@ func (l *contextLoader) loadContextEntries(
 	contextEntries []kyvernov1.ContextEntry,
 	jsonContext enginecontext.Interface,
 ) error {
+	if l.scopeErr != nil {
+		return l.scopeErr
+	}
 	for _, entry := range contextEntries {
 		loader, err := l.newLoader(ctx, jp, client, rclientFactory, entry, jsonContext, l.gctxStore)
 		if err != nil {
-			return fmt.Errorf("failed to create deferred loader for context entry %s", entry.Name)
+			return fmt.Errorf("failed to create deferred loader for context entry %s: %w", entry.Name, err)
 		}
 		if loader != nil {
 			if toggle.FromContext(ctx).EnableDeferredLoading() {
@@ -174,7 +179,7 @@ func (l *contextLoader) newLoader(
 		}
 	} else if entry.ImageRegistry != nil {
 		if rclientFactory != nil {
-			ldr := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclientFactory)
+			ldr := loaders.NewImageDataLoader(ctx, l.logger, entry, jsonContext, jp, rclientFactory, l.policyNamespace)
 			return enginecontext.NewDeferredLoader(entry.Name, ldr, l.logger)
 		} else {
 			l.logger.V(3).Info("disabled loading of ImageRegistry context entry", "name", entry.Name)

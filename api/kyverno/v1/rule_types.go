@@ -455,6 +455,25 @@ func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
+// ValidateCELParamScope confines parameter resources used by namespaced
+// Policies to their own namespace.
+func (r *Rule) ValidateCELParamScope(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (errs field.ErrorList) {
+	if !namespaced || !r.HasValidateCEL() || !r.Validation.CEL.HasParam() {
+		return nil
+	}
+
+	paramKind := r.Validation.CEL.ParamKind
+	paramRef := r.Validation.CEL.ParamRef
+	paramPath := path.Child("validate", "cel")
+	if clusterResources.Has(paramKind.APIVersion + "/" + paramKind.Kind) {
+		errs = append(errs, field.Forbidden(paramPath.Child("paramKind"), "cluster-scoped paramKind is not allowed in namespaced policies"))
+	}
+	if paramRef.Namespace != "" && paramRef.Namespace != policyNamespace {
+		errs = append(errs, field.Invalid(paramPath.Child("paramRef", "namespace"), paramRef.Namespace, "must match the policy namespace"))
+	}
+	return errs
+}
+
 func (r *Rule) ValidateGenerate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.Set[string]) (warnings []string, errs field.ErrorList) {
 	if !r.HasGenerate() {
 		return nil, nil
@@ -471,6 +490,7 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
 	errs = append(errs, r.ValidatePSaControlNames(path)...)
+	errs = append(errs, r.ValidateCELParamScope(path, namespaced, policyNamespace, clusterResources)...)
 	warning, errors := r.ValidateGenerate(path, namespaced, policyNamespace, clusterResources)
 	warnings = append(warnings, warning...)
 	errs = append(errs, errors...)

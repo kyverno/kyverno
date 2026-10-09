@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -1150,5 +1152,72 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 		warnings, errs := rule.ValidateGenerate(path, false, "", nil)
 		assert.Equal(t, len(errs) != 0, testcase.shouldFail, testcase.name, errs)
 		assert.Equal(t, len(warnings) != 0, testcase.warning, testcase.name)
+	}
+}
+
+func TestValidateCELParamScope(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name             string
+		namespaced       bool
+		policyNamespace  string
+		paramKind        admissionregistrationv1.ParamKind
+		paramRef         admissionregistrationv1.ParamRef
+		clusterResources sets.Set[string]
+		shouldFail       bool
+	}{
+		{
+			name:            "namespaced parameter defaults to policy namespace",
+			namespaced:      true,
+			policyNamespace: "tenant-a",
+			paramKind:       admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+			paramRef:        admissionregistrationv1.ParamRef{Name: "params"},
+		},
+		{
+			name:            "same namespace is allowed",
+			namespaced:      true,
+			policyNamespace: "tenant-a",
+			paramKind:       admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+			paramRef:        admissionregistrationv1.ParamRef{Name: "params", Namespace: "tenant-a"},
+		},
+		{
+			name:            "foreign namespace is rejected",
+			namespaced:      true,
+			policyNamespace: "tenant-a",
+			paramKind:       admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+			paramRef:        admissionregistrationv1.ParamRef{Name: "params", Namespace: "tenant-b"},
+			shouldFail:      true,
+		},
+		{
+			name:             "cluster scoped parameter is rejected",
+			namespaced:       true,
+			policyNamespace:  "tenant-a",
+			paramKind:        admissionregistrationv1.ParamKind{APIVersion: "rbac.authorization.k8s.io/v1", Kind: "ClusterRoleBinding"},
+			paramRef:         admissionregistrationv1.ParamRef{Name: "binding"},
+			clusterResources: sets.New("rbac.authorization.k8s.io/v1/ClusterRoleBinding"),
+			shouldFail:       true,
+		},
+		{
+			name:            "cluster policy preserves cross namespace parameter",
+			policyNamespace: "",
+			paramKind:       admissionregistrationv1.ParamKind{APIVersion: "v1", Kind: "ConfigMap"},
+			paramRef:        admissionregistrationv1.ParamRef{Name: "params", Namespace: "tenant-b"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			rule := Rule{
+				Validation: &Validation{
+					CEL: &CEL{
+						ParamKind: &test.paramKind,
+						ParamRef:  &test.paramRef,
+					},
+				},
+			}
+			errs := rule.ValidateCELParamScope(field.NewPath("spec", "rules").Index(0), test.namespaced, test.policyNamespace, test.clusterResources)
+			assert.Equal(t, len(errs) != 0, test.shouldFail)
+		})
 	}
 }
