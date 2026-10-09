@@ -155,6 +155,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 	}
 
 	return &Policy{
+		imageContext:          libCtx,
 		matchConditions:       matchConditions,
 		targetMatchConditions: targetMatchConditions,
 		targetExpression:      targetExpression,

@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -77,4 +79,23 @@ func TestTUFHonorsCancellation(t *testing.T) {
 	cancel()
 	_, err := TrustedRootFor(ctx, "https://tuf-repo-cdn.sigstore.dev", nil)
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+func TestRekorDefaultsToPublicService(t *testing.T) {
+	var destination string
+	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		destination = req.URL.String()
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"rootHash":"00","treeSize":0,"signedTreeHead":""}`)), Request: req}, nil
+	})}
+	rekor, err := newRekorClient("", client)
+	require.NoError(t, err)
+	_, err = rekor.Tlog.GetLogInfo(nil)
+	require.NoError(t, err)
+	require.Equal(t, "https://rekor.sigstore.dev/api/v1/log", destination)
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
