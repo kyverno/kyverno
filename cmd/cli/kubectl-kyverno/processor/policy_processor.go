@@ -1325,6 +1325,8 @@ func (p *PolicyProcessor) explain(policies []celengine.ValidatingPolicyResponse)
 		return
 	}
 	for _, d := range selectTraces(policies) {
+		// start on a fresh line: the mutate output printed before a trace ends without one
+		fmt.Fprintln(p.Out)
 		trace.Render(p.Out, d)
 		fmt.Fprintln(p.Out)
 	}
@@ -1369,6 +1371,8 @@ func (p *PolicyProcessor) explainMutations(policies []mpolengine.MutatingPolicyR
 		return
 	}
 	for _, d := range selectTracesMutations(policies) {
+		// start on a fresh line: the mutate output printed before a trace ends without one
+		fmt.Fprintln(p.Out)
 		trace.Render(p.Out, d)
 		fmt.Fprintln(p.Out)
 	}

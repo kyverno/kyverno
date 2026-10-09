@@ -1540,6 +1540,18 @@ func Test_Apply_Explain(t *testing.T) {
 			JSONPaths:   []string{base + "test-validating-policy/json-check-dockerfile/payload.json"},
 		},
 		want: []string{"(ValidatingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		// the mutated resource's output ends without a newline, so a trace printed after it, of
+		// either policy type, must still start on its own line
+		name: "mutating and validating policies on the same resources",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{
+				base + "test-mutating-policy/mutating-label/policy.yaml",
+				base + "test-validating-policy/check-deployment-labels/policy.yaml",
+			},
+			ResourcePaths: []string{base + "test-mutating-policy/mutating-label/resource.yaml"},
+		},
+		want: []string{"(MutatingPolicy)", "(ValidatingPolicy)", "Mutation has been applied successfully."},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1555,6 +1567,11 @@ func Test_Apply_Explain(t *testing.T) {
 			explained, explainedCounts := run(true)
 			for _, want := range tt.want {
 				assert.Contains(t, explained, want)
+			}
+			for _, line := range strings.Split(explained, "\n") {
+				if i := strings.Index(line, "Policy:   "); i > 0 {
+					t.Errorf("a trace header must start its own line, got %q", line)
+				}
 			}
 
 			plain, plainCounts := run(false)
