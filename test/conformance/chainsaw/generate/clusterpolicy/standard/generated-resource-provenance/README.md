@@ -7,6 +7,15 @@ only its own namespaces, policy, and RBAC resource.
 
 Before installing the policy, the test plants Secrets at the exact intended
 output names with real trigger and source UIDs and forged generation labels.
+This administrative setup simulates objects whose metadata predates the guard.
+The runner must be allowed to impersonate the background controller: only
+`prepare-existing-targets.sh` uses that identity for the setup label and invalid
+annotation writes. The script discovers exactly one background-controller
+Deployment and its configured service account in `${KYVERNO_NAMESPACE:-kyverno}`,
+so custom installation namespaces and account names are supported. It waits
+briefly for the fixture's aggregated Secret permissions before those writes.
+All subsequent negative operations retain their original untrusted caller.
+
 After the policy is ready, it verifies that unchanged-label updates, deletes,
 and clone-source traversal cannot enqueue an UpdateRequest. It also attempts to
 copy a MAC from a genuine downstream onto a planted object and verifies that
