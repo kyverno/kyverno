@@ -305,3 +305,53 @@ func TestEvaluate_TracingKeepsTheCostLimit(t *testing.T) {
 		})
 	}
 }
+
+// TestEvaluate_TracingOn_SkipShowsTheVariablesAMatchConditionRead: a MutatingPolicy binds its
+// variables before its match conditions, so a condition such as !variables.isSystem can skip the
+// policy. The skip trace must then show the variable the condition read, not just the condition,
+// for the trigger's match conditions and for the target ones alike.
+func TestEvaluate_TracingOn_SkipShowsTheVariablesAMatchConditionRead(t *testing.T) {
+	isSystem := admissionregistrationv1.Variable{Name: "isSystem", Expression: "object.metadata.namespace == 'kube-system'"}
+	condition := admissionregistrationv1.MatchCondition{Name: "not-system", Expression: "!variables.isSystem"}
+	tests := map[string]struct {
+		configure func(p *policiesv1beta1.MutatingPolicy)
+		evaluate  func(p *Policy, obj *unstructured.Unstructured) *EvaluationResult
+	}{
+		"match conditions": {
+			configure: func(p *policiesv1beta1.MutatingPolicy) {
+				p.Spec.MatchConditions = []admissionregistrationv1.MatchCondition{condition}
+			},
+			evaluate: func(p *Policy, obj *unstructured.Unstructured) *EvaluationResult {
+				return p.Evaluate(context.Background(), &mutTraceAttrs{obj: obj}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
+			},
+		},
+		"target match conditions": {
+			configure: func(p *policiesv1beta1.MutatingPolicy) {
+				p.Spec.TargetMatchConditions = []admissionregistrationv1.MatchCondition{condition}
+			},
+			evaluate: func(p *Policy, obj *unstructured.Unstructured) *EvaluationResult {
+				return p.EvaluateTarget(context.Background(), &mutTraceAttrs{obj: obj}, &corev1.Namespace{}, admissionv1.AdmissionRequest{}, &fakeTCM{}, nil, &libs.FakeContextProvider{})
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			policy := buildMutationTracePolicy(applyConfigMutation(addTeamLabelExpr))
+			policy.Spec.Variables = append(policy.Spec.Variables, isSystem)
+			tt.configure(policy)
+			compiled, errs := NewCompilerWithTrace(true).Compile(policy, nil)
+			require.Empty(t, errs)
+
+			res := tt.evaluate(compiled, podObject("kube-system", nil))
+			require.NotNil(t, res)
+			assert.True(t, res.Skipped)
+			require.NotNil(t, res.Trace)
+			assert.Equal(t, trace.VerdictSkip, res.Trace.Verdict.Status)
+			var read []string
+			for _, v := range res.Trace.Variables {
+				read = append(read, v.Name+"="+v.Result)
+			}
+			assert.Equal(t, []string{"isSystem=true"}, read, "the skip shows the variable the condition read, and only that one")
+		})
+	}
+}

@@ -318,9 +318,12 @@ func (p *Policy) evaluate(
 			if !p.trace {
 				return nil
 			}
+			// variables are bound before the match conditions and are lazy, so these are exactly
+			// the ones a condition read, e.g. variables.isSystem in !variables.isSystem
 			return &EvaluationResult{Skipped: true, Trace: &trace.Decision{
-				Match:   matchTraces,
-				Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(matchTraces)},
+				Match:     matchTraces,
+				Variables: variableTraces,
+				Verdict:   trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(matchTraces)},
 			}}
 		}
 	} else {
@@ -336,9 +339,12 @@ func (p *Policy) evaluate(
 			if !p.trace {
 				return nil
 			}
+			// variables are bound before the match conditions and are lazy, so these are exactly
+			// the ones a condition read, e.g. variables.isSystem in !variables.isSystem
 			return &EvaluationResult{Skipped: true, Trace: &trace.Decision{
-				Match:   matchTraces,
-				Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(matchTraces)},
+				Match:     matchTraces,
+				Variables: variableTraces,
+				Verdict:   trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(matchTraces)},
 			}}
 		}
 	}
