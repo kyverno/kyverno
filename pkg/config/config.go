@@ -49,6 +49,8 @@ const (
 	PolicyValidatingWebhookName = "validate-policy.kyverno.svc"
 	// ValidatingWebhookName ...
 	ValidatingWebhookName = "validate.kyverno.svc"
+	// GenerationLabelProtectionWebhookName validates controller-owned generation labels.
+	GenerationLabelProtectionWebhookName = "protect-generation-labels.kyverno.svc"
 	// PolicyMutatingWebhookName default policy mutating webhook name
 	PolicyMutatingWebhookName = "mutate-policy.kyverno.svc"
 	// MutatingWebhookName default resource mutating webhook name
@@ -83,6 +85,8 @@ const (
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
 	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
+	// GenerationLabelProtectionWebhookServicePath validates generation metadata without evaluating policies.
+	GenerationLabelProtectionWebhookServicePath = "/protect-generation-labels"
 	// ExceptionValidatingWebhookServicePath is the path for policy exception validation webhook(used to validate policy exception resource)
 	ExceptionValidatingWebhookServicePath = "/exceptionvalidate"
 	// CELExceptionValidatingWebhookServicePath is the path for CEL PolicyException validation webhook(used to validate CEL PolicyException resource)
