@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/config"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verification/variables"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
@@ -65,6 +66,8 @@ type CompiledPolicy interface {
 }
 
 type compiledPolicy struct {
+	ivFuncs              *imageverify.IvFuncs
+	ivCache              imageverifycache.Client
 	namespace            string
 	failurePolicy        admissionregistrationv1.FailurePolicyType
 	verifyDigest         bool
@@ -91,6 +94,9 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	data, err := prepareK8sData(attr, request, namespace, isK8s, requestMapFn)
 	if err != nil {
 		return nil, err
+	}
+	if c.ivFuncs != nil {
+		data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(c.ivFuncs, ictx, c.ivCache, c.verifications).WithContext(ctx)
 	}
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
@@ -318,6 +324,9 @@ func (c *compiledPolicy) MutateDigest(
 	data, err := prepareK8sData(attr, request, namespace, isK8s(request), requestMapFn)
 	if err != nil {
 		return nil, err
+	}
+	if c.ivFuncs != nil {
+		data[imageverify.RuntimeKey] = imageverify.NewRuntimeForPolicy(c.ivFuncs, ictx, c.ivCache, c.verifications).WithContext(ctx)
 	}
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {

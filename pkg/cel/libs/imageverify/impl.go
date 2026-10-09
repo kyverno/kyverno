@@ -23,7 +23,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -34,7 +33,8 @@ const (
 	attestationCacheRule = "verifyAttestationSignatures"
 )
 
-type ivfuncs struct {
+type IvFuncs struct {
+	requestContext func() context.Context
 	types.Adapter
 
 	logger          logr.Logger
@@ -65,6 +65,49 @@ type ivfuncs struct {
 	pendingIntotoRestores map[string]map[string][]byte
 }
 
+// Runtime holds state owned by a single request. NewRuntimeForPolicy creates a
+// policy-local function implementation, so deferred payload restoration is never shared.
+type Runtime struct {
+	functions *IvFuncs
+}
+
+// NewRuntimeForPolicy copies the policy's IvFuncs and attaches request-owned
+// state to the copy. This is needed because the same compiled policy can be used
+// by two admission requests, and those shouldn't replace stateful fields in IvFuncs
+// that belong to eachother
+func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
+	newFuncs := *f
+	newFuncs.imgCtx = imgCtx
+	newFuncs.ivCache = cache
+	newFuncs.verifications = results
+	newFuncs.pendingIntotoRestores = map[string]map[string][]byte{}
+
+	return Runtime{functions: &newFuncs}
+}
+
+// WithContext returns a private runtime whose credential and verification calls
+// use this evaluation's deadline. It never changes compiled function state.
+func (r Runtime) WithContext(ctx context.Context) Runtime {
+	functions := *r.functions
+	functions.requestContext = func() context.Context { return ctx }
+	r.functions = &functions
+	return r
+}
+
+func (f *IvFuncs) evaluationContext() context.Context {
+	if f.requestContext != nil {
+		return f.requestContext()
+	}
+	return context.Background()
+}
+
+// remoteOptions leaves retained policy options unchanged and binds the current
+// request after any context included in administrator-configured SDK defaults.
+func (f *IvFuncs) remoteOptions(ctx context.Context) []remote.Option {
+	options := append([]remote.Option{}, f.authOpts...)
+	return append(options, remote.WithContext(ctx))
+}
+
 func ImageVerifyCELFuncs(
 	logger logr.Logger,
 	imgCtx imagedataloader.ImageContext,
@@ -73,7 +116,7 @@ func ImageVerifyCELFuncs(
 	ivCache imageverifycache.Client,
 	adapter types.Adapter,
 	verifications *ImageVerificationResults,
-) (*ivfuncs, error) {
+) (*IvFuncs, error) {
 	ivpol, scopeErrs := imagecredentials.ScopePolicy(ivpol)
 	if len(scopeErrs) != 0 {
 		return nil, scopeErrs.ToAggregate()
@@ -93,10 +136,10 @@ func ImageVerifyCELFuncs(
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
+		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, config.KyvernoNamespace(), logger)
 	}
 
-	return &ivfuncs{
+	return &IvFuncs{
 		Adapter:               adapter,
 		logger:                logger,
 		imgCtx:                imgCtx,
@@ -141,8 +184,8 @@ func pendingKey(image, attestation string) string {
 	return image + "\x00" + attestation
 }
 
-func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
+	ctx := f.evaluationContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
@@ -175,7 +218,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 		// Fetch image data once before the loop: the image reference and
 		// credentials are the same for every attestor.
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, f.remoteOptions(ctx), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -219,8 +262,8 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 	}
 }
 
-func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
+	ctx := f.evaluationContext()
 	if len(args) != 3 {
 		return types.NewErr("function usage: <image> <attestation> <attestor list>")
 	}
@@ -275,7 +318,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 			}
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, f.remoteOptions(ctx), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -360,8 +403,8 @@ func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Atte
 	return map[string][]byte{attest.InToto.Type: b}
 }
 
-func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
+	ctx := f.evaluationContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
@@ -371,7 +414,7 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, f.remoteOptions(ctx), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -396,12 +439,12 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 	}
 }
 
-func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
-	ctx := context.TODO()
+func (f *IvFuncs) get_image_data_string(image ref.Val) ref.Val {
+	ctx := f.evaluationContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, f.remoteOptions(ctx), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}

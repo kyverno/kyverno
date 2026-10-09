@@ -33,7 +33,6 @@ import (
 	"github.com/kyverno/sdk/extensions/cel/libs/user"
 	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"github.com/kyverno/sdk/extensions/regcreds"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -85,7 +84,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
+		authOpts, nameOpts = imagecredentials.RemoteOptions(lister, *spec.Credentials, config.KyvernoNamespace(), logging.GlobalLogger())
 	}
 
 	// keep required failing closed rather than reading from nil
@@ -183,7 +182,13 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		return nil, allErrs
 	}
 
+	ivFuncs, err := imageverify.ImageVerifyCELFuncs(logging.GlobalLogger(), c.ictx, ivpolicy, lister, c.ivCache, env.CELTypeAdapter(), verifications)
+	if err != nil {
+		return nil, append(allErrs, field.InternalError(nil, err))
+	}
 	return &compiledPolicy{
+		ivFuncs:              ivFuncs,
+		ivCache:              c.ivCache,
 		namespace:            ivpolicy.GetNamespace(),
 		failurePolicy:        ivpolicy.GetFailurePolicy(toggle.FromContext(context.TODO()).ForceFailurePolicyIgnore()),
 		verifyDigest:         spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest,
