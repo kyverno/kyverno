@@ -93,3 +93,17 @@ func TestSecretKeychainPreservesCancellationAndForbidden(t *testing.T) {
 		})
 	}
 }
+
+func TestSecretKeychainWithoutBackend(t *testing.T) {
+	t.Parallel()
+	resource := name.MustParseReference("192.0.2.1/image:latest").Context()
+	keychain := NewSecretsKeychain(nil, "tenant", logr.Discard())
+	authenticator, err := authn.Resolve(context.Background(), keychain, resource)
+	require.NoError(t, err)
+	require.Equal(t, authn.Anonymous, authenticator)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = authn.Resolve(ctx, NewSecretsKeychain(nil, "tenant", logr.Discard(), "registry"), resource)
+	require.ErrorIs(t, err, context.Canceled)
+}
