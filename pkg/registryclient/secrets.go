@@ -2,6 +2,7 @@ package registryclient
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -37,6 +38,9 @@ func (k *secretsKeychain) ResolveContext(ctx context.Context, resource authn.Res
 		namespace, secretName := k.defaultNamespace, strings.TrimPrefix(reference, "/")
 		if parts := strings.SplitN(secretName, "/", 2); len(parts) == 2 {
 			namespace, secretName = parts[0], parts[1]
+		}
+		if k.lister == nil {
+			return nil, errors.New("cannot resolve registry credentials: secret lister is not configured")
 		}
 		lister := k.lister.Secrets(namespace)
 		var secret *corev1.Secret

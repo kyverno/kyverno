@@ -397,7 +397,13 @@ func imageVerificationClient(lister corev1listers.SecretLister, credentials poli
 		privateAllowlist = configured.egressConfig.Allowlist
 		egressMode = configured.egressConfig.Mode
 	}
+	// Explicit policy Secrets require an available credential lookup backend.
+	var requiredSecrets authn.Keychain
+	if lister == nil && len(credentials.Secrets) != 0 {
+		requiredSecrets = NewSecretsKeychain(nil, defaultNamespace, credentials.Secrets...)
+	}
 	configured := New(
+		WithKeychain(requiredSecrets),
 		WithSecretLister(lister, defaultNamespace),
 		WithImagePullSecrets(credentials.Secrets...),
 		WithCredentialHelpers(providers...),
