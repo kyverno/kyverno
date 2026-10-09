@@ -82,7 +82,7 @@ func TestRuntimeAttestorSecretsAreScopedBeforeImageLookup(t *testing.T) {
 				images := &imageLookupRecorder{}
 				impl, err := NewIvFuncs(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
 				require.NoError(t, err)
-				impl = NewRuntimeForPolicy(impl, images, nil, NewImageVerificationResults()).functions
+				impl = NewRuntimeForPolicy(context.Background(), impl, images, nil, NewImageVerificationResults()).functions
 				attestor := signatureSecretAttestor(tc.reference)
 				original := attestor.DeepCopy()
 				attestors := types.NewDynamicList(types.DefaultTypeAdapter, []policiesv1beta1.Attestor{attestor})
