@@ -1152,3 +1152,190 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 		assert.Equal(t, len(warnings) != 0, testcase.warning, testcase.name)
 	}
 }
+
+func TestValidateGeneratePolicyRejectsDynamicScope(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name              string
+		set               func(*GeneratePattern, string)
+		staticValue       string
+		relativeReference string
+		fieldSuffix       string
+		detail            string
+	}{
+		{
+			name:              "target kind",
+			set:               func(g *GeneratePattern, value string) { g.Kind = value },
+			staticValue:       "ConfigMap",
+			relativeReference: "$(./../name)",
+			fieldSuffix:       ".kind",
+			detail:            "variables and references are not allowed in generate target kind for namespaced Policy",
+		},
+		{
+			name:              "target apiVersion",
+			set:               func(g *GeneratePattern, value string) { g.APIVersion = value },
+			staticValue:       "v1",
+			relativeReference: "$(./../name)",
+			fieldSuffix:       ".apiVersion",
+			detail:            "variables and references are not allowed in generate target apiVersion for namespaced Policy",
+		},
+		{
+			name:              "target namespace",
+			set:               func(g *GeneratePattern, value string) { g.Namespace = value },
+			staticValue:       "team-a",
+			relativeReference: "$(./../name)",
+			fieldSuffix:       ".namespace",
+			detail:            "variables and references are not allowed in generate target namespace for namespaced Policy",
+		},
+		{
+			name: "clone namespace",
+			set: func(g *GeneratePattern, value string) {
+				g.Clone = CloneFrom{Namespace: value, Name: "source-config"}
+			},
+			staticValue:       "team-a",
+			relativeReference: "$(./../../name)",
+			fieldSuffix:       ".clone.namespace",
+			detail:            "variables and references are not allowed in clone source namespace for namespaced Policy",
+		},
+		{
+			name: "cloneList kinds",
+			set: func(g *GeneratePattern, value string) {
+				g.CloneList = CloneList{Namespace: "team-a", Kinds: []string{"v1/ConfigMap", value}}
+			},
+			staticValue:       "v1/Secret",
+			relativeReference: "$(./../../../name)",
+			fieldSuffix:       ".cloneList.kinds[1]",
+			detail:            "variables and references are not allowed in cloneList kinds for namespaced Policy",
+		},
+		{
+			name: "cloneList namespace",
+			set: func(g *GeneratePattern, value string) {
+				g.CloneList = CloneList{Namespace: value, Kinds: []string{"v1/ConfigMap"}}
+			},
+			staticValue:       "team-a",
+			relativeReference: "$(./../../name)",
+			fieldSuffix:       ".cloneList.namespace",
+			detail:            "variables and references are not allowed in cloneList namespace for namespaced Policy",
+		},
+	}
+	for _, foreach := range []bool{false, true} {
+		for _, tc := range cases {
+			t.Run(fmt.Sprintf("foreach=%t/%s", foreach, tc.name), func(t *testing.T) {
+				t.Parallel()
+				path := field.NewPath("spec", "rules").Index(0).Child("generate")
+				wantPath := path
+				if foreach {
+					wantPath = path.Child("foreach").Index(0)
+				}
+				validate := func(pattern GeneratePattern) field.ErrorList {
+					generation := &Generation{GeneratePattern: pattern}
+					if foreach {
+						generation = &Generation{ForEachGeneration: []ForEachGeneration{{
+							List: "request.object.spec.containers", GeneratePattern: pattern,
+						}}}
+					}
+					rule := Rule{Name: "generate", Generation: generation}
+					_, errs := rule.ValidateGenerate(path, true, "team-a", nil)
+					return errs
+				}
+				pattern := GeneratePattern{ResourceSpec: ResourceSpec{
+					Kind: "ConfigMap", APIVersion: "v1", Namespace: "team-a",
+					Name: "{{request.object.metadata.labels.scope}}",
+				}}
+				// Validate the static counterpart first. In particular, cloneList
+				// requires both source and target namespaces to match the Policy.
+				tc.set(&pattern, tc.staticValue)
+				assert.Equal(t, len(validate(pattern)), 0, "static scope must pass")
+				for _, expression := range []struct{ name, value string }{
+					{"variable", "{{request.object.metadata.labels.scope}}"},
+					{"relative reference", tc.relativeReference},
+					{"absolute reference", "$(/name)"},
+					{"embedded reference", "prefix-$(/name)"},
+				} {
+					t.Run(expression.name, func(t *testing.T) {
+						t.Parallel()
+						subject := pattern
+						tc.set(&subject, expression.value)
+						errs := validate(subject)
+						// Namespace expressions also fail the same-namespace check;
+						// require the specific static-scope rejection in every case.
+						matched := false
+						for _, err := range errs {
+							if err.Type == field.ErrorTypeForbidden && err.Field == wantPath.String()+tc.fieldSuffix && err.Detail == tc.detail {
+								matched = true
+								break
+							}
+						}
+						assert.Assert(t, matched, "expected static-scope rejection on %s%s, got: %v", wantPath, tc.fieldSuffix, errs)
+					})
+				}
+			})
+		}
+	}
+}
+
+func TestValidateGeneratePolicyAllowsDynamicNames(t *testing.T) {
+	t.Parallel()
+	for _, foreach := range []bool{false, true} {
+		name := "{{request.object.metadata.name}}"
+		if foreach {
+			name = "{{element.name}}"
+		}
+		for _, tc := range []struct {
+			name      string
+			target    string
+			cloneName string
+		}{
+			{"static name", "generated-config", ""},
+			{"variable target name", name + "-config", ""},
+			{"reference target name", "$(./../data/metadata/name)", ""},
+			{"variable clone names", name + "-copy", name + "-source"},
+			{"reference target with variable clone name", "$(./../clone/name)-copy", name + "-source"},
+			{"reference clone with variable target name", name + "-copy", "$(./../../name)-source"},
+		} {
+			t.Run(fmt.Sprintf("foreach=%t/%s", foreach, tc.name), func(t *testing.T) {
+				t.Parallel()
+				pattern := GeneratePattern{ResourceSpec: ResourceSpec{
+					Kind: "ConfigMap", APIVersion: "v1", Namespace: "team-a", Name: tc.target,
+				}}
+				if tc.cloneName != "" {
+					pattern.Clone = CloneFrom{Namespace: "team-a", Name: tc.cloneName}
+				} else {
+					pattern.SetData(map[string]interface{}{
+						"metadata": map[string]interface{}{"name": name + "-config"},
+					})
+				}
+				generation := &Generation{GeneratePattern: pattern}
+				if foreach {
+					generation = &Generation{ForEachGeneration: []ForEachGeneration{{
+						List: "request.object.spec.containers", GeneratePattern: pattern,
+					}}}
+				}
+				rule := Rule{Name: "generate", Generation: generation}
+				path := field.NewPath("spec", "rules").Index(0).Child("generate")
+				_, errs := rule.ValidateGenerate(path, true, "team-a", nil)
+				assert.Equal(t, len(errs), 0, "dynamic names with static scope must pass: %v", errs)
+			})
+		}
+	}
+}
+
+func TestValidateGenerateClusterPolicyStructuralScopeAllowsDynamicNamespace(t *testing.T) {
+	t.Parallel()
+	// This tests structural validation only. ClusterPolicy namespaces can stay
+	// dynamic; admission authorization separately checks cluster-wide access.
+	for _, namespace := range []string{"{{request.object.metadata.namespace}}", "$(./../name)"} {
+		t.Run(namespace, func(t *testing.T) {
+			t.Parallel()
+			rule := Rule{Name: "default-pdb", Generation: &Generation{GeneratePattern: GeneratePattern{
+				ResourceSpec: ResourceSpec{
+					APIVersion: "policy/v1", Kind: "PodDisruptionBudget",
+					Name: "{{request.object.metadata.namespace}}", Namespace: namespace,
+				},
+			}}}
+			path := field.NewPath("spec", "rules").Index(0).Child("generate")
+			_, errs := rule.ValidateGenerate(path, false, "", nil)
+			assert.Equal(t, len(errs), 0, "ClusterPolicy dynamic namespace must pass structural validation: %v", errs)
+		})
+	}
+}

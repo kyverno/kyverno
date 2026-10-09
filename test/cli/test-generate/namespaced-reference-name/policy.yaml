@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: namespaced-reference-name
+  namespace: tenant
+spec:
+  rules:
+  - name: generate-configmap
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - reference-trigger
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: "$(./../data/data/target)-generated"
+      namespace: tenant
+      data:
+        data:
+          target: "{{request.object.metadata.name}}"

@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: generate-foreach-reference-kind
+  namespace: default
+spec:
+  rules:
+  - name: generate-resources
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    generate:
+      foreach:
+      - list: request.object.spec.containers
+        apiVersion: v1
+        kind: $(./../name)
+        name: '{{request.object.metadata.labels.target}}'
+        namespace: default
