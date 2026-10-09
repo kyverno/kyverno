@@ -89,6 +89,8 @@ func TestMockControllerDataTargetScope(t *testing.T) {
 	for _, test := range []struct {
 		name, apiVersion, kind string
 		data                   map[string]any
+		fixtureNamespaces      map[string]string
+		storageAPIVersion      string
 		wantError              string
 	}{
 		{
@@ -101,6 +103,34 @@ func TestMockControllerDataTargetScope(t *testing.T) {
 		},
 		{name: "cluster scoped target", apiVersion: "v1", kind: "Namespace", wantError: "must be namespaced"},
 		{name: "unknown target", apiVersion: "v1", kind: "Unknown", wantError: "target scope"},
+		{name: "unknown builtin version", apiVersion: "policy/v99", kind: "PodDisruptionBudget", wantError: "target scope"},
+		{name: "builtin in unknown group", apiVersion: "unknown.example/v1", kind: "PodDisruptionBudget", wantError: "target scope"},
+		{
+			name: "omitted builtin Event version", kind: "Event", storageAPIVersion: "v1",
+			data: map[string]any{"reason": "Generated", "message": "generated event"},
+		},
+		{
+			name: "explicit Event group", apiVersion: "events.k8s.io/v1", kind: "Event", storageAPIVersion: "events.k8s.io/v1",
+			data: map[string]any{"reason": "Generated", "note": "generated event"},
+		},
+		{
+			name: "exact version with mixed scopes", apiVersion: "alpha.example/v1", kind: "Widget",
+			data:              map[string]any{"spec": map[string]any{"value": "generated"}},
+			fixtureNamespaces: map[string]string{"alpha.example/v1": "target", "alpha.example/v2": ""},
+		},
+		{
+			name: "exact group with mixed scopes", apiVersion: "alpha.example/v1", kind: "Widget",
+			data:              map[string]any{"spec": map[string]any{"value": "generated"}},
+			fixtureNamespaces: map[string]string{"alpha.example/v1": "target", "beta.example/v1": ""},
+		},
+		{
+			name: "omitted version with mixed scopes", kind: "Widget", wantError: "must be namespaced",
+			fixtureNamespaces: map[string]string{"alpha.example/v1": "target", "alpha.example/v2": ""},
+		},
+		{
+			name: "omitted group with mixed scopes", kind: "Widget", wantError: "must be namespaced",
+			fixtureNamespaces: map[string]string{"alpha.example/v1": "target", "beta.example/v1": ""},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -123,7 +153,14 @@ func TestMockControllerDataTargetScope(t *testing.T) {
 					Generation: &kyvernov1.Generation{GeneratePattern: pattern},
 				}}},
 			}
-			controller, err := initializeMockController(io.Discard, &store.Store{}, nil, []runtime.Object{trigger})
+			objects := []runtime.Object{trigger}
+			for apiVersion, namespace := range test.fixtureNamespaces {
+				objects = append(objects, &unstructured.Unstructured{Object: map[string]any{
+					"apiVersion": apiVersion, "kind": test.kind,
+					"metadata": map[string]any{"name": "fixture", "namespace": namespace},
+				}})
+			}
+			controller, err := initializeMockController(io.Discard, &store.Store{}, nil, objects)
 			require.NoError(t, err)
 			cfg := config.NewDefaultConfiguration(false)
 			policyContext, err := engine.NewPolicyContext(jmespath.New(cfg), *trigger, kyvernov1.Create, nil, cfg)
@@ -142,6 +179,14 @@ func TestMockControllerDataTargetScope(t *testing.T) {
 			require.Equal(t, test.kind, resources[0].GetKind())
 			require.Equal(t, "target", resources[0].GetNamespace())
 			require.Equal(t, "generated", resources[0].GetName())
+			if test.storageAPIVersion != "" {
+				spec := generated["data-target"][0]
+				spec.APIVersion = test.storageAPIVersion
+				stored, err := controller.GetUnstrResources([]kyvernov1.ResourceSpec{spec})
+				require.NoError(t, err)
+				require.Len(t, stored, 1, "generation must use the preferred API resource")
+				require.Equal(t, "generated", stored[0].GetName())
+			}
 		})
 	}
 }
