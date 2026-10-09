@@ -759,7 +759,7 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 		isNamespaced := kpol.IsNamespaced()
 		policyNs := kpol.GetNamespace()
 		for _, rule := range kpol.GetSpec().Rules {
-			if len(rule.Mutation.Targets) == 0 {
+			if rule.Mutation == nil || len(rule.Mutation.Targets) == 0 {
 				continue
 			}
 			for _, t := range rule.Mutation.Targets {
@@ -775,7 +775,8 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 	}
 	if mpol := pol.AsMutatingPolicyLike(); mpol != nil {
 		tc := mpol.GetTargetMatchConstraints()
-		if tc.Expression != "" || len(tc.ResourceRules) != 0 {
+		mc := mpol.GetMatchConstraints()
+		if tc.Expression != "" || len(tc.ResourceRules) != 0 || len(mc.ResourceRules) != 0 {
 			if response.Resource.GetAPIVersion() == targetResource.GetAPIVersion() &&
 				response.Resource.GetKind() == targetResource.GetKind() &&
 				response.Resource.GetName() == targetResource.GetName() &&

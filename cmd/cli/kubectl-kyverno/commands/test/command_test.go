@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
@@ -23,6 +24,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -1759,4 +1761,76 @@ func TestExtractPatchedTargetFromEngineResponse(t *testing.T) {
 	require.NotNil(t, matchedRule)
 	assert.Equal(t, "pod-2", r2.GetName())
 	assert.Equal(t, "rule-2", matchedRule.Name())
+}
+
+func TestPrintCheckResult_RejectsEmptyCheck(t *testing.T) {
+	checks := []v1alpha1.CheckResult{
+		{},
+	}
+	responses := TestResponse{}
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	err := printCheckResult(checks, responses, rc, &resultsTable)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "a check must contain at least an 'assert' or an 'error' assertion")
+}
+
+func TestResponseTargetsResource_GuardsNilMutation(t *testing.T) {
+	target := &unstructured.Unstructured{}
+	target.SetAPIVersion("v1")
+	target.SetKind("ConfigMap")
+	target.SetName("test-cm")
+	target.SetNamespace("default")
+
+	kpol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "validate-cm",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "validate-rule",
+				},
+			},
+		},
+	})
+
+	resp := engineapi.NewEngineResponse(*target, kpol, nil)
+	assert.NotPanics(t, func() {
+		matched := responseTargetsResource(target, resp)
+		assert.False(t, matched)
+	})
+}
+
+func TestResponseTargetsResource_MutatingPolicyFallbackToMatchConstraints(t *testing.T) {
+	target := &unstructured.Unstructured{}
+	target.SetAPIVersion("v1")
+	target.SetKind("ConfigMap")
+	target.SetName("test-cm")
+	target.SetNamespace("default")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-cm",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	resp := engineapi.NewEngineResponse(*target, engineapi.NewMutatingPolicy(mpol), nil)
+	matched := responseTargetsResource(target, resp)
+	assert.True(t, matched)
 }

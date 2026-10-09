@@ -1,11 +1,4 @@
 apiVersion: cli.kyverno.io/v1alpha1
-kind: Test
-metadata:
-  name: check-team-label-test-checks-only
-policies:
-- policy.yaml
-resources:
-- resource.yaml
 checks:
 - assert:
     message: The label `team` is required.
@@ -40,3 +33,10 @@ checks:
         labels:
           team: platform
         name: with-team-label
+kind: Test
+metadata:
+  name: check-team-label-test-checks-only
+policies:
+- policy.yaml
+resources:
+- resource.yaml
