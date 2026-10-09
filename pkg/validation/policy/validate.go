@@ -1483,12 +1483,24 @@ func validateGlobalReference(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-// Validate static credential references at admission while allowing secret-name
-// variables, which are resolved and scoped again before runtime secret lookup.
+// Validate static credential references at admission while allowing variables,
+// which are resolved and scoped again before runtime secret lookup.
 func validateImageRegistryCredentialScope(secrets []string, policyNamespace string) error {
 	resolved := make([]string, len(secrets))
 	for i, secret := range secrets {
 		resolved[i] = variables.ReplaceAllVars(secret, func(string) string { return "kyverno-secret" })
+		namespace, name, qualified := strings.Cut(strings.TrimPrefix(resolved[i], "/"), "/")
+		if qualified {
+			// Compare after removing expressions, so slashes inside a JMESPath
+			// expression cannot be mistaken for the namespace/name separator.
+			withoutVariables := variables.ReplaceAllVars(strings.TrimPrefix(secret, "/"), func(string) string { return "" })
+			staticNamespace, _, _ := strings.Cut(withoutVariables, "/")
+			if namespace != staticNamespace {
+				// A templated namespace is unknown until evaluation. Validate
+				// the name now; runtime must confine the resolved namespace.
+				resolved[i] = policyNamespace + "/" + name
+			}
+		}
 	}
 	_, err := kubeutils.ScopeSecretReferences(resolved, policyNamespace)
 	return err

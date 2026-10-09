@@ -33,9 +33,9 @@ func RegistryClientForPolicy(ctx context.Context, factory RegistryClientFactory,
 
 type Initializer = func(jsonContext enginecontext.Interface) error
 
-// PolicyScope is the only part of a policy a ContextLoader needs: its identity and whether
-// it is namespace-scoped. Both kyvernov1.PolicyInterface and kyvernov2.CleanupPolicyInterface
-// satisfy it, so no caller has to pass nil and silently lose the namespace clamp.
+// PolicyScope is the only part of a policy a ContextLoader needs: its identity and
+// whether its context lookups are namespace-scoped. Callers must supply an explicit
+// scope appropriate to their policy semantics; nil scopes are rejected.
 type PolicyScope interface {
 	metav1.Object
 	IsNamespaced() bool
