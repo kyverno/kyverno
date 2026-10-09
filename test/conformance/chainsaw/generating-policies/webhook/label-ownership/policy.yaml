@@ -10,6 +10,9 @@ spec:
     namespaceSelector:
       matchLabels:
         kubernetes.io/metadata.name: gpol-label-ownership
+    objectSelector:
+      matchLabels:
+        example.com/generate-trigger: "true"
     resourceRules:
     - apiGroups: [""]
       apiVersions: ["v1"]
@@ -20,12 +23,12 @@ spec:
     expression: >-
       {
         "apiVersion": dyn("v1"),
-        "kind": dyn("ConfigMap"),
+        "kind": dyn("Secret"),
         "metadata": dyn({"name": "generated"}),
-        "data": dyn({"value": "original"})
+        "data": dyn({"value": "b3JpZ2luYWw="})
       }
   generate:
   - expression: >-
       object.metadata.name == "trigger"
-        ? generator.Apply(object.metadata.namespace, [variables.downstream])
+        ? generator.Apply("gpol-label-ownership-target", [variables.downstream])
         : true
