@@ -234,7 +234,12 @@ func (h validateImageHandler) validateImage(
 		return engineapi.RuleStatusError, fmt.Errorf("no registry client configured to verify %s", image)
 	}
 
-	rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials, resourceNamespace, imagePullSecrets)
+	credentials, err := handlers.ScopeImageRegistryCredentials(policyContext.Policy(), imageVerify.ImageRegistryCredentials)
+	if err != nil {
+		return engineapi.RuleStatusError, fmt.Errorf("invalid registry credential scope: %w", err)
+	}
+	policyNamespace, _ := engineapi.PolicyNamespace(policyContext.Policy())
+	rclient, err := engineapi.RegistryClientForPolicy(ctx, h.rclientFactory, credentials, resourceNamespace, imagePullSecrets, policyNamespace)
 	if err != nil {
 		return engineapi.RuleStatusError, fmt.Errorf("failed to fetch registry credentials for %s: %w", image, err)
 	}
