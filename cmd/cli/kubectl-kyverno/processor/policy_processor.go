@@ -111,7 +111,10 @@ type PolicyProcessor struct {
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
-	Explain                   bool
+	// Explain compiles validating and mutating policies with tracing on and prints, for each
+	// policy, how it arrived at its result (scope, match conditions, variables, the validations
+	// or mutations it ran, and verdict).
+	Explain bool
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
