@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generating-policy-label-ownership
+spec:
+  concurrent: false
+  steps:
+  - name: prepare-namespace-and-permissions
+    try:
+    - apply:
+        file: setup.yaml
+  - name: create-generating-policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-for-generating-policy
+    use:
+      template: ../../../_step-templates/generating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: gpol-label-ownership
+  - name: generate-a-downstream
+    try:
+    - create:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: trigger
+            namespace: gpol-label-ownership
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: generated
+            namespace: gpol-label-ownership
+            labels:
+              app.kubernetes.io/managed-by: kyverno
+              generate.kyverno.io/policy-name: gpol-label-ownership
+              generate.kyverno.io/trigger-name: trigger
+              generate.kyverno.io/trigger-namespace: gpol-label-ownership
+              generate.kyverno.io/trigger-kind: ConfigMap
+              generate.kyverno.io/trigger-version: v1
+          data:
+            value: original
+  - name: check-user-label-edits
+    try:
+    - script:
+        content: bash verify-labels.sh
