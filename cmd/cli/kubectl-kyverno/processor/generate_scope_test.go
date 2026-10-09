@@ -32,7 +32,7 @@ func TestMockControllerCloneListResourceScope(t *testing.T) {
 		{name: "namespaced fixture omits namespace", kind: "Secret", fixture: true},
 		{name: "cluster scoped kind", kind: "Namespace", wantError: "must be namespaced"},
 		{name: "cluster scoped fixture has namespace", kind: "Namespace", fixture: true, fixtureNamespace: "target", wantError: "must be namespaced"},
-		{name: "unknown kind", kind: "Unknown", wantError: "source scope"},
+		{name: "unknown kind", kind: "Unknown", wantError: "target scope"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -80,6 +80,68 @@ func TestMockControllerCloneListResourceScope(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, generated, "clone-list", "the empty list must still execute the rule")
 			require.Empty(t, generated["clone-list"])
+		})
+	}
+}
+
+func TestMockControllerDataTargetScope(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name, apiVersion, kind string
+		data                   map[string]any
+		wantError              string
+	}{
+		{
+			name: "builtin target without fixture", apiVersion: "policy/v1", kind: "PodDisruptionBudget",
+			data: map[string]any{"spec": map[string]any{"maxUnavailable": 1, "selector": map[string]any{"matchLabels": map[string]any{"app": "test"}}}},
+		},
+		{
+			name: "irregular plural without fixture", apiVersion: "networking.k8s.io/v1", kind: "NetworkPolicy",
+			data: map[string]any{"spec": map[string]any{"podSelector": map[string]any{}, "policyTypes": []any{"Ingress"}}},
+		},
+		{name: "cluster scoped target", apiVersion: "v1", kind: "Namespace", wantError: "must be namespaced"},
+		{name: "unknown target", apiVersion: "v1", kind: "Unknown", wantError: "target scope"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			trigger := &unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "v1", "kind": "ConfigMap",
+				"metadata": map[string]any{"name": "trigger", "namespace": "target"},
+			}}
+			pattern := kyvernov1.GeneratePattern{ResourceSpec: kyvernov1.ResourceSpec{
+				APIVersion: test.apiVersion, Kind: test.kind, Namespace: "target", Name: "generated",
+			}}
+			pattern.SetData(test.data)
+			policy := &kyvernov1.Policy{
+				TypeMeta:   metav1.TypeMeta{APIVersion: "kyverno.io/v1", Kind: "Policy"},
+				ObjectMeta: metav1.ObjectMeta{Name: "data-target", Namespace: "target"},
+				Spec: kyvernov1.Spec{Rules: []kyvernov1.Rule{{
+					Name: "data-target",
+					MatchResources: kyvernov1.MatchResources{Any: kyvernov1.ResourceFilters{{
+						ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"ConfigMap"}},
+					}}},
+					Generation: &kyvernov1.Generation{GeneratePattern: pattern},
+				}}},
+			}
+			controller, err := initializeMockController(io.Discard, &store.Store{}, nil, []runtime.Object{trigger})
+			require.NoError(t, err)
+			cfg := config.NewDefaultConfiguration(false)
+			policyContext, err := engine.NewPolicyContext(jmespath.New(cfg), *trigger, kyvernov1.Create, nil, cfg)
+			require.NoError(t, err)
+			generated, err := controller.ApplyGeneratePolicy(logr.Discard(), policyContext.WithPolicy(policy), []string{"data-target"})
+			if test.wantError != "" {
+				require.ErrorContains(t, err, test.wantError)
+				return
+			}
+			require.NoError(t, err)
+			require.Len(t, generated["data-target"], 1)
+			resources, err := controller.GetUnstrResources(generated["data-target"])
+			require.NoError(t, err)
+			require.Len(t, resources, 1)
+			require.Equal(t, test.apiVersion, resources[0].GetAPIVersion())
+			require.Equal(t, test.kind, resources[0].GetKind())
+			require.Equal(t, "target", resources[0].GetNamespace())
+			require.Equal(t, "generated", resources[0].GetName())
 		})
 	}
 }

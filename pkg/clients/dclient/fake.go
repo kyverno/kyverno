@@ -178,12 +178,16 @@ func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema
 func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
 	r := strings.ToLower(kind) + "s"
 	for _, resource := range c.registeredResources {
-		if resource.Resource == r {
+		matchesKind := resource.Resource == r
+		if gvk, mapped := c.gvrToGVK[resource]; mapped {
+			matchesKind = gvk.Kind == kind
+		}
+		if matchesKind {
 			return map[TopLevelApiDescription]metav1.APIResource{
 				{
 					GroupVersion: schema.GroupVersion{Group: resource.Group, Version: resource.Version},
 					Kind:         kind,
-					Resource:     r,
+					Resource:     resource.Resource,
 					SubResource:  subresource,
 				}: {Namespaced: c.resourceScopes[resource]},
 			}, nil
