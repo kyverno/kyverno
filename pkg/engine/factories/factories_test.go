@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -239,13 +238,12 @@ func TestContextLoaderRejectsUnknownPolicyScope(t *testing.T) {
 	t.Parallel()
 	for _, test := range []struct {
 		name   string
-		policy engineapi.PolicyScope
+		policy kyvernov1.PolicyInterface
 		want   string
 	}{
 		{name: "nil policy", want: "policy scope must not be nil"},
 		{name: "typed nil policy", policy: (*kyvernov1.Policy)(nil), want: "policy scope must not be nil"},
 		{name: "empty Policy namespace", policy: &kyvernov1.Policy{}, want: "policy namespace must not be empty"},
-		{name: "empty CleanupPolicy namespace", policy: &kyvernov2.CleanupPolicy{}, want: "policy namespace must not be empty"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()

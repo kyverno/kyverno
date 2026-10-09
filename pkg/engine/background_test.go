@@ -18,7 +18,7 @@ func TestApplyBackgroundChecks_ContextPropagation(t *testing.T) {
 	var got context.Context
 	cfg := config.NewDefaultConfiguration(false)
 	e := NewEngine(cfg, jmespath.New(cfg), nil, nil, imageverifycache.DisabledImageVerifyCache(),
-		func(engineapi.PolicyScope, kyverno.Rule) engineapi.ContextLoader {
+		func(kyverno.PolicyInterface, kyverno.Rule) engineapi.ContextLoader {
 			return loaderFunc(func(ctx context.Context) error { got = ctx; return nil })
 		}, nil, nil)
 

@@ -61,7 +61,7 @@ func PolicyNamespace(policy PolicyScope) (string, error) {
 }
 
 // ContextLoaderFactory provides a ContextLoader given a policy context and rule name
-type ContextLoaderFactory = func(policy PolicyScope, rule kyvernov1.Rule) ContextLoader
+type ContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) ContextLoader
 
 // ContextLoader abstracts the mechanics to load context entries in the underlying json context
 type ContextLoader interface {

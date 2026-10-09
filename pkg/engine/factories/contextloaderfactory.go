@@ -18,7 +18,7 @@ import (
 type ContextLoaderFactoryOptions func(*contextLoader)
 
 func DefaultContextLoaderFactory(cmResolver engineapi.ConfigmapResolver, opts ...ContextLoaderFactoryOptions) engineapi.ContextLoaderFactory {
-	return func(policy engineapi.PolicyScope, _ kyvernov1.Rule) engineapi.ContextLoader {
+	return func(policy kyvernov1.PolicyInterface, _ kyvernov1.Rule) engineapi.ContextLoader {
 		policyNamespace, scopeErr := engineapi.PolicyNamespace(policy)
 		cl := &contextLoader{
 			logger:          logging.WithName("DefaultContextLoaderFactory"),

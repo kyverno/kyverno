@@ -24,7 +24,7 @@ func ContextLoaderFactory(s *Store, cmResolver engineapi.ConfigmapResolver) engi
 		}
 		return factories.DefaultContextLoaderFactory(cmResolver, opts...)
 	}
-	return func(policy engineapi.PolicyScope, rule kyvernov1.Rule) engineapi.ContextLoader {
+	return func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) engineapi.ContextLoader {
 		init := func(jsonContext enginecontext.Interface) error {
 			rule := s.GetPolicyRule(policy.GetName(), rule.Name)
 			if rule != nil && len(rule.Values) > 0 {
