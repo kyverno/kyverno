@@ -1,0 +1,31 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: gpol-label-ownership
+spec:
+  evaluation:
+    synchronize:
+      enabled: false
+  matchConstraints:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: gpol-label-ownership
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["configmaps"]
+  variables:
+  - name: downstream
+    expression: >-
+      {
+        "apiVersion": dyn("v1"),
+        "kind": dyn("ConfigMap"),
+        "metadata": dyn({"name": "generated"}),
+        "data": dyn({"value": "original"})
+      }
+  generate:
+  - expression: >-
+      object.metadata.name == "trigger"
+        ? generator.Apply(object.metadata.namespace, [variables.downstream])
+        : true
