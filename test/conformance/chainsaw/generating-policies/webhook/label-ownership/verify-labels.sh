@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-namespace=gpol-label-ownership
-user="system:serviceaccount:${namespace}:label-editor"
+trigger_namespace=gpol-label-ownership
+namespace=gpol-label-ownership-target
+user="system:serviceaccount:${trigger_namespace}:label-editor"
 
 as_user() {
   kubectl --as="$user" --namespace="$namespace" "$@"
@@ -21,24 +22,25 @@ expect_denied() {
 }
 
 # The controller stamps the identity of the actual trigger on its downstream.
-trigger_uid=$(as_user get configmap trigger -o jsonpath='{.metadata.uid}')
-downstream_trigger_uid=$(as_user get configmap generated -o go-template='{{ index .metadata.labels "generate.kyverno.io/trigger-uid" }}')
+trigger_uid=$(kubectl --as="$user" --namespace="$trigger_namespace" get configmap trigger -o jsonpath='{.metadata.uid}')
+downstream_trigger_uid=$(as_user get secret generated -o go-template='{{ index .metadata.labels "generate.kyverno.io/trigger-uid" }}')
 [[ -n "$trigger_uid" && "$downstream_trigger_uid" == "$trigger_uid" ]]
 
-# The editor has ordinary ConfigMap write permissions, including CREATE.
-as_user create configmap ordinary --from-literal=value=original
+# The target is outside the trigger kind, namespace and object selector.
+# The editor has ordinary Secret write permissions, including CREATE.
+as_user create secret generic ordinary --from-literal=value=original
 expect_denied create -f reserved-create.yaml
-expect_denied label configmap ordinary generate.kyverno.io/policy-name=gpol-label-ownership
-expect_denied label configmap generated generate.kyverno.io/policy-name=changed --overwrite
-expect_denied label configmap generated generate.kyverno.io/policy-name-
-expect_denied label configmap generated app.kubernetes.io/managed-by=another-controller --overwrite
+expect_denied label secret ordinary generate.kyverno.io/policy-name=gpol-label-ownership
+expect_denied label secret generated generate.kyverno.io/policy-name=changed --overwrite
+expect_denied label secret generated generate.kyverno.io/policy-name-
+expect_denied label secret generated app.kubernetes.io/managed-by=another-controller --overwrite
 
 # Retaining routing metadata allows users to edit a non-synchronized downstream.
-as_user patch configmap generated --type=merge \
-  -p '{"metadata":{"labels":{"example.com/user":"edited"}},"data":{"value":"edited"}}'
-[[ "$(as_user get configmap generated -o jsonpath='{.data.value}')" == edited ]]
-[[ "$(as_user get configmap generated -o go-template='{{ index .metadata.labels "generate.kyverno.io/policy-name" }}')" == gpol-label-ownership ]]
-[[ "$(as_user get configmap generated -o go-template='{{ index .metadata.labels "example.com/user" }}')" == edited ]]
+as_user patch secret generated --type=merge \
+  -p '{"metadata":{"labels":{"example.com/user":"edited"}},"data":{"value":"ZWRpdGVk"}}'
+[[ "$(as_user get secret generated -o jsonpath='{.data.value}')" == ZWRpdGVk ]]
+[[ "$(as_user get secret generated -o go-template='{{ index .metadata.labels "generate.kyverno.io/policy-name" }}')" == gpol-label-ownership ]]
+[[ "$(as_user get secret generated -o go-template='{{ index .metadata.labels "example.com/user" }}')" == edited ]]
 
 # Clone-source markers and standalone managed-by labels remain user-editable.
 as_user create -f user-owned.yaml

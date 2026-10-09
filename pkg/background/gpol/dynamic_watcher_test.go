@@ -1817,8 +1817,15 @@ func (c *downstreamListClient) ListResource(context.Context, string, string, str
 func TestHandleSourceEvent_RequiresRegisteredDownstreamUID(t *testing.T) {
 	t.Parallel()
 	for _, operation := range []string{"update", "delete"} {
-		for _, registered := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/registered=%t", operation, registered), func(t *testing.T) {
+		for _, tt := range []struct {
+			name      string
+			cachedUID types.UID
+		}{
+			{name: "absent"},
+			{name: "replacement", cachedUID: "old-downstream-uid"},
+			{name: "registered", cachedUID: "downstream-uid"},
+		} {
+			t.Run(fmt.Sprintf("%s/%s", operation, tt.name), func(t *testing.T) {
 				t.Parallel()
 				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
 				source := makeUnstructured("1", "", "v1", "ConfigMap", "source", "tenant", "source-uid", nil)
@@ -1830,12 +1837,14 @@ func TestHandleSourceEvent_RequiresRegisteredDownstreamUID(t *testing.T) {
 				})
 				client := &downstreamListClient{downstream: *downstream}
 				metadataCache := map[types.UID]Resource{}
-				if registered {
-					metadataCache[downstream.GetUID()] = Resource{
-						Name:      downstream.GetName(),
-						Namespace: downstream.GetNamespace(),
-						Labels:    downstream.GetLabels(),
-						Data:      downstream,
+				if tt.cachedUID != "" {
+					cached := downstream.DeepCopy()
+					cached.SetUID(tt.cachedUID)
+					metadataCache[tt.cachedUID] = Resource{
+						Name:      cached.GetName(),
+						Namespace: cached.GetNamespace(),
+						Labels:    cached.GetLabels(),
+						Data:      cached,
 					}
 				}
 				wm := &WatchManager{
@@ -1852,12 +1861,12 @@ func TestHandleSourceEvent_RequiresRegisteredDownstreamUID(t *testing.T) {
 					wm.handleDelete(source, gvr)
 				}
 
-				if registered && operation == "update" {
+				if tt.cachedUID == downstream.GetUID() && operation == "update" {
 					assert.Len(t, client.updated, 1)
 				} else {
 					assert.Empty(t, client.updated)
 				}
-				if registered && operation == "delete" {
+				if tt.cachedUID == downstream.GetUID() && operation == "delete" {
 					assert.Len(t, client.deleted, 1)
 				} else {
 					assert.Empty(t, client.deleted)

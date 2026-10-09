@@ -41,5 +41,34 @@ metadata:
     rbac.kyverno.io/aggregate-to-background-controller: "true"
 rules:
 - apiGroups: [""]
-  resources: ["configmaps"]
+  resources: ["configmaps", "secrets"]
   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: gpol-label-ownership-target
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: label-editor
+  namespace: gpol-label-ownership-target
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: label-editor
+  namespace: gpol-label-ownership-target
+subjects:
+- kind: ServiceAccount
+  name: label-editor
+  namespace: gpol-label-ownership
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: label-editor
