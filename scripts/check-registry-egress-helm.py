@@ -53,13 +53,12 @@ def main():
     cases = [("audit defaults", {}, {})]
     config = {"privateRegistryEgressMode": "enforce",
               "privateRegistryAllowlist": ALLOWLIST}
-    enforced = {role: config for role in CONTROLLERS if role != "cleanup-controller"}
+    enforced = {role: config for role in CONTROLLERS}
     cases.append(("enforce globally", {"features": {"registryClient": config}}, enforced))
     for role, (_, section) in CONTROLLERS.items():
-        if role != "cleanup-controller":
-            cases.append((f"{role} override",
-                          {section: {"featuresOverride": {"registryClient": config}}},
-                          {role: config}))
+        cases.append((f"{role} override",
+                      {section: {"featuresOverride": {"registryClient": config}}},
+                      {role: config}))
 
     for name, values, expected in cases:
         result = render(values)
@@ -78,13 +77,17 @@ def main():
             rendered_args = controller["args"]
             egress_args = [arg for arg in rendered_args if arg.startswith("--privateRegistry")]
             expected_args = []
-            if role != "cleanup-controller":
-                settings = expected.get(role, {})
-                mode = settings.get("privateRegistryEgressMode", "audit")
-                expected_args.append("--privateRegistryEgressMode=" + mode)
-                if settings.get("privateRegistryAllowlist"):
-                    allowed = ",".join(settings["privateRegistryAllowlist"])
-                    expected_args.append("--privateRegistryAllowlist=" + allowed)
+            settings = expected.get(role, {})
+            mode = settings.get("privateRegistryEgressMode", "audit")
+            expected_args.append("--privateRegistryEgressMode=" + mode)
+            if settings.get("privateRegistryAllowlist"):
+                allowed = ",".join(settings["privateRegistryAllowlist"])
+                expected_args.append("--privateRegistryAllowlist=" + allowed)
+            if role == "cleanup-controller":
+                credential_flags = ("--allowInsecureRegistry=", "--registryCredentialHelpers=",
+                                    "--imagePullSecrets=")
+                check(not any(arg.startswith(credential_flags) for arg in rendered_args),
+                      f"{name}: cleanup must not enable registry credentials")
             check(sorted(egress_args) == sorted(expected_args),
                   f"{name}: unexpected {role} registry flags: {egress_args}")
             parsed = subprocess.run([str(binaries[role]), *rendered_args, "--help"],
@@ -96,8 +99,7 @@ def main():
         print(f"PASS: {name}: all four controller parsers accept their rendered arguments")
 
     scopes = [("global", "features")]
-    scopes += [(role, section) for role, (_, section) in CONTROLLERS.items()
-               if role != "cleanup-controller"]
+    scopes += [(role, section) for role, (_, section) in CONTROLLERS.items()]
     for name, section in scopes:
         for invalid in ([""], ["  "], ["registry.corp.example", ""], [42], [None]):
             registry = {"registryClient": {"privateRegistryAllowlist": invalid}}

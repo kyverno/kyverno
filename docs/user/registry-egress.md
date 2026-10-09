@@ -77,10 +77,11 @@ automatically permit them.
    signature verification services that your policies require.
 4. Enable enforce mode and repeat those operations before completing the rollout.
 
-The setting is passed to admission, background, and reports controllers. These
-controllers support `featuresOverride.registryClient` to change it for one
+The setting is passed to admission, background, reports, and cleanup controllers.
+These controllers support `featuresOverride.registryClient` to change it for one
 controller. Keep these settings consistent unless a difference is intentional.
-Cleanup receives neither registry egress flag.
+Cleanup applies the egress mode and allowlist to DeletingPolicy image lookups;
+it does not enable registry credential helpers or image-pull Secret informers.
 
 ## HTTP and HTTPS proxies
 
@@ -107,11 +108,10 @@ helm template kyverno charts/kyverno --namespace kyverno --kube-version 1.32.0 \
   -f docs/user/registry-egress/enforce-values.yaml
 ```
 
-The admission, background, and reports deployments should include
-`--privateRegistryEgressMode=enforce` and the same `--privateRegistryAllowlist`
-values. Rendering without this values file should produce
-`--privateRegistryEgressMode=audit` on those three controllers. The cleanup
-deployment should contain neither flag.
+All four controller deployments should include `--privateRegistryEgressMode=enforce`
+and the same `--privateRegistryAllowlist` values. Rendering without this values
+file should produce `--privateRegistryEgressMode=audit` on all four controllers.
+Cleanup does not receive the registry credential-helper or insecure-registry flags.
 
 Use `privateRegistryAllowlist: []` when no entries are needed. Helm rejects empty
 strings (including whitespace-only entries) before serializing the list to a
