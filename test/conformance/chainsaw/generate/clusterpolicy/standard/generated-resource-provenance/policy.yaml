@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generated-resource-provenance
+spec:
+  rules:
+  - name: sync-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          selector:
+            matchLabels:
+              test.kyverno.io/generated-resource-provenance: "true"
+    generate:
+      apiVersion: v1
+      kind: Secret
+      name: synchronized
+      namespace: "{{ request.object.metadata.name }}"
+      synchronize: true
+      clone:
+        namespace: generated-resource-provenance-source
+        name: source

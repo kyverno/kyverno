@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generated-resource-provenance
+spec:
+  concurrent: false
+  timeouts:
+    exec: 30s
+    assert: 1m
+  steps:
+  - name: plant generated metadata before installing the sync policy
+    try:
+    - apply:
+        file: permissions.yaml
+    - apply:
+        file: setup.yaml
+    - script:
+        content: bash prepare-existing-targets.sh
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: generated-resource-provenance
+  - name: reject user-provided provenance on create
+    try:
+    - create:
+        file: stamp-create.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains(to_string($error), 'Kyverno generate provenance can only be set by Kyverno')): true
+  - name: reject user-provided provenance on update
+    try:
+    - apply:
+        file: stamp-update.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains(to_string($error), 'Kyverno generate provenance can only be set by Kyverno')): true
+  - name: ignore unchanged labels on a planted downstream update
+    try:
+    - script:
+        content: bash verify-no-generation.sh update
+    - assert:
+        file: planted-update-assert.yaml
+  - name: ignore a planted downstream deletion
+    try:
+    - script:
+        content: bash verify-no-generation.sh delete
+    - error:
+        file: planted-delete.yaml
+  - name: ignore forged downstream candidates when a clone source changes
+    try:
+    - script:
+        content: bash verify-no-generation.sh source
+    - assert:
+        file: planted-source-assert.yaml
+  - name: allow replacing and restoring a user owned clone source
+    try:
+    - script:
+        content: bash verify-no-generation.sh restore-source
+    - assert:
+        file: source-restored.yaml
+  - name: allow the standalone managed by label
+    try:
+    - create:
+        file: managed-by.yaml
+    - command:
+        entrypoint: kubectl
+        args:
+        - annotate
+        - secret
+        - ordinary-managed-by
+        - -n
+        - generated-resource-provenance-tenant
+        - user-edit=allowed
+    - delete:
+        file: managed-by.yaml
+  - name: verify no unintended target was generated
+    try:
+    - error:
+        file: target.yaml
+  - name: generate an authenticated downstream for a new trigger
+    try:
+    - apply:
+        file: genuine-trigger.yaml
+    - assert:
+        file: genuine-target.yaml
+  - name: reject copied provenance on another object
+    try:
+    - script:
+        content: bash verify-no-generation.sh copied-provenance
+    - assert:
+        file: planted-update-assert.yaml
+  - name: synchronize an ordinary edit of a genuine downstream
+    try:
+    - command:
+        entrypoint: kubectl
+        args:
+        - patch
+        - secret
+        - synchronized
+        - -n
+        - generated-resource-provenance-genuine
+        - --type=merge
+        - '-p={"data":{"value":"ZWRpdGVk"}}'
+    - assert:
+        file: genuine-target.yaml
+  - name: recreate a deleted genuine downstream
+    try:
+    - delete:
+        file: genuine-target.yaml
+    - assert:
+        file: genuine-target.yaml

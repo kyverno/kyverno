@@ -25,6 +25,7 @@ const generateLabelPrefix = "generate.kyverno.io/"
 var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
 
 func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
+	inner = inner.withGenerateProvenanceProtection()
 	if !enabled {
 		return inner
 	}

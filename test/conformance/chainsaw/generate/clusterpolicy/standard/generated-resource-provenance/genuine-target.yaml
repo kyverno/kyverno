@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: synchronized
+  namespace: generated-resource-provenance-genuine
+  annotations:
+    (starts_with("generate.kyverno.io/provenance" || '', 'v1:')): true
+data:
+  value: c291cmNl

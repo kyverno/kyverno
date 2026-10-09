@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ordinary-managed-by
+  namespace: generated-resource-provenance-tenant
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+data:
+  value: dXNlci1vd25lZA==

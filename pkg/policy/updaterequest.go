@@ -4,6 +4,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,9 @@ func newGenerateUR(policy engineapi.GenericPolicy) *kyvernov2.UpdateRequest {
 	ur := newUrMeta()
 	if kpol := policy.AsKyvernoPolicy(); kpol != nil {
 		ur.Labels = common.GenerateLabelsSet(policyKey(kpol))
+		if uid := kpol.GetUID(); uid != "" {
+			ur.Annotations = map[string]string{provenance.PolicyUIDAnnotation: string(uid)}
+		}
 		ur.Spec = kyvernov2.UpdateRequestSpec{
 			Type:   kyvernov2.Generate,
 			Policy: policyKey(kpol),
