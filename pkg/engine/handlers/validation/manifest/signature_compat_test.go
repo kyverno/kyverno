@@ -162,6 +162,7 @@ func TestManifestBundleRequiresCertificateTrustAndIdentity(t *testing.T) {
 type manifestBundleFixture struct {
 	message        []byte
 	sig            []byte
+	leafKey        *ecdsa.PrivateKey
 	certPEM        []byte
 	rootPEM        []byte
 	roots          *x509.CertPool
@@ -171,6 +172,11 @@ type manifestBundleFixture struct {
 }
 
 func newManifestBundleFixture(t *testing.T, expired bool) *manifestBundleFixture {
+	t.Helper()
+	return newManifestBundleFixtureWithSigner(t, expired, manifestBundleSigner)
+}
+
+func newManifestBundleFixtureWithSigner(t *testing.T, expired bool, signer string) *manifestBundleFixture {
 	t.Helper()
 	newKey := func() *ecdsa.PrivateKey {
 		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -193,7 +199,7 @@ func newManifestBundleFixture(t *testing.T, expired bool) *manifestBundleFixture
 		integratedTime = now.Add(-48 * time.Hour)
 	}
 	leafTemplate := &x509.Certificate{
-		SerialNumber: big.NewInt(2), EmailAddresses: []string{manifestBundleSigner},
+		SerialNumber: big.NewInt(2), EmailAddresses: []string{signer},
 		NotBefore: integratedTime.Add(-time.Hour), NotAfter: integratedTime.Add(time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 		ExtraExtensions: []pkix.Extension{{Id: asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 57264, 1, 1}, Value: []byte(manifestBundleIssuer)}},
@@ -209,7 +215,7 @@ func newManifestBundleFixture(t *testing.T, expired bool) *manifestBundleFixture
 	roots := x509.NewCertPool()
 	roots.AddCert(rootCert)
 	return &manifestBundleFixture{
-		message: message, sig: sig, roots: roots, rekorKey: rekorKey, integratedTime: integratedTime,
+		message: message, sig: sig, leafKey: leafKey, roots: roots, rekorKey: rekorKey, integratedTime: integratedTime,
 		certPEM:  pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leafDER}),
 		rootPEM:  pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootDER}),
 		rekorPEM: pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: rekorDER}),

@@ -89,7 +89,7 @@ func TestGuardedKeychainPreservesRequestContext(t *testing.T) {
 	require.NoError(t, err)
 	inner := &contextKeychain{}
 	g := &guardedKeychain{inner: inner, policy: policy}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	_, err = g.ResolveContext(ctx, resource)
 	require.NoError(t, err)

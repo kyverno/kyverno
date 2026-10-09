@@ -105,6 +105,10 @@ func verifyImage(ctx context.Context, image, key string, vo *k8smanifest.VerifyR
 	}
 	co.RegistryClientOpts = []ociremote.Option{ociremote.WithRemoteOptions(opts...), ociremote.WithNameOptions(nameOpts...)}
 	co.ClaimVerifier = cosign.SimpleClaimVerifier
+	return verifyImageSignatures(ctx, ref, co, key, vo)
+}
+
+func verifyImageSignatures(ctx context.Context, ref name.Reference, co *cosign.CheckOpts, key string, vo *k8smanifest.VerifyResourceOption) (string, error) {
 	signatures, _, err := cosign.VerifyImageSignatures(ctx, ref, co)
 	if err != nil {
 		return "", err
@@ -112,17 +116,27 @@ func verifyImage(ctx context.Context, image, key string, vo *k8smanifest.VerifyR
 	if len(signatures) == 0 {
 		return "", fmt.Errorf("no verified signatures in manifest image")
 	}
+	var firstSigner string
+	haveSigner := false
 	for _, sig := range signatures {
 		cert, err := sig.Cert()
 		if err != nil {
 			continue
 		}
-		if cert == nil {
-			return "", nil
+		signer := ""
+		if cert != nil {
+			signer = manifestutil.GetNameInfoFromCert(cert)
 		}
-		return manifestutil.GetNameInfoFromCert(cert), nil
+		if !haveSigner {
+			firstSigner, haveSigner = signer, true
+		}
+		if matchesSigner(vo, key, signer) && vo.Signers.Match(signer) {
+			return signer, nil
+		}
 	}
-	return "", nil
+	// Preserve the existing mismatch result when none of the verified signers
+	// is allowed. The caller's identity checks will reject this first signer.
+	return firstSigner, nil
 }
 
 func verifyBlob(ctx context.Context, set map[string]string, key string, vo *k8smanifest.VerifyResourceOption) (string, error) {
