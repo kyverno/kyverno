@@ -14,10 +14,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
-	"github.com/kyverno/kyverno/pkg/sigstoretuf"
+	"github.com/kyverno/kyverno/pkg/sigstoreguard"
 	"github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/pkg/errors"
-	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	"github.com/sigstore/sigstore-go/pkg/bundle"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/verify"
@@ -245,7 +244,7 @@ func buildKeyTrustedMaterial(ctx context.Context, key, algorithm string) (root.T
 	if strings.Contains(key, "PUBLIC KEY") {
 		verifier, err = decodePEM([]byte(key), hashAlgorithm)
 	} else {
-		verifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, key, hashAlgorithm)
+		verifier, err = sigstoreguard.PublicKeyFromKeyRefWithHashAlgo(ctx, key, hashAlgorithm)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to load public key: %w", err)
@@ -257,7 +256,7 @@ func buildKeyTrustedMaterial(ctx context.Context, key, algorithm string) (root.T
 }
 
 func getTrustedRoot(ctx context.Context) (*root.TrustedRoot, error) {
-	return sigstoretuf.TrustedRoot(ctx)
+	return sigstoreguard.TrustedRoot(ctx)
 }
 
 func decodeStatementsFromBundles(bundles []*verificationResult) ([]map[string]any, error) {
