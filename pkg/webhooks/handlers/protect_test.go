@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -315,7 +317,7 @@ func TestWithProtection_NonKyvernoManagedResource(t *testing.T) {
 	assert.True(t, response.Allowed, "Regular user should be allowed to modify non-Kyverno managed resources")
 }
 
-func TestWithProtection_GenerateLabels(t *testing.T) {
+func TestWithGenerateLabelProtection(t *testing.T) {
 	t.Parallel()
 	const (
 		user           = "system:serviceaccount:tenant:user"
@@ -582,7 +584,8 @@ func TestWithProtection_GenerateLabels(t *testing.T) {
 				request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
 			}
 
-			response := inner.WithProtection(test.protectManagedResources, kyvernoUser)(context.Background(), logr.Discard(), request, time.Now())
+			handler := inner.WithGenerateLabelProtection(kyvernoUser).WithProtection(test.protectManagedResources, kyvernoUser)
+			response := handler(context.Background(), logr.Discard(), request, time.Now())
 			assert.Equal(t, test.wantAllowed, response.Allowed)
 			assert.Equal(t, test.wantAllowed, called)
 			if !test.wantAllowed && assert.NotNil(t, response.Result) {
@@ -595,7 +598,7 @@ func TestWithProtection_GenerateLabels(t *testing.T) {
 	}
 }
 
-func TestWithProtection_GenerateLabelControllerIdentities(t *testing.T) {
+func TestWithGenerateLabelProtection_ControllerIdentities(t *testing.T) {
 	t.Parallel()
 	const (
 		admission        = "system:serviceaccount:kyverno:kyverno-admission-controller"
@@ -641,7 +644,7 @@ func TestWithProtection_GenerateLabelControllerIdentities(t *testing.T) {
 				if operation == admissionv1.Update {
 					request.OldObject.Raw = resourceWithLabels(t, map[string]string{common.GeneratePolicyLabel: "old-policy"})
 				}
-				response := inner.WithProtection(false, test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
+				response := inner.WithGenerateLabelProtection(test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
 				assert.Equal(t, test.wantAllowed, response.Allowed)
 				assert.Equal(t, test.wantAllowed, called)
 				if !test.wantAllowed && assert.NotNil(t, response.Result) {
@@ -654,11 +657,115 @@ func TestWithProtection_GenerateLabelControllerIdentities(t *testing.T) {
 				request.OldObject = request.Object
 				request.Object.Raw = resourceWithLabels(t, map[string]string{common.GeneratePolicyLabel: "new-policy", "app": "edited"})
 				called = false
-				response = inner.WithProtection(false, test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
+				response = inner.WithGenerateLabelProtection(test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
 				assert.True(t, response.Allowed)
 				assert.True(t, called)
 			})
 		}
+	}
+}
+
+func TestWithProtection_ConfiguredControllerIdentities(t *testing.T) {
+	t.Parallel()
+	const controller = "system:serviceaccount:external-controllers:custom-background"
+	tests := []struct {
+		name        string
+		username    string
+		controllers []string
+		trusted     bool
+	}{
+		{name: "configured external controller", username: controller, controllers: []string{controller}, trusted: true},
+		{name: "installation namespace compatibility", username: kyvernoUsernamePrefix + "existing-account", trusted: true},
+		{name: "unconfigured external controller", username: controller},
+		{name: "different external account", username: "system:serviceaccount:external-controllers:other", controllers: []string{controller}},
+		{name: "controller name suffix", username: controller + "-other", controllers: []string{controller}},
+		{name: "empty controller name", controllers: []string{""}},
+	}
+	for _, test := range tests {
+		for _, enabled := range []bool{false, true} {
+			for _, operation := range []admissionv1.Operation{admissionv1.Create, admissionv1.Update, admissionv1.Delete} {
+				t.Run(fmt.Sprintf("%s/enabled=%t/%s", test.name, enabled, operation), func(t *testing.T) {
+					t.Parallel()
+					called := false
+					inner := AdmissionHandler(func(_ context.Context, _ logr.Logger, request AdmissionRequest, _ time.Time) AdmissionResponse {
+						called = true
+						return admissionv1.AdmissionResponse{UID: request.UID, Allowed: true}
+					})
+					request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
+						UID: "managed-controller-identity", Operation: operation,
+						Kind:     metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+						UserInfo: authenticationv1.UserInfo{Username: test.username},
+					}}
+					resource := runtime.RawExtension{Raw: resourceWithLabels(t, map[string]string{
+						kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
+						common.GeneratePolicyLabel: "policy",
+					})}
+					if operation != admissionv1.Delete {
+						request.Object = resource
+					}
+					if operation != admissionv1.Create {
+						request.OldObject = resource
+					}
+					response := inner.WithProtection(enabled, test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
+					allowed := !enabled || test.trusted
+					assert.Equal(t, allowed, response.Allowed)
+					assert.Equal(t, allowed, called)
+					assert.Equal(t, request.UID, response.UID)
+					if !allowed {
+						require.NotNil(t, response.Result)
+						assert.Contains(t, response.Result.Message, "kyverno managed resource can only be modified by kyverno")
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestWithProtection_DisabledDoesNotDecodeResources(t *testing.T) {
+	t.Parallel()
+	called := false
+	request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
+		UID: "no-protection", Operation: admissionv1.Update,
+		Object:    runtime.RawExtension{Raw: []byte("invalid new object")},
+		OldObject: runtime.RawExtension{Raw: []byte("invalid old object")},
+	}}
+	inner := AdmissionHandler(func(_ context.Context, _ logr.Logger, received AdmissionRequest, _ time.Time) AdmissionResponse {
+		called = true
+		assert.Equal(t, request, received)
+		return admissionv1.AdmissionResponse{UID: received.UID, Allowed: true}
+	})
+	response := inner.WithProtection(false)(context.Background(), logr.Discard(), request, time.Now())
+	assert.True(t, called)
+	assert.True(t, response.Allowed)
+}
+
+func TestWithGenerateLabelProtection_InvalidResources(t *testing.T) {
+	t.Parallel()
+	for _, old := range []bool{false, true} {
+		t.Run(fmt.Sprintf("old=%t", old), func(t *testing.T) {
+			t.Parallel()
+			called := false
+			inner := AdmissionHandler(func(context.Context, logr.Logger, AdmissionRequest, time.Time) AdmissionResponse {
+				called = true
+				return admissionv1.AdmissionResponse{Allowed: true}
+			})
+			resource := runtime.RawExtension{Raw: resourceWithLabels(t, map[string]string{common.GeneratePolicyLabel: "policy"})}
+			request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
+				UID: "invalid-resource", Operation: admissionv1.Update,
+				Object: resource, OldObject: resource,
+			}}
+			if old {
+				request.OldObject.Raw = []byte("invalid object")
+			} else {
+				request.Object.Raw = []byte("invalid object")
+			}
+			response := inner.WithGenerateLabelProtection()(context.Background(), logr.Discard(), request, time.Now())
+			assert.False(t, called)
+			assert.False(t, response.Allowed)
+			assert.Equal(t, request.UID, response.UID)
+			require.NotNil(t, response.Result)
+			assert.Contains(t, response.Result.Message, "failed to convert")
+		})
 	}
 }
 
