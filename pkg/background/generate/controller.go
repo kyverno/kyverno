@@ -118,6 +118,9 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		}
 
 		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
+		if err == nil {
+			err = c.checkPendingProvenance(context.TODO(), *trigger, ur, policy, rule)
+		}
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
 				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))

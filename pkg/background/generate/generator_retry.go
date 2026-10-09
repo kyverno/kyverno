@@ -216,6 +216,24 @@ func (g *generator) matchesGenerationContext(labels map[string]string) bool {
 	return true
 }
 
+// Check successful rule contexts even when evaluation skipped generation or the
+// rule was removed. A fresh ledger read also covers stale informer annotations.
+// Explicit cleanup and deleted/replaced-policy handling retain their lifecycle.
+func (c *GenerateController) checkPendingProvenance(ctx context.Context, trigger unstructured.Unstructured, ur *kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, rule kyvernov2.RuleContext) error {
+	if c.provenance == nil || c.kyvernoClient == nil || policy == nil || rule.DeleteDownstream {
+		return nil
+	}
+	g := &generator{
+		trigger: trigger, policy: policy, rule: kyvernov1.Rule{Name: rule.Rule},
+		provenance: c.provenance,
+		pending: &generationRetry{
+			requests: c.kyvernoClient.KyvernoV2().UpdateRequests(ur.Namespace),
+			name:     ur.Name, uid: ur.UID, policyUID: policy.GetUID(),
+		},
+	}
+	return g.checkPendingProvenance(ctx)
+}
+
 // An empty cloneList/foreach result or a now-skipped rule must not complete the
 // request and discard receipts for targets that still need their annotation.
 // Keep the existing bounded failure/retry behavior until an authorized rule

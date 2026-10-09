@@ -150,6 +150,9 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 		gvrs = append(gvrs, resource.gvr)
 	}
 	discovery := dclient.NewFakeDiscoveryClient(gvrs)
+	for _, groupResources := range apiGroupResources {
+		discovery.SetPreferredVersion(groupResources.Group.Name, groupResources.Group.PreferredVersion.Version)
+	}
 	for gvk, resource := range resourcesByKind {
 		discovery.AddGVRToGVKMapping(resource.gvr, gvk)
 		discovery.SetResourceScope(resource.gvr, resource.namespaced)
