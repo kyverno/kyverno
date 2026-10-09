@@ -166,7 +166,7 @@ func New(opts ...Option) Client {
 	if len(config.imagePullSecrets) != 0 && config.secretLister != nil {
 		keychains = append(keychains, NewSecretsKeychain(config.secretLister, config.defaultNamespace, config.imagePullSecrets...))
 	}
-	keychains = append(keychains, keychainsForProviders(config.credentialHelpers...)...)
+	keychains = append(keychains, regcreds.KeychainsForProviders(config.credentialHelpers...)...)
 	var keychain authn.Keychain = authn.DefaultKeychain
 	if len(keychains) != 0 {
 		keychain = authn.NewMultiKeychain(keychains...)
