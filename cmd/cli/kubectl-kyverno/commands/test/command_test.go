@@ -1834,3 +1834,96 @@ func TestResponseTargetsResource_MutatingPolicyFallbackToMatchConstraints(t *tes
 	matched := responseTargetsResource(target, resp)
 	assert.True(t, matched)
 }
+
+func TestResponseTargetsResource_MutatingPolicyTriggerDoesNotSatisfyTarget(t *testing.T) {
+	target := &unstructured.Unstructured{}
+	target.SetAPIVersion("v1")
+	target.SetKind("ConfigMap")
+	target.SetName("test-cm")
+	target.SetNamespace("default")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-cm",
+		},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"configmaps"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Trigger response: evaluated on target object as trigger, but without target provenance property
+	triggerResp := engineapi.NewEngineResponse(*target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.RulePass("mutate-rule", engineapi.Mutation, "mutated", nil),
+		},
+	})
+	assert.False(t, responseTargetsResource(target, triggerResp), "ordinary trigger response should not satisfy target test")
+
+	// Target response: evaluated with target provenance property
+	targetResp := engineapi.NewEngineResponse(*target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.RulePass("mutate-rule", engineapi.Mutation, "mutated", map[string]string{"kyverno.io/target": "true"}),
+		},
+	})
+	assert.True(t, responseTargetsResource(target, targetResp), "response with target provenance should satisfy target test")
+}
+
+func TestResponseTargetsResource_LegacyAutogenRule(t *testing.T) {
+	target := &unstructured.Unstructured{}
+	target.SetAPIVersion("v1")
+	target.SetKind("ConfigMap")
+	target.SetName("test-cm")
+	target.SetNamespace("default")
+
+	kpol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-pod-and-target",
+		},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{
+				{
+					Name: "mutate-rule",
+					MatchResources: kyvernov1.MatchResources{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{"Pod"},
+						},
+					},
+					Mutation: &kyvernov1.Mutation{
+						Targets: []kyvernov1.TargetResourceSpec{
+							{
+								TargetSelector: kyvernov1.TargetSelector{
+									ResourceSpec: kyvernov1.ResourceSpec{
+										APIVersion: "v1",
+										Kind:       "ConfigMap",
+										Name:       "test-cm",
+										Namespace:  "default",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+
+	// Response with autogen rule name: e.g. autogen-mutate-rule
+	resp := engineapi.NewEngineResponse(*target, kpol, nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{
+			*engineapi.RulePass("autogen-mutate-rule", engineapi.Mutation, "mutated", nil),
+		},
+	})
+	assert.True(t, responseTargetsResource(target, resp), "autogen computed rule name should match")
+}

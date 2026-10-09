@@ -35,6 +35,9 @@ This package implements the `kubectl-kyverno test` CLI command, which executes d
   - When no patched target was produced (`r == nil || rule == nil`), matching rule responses in `response.PolicyResponse.Rules` are evaluated via `checkRuleResultOnly(...)` to preserve the engine's actual rule outcome (`Skip`, `Error`, `Fail`) against expected results instead of dropping into the fallback.
 - **Target Policy Scoping & Competing Responses**:
   - `responses.Target[resource]` may contain engine responses from multiple policies (or cluster policies and namespaced policies with the same name across different namespaces). Target evaluation filters by `policyName` and requires `response.Policy().GetNamespace()` to strictly match `policyNamespace` (including for unqualified cluster policies where namespace is empty), and skips unattributed responses where `response.Policy() == nil`. This ensures competing cluster or namespaced policy responses under the same resource key are cleanly excluded.
+- **Target Evaluation Provenance & Autogen Rule Matching**:
+  - `responseTargetsResource` checks for target-evaluation provenance (`kyverno.io/target` property on rule responses) so ordinary admission trigger responses cannot satisfy target test assertions when trigger and target resources share the same object identity.
+  - Legacy mutation rule matching uses `autogen.Default.ComputeRules` to ensure autogen-prefixed rule names (e.g. `autogen-<rule>`) for Pod controller rules match engine response rule names.
 - **Fallback for Unmatched Target Results**:
   - When a target test result matches no engine response rows (`len(rows) == 0`):
     - If the policy is recorded in `responses.SkippedPolicies`, the result is classified as `Skip` (reason `Invalid Policy`) and increments `rc.Skip`.

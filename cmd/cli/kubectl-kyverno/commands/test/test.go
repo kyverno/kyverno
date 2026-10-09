@@ -758,14 +758,14 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 	if kpol := pol.AsKyvernoPolicy(); kpol != nil {
 		isNamespaced := kpol.IsNamespaced()
 		policyNs := kpol.GetNamespace()
-		for _, rule := range kpol.GetSpec().Rules {
+		for _, rule := range autogen.Default.ComputeRules(kpol, "") {
 			if rule.Mutation == nil || len(rule.Mutation.Targets) == 0 {
 				continue
 			}
 			for _, t := range rule.Mutation.Targets {
 				if targetSpecMatches(t, isNamespaced, policyNs, targetResource) {
 					for _, rr := range response.PolicyResponse.Rules {
-						if rr.Name() == rule.Name {
+						if rr.Name() == rule.Name || rr.Name() == "autogen-"+rule.Name || rr.Name() == "autogen-cronjob-"+rule.Name {
 							return true
 						}
 					}
@@ -774,14 +774,26 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 		}
 	}
 	if mpol := pol.AsMutatingPolicyLike(); mpol != nil {
-		tc := mpol.GetTargetMatchConstraints()
-		mc := mpol.GetMatchConstraints()
-		if tc.Expression != "" || len(tc.ResourceRules) != 0 || len(mc.ResourceRules) != 0 {
-			if response.Resource.GetAPIVersion() == targetResource.GetAPIVersion() &&
-				response.Resource.GetKind() == targetResource.GetKind() &&
-				response.Resource.GetName() == targetResource.GetName() &&
-				response.Resource.GetNamespace() == targetResource.GetNamespace() {
+		if response.Resource.GetAPIVersion() == targetResource.GetAPIVersion() &&
+			response.Resource.GetKind() == targetResource.GetKind() &&
+			response.Resource.GetName() == targetResource.GetName() &&
+			response.Resource.GetNamespace() == targetResource.GetNamespace() {
+			hasTargetProvenance := false
+			for _, rr := range response.PolicyResponse.Rules {
+				if rr.Properties() != nil && rr.Properties()["kyverno.io/target"] == "true" {
+					hasTargetProvenance = true
+					break
+				}
+			}
+			if hasTargetProvenance {
 				return true
+			}
+			if len(response.PolicyResponse.Rules) == 0 {
+				tc := mpol.GetTargetMatchConstraints()
+				mc := mpol.GetMatchConstraints()
+				if tc.Expression != "" || len(tc.ResourceRules) != 0 || len(mc.ResourceRules) != 0 {
+					return true
+				}
 			}
 		}
 	}
