@@ -92,7 +92,7 @@ func TestCommandWithChecksOnly(t *testing.T) {
 	require.NoError(t, err)
 	out, err := io.ReadAll(outBuffer)
 	assert.NoError(t, err)
-	assert.Contains(t, string(out), "3 tests passed and 0 tests failed")
+	assert.Contains(t, string(out), "5 tests passed and 0 tests failed")
 }
 
 func TestCommandAggregateFilterErrors(t *testing.T) {
@@ -1559,6 +1559,59 @@ func TestPrintTestResult_TargetWithoutPatchedResource(t *testing.T) {
 				).WithPolicyResponse(engineapi.PolicyResponse{
 					Rules: []engineapi.RuleResponse{
 						*engineapi.RuleFail("test-rule", engineapi.Mutation, "cluster policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "competing namespaced policy with same name is excluded when test specifies cluster policy (unqualified)",
+			policy:         "test-policy",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					engineapi.NewKyvernoPolicy(&kyvernov1.Policy{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-policy",
+							Namespace: "test-ns",
+						},
+					}),
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "namespaced policy should be excluded", nil),
+					},
+				}),
+			},
+			wantSkip:   1,
+			wantPass:   0,
+			wantFail:   0,
+			wantResult: "Pass",
+			wantReason: "Ok",
+		},
+		{
+			name:           "competing unattributed response with nil policy is excluded when test specifies policy",
+			policy:         "test-policy",
+			expectedResult: openreportsv1alpha1.Result(openreports.StatusSkip),
+			rules: []engineapi.RuleResponse{
+				*engineapi.RuleSkip("test-rule", engineapi.Mutation, "preconditions not met", nil),
+			},
+			competingResponses: []engineapi.EngineResponse{
+				engineapi.NewEngineResponse(
+					unstructured.Unstructured{},
+					nil,
+					nil,
+				).WithPolicyResponse(engineapi.PolicyResponse{
+					Rules: []engineapi.RuleResponse{
+						*engineapi.RuleFail("test-rule", engineapi.Mutation, "nil policy response should be excluded", nil),
 					},
 				}),
 			},

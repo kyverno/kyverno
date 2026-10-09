@@ -99,9 +99,6 @@ spec:
                       type: object
                       x-kubernetes-preserve-unknown-fields: true
                   type: object
-              required:
-              - assert
-              - error
               type: object
             type: array
           clusterResources:

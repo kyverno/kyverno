@@ -335,11 +335,14 @@ func printTestResult(
 				}
 
 				for _, response := range responses.Target[resource] {
-					if test.Policy != "" && response.Policy() != nil {
+					if test.Policy != "" {
+						if response.Policy() == nil {
+							continue
+						}
 						if response.Policy().GetName() != policyName {
 							continue
 						}
-						if policyNamespace != "" && response.Policy().GetNamespace() != policyNamespace {
+						if response.Policy().GetNamespace() != policyNamespace {
 							continue
 						}
 					}

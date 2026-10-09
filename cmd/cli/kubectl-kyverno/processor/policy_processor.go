@@ -460,7 +460,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							}
 						}
 						resp := engineapi.EngineResponse{
-							Resource: resource,
+							Resource: *target,
 							PolicyResponse: engineapi.PolicyResponse{
 								Rules: rules,
 							},
