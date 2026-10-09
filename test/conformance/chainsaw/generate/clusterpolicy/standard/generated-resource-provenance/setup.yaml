@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: generated-resource-provenance-source
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: generated-resource-provenance-tenant
+  labels:
+    test.kyverno.io/generated-resource-provenance: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: generated-resource-provenance-update
+  labels:
+    test.kyverno.io/generated-resource-provenance: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: generated-resource-provenance-delete
+  labels:
+    test.kyverno.io/generated-resource-provenance: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: generated-resource-provenance-candidate
+  labels:
+    test.kyverno.io/generated-resource-provenance: "true"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: source
+  namespace: generated-resource-provenance-source
+  labels:
+    generate.kyverno.io/clone-source: ""
+data:
+  value: c291cmNl
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: existing
+  namespace: generated-resource-provenance-tenant
+data:
+  value: dW5jaGFuZ2Vk

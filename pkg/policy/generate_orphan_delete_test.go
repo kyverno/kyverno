@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -33,6 +34,7 @@ func buildClonePolicy(orphanDownstreamOnPolicyDelete bool) *kyvernov1.ClusterPol
 	return &kyvernov1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "clone-policy",
+			UID:  "clone-policy-uid",
 		},
 		Spec: kyvernov1.Spec{
 			Rules: []kyvernov1.Rule{
@@ -64,6 +66,7 @@ func buildCloneListPolicy(orphanDownstreamOnPolicyDelete bool) *kyvernov1.Cluste
 	return &kyvernov1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "clone-list-policy",
+			UID:  "clone-list-policy-uid",
 		},
 		Spec: kyvernov1.Spec{
 			Rules: []kyvernov1.Rule{
@@ -148,12 +151,15 @@ func TestCreateURForDownstreamDeletion_CloneRule_OrphanTrueSkipsCleanup(t *testi
 
 func TestCreateURForDownstreamDeletion_CloneRule_OrphanFalseCreatesCleanupUR(t *testing.T) {
 	policy := buildClonePolicy(false)
-	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, buildDownstreamForRule())
+	downstream := buildDownstreamForRule()
+	store := signPolicyDownstream(t, policy, downstream)
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, downstream)
 	require.NoError(t, err)
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	generator := &captureURGenerator{}
 	controller := &policyController{
 		client:      client,
+		provenance:  store,
 		urGenerator: generator,
 		log:         logging.WithName("policy-test"),
 	}
@@ -161,6 +167,7 @@ func TestCreateURForDownstreamDeletion_CloneRule_OrphanFalseCreatesCleanupUR(t *
 	err = controller.createURForDownstreamDeletion(policy)
 	require.NoError(t, err)
 	require.Len(t, generator.captured, 1, "cleanup UR should be created for clone rules when orphanDownstreamOnPolicyDelete=false")
+	assert.Equal(t, string(policy.GetUID()), generator.captured[0].GetAnnotations()[provenance.CleanupPolicyUIDAnnotation])
 	require.Len(t, generator.captured[0].Spec.RuleContext, 1)
 	assert.True(t, generator.captured[0].Spec.RuleContext[0].DeleteDownstream)
 	require.Len(t, generator.captured[0].Status.GeneratedResources, 1)
@@ -170,12 +177,15 @@ func TestCreateURForDownstreamDeletion_CloneRule_OrphanFalseCreatesCleanupUR(t *
 
 func TestCreateURForDownstreamDeletion_CloneListRule_OrphanFalseCreatesCleanupUR(t *testing.T) {
 	policy := buildCloneListPolicy(false)
-	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, buildDownstreamForCloneListRule())
+	downstream := buildDownstreamForCloneListRule()
+	store := signPolicyDownstream(t, policy, downstream)
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, downstream)
 	require.NoError(t, err)
 	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
 	generator := &captureURGenerator{}
 	controller := &policyController{
 		client:      client,
+		provenance:  store,
 		urGenerator: generator,
 		log:         logging.WithName("policy-test"),
 	}
@@ -183,6 +193,7 @@ func TestCreateURForDownstreamDeletion_CloneListRule_OrphanFalseCreatesCleanupUR
 	err = controller.createURForDownstreamDeletion(policy)
 	require.NoError(t, err)
 	require.Len(t, generator.captured, 1, "cleanup UR should be created for cloneList rules when orphanDownstreamOnPolicyDelete=false")
+	assert.Equal(t, string(policy.GetUID()), generator.captured[0].GetAnnotations()[provenance.CleanupPolicyUIDAnnotation])
 	require.Len(t, generator.captured[0].Spec.RuleContext, 1)
 	assert.True(t, generator.captured[0].Spec.RuleContext[0].DeleteDownstream)
 	require.Len(t, generator.captured[0].Status.GeneratedResources, 1)

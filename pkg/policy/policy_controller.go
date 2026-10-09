@@ -12,6 +12,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	backgroundcommon "github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -64,6 +65,7 @@ type policyController struct {
 	client        dclient.Interface
 	kyvernoClient versioned.Interface
 	engine        engineapi.Engine
+	provenance    *provenance.Store
 
 	pInformer     kyvernov1informers.ClusterPolicyInformer
 	npInformer    kyvernov1informers.PolicyInformer
@@ -165,6 +167,7 @@ func NewPolicyController(
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		engine:        engine,
+		provenance:    provenance.NewStore(client.GetKubeClient()),
 		pInformer:     pInformer,
 		npInformer:    npInformer,
 		gpolInformer:  gpolInformer,

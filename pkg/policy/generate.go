@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
@@ -189,6 +190,15 @@ func (pc *policyController) createURForDownstreamDeletion(policy kyvernov1.Polic
 		return multierr.Combine(errs...)
 	}
 
+	// Preserve the authenticated policy identity after the policy disappears.
+	// Legacy cleanup URs without this controller-owned metadata cannot prove
+	// the provenance of resources selected by their former label-only path.
+	annotations := ur.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[provenance.CleanupPolicyUIDAnnotation] = string(policy.GetUID())
+	ur.SetAnnotations(annotations)
 	pc.log.V(4).WithName("createURForDownstreamDeletion").Info("creating new UR for generate")
 	created, err := pc.urGenerator.Generate(context.TODO(), pc.kyvernoClient, ur, pc.log)
 	if err != nil {
@@ -225,6 +235,14 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 
 	pc.log.V(4).Info("sync generate rule changes to downstream targets")
 	for _, downstream := range downstreams.Items {
+		verified, err := pc.provenance.Verify(context.TODO(), policy, &downstream)
+		if err != nil {
+			return ur, fmt.Errorf("verify downstream provenance before policy reconciliation: %w", err)
+		}
+		if !verified {
+			pc.log.V(4).Info("ignoring downstream without authenticated provenance", "namespace", downstream.GetNamespace(), "name", downstream.GetName())
+			continue
+		}
 		labels := downstream.GetLabels()
 		trigger := generateutils.TriggerFromLabels(labels)
 		addRuleContext(ur, ruleName, trigger, deleteDownstream, false, false)
@@ -278,11 +296,22 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 			}
 
 			for _, obj := range updated.Items {
+				verified, err := pc.provenance.Verify(context.TODO(), selector.policyObject, &obj)
+				if err != nil {
+					utilruntime.HandleError(fmt.Errorf("failed to verify old target provenance: %w", err))
+					continue
+				}
+				if !verified {
+					continue
+				}
 				labels := obj.GetLabels()
 				delete(labels, common.GeneratePolicyLabel)
 				delete(labels, common.GeneratePolicyNamespaceLabel)
 				delete(labels, common.GenerateRuleLabel)
 				obj.SetLabels(labels)
+				annotations := obj.GetAnnotations()
+				delete(annotations, provenance.Annotation)
+				obj.SetAnnotations(annotations)
 				_, err = pc.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
 				if err != nil {
 					utilruntime.HandleError(fmt.Errorf("failed to un-label old targets %s/%s/%s/%s: %v", obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName(), err))
@@ -294,6 +323,7 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 }
 
 type updatedResource struct {
+	policyObject    kyvernov1.PolicyInterface
 	policy          string
 	policyNamespace string
 	ruleResources   []ruleResource
@@ -315,6 +345,7 @@ func ruleChange(old, new kyvernov1.PolicyInterface) (_ kyvernov1.PolicyInterface
 	newRulesMap := make(map[string]kyvernov1.Rule, len(newRules))
 	var deletedRules []kyvernov1.Rule
 	updatedResources := updatedResource{
+		policyObject:    old,
 		policy:          new.GetName(),
 		policyNamespace: new.GetNamespace(),
 	}

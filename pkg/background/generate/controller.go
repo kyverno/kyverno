@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -43,6 +44,7 @@ type GenerateController struct {
 	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
 	engine        engineapi.Engine
+	provenance    *provenance.Store
 
 	// listers
 	urLister      kyvernov2listers.UpdateRequestNamespaceLister
@@ -77,6 +79,7 @@ func NewGenerateController(
 		kyvernoClient: kyvernoClient,
 		statusControl: statusControl,
 		engine:        engine,
+		provenance:    provenance.NewStore(client.GetKubeClient()),
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
 		urLister:      urLister,
@@ -98,6 +101,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	policy, err := c.getPolicyObject(*ur)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("error in fetching policy: %v", err)
+	}
+
+	if expectedUID := ur.GetAnnotations()[provenance.PolicyUIDAnnotation]; expectedUID != "" && policy != nil && string(policy.GetUID()) != expectedUID {
+		logger.V(2).Info("discarding update request for a replaced policy", "expectedUID", expectedUID, "actualUID", policy.GetUID())
+		return updateStatus(c.statusControl, *ur, nil, nil)
 	}
 
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
@@ -296,14 +304,16 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		if rule.Generation.ForEachGeneration != nil {
 			g := newForeachGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.ForEachGeneration, contextLoader)
+			g.provenance = c.provenance
 			genResource, err = g.generateForeach()
 		} else {
 			g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.GeneratePattern, contextLoader)
+			g.provenance = c.provenance
 			genResource, err = g.generate()
 		}
 
 		if err != nil {
-			if apierrors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) && !errors.Is(err, errGeneratedProvenance) {
 				log.V(2).Info("warning: reason", err.Error())
 				return nil, nil
 			}

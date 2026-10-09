@@ -7,6 +7,7 @@ import (
 	backoff "github.com/cenkalti/backoff/v7"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
@@ -47,7 +48,7 @@ func (g *generator) Apply(ctx context.Context, ur kyvernov2.UpdateRequestSpec) e
 		return nil
 	}
 	logger.V(4).Info("apply Update Request", "request", ur)
-	go g.applyResource(context.TODO(), ur) //nolint:gosec // background context is intentional: the goroutine outlives the request
+	go g.applyResource(context.WithoutCancel(ctx), ur) // retain controller identity while outliving admission cancellation
 	return nil
 }
 
@@ -88,6 +89,9 @@ func (g *generator) tryApplyResource(ctx context.Context, urSpec kyvernov2.Updat
 			Labels:       queryLabels,
 		},
 		Spec: urSpec,
+	}
+	if uid := policyUIDFromContext(ctx); uid != "" && urSpec.GetRequestType() == kyvernov2.Generate {
+		ur.Annotations = map[string]string{provenance.PolicyUIDAnnotation: string(uid)}
 	}
 	created, err := g.urGenerator.Generate(ctx, g.client, &ur, l)
 	if err != nil {
