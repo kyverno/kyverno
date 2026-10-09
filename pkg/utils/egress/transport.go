@@ -1,13 +1,19 @@
 package egress
 
 import (
+	"container/list"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -16,6 +22,9 @@ import (
 // DialTimeout preserves the registry SDK's five-second dial budget across DNS
 // resolution and all connection attempts together. A shorter caller deadline wins.
 const DialTimeout = 5 * time.Second
+
+// Bound pool growth when DNS answers change or policies use many registries.
+const maxDestinationPools = 64
 
 type dialPlanKey struct{}
 
@@ -33,6 +42,20 @@ type Transport struct {
 	base   *http.Transport
 	policy *Policy
 	proxy  func(*http.Request) (*url.URL, error)
+	mu     sync.Mutex
+	pools  map[destinationKey]*list.Element
+	lru    list.List
+}
+
+type destinationKey struct {
+	targetIPs string
+	proxyIPs  string
+}
+
+type destinationPool struct {
+	key       destinationKey
+	transport *http.Transport
+	retired   atomic.Bool
 }
 
 // WrapTransport clones base, preserving TLS and pooling settings. A proxy is
@@ -43,7 +66,7 @@ func (p *Policy) WrapTransport(base *http.Transport) *Transport {
 	if base == nil {
 		base = &http.Transport{}
 	}
-	transport := &Transport{base: base.Clone(), policy: p, proxy: base.Proxy}
+	transport := &Transport{base: base.Clone(), policy: p, proxy: base.Proxy, pools: make(map[destinationKey]*list.Element)}
 	baseDial := transport.base.DialContext
 	if baseDial == nil {
 		baseDial = (&net.Dialer{KeepAlive: 30 * time.Second}).DialContext
@@ -152,11 +175,76 @@ func (t *Transport) RoundTrip(request *http.Request) (*http.Response, error) {
 	// context controls the HTTP exchange; only the dial inherits this deadline.
 	guarded := request.Clone(context.WithValue(request.Context(), dialPlanKey{}, plan))
 	handedOff = true
-	return t.base.RoundTrip(guarded)
+	pool := t.destinationPool(plan)
+	response, err := pool.transport.RoundTrip(guarded)
+	if err != nil {
+		pool.closeIfRetired()
+		return nil, err
+	}
+	response.Body = &pooledResponseBody{ReadCloser: response.Body, pool: pool}
+	return response, nil
 }
 
 // CloseIdleConnections releases idle pooled connections without interrupting requests.
-func (t *Transport) CloseIdleConnections() { t.base.CloseIdleConnections() }
+func (t *Transport) CloseIdleConnections() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, element := range t.pools {
+		element.Value.(*destinationPool).transport.CloseIdleConnections()
+	}
+}
+
+// Each pool sees only one validated address set. http.Transport continues to
+// separate authorities, proxies and TLS sessions within that pool, preserving
+// Host/SNI and reuse without connecting to a previous request's stale address.
+func (t *Transport) destinationPool(plan *dialPlan) *destinationPool {
+	key := destinationKey{targetIPs: addressSetKey(plan.targetIPs), proxyIPs: addressSetKey(plan.proxyIPs)}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if element := t.pools[key]; element != nil {
+		t.lru.MoveToFront(element)
+		return element.Value.(*destinationPool)
+	}
+	pool := &destinationPool{key: key, transport: t.base.Clone()}
+	t.pools[key] = t.lru.PushFront(pool)
+	if t.lru.Len() > maxDestinationPools {
+		oldest := t.lru.Back()
+		retired := oldest.Value.(*destinationPool)
+		delete(t.pools, retired.key)
+		t.lru.Remove(oldest)
+		retired.retired.Store(true)
+		retired.transport.CloseIdleConnections()
+	}
+	return pool
+}
+
+func addressSetKey(addresses []netip.Addr) string {
+	values := make([]string, len(addresses))
+	for i, address := range addresses {
+		values[i] = address.String()
+	}
+	slices.Sort(values)
+	return strings.Join(slices.Compact(values), ",")
+}
+
+func (p *destinationPool) closeIfRetired() {
+	if p.retired.Load() {
+		p.transport.CloseIdleConnections()
+	}
+}
+
+type pooledResponseBody struct {
+	io.ReadCloser
+	pool *destinationPool
+}
+
+func (b *pooledResponseBody) Close() error {
+	err := b.ReadCloser.Close()
+	// An evicted pool may still have active requests. Close their connections
+	// when they become idle rather than interrupting the response body.
+	b.pool.closeIfRetired()
+	return err
+}
 
 func canonicalAddress(u *url.URL) string {
 	port := u.Port()

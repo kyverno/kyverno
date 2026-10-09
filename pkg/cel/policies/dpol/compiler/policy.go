@@ -50,6 +50,7 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 		compiler.ObjectKey:          object.UnstructuredContent(),
 		compiler.ResourceKey:        resource.Context{ContextInterface: context},
 		compiler.VariablesKey:       vars,
+		compiler.ImageDataKey:       libs.ImageDataContext(ctx, context),
 	}
 	// conditionTraces and variableTraces are only appended to when p.trace is set, and decision()
 	// returns nil otherwise, so with tracing off none of this changes what Evaluate returns.

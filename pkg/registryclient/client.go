@@ -236,12 +236,13 @@ func (g *guardedKeychain) ResolveContext(ctx context.Context, resource authn.Res
 	if g.configErr != nil {
 		return nil, g.configErr
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if _, err := g.policy.ResolveAndValidate(ctx, resource.RegistryStr()); err != nil {
+	validationCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	_, err := g.policy.ResolveAndValidate(validationCtx, resource.RegistryStr())
+	cancel()
+	if err != nil {
 		return nil, err
 	}
 	return authn.Resolve(ctx, g.inner, resource)
