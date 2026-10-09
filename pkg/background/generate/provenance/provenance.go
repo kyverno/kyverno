@@ -87,7 +87,8 @@ func EnsureKey(ctx context.Context, secrets corev1typed.SecretInterface) error {
 // Store reads the same installation key in every controller replica. It does
 // not provision or rotate keys while handling resource events.
 type Store struct {
-	secrets corev1typed.SecretInterface
+	secrets     corev1typed.SecretInterface
+	keySnapshot []byte
 }
 
 // NewStore binds signing and verification to the Kyverno installation namespace.
@@ -97,6 +98,17 @@ func NewStore(client kubernetes.Interface) *Store {
 		return &Store{}
 	}
 	return &Store{secrets: client.CoreV1().Secrets(config.KyvernoNamespace())}
+}
+
+// Snapshot validates the key before a bounded generation batch writes targets.
+// The returned store belongs only to that batch; long-lived controllers retain
+// the original store so subsequent batches read the current installation key.
+func (s *Store) Snapshot(ctx context.Context) (*Store, error) {
+	key, err := s.readKey(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{keySnapshot: append([]byte(nil), key...)}, nil
 }
 
 // Sign authenticates the actual persisted resource identity and its controller
@@ -141,6 +153,9 @@ func (s *Store) Verify(ctx context.Context, policy kyvernov1.PolicyInterface, ob
 }
 
 func (s *Store) readKey(ctx context.Context) ([]byte, error) {
+	if s != nil && s.keySnapshot != nil {
+		return s.keySnapshot, nil
+	}
 	if s == nil || isNil(s.secrets) {
 		return nil, errors.New("generate provenance secret client is unavailable")
 	}

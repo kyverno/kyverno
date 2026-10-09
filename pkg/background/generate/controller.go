@@ -193,7 +193,14 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 	}
 
 	// Apply the generate rule on resource
-	genResourcesMap, err := c.ApplyGeneratePolicy(logger, policyContext, applicableRules)
+	var pending *generationRetry
+	if c.provenance != nil && c.kyvernoClient != nil {
+		pending = &generationRetry{
+			requests: c.kyvernoClient.KyvernoV2().UpdateRequests(ur.Namespace),
+			name:     ur.Name, uid: ur.UID, policyUID: policy.GetUID(),
+		}
+	}
+	genResourcesMap, err := c.applyGeneratePolicy(logger, policyContext, applicableRules, pending)
 	if err != nil {
 		return nil, err
 	}
@@ -252,6 +259,18 @@ func (c *GenerateController) getPolicyObject(ur kyvernov2.UpdateRequest) (kyvern
 }
 
 func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string) (map[string][]kyvernov1.ResourceSpec, error) {
+	return c.applyGeneratePolicy(log, policyContext, applicableRules, nil)
+}
+
+func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string, pending *generationRetry) (map[string][]kyvernov1.ResourceSpec, error) {
+	batchProvenance := c.provenance
+	if batchProvenance != nil {
+		var err error
+		batchProvenance, err = batchProvenance.Snapshot(context.TODO())
+		if err != nil {
+			return nil, fmt.Errorf("%w: sign generated resource provenance: %w", errGeneratedProvenance, err)
+		}
+	}
 	genResources := make(map[string][]kyvernov1.ResourceSpec)
 	policy := policyContext.Policy()
 	resource := policyContext.NewResource()
@@ -304,12 +323,20 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		if rule.Generation.ForEachGeneration != nil {
 			g := newForeachGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.ForEachGeneration, contextLoader)
-			g.provenance = c.provenance
+			g.provenance = batchProvenance
+			g.pending = pending
 			genResource, err = g.generateForeach()
+			if err == nil {
+				err = g.checkPendingProvenance(context.TODO())
+			}
 		} else {
 			g := newGenerator(c.client, logger, policyContext, policy, rule, rule.Context, rule.GetAnyAllConditions(), policyContext.NewResource(), rule.Generation.GeneratePattern, contextLoader)
-			g.provenance = c.provenance
+			g.provenance = batchProvenance
+			g.pending = pending
 			genResource, err = g.generate()
+			if err == nil {
+				err = g.checkPendingProvenance(context.TODO())
+			}
 		}
 
 		if err != nil {

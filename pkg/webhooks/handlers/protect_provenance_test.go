@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -62,13 +63,83 @@ func TestWithProtection_GenerateProvenanceAnnotation(t *testing.T) {
 				if test.operation != admissionv1.Create {
 					request.OldObject.Raw = resourceWithAnnotations(t, test.old)
 				}
-				response := inner.WithProtection(protectManagedResources)(context.Background(), logr.Discard(), request, time.Now())
+				response := inner.WithProtection(protectManagedResources, "system:serviceaccount:kyverno:kyverno-background-controller")(context.Background(), logr.Discard(), request, time.Now())
 				assert.Equal(t, test.wantAllowed, response.Allowed)
 				assert.Equal(t, test.wantAllowed, called)
 				if !test.wantAllowed && assert.NotNil(t, response.Result) {
 					assert.Contains(t, response.Result.Message, "Kyverno generate provenance can only be set by Kyverno")
 				}
 			})
+		}
+	}
+}
+
+func TestWithProtection_GenerateProvenanceControllerIdentities(t *testing.T) {
+	t.Parallel()
+	const (
+		admission        = "system:serviceaccount:kyverno:kyverno-admission-controller"
+		background       = "system:serviceaccount:kyverno:kyverno-background-controller"
+		customAdmission  = "system:serviceaccount:policy-system:custom-admission"
+		customBackground = "system:serviceaccount:background-system:custom-background"
+	)
+	tests := []struct {
+		name        string
+		username    string
+		controllers []string
+		wantAllowed bool
+	}{
+		{name: "configured admission", username: admission, controllers: []string{admission, background}, wantAllowed: true},
+		{name: "configured background", username: background, controllers: []string{admission, background}, wantAllowed: true},
+		{name: "unrelated installation account", username: "system:serviceaccount:kyverno:untrusted", controllers: []string{admission, background}},
+		{name: "default installation account", username: "system:serviceaccount:kyverno:default", controllers: []string{admission, background}},
+		{name: "controller name in another namespace", username: "system:serviceaccount:tenant:kyverno-background-controller", controllers: []string{admission, background}},
+		{name: "controller name suffix", username: background + "-untrusted", controllers: []string{admission, background}},
+		{name: "custom admission", username: customAdmission, controllers: []string{customAdmission, customBackground}, wantAllowed: true},
+		{name: "custom background in another namespace", username: customBackground, controllers: []string{customAdmission, customBackground}, wantAllowed: true},
+		{name: "unconfigured default controller", username: background, controllers: []string{customAdmission, customBackground}},
+		{name: "unrelated custom namespace account", username: "system:serviceaccount:policy-system:untrusted", controllers: []string{customAdmission, customBackground}},
+		{name: "missing configuration", username: background},
+		{name: "empty configured identity", controllers: []string{""}},
+	}
+	resource := func(stamp string) []byte {
+		data, err := json.Marshal(map[string]any{
+			"apiVersion": "v1", "kind": "ConfigMap",
+			"metadata": map[string]any{
+				"name": "target", "namespace": "tenant",
+				"labels":      map[string]string{kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp},
+				"annotations": map[string]string{provenance.Annotation: stamp},
+			},
+		})
+		assert.NoError(t, err)
+		return data
+	}
+	for _, test := range tests {
+		for _, enabled := range []bool{false, true} {
+			for _, operation := range []admissionv1.Operation{admissionv1.Create, admissionv1.Update} {
+				t.Run(fmt.Sprintf("%s/protect=%t/%s", test.name, enabled, operation), func(t *testing.T) {
+					t.Parallel()
+					called := false
+					inner := AdmissionHandler(func(context.Context, logr.Logger, AdmissionRequest, time.Time) AdmissionResponse {
+						called = true
+						return admissionv1.AdmissionResponse{Allowed: true}
+					})
+					request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
+						UID: "provenance-identity", Operation: operation,
+						Kind:     metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
+						UserInfo: authenticationv1.UserInfo{Username: test.username},
+					}}
+					request.Object.Raw = resource("v1:new")
+					if operation == admissionv1.Update {
+						request.OldObject.Raw = resource("v1:old")
+					}
+					response := inner.WithProtection(enabled, test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
+					assert.Equal(t, test.wantAllowed, response.Allowed)
+					assert.Equal(t, test.wantAllowed, called)
+					if !test.wantAllowed && assert.NotNil(t, response.Result) {
+						assert.Contains(t, response.Result.Message, "can only be")
+					}
+				})
+			}
 		}
 	}
 }

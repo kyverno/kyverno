@@ -66,6 +66,24 @@ need `patch` solely for the controller-owned annotation. Grant this permission
 before upgrading an installation that uses custom target-resource roles. The
 default chart already includes `patch` for its supported generated kinds.
 
+The background controller validates a key snapshot before a generation batch
+writes targets. If a target write succeeds but its provenance patch fails, an
+authenticated receipt preserves that exact server-assigned identity on the
+UpdateRequest. A later attempt can finish the annotation, including when
+`synchronize: false`, without rewriting the generated data. Recovery rejects a
+same-name replacement or changed routing metadata. Successful generation adds
+no receipt writes, and a completed patch with a lost response is handled
+idempotently. If a clone source disappears or a cloneList/foreach becomes empty
+while a receipt is pending, the request remains failed within the normal retry
+limit; an empty result does not silently complete and discard the receipt.
+Restoring the selected source or list before retries expire allows recovery.
+
+Target creation and receipt persistence are separate API writes. If the
+controller stops before a failed patch's receipt is saved, the unsigned target
+cannot be recovered from labels or status alone. It retains the existing
+unsigned-target behavior described above; a synchronized rule can establish
+provenance through a new authorized evaluation.
+
 Signing and verification failures use the existing bounded UpdateRequest retry
 path. Restoring the installation's original key allows eligible synchronized
 generation and authenticated cleanup requests to retry; it does not replay work

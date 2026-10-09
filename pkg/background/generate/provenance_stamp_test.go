@@ -31,6 +31,8 @@ type provenanceStampClient struct {
 	dclient.Interface
 	target          *unstructured.Unstructured
 	createErr       error
+	patchErr        error
+	afterPatchErr   error
 	collisionTarget *unstructured.Unstructured
 	createCount     int
 	updateCount     int
@@ -83,6 +85,9 @@ func (c *provenanceStampClient) ApplyResource(_ context.Context, _, _, _, _ stri
 
 func (c *provenanceStampClient) PatchResource(_ context.Context, _, _, _, _ string, patch []byte) (*unstructured.Unstructured, error) {
 	c.patches = append(c.patches, append([]byte(nil), patch...))
+	if c.patchErr != nil {
+		return nil, c.patchErr
+	}
 	if c.beforePatch != nil {
 		c.beforePatch(c.target)
 	}
@@ -103,6 +108,10 @@ func (c *provenanceStampClient) PatchResource(_ context.Context, _, _, _, _ stri
 		return nil, err
 	}
 	c.target = &unstructured.Unstructured{Object: object}
+	c.target.SetResourceVersion(c.target.GetResourceVersion() + "-patched")
+	if c.afterPatchErr != nil {
+		return nil, c.afterPatchErr
+	}
 	return c.target.DeepCopy(), nil
 }
 
@@ -239,9 +248,9 @@ func TestGenerateProvenanceSigningFailurePropagates(t *testing.T) {
 	resources, err := gen.generate()
 	require.ErrorContains(t, err, "sign generated resource provenance")
 	require.Empty(t, resources)
-	require.Equal(t, 1, client.createCount)
+	require.Zero(t, client.createCount)
 	require.Empty(t, client.patches)
-	require.Empty(t, client.target.GetAnnotations()[provenance.Annotation])
+	require.Nil(t, client.target, "key preflight must fail before creating an unsigned target")
 }
 
 func TestGenerateProvenanceRejectsChangedRoutingLabels(t *testing.T) {

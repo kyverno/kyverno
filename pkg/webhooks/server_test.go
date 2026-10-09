@@ -21,6 +21,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
@@ -30,7 +31,7 @@ import (
 type mockHandler struct{}
 
 func (m *mockHandler) Execute(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, failurePolicy string, startTime time.Time) admissionv1.AdmissionResponse {
-	return admissionv1.AdmissionResponse{Allowed: true}
+	return admissionv1.AdmissionResponse{UID: request.UID, Allowed: true}
 }
 
 type mockDiscovery struct {
@@ -39,6 +40,10 @@ type mockDiscovery struct {
 
 func (m *mockDiscovery) DiscoveryCache() cache.SharedInformer {
 	return nil
+}
+
+func (m *mockDiscovery) GetGVKFromGVR(resource schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	return schema.GroupVersionKind{Group: resource.Group, Version: resource.Version, Kind: "Secret"}, nil
 }
 
 type mockMetricsConfig struct {
@@ -166,9 +171,13 @@ func TestNewServer(t *testing.T) {
 
 // buildTestServer wires NewServer with mock handlers, mirroring TestNewServer, and returns the
 // underlying httprouter so route registration can be asserted against the real server.
-func buildTestServer(t *testing.T) *httprouter.Router {
+func buildTestServer(t *testing.T, backgroundServiceAccountName ...string) *httprouter.Router {
 	t.Helper()
-	ctx := context.TODO()
+	return buildTestServerWithContext(t, context.Background(), backgroundServiceAccountName...)
+}
+
+func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundServiceAccountName ...string) *httprouter.Router {
+	t.Helper()
 	dummyHandler := &mockHandler{}
 	cfg := config.NewDefaultConfiguration(false)
 	metricsMgr := &mockMetricsConfig{}
@@ -198,7 +207,7 @@ func buildTestServer(t *testing.T) *httprouter.Router {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, backgroundServiceAccountName...,
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")

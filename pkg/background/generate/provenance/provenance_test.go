@@ -448,3 +448,22 @@ func actionCount(actions []k8stesting.Action, verb string) int {
 	}
 	return count
 }
+
+func TestStoreSnapshotIsBoundedToGenerationBatch(t *testing.T) {
+	t.Parallel()
+	client := fake.NewClientset(testKey())
+	store := NewStore(client)
+	batch, err := store.Snapshot(t.Context())
+	require.NoError(t, err)
+	policy, obj := testResource()
+	for range 3 {
+		stamp(t, batch, policy, obj)
+		valid, err := batch.Verify(t.Context(), policy, obj)
+		require.NoError(t, err)
+		require.True(t, valid)
+	}
+	require.Equal(t, 1, actionCount(client.Actions(), "get"))
+	require.NoError(t, client.CoreV1().Secrets(config.KyvernoNamespace()).Delete(t.Context(), SecretName, metav1.DeleteOptions{}))
+	_, err = store.Snapshot(t.Context())
+	require.Error(t, err, "a new batch must validate the key again")
+}

@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -12,9 +11,9 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func (inner AdmissionHandler) withGenerateProvenanceProtection() AdmissionHandler {
+func (inner AdmissionHandler) withGenerateProvenanceProtection(controllerUsernames []string) AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
-		if strings.HasPrefix(request.UserInfo.Username, kyvernoUsernamePrefix) {
+		if isControllerUsername(request.UserInfo.Username, controllerUsernames) {
 			return inner(ctx, logger, request, startTime)
 		}
 		if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {
