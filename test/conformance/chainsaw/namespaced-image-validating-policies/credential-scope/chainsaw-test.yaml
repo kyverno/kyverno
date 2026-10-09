@@ -1,0 +1,95 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: namespaced-image-credential-scope
+spec:
+  concurrent: true
+  steps:
+  - name: image-policy-bare
+    bindings:
+    - name: name
+      value: image-policy-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: image-policy.yaml
+  - name: image-policy-local
+    bindings:
+    - name: name
+      value: image-policy-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: image-policy.yaml
+  - name: image-policy-foreign
+    bindings:
+    - name: name
+      value: image-policy-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: image-policy.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: image-policy-installation
+    bindings:
+    - name: name
+      value: image-policy-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: image-policy.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: attestor-bare
+    bindings:
+    - name: name
+      value: attestor-bare
+    - name: secret
+      value: regcred
+    try:
+    - create:
+        file: attestor.yaml
+  - name: attestor-local
+    bindings:
+    - name: name
+      value: attestor-local
+    - name: secret
+      value: (join('/', [$namespace, 'regcred']))
+    try:
+    - create:
+        file: attestor.yaml
+  - name: attestor-foreign
+    bindings:
+    - name: name
+      value: attestor-foreign
+    - name: secret
+      value: tenant-foreign/regcred
+    try:
+    - create:
+        file: attestor.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true
+  - name: attestor-installation
+    bindings:
+    - name: name
+      value: attestor-installation
+    - name: secret
+      value: kyverno/regcred
+    try:
+    - create:
+        file: attestor.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'instead of policy namespace')): true

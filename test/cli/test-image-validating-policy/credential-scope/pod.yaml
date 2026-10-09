@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: scope-proof
+  namespace: team-a
+spec:
+  containers:
+  - name: app
+    image: registry.invalid/scope-proof:latest
