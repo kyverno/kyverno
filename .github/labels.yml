@@ -567,5 +567,15 @@ needs-review:
 # Applied automatically by dependabot-merge-triage.yaml. Purely informational (a permanent fact about the bump,
 # never removed) — always paired with needs-review.
 major-bump:
-  color: 5319E7
+  color: "5319E7"
   description: A major-semver Dependabot bump — needs a human to check for breaking changes
+
+# Managed by pr-stale-author-action.yaml; don't set by hand.
+stale:
+  color: CFD3D7
+  description: Waiting on the author with no new commit for 14 days
+
+# Set by a maintainer. Exempts a PR from pr-stale-author-action.yaml (no stale label, no review nudge).
+no-stale:
+  color: C2E0C6
+  description: Exempt from the stale-author and idle-review reminders

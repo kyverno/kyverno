@@ -63,6 +63,14 @@ jobs:
         run: |
           set -e
           make verify-legacy-crd-retention
+      - name: Verify scale-to-zero release scope
+        run: bash scripts/verify-scale-to-zero-hook.sh
+      - name: Verify restrict-sysctls allow-list
+        # Renders restrict-sysctls at each Kubernetes version gate and checks
+        # the allow-list against the PSA list for that version.
+        run: |
+          set -e
+          make verify-policies-sysctls
 
   sync-issue:
     if: always() && github.event_name == 'push'
