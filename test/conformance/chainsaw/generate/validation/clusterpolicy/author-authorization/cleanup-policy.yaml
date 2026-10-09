@@ -1,0 +1,12 @@
+apiVersion: kyverno.io/v2
+kind: CleanupPolicy
+metadata:
+  name: author-cleanup-target
+  namespace: generate-author-authorization
+spec:
+  match:
+    any:
+    - resources:
+        kinds:
+        - ConfigMap
+  schedule: "0 0 * * *"

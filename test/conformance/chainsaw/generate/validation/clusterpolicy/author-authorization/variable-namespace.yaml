@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: author-variable-namespace
+spec:
+  rules:
+  - name: generate-configmap
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: author-variable-namespace
+      namespace: "{{ request.object.metadata.name }}"
+      data:
+        data:
+          authorized: "true"

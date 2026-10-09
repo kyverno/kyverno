@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: author-variable-kind
+spec:
+  rules:
+  - name: generate-variable-kind
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    generate:
+      apiVersion: v1
+      kind: "{{ request.object.data.kind }}"
+      name: author-variable-kind
+      namespace: generate-author-authorization
+      data:
+        data:
+          authorized: "true"
