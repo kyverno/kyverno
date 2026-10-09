@@ -10,6 +10,7 @@ import (
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/handlers/mutation"
+	"github.com/kyverno/kyverno/pkg/engine/handlers/validation"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/policycontext"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
@@ -26,12 +27,16 @@ type recordingCredentialFactory struct {
 	imagePullSecrets  []string
 }
 
+type credentialRegistryClient struct {
+	engineapi.RegistryClient
+}
+
 func (f *recordingCredentialFactory) GetClient(_ context.Context, credentials *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (engineapi.RegistryClient, error) {
 	f.calls++
 	f.credentials = credentials
 	f.resourceNamespace = resourceNamespace
 	f.imagePullSecrets = imagePullSecrets
-	return nil, nil
+	return &credentialRegistryClient{}, nil
 }
 
 // A prior verified verdict lets the allowed cases finish without a registry;
@@ -40,6 +45,8 @@ type verifiedCredentialImageCache struct {
 	imageverifycache.Client
 	calls int
 }
+
+func (*verifiedCredentialImageCache) IsEnabled() bool { return true }
 
 func (c *verifiedCredentialImageCache) Get(context.Context, metav1.Object, string, string, bool) (bool, error) {
 	c.calls++
@@ -80,7 +87,7 @@ func TestVerifyImageHandlers_ConfineCredentialsBeforeCachedVerification(t *testi
 		{name: "no explicit credentials", namespace: "tenant-a", noCredentials: true},
 	}
 
-	for _, handlerKind := range []string{"mutation"} {
+	for _, handlerKind := range []string{"mutation", "validation"} {
 		t.Run(handlerKind, func(t *testing.T) {
 			t.Parallel()
 			for _, test := range tests {
@@ -132,7 +139,11 @@ func TestVerifyImageHandlers_ConfineCredentialsBeforeCachedVerification(t *testi
 					factory := &recordingCredentialFactory{}
 					cache := &verifiedCredentialImageCache{}
 					var handler handlers.Handler
-					handler, err = mutation.NewMutateImageHandler(pc, resource, rule, cfg, factory, cache, &engineapi.ImageVerificationMetadata{}, nil, true)
+					if handlerKind == "mutation" {
+						handler, err = mutation.NewMutateImageHandler(pc, resource, rule, cfg, factory, cache, &engineapi.ImageVerificationMetadata{}, nil, true)
+					} else {
+						handler, err = validation.NewValidateImageHandler(pc, resource, rule, cfg, factory, cache, nil, true)
+					}
 					require.NoError(t, err)
 					require.NotNil(t, handler)
 					_, responses := handler.Process(context.Background(), logr.Discard(), pc, resource, rule, nil, nil)

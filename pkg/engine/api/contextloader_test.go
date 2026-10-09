@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -19,6 +20,7 @@ func TestPolicyNamespace(t *testing.T) {
 		{name: "nil", wantError: "policy scope must not be nil"},
 		{name: "typed nil", policy: (*kyvernov1.Policy)(nil), wantError: "policy scope must not be nil"},
 		{name: "missing namespace", policy: &kyvernov1.Policy{}, wantError: "policy namespace must not be empty"},
+		{name: "missing cleanup namespace", policy: &kyvernov2.CleanupPolicy{}, wantError: "policy namespace must not be empty"},
 		{name: "invalid namespace", policy: &kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Namespace: "tenant/a"}}, wantError: "is invalid"},
 		{name: "namespaced", policy: &kyvernov1.Policy{ObjectMeta: metav1.ObjectMeta{Namespace: "tenant-a"}}, namespace: "tenant-a"},
 		{name: "cluster", policy: &kyvernov1.ClusterPolicy{}},
