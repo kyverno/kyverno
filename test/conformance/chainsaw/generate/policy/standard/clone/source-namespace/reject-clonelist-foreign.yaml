@@ -1,0 +1,21 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: clone-source-clonelist-foreign
+  namespace: clone-source-tenant
+spec:
+  rules:
+  - name: copy
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+          names:
+          - clone-trigger
+    generate:
+      namespace: clone-source-tenant
+      cloneList:
+        namespace: clone-source-other
+        kinds:
+        - v1/ConfigMap

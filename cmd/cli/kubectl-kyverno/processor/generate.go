@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/log"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
@@ -19,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -115,7 +117,33 @@ func initializeMockController(out io.Writer, s *store.Store, gvrToListKind map[s
 		gvk := object.GetObjectKind().GroupVersionKind()
 		gvrs.Insert(gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind) + "s"))
 	}
-	client.SetDiscovery(dclient.NewFakeDiscoveryClient(gvrs.UnsortedList()))
+	discovery := dclient.NewFakeDiscoveryClient(gvrs.UnsortedList())
+	for _, object := range objects {
+		metadata, err := meta.Accessor(object)
+		if err != nil {
+			return nil, fmt.Errorf("failed to determine fixture scope: %w", err)
+		}
+		gvk := object.GetObjectKind().GroupVersionKind()
+		discovery.SetResourceScope(gvk.GroupVersion().WithResource(strings.ToLower(gvk.Kind)+"s"), metadata.GetNamespace() != "")
+	}
+	// Embedded discovery supplies authoritative scopes even when a clone list
+	// has no source fixtures or a fixture omits its namespace.
+	apiGroupResources, err := data.APIGroupResources()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load offline discovery: %w", err)
+	}
+	for _, groupResources := range apiGroupResources {
+		for version, resources := range groupResources.VersionedResources {
+			gv := schema.GroupVersion{Group: groupResources.Group.Name, Version: version}
+			for _, resource := range resources {
+				if strings.Contains(resource.Name, "/") {
+					continue
+				}
+				discovery.SetResourceScope(gv.WithResource(resource.Name), resource.Namespaced)
+			}
+		}
+	}
+	client.SetDiscovery(discovery)
 	cfg := config.NewDefaultConfiguration(false)
 	c := generate.NewGenerateControllerWithOnlyClient(client, engine.NewEngine(
 		cfg,

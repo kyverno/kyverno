@@ -1,0 +1,59 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generate-clone-source-namespace
+spec:
+  concurrent: false
+  steps:
+  - name: prepare
+    try:
+    - apply:
+        file: setup.yaml
+  - name: reject-invalid-source-namespaces
+    try:
+    - script:
+        content: |
+          set -eu
+          for file in reject-*.yaml; do
+            if output=$(kubectl create --dry-run=server -f "$file" 2>&1); then
+              echo "Unexpectedly accepted $file"
+              exit 1
+            fi
+            case "$output" in
+              *"cannot clone resources from other namespace"*) ;;
+              *) echo "$output"; exit 1 ;;
+            esac
+          done
+  - name: allow-same-namespace-source
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        resource:
+          apiVersion: kyverno.io/v1
+          kind: Policy
+          metadata:
+            name: clone-source-same
+            namespace: clone-source-tenant
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+    - sleep:
+        duration: 1s
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: clone-trigger
+            namespace: clone-source-tenant
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: copy
+            namespace: clone-source-tenant
+          data:
+            value: tenant

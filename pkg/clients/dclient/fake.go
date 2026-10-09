@@ -97,6 +97,15 @@ func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *
 type fakeDiscoveryClient struct {
 	registeredResources []schema.GroupVersionResource
 	gvrToGVK            map[schema.GroupVersionResource]schema.GroupVersionKind
+	resourceScopes      map[schema.GroupVersionResource]bool
+}
+
+// SetResourceScope supplies discovery scope for an offline resource fixture.
+func (c *fakeDiscoveryClient) SetResourceScope(gvr schema.GroupVersionResource, namespaced bool) {
+	if c.resourceScopes == nil {
+		c.resourceScopes = make(map[schema.GroupVersionResource]bool)
+	}
+	c.resourceScopes[gvr] = namespaced
 }
 
 func (c *fakeDiscoveryClient) AddGVRToGVKMapping(gvr schema.GroupVersionResource, gvk schema.GroupVersionKind) {
@@ -176,7 +185,7 @@ func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource st
 					Kind:         kind,
 					Resource:     r,
 					SubResource:  subresource,
-				}: {},
+				}: {Namespaced: c.resourceScopes[resource]},
 			}, nil
 		}
 	}

@@ -112,6 +112,9 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		g.logger.Error(err, "variable substitution failed for rule", "rule", g.rule.Name)
 		return nil, err
 	}
+	if err := g.validateCloneSources(pattern); err != nil {
+		return nil, err
+	}
 
 	target := pattern.ResourceSpec
 	logger := g.logger.WithValues("target", target.String())
