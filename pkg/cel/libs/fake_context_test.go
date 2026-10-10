@@ -165,14 +165,44 @@ func TestFakeContextProvider_AddResource(t *testing.T) {
 	}
 	{
 		got, err := cp.ListResources("v1", "wrongs", "test-ns", nil)
-		assert.Error(t, err)
-		assert.Nil(t, got)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(got.Items))
 	}
 	{
 		got, err := cp.ListResources("wrong", "configmaps", "test-ns", nil)
+		assert.NoError(t, err)
+		assert.Equal(t, 0, len(got.Items))
+	}
+	{
+		got, err := cp.ListResources("bad/group/version", "configmaps", "test-ns", nil)
 		assert.Error(t, err)
 		assert.Nil(t, got)
 	}
+}
+
+func TestFakeContextProvider_ListResources_UnregisteredKindReturnsEmptyList(t *testing.T) {
+	// A context that contains no resources of a given kind must yield an empty
+	// list, not an error, so CEL expressions like
+	// `resource.List("rbac.authorization.k8s.io/v1", "clusterroles", "").items.orValue([])`
+	// evaluate successfully in the CLI (kyverno apply/test). See #17517.
+	cp := NewFakeContextProvider()
+	cm := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "ConfigMap"},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "example",
+		},
+	}
+	assert.NoError(t, cp.AddResource(
+		schema.GroupVersionResource{Version: "v1", Resource: "configmaps"},
+		cm,
+	))
+
+	// A kind with no resources registered in the context returns an empty list.
+	got, err := cp.ListResources("rbac.authorization.k8s.io/v1", "clusterroles", "", nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, got)
+	assert.Empty(t, got.Items)
 }
 
 func TestFakeContextProvider_Clone(t *testing.T) {
