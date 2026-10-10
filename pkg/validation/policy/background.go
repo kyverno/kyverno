@@ -9,11 +9,11 @@ import (
 )
 
 var ForbiddenUserVariables = []*regexp.Regexp{
-	regexp.MustCompile(`[^\.](serviceAccountName)\b`),
-	regexp.MustCompile(`[^\.](serviceAccountNamespace)\b`),
-	regexp.MustCompile(`[^\.](request.userInfo)\b`),
-	regexp.MustCompile(`[^\.](request.roles)\b`),
-	regexp.MustCompile(`[^\.](request.clusterRoles)\b`),
+	regexp.MustCompile(`(^|[^\.])(serviceAccountName)\b`),
+	regexp.MustCompile(`(^|[^\.])(serviceAccountNamespace)\b`),
+	regexp.MustCompile(`(^|[^\.])(request\.userInfo)\b`),
+	regexp.MustCompile(`(^|[^\.])(request\.roles)\b`),
+	regexp.MustCompile(`(^|[^\.])(request\.clusterRoles)\b`),
 }
 
 // containsUserVariables returns error if variable that does not start from request.object
