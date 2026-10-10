@@ -156,11 +156,11 @@ func FetchPolicyExceptions(polexLister kyvernov2listers.PolicyExceptionLister, n
 
 func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
-	r, err := getIncludeReportingLabelRequirement()
+	selector, err := includeReportingSelector()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
+	if pols, err := mapLister.List(selector); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -172,11 +172,11 @@ func FetchMutatingAdmissionPolicies(mapLister admissionregistrationv1beta1lister
 
 func FetchMutatingAdmissionPoliciesV1(mapLister admissionregistrationv1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1beta1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1beta1.MutatingAdmissionPolicy
-	r, err := getIncludeReportingLabelRequirement()
+	selector, err := includeReportingSelector()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
+	if pols, err := mapLister.List(selector); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -188,11 +188,11 @@ func FetchMutatingAdmissionPoliciesV1(mapLister admissionregistrationv1listers.M
 
 func FetchMutatingAdmissionPoliciesAlpha(mapLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister) ([]admissionregistrationv1alpha1.MutatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1alpha1.MutatingAdmissionPolicy
-	r, err := getIncludeReportingLabelRequirement()
+	selector, err := includeReportingSelector()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := mapLister.List(labels.NewSelector().Add(*r)); err != nil {
+	if pols, err := mapLister.List(selector); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -240,11 +240,11 @@ func FetchMutatingAdmissionPolicyBindingsAlpha(mapBindingLister admissionregistr
 
 func FetchValidatingAdmissionPolicies(vapLister admissionregistrationv1listers.ValidatingAdmissionPolicyLister) ([]admissionregistrationv1.ValidatingAdmissionPolicy, error) {
 	var policies []admissionregistrationv1.ValidatingAdmissionPolicy
-	r, err := getIncludeReportingLabelRequirement()
+	selector, err := includeReportingSelector()
 	if err != nil {
 		return nil, err
 	}
-	if pols, err := vapLister.List(labels.NewSelector().Add(*r)); err != nil {
+	if pols, err := vapLister.List(selector); err != nil {
 		return nil, err
 	} else {
 		for _, pol := range pols {
@@ -425,6 +425,18 @@ func FetchCELPolicyExceptions(celexLister celengine.PolicyExceptionLister) ([]*p
 	}
 
 	return exceptions, nil
+}
+
+func includeReportingSelector() (labels.Selector, error) {
+	rInclude, err := getIncludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	rNotDisabled, err := getExcludeReportingLabelRequirement()
+	if err != nil {
+		return nil, err
+	}
+	return labels.NewSelector().Add(*rInclude).Add(*rNotDisabled), nil
 }
 
 func getExcludeReportingLabelRequirement() (*labels.Requirement, error) {

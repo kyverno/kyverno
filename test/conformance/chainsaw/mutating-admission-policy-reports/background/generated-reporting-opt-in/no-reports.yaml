@@ -1,0 +1,7 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+(length(results[?policy == 'mpol-reporting-opt-in-map']) > `0`): true
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+(length(results[?policy == 'mpol-reporting-opt-in-map']) > `0`): true
