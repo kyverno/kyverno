@@ -68,7 +68,7 @@ func globIvpol(n, glob string) *policiesv1beta1.ImageValidatingPolicy {
 			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{VerifyDigest: ptr.To(false)},
 			MatchImageReferences:     []policiesv1beta1.MatchImageReference{{Glob: glob}},
 			ImageExtractors:          []policiesv1beta1.ImageExtractor{{Name: "containers", Expression: "object.spec.containers.map(e, e.image)"}},
-			Validations:              []admissionregistrationv1.Validation{{Expression: "true", Message: "x"}},
+			Validations:              []admissionregistrationv1.Validation{{Expression: "images.containers.map(e, getImageData(e) != null).all(x, x)", Message: "x"}},
 		},
 	}
 }
@@ -148,7 +148,11 @@ func Test_ImageVerifyEngine_PanicInOnePolicyDoesNotCrashController(t *testing.T)
 // (evaluateExtractedIv) run in the same per-policy goroutine, so a panic there
 // is contained the same way.
 func Test_ImageVerifyEngine_PanicInExtractionModePolicyIsContained(t *testing.T) {
-	provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{buildExtractionModeRequestPolicy()}, nil)
+	pol := buildExtractionModeRequestPolicy()
+	pol.Spec.Validations = []admissionregistrationv1.Validation{
+		{Expression: "images.containers.map(e, getImageData(e) != null).all(x, x)"},
+	}
+	provider, err := NewProvider(iveval.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{pol}, nil)
 	require.NoError(t, err)
 	eng := NewEngine(provider, nsResolver, matching.NewMatcher(), nil, nil, config.NewDefaultConfiguration(false)).(*engineImpl)
 	const image = "ghcr.io/a/app:v1"

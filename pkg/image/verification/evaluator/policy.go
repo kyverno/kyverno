@@ -177,14 +177,6 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 		return result, err
 	}
 
-	// Prefetch image data through Get() one image at a time to avoid triggering
-	// racy concurrent map writes in the SDK AddImages() implementation.
-	for _, image := range imgList {
-		if _, err := imgCtx.Get(ctx, image, imageverify.WithRequestContext(ctx, c.authOpts), c.nameOpts); err != nil {
-			return nil, err
-		}
-	}
-
 	data[engine.ImagesKey] = filteredImages
 	data[engine.AttestationsKey] = c.attestationList
 	attestors := lazy.NewMapValue(cel.DynType)

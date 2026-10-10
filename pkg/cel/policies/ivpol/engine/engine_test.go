@@ -542,7 +542,7 @@ func Test_ImageVerifyEngine_ValidatingPoliciesAreEvaluatedConcurrently(t *testin
 				},
 				Validations: []admissionregistrationv1.Validation{
 					{
-						Expression: "true",
+						Expression: "images.containers.map(e, getImageData(e) != null).all(x, x)",
 						Message:    "unexpected image registry",
 					},
 				},
