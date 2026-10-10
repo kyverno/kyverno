@@ -753,7 +753,9 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ghcr.io
+    registry: ~
+    # -- (string) Default image registry, used only when neither `registry` nor `global.image.registry` is set
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/readiness-checker
     # -- Image tag

@@ -901,7 +901,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | webhooksCleanup.enabled | bool | `true` | Create a helm pre-delete hook to cleanup webhooks. |
-| webhooksCleanup.image.registry | string | `"ghcr.io"` | Image registry |
+| webhooksCleanup.image.registry | string | `nil` | Image registry |
+| webhooksCleanup.image.defaultRegistry | string | `"ghcr.io"` | Default image registry, used only when neither `registry` nor `global.image.registry` is set |
 | webhooksCleanup.image.repository | string | `"kyverno/readiness-checker"` | Image repository |
 | webhooksCleanup.image.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | webhooksCleanup.image.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
