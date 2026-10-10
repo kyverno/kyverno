@@ -137,12 +137,16 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return jsonData, nil
 	}
 
-	path, err := variables.SubstituteAll(a.logger, a.jsonCtx, a.entry.APICall.JMESPath)
+	pathRaw, err := variables.SubstituteAll(a.logger, a.jsonCtx, a.entry.APICall.JMESPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
+	path, ok := pathRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: JMESPath did not resolve to a string (got %T)", a.entry.APICall.JMESPath, a.entry.Name, pathRaw)
+	}
 
-	results, err := a.applyJMESPathJSON(path.(string), jsonData)
+	results, err := a.applyJMESPathJSON(path, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}
