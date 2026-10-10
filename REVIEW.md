@@ -87,10 +87,16 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   automatically on **every** PR against `main`/`release-*` — none of them are path-filtered, so they show up in the
   checks list regardless of whether the PR actually touches `charts/` or a workflow file (verified against each
   workflow's `on:` block in `.github/workflows/`; there's no `paths:` filter on any of them).
-- **`Framework tests`** (Go integration tests per CEL policy kind: vpol/mpol/gpol/dpol/ivpol,
-  `test/integration/<kind>/...`) is the one exception — `check-framework.yaml` has
+- **`Framework tests`** (Go integration tests in `test/integration/<package>/...`: one package per CEL policy
+  kind, plus cross-cutting ones such as `multi` and `reports`) is the one exception — `check-framework.yaml` has
   `paths-ignore: [docs/**, charts/**, **/*.md]`, so a PR that only touches those (like a docs-only PR) never
-  triggers it. Its absence from the checks list on such a PR is expected, not a CI gap.
+  triggers it. Its absence from the checks list on such a PR is expected, not a CI gap. Its matrix is built from
+  the directories under `test/integration/` (all but `framework/`), so a new package needs no workflow change.
+- **`Registry tests (ivpol)`** (`check-framework-registry.yaml`) runs the ivpol tests behind the `registry` build
+  tag, which pull and verify real signed images. It runs nightly, on manual dispatch, and on PRs that touch
+  those tests, `test/integration/framework/ivpol.go` or the workflow itself. It fails when no registry test
+  passed, since an unreachable registry makes the tests skip, and a failed nightly run opens a
+  `workflow-failure` issue.
 - **The ~1000+ chainsaw conformance suite in `test/conformance/chainsaw/` does *not* run automatically on a PR.**
   `.github/workflows/tests-conformance.yaml` is `workflow_call`-only; it's actually triggered either by
   `comment-conformance.yaml` (posting `/conformance` on the PR, `issue_comment` triggered) or by

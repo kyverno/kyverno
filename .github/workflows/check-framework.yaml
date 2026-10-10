@@ -24,13 +24,41 @@ env:
   K8S_VERSION: "1.36"
 
 jobs:
+  packages:
+    name: List framework test packages
+    runs-on: ubuntu-slim
+    outputs:
+      packages: ${{ steps.list.outputs.packages }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Every directory under test/integration except the shared framework is a test package. Listing
+      # them here instead of in the matrix means a new package runs on PRs from the day it lands.
+      - name: List packages
+        id: list
+        shell: bash
+        run: |
+          packages=()
+          for dir in test/integration/*/; do
+            name=$(basename "$dir")
+            if [ "$name" != framework ]; then
+              packages+=("\"$name\"")
+            fi
+          done
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "::error::found no test packages under test/integration"
+            exit 1
+          fi
+          echo "packages=[$(IFS=,; echo "${packages[*]}")]" | tee -a "$GITHUB_OUTPUT"
+
   tests:
     name: Framework tests
+    needs: packages
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        policy-type: [vpol, mpol, gpol, dpol, ivpol]
+        package: ${{ fromJSON(needs.packages.outputs.packages) }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -65,4 +93,6 @@ jobs:
           echo "KUBEBUILDER_ASSETS=$(setup-envtest use $K8S_VERSION -p path)" >> $GITHUB_ENV
 
       - name: Run tests
-        run: go test -tags=integration ./test/integration/${{ matrix.policy-type }}/...
+        env:
+          PACKAGE: ${{ matrix.package }}
+        run: go test -tags=integration "./test/integration/${PACKAGE}/..."
