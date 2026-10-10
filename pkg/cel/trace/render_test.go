@@ -259,6 +259,22 @@ func TestRender_Generations(t *testing.T) {
 		assert.Contains(t, out, want)
 	}
 	assert.NotContains(t, out, "no validations to evaluate")
+
+}
+func TestRender_NoBreakdownNote(t *testing.T) {
+	var sb strings.Builder
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictFail,
+		ExpressionTrace: ExpressionTrace{Source: "http.Get(url).ok", Result: "false", NoBreakdown: "it calls http.Get, which is not run a second time"},
+	}})
+	assert.Contains(t, sb.String(), "(no breakdown: it calls http.Get, which is not run a second time)")
+
+	sb.Reset()
+	Render(&sb, &Decision{Verdict: VerdictTrace{
+		Status:          VerdictPass,
+		ExpressionTrace: ExpressionTrace{Source: "http.Get(url).ok", Result: "true", NoBreakdown: "it calls http.Get, which is not run a second time"},
+	}})
+	assert.NotContains(t, sb.String(), "no breakdown", "a pass shows no breakdown, so no note either")
 }
 
 func TestRender_Images(t *testing.T) {
