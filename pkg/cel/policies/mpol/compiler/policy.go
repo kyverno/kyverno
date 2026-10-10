@@ -362,10 +362,7 @@ func (p *Policy) evaluate(
 
 		newVersionedObject, mutEval, err := patcher.Patch(ctx, data, patchRequest, celconfig.RuntimeCELCostBudget)
 		if p.trace && i < len(p.tracedMutations) {
-			var out ref.Val
-			if mutEval != nil {
-				out = mutEval.Result
-			}
+			out := mutEval.Result
 			t := p.tracedMutations[i]
 			// re-run before data moves on to the patched object, so the twin sees what the
 			// patcher saw
@@ -374,9 +371,7 @@ func (p *Policy) evaluate(
 			if err != nil {
 				mt.Error = err.Error()
 			}
-			if mutEval != nil {
-				mt.NotApplied = mutEval.NotApplied
-			}
+			mt.NotApplied = mutEval.NotApplied
 			mutationTraces = append(mutationTraces, mt)
 		}
 		if err != nil {

@@ -53,7 +53,7 @@ type jsonPatcher struct {
 	prog cel.Program
 }
 
-func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, *MutationEval, error) {
+func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, MutationEval, error) {
 	patchObj, _, eval, err := e.evaluatePatchExpression(ctx, runtimeCELCostBudget, evalData)
 	if err != nil {
 		return nil, eval, err
@@ -68,9 +68,7 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 	if err != nil {
 		if errors.Is(err, jsonpatch.ErrTestFailed) {
 			// If a json patch fails a test operation, the patch must not be applied
-			if eval != nil {
-				eval.NotApplied = "a test operation failed, so the object was left unchanged"
-			}
+			eval.NotApplied = "a test operation failed, so the object was left unchanged"
 			return patchRequest.VersionedAttributes.VersionedObject, eval, nil
 		}
 		return nil, eval, fmt.Errorf("JSON Patch: %w", err)
@@ -93,11 +91,11 @@ func (e *jsonPatcher) Patch(ctx context.Context, evalData map[string]any, patchR
 	return newVersionedObject, eval, nil
 }
 
-func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, *MutationEval, error) {
+func (e *jsonPatcher) evaluatePatchExpression(ctx context.Context, remainingBudget int64, evalData map[string]any) (jsonpatch.Patch, int64, MutationEval, error) {
 	var err error
 
 	refVal, _, err := e.prog.ContextEval(ctx, evalData)
-	eval := &MutationEval{Result: refVal}
+	eval := MutationEval{Result: refVal}
 	if err != nil {
 		return nil, -1, eval, err
 	}

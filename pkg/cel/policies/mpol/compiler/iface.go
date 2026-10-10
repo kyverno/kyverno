@@ -10,7 +10,9 @@ import (
 
 // MutationEval is the raw CEL result of a mutation expression's evaluation, surfaced purely for
 // tracing and kept alongside the patched object rather than replacing it. The per-node values come
-// from re-running the expression's tracking twin (see compiler.TracedProgram), not from here.
+// from re-running the expression's tracking twin (see compiler.TracedProgram), not from here. It is
+// returned by value, so a patcher hands it back without allocating, which matters because it is
+// returned on every mutation, also when tracing is off and nothing reads it.
 type MutationEval struct {
 	Result ref.Val
 	// NotApplied is set when the patch was computed but deliberately left unapplied, and says
@@ -19,5 +21,5 @@ type MutationEval struct {
 }
 
 type Patcher interface {
-	Patch(context.Context, map[string]any, patch.Request, int64) (runtime.Object, *MutationEval, error)
+	Patch(context.Context, map[string]any, patch.Request, int64) (runtime.Object, MutationEval, error)
 }
