@@ -1,0 +1,24 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: invalid-variable-background
+spec:
+  background: true
+  rules:
+    - name: check-name
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      preconditions:
+        any:
+          - key: "{{ invalid_request.object.metadata.name }}"
+            operator: NotEquals
+            value: ""
+      validate:
+        failureAction: Audit
+        message: "The Pod must end with -nginx"
+        pattern:
+          metadata:
+            name: "*-nginx"
