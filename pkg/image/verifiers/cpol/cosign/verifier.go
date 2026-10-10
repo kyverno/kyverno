@@ -102,11 +102,7 @@ func (v *verifier) FetchAttestations(ctx context.Context, opts verifiers.Options
 			return nil, fmt.Errorf("sigstore bundle verification failed: no matching signatures found")
 		}
 
-		statements, err := decodeStatementsFromBundles(results)
-		if err != nil {
-			return nil, err
-		}
-		return &verifiers.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
+		return attestationsResponse(results)
 	}
 	cosignOpts, err := buildCosignOptions(ctx, opts)
 	if err != nil {
@@ -169,4 +165,17 @@ func (v *verifier) FetchAttestations(ctx context.Context, opts verifiers.Options
 	}
 
 	return &verifiers.Response{Digest: digest, Statements: inTotoStatements}, nil
+}
+
+// attestationsResponse builds the response for verified sigstore bundles. Bundles without an in-toto
+// statement carry no attestation to check, so a response without statements is an error.
+func attestationsResponse(results []*verificationResult) (*verifiers.Response, error) {
+	statements, err := decodeStatementsFromBundles(results)
+	if err != nil {
+		return nil, err
+	}
+	if len(statements) == 0 {
+		return nil, fmt.Errorf("sigstore bundle verification failed: no in-toto attestations found")
+	}
+	return &verifiers.Response{Digest: results[0].Desc.Digest.String(), Statements: statements}, nil
 }
