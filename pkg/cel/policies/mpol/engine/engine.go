@@ -22,6 +22,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -99,6 +100,13 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 		Resource: object,
 	}
 
+	// Resolve the namespace so that namespaceSelector matching in handlePolicy
+	// mirrors the admission path (Handle), which also calls nsResolver.
+	var namespace *corev1.Namespace
+	if ns := attr.GetNamespace(); ns != "" {
+		namespace = e.nsResolver(ns)
+	}
+
 	// The request here is loop-invariant (attr is rebuilt per policy below,
 	// but the underlying admission request is not), so the `request` CEL
 	// activation value is built at most once for the whole loop instead of
@@ -115,26 +123,27 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 	})
 
 	for _, mpol := range mpols {
-		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true)
-			response.Policies = append(response.Policies, r)
-			if patched != nil {
-				response.PatchedResource = patched
-				// Update attr to use the patched resource for the next policy evaluation
-				attr = admission.NewAttributesRecord(
-					patched,
-					attr.GetOldObject(),
-					attr.GetKind(),
-					attr.GetNamespace(),
-					attr.GetName(),
-					attr.GetResource(),
-					attr.GetSubresource(),
-					attr.GetOperation(),
-					nil,
-					attr.IsDryRun(),
-					attr.GetUserInfo(),
-				)
-			}
+		if predicate != nil && !predicate(mpol.Policy) {
+			continue
+		}
+		r, patched := e.handlePolicy(ctx, mpol, attr, request, namespace, requestMapFn, true)
+		response.Policies = append(response.Policies, r)
+		if patched != nil {
+			response.PatchedResource = patched
+			// Update attr to use the patched resource for the next policy evaluation
+			attr = admission.NewAttributesRecord(
+				patched,
+				attr.GetOldObject(),
+				attr.GetKind(),
+				attr.GetNamespace(),
+				attr.GetName(),
+				attr.GetResource(),
+				attr.GetSubresource(),
+				attr.GetOperation(),
+				nil,
+				attr.IsDryRun(),
+				attr.GetUserInfo(),
+			)
 		}
 	}
 	annotateTraces(response.Policies, response.Resource)
@@ -253,8 +262,44 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	hasExplicitTarget := len(targetConstraints.ResourceRules) > 0 || targetConstraints.Expression != ""
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
-		if target && hasExplicitTarget {
-			constraints = targetConstraints.MatchResources
+		if target {
+			if hasExplicitTarget {
+				if len(targetConstraints.ResourceRules) > 0 {
+					constraints = targetConstraints.MatchResources
+				} else if targetConstraints.Expression != "" {
+					// Expression-only targets: the CEL expression (e.g. resource.get(...))
+					// resolves the target set directly. Use the targetMatchConstraints'
+					// MatchResources (which may carry NamespaceSelector/ObjectSelector)
+					// but clear ResourceRules to avoid falling
+					// back to the trigger's matchConstraints for resource-rule matching.
+					// We preserve ExcludeResourceRules so exclusion logic still applies.
+					constraints = targetConstraints.MatchResources
+					constraints.ResourceRules = nil
+				}
+			}
+
+			// Normalize target resource-rule operations to OperationAll.
+			// Target matching is not an admission-operation filter: the
+			// background controller synthesizes Update for every scan request,
+			// and the CLI uses an empty operation. Without this normalization,
+			// a target rule limited to CREATE would be silently rejected even
+			// though the target was already selected for mutation.
+			if len(constraints.ResourceRules) > 0 {
+				normalizedRules := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ResourceRules))
+				for i, r := range constraints.ResourceRules {
+					normalizedRules[i] = r
+					normalizedRules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+				}
+				constraints.ResourceRules = normalizedRules
+			}
+			if len(constraints.ExcludeResourceRules) > 0 {
+				normalizedExclude := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ExcludeResourceRules))
+				for i, r := range constraints.ExcludeResourceRules {
+					normalizedExclude[i] = r
+					normalizedExclude[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+				}
+				constraints.ExcludeResourceRules = normalizedExclude
+			}
 		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if tracing {

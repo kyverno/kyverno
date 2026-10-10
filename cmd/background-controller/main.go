@@ -390,7 +390,7 @@ func main() {
 				mpolEngine := mpolengine.NewMetricWrapper(mpolengine.NewEngine(
 					mpolProvider,
 					namespaceGetter,
-					nil,
+					matching.NewMatcher(),
 					typeConverter,
 					contextProvider,
 				), metrics.BackgroundScan)
