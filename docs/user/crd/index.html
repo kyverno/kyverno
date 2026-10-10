@@ -2639,6 +2639,20 @@ Secrets can be specified as a name (Kyverno namespace) or namespace/name.
 imagePullSecrets from the resource namespace are also used.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>tlsClientCert</code><br/>
+<em>
+<a href="#kyverno.io/v1.TLSClientCert">
+TLSClientCert
+</a>
+</em>
+</td>
+<td>
+<p>TLSClientCert specifies a Kubernetes Secret containing a TLS client certificate
+and private key for mTLS authentication with the registry.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -4642,6 +4656,63 @@ CTLog
 <td>
 <p>CTLog (certificate timestamp log) provides a configuration for validation of Signed Certificate
 Timestamps (SCTs). If the value is unset, the default behavior by Cosign is used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.TLSClientCert">TLSClientCert
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageRegistryCredentials">ImageRegistryCredentials</a>)
+</p>
+<p>
+<p>TLSClientCert holds a reference to a Kubernetes Secret containing a TLS
+client certificate and private key for mTLS authentication with the registry.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>secretName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>SecretName is the name of the Kubernetes Secret holding the client certificate
+and private key. This secret must reside in the Kyverno namespace.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certKey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>CertKey is the key within the secret for the PEM-encoded client certificate.
+Defaults to tls.crt.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keyKey</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>KeyKey is the key within the secret for the PEM-encoded client private key.
+Defaults to tls.key.</p>
 </td>
 </tr>
 </tbody>

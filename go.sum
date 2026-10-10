@@ -640,8 +640,6 @@ github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2 h1:uLTs
 github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2/go.mod h1:EumSDUMvIitgwlZBvVYnlgC285mZ0yCjAfoiu8s3o/g=
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f h1:9u+4QYMLdZPC8qeUB1TnfiUYRrFGYHxjYQsPiHKgJjI=
 github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f/go.mod h1:2oJ/wAoh8hld09eMTT1KzlN3dHjKEQn1xJdu1WAZMa0=
-github.com/kyverno/sdk v0.0.0-20260930194953-f38c4b16a5e2 h1:wkFv8ckQ229lBglQ/LKM2UBf2Yea64/Kw+ERhYG6z7E=
-github.com/kyverno/sdk v0.0.0-20260930194953-f38c4b16a5e2/go.mod h1:i851vMyQMxdBAsdybqTTpz/153MCwVhxpM3PXypc6uo=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7/go.mod h1:YR/zYthNdWfO8+0IOyHDcIDBBBS2JMnYUIwSsnwmRqU=
 github.com/lestrrat-go/blackmagic v1.0.4 h1:IwQibdnf8l2KoO+qC3uT4OaTWsW7tuRQXy9TRN9QanA=
@@ -704,6 +702,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8m
 github.com/natefinch/atomic v1.0.1 h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0A=
 github.com/natefinch/atomic v1.0.1/go.mod h1:N/D/ELrljoqDyT3rZrsUmtsuzvHkeB/wWjHV22AZRbM=
 github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e/go.mod h1:zD1mROLANZcx1PVRCS0qkT7pwLkGfwJo4zjcN/Tysno=
+github.com/nishant-devv/sdk v0.0.0-20261003144317-03e48688fa7b h1:VBoiEi3GkJaMpbabN6MMIqRKPD7xpWq1Wj44I/rK4a0=
+github.com/nishant-devv/sdk v0.0.0-20261003144317-03e48688fa7b/go.mod h1:i851vMyQMxdBAsdybqTTpz/153MCwVhxpM3PXypc6uo=
 github.com/notaryproject/notation-core-go v1.3.0 h1:mWJaw1QBpBxpjLSiKOjzbZvB+xh2Abzk14FHWQ+9Kfs=
 github.com/notaryproject/notation-core-go v1.3.0/go.mod h1:hzvEOit5lXfNATGNBT8UQRx2J6Fiw/dq/78TQL8aE64=
 github.com/notaryproject/notation-go v1.3.2 h1:4223iLXOHhEV7ZPzIUJEwwMkhlgzoYFCsMJvSH1Chb8=
