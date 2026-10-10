@@ -15,6 +15,28 @@
 {{- end -}}
 {{- end -}}
 
+{{/* Validate registry allowlist entries before serializing them into a CSV flag. */}}
+{{- define "kyverno.registryClient.validate" -}}
+{{- range $index, $entry := .privateRegistryAllowlist -}}
+  {{- if not (kindIs "string" $entry) -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
+  {{- end -}}
+  {{- if eq (trim $entry) "" -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
+  {{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Registry egress settings also apply to cleanup, without credential flags. */}}
+{{- define "kyverno.registryClient.egressFlags" -}}
+{{- include "kyverno.registryClient.validate" . -}}
+{{- $flags := list (print "--privateRegistryEgressMode=" .privateRegistryEgressMode) -}}
+{{- with .privateRegistryAllowlist -}}
+  {{- $flags = append $flags (print "--privateRegistryAllowlist=" (join "," .)) -}}
+{{- end -}}
+{{- $flags | toYaml -}}
+{{- end -}}
+
 {{- define "kyverno.features.flags" -}}
 {{- $flags := list -}}
 {{- with .admissionReports -}}
@@ -100,6 +122,7 @@
 {{- with .registryClient -}}
   {{- $flags = append $flags (print "--allowInsecureRegistry=" .allowInsecure) -}}
   {{- $flags = append $flags (print "--registryCredentialHelpers=" (join "," .credentialHelpers)) -}}
+  {{- $flags = concat $flags (include "kyverno.registryClient.egressFlags" . | fromYamlArray) -}}
 {{- end -}}
 {{- with .ttlController -}}
   {{- $flags = append $flags (print "--ttlReconciliationInterval=" .reconciliationInterval) -}}

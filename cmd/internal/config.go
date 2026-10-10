@@ -15,6 +15,7 @@ type Configuration interface {
 	UsesDeferredLoading() bool
 	UsesCosign() bool
 	UsesRegistryClient() bool
+	UsesRegistryEgress() bool
 	UsesImageVerifyCache() bool
 	UsesLeaderElection() bool
 	UsesKyvernoClient() bool
@@ -92,6 +93,14 @@ func WithCosign() ConfigurationOption {
 func WithRegistryClient() ConfigurationOption {
 	return func(c *configuration) {
 		c.usesRegistryClient = true
+	}
+}
+
+// WithRegistryEgress configures image lookup egress without registry credentials
+// or Secret informers.
+func WithRegistryEgress() ConfigurationOption {
+	return func(c *configuration) {
+		c.usesRegistryEgress = true
 	}
 }
 
@@ -179,6 +188,7 @@ type configuration struct {
 	usesDeferredLoading      bool
 	usesCosign               bool
 	usesRegistryClient       bool
+	usesRegistryEgress       bool
 	usesImageVerifyCache     bool
 	usesLeaderElection       bool
 	usesKyvernoClient        bool
@@ -231,6 +241,10 @@ func (c *configuration) UsesCosign() bool {
 
 func (c *configuration) UsesRegistryClient() bool {
 	return c.usesRegistryClient
+}
+
+func (c *configuration) UsesRegistryEgress() bool {
+	return c.usesRegistryEgress || c.usesRegistryClient
 }
 
 func (c *configuration) UsesImageVerifyCache() bool {
