@@ -1,8 +1,8 @@
 package anchor
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 )
 
 // anchorError is the const specification of anchor errors
@@ -60,30 +60,28 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 	return newValidateAnchorError(globalAnchorErr, globalAnchorErrMsg, msg)
 }
 
-// isError checks if error matches the given error type
-func isError(err error, code anchorError, msg string) bool {
-	if err != nil {
-		if t, ok := err.(validateAnchorError); ok {
-			return t.err == code
-		} else {
-			// TODO: we shouldn't need this, error is not properly propagated
-			return strings.Contains(err.Error(), msg)
-		}
+// isError checks if error matches the given error type by unwrapping the
+// error chain using errors.As, which correctly handles wrapped errors
+// (e.g., via fmt.Errorf with %w, multierr, or custom Unwrap methods).
+func isError(err error, code anchorError) bool {
+	var target validateAnchorError
+	if errors.As(err, &target) {
+		return target.err == code
 	}
 	return false
 }
 
 // IsNegationAnchorError checks if error is a negation anchor error
 func IsNegationAnchorError(err error) bool {
-	return isError(err, negationAnchorErr, negationAnchorErrMsg)
+	return isError(err, negationAnchorErr)
 }
 
 // IsConditionalAnchorError checks if error is a conditional anchor error
 func IsConditionalAnchorError(err error) bool {
-	return isError(err, conditionalAnchorErr, conditionalAnchorErrMsg)
+	return isError(err, conditionalAnchorErr)
 }
 
 // IsGlobalAnchorError checks if error is a global anchor error
 func IsGlobalAnchorError(err error) bool {
-	return isError(err, globalAnchorErr, globalAnchorErrMsg)
+	return isError(err, globalAnchorErr)
 }
