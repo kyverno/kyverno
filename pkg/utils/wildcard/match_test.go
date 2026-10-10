@@ -1,9 +1,11 @@
 package wildcard
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMatch(t *testing.T) {
@@ -325,6 +327,228 @@ func TestMatch(t *testing.T) {
 			text:    "my-bucket/mnopqanda",
 			matched: false,
 		},
+		{
+			name:    "star matches empty text",
+			pattern: "*",
+			text:    "",
+			matched: true,
+		},
+		{
+			name:    "consecutive stars match empty text",
+			pattern: "***",
+			text:    "",
+			matched: true,
+		},
+		{
+			name:    "consecutive stars behave like a single star",
+			pattern: "my-**-bucket",
+			text:    "my-own-bucket",
+			matched: true,
+		},
+		{
+			name:    "trailing stars match after text is exhausted",
+			pattern: "my-bucket**",
+			text:    "my-bucket",
+			matched: true,
+		},
+		{
+			name:    "leading star matches suffix",
+			pattern: "*:webhook",
+			text:    "kyverno:webhook",
+			matched: true,
+		},
+		{
+			name:    "leading star fails when suffix is followed by more text",
+			pattern: "*:webhook",
+			text:    "kyverno:webhooks",
+			matched: false,
+		},
+		{
+			name:    "leading and trailing stars match in the middle",
+			pattern: "*needle*",
+			text:    "hay-needle-stack",
+			matched: true,
+		},
+		{
+			name:    "leading and trailing stars fail when text is missing",
+			pattern: "*needle*",
+			text:    "haystack",
+			matched: false,
+		},
+		{
+			name:    "star gives up a partial match to find a later one",
+			pattern: "*abc",
+			text:    "ababc",
+			matched: true,
+		},
+		{
+			name:    "last star grows until the rest of the pattern matches",
+			pattern: "a*b*c",
+			text:    "abbcc",
+			matched: true,
+		},
+		{
+			name:    "text exhausted before the pattern following a star",
+			pattern: "my-*-bucket",
+			text:    "my-",
+			matched: false,
+		},
+		{
+			name:    "no wildcard fails on text longer than pattern",
+			pattern: "s3:ListBucket",
+			text:    "s3:ListBucketMultipartUploads",
+			matched: false,
+		},
+		{
+			name:    "question mark fails on empty text",
+			pattern: "?",
+			text:    "",
+			matched: false,
+		},
+		{
+			name:    "star and question mark fail on empty text",
+			pattern: "*?",
+			text:    "",
+			matched: false,
+		},
+		{
+			name:    "stars and question marks fail on too short text",
+			pattern: "*?*?*",
+			text:    "a",
+			matched: false,
+		},
+		{
+			name:    "stars and question marks match long enough text",
+			pattern: "*?*?*",
+			text:    "ab",
+			matched: true,
+		},
+		{
+			name:    "matching is case sensitive",
+			pattern: "Pod*",
+			text:    "pods",
+			matched: false,
+		},
+		{
+			name:    "wildcards match newlines",
+			pattern: "first?second*",
+			text:    "first\nsecond\nthird",
+			matched: true,
+		},
+		{
+			name:    "backslash does not escape wildcards",
+			pattern: `my-bucket\*`,
+			text:    `my-bucket\abc`,
+			matched: true,
+		},
+		{
+			name:    "backslash is matched literally",
+			pattern: `my-bucket\*`,
+			text:    "my-bucket*",
+			matched: false,
+		},
+		{
+			name:    "brackets are matched literally",
+			pattern: "my-bucket[a-z]",
+			text:    "my-bucket[a-z]",
+			matched: true,
+		},
+		{
+			name:    "brackets are not a character class",
+			pattern: "my-bucket[a-z]",
+			text:    "my-bucketa",
+			matched: false,
+		},
+		{
+			name:    "question mark matches single multi-byte character",
+			pattern: "my-?-bucket",
+			text:    "my-世-bucket",
+			matched: true,
+		},
+		{
+			name:    "question mark fails on two multi-byte characters",
+			pattern: "my-?-bucket",
+			text:    "my-世界-bucket",
+			matched: false,
+		},
+		{
+			name:    "two question marks match two multi-byte characters",
+			pattern: "my-??-bucket",
+			text:    "my-世界-bucket",
+			matched: true,
+		},
+		{
+			name:    "two question marks fail on single multi-byte character",
+			pattern: "??",
+			text:    "世",
+			matched: false,
+		},
+		{
+			name:    "star does not split a multi-byte character",
+			pattern: "*??-bucket*",
+			text:    "世-bucket-1",
+			matched: false,
+		},
+		{
+			name:    "star matches multi-byte characters",
+			pattern: "名前-*-bucket",
+			text:    "名前-世界-bucket",
+			matched: true,
+		},
+		{
+			name:    "multi-byte characters sharing their first byte are different",
+			pattern: "café",
+			text:    "cafè",
+			matched: false,
+		},
+		{
+			name:    "question mark matches single invalid byte",
+			pattern: "my-?-bucket",
+			text:    "my-\xff-bucket",
+			matched: true,
+		},
+		{
+			name:    "question mark fails on two invalid bytes",
+			pattern: "my-?-bucket",
+			text:    "my-\xff\xfe-bucket",
+			matched: false,
+		},
+		{
+			name:    "star matches invalid bytes",
+			pattern: "my-*-bucket",
+			text:    "my-\xff\xfe-bucket",
+			matched: true,
+		},
+		{
+			name:    "invalid bytes all match each other",
+			pattern: "my-\xff-bucket",
+			text:    "my-\xfe-bucket",
+			matched: true,
+		},
+		{
+			name:    "invalid byte matches the replacement character",
+			pattern: "my-�-bucket",
+			text:    "my-\xff-bucket",
+			matched: true,
+		},
+		{
+			name:    "many stars fail without exponential backtracking",
+			pattern: strings.Repeat("a*", 64) + "b",
+			text:    strings.Repeat("a", 4096),
+			matched: false,
+		},
+		{
+			name:    "many stars match without exponential backtracking",
+			pattern: strings.Repeat("a*", 64) + "b",
+			text:    strings.Repeat("a", 4096) + "b",
+			matched: true,
+		},
+		{
+			name:    "long partial matches after a star fail in reasonable time",
+			pattern: "*" + strings.Repeat("a", 64) + "b",
+			text:    strings.Repeat("a", 4096),
+			matched: false,
+		},
 	}
 
 	// Iterating over the test cases, call the function under test and assert the output.
@@ -332,6 +556,62 @@ func TestMatch(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			actualResult := Match(testCase.pattern, testCase.text)
 			assert.Equal(t, testCase.matched, actualResult)
+		})
+	}
+}
+
+// combinations returns all the strings made of at most n of the given parts.
+func combinations(parts []string, n int) []string {
+	all := []string{""}
+	for last := all; n > 0; n-- {
+		var next []string
+		for _, prefix := range last {
+			for _, part := range parts {
+				next = append(next, prefix+part)
+			}
+		}
+		all = append(all, next...)
+		last = next
+	}
+	return all
+}
+
+func TestMatchReference(t *testing.T) {
+	// "é" and "è" share their first byte, "\xff" and "\xfe" are not valid UTF-8 and
+	// have to match each other
+	patterns := combinations([]string{"a", "é", "è", "\xff", "*", "?"}, 4)
+	names := combinations([]string{"a", "é", "è", "\xfe"}, 4)
+	for _, pattern := range patterns {
+		matches, err := reference(pattern)
+		require.NoError(t, err)
+		for _, name := range names {
+			if got, want := Match(pattern, name), matches(name); got != want {
+				t.Errorf("Match(%q, %q) = %v, want %v", pattern, name, got, want)
+			}
+		}
+	}
+}
+
+func BenchmarkMatch(b *testing.B) {
+	benchmarks := []struct {
+		name    string
+		pattern string
+		text    string
+	}{
+		{name: "star", pattern: "*", text: "kube-system"},
+		{name: "literal", pattern: "kube-system", text: "kube-system"},
+		{name: "prefix", pattern: "kube-*", text: "kube-system"},
+		{name: "suffix", pattern: "*-system", text: "kube-system"},
+		{name: "image", pattern: "registry.io/*/app:v?.*", text: "registry.io/team/nested/app:v1.22.3"},
+		{name: "unicode", pattern: "名前-?-*", text: "名前-世-界"},
+		{name: "many stars", pattern: strings.Repeat("a*", 64) + "b", text: strings.Repeat("a", 4096)},
+	}
+	for _, benchmark := range benchmarks {
+		b.Run(benchmark.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for b.Loop() {
+				Match(benchmark.pattern, benchmark.text)
+			}
 		})
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
-	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 type Filter interface {
