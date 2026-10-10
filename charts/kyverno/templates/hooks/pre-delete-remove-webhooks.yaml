@@ -40,7 +40,7 @@ spec:
       {{- end }}
       containers:
         - name: kubectl
-          image: {{ (include "kyverno.image" (dict "globalRegistry" .Values.global.image.registry "image" .Values.webhooksCleanup.image "defaultTag" (default .Chart.AppVersion .Values.webhooksCleanup.image.tag))) | quote }}
+          image: {{ include "kyverno.webhooksCleanup.image" . | quote }}
           imagePullPolicy: {{ .Values.webhooksCleanup.image.pullPolicy }}
           args:
             - delete-webhooks
