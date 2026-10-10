@@ -2,6 +2,7 @@ package gpol
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type handler struct {
@@ -37,6 +39,12 @@ func New(
 		ngpolLister:                  ngpolLister,
 		backgroundServiceAccountName: backgroundServiceAccountName,
 	}
+}
+
+func isNoOpUpdate(operation admissionv1.Operation, trigger, oldTrigger unstructured.Unstructured) bool {
+	return operation == admissionv1.Update &&
+		oldTrigger.Object != nil &&
+		reflect.DeepEqual(trigger.Object, oldTrigger.Object)
 }
 
 func (h *handler) Generate(ctx context.Context, logger logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) handlers.AdmissionResponse {
@@ -126,6 +134,10 @@ func (h *handler) Generate(ctx context.Context, logger logr.Logger, request hand
 					}
 				}
 			} else {
+				if isNoOpUpdate(request.Operation, trigger, oldTrigger) {
+					logger.V(4).Info("skipping no-op trigger update, object unchanged", "policy", policy, "trigger", triggerSpec.String())
+					continue
+				}
 				synchronize := false
 				if request.Operation == admissionv1.Update {
 					synchronize = gpol.Spec.SynchronizationEnabled()
@@ -232,6 +244,10 @@ func (h *handler) GenerateNamespaced(ctx context.Context, logger logr.Logger, re
 					}
 				}
 			} else {
+				if isNoOpUpdate(request.Operation, trigger, oldTrigger) {
+					logger.V(4).Info("skipping no-op trigger update, object unchanged", "policy", policy, "namespace", namespace, "trigger", triggerSpec.String())
+					continue
+				}
 				synchronize := false
 				if request.Operation == admissionv1.Update {
 					synchronize = ngpol.Spec.SynchronizationEnabled()
