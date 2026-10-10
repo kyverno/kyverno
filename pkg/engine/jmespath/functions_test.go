@@ -1740,6 +1740,15 @@ func Test_IsExternalURL(t *testing.T) {
 		}, {
 			jmesPath:       "is_external_url('http://www.google.com@192.168.1.3')", //url with basic auth
 			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://169.254.169.254/latest/meta-data')", //link-local cloud metadata endpoint
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://[fe80::1]')", //ipv6 link-local
+			expectedResult: false,
+		}, {
+			jmesPath:       "is_external_url('http://0.0.0.0')", //unspecified address
+			expectedResult: false,
 		},
 	}
 	for _, tc := range testCases {
