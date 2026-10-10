@@ -74,6 +74,28 @@ func TestRender_PassHidesNodeBreakdown(t *testing.T) {
 	assert.NotContains(t, sb.String(), "message:")
 }
 
+// TestRender_MutatingPolicyPassMessage checks the source-less-verdict fallback message: a
+// MutatingPolicy has no "validations" at all, so the vpol-oriented "no validations to evaluate"
+// wording would be actively wrong here, not just imprecise. The distinguishing signal is
+// Mutations being non-empty, not the policy kind string, so this holds for any future kind that
+// also has no single deciding expression.
+func TestRender_MutatingPolicyPassMessage(t *testing.T) {
+	d := &Decision{
+		PolicyKind: "MutatingPolicy",
+		Mutations: []MutationTrace{
+			{Name: "mutations[0] (applyConfiguration)", ExpressionTrace: ExpressionTrace{Source: "Object{}", Result: "map[]"}},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+	assert.NotContains(t, out, "no validations to evaluate", "this wording is vpol-specific and wrong for a policy kind with no validations at all")
+	assert.Contains(t, out, "MUTATIONS")
+	assert.Contains(t, out, "VERDICT    PASS     completed; see MUTATIONS above for what ran",
+		"the source-less mutating verdict must point at the MUTATIONS rows, not render empty")
+}
+
 func TestRender_SkipAndErrorNodes(t *testing.T) {
 	skip := &Decision{
 		Scope:   ScopeTrace{Applied: false, Reason: "kind Pod is not covered by the policy's resourceRules"},
@@ -188,4 +210,39 @@ func TestRender_ValidationsList(t *testing.T) {
 		assert.NotContains(t, sb.String(), "VALIDATION")
 		assert.Contains(t, sb.String(), "VERDICT    PASS     a  ->  true")
 	})
+}
+
+func TestRender_Generations(t *testing.T) {
+	d := &Decision{
+		PolicyKind: "GeneratingPolicy",
+		Generations: []GenerationTrace{
+			{
+				Name:            "generate[0] (expression)",
+				ExpressionTrace: ExpressionTrace{Source: "generator.Apply(ns, [cm])", Result: "true"},
+				Generated:       []string{"ConfigMap prod/zk-kafka-address"},
+			},
+			{Name: "generate[1] (template)"},
+			{
+				Name:            "generate[2] (expression)",
+				ExpressionTrace: ExpressionTrace{Nodes: []NodeTrace{{Expression: "object.a", Error: "no such key: a"}}},
+				Error:           "no such key: a",
+			},
+		},
+		Verdict: VerdictTrace{Status: VerdictPass},
+	}
+	var sb strings.Builder
+	Render(&sb, d)
+	out := sb.String()
+	for _, want := range []string{
+		"GENERATE            generate[0] (expression): generator.Apply(ns, [cm])  ->  true",
+		"generated ConfigMap prod/zk-kafka-address",
+		"GENERATE            generate[1] (template)",
+		"generated nothing",
+		"GENERATE   ERROR    generate[2] (expression): no such key: a",
+		"object.a  ->  ERROR: no such key: a",
+		"VERDICT    PASS     completed; see GENERATE above for what ran",
+	} {
+		assert.Contains(t, out, want)
+	}
+	assert.NotContains(t, out, "no validations to evaluate")
 }

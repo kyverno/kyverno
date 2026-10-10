@@ -12,11 +12,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
@@ -112,14 +114,50 @@ func (e *engineImpl) generate(
 		return response
 	}
 	spec := policy.Policy.GetSpec()
+	tracing := policy.CompiledPolicy != nil && policy.CompiledPolicy.Tracing()
+	var scope trace.ScopeTrace
+	// withTrace attaches d, with the scope and the policy/resource header filled in, to the
+	// response. A no-op when the policy was not compiled for tracing.
+	withTrace := func(d *trace.Decision) {
+		if !tracing || d == nil {
+			return
+		}
+		d.Scope = scope
+		d.PolicyName = policy.Policy.GetName()
+		d.PolicyKind = policy.Policy.GetKind()
+		if d.PolicyKind == "" {
+			d.PolicyKind = "GeneratingPolicy"
+		}
+		trigger, _ := attr.GetObject().(*unstructured.Unstructured)
+		if trigger == nil || len(trigger.Object) == 0 {
+			trigger, _ = attr.GetOldObject().(*unstructured.Unstructured)
+		}
+		if trigger != nil {
+			d.ResourceKind = trigger.GetKind()
+			d.ResourceName = trigger.GetName()
+			d.ResourceNamespace = trigger.GetNamespace()
+		}
+		response.Trace = d
+	}
+	errored := func(err error) *trace.Decision {
+		return &trace.Decision{Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()}}
+	}
 	if e.matcher != nil {
 		matches, err := e.matchPolicy(spec.MatchConstraints, attr, namespace)
+		if tracing {
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(spec.MatchConstraints, attr, namespace, matches)}
+		}
 		if err != nil {
 			response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to execute matching", err, nil)
+			scope.Reason = "failed to evaluate matchConstraints: " + err.Error()
+			withTrace(errored(err))
 			return response
 		} else if !matches {
+			withTrace(&trace.Decision{Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"}})
 			return response
 		}
+	} else {
+		scope = trace.ScopeTrace{Applied: true, Reason: "evaluated without a matcher, so matchConstraints were not checked here"}
 	}
 	if policy.CompiledPolicy == nil {
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "policy has not been compiled", errNilCompiledPolicy, nil)
@@ -129,10 +167,19 @@ func (e *engineImpl) generate(
 	result, err := policy.CompiledPolicy.Evaluate(ctx, attr, request, namespace, context)
 	if err != nil {
 		response.Result = engineapi.RuleError(policy.Policy.GetName(), engineapi.Generation, "failed to evaluate policy", err, nil)
+		if result != nil && result.Trace != nil {
+			// Evaluate failed partway but kept what it traced
+			withTrace(result.Trace)
+		} else {
+			withTrace(errored(err))
+		}
 		return response
 	}
-	if result == nil {
-		// policy did not match
+	if result == nil || result.Skipped {
+		// policy did not match; with tracing on a skip still carries the match-condition trace
+		if result != nil {
+			withTrace(result.Trace)
+		}
 		return response
 	}
 	// Always surface audit annotations on successful evaluation, even if no resources were generated.
@@ -157,6 +204,7 @@ func (e *engineImpl) generate(
 					err,
 					nil,
 				)
+				withTrace(errored(err))
 				return response
 			}
 			keys = append(keys, key)
@@ -186,9 +234,19 @@ func (e *engineImpl) generate(
 				fmt.Sprintf(msgPrefix, "skipped"), nil,
 			).WithExceptions(genericpolex)
 		}
+		if result.Trace != nil {
+			// the verdict follows the rule reported above: the selected exception's reportResult
+			// decides between pass and skip, and the rule's message names the exceptions
+			if response.Result.Status() == engineapi.RuleStatusPass {
+				result.Trace.Verdict.Status = trace.VerdictPass
+			}
+			result.Trace.Verdict.Message = response.Result.Message()
+		}
+		withTrace(result.Trace)
 		return response
 	}
 	response.Result = engineapi.RulePass(policy.Policy.GetName(), engineapi.Generation, "policy evaluated successfully", result.AuditAnnotations).WithGeneratedResources(result.GeneratedResources)
+	withTrace(result.Trace)
 	return response
 }
 

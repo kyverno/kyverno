@@ -1509,3 +1509,82 @@ func Test_Apply_ExplainKeepsTheCostLimit(t *testing.T) {
 	assert.Contains(t, output, "VERDICT    ERROR")
 	assert.Contains(t, output, "cost limit exceeded")
 }
+
+// Test_Apply_Explain runs --explain through the apply command for both input paths: resource
+// files (a ValidatingPolicy and a MutatingPolicy) and a JSON payload. With the flag the trace is
+// printed; without it nothing trace-shaped appears and the results themselves do not change.
+func Test_Apply_Explain(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name   string
+		config ApplyCommandConfig
+		want   []string
+	}{{
+		name: "validating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-validating-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{base + "test-validating-policy/check-deployment-labels/deployment2.yaml"},
+		},
+		want: []string{"(ValidatingPolicy)", "SCOPE      applied", "VERDICT    FAIL"},
+	}, {
+		name: "mutating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-mutating-policy/mutating-label/policy.yaml"},
+			ResourcePaths: []string{base + "test-mutating-policy/mutating-label/resource.yaml"},
+		},
+		want: []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
+	}, {
+		name: "validating policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-validating-policy/json-check-dockerfile/policy.yaml"},
+			JSONPaths:   []string{base + "test-validating-policy/json-check-dockerfile/payload.json"},
+		},
+		want: []string{"(ValidatingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		name: "generating policy with a generate expression",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/data/generate-cm/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/data/generate-cm/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (expression): generator.apply(variables.nsName, variables.configmap)  ->  true",
+			"generated ConfigMap test-ns/zk-kafka-address",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		name: "generating policy with a template",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/template/generate-cm-interpolated/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/template/generate-cm-interpolated/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (template)",
+			"generated ConfigMap test-ns/test-ns-config",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(explain bool) (string, *processor.ResultCounts) {
+				config := tt.config
+				config.Explain = explain
+				var out bytes.Buffer
+				rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+				require.NoError(t, err)
+				return out.String(), rc
+			}
+
+			explained, explainedCounts := run(true)
+			for _, want := range tt.want {
+				assert.Contains(t, explained, want)
+			}
+
+			plain, plainCounts := run(false)
+			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
+			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
+			assert.Equal(t, plainCounts, explainedCounts, "--explain must not change the results")
+		})
+	}
+}
