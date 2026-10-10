@@ -788,7 +788,7 @@ func Test_impl_notary_failures_are_in_verification_diagnostics(t *testing.T) {
 				"sbom": {Name: "sbom", Referrer: &v1beta1.Referrer{Type: "sbom/cyclone-dx"}},
 			},
 		}
-		return NewRuntimeForPolicy(f, staticImages{}, nil, results), results
+		return NewRuntimeForPolicy(context.Background(), f, staticImages{}, nil, results), results
 	}
 
 	tests := map[string]struct {
