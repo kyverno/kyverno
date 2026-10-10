@@ -158,7 +158,11 @@ jobs:
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
       - name: Comment Cherry-pick Fail
-        if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true }}
+        # Step outputs are strings, so `success == false` never matched. Treat anything
+        # other than 'true', including an unset output, as a failed cherry-pick.
+        # !cancelled() lets this step run after an earlier step failed; the check-merged
+        # outcome is tested first so fromJSON never sees an empty result.
+        if: ${{ !cancelled() && steps.check-merged.outcome == 'success' && fromJSON(steps.check-merged.outputs.result).merged == true && steps.cherry-pick.outputs.success != 'true' }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
