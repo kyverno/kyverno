@@ -367,7 +367,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			reps, err := eng.Handle(context.TODO(), request, nil)
+			// Skip inline mutation for policies with active target constraints, as admission does.
+			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
