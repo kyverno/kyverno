@@ -132,6 +132,7 @@ Confirmed via `DO NOT EDIT` headers and Makefile targets:
 | `cmd/cli/kubectl-kyverno/config/crds/**`, `cmd/cli/kubectl-kyverno/data/crds/**` | `make codegen-cli-all` (the CLI's own controller-gen output, then copied from `config/crds/`) |
 | `charts/kyverno/charts/crds/templates/{kyverno.io,reports.kyverno.io,wgpolicyk8s.io}/**` | `make codegen-helm-crds` (the chart's own CRD copies; `_helpers.tpl` in the same dir is hand-written) |
 | `config/install-latest-testing.yaml` | `make codegen-manifest-all` |
+| `config/install-latest-testing-policy-exceptions.yaml` | `make codegen-manifest-install-latest-policy-exceptions` |
 | `docs/user/crd/**` (HTML reference) | `make codegen-api-docs` |
 | `charts/**/README.md` (`helm-docs --chart-search-root charts` generates 4: the two top-level charts plus the nested `charts/kyverno/charts/{crds,grafana}/README.md`) | `make codegen-helm-all` (helm-docs) |
 
