@@ -7,17 +7,17 @@ policies:
 resources:
 - resources.yaml
 results:
-- kind: ConfigMap
+- isMutatingPolicy: true
+  kind: ConfigMap
   patchedResources: results.yaml
   policy: test-mutation
   resources:
-  - expected-fail
+  - default/expected-fail
   result: fail
-  rule: add-annotation
-- kind: ConfigMap
+- isMutatingPolicy: true
+  kind: ConfigMap
   patchedResources: results.yaml
   policy: test-mutation
   resources:
-  - expected-pass
+  - default/expected-pass
   result: pass
-  rule: add-annotation
