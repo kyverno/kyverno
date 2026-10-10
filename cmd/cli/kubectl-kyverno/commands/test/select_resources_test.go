@@ -35,9 +35,11 @@ func TestSelectResourcesFiltersByKind(t *testing.T) {
 	t.Parallel()
 	deploymentKey := "apps/v1,Deployment,default,good-pinned-tag"
 	statefulSetKey := "apps/v1,StatefulSet,default,good-pinned-tag"
+	commaKey := "rbac.authorization.k8s.io/v1,ClusterRole,,team,payments-reader"
 	trigger := map[string][]engineapi.EngineResponse{
 		deploymentKey:  nil,
 		statefulSetKey: nil,
+		commaKey:       nil,
 	}
 	spec := func(kind string) []v1alpha1.TestResourceSpec {
 		return []v1alpha1.TestResourceSpec{{Group: "apps", Version: "v1", Kind: kind, Namespace: "default", Name: "good-pinned-tag"}}
@@ -77,6 +79,14 @@ func TestSelectResourcesFiltersByKind(t *testing.T) {
 				TestResultData: v1alpha1.TestResultData{Resources: []string{}, ResourceSpecs: spec("StatefulSet")},
 			},
 			want: []string{statefulSetKey},
+		},
+		{
+			name: "resources with a comma in the name",
+			result: v1alpha1.TestResult{
+				TestResultBase: v1alpha1.TestResultBase{Kind: "ClusterRole"},
+				TestResultData: v1alpha1.TestResultData{Resources: []string{"team,payments-reader"}},
+			},
+			want: []string{commaKey},
 		},
 	}
 	for _, tt := range tests {

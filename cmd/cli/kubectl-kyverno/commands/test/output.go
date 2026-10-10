@@ -614,7 +614,7 @@ func selectResources(test v1alpha1.TestResult, target, trigger map[string][]engi
 		for _, r := range test.Resources {
 			for _, m := range []map[string][]engineapi.EngineResponse{target, trigger} {
 				for resourceGVKAndName := range m {
-					nameParts := strings.Split(resourceGVKAndName, ",")
+					nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
 					if !kindMatches(test.Kind, nameParts) {
 						continue
 					}
@@ -635,7 +635,7 @@ func selectResources(test v1alpha1.TestResult, target, trigger map[string][]engi
 		for _, resourceSpec := range test.ResourceSpecs {
 			for _, m := range []map[string][]engineapi.EngineResponse{target, trigger} {
 				for resourceGVKAndName := range m {
-					nameParts := strings.Split(resourceGVKAndName, ",")
+					nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
 					if !kindMatches(resourceSpec.Kind, nameParts) {
 						continue
 					}
