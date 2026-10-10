@@ -24,7 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache) []admissionregistrationv1.ValidatingWebhook {
+func buildWebhookRules(cfg config.Configuration, server, name, queryPath string, servicePort int32, caBundle []byte, policies []engineapi.GenericPolicy, expressionCache *expressionCache, defaultTimeout int32) []admissionregistrationv1.ValidatingWebhook {
 	var fineGrained, basic []engineapi.GenericPolicy
 	for _, policy := range policies {
 		p := extractGenericPolicy(policy)
@@ -53,6 +53,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			webhook := admissionregistrationv1.ValidatingWebhook{
 				SideEffects:             &noneOnDryRun,
 				AdmissionReviewVersions: []string{"v1"},
+				TimeoutSeconds:          &defaultTimeout,
 			}
 			matchConditions := webhookMatchConditions(validConditions(expressionCache, p.GetMatchConditions()))
 			if spec := generatingPolicySpec(policy); spec != nil && spec.SynchronizationEnabled() {
@@ -204,6 +205,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			AdmissionReviewVersions: []string{"v1"},
 			NamespaceSelector:       group.namespaceSelector,
 			ObjectSelector:          group.objectSelector,
+			TimeoutSeconds:          &defaultTimeout,
 		}
 		webhookFail := admissionregistrationv1.ValidatingWebhook{
 			Name:                    name + "-fail" + group.suffix,
@@ -213,6 +215,7 @@ func buildWebhookRules(cfg config.Configuration, server, name, queryPath string,
 			AdmissionReviewVersions: []string{"v1"},
 			NamespaceSelector:       group.namespaceSelector,
 			ObjectSelector:          group.objectSelector,
+			TimeoutSeconds:          &defaultTimeout,
 		}
 
 		for _, policy := range basic {
