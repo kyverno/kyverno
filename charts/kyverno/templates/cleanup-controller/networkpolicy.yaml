@@ -23,7 +23,7 @@ spec:
         # Allow prometheus scrapes for metrics
         {{- if .Values.cleanupController.metricsService.create }}
         - protocol: TCP
-          port: {{ .Values.cleanupController.metricsService.port }}
+          port: {{ .Values.cleanupController.metering.port }}
         {{- end }}
   {{- else }}
   ingress:
