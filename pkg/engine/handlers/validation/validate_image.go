@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,8 +20,9 @@ import (
 )
 
 type validateImageHandler struct {
-	client    engineapi.Client
-	isCluster bool
+	configuration config.Configuration
+	client        engineapi.Client
+	isCluster     bool
 }
 
 func NewValidateImageHandler(
@@ -34,16 +36,19 @@ func NewValidateImageHandler(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return nil, nil
 	}
-	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
-	if err != nil {
-		return nil, err
-	}
-	if len(ruleImages) == 0 {
-		return nil, nil
+	if !internal.ImageReferencesHasVariables(rule) {
+		ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+		if err != nil {
+			return nil, err
+		}
+		if len(ruleImages) == 0 {
+			return nil, nil
+		}
 	}
 	return validateImageHandler{
-		client:    client,
-		isCluster: isCluster,
+		configuration: configuration,
+		client:        client,
+		isCluster:     isCluster,
 	}, nil
 }
 
@@ -77,10 +82,27 @@ func (h validateImageHandler) Process(
 		)
 	}
 
+	ruleCopy, err := internal.SubstituteImageVerifyVariables(rule, policyContext.JSONContext(), logger)
+	if err != nil {
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
+		)
+	}
+
+	if internal.ImageReferencesHasVariables(rule) {
+		matchingImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), *ruleCopy, h.configuration)
+		if err != nil {
+			return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract matching images", err)
+		}
+		if len(matchingImages) == 0 {
+			return resource, nil
+		}
+	}
+
 	skippedImages := make([]string, 0)
 	passedImages := make([]string, 0)
 	failedErrors := make([]string, 0)
-	for _, v := range rule.VerifyImages {
+	for _, v := range ruleCopy.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
 			for _, imageInfo := range infoMap {
