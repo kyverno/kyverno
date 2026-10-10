@@ -11,21 +11,22 @@ import (
 )
 
 type FakeContextProvider struct {
-	resources          map[string]map[string]map[string]*unstructured.Unstructured
-	images             map[string]map[string]any
-	globalReferences   map[string]any
-	httpMocks          map[string]interface{}
-	generatedResources []*unstructured.Unstructured
-	policyName         string
-	policyNamespace    string
-	triggerName        string
-	triggerNamespace   string
-	triggerAPIVersion  string
-	triggerGroup       string
-	triggerKind        string
-	triggerUID         string
-	restoreCache       bool
-	useServerSideApply bool
+	resources            map[string]map[string]map[string]*unstructured.Unstructured
+	images               map[string]map[string]any
+	globalReferences     map[string]any
+	httpMocks            map[string]interface{}
+	generatedResources   []*unstructured.Unstructured
+	policyName           string
+	policyNamespace      string
+	triggerName          string
+	triggerNamespace     string
+	triggerAPIVersion    string
+	triggerGroup         string
+	triggerKind          string
+	triggerUID           string
+	restoreCache         bool
+	useServerSideApply   bool
+	legacyOwnerConflicts map[string]bool
 }
 
 func NewFakeContextProvider() *FakeContextProvider {
@@ -180,7 +181,7 @@ func (cp *FakeContextProvider) ClearGeneratedResources() {
 	cp.generatedResources = make([]*unstructured.Unstructured, 0)
 }
 
-func (cp *FakeContextProvider) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool) {
+func (cp *FakeContextProvider) SetGenerateContext(polName, policyNamespace, triggerName, triggerNamespace, triggerAPIVersion, triggerGroup, triggerKind, triggerUID string, restoreCache, useServerSideApply bool, legacyOwnerConflicts map[string]bool) {
 	cp.policyName = polName
 	cp.policyNamespace = policyNamespace
 	cp.triggerName = triggerName
@@ -191,6 +192,7 @@ func (cp *FakeContextProvider) SetGenerateContext(polName, policyNamespace, trig
 	cp.triggerUID = triggerUID
 	cp.restoreCache = restoreCache
 	cp.useServerSideApply = useServerSideApply
+	cp.legacyOwnerConflicts = legacyOwnerConflicts
 }
 
 func (f *FakeContextProvider) Clone() Context {

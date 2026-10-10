@@ -12,6 +12,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -1132,4 +1133,101 @@ func TestGenerateFullFlow_UsedBrokenVariable_NoDownstream(t *testing.T) {
 		Name:      "broken-var-pod",
 	}, cm)
 	assert.True(t, apierrors.IsNotFound(err), "used broken variable should prevent downstream creation")
+}
+
+// --- Namespaced watch manager flow ---
+
+// A NamespacedGeneratingPolicy must be attributed end to end: the namespace
+// scoped policy key travels through the UpdateRequest, the engine stamps the
+// policy namespace on the generated resource, the watch manager matches that
+// resource by namespace and name, a cluster-scoped key does not claim it, and
+// deleting the trigger removes it again.
+func TestGenerateFullFlow_NamespacedSyncAttributesAndDeletesDownstream(t *testing.T) {
+	const namespace = "team-sync"
+	framework.CreateNamespace(t, testEnv.KubeClient, namespace)
+
+	policy := &policiesv1beta1.NamespacedGeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gen-ngpol-sync",
+			Namespace: namespace,
+		},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: framework.PodMatchRules(),
+			Variables: []admissionregistrationv1.Variable{
+				{
+					Name: "configmap",
+					Expression: `[{
+						"kind": dyn("ConfigMap"),
+						"apiVersion": dyn("v1"),
+						"metadata": dyn({"name": "gen-" + object.metadata.name}),
+						"data": dyn({"trigger": object.metadata.name})
+					}]`,
+				},
+			},
+			Generation: []policiesv1beta1.Generation{
+				{Expression: `generator.Apply(variables.configmap)`},
+			},
+			EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+				SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{
+					Enabled: ptr.To(true),
+				},
+			},
+		},
+	}
+
+	createNgpolWithCleanup(t, policy)
+	waitForNgpolInLister(t, namespace, "gen-ngpol-sync")
+
+	watchManager, stopWatchers := framework.NewGpolWatchManager(testEnv.DClient, logr.Discard())
+	t.Cleanup(stopWatchers)
+
+	processor := framework.NewURProcessorWithSyncWatchers(gpolEngine, gpolProvider, testEnv.ContextProvider, watchManager)
+	mock := framework.NewProcessingURGenerator(processor)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
+
+	triggerJSON := []byte(`{
+		"apiVersion": "v1", "kind": "Pod",
+		"metadata": {"name": "sync-pod", "namespace": "team-sync", "uid": "pod-uid-ngpol-sync"},
+		"spec": {"containers": [{"name": "app", "image": "nginx"}]}
+	}`)
+	policyCtx := framework.ContextWithPolicies(context.Background(), "gen-ngpol-sync")
+
+	resp := h.GenerateNamespaced(policyCtx, logr.Discard(), framework.PodAdmissionRequestWithOp("sync-pod", namespace, admissionv1.Create, triggerJSON), "", time.Now())
+	require.True(t, resp.Allowed)
+
+	require.Eventually(t, func() bool {
+		return len(mock.GetSpecs()) >= 1
+	}, 5*time.Second, 100*time.Millisecond, "generation UpdateRequest not processed in time")
+	require.Empty(t, mock.ProcessingErrors(), "generation should succeed")
+
+	downstream := &corev1.ConfigMap{}
+	require.NoError(t, testEnv.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      "gen-sync-pod",
+	}, downstream), "generated ConfigMap should exist in envtest")
+	assert.Equal(t, namespace, downstream.Labels[common.GeneratePolicyNamespaceLabel],
+		"generated downstream must carry the policy namespace label")
+	assert.Equal(t, "gen-ngpol-sync", downstream.Labels[common.GeneratePolicyLabel])
+
+	policyKey := namespace + "/gen-ngpol-sync"
+	downstreams := watchManager.GetDownstreams(policyKey)
+	require.Len(t, downstreams, 1, "watch manager must attribute the downstream to the namespaced policy key")
+	assert.Equal(t, "gen-sync-pod", downstreams[0].GetName())
+	assert.Empty(t, watchManager.GetDownstreams("gen-ngpol-sync"),
+		"a cluster-scoped key must not claim a namespaced policy's downstream")
+
+	resp = h.GenerateNamespaced(policyCtx, logr.Discard(), framework.PodAdmissionRequestWithOp("sync-pod", namespace, admissionv1.Delete, triggerJSON), "", time.Now())
+	require.True(t, resp.Allowed)
+
+	require.Eventually(t, func() bool {
+		return len(mock.GetSpecs()) >= 2
+	}, 5*time.Second, 100*time.Millisecond, "deletion UpdateRequest not processed in time")
+
+	require.Eventually(t, func() bool {
+		err := testEnv.Client.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      "gen-sync-pod",
+		}, &corev1.ConfigMap{})
+		return apierrors.IsNotFound(err)
+	}, 5*time.Second, 100*time.Millisecond, "deleting the trigger must delete the downstream through the watch manager")
 }
