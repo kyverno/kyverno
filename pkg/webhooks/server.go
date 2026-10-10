@@ -62,7 +62,9 @@ func NewServer(
 	discovery dclient.IDiscovery,
 	webhookServerHost string,
 	webhookServerPort int32,
+	backgroundServiceAccountName ...string,
 ) Server {
+	controllerUsernames := append([]string{config.KyvernoUserName(config.KyvernoServiceAccountName())}, backgroundServiceAccountName...)
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
@@ -73,12 +75,25 @@ func NewServer(
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
 	mpolLogger := logger.WithName("mpol")
+	// This endpoint validates metadata only, including targets outside policy trigger scope.
+	metadataHandler := handlers.AdmissionHandler(func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+		return handlers.AdmissionResponse{UID: request.UID, Allowed: true}
+	})
+	mux.HandlerFunc(
+		"POST",
+		config.GenerationLabelProtectionWebhookServicePath,
+		metadataHandler.
+			WithGenerateLabelProtection(controllerUsernames...).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(resourceLogger.WithName("generation-labels")).
+			ToHandlerFunc("GENERATION-LABELS"),
+	)
 	mux.HandlerFunc(
 		"POST",
 		"/mpol/*policies",
 		handlerFunc("MUTATE", resourceHandlers.MutatingPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookMutating).
@@ -91,7 +106,7 @@ func NewServer(
 		"/nmpol/*policies",
 		handlerFunc("MUTATE", resourceHandlers.NamespacedMutatingPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookMutating).
@@ -105,7 +120,7 @@ func NewServer(
 		"/vpol/*policies",
 		handlerFunc("VALIDATE", resourceHandlers.ValidatingPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
@@ -118,7 +133,7 @@ func NewServer(
 		"/nvpol/*policies",
 		handlerFunc("VALIDATE", resourceHandlers.NamespacedValidatingPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
@@ -131,7 +146,7 @@ func NewServer(
 		"/ivpol/validate/*policies",
 		handlerFunc("IVPOL-VALIDATE", resourceHandlers.ImageVerificationPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
@@ -144,7 +159,7 @@ func NewServer(
 		"/ivpol/mutate/*policies",
 		handlerFunc("IVPOL-MUTATE", resourceHandlers.ImageVerificationPoliciesMutation, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
@@ -161,7 +176,7 @@ func NewServer(
 		"/nivpol/validate/*policies",
 		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.NamespacedImageVerificationPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
@@ -174,7 +189,7 @@ func NewServer(
 		"/nivpol/mutate/*policies",
 		handlerFunc("NIVPOL-MUTATE", resourceHandlers.NamespacedImageVerificationPoliciesMutation, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
@@ -188,7 +203,7 @@ func NewServer(
 		"/gpol/*policies",
 		handlerFunc("GENERATE", resourceHandlers.GeneratingPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
@@ -201,7 +216,7 @@ func NewServer(
 		"/ngpol/*policies",
 		handlerFunc("GENERATE", resourceHandlers.NamespacedGeneratingPolicies, "").
 			WithFilter(configuration).
-			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
 			WithMetrics(resourceLogger, metrics.WebhookValidating).
@@ -217,7 +232,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 				WithDump(debugModeOpts.DumpPayload).
 				WithRoles(rbLister, crbLister).
 				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
@@ -234,7 +249,7 @@ func NewServer(
 		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
 			return handler.
 				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+				WithProtection(toggle.FromContext(ctx).ProtectManagedResources(), controllerUsernames...).
 				WithDump(debugModeOpts.DumpPayload).
 				WithRoles(rbLister, crbLister).
 				WithMetrics(resourceLogger, metrics.WebhookValidating).

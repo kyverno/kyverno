@@ -979,6 +979,7 @@ func main() {
 			setup.KyvernoDynamicClient.Discovery(),
 			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
+			backgroundServiceAccountName,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers
