@@ -56,11 +56,11 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 			cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 			require.NoError(t, err)
 			if i%2 == 0 {
-				stored, err := cache.Set(context.Background(), policy, attestorCacheRule(signatureCacheRule, "", attestors), "image", true)
+				stored, err := cache.Set(context.Background(), policy, attestorCacheRule(signatureCacheRule, "", attestors), "image", "", true)
 				require.NoError(t, err)
 				require.True(t, stored)
 			}
-			stored, err := cache.SetWithPayload(context.Background(), policy, attestorCacheRule(attestationCacheRule, "proof", attestors), "image", true, map[string][]byte{"proof": []byte(fmt.Sprintf(`{"request":%q}`, expected))})
+			stored, err := cache.SetWithPayload(context.Background(), policy, attestorCacheRule(attestationCacheRule, "proof", attestors), "image", "", true, map[string][]byte{"proof": []byte(fmt.Sprintf(`{"request":%q}`, expected))})
 			require.NoError(t, err)
 			require.True(t, stored)
 			images := runtimeImages{image: &imagedataloader.ImageData{}}

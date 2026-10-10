@@ -191,7 +191,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		// create a rule with the given attestors
 		cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
 		if f.ivCache != nil {
-			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, true); err != nil {
+			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, "", true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				f.logger.V(4).Info("image signature verification cache hit", "image", image, "policy", f.policy.GetName())
@@ -237,7 +237,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		}
 		f.logger.V(6).Info("verifyImageSignatures returning", "image", image, "verifiedCount", count)
 		if f.ivCache != nil && len(attestors) > 0 && count == len(attestors) {
-			if _, err := f.ivCache.Set(ctx, f.policy, cacheRule, image, true); err != nil {
+			if _, err := f.ivCache.Set(ctx, f.policy, cacheRule, image, "", true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
@@ -274,7 +274,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 		}
 		cacheRule := attestorCacheRule(attestationCacheRule, attestation, attestors)
 		if f.ivCache != nil {
-			if found, payloads, err := f.ivCache.GetWithPayload(ctx, f.policy, cacheRule, image, true); err != nil {
+			if found, payloads, err := f.ivCache.GetWithPayload(ctx, f.policy, cacheRule, image, "", true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
 				if attest.IsInToto() && len(payloads) == 0 {
@@ -354,7 +354,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 				// uncached means the next request re-verifies from scratch
 				// instead of degrading.
 				f.logger.Error(nil, "skipping cache write: failed to capture intoto payload after successful verification", "image", image, "attestation", attestation)
-			} else if _, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, true, payloads); err != nil {
+			} else if _, err := f.ivCache.SetWithPayload(ctx, f.policy, cacheRule, image, "", true, payloads); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
 		}
