@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -2243,6 +2244,8 @@ func Test_GenerateFieldsUpdates(t *testing.T) {
 		newPolicy     []byte
 		expectedErr   bool
 		expectWarning bool
+		errContains   []string
+		errExcludes   []string
 	}{
 		{
 			name: "update-apiVersion",
@@ -3465,6 +3468,298 @@ func Test_GenerateFieldsUpdates(t *testing.T) {
 			expectedErr:   false,
 			expectWarning: false,
 		},
+		{
+			name: "multi-rule-change-match-and-preconditions-of-one-rule",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "generate-multi-rule"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "gen-a",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-a",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"a": "1"
+									}
+								}
+							}
+						},
+						{
+							"name": "gen-b",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											],
+											"names": [
+												"team-a"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-b",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"b": "1"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "generate-multi-rule"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "gen-a",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-a",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"a": "1"
+									}
+								}
+							}
+						},
+						{
+							"name": "gen-b",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											],
+											"names": [
+												"team-a",
+												"team-b"
+											]
+										}
+									}
+								]
+							},
+							"preconditions": {
+								"all": [
+									{
+										"key": "{{request.operation}}",
+										"operator": "Equals",
+										"value": "CREATE"
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-b",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"b": "1"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr:   true,
+			expectWarning: false,
+			errContains:   []string{`rule "gen-b"`, "match, preconditions"},
+			errExcludes:   []string{"gen-a"},
+		},
+		{
+			name: "multi-rule-rename-one-rule",
+			oldPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "generate-multi-rule"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "gen-a",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-a",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"a": "1"
+									}
+								}
+							}
+						},
+						{
+							"name": "gen-b",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											],
+											"names": [
+												"team-a"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-b",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"b": "1"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			newPolicy: []byte(`
+			{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "generate-multi-rule"
+				},
+				"spec": {
+					"rules": [
+						{
+							"name": "gen-a",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-a",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"a": "1"
+									}
+								}
+							}
+						},
+						{
+							"name": "gen-c",
+							"match": {
+								"any": [
+									{
+										"resources": {
+											"kinds": [
+												"Namespace"
+											],
+											"names": [
+												"team-a"
+											]
+										}
+									}
+								]
+							},
+							"generate": {
+								"apiVersion": "v1",
+								"kind": "ConfigMap",
+								"name": "cm-b",
+								"namespace": "{{request.object.metadata.name}}",
+								"synchronize": true,
+								"data": {
+									"data": {
+										"b": "1"
+									}
+								}
+							}
+						}
+					]
+				}
+			}`),
+			expectedErr:   true,
+			expectWarning: false,
+			errContains:   []string{`rule "gen-b" was removed or renamed`},
+			errExcludes:   []string{"gen-a"},
+		},
 	}
 
 	for _, test := range tests {
@@ -3477,7 +3772,12 @@ func Test_GenerateFieldsUpdates(t *testing.T) {
 		warning, err := immutableGenerateFields(new, old)
 		golangassert.Assert(t, (warning != "") == test.expectWarning, "%s: %v", test.name, err)
 		golangassert.Assert(t, (err != nil) == test.expectedErr, "%s: %v", test.name, err)
-
+		for _, s := range test.errContains {
+			assert.ErrorContains(t, err, s, test.name)
+		}
+		for _, s := range test.errExcludes {
+			golangassert.Assert(t, err == nil || !strings.Contains(err.Error(), s), "%s: %v", test.name, err)
+		}
 	}
 }
 
