@@ -1,0 +1,8 @@
+apiVersion: v1
+data:
+  foo: YmFy
+kind: Secret
+metadata:
+  name: clone-sync-delete-policy-without-orphan-downstream
+  namespace: default
+type: Opaque
