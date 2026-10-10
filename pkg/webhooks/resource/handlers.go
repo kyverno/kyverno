@@ -65,6 +65,7 @@ type resourceHandlers struct {
 	backgroundServiceAccountName string
 	reportsServiceAccountName    string
 	auditPool                    pond.Pool
+	reportsPool                  pond.Pool
 	breaker.Breaker
 }
 
@@ -112,6 +113,7 @@ func NewHandlers(
 		backgroundServiceAccountName: backgroundServiceAccountName,
 		reportsServiceAccountName:    reportsServiceAccountName,
 		auditPool:                    pond.NewPool(maxAuditWorkers, pond.WithQueueSize(maxAuditCapacity)),
+		reportsPool:                  pond.NewPool(maxAuditWorkers, pond.WithQueueSize(maxAuditCapacity)),
 	}
 }
 
@@ -141,6 +143,7 @@ func (h *resourceHandlers) Validate(ctx context.Context, logger logr.Logger, req
 		h.admissionReports,
 		h.metricsConfig,
 		h.nsLister,
+		h.reportsPool,
 	)
 	var wg wait.Group
 	var ok bool
@@ -202,7 +205,7 @@ func (h *resourceHandlers) Mutate(ctx context.Context, logger logr.Logger, reque
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.Response(request.UID, err)
 	}
-	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports)
+	mh := mutation.NewMutationHandler(logger, h.kyvernoClient, h.engine, h.eventGen, h.nsLister, h.metricsConfig, h.admissionReports, h.reportsPool)
 	patches, warnings, err := mh.HandleMutation(ctx, request, mutatePolicies, policyContext, startTime, h.configuration)
 	if err != nil {
 		logger.Error(err, "mutation failed")
