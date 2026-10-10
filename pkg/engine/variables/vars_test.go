@@ -588,6 +588,40 @@ func Test_SubstituteShallow(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to resolve variableWithVariables bar bar2")
 }
 
+// Regression test for #16895. Shallow substitution on a non-string value
+// (number, bool, object) used to panic. It should just pass the value
+// through instead.
+func Test_SubstituteShallow_NonString(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"num":  5,
+		"flag": true,
+		"obj":  map[string]interface{}{"a": 1},
+	}
+
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+
+	for _, tc := range []struct {
+		pattern  string
+		expected string
+	}{
+		{`"{{- num}} suffix"`, `"5 suffix"`},
+		{`"{{- flag}} suffix"`, `"true suffix"`},
+		{`"{{- obj}} suffix"`, `"{"a":1} suffix"`},
+	} {
+		results, err := action(&ju.ActionData{
+			Document: nil,
+			Element:  tc.pattern,
+			Path:     "/",
+		})
+
+		assert.NilError(t, err)
+		assert.Equal(t, results.(string), tc.expected)
+	}
+}
+
 // TODO: this test fails, not sure how we could merge this !
 // func Test_subVars_withShallowReplaceAll(t *testing.T) {
 // 	patternMap := []byte(`{
