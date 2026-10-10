@@ -108,23 +108,32 @@ func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructure
 	return EngineResponse{Match: result.Result, PolicyMatched: true}, nil
 }
 
+// matchPolicy reports whether the resource described by attr is selected by the policy's
+// match constraints. A scheduled deletion scan is not an admission request, so the operations
+// of both the match rules and the exclude rules are ignored. The constraints are deep copied
+// before that, so the cached policy is left unchanged.
 func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
 	if constraints == nil {
 		return false, nil
 	}
 
 	copy := constraints.DeepCopy()
-	for i, rule := range copy.ResourceRules {
-		rule.Operations = []admissionregistrationv1.OperationType{
-			admissionregistrationv1.OperationAll,
-		}
-
-		copy.ResourceRules[i] = rule
-	}
+	matchAllOperations(copy.ResourceRules)
+	matchAllOperations(copy.ExcludeResourceRules)
 
 	matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: copy}, attr, namespace)
 	if err != nil {
 		return false, err
 	}
 	return matches, nil
+}
+
+// matchAllOperations sets the operations of every rule to "*", in place, so that a rule
+// matches regardless of the operations it lists.
+func matchAllOperations(rules []admissionregistrationv1.NamedRuleWithOperations) {
+	for i := range rules {
+		rules[i].Operations = []admissionregistrationv1.OperationType{
+			admissionregistrationv1.OperationAll,
+		}
+	}
 }

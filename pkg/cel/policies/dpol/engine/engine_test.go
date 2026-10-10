@@ -446,3 +446,111 @@ func TestHandleError(t *testing.T) {
 	assert.False(t, resp.Match)
 	assert.False(t, resp.PolicyMatched)
 }
+
+// TestHandleExcludeResourceRules checks that exclude rules apply whatever operations they list,
+// since a deletion scan is not an admission request, and that they exclude nothing more.
+func TestHandleExcludeResourceRules(t *testing.T) {
+	configMapMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	configMapMapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
+
+	configMaps := v1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"configmaps"}}
+	secrets := v1.Rule{APIGroups: []string{""}, APIVersions: []string{"v1"}, Resources: []string{"secrets"}}
+
+	tests := []struct {
+		name              string
+		excludeRule       v1.Rule
+		excludeOperations []v1.OperationType
+		excludeNames      []string
+		resourceName      string
+		wantMatch         bool
+	}{
+		{
+			name:         "exclude without operations excludes the resource",
+			excludeRule:  configMaps,
+			excludeNames: []string{"keep-me"},
+			resourceName: "keep-me",
+			wantMatch:    false,
+		},
+		{
+			name:              "exclude with DELETE operation excludes the resource",
+			excludeRule:       configMaps,
+			excludeOperations: []v1.OperationType{v1.Delete},
+			excludeNames:      []string{"keep-me"},
+			resourceName:      "keep-me",
+			wantMatch:         false,
+		},
+		{
+			name:              "exclude with CREATE operation excludes the resource",
+			excludeRule:       configMaps,
+			excludeOperations: []v1.OperationType{v1.Create},
+			excludeNames:      []string{"keep-me"},
+			resourceName:      "keep-me",
+			wantMatch:         false,
+		},
+		{
+			name:              "exclude with all operations excludes the resource",
+			excludeRule:       configMaps,
+			excludeOperations: []v1.OperationType{v1.OperationAll},
+			excludeNames:      []string{"keep-me"},
+			resourceName:      "keep-me",
+			wantMatch:         false,
+		},
+		{
+			name:         "exclude without resource names excludes every resource of the kind",
+			excludeRule:  configMaps,
+			resourceName: "keep-me",
+			wantMatch:    false,
+		},
+		{
+			name:         "exclude for another name does not exclude the resource",
+			excludeRule:  configMaps,
+			excludeNames: []string{"keep-me"},
+			resourceName: "delete-me",
+			wantMatch:    true,
+		},
+		{
+			name:         "exclude for another resource kind does not exclude the resource",
+			excludeRule:  secrets,
+			excludeNames: []string{"keep-me"},
+			resourceName: "keep-me",
+			wantMatch:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &policiesv1beta1.DeletingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "cleanup-configmaps"},
+				Spec: policiesv1beta1.DeletingPolicySpec{
+					MatchConstraints: &v1.MatchResources{
+						ResourceRules: []v1.NamedRuleWithOperations{{
+							RuleWithOperations: v1.RuleWithOperations{Rule: configMaps},
+						}},
+						ExcludeResourceRules: []v1.NamedRuleWithOperations{{
+							ResourceNames: tt.excludeNames,
+							RuleWithOperations: v1.RuleWithOperations{
+								Operations: tt.excludeOperations,
+								Rule:       tt.excludeRule,
+							},
+						}},
+					},
+					Conditions: []v1.MatchCondition{{Name: "always-true", Expression: "true"}},
+				},
+			}
+			compiled, errs := comp.Compile(policy, nil)
+			assert.Nil(t, errs)
+
+			resource := unstructured.Unstructured{}
+			resource.SetAPIVersion("v1")
+			resource.SetKind("ConfigMap")
+			resource.SetName(tt.resourceName)
+			resource.SetNamespace("default")
+
+			engine := NewEngine(nsResolver, configMapMapper, &libs.FakeContextProvider{}, matcher)
+			resp, err := engine.Handle(ctx, Policy{Policy: policy, CompiledPolicy: compiled}, resource)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantMatch, resp.PolicyMatched)
+			assert.Equal(t, tt.wantMatch, resp.Match)
+		})
+	}
+}
