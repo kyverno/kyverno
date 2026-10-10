@@ -453,14 +453,26 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						}
 						rules := make([]engineapi.RuleResponse, 0, len(r.Rules))
 						for _, rule := range r.Rules {
-							if rule.Status() == engineapi.RuleStatusPass {
-								rules = append(rules, *rule.WithPatchedTarget(&patched, metav1.GroupVersionResource(targetGVR), ""))
+							props := rule.Properties()
+							if props == nil {
+								props = make(map[string]string)
 							} else {
-								rules = append(rules, rule)
+								newProps := make(map[string]string, len(props)+1)
+								for k, v := range props {
+									newProps[k] = v
+								}
+								props = newProps
+							}
+							props["kyverno.io/target"] = "true"
+							rWithProp := rule.WithProperties(props)
+							if rule.Status() == engineapi.RuleStatusPass {
+								rules = append(rules, *rWithProp.WithPatchedTarget(&patched, metav1.GroupVersionResource(targetGVR), ""))
+							} else {
+								rules = append(rules, *rWithProp)
 							}
 						}
 						resp := engineapi.EngineResponse{
-							Resource: resource,
+							Resource: *target,
 							PolicyResponse: engineapi.PolicyResponse{
 								Rules: rules,
 							},
