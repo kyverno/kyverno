@@ -225,7 +225,7 @@ func GetResourceGVR(report metav1.Object) schema.GroupVersionResource {
 	group := controllerutils.GetLabel(report, LabelResourceGroup)
 	version := controllerutils.GetLabel(report, LabelResourceVersion)
 	resource := controllerutils.GetLabel(report, AnnotationResourceName)
-	GVRstring := group + version + resource
+	GVRstring := resource + "." + version + "." + group
 
 	// If all three parts exist, return the GVR
 	if group != "" && version != "" && resource != "" {
