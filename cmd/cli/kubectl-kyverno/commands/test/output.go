@@ -636,7 +636,7 @@ func selectResources(test v1alpha1.TestResult, target, trigger map[string][]engi
 			for _, m := range []map[string][]engineapi.EngineResponse{target, trigger} {
 				for resourceGVKAndName := range m {
 					nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
-					if !kindMatches(resourceSpec.Kind, nameParts) {
+					if len(nameParts) < 4 || !kindMatches(resourceSpec.Kind, nameParts) {
 						continue
 					}
 					if resourceSpec.Group == "" {
@@ -661,13 +661,13 @@ func selectResources(test v1alpha1.TestResult, target, trigger map[string][]engi
 	return resources
 }
 
-// reports whether the key's kind equals expected; an empty expected kind matches any kind
+// kindMatches reports whether a key split into its four fields has the expected kind; an empty expected kind matches any kind.
 func kindMatches(expected string, nameParts []string) bool {
 	if expected == "" {
 		return true
 	}
-	if len(nameParts) < 3 {
+	if len(nameParts) < 4 {
 		return false
 	}
-	return expected == nameParts[len(nameParts)-3]
+	return expected == nameParts[1]
 }

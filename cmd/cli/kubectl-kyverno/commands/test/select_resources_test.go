@@ -22,6 +22,7 @@ func TestKindMatches(t *testing.T) {
 		{name: "different kind", expected: "Deployment", nameParts: key, want: false},
 		{name: "empty kind matches any kind", expected: "", nameParts: key, want: true},
 		{name: "short key", expected: "StatefulSet", nameParts: []string{"good-pinned-tag"}, want: false},
+		{name: "three fields", expected: "StatefulSet", nameParts: []string{"StatefulSet", "default", "good-pinned-tag"}, want: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
