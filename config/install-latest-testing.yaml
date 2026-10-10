@@ -90018,6 +90018,50 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno:rbac:admin:globalcontextentries
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+rules:
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno:rbac:view:globalcontextentries
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+rules:
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - globalcontextentries
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: kyverno:rbac:admin:policies
   labels:
     app.kubernetes.io/component: rbac
@@ -90033,6 +90077,7 @@ rules:
       - clustercleanuppolicies
       - policies
       - clusterpolicies
+      - policyexceptions
     verbs:
       - create
       - delete
@@ -90082,6 +90127,7 @@ rules:
       - clustercleanuppolicies
       - policies
       - clusterpolicies
+      - policyexceptions
     verbs:
       - get
       - list
@@ -90219,26 +90265,6 @@ rules:
       - list
       - patch
       - update
-      - watch
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kyverno:rbac:view:updaterequests
-  labels:
-    app.kubernetes.io/component: rbac
-    app.kubernetes.io/instance: kyverno
-    app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
-    rbac.authorization.k8s.io/aggregate-to-view: "true"
-rules:
-  - apiGroups:
-      - kyverno.io
-    resources:
-      - updaterequests
-    verbs:
-      - get
-      - list
       - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1

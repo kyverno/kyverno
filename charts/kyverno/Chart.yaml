@@ -30,6 +30,10 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: added
+      description: Aggregate the `kyverno.io` policyexceptions and globalcontextentries resources into the Kubernetes default `view` and `admin` roles.
+    - kind: changed
+      description: UpdateRequests embed the full admission request and are no longer aggregated into the `view` role, only into `admin`.
     - kind: fixed
       description: Bump bundled reports-server dependency to v0.1.7 to fix APIServices being de-registered on pod termination when another replica is still ready.
     - kind: fixed
