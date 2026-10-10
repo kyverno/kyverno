@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -79,6 +80,9 @@ type controller struct {
 	mapAlphaLister admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
 	ephrLister     cache.GenericLister
 	cephrLister    cache.GenericLister
+	polrLister     cache.GenericLister
+	cpolrLister    cache.GenericLister
+	reportSelector labels.Selector
 
 	// reportUUIDToPolicyCache maps report UUIDs to policies that affect them for targeted reconciliation.
 	// This avoids processing all reports when a single policy changes.
@@ -191,6 +195,9 @@ func NewController(
 		cpolLister:              cpolInformer.Lister(),
 		ephrLister:              ephrInformer.Lister(),
 		cephrLister:             cephrInformer.Lister(),
+		polrLister:              polrInformer.Lister(),
+		cpolrLister:             cpolrInformer.Lister(),
+		reportSelector:          selector,
 		cacheMu:                 cacheMu,
 		reportUUIDToPolicyCache: reportUUIDToPolicyCache,
 		frontQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
@@ -435,6 +442,7 @@ func NewController(
 			logger.Error(err, "failed to register event handlers")
 		}
 	}
+
 	return &c
 }
 
@@ -446,7 +454,31 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	group.StartWithContext(ctx, func(ctx context.Context) {
 		controllerutils.Run(ctx, logger, ControllerName, time.Second, c.backQueue, workers, maxRetries, c.backReconcile)
 	})
+	group.StartWithContext(ctx, func(ctx context.Context) {
+		wait.UntilWithContext(ctx, c.periodicSweep, time.Minute*30)
+	})
 	group.Wait()
+}
+
+func (c *controller) periodicSweep(ctx context.Context) {
+	allReports, err := c.polrLister.List(c.reportSelector)
+	if err != nil {
+		logger.Error(err, "failed to list reports for periodic sweep")
+	} else {
+		for _, item := range allReports {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+		}
+	}
+	allClusterReports, err := c.cpolrLister.List(c.reportSelector)
+	if err != nil {
+		logger.Error(err, "failed to list cluster reports for periodic sweep")
+	} else {
+		for _, item := range allClusterReports {
+			itemMeta := item.(*metav1.PartialObjectMetadata)
+			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
+		}
+	}
 }
 
 func (c *controller) createPolicyMap() (map[string]PolicyMapEntry, error) {
@@ -868,6 +900,15 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 			}
 		}
 	}()
+	if report != nil && len(ephemeralReports) == 0 {
+		deleted, err := c.reconcileOrphanReport(ctx, report)
+		if err != nil {
+			return err
+		}
+		if deleted {
+			return nil
+		}
+	}
 	// aggregate reports
 	policyMap, err := c.createPolicyMap()
 	if err != nil {
@@ -923,40 +964,97 @@ func (c *controller) backReconcile(ctx context.Context, logger logr.Logger, _, n
 		if report != nil {
 			return deleteReport(ctx, report, c.client, c.orClient)
 		}
-	} else {
-		if report == nil {
-			owner := ephemeralReports[0].GetOwnerReferences()[0]
-			scope := &corev1.ObjectReference{
-				Kind:       owner.Kind,
-				Namespace:  namespace,
-				Name:       owner.Name,
-				UID:        owner.UID,
-				APIVersion: owner.APIVersion,
-			}
-			report = reportutils.NewPolicyReport(namespace, name, scope, c.orClient != nil)
-			controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
-		}
-		reportutils.SetResults(report, results...)
-		if report.GetResourceVersion() == "" {
-			r, err := reportutils.CreatePermanentReport(ctx, report, c.client, c.orClient)
-			if err != nil {
-				return err
-			}
+		return nil
+	}
 
-			uuid := r.GetUID()
-			c.cacheMu.Lock()
-			c.reportUUIDToPolicyCache[string(uuid)] = policySet
-			c.cacheMu.Unlock()
-		} else {
-			r, err := updateReport(ctx, report, c.client, c.orClient)
-			if err != nil {
-				return err
-			}
-			uuid := r.GetUID()
-			c.cacheMu.Lock()
-			c.reportUUIDToPolicyCache[string(uuid)] = policySet
-			c.cacheMu.Unlock()
+	if report == nil {
+		owner := ephemeralReports[0].GetOwnerReferences()[0]
+		scope := &corev1.ObjectReference{
+			Kind:       owner.Kind,
+			Namespace:  namespace,
+			Name:       owner.Name,
+			UID:        owner.UID,
+			APIVersion: owner.APIVersion,
 		}
+		report = reportutils.NewPolicyReport(namespace, name, scope, c.orClient != nil)
+		controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
+	} else if len(report.GetOwnerReferences()) == 0 && len(ephemeralReports) > 0 {
+		// Restore ownerReferences if they were lost (e.g., created by an older Kyverno
+		// version or orphaned due to a race condition during resource recreation).
+		owner := ephemeralReports[0].GetOwnerReferences()[0]
+		controllerutils.SetOwner(report, owner.APIVersion, owner.Kind, owner.Name, owner.UID)
+	}
+	reportutils.SetResults(report, results...)
+	if report.GetResourceVersion() == "" {
+		r, err := reportutils.CreatePermanentReport(ctx, report, c.client, c.orClient)
+		if err != nil {
+			return err
+		}
+
+		uuid := r.GetUID()
+		c.cacheMu.Lock()
+		c.reportUUIDToPolicyCache[string(uuid)] = policySet
+		c.cacheMu.Unlock()
+	} else {
+		r, err := updateReport(ctx, report, c.client, c.orClient)
+		if err != nil {
+			return err
+		}
+		uuid := r.GetUID()
+		c.cacheMu.Lock()
+		c.reportUUIDToPolicyCache[string(uuid)] = policySet
+		c.cacheMu.Unlock()
 	}
 	return nil
+}
+
+// reconcileOrphanReport repairs a report whose ephemeral inputs have already
+// been consumed, or deletes it when its scoped resource has gone away.
+func (c *controller) reconcileOrphanReport(ctx context.Context, report reportsv1.ReportInterface) (bool, error) {
+	if !controllerutils.IsManagedByKyverno(report) || len(report.GetOwnerReferences()) != 0 {
+		return false, nil
+	}
+	scope := reportScope(report)
+	if scope == nil || scope.APIVersion == "" || scope.Kind == "" || scope.Name == "" ||
+		scope.UID == "" || scope.UID != types.UID(report.GetName()) || scope.Namespace != report.GetNamespace() {
+		logger.V(3).Info("cannot verify owner of report without a valid scope", "report", controllerutils.MetaObjectToName(report))
+		return false, nil
+	}
+	gvk := schema.FromAPIVersionAndKind(scope.APIVersion, scope.Kind)
+	gvr, err := c.dclient.Discovery().GetGVRFromGVK(gvk)
+	if err != nil {
+		return false, err
+	}
+	resourceClient := c.dclient.GetDynamicInterface().Resource(gvr)
+	var resourceInterface dynamic.ResourceInterface = resourceClient
+	if scope.Namespace != "" {
+		resourceInterface = resourceClient.Namespace(scope.Namespace)
+	}
+	resource, err := resourceInterface.Get(ctx, scope.Name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return true, deleteReport(ctx, report, c.client, c.orClient)
+	}
+	if err != nil {
+		return false, err
+	}
+	if resource.GetUID() != scope.UID {
+		return true, deleteReport(ctx, report, c.client, c.orClient)
+	}
+	controllerutils.SetOwner(report, scope.APIVersion, scope.Kind, scope.Name, scope.UID)
+	return false, nil
+}
+
+func reportScope(report reportsv1.ReportInterface) *corev1.ObjectReference {
+	switch report := report.(type) {
+	case *openreports.WgpolicyReportAdapter:
+		return report.Scope
+	case *openreports.WgpolicyClusterReportAdapter:
+		return report.Scope
+	case *openreports.ReportAdapter:
+		return report.Scope
+	case *openreports.ClusterReportAdapter:
+		return report.Scope
+	default:
+		return nil
+	}
 }
