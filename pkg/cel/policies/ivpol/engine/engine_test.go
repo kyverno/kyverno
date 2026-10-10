@@ -55,7 +55,7 @@ func (c *blockingImageContext) Get(ctx context.Context, image string, _ []remote
 
 	select {
 	case <-c.release:
-		return nil, nil
+		return &imagedataloader.ImageData{}, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -528,6 +528,7 @@ func Test_ImageVerifyEngine_ValidatingPoliciesAreEvaluatedConcurrently(t *testin
 				},
 				ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
 					VerifyDigest: ptr.To(false),
+					Required:     ptr.To(false),
 				},
 				MatchImageReferences: []policiesv1beta1.MatchImageReference{
 					{
@@ -618,10 +619,14 @@ func Test_ImageVerifyEngine_ValidatingPoliciesAreEvaluatedConcurrently(t *testin
 
 	engineRequest.Request.DryRun = ptr.To(false)
 
-	errCh := make(chan error, 1)
+	type outcome struct {
+		resp iveval.ImageVerifyEngineResponse
+		err  error
+	}
+	outCh := make(chan outcome, 1)
 	go func() {
-		_, err := eng.HandleValidating(ctx, engineRequest, nil)
-		errCh <- err
+		resp, err := eng.HandleValidating(ctx, engineRequest, nil)
+		outCh <- outcome{resp, err}
 	}()
 
 	select {
@@ -640,8 +645,12 @@ func Test_ImageVerifyEngine_ValidatingPoliciesAreEvaluatedConcurrently(t *testin
 	close(imageContext.release)
 
 	select {
-	case err := <-errCh:
-		assert.NoError(t, err)
+	case out := <-outCh:
+		assert.NoError(t, out.err)
+		assert.Len(t, out.resp.Policies, 2)
+		for _, p := range out.resp.Policies {
+			assert.Equal(t, engineapi.RuleStatusPass, p.Result.Status())
+		}
 	case <-time.After(time.Second):
 		t.Fatal("engine did not complete")
 	}
