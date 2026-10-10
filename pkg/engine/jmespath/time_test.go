@@ -3,6 +3,7 @@ package jmespath
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -531,4 +532,17 @@ func Test_jpTimeBetween(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_TimeAdd_ValidationErrors(t *testing.T) {
+	t.Run("invalid first argument type", func(t *testing.T) {
+		_, err := jpTimeAdd([]interface{}{12345, "3h"})
+		assert.ErrorContains(t, err, "time_add")
+		assert.Assert(t, !strings.Contains(err.Error(), "time_to_cron"), "error should not mention time_to_cron")
+	})
+	t.Run("invalid second argument type", func(t *testing.T) {
+		_, err := jpTimeAdd([]interface{}{"2021-01-02T15:04:05-07:00", 3})
+		assert.ErrorContains(t, err, "time_add")
+		assert.Assert(t, !strings.Contains(err.Error(), "time_to_cron"), "error should not mention time_to_cron")
+	})
 }
