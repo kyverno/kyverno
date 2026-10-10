@@ -87,7 +87,12 @@ func TestPanicInPolicyDeniesAdmissionWithoutCrashing(t *testing.T) {
 				}},
 			},
 			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "registry.example/*"}},
-			Validations:          []admissionregistrationv1.Validation{{Expression: "true"}},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{
+				{Name: "containers", Expression: "object.spec.containers.map(e, e.image)"},
+			},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "images.containers.map(e, getImageData(e) != null).all(x, x)"},
+			},
 		},
 	}
 	provider, err := ivpolengine.NewProvider(evaluator.NewCompiler(nil), []policiesv1beta1.ImageValidatingPolicyLike{policy}, nil)
