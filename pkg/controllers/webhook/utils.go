@@ -246,7 +246,7 @@ func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admission
 		if x := less(a.Operations, b.Operations); x != 0 {
 			return x
 		}
-		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
+		if x := strings.Compare(string(ruleScope(a)), string(ruleScope(b))); x != 0 {
 			return x
 		}
 		return 0
@@ -276,10 +276,19 @@ func generateRuleKey(rule admissionregistrationv1.RuleWithOperations) string {
 	stringBuilderFn(opsCopy)
 
 	sb.WriteString("s:")
-	if rule.Scope != nil {
-		sb.WriteString(string(*rule.Scope))
-	}
+	sb.WriteString(string(ruleScope(rule)))
 	return sb.String()
+}
+
+// ruleScope returns the rule's scope, treating an omitted scope as the
+// API-server default. CEL policies copy their rules verbatim and may leave
+// the scope unset, so deduplication and sorting must not depend on it being
+// filled in before the webhook defaults are applied.
+func ruleScope(rule admissionregistrationv1.RuleWithOperations) admissionregistrationv1.ScopeType {
+	if rule.Scope == nil {
+		return admissionregistrationv1.AllScopes
+	}
+	return *rule.Scope
 }
 
 const (
