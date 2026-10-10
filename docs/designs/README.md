@@ -2,6 +2,9 @@
 
 This directory is for lightweight, in-repo technical notes — not the project's design-proposal process.
 
+Exception: [JSON document mutation](json-mutation.md) is an in-repository proposal
+maintained at the maintainers' request while the KDP process is being replaced.
+
 **Substantial design proposals belong in [kyverno/KDP](https://github.com/kyverno/KDP)** (Kyverno Design
 Proposals), which is the actual, existing venue for that (see `ROADMAP.md`). Don't duplicate or compete with it.
 

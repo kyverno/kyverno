@@ -192,6 +192,10 @@ func printTestResult(
 			for _, r := range test.Resources {
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
+						if r == resourceGVKAndName {
+							resources = append(resources, resourceGVKAndName)
+							continue
+						}
 						nameParts := strings.Split(resourceGVKAndName, ",")
 						nsAndName := strings.Split(r, "/")
 						if len(nsAndName) == 1 {
@@ -199,7 +203,7 @@ func printTestResult(
 								resources = append(resources, resourceGVKAndName)
 							}
 						}
-						if len(nsAndName) == 2 {
+						if len(nsAndName) == 2 && len(nameParts) >= 2 {
 							if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
 								resources = append(resources, resourceGVKAndName)
 							}
@@ -211,6 +215,9 @@ func printTestResult(
 				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
 						nameParts := strings.Split(resourceGVKAndName, ",")
+						if len(nameParts) < 4 {
+							continue
+						}
 						if resourceSpec.Group == "" {
 							if resourceSpec.Version != nameParts[0] {
 								continue
@@ -256,6 +263,9 @@ func printTestResult(
 					if response.Policy().GetName() != policyName {
 						continue
 					}
+					if policyNamespace != "" && response.Policy().GetNamespace() != policyNamespace {
+						continue
+					}
 
 					policyResponseFound = true
 
@@ -278,7 +288,17 @@ func printTestResult(
 								r = response.PatchedResource
 							}
 
-							ok, message, reason := checkResult(test, fs, resourcePath, response, rule, r, removeColor)
+							var ok bool
+							var message, reason string
+							if documents, isJSON := responses.JSONDocuments[resource]; isJSON && rule.RuleType() == engineapi.Mutation {
+								key := response.Policy().GetName()
+								if response.Policy().GetNamespace() != "" {
+									key = response.Policy().GetNamespace() + "/" + key
+								}
+								ok, message, reason = checkResult(test, fs, resourcePath, response, rule, r, removeColor, documents[key])
+							} else {
+								ok, message, reason = checkResult(test, fs, resourcePath, response, rule, r, removeColor)
+							}
 							if !test.FailOnMissingResources && strings.Contains(message, "not found in manifest") {
 								resourceSkipped = true
 								continue

@@ -2,6 +2,7 @@ package push
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -274,4 +275,31 @@ func TestBuildImageRejectsInvalidExceptionCELExpression(t *testing.T) {
 	_, err := buildImage(results)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "validating CEL expression in policy exception")
+}
+
+func TestBuildImageJSONModeMutatingPolicy(t *testing.T) {
+	newPolicy := func(expression string) *policiesv1beta1.MutatingPolicy {
+		expressionJSON, err := json.Marshal(expression)
+		require.NoError(t, err)
+		var mpol policiesv1beta1.MutatingPolicy
+		require.NoError(t, json.Unmarshal([]byte(`{
+			"apiVersion":"policies.kyverno.io/v1beta1","kind":"MutatingPolicy","metadata":{"name":"transform"},
+			"spec":{"evaluation":{"mode":"JSON"},"mutations":[{"patchType":"JSONPatch","jsonPatch":{"expression":`+string(expressionJSON)+`}}]}
+		}`), &mpol))
+		return &mpol
+	}
+
+	img, err := buildImage(&policy.LoaderResults{
+		MutatingPolicies: []policiesv1beta1.MutatingPolicyLike{newPolicy(`[JSONPatch{op: "add", path: "/ok", value: true}]`)},
+	})
+	require.NoError(t, err)
+	manifest, err := img.Manifest()
+	require.NoError(t, err)
+	require.Len(t, manifest.Layers, 1)
+	assert.Equal(t, "MutatingPolicy", manifest.Layers[0].Annotations[internal.AnnotationKind])
+
+	_, err = buildImage(&policy.LoaderResults{
+		MutatingPolicies: []policiesv1beta1.MutatingPolicyLike{newPolicy(`[JSONPatch{op: "add", path: "/ok", value: request.object}]`)},
+	})
+	require.ErrorContains(t, err, "validating CEL expression in MutatingPolicy")
 }

@@ -1,0 +1,53 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: excluded
+spec:
+  evaluation:
+    mode: JSON
+  matchConditions:
+  - name: excluded
+    expression: "false"
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/unwanted", value: true}]'
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: exempted
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/unwanted", value: true}]'
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: test-rollback
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/unwanted", value: true}]'
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "test", path: "/id", value: 0}]'
+---
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: missing-path
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "replace", path: "/absent", value: true}]'

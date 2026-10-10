@@ -1,0 +1,24 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: add-region
+spec:
+  evaluation:
+    mode: JSON
+  mutations:
+  - patchType: JSONPatch
+    jsonPatch:
+      expression: '[JSONPatch{op: "add", path: "/region", value: "west"}]'
+---
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-region
+spec:
+  evaluation:
+    mode: JSON
+  validationActions:
+  - Deny
+  validations:
+  - expression: 'object.region == "west" && object.id % 2 == 1'
+    message: Mutation must run before validation and integers must stay exact.

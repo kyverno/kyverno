@@ -18,11 +18,13 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
 	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	ivpolevaluator "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/yaml"
 )
 
@@ -137,7 +139,13 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 		if err := checkResource(obj); err != nil {
 			return nil, err
 		}
-		if _, errs := mCompiler.Compile(pol, nil); len(errs) > 0 {
+		var errs field.ErrorList
+		if celpolicies.IsJSONMutatingPolicy(pol) {
+			_, errs = mpolcompiler.CompileJSON(pol, nil)
+		} else {
+			_, errs = mCompiler.Compile(pol, nil)
+		}
+		if len(errs) > 0 {
 			return nil, fmt.Errorf("validating CEL expression in %s %q: %v", obj.GetObjectKind().GroupVersionKind().Kind, obj.GetName(), errs.ToAggregate())
 		}
 		toAppend = append(toAppend, obj)

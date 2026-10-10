@@ -14,6 +14,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
@@ -1610,7 +1611,9 @@ func (c *controller) getMutatingPolicies() ([]engineapi.GenericPolicy, error) {
 	}
 	mpols := make([]engineapi.GenericPolicy, 0)
 	for _, mpol := range policies {
-		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated {
+		// JSON policies default to admission enabled but never have trigger
+		// resources, so they must not contribute webhook rules.
+		if mpol.Spec.AdmissionEnabled() && !mpol.GetStatus().Generated && !celpolicies.IsJSONMutatingPolicy(mpol) {
 			mpols = append(mpols, engineapi.NewMutatingPolicy(mpol))
 		}
 	}
@@ -1624,7 +1627,7 @@ func (c *controller) getNamespacedMutatingPolicies() ([]engineapi.GenericPolicy,
 	}
 	nmpols := make([]engineapi.GenericPolicy, 0)
 	for _, nmpol := range policies {
-		if nmpol.Spec.AdmissionEnabled() && !nmpol.GetStatus().Generated {
+		if nmpol.Spec.AdmissionEnabled() && !nmpol.GetStatus().Generated && !celpolicies.IsJSONMutatingPolicy(nmpol) {
 			nmpols = append(nmpols, engineapi.NewNamespacedMutatingPolicy(nmpol))
 		}
 	}

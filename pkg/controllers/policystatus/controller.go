@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	auth "github.com/kyverno/kyverno/pkg/auth/checker"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	mpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/mpol/autogen"
 	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
@@ -326,11 +327,16 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 	// GeneratingPolicies have no background toggle (they are inherently background),
 	// so they keep the default of true and are always checked.
 	backgroundEnabled := true
+	// jsonMode marks a JSON-document MutatingPolicy: it is neither registered in
+	// the webhook nor scanned by the reports controller, so neither readiness
+	// condition can be derived from cluster state.
+	jsonMode := false
 	switch policy.GetKind() {
 	case webhook.MutatingPolicyType:
 		key = webhook.BuildRecorderKey(webhook.MutatingPolicyType, policy.GetName(), "")
 		matchConstraints = policy.AsMutatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsMutatingPolicy().GetSpec().BackgroundEnabled()
+		jsonMode = celpolicies.IsJSONMutatingPolicy(policy.AsMutatingPolicy())
 		// admission-disabled policies are not registered in the webhook by design,
 		// so the webhook-configured condition must not gate their readiness.
 		backgroundOnly = !policy.AsMutatingPolicy().GetSpec().AdmissionEnabled()
@@ -343,6 +349,7 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 		matchConstraints = policy.AsNamespacedMutatingPolicy().GetMatchConstraints()
 		backgroundEnabled = policy.AsNamespacedMutatingPolicy().GetSpec().BackgroundEnabled()
 		backgroundOnly = !policy.AsNamespacedMutatingPolicy().GetSpec().AdmissionEnabled()
+		jsonMode = celpolicies.IsJSONMutatingPolicy(policy.AsNamespacedMutatingPolicy())
 		// NamespacedMutatingPolicy uses v1beta1.ConditionStatus, convert to return type
 		v1beta1Status := policy.AsNamespacedMutatingPolicy().GetStatus().ConditionStatus
 		status = &v1beta1Status
@@ -367,6 +374,15 @@ func (c controller) reconcileConditions(ctx context.Context, policy engineapi.Ge
 			Ready:      v1alpha1Status.Ready,
 			Message:    v1alpha1Status.Message,
 		}
+	}
+
+	if jsonMode {
+		// Set both conditions explicitly (not merely skip them) so conditions left
+		// over from a previous Kubernetes-mode revision are healed rather than
+		// keeping the policy not-ready for a webhook it is never registered in.
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeWebhookConfigured, metav1.ConditionTrue, "JSON evaluation mode; policy is not served by the admission webhook.")
+		status.SetReadyByCondition(policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted, metav1.ConditionTrue, "JSON evaluation mode; cluster reporting permissions not required.")
+		return status
 	}
 
 	if !backgroundOnly {

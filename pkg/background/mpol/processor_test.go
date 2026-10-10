@@ -49,6 +49,7 @@ var (
 type fakeStatusControl struct {
 	failedCalled  bool
 	successCalled bool
+	skipCalled    bool
 }
 
 func (f *fakeStatusControl) Failed(name, msg string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
@@ -61,6 +62,7 @@ func (f *fakeStatusControl) Success(name string, genResources []kyvernov1.Resour
 }
 func (f *fakeStatusControl) Skip(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	f.successCalled = true
+	f.skipCalled = true
 	return &kyvernov2.UpdateRequest{}, nil
 }
 

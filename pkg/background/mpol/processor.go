@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/breaker"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -105,6 +106,14 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 
 	mpol, err := p.GetPolicy(ur)
 	if mpol == nil {
+		return err
+	}
+	// A JSON policy is never compiled by the Kubernetes engine, so without this
+	// check a stray UpdateRequest would retry as "not compiled yet" forever.
+	// Skip is terminal; Failed would be reset to Pending and retried.
+	if celpolicies.IsJSONMutatingPolicy(mpol) {
+		logger.V(2).Info("skipping update request: mutating policy uses JSON evaluation mode and cannot mutate existing resources", "ur", ur.GetName(), "mpol", ur.Spec.GetPolicyKey())
+		_, err := p.statusControl.Skip(ur.GetName(), nil)
 		return err
 	}
 	// The request for a new policy can arrive before the engine has compiled that policy; return an

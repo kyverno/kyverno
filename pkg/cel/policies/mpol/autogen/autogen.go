@@ -9,6 +9,7 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
+	"github.com/kyverno/kyverno/pkg/cel/policies"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -25,6 +26,10 @@ const ExtractionReplacementsRef = autogen.ExtractionReplacementsRef
 
 func Autogen(policy policiesv1beta1.MutatingPolicyLike) (map[string]policiesv1beta1.MutatingPolicyAutogen, error) {
 	if policy == nil {
+		return nil, nil
+	}
+	// JSON documents have no pod controllers to replicate rules for.
+	if policies.IsJSONMutatingPolicy(policy) {
 		return nil, nil
 	}
 

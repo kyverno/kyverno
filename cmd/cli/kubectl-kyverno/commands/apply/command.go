@@ -39,6 +39,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	celpolicies "github.com/kyverno/kyverno/pkg/cel/policies"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
@@ -84,6 +85,10 @@ type PolicyDiagnostic struct {
 }
 
 type ApplyCommandConfig struct {
+	deferredMutationOutputs []func() error
+	// continuedAfterError records an error swallowed by --continue-on-fail, which
+	// may not be reflected in the result counts but must still block staged output.
+	continuedAfterError       bool
 	KubeConfig                string
 	Context                   string
 	Namespace                 string
@@ -218,7 +223,7 @@ func Command() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringSliceVarP(&applyCommandConfig.JSONPaths, "json", "", []string{}, "Path to JSON payload files")
+	cmd.Flags().StringSliceVarP(&applyCommandConfig.JSONPaths, "json", "", []string{}, "Paths to JSON documents (any root type); JSON-mode mutation runs before validation")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.HTTPPayloadPaths, "http-payload", "", []string{}, "Path to HTTP check request payload files (JSON)")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.EnvoyPayloadPaths, "envoy-payload", "", []string{}, "Path to Envoy check request payload files (JSON)")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.ResourcePaths, "resource", "r", []string{}, "Path to resource files")
@@ -226,7 +231,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resource", "", []string{}, "Path to individual files containing target resources files for policies that have mutate existing")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resources", "", []string{}, "Path to a directory containing target resources files for policies that have mutate existing")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated/generated resources in provided file/directory")
+	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints mutated/generated resources or JSON documents in a file/directory (.json for a single JSON document)")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
@@ -274,16 +279,25 @@ func Command() *cobra.Command {
 func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
+	c.deferredMutationOutputs = nil
+	c.continuedAfterError = false
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	mutateLogPathIsDir, err := c.getMutateLogPathIsDir()
-	if err != nil {
-		return nil, nil, skippedInvalidPolicies, nil, err
-	}
-	if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
-		return nil, nil, skippedInvalidPolicies, nil, err
+	var mutateLogPathIsDir bool
+	// JSON output is staged until every input has been evaluated successfully.
+	if len(c.JSONPaths) == 0 {
+		mutateLogPathIsDir, err = c.getMutateLogPathIsDir()
+		if err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, err
+		}
+		if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
+			return nil, nil, skippedInvalidPolicies, nil, err
+		}
+	} else {
+		extension := filepath.Ext(c.MutateLogPath)
+		mutateLogPathIsDir = c.MutateLogPath != "" && extension != ".json" && extension != ".yaml" && extension != ".yml"
 	}
 	crdProcessor := data.NewCRDProcessor(nil)
 	data.InjectProcessor(crdProcessor)
@@ -465,6 +479,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 
 	rc, resources1, responses1, err := c.applyPolicies(
+		ctx,
 		out,
 		&store,
 		variables,
@@ -489,7 +504,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
-	responses4, err := c.applyImageValidatingPolicies(ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
+	var jsonObjects []*unstructured.Unstructured
+	if len(ivps) > 0 || len(dps) > 0 {
+		jsonObjects, err = payload.Objects(jsonPayloads)
+		if err != nil {
+			return rc, resources1, skippedInvalidPolicies, responses1, err
+		}
+	}
+	responses4, err := c.applyImageValidatingPolicies(ivps, jsonObjects, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -499,7 +521,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(dps, jsonObjects, celExceptions, variables.Namespace, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -529,7 +551,46 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	responses = append(responses, responses7...)
 	responses = append(responses, httpResponses...)
 	responses = append(responses, envoyResponses...)
+	hasJSONMutation := false
+	for _, policy := range mps {
+		hasJSONMutation = hasJSONMutation || celpolicies.IsJSONMutatingPolicy(policy)
+	}
+	if len(c.JSONPaths) > 0 && (hasJSONMutation || len(c.deferredMutationOutputs) > 0) && c.evaluationSucceeded(rc) {
+		if filepath.Ext(c.MutateLogPath) == ".json" && (len(jsonPayloads) > 1 || len(c.deferredMutationOutputs) > 0) {
+			return rc, resources1, skippedInvalidPolicies, responses, fmt.Errorf("multiple documents or Kubernetes mutation output require an output directory or a .yaml output stream, not a single .json file")
+		}
+		mutateLogPathIsDir, err = c.getMutateLogPathIsDir()
+		if err != nil {
+			return rc, resources1, skippedInvalidPolicies, responses, err
+		}
+		if err := c.cleanPreviousContent(mutateLogPathIsDir); err != nil {
+			return rc, resources1, skippedInvalidPolicies, responses, err
+		}
+		for _, write := range c.deferredMutationOutputs {
+			if err := write(); err != nil {
+				return rc, resources1, skippedInvalidPolicies, responses, err
+			}
+		}
+		for _, document := range jsonPayloads {
+			if !hasJSONMutation || (c.MutateLogPath == "" && (c.PolicyReport || c.GenerateExceptions)) {
+				break
+			}
+			output := processor.PolicyProcessor{
+				JSONDocument: document, Out: out, Stdin: c.Stdin,
+				MutateLogPath: c.MutateLogPath, MutateLogPathIsDir: mutateLogPathIsDir,
+			}
+			if err := output.PrintJSONDocument(); err != nil {
+				return rc, resources1, skippedInvalidPolicies, responses, err
+			}
+		}
+	}
 	return rc, resources1, skippedInvalidPolicies, responses, nil
+}
+
+// evaluationSucceeded reports whether staged mutation output may be published:
+// no failures or errors were counted, and none were swallowed by --continue-on-fail.
+func (c *ApplyCommandConfig) evaluationSucceeded(rc *processor.ResultCounts) bool {
+	return rc.Fail == 0 && rc.Error == 0 && !c.continuedAfterError
 }
 
 func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
@@ -541,6 +602,7 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
 }
 
 func (c *ApplyCommandConfig) applyPolicies(
+	ctx context.Context,
 	out io.Writer,
 	store *store.Store,
 	vars *variables.Variables,
@@ -554,7 +616,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	mapBindings []admissionregistrationv1beta1.MutatingAdmissionPolicyBinding,
 	resources []*unstructured.Unstructured,
 	parameterResources []*unstructured.Unstructured,
-	jsonPayloads []*unstructured.Unstructured,
+	jsonPayloads []*payload.Document,
 	exceptions []*kyvernov2.PolicyException,
 	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
@@ -625,9 +687,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
 		}
+		if len(c.JSONPaths) > 0 {
+			processor.DeferredMutationOutputs = &c.deferredMutationOutputs
+		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
 				continue
 			}
@@ -645,7 +711,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			MutatingPolicies:                  mpols,
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
-			JsonPayload:                       *resource,
+			JSONDocument:                      resource,
 			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
@@ -666,14 +732,16 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
+			DeferredMutationOutputs:           &c.deferredMutationOutputs,
 		}
-		ers, err := processor.ApplyPoliciesOnResource()
+		ers, err := processor.ApplyPoliciesOnResourceWithContext(ctx)
 		if err != nil {
 			if c.ContinueOnFail {
-				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on resource %s (%s)\n", resource.GetName(), err.Error()))
+				c.continuedAfterError = true
+				log.Log.V(2).Info(fmt.Sprintf("failed to apply policies on JSON document %s (%s)\n", resource.Name, err.Error()))
 				continue
 			}
-			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
+			return &rc, resources, append(responses, ers...), fmt.Errorf("failed to apply policies on JSON document %s (%w)", resource.Name, err)
 		}
 		responses = append(responses, ers...)
 	}
@@ -747,6 +815,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		if err != nil {
 			log.Log.Error(err, "failed to map gvk to gvr", "gkv", gvk)
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				continue
 			}
 			return responses, fmt.Errorf("failed to map gvk to gvr %s (%v)\n", gvk, err)
@@ -774,6 +843,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
@@ -805,6 +875,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		result, err := eval.Evaluate(context.TODO(), ivpols, json.Object, nil, nil, lister)
 		if err != nil {
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
 				continue
 			}
@@ -886,6 +957,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				rc.AddValidatingPolicyResponse(response)
 
 				if c.ContinueOnFail {
+					c.continuedAfterError = true
 					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
 					continue
 				}
@@ -974,6 +1046,7 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 				responses = append(responses, response)
 			}
 			if c.ContinueOnFail {
+				c.continuedAfterError = true
 				continue
 			}
 			return responses, err
@@ -1075,7 +1148,7 @@ func (c *ApplyCommandConfig) applyCleanupPolicies(
 	return responses, nil
 }
 
-func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
+func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*payload.Document, error) {
 	resourceOptions := loader.ResourceOptions{
 		Namespace:       c.Namespace,
 		Concurrency:     c.Concurrent,
@@ -1088,15 +1161,15 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 		return resources, nil, fmt.Errorf("failed to load resources (%w)", err)
 	}
 	resources = test.ProcessResources(resources)
-	var jsonPayloads []*unstructured.Unstructured
+	var jsonPayloads []*payload.Document
 	if len(c.JSONPaths) > 0 {
 		for _, path := range c.JSONPaths {
-			payload, err := payload.Load(path)
+			document, err := payload.LoadDocument(path)
 			if err != nil {
 				return nil, nil, fmt.Errorf("failed to load JSON payload (%w)", err)
 			}
 
-			jsonPayloads = append(jsonPayloads, &unstructured.Unstructured{Object: payload.(map[string]interface{})})
+			jsonPayloads = append(jsonPayloads, document)
 		}
 	}
 	return resources, jsonPayloads, nil
