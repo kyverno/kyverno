@@ -24,6 +24,9 @@ type ExpressionTrace struct {
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
 	LoopValuesOmitted bool
+	// NoBreakdown is set, by the caller, when Nodes were deliberately not collected for this
+	// expression, and says why, so the missing breakdown is not mistaken for an empty one.
+	NoBreakdown string
 }
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {

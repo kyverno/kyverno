@@ -118,6 +118,9 @@ func printNodes(w io.Writer, et ExpressionTrace) {
 	if et.LoopValuesOmitted {
 		fmt.Fprintf(w, "%-10s %-8s (values inside loops such as all() and exists() are not shown: CEL keeps only the last item's)\n", "", "")
 	}
+	if et.NoBreakdown != "" {
+		fmt.Fprintf(w, "%-10s %-8s (no breakdown: %s)\n", "", "", et.NoBreakdown)
+	}
 }
 
 func row(w io.Writer, layer, status, rest string) {

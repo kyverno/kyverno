@@ -30,8 +30,13 @@ type TracedProgram struct {
 	AST     *cel.Ast
 }
 
-// tracingProgram builds the explain-only twin of a program: same AST, with state tracking on.
+// tracingProgram builds the explain-only twin of a program: same AST, with state tracking on. An
+// expression that calls a function that must not run twice (see NotRepeatable) gets no twin, so
+// TraceDetails has nothing to re-run and the trace shows only its result.
 func tracingProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
+	if NotRepeatable(ast) != "" {
+		return nil, nil
+	}
 	return env.Program(ast, cel.EvalOptions(cel.OptTrackState))
 }
 
