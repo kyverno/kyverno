@@ -1509,3 +1509,145 @@ func Test_Apply_ExplainKeepsTheCostLimit(t *testing.T) {
 	assert.Contains(t, output, "VERDICT    ERROR")
 	assert.Contains(t, output, "cost limit exceeded")
 }
+
+// Test_Apply_Explain runs --explain through the apply command for both input paths: resource
+// files (a ValidatingPolicy and a MutatingPolicy) and a JSON payload. With the flag the trace is
+// printed; without it nothing trace-shaped appears and the results themselves do not change.
+func Test_Apply_Explain(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name   string
+		config ApplyCommandConfig
+		want   []string
+	}{{
+		name: "validating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-validating-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{base + "test-validating-policy/check-deployment-labels/deployment2.yaml"},
+		},
+		want: []string{"(ValidatingPolicy)", "SCOPE      applied", "VERDICT    FAIL"},
+	}, {
+		name: "mutating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-mutating-policy/mutating-label/policy.yaml"},
+			ResourcePaths: []string{base + "test-mutating-policy/mutating-label/resource.yaml"},
+		},
+		want: []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
+	}, {
+		name: "validating policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-validating-policy/json-check-dockerfile/policy.yaml"},
+			JSONPaths:   []string{base + "test-validating-policy/json-check-dockerfile/payload.json"},
+		},
+		want: []string{"(ValidatingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		// two pods: test-nginx-1 meets both conditions, test-nginx-2 fails the second
+		name: "deleting policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+			ResourcePaths: []string{base + "test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+		},
+		want: []string{
+			"(DeletingPolicy)",
+			"(deletion scan, so operations are not checked)",
+			"VERDICT    PASS     conditions held: the resource would be deleted",
+			`VERDICT    FAIL     condition "pod-name" is false: the resource is kept`,
+		},
+	}, {
+		name: "deleting policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-deleting-policy/deleting-json/policy.yaml"},
+			JSONPaths:   []string{base + "test-deleting-policy/deleting-json/payload.json"},
+		},
+		want: []string{"(DeletingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(explain bool) (string, *processor.ResultCounts) {
+				config := tt.config
+				config.Explain = explain
+				var out bytes.Buffer
+				rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+				require.NoError(t, err)
+				return out.String(), rc
+			}
+
+			explained, explainedCounts := run(true)
+			for _, want := range tt.want {
+				assert.Contains(t, explained, want)
+			}
+
+			plain, plainCounts := run(false)
+			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
+			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
+			assert.Equal(t, plainCounts, explainedCounts, "--explain must not change the results")
+		})
+	}
+}
+
+// Test_Apply_ExplainThroughTheCommand runs `apply --explain` the way a user does, through the
+// Cobra command and its flag parsing rather than by setting ApplyCommandConfig.Explain, and
+// checks the trace reaches the command's output. Without the flag no trace is printed, and the
+// flag never changes whether the command succeeds.
+func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name     string
+		policy   string
+		resource string
+		want     []string
+		// wantErr is a command that fails outright: --explain must fail it the same way, and
+		// no trace is expected
+		wantErr bool
+	}{{
+		name:     "validating policy",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/deployment2.yaml",
+		want:     []string{"(ValidatingPolicy)", "SCOPE      applied", "VERDICT    FAIL"},
+	}, {
+		name:     "mutating policy",
+		policy:   base + "test-mutating-policy/mutating-label/policy.yaml",
+		resource: base + "test-mutating-policy/mutating-label/resource.yaml",
+		want:     []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
+	}, {
+		name:     "deleting policy",
+		policy:   base + "test-deleting-policy/deleting-pod-by-name/policy.yaml",
+		resource: base + "test-deleting-policy/deleting-pod-by-name/resource.yaml",
+		want:     []string{"(DeletingPolicy)", "VERDICT    PASS     conditions held: the resource would be deleted"},
+	}, {
+		name:     "missing resource file",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/does-not-exist.yaml",
+		wantErr:  true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(extra ...string) (string, error) {
+				cmd := Command()
+				var out bytes.Buffer
+				cmd.SetOut(&out)
+				cmd.SetErr(&out)
+				cmd.SetArgs(append([]string{tt.policy, "--resource", tt.resource}, extra...))
+				err := cmd.Execute()
+				return out.String(), err
+			}
+
+			explained, explainedErr := run("--explain")
+			if tt.wantErr {
+				_, plainErr := run()
+				require.Error(t, plainErr)
+				require.Error(t, explainedErr, "--explain must not hide a command error")
+				assert.Equal(t, plainErr.Error(), explainedErr.Error())
+				return
+			}
+			for _, want := range tt.want {
+				assert.Contains(t, explained, want)
+			}
+
+			plain, plainErr := run()
+			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
+			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
+			assert.Equal(t, plainErr == nil, explainedErr == nil, "--explain must not change whether the command succeeds")
+		})
+	}
+}

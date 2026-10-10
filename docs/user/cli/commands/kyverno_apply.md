@@ -54,7 +54,7 @@ kyverno apply [flags]
       --exceptions-with-resources          Evaluate policy exceptions from the resources path
       --exceptions-within-policies         Evaluate policy exceptions from the policies path
       --exceptions-within-resources        Evaluate policy exceptions from the resources path
-      --explain                            Print how each ValidatingPolicy reached its result: whether it applied, its match conditions, variables and validations (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive
+      --explain                            Print how each ValidatingPolicy, MutatingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, and its validations, the mutations it ran or its delete conditions (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive
       --generate-exceptions                Generate policy exceptions for each violation
       --generated-exception-ttl duration   Default TTL for generated exceptions (default 720h0m0s)
   -b, --git-branch string                  test git repository branch
