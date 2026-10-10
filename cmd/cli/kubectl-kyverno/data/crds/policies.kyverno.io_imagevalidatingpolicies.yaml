@@ -464,7 +464,7 @@ spec:
                   providers:
                     description: |-
                       Providers specifies a list of OCI Registry names, whose authentication providers are provided.
-                      It can be of one of these values: default,google,azure,amazon,github.
+                      It can be of one of these values: default,google,azure,amazon,github,alibabacloud.
                     items:
                       description: CredentialsProvidersType provides the list of credential
                         providers required.
@@ -474,6 +474,7 @@ spec:
                       - azure
                       - google
                       - github
+                      - alibabacloud
                       type: string
                     type: array
                   secrets:
@@ -1583,7 +1584,7 @@ spec:
                                 providers:
                                   description: |-
                                     Providers specifies a list of OCI Registry names, whose authentication providers are provided.
-                                    It can be of one of these values: default,google,azure,amazon,github.
+                                    It can be of one of these values: default,google,azure,amazon,github,alibabacloud.
                                   items:
                                     description: CredentialsProvidersType provides
                                       the list of credential providers required.
@@ -1593,6 +1594,7 @@ spec:
                                     - azure
                                     - google
                                     - github
+                                    - alibabacloud
                                     type: string
                                   type: array
                                 secrets:
@@ -2835,7 +2837,7 @@ spec:
                   providers:
                     description: |-
                       Providers specifies a list of OCI Registry names, whose authentication providers are provided.
-                      It can be of one of these values: default,google,azure,amazon,github.
+                      It can be of one of these values: default,google,azure,amazon,github,alibabacloud.
                     items:
                       description: CredentialsProvidersType provides the list of credential
                         providers required.
@@ -2845,6 +2847,7 @@ spec:
                       - azure
                       - google
                       - github
+                      - alibabacloud
                       type: string
                     type: array
                   secrets:
@@ -3954,7 +3957,7 @@ spec:
                                 providers:
                                   description: |-
                                     Providers specifies a list of OCI Registry names, whose authentication providers are provided.
-                                    It can be of one of these values: default,google,azure,amazon,github.
+                                    It can be of one of these values: default,google,azure,amazon,github,alibabacloud.
                                   items:
                                     description: CredentialsProvidersType provides
                                       the list of credential providers required.
@@ -3964,6 +3967,7 @@ spec:
                                     - azure
                                     - google
                                     - github
+                                    - alibabacloud
                                     type: string
                                   type: array
                                 secrets:
@@ -5205,7 +5209,7 @@ spec:
                   providers:
                     description: |-
                       Providers specifies a list of OCI Registry names, whose authentication providers are provided.
-                      It can be of one of these values: default,google,azure,amazon,github.
+                      It can be of one of these values: default,google,azure,amazon,github,alibabacloud.
                     items:
                       description: CredentialsProvidersType provides the list of credential
                         providers required.
@@ -5215,6 +5219,7 @@ spec:
                       - azure
                       - google
                       - github
+                      - alibabacloud
                       type: string
                     type: array
                   secrets:
@@ -6324,7 +6329,7 @@ spec:
                                 providers:
                                   description: |-
                                     Providers specifies a list of OCI Registry names, whose authentication providers are provided.
-                                    It can be of one of these values: default,google,azure,amazon,github.
+                                    It can be of one of these values: default,google,azure,amazon,github,alibabacloud.
                                   items:
                                     description: CredentialsProvidersType provides
                                       the list of credential providers required.
@@ -6334,6 +6339,7 @@ spec:
                                     - azure
                                     - google
                                     - github
+                                    - alibabacloud
                                     type: string
                                   type: array
                                 secrets:

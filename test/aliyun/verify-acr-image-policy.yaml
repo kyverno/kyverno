@@ -1,0 +1,41 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: verify-acr-image-cosign
+spec:
+  failurePolicy: Ignore
+  validationActions:
+    - Deny
+  webhookConfiguration:
+    timeoutSeconds: 20
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+  matchConditions:
+    - name: match-test-namespace
+      expression: "request.namespace == 'kyverno-cap-test'"
+  matchImageReferences:
+    - glob: "dahu-registry-vpc.cn-hangzhou.cr.aliyuncs.com/dahu/nginx*"
+  credentials:
+    providers:
+      - alibabacloud
+  validationConfigurations:
+    mutateDigest: false
+    verifyDigest: false
+    required: true
+  attestors:
+    - name: cosign
+      cosign:
+        key:
+          data: |-
+            -----BEGIN PUBLIC KEY-----
+            MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETxFRjnasa2pZDNpzZnl6tNCqgDMK
+            nlomMYlce52bKGDsbPbbC/JkDBGNF4avykRhPDYCzvyWJRD4zfqTgHx0fQ==
+            -----END PUBLIC KEY-----
+  validations:
+    - expression: >-
+        images.containers.map(image, verifyImageSignatures(image, [attestors.cosign])).all(e, e > 0)
+      message: "ACR image signature verification failed"

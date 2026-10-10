@@ -27,6 +27,7 @@ const (
 	ACR     ImageRegistryCredentialsProvidersType = "azure"
 	GCP     ImageRegistryCredentialsProvidersType = "google"
 	GHCR    ImageRegistryCredentialsProvidersType = "github"
+	ALIBABA ImageRegistryCredentialsProvidersType = "alibabacloud"
 )
 
 var signatureAlgorithmMap = map[string]bool{
@@ -351,7 +352,7 @@ type ImageRegistryCredentials struct {
 	AllowInsecureRegistry bool `json:"allowInsecureRegistry,omitempty"`
 
 	// Providers specifies a list of OCI Registry names, whose authentication providers are provided.
-	// It can be of one of these values: default,google,azure,amazon,github.
+	// It can be of one of these values: default,google,azure,amazon,github,alibabacloud.
 	// +kubebuilder:validation:Optional
 	Providers []ImageRegistryCredentialsProvidersType `json:"providers,omitempty"`
 

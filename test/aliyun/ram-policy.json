@@ -1,0 +1,14 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cr:GetAuthorizationToken",
+        "cr:ListInstance",
+        "cr:PullRepository"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

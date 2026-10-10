@@ -1,0 +1,26 @@
+{
+  "Version": "1",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Federated": [
+          "acs:ram::<account-id>:oidc-provider/ack-rrsa-<cluster-id>"
+        ]
+      },
+      "Condition": {
+        "StringEquals": {
+          "oidc:iss": "https://oidc-ack-cn-hangzhou.oss-cn-hangzhou.aliyuncs.com/<cluster-id>",
+          "oidc:aud": "sts.aliyuncs.com",
+          "oidc:sub": [
+            "system:serviceaccount:kyverno:kyverno-admission-controller",
+            "system:serviceaccount:kyverno:kyverno-background-controller",
+            "system:serviceaccount:kyverno:kyverno-cleanup-controller",
+            "system:serviceaccount:kyverno:kyverno-reports-controller"
+          ]
+        }
+      }
+    }
+  ]
+}
