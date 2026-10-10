@@ -107,6 +107,10 @@ func (e *engineImpl) generate(
 	response := GeneratingPolicyResponse{
 		Policy: policy.Policy,
 	}
+	// Only catches an unset interface. A typed-nil (e.g. a nil *GeneratingPolicy
+	// assigned into this GeneratingPolicyLike field) slips past this check and
+	// panics in GetSpec() below. Callers must assign the concrete typed value —
+	// see kyverno/kyverno#17583.
 	if policy.Policy == nil {
 		response.Result = engineapi.RuleError("", engineapi.Generation, "policy is not provided", errNilPolicy, nil)
 		return response
