@@ -92,7 +92,7 @@ func (h *generationHandler) Handle(
 	if h.backgroundServiceAccountName == policyContext.AdmissionInfo().AdmissionUserInfo.Username {
 		return
 	}
-	h.handleNonTrigger(ctx, policyContext)
+	h.handleNonTrigger(ctx, request, policyContext)
 }
 
 func getAppliedRules(policy kyvernov1.PolicyInterface, applied []engineapi.RuleResponse) []kyvernov1.Rule {
@@ -144,13 +144,14 @@ func (h *generationHandler) handleTrigger(
 
 func (h *generationHandler) handleNonTrigger(
 	ctx context.Context,
+	request admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 ) {
 	resource := policyContext.OldResource()
 	labels := resource.GetLabels()
 	if _, ok := labels[common.GenerateTypeCloneSourceLabel]; ok || labels[common.GeneratePolicyLabel] != "" {
 		h.log.V(4).Info("handle non-trigger resource operation for generate")
-		if err := h.processRequest(ctx, policyContext); err != nil {
+		if err := h.processRequest(ctx, request, policyContext); err != nil {
 			h.log.Error(err, "failed to create the UR on non-trigger admission request")
 		}
 	}
@@ -245,7 +246,7 @@ func (h *generationHandler) syncTriggerAction(
 }
 
 // processRequest determine if it needs to re-apply the generate rule to the source or the target changes
-func (h *generationHandler) processRequest(ctx context.Context, policyContext *engine.PolicyContext) (err error) {
+func (h *generationHandler) processRequest(ctx context.Context, request admissionv1.AdmissionRequest, policyContext *engine.PolicyContext) (err error) {
 	var policy kyvernov1.PolicyInterface
 	var labelsList []map[string]string
 	var deleteDownstream bool
@@ -320,6 +321,12 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			Type:        kyvernov2.Generate,
 			Policy:      pKey,
 			RuleContext: make([]kyvernov2.RuleContext, 0),
+		}
+		// carry the admission request when deleting a downstream on source
+		// deletion so the background controller can scope the cleanup to the
+		// target(s) cloned from the deleted source only.
+		if deleteDownstream {
+			urSpec.Context = buildURContext(request, policyContext)
 		}
 
 		for _, rule := range policy.GetSpec().Rules {
