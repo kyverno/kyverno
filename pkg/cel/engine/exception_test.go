@@ -162,3 +162,79 @@ func TestManagerPolicyExceptionLister_ReadsThroughSharedReader(t *testing.T) {
 		assert.Equal(t, "exempt", got[0].Name)
 	})
 }
+
+func TestMatchExceptions(t *testing.T) {
+	expired := metav1.NewTime(time.Now().Add(-1 * time.Hour))
+	future := metav1.NewTime(time.Now().Add(1 * time.Hour))
+
+	polex := func(name string, expiresAt *metav1.Time, refs ...policiesv1beta1.PolicyRef) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				ExpiresAt:  expiresAt,
+				PolicyRefs: refs,
+			},
+		}
+	}
+	ref := policiesv1beta1.PolicyRef{Name: "policy", Kind: "ValidatingPolicy"}
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		want       []string
+	}{{
+		name:       "no exceptions",
+		exceptions: nil,
+		want:       nil,
+	}, {
+		name:       "matching exception without expiry is returned",
+		exceptions: []*policiesv1beta1.PolicyException{polex("live", nil, ref)},
+		want:       []string{"live"},
+	}, {
+		name:       "exception expiring in the future is returned",
+		exceptions: []*policiesv1beta1.PolicyException{polex("not-yet-expired", &future, ref)},
+		want:       []string{"not-yet-expired"},
+	}, {
+		name:       "expired exception is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{polex("expired", &expired, ref)},
+		want:       nil,
+	}, {
+		name: "only the live exception is returned",
+		exceptions: []*policiesv1beta1.PolicyException{
+			polex("expired", &expired, ref),
+			polex("live", nil, ref),
+		},
+		want: []string{"live"},
+	}, {
+		name:       "exception referencing another policy name is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{polex("other", nil, policiesv1beta1.PolicyRef{Name: "other-policy", Kind: "ValidatingPolicy"})},
+		want:       nil,
+	}, {
+		name:       "exception referencing another policy kind is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{polex("other-kind", nil, policiesv1beta1.PolicyRef{Name: "policy", Kind: "MutatingPolicy"})},
+		want:       nil,
+	}, {
+		name:       "duplicate policy refs return the exception once",
+		exceptions: []*policiesv1beta1.PolicyException{polex("dup", nil, ref, ref)},
+		want:       []string{"dup"},
+	}, {
+		name:       "nil exception is skipped",
+		exceptions: []*policiesv1beta1.PolicyException{nil, polex("live", nil, ref)},
+		want:       []string{"live"},
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MatchExceptions(tt.exceptions, "ValidatingPolicy", "policy")
+			names := make([]string, 0, len(got))
+			for _, e := range got {
+				names = append(names, e.GetName())
+			}
+			if tt.want == nil {
+				assert.Empty(t, names)
+				return
+			}
+			assert.Equal(t, tt.want, names)
+		})
+	}
+}
