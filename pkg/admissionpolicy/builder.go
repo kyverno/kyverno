@@ -1,6 +1,8 @@
 package admissionpolicy
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"slices"
 	"strings"
@@ -18,6 +20,95 @@ import (
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+const (
+	// AnnotationSourcePolicyNamespace and AnnotationSourcePolicyName identify the namespaced policy a generated
+	// cluster-scoped resource comes from. Cluster-scoped objects cannot have a namespaced owner reference.
+	AnnotationSourcePolicyNamespace = "policies.kyverno.io/source-policy-namespace"
+	AnnotationSourcePolicyName      = "policies.kyverno.io/source-policy-name"
+)
+
+// maxGeneratedNameLength leaves room for the "-binding" suffix of the generated binding name within the
+// 253 character limit of metadata.name.
+const maxGeneratedNameLength = 253 - len("-binding")
+
+// ValidatingPolicyVAPName returns the name of the ValidatingAdmissionPolicy generated from a ValidatingPolicy
+// or, when namespace is set, a NamespacedValidatingPolicy. Namespace names cannot contain dots, so the "."
+// separator keeps names unique across namespace and policy name combinations.
+func ValidatingPolicyVAPName(namespace, name string) string {
+	if namespace != "" {
+		return boundGeneratedName("nvpol", namespace+"."+name, namespace+"/"+name)
+	}
+	return boundGeneratedName("vpol", name, name)
+}
+
+// boundGeneratedName returns kind-readable, or when that does not leave room for the "-binding" suffix, a
+// shortened name: kind followed by "h-", a readable prefix and a hash of key. Only shortened names start with
+// "<kind>h-", so they never collide with an unshortened name, and the hash keeps shortened names distinct.
+func boundGeneratedName(kind, readable, key string) string {
+	if name := kind + "-" + readable; len(name) <= maxGeneratedNameLength {
+		return name
+	}
+	sum := sha256.Sum256([]byte(key))
+	suffix := hex.EncodeToString(sum[:])[:16]
+	prefix := kind + "h-"
+	readable = strings.TrimRight(readable[:maxGeneratedNameLength-len(prefix)-len(suffix)-1], "-.")
+	return prefix + readable + "-" + suffix
+}
+
+// namespacedResourceRules returns the resource rules of a namespaced policy that a generated VAP can enforce.
+// A namespace selector does not restrict cluster-scoped resources, so rules scoped to the cluster are dropped
+// and the others are limited to namespaced resources.
+func namespacedResourceRules(rules []admissionregistrationv1.NamedRuleWithOperations) []admissionregistrationv1.NamedRuleWithOperations {
+	namespacedScope := admissionregistrationv1.NamespacedScope
+	out := make([]admissionregistrationv1.NamedRuleWithOperations, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Scope != nil && *rule.Scope == admissionregistrationv1.ClusterScope {
+			continue
+		}
+		rule = *rule.DeepCopy()
+		rule.Scope = &namespacedScope
+		out = append(out, rule)
+	}
+	return out
+}
+
+// CanGenerateFromValidatingPolicy reports whether a ValidatingAdmissionPolicy can be built from the match
+// constraints of a ValidatingPolicy or NamespacedValidatingPolicy, and the reason when it cannot.
+func CanGenerateFromValidatingPolicy(policy policiesv1beta1.ValidatingPolicyLike) (bool, string) {
+	spec := policy.GetSpec()
+	if spec.MatchConstraints == nil {
+		return false, "the policy has no match constraints."
+	}
+	if policy.GetNamespace() != "" && len(namespacedResourceRules(spec.MatchConstraints.ResourceRules)) == 0 {
+		return false, "the namespaced policy has no namespaced resource rules."
+	}
+	return true, ""
+}
+
+// setSourcePolicy links a generated cluster-scoped object to its policy. Cluster-scoped policies become the
+// owner; namespaced policies are recorded in annotations because the owner reference would be invalid.
+func setSourcePolicy(obj metav1.Object, policy engineapi.GenericPolicy) {
+	if policy.GetNamespace() == "" {
+		obj.SetOwnerReferences([]metav1.OwnerReference{
+			{
+				APIVersion: policy.GetAPIVersion(),
+				Kind:       policy.GetKind(),
+				Name:       policy.GetName(),
+				UID:        policy.GetUID(),
+			},
+		})
+		return
+	}
+	obj.SetOwnerReferences(nil)
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[AnnotationSourcePolicyNamespace] = policy.GetNamespace()
+	annotations[AnnotationSourcePolicyName] = policy.GetName()
+	obj.SetAnnotations(annotations)
+}
 
 // BuildValidatingAdmissionPolicy is used to build a Kubernetes ValidatingAdmissionPolicy from a Kyverno policy
 func BuildValidatingAdmissionPolicy(
@@ -101,12 +192,33 @@ func BuildValidatingAdmissionPolicy(
 		validations = rule.Validation.CEL.Expressions
 		auditAnnotations = rule.Validation.CEL.AuditAnnotations
 		variables = rule.Validation.CEL.Variables
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		matchResources = *vpol.Spec.MatchConstraints
-		matchConditions = vpol.Spec.MatchConditions
-		validations = vpol.Spec.Validations
-		auditAnnotations = vpol.Spec.AuditAnnotations
-		variables = vpol.Spec.Variables
+	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
+		if ok, msg := CanGenerateFromValidatingPolicy(vpol); !ok {
+			return fmt.Errorf("cannot generate a ValidatingAdmissionPolicy from policy %s: %s", vpol.GetName(), msg)
+		}
+		spec := vpol.GetSpec()
+		matchResources = *spec.MatchConstraints.DeepCopy()
+		// a namespaced policy only applies to resources in its own namespace, so pin the cluster-scoped VAP
+		// to it. The engine still checks the policy's own namespace selector, so keep it alongside the pin.
+		if ns := vpol.GetNamespace(); ns != "" {
+			matchResources.ResourceRules = namespacedResourceRules(matchResources.ResourceRules)
+
+			namespaceSelector := &metav1.LabelSelector{}
+			if matchResources.NamespaceSelector != nil {
+				namespaceSelector = matchResources.NamespaceSelector.DeepCopy()
+			}
+			namespaceSelector.MatchExpressions = append(namespaceSelector.MatchExpressions, metav1.LabelSelectorRequirement{
+				Key:      "kubernetes.io/metadata.name",
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   []string{ns},
+			})
+			matchResources.NamespaceSelector = namespaceSelector
+		}
+		// clone the slices that are appended to or rewritten below, the policy comes from the informer cache
+		matchConditions = slices.Clone(spec.MatchConditions)
+		validations = slices.Clone(spec.Validations)
+		auditAnnotations = spec.AuditAnnotations
+		variables = slices.Clone(spec.Variables)
 
 		// convert celexceptions if exist
 		for _, exception := range exceptions {
@@ -150,15 +262,7 @@ func BuildValidatingAdmissionPolicy(
 		}
 	}
 
-	// set owner reference
-	vap.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: policy.GetAPIVersion(),
-			Kind:       policy.GetKind(),
-			Name:       policy.GetName(),
-			UID:        policy.GetUID(),
-		},
-	}
+	setSourcePolicy(vap, policy)
 	// set policy spec
 	vap.Spec = admissionregistrationv1.ValidatingAdmissionPolicySpec{
 		MatchConstraints: &matchResources,
@@ -214,20 +318,12 @@ func BuildValidatingAdmissionPolicyBinding(
 		}
 		paramRef = rule.Validation.CEL.ParamRef
 		policyName = "cpol-" + cpol.GetName()
-	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
-		validationActions = vpol.Spec.ValidationActions()
-		policyName = "vpol-" + vpol.GetName()
+	} else if vpol := policy.AsValidatingPolicyLike(); vpol != nil {
+		validationActions = vpol.GetSpec().ValidationActions()
+		policyName = ValidatingPolicyVAPName(vpol.GetNamespace(), vpol.GetName())
 	}
 
-	// set owner reference
-	vapbinding.OwnerReferences = []metav1.OwnerReference{
-		{
-			APIVersion: policy.GetAPIVersion(),
-			Kind:       policy.GetKind(),
-			Name:       policy.GetName(),
-			UID:        policy.GetUID(),
-		},
-	}
+	setSourcePolicy(vapbinding, policy)
 	// set binding spec
 	vapbinding.Spec = admissionregistrationv1.ValidatingAdmissionPolicyBindingSpec{
 		PolicyName:        policyName,

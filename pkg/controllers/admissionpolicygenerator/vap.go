@@ -1,8 +1,11 @@
 package admissionpolicygenerator
 
 import (
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 // this file contains the handler functions for VAP and bindings resources.
@@ -22,6 +25,9 @@ func (c *controller) deleteVAP(obj *admissionregistrationv1.ValidatingAdmissionP
 }
 
 func (c *controller) enqueueVAP(v *admissionregistrationv1.ValidatingAdmissionPolicy) {
+	if c.enqueueSourceNamespacedPolicy(v) {
+		return
+	}
 	if len(v.OwnerReferences) == 1 {
 		if v.OwnerReferences[0].Kind == "ClusterPolicy" {
 			cpol, err := c.cpolLister.Get(v.OwnerReferences[0].Name)
@@ -55,6 +61,9 @@ func (c *controller) deleteVAPbinding(obj *admissionregistrationv1.ValidatingAdm
 }
 
 func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1.ValidatingAdmissionPolicyBinding) {
+	if c.enqueueSourceNamespacedPolicy(vb) {
+		return
+	}
 	if len(vb.OwnerReferences) == 1 {
 		if vb.OwnerReferences[0].Kind == "ClusterPolicy" {
 			cpol, err := c.cpolLister.Get(vb.OwnerReferences[0].Name)
@@ -70,4 +79,16 @@ func (c *controller) enqueueVAPbinding(vb *admissionregistrationv1.ValidatingAdm
 			c.enqueueVP(vpol)
 		}
 	}
+}
+
+// enqueueSourceNamespacedPolicy enqueues the NamespacedValidatingPolicy recorded in the annotations of a generated
+// object. It reports whether the object was generated from a namespaced policy.
+func (c *controller) enqueueSourceNamespacedPolicy(obj metav1.Object) bool {
+	annotations := obj.GetAnnotations()
+	namespace, name := annotations[admissionpolicy.AnnotationSourcePolicyNamespace], annotations[admissionpolicy.AnnotationSourcePolicyName]
+	if namespace == "" || name == "" {
+		return false
+	}
+	c.queue.Add(cache.ExplicitKey("NamespacedValidatingPolicy/" + namespace + "/" + name))
+	return true
 }
