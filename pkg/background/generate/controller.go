@@ -104,7 +104,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		rule := ur.Spec.RuleContext[i]
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
-			logger.V(4).Info("the trigger resource does not exist or is pending creation")
+			logger.V(4).Info("failed to fetch the trigger resource", "error", err)
 			failures = append(failures, fmt.Errorf("rule %s failed: failed to fetch trigger resource: %v", rule.Rule, err))
 			continue
 		}

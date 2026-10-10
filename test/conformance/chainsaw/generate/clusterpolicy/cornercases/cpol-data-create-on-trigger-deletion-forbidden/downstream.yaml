@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: podtemplate-deleted
+  namespace: cpol-trigger-deletion-forbidden-ns
+data:
+  deleted: trigger-podtemplate

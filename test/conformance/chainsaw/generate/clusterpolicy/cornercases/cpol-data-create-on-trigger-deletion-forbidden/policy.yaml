@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-trigger-deletion-forbidden
+spec:
+  rules:
+  - name: generate-on-podtemplate-deletion
+    match:
+      any:
+      - resources:
+          kinds:
+          - PodTemplate
+          operations:
+          - DELETE
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: podtemplate-deleted
+      namespace: '{{request.object.metadata.namespace}}'
+      synchronize: false
+      data:
+        data:
+          deleted: '{{request.object.metadata.name}}'
