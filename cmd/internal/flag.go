@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -164,7 +165,7 @@ func initRegistryClientFlags() {
 
 func initImageVerifyCacheFlags() {
 	flag.BoolVar(&imageVerifyCacheEnabled, "imageVerifyCacheEnabled", true, "Enable a TTL cache for verified images.")
-	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", 1000, "Maximum number of keys that can be stored in the TTL cache. Keys are a combination of policy elements along with the image reference. Default is 1000. 0 sets the value to default.")
+	flag.Int64Var(&imageVerifyCacheMaxSize, "imageVerifyCacheMaxSize", imageverifycache.DefaultMaxSize, "Maximum size of the TTL cache in bytes. Each entry is charged the size of the attestation payloads it stores plus a small fixed overhead, so actual memory use is somewhat higher than this value. Default is 10485760 (10 MiB). 0 sets the value to default.")
 	flag.DurationVar(&imageVerifyCacheTTLDuration, "imageVerifyCacheTTLDuration", 60*time.Minute, "Maximum TTL value for a cache expressed as duration. Default is 60m. 0 sets the value to default.")
 }
 

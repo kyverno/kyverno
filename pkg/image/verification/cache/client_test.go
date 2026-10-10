@@ -2,9 +2,12 @@ package cache
 
 import (
 	"context"
+	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,9 +47,7 @@ func Test_SetWithPayload_presence_only_entry_costs_flat_one(t *testing.T) {
 // works with the old flat cost.
 func Test_SetWithPayload_round_trips_real_payload_size(t *testing.T) {
 	// MaxSize must comfortably exceed the test payload's cost (1 + byte
-	// length, see payloadCost): the default MaxSize of 1000 is sized for the
-	// old flat per-entry cost of 1 and would reject a single real
-	// multi-KB attestation payload outright.
+	// length, see payloadCost).
 	c, err := New(WithCacheEnableFlag(true), WithMaxSize(1_000_000), WithTTLDuration(0))
 	assert.NoError(t, err)
 
@@ -61,4 +62,139 @@ func Test_SetWithPayload_round_trips_real_payload_size(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, largePayload, got)
+}
+
+// Test_default_budget_holds_many_presence_only_entries: the flag used to
+// promise 1000 keys, but ristretto also charges its own per-item cost, so a
+// 1000 budget kept only about 17 entries.
+func Test_default_budget_holds_many_presence_only_entries(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+	require.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "capacity-policy", UID: "capacity-uid", ResourceVersion: "1"}
+	const entries = 1000
+	for i := range entries {
+		stored, err := c.Set(context.TODO(), pol, "signature-rule", fmt.Sprintf("registry.example/app-%d:v1", i), true)
+		require.NoError(t, err)
+		require.True(t, stored)
+	}
+	found := 0
+	for i := range entries {
+		ok, err := c.Get(context.TODO(), pol, "signature-rule", fmt.Sprintf("registry.example/app-%d:v1", i), true)
+		require.NoError(t, err)
+		if ok {
+			found++
+		}
+	}
+	assert.Equal(t, entries, found)
+}
+
+// Test_default_budget_caches_attestation_payloads: a minimal GitHub SLSA
+// provenance statement is about 1 KB, which the old default could never hold,
+// so every admission verified it again.
+func Test_default_budget_caches_attestation_payloads(t *testing.T) {
+	for _, size := range []int{1033, 4 << 10, 256 << 10} {
+		t.Run(fmt.Sprintf("%d bytes", size), func(t *testing.T) {
+			c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+			require.NoError(t, err)
+
+			pol := &metav1.ObjectMeta{Name: "payload-policy", UID: "payload-uid", ResourceVersion: "1"}
+			payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, size)}
+			stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true, payload)
+			require.NoError(t, err)
+			assert.True(t, stored)
+
+			found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+			require.NoError(t, err)
+			require.True(t, found)
+			assert.Equal(t, payload, got)
+		})
+	}
+}
+
+// Test_SetWithPayload_reports_an_entry_larger_than_the_budget_as_not_stored:
+// ristretto accepts the write and drops it afterwards, so the result has to
+// come from the cache contents, not from the write call.
+func Test_SetWithPayload_reports_an_entry_larger_than_the_budget_as_not_stored(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(100), WithTTLDuration(0))
+	require.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "oversize-policy", UID: "oversize-uid", ResourceVersion: "1"}
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 500)}
+	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true, payload)
+	require.NoError(t, err)
+	assert.False(t, stored)
+
+	found, _, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	assert.False(t, found)
+}
+
+// Test_New_keeps_counter_overhead_below_the_budget: ristretto allocates its
+// admission counters up front, so sizing them as ten per byte of budget cost
+// far more memory than the budget itself.
+func Test_New_keeps_counter_overhead_below_the_budget(t *testing.T) {
+	const budget = 1 << 20
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(budget), WithTTLDuration(0))
+	runtime.ReadMemStats(&after)
+	require.NoError(t, err)
+	t.Cleanup(c.(*cache).cache.Close)
+
+	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(budget))
+}
+
+// Test_New_accepts_a_budget_smaller_than_one_entry: the counter count has a
+// floor, so a budget below expectedEntryCost still builds a valid cache.
+func Test_New_accepts_a_budget_smaller_than_one_entry(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(1), WithTTLDuration(0))
+	require.NoError(t, err)
+	t.Cleanup(c.(*cache).cache.Close)
+}
+
+// Test_SetWithPayload_replacing_an_entry_keeps_the_budget: ristretto updates an
+// existing key without checking MaxCost, so rewriting a presence-only entry
+// (the attestation re-verification path) could keep a payload larger than the
+// whole budget.
+func Test_SetWithPayload_replacing_an_entry_keeps_the_budget(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(100), WithTTLDuration(0))
+	require.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "replace-policy", UID: "replace-uid", ResourceVersion: "1"}
+	stored, err := c.Set(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 500)}
+	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true, payload)
+	require.NoError(t, err)
+	assert.False(t, stored)
+
+	_, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+// Test_SetWithPayload_replacing_an_entry_with_a_fitting_payload_stores_it: the
+// usual re-verification case, where a presence-only entry gets its payload.
+func Test_SetWithPayload_replacing_an_entry_with_a_fitting_payload_stores_it(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+	require.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "replace-policy", UID: "replace-uid", ResourceVersion: "1"}
+	stored, err := c.Set(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	require.True(t, stored)
+
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 1033)}
+	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true, payload)
+	require.NoError(t, err)
+	assert.True(t, stored)
+
+	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "registry.example/app:v1", true)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, payload, got)
 }
