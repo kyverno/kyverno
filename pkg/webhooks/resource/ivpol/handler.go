@@ -198,7 +198,7 @@ func (h *handler) validationResponse(request celengine.EngineRequest, response e
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) {
 	blocked := false
 	for _, p := range response.Policies {
-		if p.Actions.Has(admissionregistrationv1.Deny) {
+		if webhookutils.BlockRequestByValidationActions(p.Actions, p.Result) {
 			blocked = true
 			break
 		}
