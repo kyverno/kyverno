@@ -2,14 +2,18 @@ package engine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	jsonpatchv5 "github.com/evanphx/json-patch/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
 	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
@@ -233,21 +237,14 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 			return ruleResponse, nil
 		}
 	}
-	if mpol.ExtractionMode {
-		// Mutating a custom workload CRD correctly requires writing the
-		// patch back into the parent object at the extracted template's
-		// path, not the top level - not implemented yet. Skip rather than
-		// apply the policy's Pod-shaped ApplyConfiguration to the literal
-		// admitted object, which would produce a meaningless or broken
-		// patch. ValidatingPolicy/ImageValidatingPolicy extraction-mode
-		// targets are unaffected - this only concerns mutation.
-		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RuleSkip("", engineapi.Mutation, "extraction mode: mutation for custom workload CRDs is not yet supported", nil).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
-		return ruleResponse, nil
-	}
 	var result *compiler.EvaluationResult
-	if target && hasExplicitTarget {
+	useTargetEval := target && hasExplicitTarget
+	switch {
+	case mpol.ExtractionMode:
+		result = e.evaluateExtractedMutation(ctx, mpol, attr, request, namespace, useTargetEval)
+	case useTargetEval:
 		result = mpol.CompiledPolicy.EvaluateTarget(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
-	} else {
+	default:
 		result = mpol.CompiledPolicy.Evaluate(ctx, attr, namespace, request, e.typeConverter, requestMapFn, e.contextProvider)
 	}
 	if result == nil {
@@ -290,6 +287,13 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 				}
 			}
 		}
+		if result.PatchedResource != nil {
+			ruleResponse.Rules = append(ruleResponse.Rules,
+				engineapi.RulePass("", engineapi.Mutation, "success", result.AuditAnnotations).
+					WithExceptions(exceptions).
+					WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
+			return ruleResponse, result.PatchedResource
+		}
 		// determine final result based on highest-priority exception
 		selectedException := result.Exceptions[selectedIndex]
 		reportResult := selectedException.Spec.ReportResult
@@ -315,6 +319,218 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 		ruleResponse.Rules = append(ruleResponse.Rules, engineapi.RulePass("", engineapi.Mutation, "success", result.AuditAnnotations).WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
 	return ruleResponse, result.PatchedResource
+}
+
+// evaluateExtractedMutation implements mutation for ExtractionMode targets
+// It extracts every pod-template-shaped subtree from the real admitted object,
+// synthesizes a Pod from each, evaluates the same unmodified CompiledPolicy
+// against each synthesized Pod, diffs the Pod before/after to get a small
+// Pod-relative JSON Patch, rebases that patch onto the template's real
+// location inside the parent, and applies it to a working copy of the
+// real parent object. Multiple templates (e.g. JobSet's replicatedJobs[])
+// accumulate onto the same working copy since their paths are disjoint.
+func (e *engineImpl) evaluateExtractedMutation(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, target bool) *compiler.EvaluationResult {
+	newObj, _ := attr.GetObject().(*unstructured.Unstructured)
+	oldObj, _ := attr.GetOldObject().(*unstructured.Unstructured)
+
+	source, usingOld := newObj, false
+	if source == nil || len(source.Object) == 0 {
+		source, usingOld = oldObj, true
+	}
+	if source == nil || len(source.Object) == 0 {
+		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: expected an unstructured object, got %T", attr.GetObject())}
+	}
+
+	templates := extract.ExtractPodTemplates(source.Object)
+	if len(templates) == 0 {
+		return &compiler.EvaluationResult{Error: fmt.Errorf("extraction mode: no pod template found in %s/%s", source.GetAPIVersion(), source.GetKind())}
+	}
+	// map iteration order is random; sort so annotation merging and
+	// error messages are deterministic across runs
+	sort.Slice(templates, func(i, j int) bool {
+		return templates[i].JSONPointerPrefix() < templates[j].JSONPointerPrefix()
+	})
+
+	other := oldObj
+	if usingOld {
+		other = newObj
+	}
+
+	// Old and new templates are matched by array position.
+	// Reordering entries can therefore pair the wrong templates.
+	// Since extraction is schema-agnostic, we can't use list-map keys
+	// (such as "name") to match them. This is a known limitation.
+	otherByPath := map[string]extract.Extracted{}
+	if other != nil && len(other.Object) > 0 {
+		for _, t := range extract.ExtractPodTemplates(other.Object) {
+			otherByPath[t.JSONPointerPrefix()] = t
+		}
+	}
+
+	working := source.DeepCopy()
+	var mergedAudit map[string]string
+	var mergedExceptions []*policiesv1beta1.PolicyException
+	var allOps []jsonpatch.JsonPatchOperation
+	// evaluatedAny tracks whether *any* template actually matched
+	// match/targetMatchConditions and produced a real (non-nil) evaluation result
+	evaluatedAny := false
+
+	for _, tpl := range templates {
+		var otherTpl *extract.Extracted
+		if o, ok := otherByPath[tpl.JSONPointerPrefix()]; ok {
+			otherTpl = &o
+		}
+
+		var synthAttr admission.Attributes
+		if usingOld {
+			synthAttr = extract.SynthesizePodAttributes(otherTpl, &tpl, attr)
+		} else {
+			synthAttr = extract.SynthesizePodAttributes(&tpl, otherTpl, attr)
+		}
+		var synthRequest admissionv1.AdmissionRequest
+		if p := extract.SynthesizePodAdmissionRequest(&request, synthAttr); p != nil {
+			synthRequest = *p
+		}
+
+		var result *compiler.EvaluationResult
+		if target {
+			result = mpol.CompiledPolicy.EvaluateTarget(ctx, synthAttr, namespace, synthRequest, e.typeConverter, nil, e.contextProvider)
+		} else {
+			result = mpol.CompiledPolicy.Evaluate(ctx, synthAttr, namespace, synthRequest, e.typeConverter, nil, e.contextProvider)
+		}
+
+		if result == nil {
+			continue // this template didn't match match/targetMatchConditions
+		}
+		evaluatedAny = true
+		if result.Error != nil {
+			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: %w", tpl.Path, result.Error)}
+		}
+		if len(result.Exceptions) > 0 {
+			mergedExceptions = append(mergedExceptions, result.Exceptions...)
+			continue
+		}
+		if result.PatchedResource == nil {
+			continue
+		}
+
+		beforeUnstr, ok := synthAttr.GetObject().(*unstructured.Unstructured)
+		if !ok {
+			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: expected synthesized Pod, got %T", tpl.Path, synthAttr.GetObject())}
+		}
+
+		// extract.buildPod injects placeholder metadata.name/namespace
+		// (borrowed from the parent) whenever the real template declared
+		// neither. Those placeholders must never appear in the diff: a
+		// mutation that doesn't touch metadata would otherwise show up as
+		// a spurious add/remove once rebased onto the real object. Rather
+		// than guessing from the value (a deliberate mutation could
+		// coincidentally choose the same value as the placeholder), strip
+		// a field only when it's untouched on BOTH sides - i.e. present
+		// with the exact same value before and after - since any
+		// deliberate mutation changes something, even if only re-asserting
+		// the same value would be indistinguishable from a no-op anyway.
+		stripUntouchedPlaceholder := func(before, after *unstructured.Unstructured, field string) {
+			if _, hadMetadata := tpl.Template["metadata"].(map[string]any); hadMetadata {
+				if m := tpl.Template["metadata"].(map[string]any); m[field] != nil {
+					return
+				}
+			}
+			beforeVal, beforeFound, _ := unstructured.NestedString(before.Object, "metadata", field)
+			afterVal, afterFound, _ := unstructured.NestedString(after.Object, "metadata", field)
+			if beforeFound && afterFound && beforeVal == afterVal {
+				unstructured.RemoveNestedField(before.Object, "metadata", field)
+				unstructured.RemoveNestedField(after.Object, "metadata", field)
+			}
+		}
+
+		beforeForDiff := beforeUnstr.DeepCopy()
+		afterForDiff := result.PatchedResource.DeepCopy()
+		stripUntouchedPlaceholder(beforeForDiff, afterForDiff, "name")
+		stripUntouchedPlaceholder(beforeForDiff, afterForDiff, "namespace")
+
+		beforeBytes, err := beforeForDiff.MarshalJSON()
+		if err != nil {
+			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: %w", tpl.Path, err)}
+		}
+		afterBytes, err := afterForDiff.MarshalJSON()
+		if err != nil {
+			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: %w", tpl.Path, err)}
+		}
+		podPatch, err := jsonpatch.CreatePatch(beforeBytes, afterBytes)
+		if err != nil {
+			return &compiler.EvaluationResult{Error: fmt.Errorf("pod template at %s: computing patch: %w", tpl.Path, err)}
+		}
+
+		for k, v := range result.AuditAnnotations {
+			if mergedAudit == nil {
+				mergedAudit = map[string]string{}
+			}
+			mergedAudit[k] = v
+		}
+
+		if len(podPatch) == 0 {
+			continue // this template's mutation was a no-op
+		}
+
+		allOps = append(allOps, extract.RebasePatch(podPatch, tpl.JSONPointerPrefix())...)
+	}
+
+	// No template matched at all (every one returned nil from
+	// Evaluate/EvaluateTarget) - report this as a skip, exactly like the
+	// non-extraction path does when the whole policy doesn't match.
+	if !evaluatedAny {
+		return nil
+	}
+
+	// Apply every template's ops in one pass. Their paths are disjoint
+	// (each sits under its own template), so this equals applying them
+	// one by one but costs a single marshal/unmarshal of the parent.
+	if len(allOps) > 0 {
+		if err := applyRebasedPatch(working, allOps); err != nil {
+			return &compiler.EvaluationResult{Error: fmt.Errorf("applying patch to parent: %w", err)}
+		}
+	}
+	mutated := len(allOps) > 0
+
+	if !mutated && len(mergedExceptions) > 0 {
+		return &compiler.EvaluationResult{Exceptions: mergedExceptions}
+	}
+
+	return &compiler.EvaluationResult{
+		PatchedResource:  working,
+		AuditAnnotations: mergedAudit,
+		Exceptions:       mergedExceptions,
+	}
+}
+
+// applyRebasedPatch applies a rebased JSON Patch to obj in place, using
+// evanphx/json-patch/v5 (already vendored) instead of a hand-rolled
+// applier. EnsurePathExistsOnAdd auto-creates missing intermediate map
+// levels - needed since the synthesized Pod always has a "metadata" object
+// even when the real template doesn't, so the diff can say "add
+// /metadata/labels" without "add /metadata" first. The library's decode
+// also avoids json.Number leaking into the result.
+func applyRebasedPatch(obj *unstructured.Unstructured, ops []jsonpatch.JsonPatchOperation) error {
+	opBytes, err := json.Marshal(ops)
+	if err != nil {
+		return err
+	}
+	patch, err := jsonpatchv5.DecodePatch(opBytes)
+	if err != nil {
+		return err
+	}
+	objBytes, err := obj.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	patchedBytes, err := patch.ApplyWithOptions(objBytes, &jsonpatchv5.ApplyOptions{
+		EnsurePathExistsOnAdd: true,
+	})
+	if err != nil {
+		return err
+	}
+	return obj.UnmarshalJSON(patchedBytes)
 }
 
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {

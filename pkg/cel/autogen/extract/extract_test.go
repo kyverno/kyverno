@@ -10,6 +10,15 @@ func container(name, image string) map[string]any {
 	return map[string]any{"name": name, "image": image}
 }
 
+func stripSegments(in []Extracted) []Extracted {
+	out := make([]Extracted, len(in))
+	for i, e := range in {
+		e.Segments = nil
+		out[i] = e
+	}
+	return out
+}
+
 func TestExtractPodTemplates(t *testing.T) {
 	tests := []struct {
 		name string
@@ -192,7 +201,7 @@ func TestExtractPodTemplates(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExtractPodTemplates(tt.obj)
-			assert.ElementsMatch(t, tt.want, got)
+			assert.ElementsMatch(t, tt.want, stripSegments(got))
 		})
 	}
 }
@@ -252,4 +261,95 @@ func TestIsPodTemplateSpec(t *testing.T) {
 			assert.Equal(t, tt.want, isPodTemplateSpec(tt.v))
 		})
 	}
+}
+
+func TestExtractPodTemplates_Segments(t *testing.T) {
+	obj := map[string]any{
+		"apiVersion": "jobset.x-k8s.io/v1alpha2",
+		"kind":       "JobSet",
+		"spec": map[string]any{
+			"replicatedJobs": []any{
+				map[string]any{
+					"template": map[string]any{
+						"spec": map[string]any{
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{container("leader", "leader:v1")},
+								},
+							},
+						},
+					},
+				},
+				map[string]any{
+					"template": map[string]any{
+						"spec": map[string]any{
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{container("worker", "worker:v1")},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	got := ExtractPodTemplates(obj)
+	if !assert.Len(t, got, 2) {
+		return
+	}
+
+	// find leader/worker regardless of walk order (maps don't guarantee order)
+	var leader, worker *Extracted
+	for i := range got {
+		containers, _, _ := unstructuredContainers(got[i].Template)
+		if len(containers) > 0 && containers[0]["name"] == "leader" {
+			leader = &got[i]
+		}
+		if len(containers) > 0 && containers[0]["name"] == "worker" {
+			worker = &got[i]
+		}
+	}
+	if !assert.NotNil(t, leader) || !assert.NotNil(t, worker) {
+		return
+	}
+
+	assert.Equal(t, []PathSegment{
+		{Key: "spec"},
+		{Key: "replicatedJobs"},
+		{Index: 0, IsIdx: true},
+		{Key: "template"},
+		{Key: "spec"},
+		{Key: "template"},
+	}, leader.Segments)
+	assert.Equal(t, "/spec/replicatedJobs/0/template/spec/template", leader.JSONPointerPrefix())
+
+	assert.Equal(t, []PathSegment{
+		{Key: "spec"},
+		{Key: "replicatedJobs"},
+		{Index: 1, IsIdx: true},
+		{Key: "template"},
+		{Key: "spec"},
+		{Key: "template"},
+	}, worker.Segments)
+	assert.Equal(t, "/spec/replicatedJobs/1/template/spec/template", worker.JSONPointerPrefix())
+}
+
+func unstructuredContainers(tpl map[string]any) ([]map[string]any, bool, error) {
+	spec, ok := tpl["spec"].(map[string]any)
+	if !ok {
+		return nil, false, nil
+	}
+	raw, ok := spec["containers"].([]any)
+	if !ok {
+		return nil, false, nil
+	}
+	out := make([]map[string]any, 0, len(raw))
+	for _, c := range raw {
+		if m, ok := c.(map[string]any); ok {
+			out = append(out, m)
+		}
+	}
+	return out, true, nil
 }
