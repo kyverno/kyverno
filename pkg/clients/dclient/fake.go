@@ -162,13 +162,22 @@ func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema
 			}
 		}
 	}
-	// Fallback: infer resource name from kind
-	resource := strings.ToLower(gvk.Kind) + "s"
+	// Fallback: use proper pluralization via API machinery
+	resource := func(g schema.GroupVersionKind) schema.GroupVersionResource { r, _ := meta.UnsafeGuessKindToResource(g); return r }(gvk).Resource
+	if resource == "" {
+		resource = strings.ToLower(gvk.Kind) + "s"
+	}
 	return c.getGVR(resource)
 }
 
 func (c *fakeDiscoveryClient) FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error) {
-	r := strings.ToLower(kind) + "s"
+	// Use proper pluralization instead of simple +s
+	gvk := schema.GroupVersionKind{Group: group, Version: version, Kind: kind}
+	plural, _ := meta.UnsafeGuessKindToResource(gvk)
+	r := plural.Resource
+	if r == "" {
+		r = strings.ToLower(kind) + "s"
+	}
 	for _, resource := range c.registeredResources {
 		if resource.Resource == r {
 			return map[TopLevelApiDescription]metav1.APIResource{
