@@ -20,7 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	extendedinformer "github.com/kyverno/kyverno/pkg/clients/informers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
@@ -182,7 +182,7 @@ func main() {
 		checker := checker.NewSelfChecker(setup.KubeClient.AuthorizationV1().SelfSubjectAccessReviews())
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
-		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+		kyvernoInformer := extendedinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
 		// log policy changes
@@ -268,7 +268,7 @@ func main() {
 				logger := setup.Logger.WithName("leader")
 				// informer factories
 				kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod)
-				kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+				kyvernoInformer := extendedinformer.NewExtendedSharedInformerFactory(setup.KyvernoClient, setup.KyvernoDynamicClient.GetDynamicInterface(), setup.ResyncPeriod)
 
 				cmResolver := internal.NewConfigMapResolver(ctx, setup.Logger, setup.KubeClient, setup.ResyncPeriod)
 				provider := engine.NewFetchProvider(
