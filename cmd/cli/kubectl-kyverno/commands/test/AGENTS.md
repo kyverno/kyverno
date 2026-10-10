@@ -24,7 +24,7 @@ This package implements the `kubectl-kyverno test` CLI command, which executes d
 ## Target Response and Output Contracts
 
 - **Target Resource Key Convention**:
-  Target resource keys in `responses.Target` are serialized as `apiVersion,kind,namespace,name` (or `group/version,kind,namespace,name`).
+  Target resource keys in `responses.Target` are serialized as `apiVersion,kind,namespace,name` (or `group/version,kind,namespace,name`). Parsing uses `strings.SplitN(resource, ",", 4)` so resource names containing commas do not shift field indices.
 - **`extractPatchedTargetFromEngineResponse` Contract**:
   - Scans `response.PolicyResponse.Rules` for a rule with a non-nil `rule.PatchedTarget()`. Note that `rule.PatchedTarget()` is only populated by the engine when mutation succeeded (`RuleStatusPass`); rules that skipped, errored, or failed return a `nil` patched target.
   - Matches against `apiVersion`, `kind`, `resourceName`, and `resourceNamespace`.
@@ -32,12 +32,12 @@ This package implements the `kubectl-kyverno test` CLI command, which executes d
   - Returns `(*unstructured.Unstructured, *engineapi.RuleResponse)` or `(nil, nil)` if no rule produced a matching patched target.
 - **Nil Safety & Preserving Rule Outcomes**:
   - Because `responses.Target[resource]` may contain engine responses that did not produce a patched target (e.g. skipped, errored, or failed rules, or empty responses), callers **must verify** `r != nil && rule != nil` before dereferencing or invoking `checkResult(...)`.
+  - Ruleless policies (e.g. `MutatingPolicy`) are exempted from rule-name matching so `checkResult` compares patched resources even if `test.Rule` is specified.
   - When no patched target was produced (`r == nil || rule == nil`), matching rule responses in `response.PolicyResponse.Rules` are evaluated via `checkRuleResultOnly(...)` to preserve the engine's actual rule outcome (`Skip`, `Error`, `Fail`) against expected results instead of dropping into the fallback.
 - **Target Policy Scoping & Competing Responses**:
   - `responses.Target[resource]` may contain engine responses from multiple policies (or cluster policies and namespaced policies with the same name across different namespaces). Target evaluation filters by `policyName` and requires `response.Policy().GetNamespace()` to strictly match `policyNamespace` (including for unqualified cluster policies where namespace is empty), and skips unattributed responses where `response.Policy() == nil`. This ensures competing cluster or namespaced policy responses under the same resource key are cleanly excluded.
-- **Target Evaluation Provenance & Autogen Rule Matching**:
+- **Target Evaluation Provenance**:
   - `responseTargetsResource` checks for target-evaluation provenance (`kyverno.io/target` property on rule responses) so ordinary admission trigger responses cannot satisfy target test assertions when trigger and target resources share the same object identity.
-  - Legacy mutation rule matching uses `autogen.Default.ComputeRules` to ensure autogen-prefixed rule names (e.g. `autogen-<rule>`) for Pod controller rules match engine response rule names.
 - **Fallback for Unmatched Target Results**:
   - When a target test result matches no engine response rows (`len(rows) == 0`):
     - If the policy is recorded in `responses.SkippedPolicies`, the result is classified as `Skip` (reason `Invalid Policy`) and increments `rc.Skip`.

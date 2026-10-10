@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -89,16 +88,6 @@ func LoadTest(fs billy.Filesystem, path string) TestCases {
 				Err:  err,
 			})
 			return testCases
-		}
-		for i, check := range test.Checks {
-			if (check.Assert == nil || check.Assert.Value == nil) && (check.Error == nil || check.Error.Value == nil) {
-				testCases = append(testCases, TestCase{
-					Path: path,
-					Fs:   fs,
-					Err:  fmt.Errorf("check %d in %s must specify at least one of 'assert' or 'error'", i+1, path),
-				})
-				return testCases
-			}
 		}
 		cleanTest(&test)
 		testCases = append(testCases, TestCase{

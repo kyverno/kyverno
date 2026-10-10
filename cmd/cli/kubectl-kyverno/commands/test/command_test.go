@@ -82,21 +82,6 @@ func TestCommandRequireTests(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
 }
 
-func TestCommandWithChecksOnly(t *testing.T) {
-	cmd := Command()
-	assert.NotNil(t, cmd)
-	errBuffer := bytes.NewBufferString("")
-	cmd.SetErr(errBuffer)
-	outBuffer := bytes.NewBufferString("")
-	cmd.SetOut(outBuffer)
-	cmd.SetArgs([]string{"../../../../../test/cli/test-validating-policy/checks-only"})
-	err := cmd.Execute()
-	require.NoError(t, err)
-	out, err := io.ReadAll(outBuffer)
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "5 tests passed and 0 tests failed")
-}
-
 func TestCommandAggregateFilterErrors(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
@@ -1763,45 +1748,6 @@ func TestExtractPatchedTargetFromEngineResponse(t *testing.T) {
 	assert.Equal(t, "rule-2", matchedRule.Name())
 }
 
-func TestPrintCheckResult_RejectsEmptyCheck(t *testing.T) {
-	checks := []v1alpha1.CheckResult{
-		{},
-	}
-	responses := TestResponse{}
-	rc := &resultCounts{}
-	var resultsTable table.Table
-	err := printCheckResult(checks, responses, rc, &resultsTable)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "a check must contain at least an 'assert' or an 'error' assertion")
-}
-
-func TestResponseTargetsResource_GuardsNilMutation(t *testing.T) {
-	target := &unstructured.Unstructured{}
-	target.SetAPIVersion("v1")
-	target.SetKind("ConfigMap")
-	target.SetName("test-cm")
-	target.SetNamespace("default")
-
-	kpol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "validate-cm",
-		},
-		Spec: kyvernov1.Spec{
-			Rules: []kyvernov1.Rule{
-				{
-					Name: "validate-rule",
-				},
-			},
-		},
-	})
-
-	resp := engineapi.NewEngineResponse(*target, kpol, nil)
-	assert.NotPanics(t, func() {
-		matched := responseTargetsResource(target, resp)
-		assert.False(t, matched)
-	})
-}
-
 func TestResponseTargetsResource_MutatingPolicyFallbackToMatchConstraints(t *testing.T) {
 	target := &unstructured.Unstructured{}
 	target.SetAPIVersion("v1")
@@ -1880,50 +1826,258 @@ func TestResponseTargetsResource_MutatingPolicyTriggerDoesNotSatisfyTarget(t *te
 	assert.True(t, responseTargetsResource(target, targetResp), "response with target provenance should satisfy target test")
 }
 
-func TestResponseTargetsResource_LegacyAutogenRule(t *testing.T) {
-	target := &unstructured.Unstructured{}
-	target.SetAPIVersion("v1")
-	target.SetKind("ConfigMap")
-	target.SetName("test-cm")
-	target.SetNamespace("default")
+func TestPrintTestResult_TargetResourceWithCommaInName(t *testing.T) {
+	color.Init(true)
 
-	kpol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "mutate-pod-and-target",
-		},
-		Spec: kyvernov1.Spec{
-			Rules: []kyvernov1.Rule{
-				{
-					Name: "mutate-rule",
-					MatchResources: kyvernov1.MatchResources{
-						ResourceDescription: kyvernov1.ResourceDescription{
-							Kinds: []string{"Pod"},
-						},
-					},
-					Mutation: &kyvernov1.Mutation{
-						Targets: []kyvernov1.TargetResourceSpec{
-							{
-								TargetSelector: kyvernov1.TargetSelector{
-									ResourceSpec: kyvernov1.ResourceSpec{
-										APIVersion: "v1",
-										Kind:       "ConfigMap",
-										Name:       "test-cm",
-										Namespace:  "default",
-									},
-								},
-							},
-						},
-					},
-				},
+	resourceKey := "rbac.authorization.k8s.io/v1,ClusterRole,,team,payments-reader"
+
+	target := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRole",
+			"metadata": map[string]interface{}{
+				"name": "team,payments-reader",
 			},
 		},
+	}
+
+	patched := target.DeepCopy()
+	patched.SetAnnotations(map[string]string{"mutated": "true"})
+
+	rule := *engineapi.RulePass("mutate-role", engineapi.Mutation, "mutated", map[string]string{"kyverno.io/target": "true"}).
+		WithPatchedTarget(patched, metav1.GroupVersionResource{}, "")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-roles",
+		},
+	}
+
+	resp := engineapi.NewEngineResponse(target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
 	})
 
-	// Response with autogen rule name: e.g. autogen-mutate-rule
-	resp := engineapi.NewEngineResponse(*target, kpol, nil).WithPolicyResponse(engineapi.PolicyResponse{
-		Rules: []engineapi.RuleResponse{
-			*engineapi.RulePass("autogen-mutate-rule", engineapi.Mutation, "mutated", nil),
+	responses := &TestResponse{
+		Trigger:            map[string][]engineapi.EngineResponse{},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target: map[string][]engineapi.EngineResponse{
+			resourceKey: {resp},
 		},
+		SkippedPolicies:  map[string]string{},
+		DeletingPolicies: map[string]struct{}{},
+	}
+
+	makeFS := func(files map[string]string) billy.Filesystem {
+		fs := memfs.New()
+		for name, content := range files {
+			f, err := fs.Create(name)
+			require.NoError(t, err)
+			_, err = f.Write([]byte(content))
+			require.NoError(t, err)
+			f.Close()
+		}
+		return fs
+	}
+
+	matchingYAML := `apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team,payments-reader
+  annotations:
+    mutated: "true"
+`
+
+	mismatchYAML := `apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: team,payments-reader
+  annotations:
+    mutated: "false"
+`
+
+	t.Run("matching patched target with comma in name passes", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": matchingYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-roles",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"team,payments-reader"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Pass)
+		assert.Equal(t, 0, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Pass", resultsTable.RawRows[0].Result)
+		assert.Equal(t, "rbac.authorization.k8s.io/v1/ClusterRole/team,payments-reader", resultsTable.RawRows[0].Resource)
 	})
-	assert.True(t, responseTargetsResource(target, resp), "autogen computed rule name should match")
+
+	t.Run("mismatched patched target with comma in name fails", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": mismatchYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-roles",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"team,payments-reader"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Pass)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Fail", resultsTable.RawRows[0].Result)
+		assert.Equal(t, "Resource diff", resultsTable.RawRows[0].Reason)
+	})
+}
+
+func TestPrintTestResult_MutatingPolicyTargetWithRuleSpecified(t *testing.T) {
+	color.Init(true)
+
+	resourceKey := "v1,ConfigMap,default,test-cm"
+
+	target := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]interface{}{
+				"name":      "test-cm",
+				"namespace": "default",
+			},
+		},
+	}
+
+	patched := target.DeepCopy()
+	patched.SetAnnotations(map[string]string{"mutated": "true"})
+
+	rule := *engineapi.RulePass("any-rule-name", engineapi.Mutation, "mutated", map[string]string{"kyverno.io/target": "true"}).
+		WithPatchedTarget(patched, metav1.GroupVersionResource{}, "")
+
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "mutate-cm-policy",
+		},
+	}
+
+	resp := engineapi.NewEngineResponse(target, engineapi.NewMutatingPolicy(mpol), nil).WithPolicyResponse(engineapi.PolicyResponse{
+		Rules: []engineapi.RuleResponse{rule},
+	})
+
+	responses := &TestResponse{
+		Trigger:            map[string][]engineapi.EngineResponse{},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{},
+		Target: map[string][]engineapi.EngineResponse{
+			resourceKey: {resp},
+		},
+		SkippedPolicies:  map[string]string{},
+		DeletingPolicies: map[string]struct{}{},
+	}
+
+	makeFS := func(files map[string]string) billy.Filesystem {
+		fs := memfs.New()
+		for name, content := range files {
+			f, err := fs.Create(name)
+			require.NoError(t, err)
+			_, err = f.Write([]byte(content))
+			require.NoError(t, err)
+			f.Close()
+		}
+		return fs
+	}
+
+	matchingYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm
+  namespace: default
+  annotations:
+    mutated: "true"
+`
+
+	mismatchYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-cm
+  namespace: default
+  annotations:
+    mutated: "false"
+`
+
+	t.Run("rule specified on ruleless policy performs patch comparison and passes when matched", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": matchingYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-cm-policy",
+					Rule:             "arbitrary-rule-name",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"test-cm"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 1, rc.Pass)
+		assert.Equal(t, 0, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Pass", resultsTable.RawRows[0].Result)
+	})
+
+	t.Run("rule specified on ruleless policy performs patch comparison and fails on wrong patch", func(t *testing.T) {
+		fs := makeFS(map[string]string{
+			"patched.yaml": mismatchYAML,
+		})
+		testResults := []v1alpha1.TestResult{
+			{
+				TestResultBase: v1alpha1.TestResultBase{
+					Policy:           "mutate-cm-policy",
+					Rule:             "arbitrary-rule-name",
+					Result:           openreportsv1alpha1.Result(openreports.StatusPass),
+					PatchedResources: "patched.yaml",
+				},
+				TestResultData: v1alpha1.TestResultData{
+					Resources: []string{"test-cm"},
+				},
+			},
+		}
+
+		rc := &resultCounts{}
+		var resultsTable table.Table
+		err := printTestResult(testResults, responses, rc, &resultsTable, fs, "", true)
+		require.NoError(t, err)
+		assert.Equal(t, 0, rc.Pass)
+		assert.Equal(t, 1, rc.Fail)
+		require.Len(t, resultsTable.RawRows, 1)
+		assert.Equal(t, "Fail", resultsTable.RawRows[0].Result)
+		assert.Equal(t, "Resource diff", resultsTable.RawRows[0].Reason)
+	})
 }

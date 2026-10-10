@@ -34,7 +34,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -54,9 +53,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -755,24 +752,6 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 	if pol == nil {
 		return false
 	}
-	if kpol := pol.AsKyvernoPolicy(); kpol != nil {
-		isNamespaced := kpol.IsNamespaced()
-		policyNs := kpol.GetNamespace()
-		for _, rule := range autogen.Default.ComputeRules(kpol, "") {
-			if rule.Mutation == nil || len(rule.Mutation.Targets) == 0 {
-				continue
-			}
-			for _, t := range rule.Mutation.Targets {
-				if targetSpecMatches(t, isNamespaced, policyNs, targetResource) {
-					for _, rr := range response.PolicyResponse.Rules {
-						if rr.Name() == rule.Name || rr.Name() == "autogen-"+rule.Name || rr.Name() == "autogen-cronjob-"+rule.Name {
-							return true
-						}
-					}
-				}
-			}
-		}
-	}
 	if mpol := pol.AsMutatingPolicyLike(); mpol != nil {
 		if response.Resource.GetAPIVersion() == targetResource.GetAPIVersion() &&
 			response.Resource.GetKind() == targetResource.GetKind() &&
@@ -798,32 +777,6 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 		}
 	}
 	return false
-}
-
-func targetSpecMatches(spec kyvernov1.TargetResourceSpec, isNamespaced bool, policyNs string, target *unstructured.Unstructured) bool {
-	if spec.Kind != "" && spec.Kind != target.GetKind() {
-		return false
-	}
-	if spec.APIVersion != "" && spec.APIVersion != target.GetAPIVersion() {
-		return false
-	}
-	expectedNs := spec.Namespace
-	if isNamespaced && expectedNs == "" {
-		expectedNs = policyNs
-	}
-	if expectedNs != "" && !wildcard.Match(expectedNs, target.GetNamespace()) {
-		return false
-	}
-	if spec.Name != "" && !wildcard.Match(spec.Name, target.GetName()) {
-		return false
-	}
-	if spec.Selector != nil {
-		sel, err := metav1.LabelSelectorAsSelector(spec.Selector)
-		if err == nil && sel != nil && !sel.Matches(labels.Set(target.GetLabels())) {
-			return false
-		}
-	}
-	return true
 }
 
 func applyImageValidatingPolicies(

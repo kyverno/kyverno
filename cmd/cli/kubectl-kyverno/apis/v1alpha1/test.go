@@ -333,14 +333,10 @@ type CheckResult struct {
 	Match CheckMatch `json:"match,omitempty"`
 
 	// Assert contains assertion to be performed on the relevant rule responses
-	// +optional
-	// +kubebuilder:validation:Optional
-	Assert *kyvernov1.Any `json:"assert,omitempty"`
+	Assert kyvernov1.Any `json:"assert"`
 
 	// Error contains negative assertion to be performed on the relevant rule responses
-	// +optional
-	// +kubebuilder:validation:Optional
-	Error *kyvernov1.Any `json:"error,omitempty"`
+	Error kyvernov1.Any `json:"error"`
 }
 
 type TestResourceSpec struct {

@@ -3,6 +3,7 @@ checks:
 - assert:
     message: The label `team` is required.
     status: fail
+  error: null
   match:
     policy:
       kind: ValidatingPolicy
