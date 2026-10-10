@@ -2,12 +2,36 @@ package variables
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/sdk/extensions/cel/utils"
+	"github.com/sigstore/sigstore/pkg/signature/kms"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	// Register the provider-specific KMS plugins so that kms.SupportedProviders()
+	// can recognise KMS key references (e.g. "hashivault://") produced by a key
+	// expression. This mirrors the blank imports in the cosign verifier package.
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/aws"
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/azure"
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/gcp"
+	_ "github.com/sigstore/sigstore/pkg/signature/kms/hashivault"
 )
+
+// isKMSKeyRef reports whether the given key material is a reference to a key
+// managed by one of the registered KMS providers (e.g. "hashivault://",
+// "awskms://", "gcpkms://", "azurekms://") rather than an inline PEM-encoded
+// public key. Detection mirrors sigstore's own resolution, which selects a
+// provider by matching the reference against the registered provider prefixes.
+func isKMSKeyRef(ref string) bool {
+	for _, provider := range kms.SupportedProviders() {
+		if strings.HasPrefix(ref, provider) {
+			return true
+		}
+	}
+	return false
+}
 
 type CompiledAttestor struct {
 	Key               string
@@ -111,7 +135,24 @@ func (c *CompiledAttestor) Evaluate(data any) (v1beta1.Attestor, error) {
 		if err != nil {
 			return v1beta1.Attestor{}, fmt.Errorf("failed to convert key in compiled attestor: %s, error: %w", c.Key, err)
 		}
-		value.Cosign.Key.Data = result
+		// A key expression may resolve to either an inline PEM-encoded public
+		// key or a reference to a key held in a KMS (e.g. a per-namespace
+		// "hashivault://..." reference). Route KMS references to Key.KMS so
+		// cosign resolves them through the KMS provider instead of trying to
+		// parse them as inline PEM data.
+		//
+		// The two fields are mutually exclusive: the cosign verifier checks
+		// Key.Data before Key.KMS, so any statically-configured value on the
+		// field we are not using must be cleared. Otherwise a stale inline key
+		// would take precedence over the dynamically-resolved KMS reference
+		// (and vice versa), verifying signatures against the wrong key.
+		if isKMSKeyRef(result) {
+			value.Cosign.Key.Data = ""
+			value.Cosign.Key.KMS = result
+		} else {
+			value.Cosign.Key.KMS = ""
+			value.Cosign.Key.Data = result
+		}
 	}
 
 	if c.certProg != nil {
