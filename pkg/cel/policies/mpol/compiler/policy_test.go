@@ -106,8 +106,8 @@ type fakePatcher struct {
 	err    error
 }
 
-func (f *fakePatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
-	return f.retVal, f.err
+func (f *fakePatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, MutationEval, error) {
+	return f.retVal, MutationEval{}, f.err
 }
 
 func TestEvaluate(t *testing.T) {
