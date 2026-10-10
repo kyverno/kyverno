@@ -61,6 +61,26 @@ type controller struct {
 	configuration  config.Configuration
 	labelSelector  *metav1.LabelSelector
 	caSecretName   string
+	// skipConfigMatchConditions is named for the non-default state (zero value false) so the
+	// existing struct literal below cannot silently invert today's behaviour for the CEL
+	// exception, global-context, and TTL webhooks this controller also builds. Only the two
+	// legacy denial configurations pass WithoutConfigMatchConditions() to set it.
+	skipConfigMatchConditions bool
+}
+
+// Option configures a controller at construction time. The only option today,
+// WithoutConfigMatchConditions, exists for the legacy denial webhook configurations; it must not
+// be applied to a resource-facing webhook, which would silently lose user match conditions.
+type Option func(*controller)
+
+// WithoutConfigMatchConditions stops build() from stamping the ConfigMap's configured
+// matchConditions onto the webhook configuration. The legacy PolicyException and CleanupPolicy
+// configurations use this so a documented "skip this principal" ConfigMap value cannot exempt a
+// principal from the 1.20 legacy-write denial.
+func WithoutConfigMatchConditions() Option {
+	return func(c *controller) {
+		c.skipConfigMatchConditions = true
+	}
 }
 
 func NewController(
@@ -78,6 +98,7 @@ func NewController(
 	sideEffects *admissionregistrationv1.SideEffectClass,
 	configuration config.Configuration,
 	caSecretName string,
+	opts ...Option,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -100,6 +121,9 @@ func NewController(
 		configuration:  configuration,
 		labelSelector:  labelSelector,
 		caSecretName:   caSecretName,
+	}
+	for _, opt := range opts {
+		opt(&c)
 	}
 	if _, _, err := controllerutils.AddDefaultEventHandlers(c.logger, vwcInformer.Informer(), queue); err != nil {
 		c.logger.Error(err, "failed to register event handlers")
@@ -183,6 +207,10 @@ func objectMeta(name string, annotations map[string]string, labels map[string]st
 }
 
 func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	var matchConditions []admissionregistrationv1.MatchCondition
+	if !c.skipConfigMatchConditions {
+		matchConditions = cfg.GetMatchConditions()
+	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(c.webhookName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels()),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
@@ -193,7 +221,7 @@ func (c *controller) build(cfg config.Configuration, caBundle []byte) (*admissio
 				SideEffects:             c.sideEffects,
 				AdmissionReviewVersions: []string{"v1"},
 				ObjectSelector:          c.labelSelector,
-				MatchConditions:         cfg.GetMatchConditions(),
+				MatchConditions:         matchConditions,
 			}},
 		},
 		nil

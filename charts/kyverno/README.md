@@ -240,20 +240,34 @@ Hardcoded defaults for `config.excludeGroups` and `config.excludeUsernames` have
 
 ## Legacy policy resources gate
 
-Starting with 1.20, installing or upgrading this chart is blocked by default while legacy `kyverno.io` policy resources (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, and `kyverno.io/v2` `PolicyException`) still exist on the cluster. These types are deprecated in favor of the `policies.kyverno.io` policy types; see the [migration guide](https://kyverno.io/docs/guides/migration-to-cel/).
+Starting with 1.20, Kyverno no longer enforces legacy `kyverno.io` policy resources
+(`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, and `kyverno.io/v2`
+`PolicyException`). Kyverno still admits their CRDs, so you can read, list, export, and delete
+existing objects, but Kyverno no longer runs the rules they contain, and it denies every create
+and almost every update against these kinds so the cluster's inventory of them cannot grow. See
+[Legacy policy write denial](#legacy-policy-write-denial) below for the exact rules. A later 1.20
+release removes the Go packages that implemented these types; anything that imports
+`github.com/kyverno/kyverno/api/kyverno/v1` or `v2` for `ClusterPolicy`, `Policy`,
+`CleanupPolicy`, `ClusterCleanupPolicy`, or the legacy `PolicyException` loses those imports at
+that point. Migrate to the `policies.kyverno.io` policy types; see the [migration
+guide](https://kyverno.io/docs/guides/migration-to-cel/).
 
-The gate has two independent layers:
+Installing or upgrading this chart is blocked by default while legacy `kyverno.io` policy
+resources still exist on the cluster, so you notice the loss of enforcement before you upgrade
+rather than after. The gate has two independent layers:
 
 1. **A render-time check.** On `helm install` and `helm upgrade` against a live cluster, the chart evaluates a `lookup` against the five legacy kinds and fails the render with the counts, a sample of offending resource names, the migration guide link, and the opt-out value when any are found. Helm only populates `lookup` against a live cluster, so offline renders (`helm template`, `helm install --dry-run`) do not trigger this check; see the known bypasses below.
 2. **A `pre-install,pre-upgrade` hook Job** (`upgrade.legacyPolicyCheck.*`) that runs `kyverno check-legacy-policies` (an internal, hidden `kyverno-cli` command) against the live cluster with its own bundled, read-only RBAC, for GitOps tools that apply hooks server-side.
 
-Once you have migrated your legacy policies, or if you need to bypass the check temporarily, set:
+Once you have migrated your legacy policies, or if you need to proceed anyway, set:
 
 ```console
-helm upgrade --install kyverno --namespace kyverno kyverno/kyverno --set upgrade.allowLegacyPolicies=true
+helm upgrade --install kyverno --namespace kyverno kyverno/kyverno --set upgrade.acknowledgeLegacyPoliciesNotEnforced=true
 ```
 
-`upgrade.allowLegacyPolicies=true` disables both layers. `upgrade.legacyPolicyCheck.enabled=false` disables only the hook Job.
+`upgrade.acknowledgeLegacyPoliciesNotEnforced=true` disables both layers. It does not restore enforcement for the legacy policies found on the cluster; it only acknowledges that they are not enforced and lets the release proceed. `upgrade.legacyPolicyCheck.enabled=false` disables only the hook Job.
+
+`upgrade.allowLegacyPolicies` was renamed to `upgrade.acknowledgeLegacyPoliciesNotEnforced` in 1.20, because setting it to `true` no longer allows legacy policies to run; it only accepts that they are not enforced. A stale `upgrade.allowLegacyPolicies: true` from a pre-1.20 values file fails the render rather than being silently ignored. A stale `upgrade.allowLegacyPolicies: false` is not consent either way, so it is ignored, the same as if the key were absent.
 
 **Known bypasses.** Both layers rely on Helm evaluating against a live cluster, so the following paths are not covered:
 
@@ -277,6 +291,31 @@ or, without the `kyverno-cli` binary:
 kubectl get clusterpolicies,policies,cleanuppolicies,clustercleanuppolicies -A
 kubectl get policyexceptions.kyverno.io -A
 ```
+
+### Legacy policy write denial
+
+Once you install or upgrade past the gate above, Kyverno denies admission requests for the five
+legacy `kyverno.io` policy kinds, with these exceptions:
+
+- `kubectl delete` (and any other delete) always succeeds.
+- `kubectl get`, `kubectl get -o yaml`, and `kubectl get -A` always succeed, because the CRDs
+  remain installed and Kyverno does not deny reads.
+- Removing a finalizer from an object that is already terminating (`deletionTimestamp` set)
+  succeeds, if the request changes nothing else. Use a JSON patch that removes only the
+  finalizer, for example:
+
+  ```console
+  kubectl patch clusterpolicy my-policy --type=json -p '[{"op":"remove","path":"/metadata/finalizers/0"}]'
+  ```
+
+Every other create or update is denied, including a `kubectl apply` that resubmits an unchanged
+manifest, and a label- or annotation-only patch. This is a change from 1.19, where a re-apply of
+an unchanged legacy policy was silently accepted. If you manage legacy policies with a GitOps tool
+that reconciles by re-applying manifests (for example Argo CD or Flux), that tool now reports the
+resource as permanently out of sync or failing, because every reconcile attempt is denied. That is
+the expected migration signal: delete the legacy manifest from your source repository once you
+have migrated it to a `policies.kyverno.io` policy type. There is no setting that restores the
+1.19 re-apply behavior for legacy policies.
 
 **Note on the hook Job's failure mode.** When the hook Job blocks an install, Helm records the release as `failed`. Once you have migrated your policies or set the opt-out, retry with `helm upgrade --install` — it upgrades the existing failed release. You only need `helm uninstall` first if you retry with a plain `helm install` under the same release name, which refuses to reuse a name that is still in use.
 
@@ -967,7 +1006,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespaceOverride | string | `nil` | Override the namespace the chart deploys to |
 | upgrade.fromV2 | bool | `false` | Upgrading from v2 to v3 is not allowed by default, set this to true once changes have been reviewed. |
-| upgrade.allowLegacyPolicies | bool | `false` | Installing or upgrading is blocked by default when legacy kyverno.io policy resources (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, `PolicyException`) are found on the cluster. Migrate them to the `policies.kyverno.io` policy types (see https://kyverno.io/docs/guides/migration-to-cel/), or set this to true to bypass the check. This disables both the render-time check and the `legacyPolicyCheck` hook Job. |
+| upgrade.acknowledgeLegacyPoliciesNotEnforced | bool | `false` | Installing or upgrading is blocked by default when legacy kyverno.io policy resources (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, `PolicyException`) are found on the cluster. As of 1.20, Kyverno no longer executes these legacy policy types even though their APIs remain available for read, list, export, and delete: setting this to true does not restore enforcement, it only acknowledges that legacy policies found on this cluster are not enforced. Migrate them to the `policies.kyverno.io` policy types (see https://kyverno.io/docs/guides/migration-to-cel/), or set this to true to bypass the check. This disables both the render-time check and the `legacyPolicyCheck` hook Job. |
 | upgrade.legacyPolicyCheck.enabled | bool | `true` | Enable the pre-install/pre-upgrade hook Job that checks for legacy kyverno.io policy resources on the cluster. This is a second, server-side check for GitOps tools that honor Helm hooks; it is independent from the render-time `lookup` check, which some GitOps tools and `helm template`/`--dry-run` do not evaluate against a live cluster. |
 | upgrade.legacyPolicyCheck.ttlSecondsAfterFinished | int | `300` | Seconds after the hook Job finishes before it (and its Pod) are auto-deleted. A failed Job's logs stay available until then. Set to 0 or null to keep it indefinitely. |
 | upgrade.legacyPolicyCheck.activeDeadlineSeconds | int | `120` | Maximum seconds the hook Job may run before it is failed, so a stalled or unreachable API server can't hang the install/upgrade. Set to 0 or null to disable. |

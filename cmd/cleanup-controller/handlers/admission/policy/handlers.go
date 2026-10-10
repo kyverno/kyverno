@@ -11,7 +11,6 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	validation "github.com/kyverno/kyverno/pkg/validation/cleanuppolicy"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	apiequality "k8s.io/apimachinery/pkg/api/equality"
 )
 
 type validationHandlers struct {
@@ -34,20 +33,15 @@ func (h *validationHandlers) Validate(ctx context.Context, logger logr.Logger, r
 		return admissionutils.ResponseSuccess(request.UID)
 	}
 
-	policy, oldPolicy, err := admissionutils.GetCleanupPolicies(request.AdmissionRequest)
+	policy, _, err := admissionutils.GetCleanupPolicies(request.AdmissionRequest)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.Response(request.UID, err)
 	}
-	if err, blocked := deprecations.ShouldBlock(ctx, request.AdmissionRequest, func() bool {
-		return oldPolicy != nil && apiequality.Semantic.DeepEqual(oldPolicy.GetSpec(), policy.GetSpec())
-	}); blocked {
-		logger.Error(err, "legacy policy write blocked", "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
-		if deprecatedMetric := metrics.GetDeprecatedAPIRequestMetrics(); deprecatedMetric != nil {
-			deprecatedMetric.Record(ctx, request.Namespace, request.Kind.Group, request.Kind.Version, request.Kind.Kind, "")
-		}
-		return admissionutils.Response(request.UID, err)
-	}
+	// The legacy write denial (create/update of this kind) now happens one layer up, at the
+	// route-level handlers.WithLegacyPolicyDenial() decorator (see
+	// pkg/deprecations.DenyLegacyWrite), so this method only runs on requests it already
+	// allowed through.
 	if err := validation.Validate(ctx, logger, h.client, policy); err != nil {
 		logger.Error(err, "policy validation errors")
 		return admissionutils.Response(request.UID, err)

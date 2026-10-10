@@ -7,9 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var fieldIndexPattern = regexp.MustCompile(`\[\d+\]`)
@@ -76,7 +73,12 @@ func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
 }
 
 // IsLegacyPolicyKind reports whether kind (in the given group) is one of the legacy
-// kyverno.io policy kinds subject to the 1.20 write-time block on creates/spec-updates.
+// kyverno.io policy kinds subject to the 1.20 write-time block on legacy policy writes, which
+// covers creates and every top-level update, including unchanged-spec and metadata-only ones,
+// with only the narrow finalizer-removal and transitional status-subresource exceptions. It is an
+// allow-list, not an exclusion list: GlobalContextEntry, UpdateRequest, every policies.kyverno.io
+// kind, and every native Kubernetes kind are excluded by construction because they are simply
+// never in the replacements table, not because of any special-case check.
 func IsLegacyPolicyKind(group, kind string) bool {
 	if group != "kyverno.io" {
 		return false
@@ -115,64 +117,11 @@ func BuildKindError(group, version, kind string) (error, bool) {
 		apiVersion = fmt.Sprintf("%s/%s", group, version)
 	}
 	return legacyPolicyBlockError{fmt.Errorf(
-		"%s %s is no longer accepted for create, or for an update that changes spec; migrate to %s (policies.kyverno.io), see %s",
+		"%s %s: Kyverno v1.20 removed execution of legacy kyverno.io policy types and no longer accepts create or update requests for them; the API remains available for read, list, export, and delete. Migrate to %s (policies.kyverno.io), see %s",
 		apiVersion, kind, replacement, MigrationGuideURL,
 	)}, true
 }
 
-// PolicyFieldWarnings returns field-level deprecation warnings for legacy policy fields.
-func PolicyFieldWarnings(policy kyvernov1.PolicyInterface) []DeprecationWarning {
-	var warnings []DeprecationWarning
-	spec := policy.GetSpec()
-	seen := map[string]struct{}{}
-	add := func(fieldPath string) {
-		if _, ok := seen[fieldPath]; ok {
-			return
-		}
-		seen[fieldPath] = struct{}{}
-		warnings = append(warnings, DeprecationWarning{
-			Group:   "kyverno.io",
-			Version: policyVersion(policy),
-			Kind:    policy.GetKind(),
-			Field:   fieldPath,
-			Message: fmt.Sprintf("%s: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.", fieldPath),
-		})
-	}
-
-	if isDeprecatedValidationFailureAction(spec.ValidationFailureAction) {
-		add("spec.validationFailureAction")
-	}
-	for i, override := range spec.ValidationFailureActionOverrides {
-		if isDeprecatedValidationFailureAction(override.Action) {
-			add(fmt.Sprintf("spec.validationFailureActionOverrides[%d].action", i))
-		}
-	}
-	for i, rule := range spec.Rules {
-		if rule.Validation != nil && rule.Validation.FailureAction != nil && isDeprecatedValidationFailureAction(*rule.Validation.FailureAction) {
-			add(fmt.Sprintf("spec.rules[%d].validate.failureAction", i))
-		}
-		if rule.Validation != nil {
-			for j, override := range rule.Validation.FailureActionOverrides {
-				if isDeprecatedValidationFailureAction(override.Action) {
-					add(fmt.Sprintf("spec.rules[%d].validate.failureActionOverrides[%d].action", i, j))
-				}
-			}
-		}
-	}
-	return warnings
-}
-
-func isDeprecatedValidationFailureAction(action kyvernov1.ValidationFailureAction) bool {
-	return action == "enforce" || action == "audit"
-}
-
 func NormalizeFieldPath(field string) string {
 	return fieldIndexPattern.ReplaceAllString(field, "[]")
-}
-
-func policyVersion(policy kyvernov1.PolicyInterface) string {
-	if object, ok := policy.(interface{ GetObjectKind() schema.ObjectKind }); ok {
-		return object.GetObjectKind().GroupVersionKind().Version
-	}
-	return ""
 }

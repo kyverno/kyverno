@@ -59,6 +59,7 @@ func NewServer(
 		handlers.FromAdmissionFunc("VALIDATE", validationHandler).
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),

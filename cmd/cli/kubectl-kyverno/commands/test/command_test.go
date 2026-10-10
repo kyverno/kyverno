@@ -1334,7 +1334,7 @@ func Test_RunTestBlocksLegacyClusterPolicy(t *testing.T) {
 
 	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }
 
@@ -1350,6 +1350,6 @@ func Test_RunTestBlocksLegacyPolicyException(t *testing.T) {
 
 	_, err = runTest(context.TODO(), io.Discard, testCases[0], false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 	assert.Contains(t, err.Error(), deprecations.MigrationGuideURL)
 }

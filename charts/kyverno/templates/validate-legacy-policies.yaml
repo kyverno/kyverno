@@ -1,4 +1,4 @@
-{{- if not .Values.upgrade.allowLegacyPolicies -}}
+{{- if not .Values.upgrade.acknowledgeLegacyPoliciesNotEnforced -}}
   {{- $lines := list -}}
   {{- $total := 0 -}}
   {{- $maxNames := 5 -}}
@@ -72,14 +72,17 @@
       "  +--------------------------------------------------------------------------------------------------------------------------------------+"
       (printf "  | Found %d legacy kyverno.io policy resource(s) on the cluster." $total)
       "  | Installing or upgrading Kyverno is blocked while legacy ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, or PolicyException"
-      "  | resources exist. Migrate them to the policies.kyverno.io policy types, see the guide below, then re-run this command."
+      "  | resources exist. As of 1.20, Kyverno no longer executes these legacy policy types; the API"
+      "  | remains available for read, list, export, and delete. Migrate them to the policies.kyverno.io"
+      "  | policy types, see the guide below, then re-run this command."
       "  |"
     -}}
     {{- $footer := list
       "  |"
       "  | Migration guide: https://kyverno.io/docs/guides/migration-to-cel/"
       "  |"
-      "  | To bypass this check (not recommended until migration is complete), set: upgrade.allowLegacyPolicies=true"
+      "  | To acknowledge that legacy policies found on this cluster are not enforced and proceed"
+      "  | anyway, set: upgrade.acknowledgeLegacyPoliciesNotEnforced=true"
       "  +--------------------------------------------------------------------------------------------------------------------------------------+"
       ""
     -}}
