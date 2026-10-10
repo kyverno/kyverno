@@ -53,10 +53,11 @@ func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRe
 	if err != nil {
 		return response, err
 	}
-	response.Trigger = &object
-	if response.Trigger.Object == nil {
-		response.Trigger = &oldObject
+	trigger := object
+	if trigger.Object == nil {
+		trigger = oldObject
 	}
+	response.Trigger = &trigger
 	// default dry run
 	dryRun := false
 	if request.Request.DryRun != nil {
@@ -67,7 +68,7 @@ func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRe
 		&object,
 		&oldObject,
 		schema.GroupVersionKind(request.Request.Kind),
-		object.GetNamespace(),
+		request.Request.Namespace,
 		request.Request.Name,
 		schema.GroupVersionResource(request.Request.Resource),
 		request.Request.SubResource,
@@ -83,7 +84,7 @@ func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRe
 	}
 
 	startTime := time.Now()
-	genReresponse := e.generate(context.TODO(), policy, attr, &request.Request, namespace, request.Context, string(object.GetUID()), cacheRestore)
+	genReresponse := e.generate(context.TODO(), policy, attr, &request.Request, namespace, request.Context, string(trigger.GetUID()), cacheRestore)
 	if genReresponse.Result != nil {
 		genReresponse.Result = ptr.To(genReresponse.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}
