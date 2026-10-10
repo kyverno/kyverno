@@ -43,6 +43,7 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/auth"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -107,6 +108,7 @@ func main() {
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.DurationVar(&interval, "ttlReconciliationInterval", time.Minute, "Set this flag to set the interval after which the resource controller reconciliation should occur")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
+	flagset.Func(toggle.WebhookAuthenticationFlagName, toggle.WebhookAuthenticationDescription, toggle.WebhookAuthentication.Parse)
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
 	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
@@ -461,6 +463,15 @@ func main() {
 		policyHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
 		resourceHandlers := resourcehandlers.New(checker)
 		// create server
+		var webhookAuth *auth.Receiver
+		if toggle.WebhookAuthentication.Enabled() {
+			verifier, err := auth.NewVerifier(ctx, setup.RestConfig)
+			if err != nil {
+				setup.Logger.Error(err, "failed to initialize webhook authentication")
+				os.Exit(1)
+			}
+			webhookAuth = auth.NewReceiver(verifier, serverIP, int32(servicePort)) //nolint:gosec
+		}
 		server := NewServer(
 			func() ([]byte, []byte, error) {
 				secret, err := tlsSecret.Lister().Secrets(config.KyvernoNamespace()).Get(tlsSecretName)
@@ -477,6 +488,7 @@ func main() {
 			},
 			probes{},
 			setup.Configuration,
+			webhookAuth,
 		)
 		// start server
 		server.Run()

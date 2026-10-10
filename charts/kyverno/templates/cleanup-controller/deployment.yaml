@@ -146,6 +146,7 @@ spec:
               "blockLegacyPolicyAPIs"
               "deferredLoading"
               "dumpPayload"
+              "webhookAuthentication"
               "globalContext"
               "logging"
               "ttlController"
