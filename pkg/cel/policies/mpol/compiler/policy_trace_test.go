@@ -436,3 +436,19 @@ func TestEvaluate_TracingOn_ChainedMutationsMatchTracingOff(t *testing.T) {
 	assert.Empty(t, traced.Trace.Mutations[1].Error)
 	assert.Equal(t, trace.VerdictPass, traced.Trace.Verdict.Status)
 }
+
+// TestEvaluate_TracingOn_MutationWithANonRepeatableCallIsNotReRun: a mutation that calls random()
+// gets no tracking twin, so it is evaluated once; its trace says why it has no breakdown, and the
+// patched object is the one tracing off would produce, shape-wise (the value is random).
+func TestEvaluate_TracingOn_MutationWithANonRepeatableCallIsNotReRun(t *testing.T) {
+	policy := buildMutationTracePolicy(applyConfigMutation(`Object{metadata: Object.metadata{labels: {"token": random('[a-z]{8}')}}}`))
+	traced := compileMutAndEvaluate(t, true, policy, podObject("prod", nil))
+	require.NotNil(t, traced)
+	require.NoError(t, traced.Error)
+	require.NotNil(t, traced.PatchedResource)
+	assert.Len(t, traced.PatchedResource.GetLabels()["token"], 8)
+	require.NotNil(t, traced.Trace)
+	require.Len(t, traced.Trace.Mutations, 1)
+	assert.Empty(t, traced.Trace.Mutations[0].Nodes)
+	assert.Equal(t, "it calls random, which is not run a second time", traced.Trace.Mutations[0].NoBreakdown)
+}

@@ -334,7 +334,10 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	et := trace.Build(source, ast, out, details)
+	// an expression with an external or non-repeatable call is never re-run to explain it
+	et.NoBreakdown = compiler.NoBreakdownReason(ast)
+	return et
 }
 
 // resolveMessage returns the message to report for a failed validation, preferring
