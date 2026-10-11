@@ -489,6 +489,24 @@ func TestRewriteExceptions(t *testing.T) {
 			want:       []string{"object.metadata.namespace == 'foo'"},
 		},
 		{
+			name:       "object.metadata.name is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.metadata.name in ['skipped-deployment']", "", "")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"object.metadata.name in ['skipped-deployment']"},
+		},
+		{
+			name:       "cronjobs object.metadata.labels is preserved while spec is rewritten",
+			exceptions: []*policiesv1beta1.PolicyException{newException("object.metadata.labels.app == 'nginx' && object.spec.containers.size() > 0", "", "")},
+			config:     autogen.AutogenCronjobs,
+			want:       []string{"object.metadata.labels.app == 'nginx' && object.spec.jobTemplate.spec.template.spec.containers.size() > 0"},
+		},
+		{
+			name:       "oldObject.metadata.name is preserved",
+			exceptions: []*policiesv1beta1.PolicyException{newException("", "oldObject.metadata.name == 'foo'", "")},
+			config:     autogen.AutogenDefaults,
+			want:       []string{"oldObject.metadata.name == 'foo'"},
+		},
+		{
 			name:       "unknown config returns exceptions unmodified",
 			exceptions: []*policiesv1beta1.PolicyException{newException("object.spec.containers.exists(c, c.name == 'nginx')", "", "")},
 			config:     "unknown",

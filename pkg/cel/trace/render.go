@@ -54,6 +54,17 @@ func Render(w io.Writer, d *Decision) {
 			row(w, "VALIDATION", val.Status, fmt.Sprintf("[%d] %s", val.Index, expressionLine(val.ExpressionTrace)))
 		}
 	}
+	for _, m := range d.Mutations {
+		if m.Error == "" {
+			row(w, "MUTATIONS", "", named(NamedExpressionTrace{Name: m.Name, ExpressionTrace: m.ExpressionTrace}))
+			if m.NotApplied != "" {
+				fmt.Fprintf(w, "%-10s %-8s (not applied: %s)\n", "", "", m.NotApplied)
+			}
+			continue
+		}
+		row(w, "MUTATIONS", VerdictError, m.Name+": "+m.Error)
+		printNodes(w, m.ExpressionTrace)
+	}
 
 	v := d.Verdict
 	if v.Status == "" {
@@ -69,8 +80,15 @@ func Render(w io.Writer, d *Decision) {
 	} else {
 		message := v.Message
 		if message == "" && v.Status == VerdictPass {
-			// no validations ran to produce a verdict -- most likely the policy declares none
-			message = "no validations to evaluate; the policy passes by default"
+			switch {
+			case len(d.Mutations) > 0:
+				// a mutating policy has no single expression that decides pass/fail -- see the
+				// MUTATIONS lines above for what actually ran
+				message = "completed; see MUTATIONS above for what ran"
+			default:
+				// no validations ran to produce a verdict -- most likely the policy declares none
+				message = "no validations to evaluate; the policy passes by default"
+			}
 		}
 		row(w, "VERDICT", v.Status, message)
 		return
@@ -78,9 +96,18 @@ func Render(w io.Writer, d *Decision) {
 	if v.Message != "" && v.Status != VerdictPass {
 		fmt.Fprintf(w, "%-10s %-8s message: %q\n", "", "", v.Message)
 	}
-	if v.Status != VerdictPass && len(v.Nodes) > 0 {
+	if v.Status != VerdictPass {
+		printNodes(w, v.ExpressionTrace)
+	}
+}
+
+// printNodes prints the per-node breakdown shared by VERDICT and MUTATIONS: one indented line
+// per traced sub-expression, showing its resolved value or, if it failed, its error, then a note
+// when values inside loops were left out.
+func printNodes(w io.Writer, et ExpressionTrace) {
+	if len(et.Nodes) > 0 {
 		fmt.Fprintf(w, "%-10s %-8s evaluated:\n", "", "")
-		for _, n := range v.Nodes {
+		for _, n := range et.Nodes {
 			if n.Error != "" {
 				fmt.Fprintf(w, "%-10s %-8s   %s  ->  ERROR: %s\n", "", "", n.Expression, clip(n.Error))
 				continue
@@ -88,7 +115,7 @@ func Render(w io.Writer, d *Decision) {
 			fmt.Fprintf(w, "%-10s %-8s   %s  ->  %s\n", "", "", n.Expression, clip(n.Value))
 		}
 	}
-	if v.Status != VerdictPass && v.LoopValuesOmitted {
+	if et.LoopValuesOmitted {
 		fmt.Fprintf(w, "%-10s %-8s (values inside loops such as all() and exists() are not shown: CEL keeps only the last item's)\n", "", "")
 	}
 }
