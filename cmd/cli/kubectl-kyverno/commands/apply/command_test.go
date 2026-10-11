@@ -1519,6 +1519,8 @@ func Test_Apply_Explain(t *testing.T) {
 		name   string
 		config ApplyCommandConfig
 		want   []string
+		// wantCounts, when set, is what both runs must count
+		wantCounts *processor.ResultCounts
 	}{{
 		name: "validating policy on a resource file",
 		config: ApplyCommandConfig{
@@ -1596,6 +1598,20 @@ func Test_Apply_Explain(t *testing.T) {
 			"generated ConfigMap test-ns/test-ns-config",
 			"VERDICT    PASS     generated 1 resource",
 		},
+	}, {
+		// the generate expression reads a label the namespace does not have
+		name: "generating policy whose generate expression fails",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/explain-generate-error/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/explain-generate-error/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE   ERROR    generate[0] (expression): no such key: labels",
+			"object.metadata.labels  ->  ERROR: no such key: labels",
+			"VERDICT    ERROR    no such key: labels",
+		},
+		wantCounts: &processor.ResultCounts{Error: 1},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1622,6 +1638,9 @@ func Test_Apply_Explain(t *testing.T) {
 			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
 			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
 			assert.Equal(t, plainCounts, explainedCounts, "--explain must not change the results")
+			if tt.wantCounts != nil {
+				assert.Equal(t, tt.wantCounts, plainCounts)
+			}
 		})
 	}
 }
