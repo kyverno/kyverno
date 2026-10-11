@@ -314,9 +314,16 @@ func compareExpectedRuleResult(
 // differs from the mutation/generation output, declared via `result: fail`. Only a
 // resource-diff mismatch is rescued this way; a rule status mismatch (reason
 // "Want X, got Y") is never rescued, since that means the policy result itself
-// (pass/fail/skip/error) didn't match what the test expected.
-func isExpectedFailure(ok bool, reason string, test v1alpha1.TestResult) bool {
-	return !ok && reason == reasonResourceDiff && test.Result == openreports.StatusFail
+// (pass/fail/skip/error) didn't match what the test expected. The rule must also
+// have succeeded (pass, no messageExpression error): checkResult reports the resource
+// diff before looking at the rule status, so an errored or failed rule would otherwise
+// be masked as a passing test.
+func isExpectedFailure(ok bool, reason string, test v1alpha1.TestResult, rule engineapi.RuleResponse) bool {
+	return !ok &&
+		reason == reasonResourceDiff &&
+		test.Result == openreports.StatusFail &&
+		rule.Status() == engineapi.RuleStatusPass &&
+		rule.MessageExpressionError() == ""
 }
 
 // checkRuleResultOnly validates the expected test result against the computed policy

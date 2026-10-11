@@ -244,6 +244,7 @@ func TestIsExpectedFailure(t *testing.T) {
 		ok       bool
 		reason   string
 		expected string
+		rule     engineapi.RuleResponse
 		want     bool
 	}{
 		{
@@ -251,6 +252,7 @@ func TestIsExpectedFailure(t *testing.T) {
 			ok:       false,
 			reason:   reasonResourceDiff,
 			expected: openreports.StatusFail,
+			rule:     *engineapi.RulePass("r", engineapi.Mutation, "ok", nil),
 			want:     true,
 		},
 		{
@@ -274,6 +276,22 @@ func TestIsExpectedFailure(t *testing.T) {
 			expected: openreports.StatusFail,
 			want:     false,
 		},
+		{
+			name:     "resource diff with errored rule is not rescued",
+			ok:       false,
+			reason:   reasonResourceDiff,
+			expected: openreports.StatusFail,
+			rule:     *engineapi.RuleError("r", engineapi.Mutation, "boom", errors.New("boom"), nil),
+			want:     false,
+		},
+		{
+			name:     "resource diff with failed rule is not rescued",
+			ok:       false,
+			reason:   reasonResourceDiff,
+			expected: openreports.StatusFail,
+			rule:     *engineapi.RuleFail("r", engineapi.Mutation, "nope", nil),
+			want:     false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -285,7 +303,7 @@ func TestIsExpectedFailure(t *testing.T) {
 					Result: openreportsv1alpha1.Result(tt.expected),
 				},
 			}
-			assert.Equal(t, tt.want, isExpectedFailure(tt.ok, tt.reason, testResult))
+			assert.Equal(t, tt.want, isExpectedFailure(tt.ok, tt.reason, testResult, tt.rule))
 		})
 	}
 }
@@ -1147,7 +1165,7 @@ spec:
 			ok, _, reason := checkResult(testResult, fs, "", response, rule, actual, true)
 			assert.False(t, ok)
 			assert.Equal(t, reasonResourceDiff, reason)
-			assert.True(t, isExpectedFailure(ok, reason, testResult))
+			assert.True(t, isExpectedFailure(ok, reason, testResult, rule))
 		})
 	}
 }

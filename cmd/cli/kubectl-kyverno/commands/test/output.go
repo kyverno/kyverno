@@ -286,7 +286,7 @@ func printTestResult(
 								resourceSkipped = true
 								continue
 							}
-							if isExpectedFailure(ok, reason, test) {
+							if isExpectedFailure(ok, reason, test, rule) {
 								ok = true
 							}
 
@@ -301,7 +301,7 @@ func printTestResult(
 							}
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
-								if isExpectedFailure(ok, reason, test) {
+								if isExpectedFailure(ok, reason, test, rule) {
 									ok = true
 								}
 
@@ -367,7 +367,7 @@ func printTestResult(
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
 					if r != nil && rule != nil && (test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) || len(lookupRuleResponses(test, *rule)) > 0) {
 						ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
-						if isExpectedFailure(ok, reason, test) {
+						if isExpectedFailure(ok, reason, test, *rule) {
 							ok = true
 						}
 
