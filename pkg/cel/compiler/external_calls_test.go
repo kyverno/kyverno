@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 
@@ -15,16 +16,25 @@ import (
 )
 
 // countingHTTP is an http library implementation that counts the requests made through it and
-// never reaches the network.
-type countingHTTP struct{ calls *atomic.Int32 }
+// never reaches the network. With err set, every request fails with it.
+type countingHTTP struct {
+	calls *atomic.Int32
+	err   error
+}
 
 func (c countingHTTP) Get(string, map[string]string) (any, error) {
 	c.calls.Add(1)
+	if c.err != nil {
+		return nil, c.err
+	}
 	return map[string]any{"approved": false}, nil
 }
 
 func (c countingHTTP) Post(string, any, map[string]string) (any, error) {
 	c.calls.Add(1)
+	if c.err != nil {
+		return nil, c.err
+	}
 	return map[string]any{"approved": false}, nil
 }
 
@@ -32,8 +42,14 @@ func (c countingHTTP) Client(string) (http.ContextInterface, error) { return c, 
 
 func countingHTTPEnv(t *testing.T) (*cel.Env, *atomic.Int32) {
 	t.Helper()
+	return failingHTTPEnv(t, nil)
+}
+
+// failingHTTPEnv is countingHTTPEnv with every request failing with requestErr.
+func failingHTTPEnv(t *testing.T, requestErr error) (*cel.Env, *atomic.Int32) {
+	t.Helper()
 	calls := &atomic.Int32{}
-	env, err := costLimitedEnv(t).Extend(http.Lib(http.Context{ContextInterface: countingHTTP{calls: calls}}, http.Latest()))
+	env, err := costLimitedEnv(t).Extend(http.Lib(http.Context{ContextInterface: countingHTTP{calls: calls, err: requestErr}}, http.Latest()))
 	require.NoError(t, err)
 	return env, calls
 }
@@ -77,6 +93,18 @@ func TestTracedCompilation_ExternalCallRunsOnce(t *testing.T) {
 			assert.Equal(t, false, out.Value())
 			assert.Nil(t, TraceDetails(context.Background(), c.traced, map[string]any{}, err), "nothing to re-run")
 			assert.Equal(t, int32(1), calls.Load(), "the request is sent once")
+		})
+		// a failed request is explained too, with the error that decided, and is not retried
+		t.Run(name+", request fails", func(t *testing.T) {
+			env, calls := failingHTTPEnv(t, errors.New("approvals service unavailable"))
+			c := compile(t, env)
+			require.NotNil(t, c.program)
+			assert.Nil(t, c.traced, "an expression that calls http.Post gets no tracking twin")
+
+			_, _, err := c.program.ContextEval(context.Background(), map[string]any{})
+			require.ErrorContains(t, err, "approvals service unavailable")
+			assert.Nil(t, TraceDetails(context.Background(), c.traced, map[string]any{}, err), "nothing to re-run")
+			assert.Equal(t, int32(1), calls.Load(), "the failed request is not sent again")
 		})
 	}
 
