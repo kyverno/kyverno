@@ -3,11 +3,51 @@ package kube
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
+
+// ParseSecretReference resolves a secret name or namespace/name reference.
+func ParseSecretReference(secretRef, defaultNamespace string) (namespace, name string) {
+	secretRef = strings.TrimPrefix(secretRef, "/")
+	if namespace, name, ok := strings.Cut(secretRef, "/"); ok {
+		return namespace, name
+	}
+	return defaultNamespace, secretRef
+}
+
+// ScopeSecretReferences confines secret references to one namespace and
+// returns canonical namespace/name references.
+func ScopeSecretReferences(secretRefs []string, namespace string) ([]string, error) {
+	if namespace == "" {
+		return nil, fmt.Errorf("policy namespace must not be empty")
+	}
+	if len(validation.IsDNS1123Label(namespace)) != 0 {
+		return nil, fmt.Errorf("policy namespace %q is invalid", namespace)
+	}
+	if len(secretRefs) == 0 {
+		return nil, nil
+	}
+	scoped := make([]string, len(secretRefs))
+	for i, secretRef := range secretRefs {
+		secretNamespace, secretName := ParseSecretReference(secretRef, namespace)
+		if secretName == "" {
+			return nil, fmt.Errorf("secret reference %q has an empty name", secretRef)
+		}
+		if len(validation.IsDNS1123Subdomain(secretName)) != 0 {
+			return nil, fmt.Errorf("secret reference %q has an invalid name", secretRef)
+		}
+		if secretNamespace != namespace {
+			return nil, fmt.Errorf("secret reference %q uses namespace %q instead of policy namespace %q", secretRef, secretNamespace, namespace)
+		}
+		scoped[i] = secretNamespace + "/" + secretName
+	}
+	return scoped, nil
+}
 
 // RedactSecret masks keys of data and metadata.annotation fields of Secrets.
 func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructured, error) {

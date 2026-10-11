@@ -172,7 +172,7 @@ func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
 
 	// imgCtx is left nil on purpose: if the cache is bypassed, fetching image data errors
 	// out, and the test fails, proving a cache hit skips the registry round trip entirely.
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,
 		policy:         pol,
 		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
@@ -227,7 +227,7 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,
 		imgCtx:         imgCtx,
 		policy:         pol,
@@ -303,7 +303,7 @@ func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -407,7 +407,7 @@ func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -521,7 +521,7 @@ func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
@@ -657,7 +657,7 @@ func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reveri
 	)
 	assert.NoError(t, err)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:               types.DefaultTypeAdapter,
 		imgCtx:                imgCtx,
 		policy:                pol,
