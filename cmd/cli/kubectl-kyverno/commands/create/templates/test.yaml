@@ -1,5 +1,7 @@
-# test name
-name: {{ .Name }}
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: {{ .Name }}
 
 # list of policy files
 policies:
@@ -21,8 +23,11 @@ results:
 {{- range .Results }}
   - policy: {{ .Policy }}
     rule: {{ .Rule }}
-    resource: {{ .Resource }}
-    namespace: {{ .Namespace }}
+    resources:
+      - {{ if .Namespace }}{{ .Namespace }}/{{ end }}{{ .Resource }}
     kind: {{ .Kind }}
     result: {{ .Result }}
+{{- if .PatchedResource }}
+    patchedResources: {{ .PatchedResource }}
+{{- end }}
 {{- end }}
