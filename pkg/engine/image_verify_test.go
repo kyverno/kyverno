@@ -1086,6 +1086,43 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
 
+	// Digest-pinned: the cache only stores entries for digest-bound references,
+	// so a tag-only fixture would miss on every call and this test would stop
+	// exercising the cache-hit path it is named for. The resource keeps the tag
+	// so the policy's imageReferences still match; verification metadata is
+	// keyed on the digest-only form.
+	resourceImage := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+	image := "ghcr.io/kyverno/test-verify-image@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+	// The reference is matched in its digest-only form, so the fixture's
+	// "...image:*" pattern no longer matches once the image is pinned.
+	policy := strings.ReplaceAll(cosignTestPolicy, "ghcr.io/kyverno/test-verify-image:*", "ghcr.io/kyverno/test-verify-image*")
+	policyContext := buildContext(t, policy, strings.ReplaceAll(cosignTestResource, "ghcr.io/kyverno/test-verify-image:signed", resourceImage), "")
+
+	start := time.Now()
+	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, policyContext, cfg)
+	firstOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+
+	start = time.Now()
+	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, policyContext, cfg)
+	secondOperationTime := time.Since(start)
+	errorAssertionUtil(t, image, ivm, er)
+	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+}
+
+// Test_ImageVerifyCacheTagReferenceCosign pins the companion behaviour of the
+// digest guard: a tag can be moved in the registry after an entry is written,
+// so a tag-referenced image must be verified again on every call rather than
+// served from the cache.
+func Test_ImageVerifyCacheTagReferenceCosign(t *testing.T) {
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
+	}
+	imageVerifyCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
@@ -1098,7 +1135,7 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	assert.Check(t, secondOperationTime > firstOperationTime/10, "a tag reference must not be served from the cache.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheDisabled(t *testing.T) {
@@ -1309,8 +1346,14 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	}
 	imageVerifyCache, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
-	image := "ghcr.io/kyverno/test-verify-image:signed"
-	policyContext := buildContext(t, verifyImageNotaryPolicy, verifyImageNotaryResource, "")
+	// Digest-pinned: the cache only stores entries for digest-bound references,
+	// so a tag-only fixture would miss on every call and this test would stop
+	// exercising the cache-hit path it is named for. The resource keeps the tag
+	// so the policy's imageReferences still match; verification metadata is
+	// keyed on the digest-only form.
+	resourceImage := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+	image := "ghcr.io/kyverno/test-verify-image@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+	policyContext := buildContext(t, verifyImageNotaryPolicy, strings.ReplaceAll(verifyImageNotaryResource, "ghcr.io/kyverno/test-verify-image:signed", resourceImage), "")
 
 	start := time.Now()
 	er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, policyContext, cfg)
