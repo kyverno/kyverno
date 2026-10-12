@@ -65,15 +65,15 @@ func compileMatchCondition(path *field.Path, env *cel.Env, matchCondition admiss
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(matchCondition.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, matchCondition.Expression)
+		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, matchCondition.Expression, err.Error()))
 		}
@@ -146,12 +146,12 @@ func compileVariable(path *field.Path, env *cel.Env, VariablesProvider *Variable
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(variable.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, variable.Expression)
+		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
 		VariablesProvider.RegisterField(variable.Name, ast.OutputType())
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, variable.Expression, err.Error()))
 		}
@@ -223,15 +223,15 @@ func compileMutation(path *field.Path, env *cel.Env, expression string, returnTy
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, expression)
+		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(returnType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", returnType.TypeName())
 			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return TracedProgram{}, append(allErrs, field.Invalid(path, expression, err.Error()))
 		}
@@ -259,15 +259,15 @@ func CompileAuditAnnotation(path *field.Path, env *cel.Env, auditAnnotation admi
 	var allErrs field.ErrorList
 	{
 		path := path.Child("valueExpression")
-		ast, issues := env.Compile(auditAnnotation.ValueExpression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, auditAnnotation.ValueExpression)
+		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.StringType) && !ast.OutputType().IsExactType(types.NullType) {
 			msg := fmt.Sprintf("output is expected to be either of type %s or %s", types.StringType.TypeName(), types.NullType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, auditAnnotation.ValueExpression, err.Error()))
 		}
@@ -295,15 +295,15 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 	compiled := Validation{Message: rule.Message}
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(rule.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, rule.Expression)
+		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, msg))
 		}
-		program, err := env.Program(ast)
+		program, err := NewProgram(env, ast)
 		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.Expression, err.Error()))
 		}
@@ -318,15 +318,15 @@ func CompileValidation(path *field.Path, env *cel.Env, rule admissionregistratio
 	}
 	if rule.MessageExpression != "" {
 		path := path.Child("messageExpression")
-		ast, issues := env.Compile(rule.MessageExpression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, rule.MessageExpression)
+		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.StringType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.StringType.TypeName())
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, msg))
 		}
-		program, err := env.Program(ast)
+		program, err := NewProgram(env, ast)
 		if err != nil {
 			return Validation{}, append(allErrs, field.Invalid(path, rule.MessageExpression, err.Error()))
 		}
@@ -347,15 +347,15 @@ func CompileMatchImageReference(path *field.Path, env *cel.Env, match v1beta1.Ma
 	}
 	if match.Expression != "" {
 		path := path.Child("expression")
-		ast, issues := env.Compile(match.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, match.Expression)
+		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, match.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, match.Expression, err.Error()))
 		}
@@ -384,15 +384,15 @@ func CompileGeneration(path *field.Path, env *cel.Env, generation policiesv1beta
 	var allErrs field.ErrorList
 	{
 		path := path.Child("expression")
-		ast, issues := env.Compile(generation.Expression)
-		if err := issues.Err(); err != nil {
+		ast, err := Compile(env, generation.Expression)
+		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
 		}
 		if !ast.OutputType().IsExactType(types.BoolType) {
 			msg := fmt.Sprintf("output is expected to be of type %s", types.BoolType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, generation.Expression, err.Error()))
 		}

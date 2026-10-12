@@ -741,12 +741,15 @@ generator.apply(
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			base, err := NewBaseEnv()
-			assert.NoError(t, err)
-			env, err := base.Extend(
+			// NewEnv with the whole option list in one call, not NewBaseEnv() + a second
+			// Extend: CostLib must be the last function-registering option, so a second
+			// Extend adding more functions afterward leaves them out of the guard
+			// decorator's binding registry and fails construction (env.go's chokepoint
+			// comment).
+			env, err := NewEnv(append(DefaultEnvOptions(),
 				cel.Variable(GeneratorKey, generator.ContextType),
 				generator.Lib(nil, "", versions.KyvernoLatest),
-			)
+			)...)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)
 			assert.Equal(t, tt.wantErrs, gotErrs)

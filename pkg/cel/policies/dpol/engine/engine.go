@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -46,6 +47,9 @@ func NewEngine(nsResolver engine.NamespaceResolver, mapper meta.RESTMapper, cont
 }
 
 func (e *Engine) Handle(ctx context.Context, policy Policy, resource unstructured.Unstructured) (EngineResponse, error) {
+	// A shared CEL cost budget for every policy this call evaluates (requestbudget.Ensure
+	// is a no-op if the webhook handler already set one on ctx).
+	ctx, _ = requestbudget.Ensure(ctx)
 	var ns runtime.Object
 	if resource.GetAPIVersion() != "" && resource.GetKind() != "" {
 		namespace := resource.GetNamespace()

@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -93,6 +94,13 @@ func NewProcessor(client dclient.Interface,
 }
 
 func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
+	// A shared CEL cost budget for every target this mutate-existing UpdateRequest
+	// evaluates below (requestbudget.Charge, wired through program.go's ContextEval);
+	// Process has no caller-supplied ctx to build on, unlike the admission path.
+	// EnsureBackground, not Ensure: this runs under the background-controller pod, whose
+	// chart memory limit is a third of the admission controller's (requestbudget's own
+	// comment on backgroundBudget).
+	ctx, _ := requestbudget.EnsureBackground(context.TODO())
 	var (
 		err      error
 		failures []error
@@ -233,7 +241,7 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				false,
 				admissionpolicy.NewUser(ar.UserInfo),
 			)
-			return p.engine.Evaluate(context.TODO(), attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
+			return p.engine.Evaluate(ctx, attr, *ar, mpolengine.And(mpolengine.MatchNames(policyName), scopePredicate))
 		}
 
 		response, err := evaluate(object)
