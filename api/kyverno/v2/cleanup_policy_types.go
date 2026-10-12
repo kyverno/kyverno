@@ -279,6 +279,13 @@ func ValidateSchedule(path *field.Path, schedule string) (errs field.ErrorList) 
 	return errs
 }
 
+// maxMatchExcludeConflictPairs bounds the match x exclude comparison this
+// lint performs. Above it, the lint is skipped (a no-op, nothing is
+// rejected) rather than iterating an attacker-sized product. This
+// comparison is DeepEqual-based, so the wildcard matcher's own step budget
+// never protects it -- this cap is its only bound.
+const maxMatchExcludeConflictPairs = 65536
+
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
 func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
 	if spec.ExcludeResources == nil || len(spec.ExcludeResources.All) > 0 || len(spec.MatchResources.All) > 0 {
@@ -286,6 +293,9 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 	}
 	// if both have any then no resource should be common
 	if len(spec.MatchResources.Any) > 0 && len(spec.ExcludeResources.Any) > 0 {
+		if len(spec.MatchResources.Any)*len(spec.ExcludeResources.Any) > maxMatchExcludeConflictPairs {
+			return errs
+		}
 		for _, rmr := range spec.MatchResources.Any {
 			for _, rer := range spec.ExcludeResources.Any {
 				if datautils.DeepEqual(rmr, rer) {

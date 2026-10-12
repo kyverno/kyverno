@@ -494,3 +494,22 @@ func Test_APICallConfiguration_GetTimeout(t *testing.T) {
 	config = APICallConfiguration{maxAPICallResponseLength: 1000, timeout: 0}
 	assert.Equal(t, time.Duration(0), config.GetTimeout())
 }
+
+func Test_transformAndStore_NonStringJMESPathDoesNotPanic(t *testing.T) {
+	ctx := enginecontext.NewContext(jp)
+	err := ctx.AddContextEntry("resource", []byte(`{"replicas": 5}`))
+	assert.NilError(t, err)
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			JMESPath: "{{ resource.replicas }}",
+		},
+	}
+
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
+	assert.NilError(t, err)
+
+	_, err = call.transformAndStore([]byte(`{}`))
+	assert.ErrorContains(t, err, "expected string")
+}

@@ -252,6 +252,12 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
+// maxMatchExcludeConflictPairs bounds the match x exclude comparison this
+// lint performs. Above it, the lint is skipped (a no-op, nothing is
+// rejected) rather than iterating an attacker-sized product -- write-time
+// hygiene for a lint, not a correctness requirement.
+const maxMatchExcludeConflictPairs = 65536
+
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
 func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
 	if r.ExcludeResources == nil {
@@ -262,6 +268,9 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 	}
 	// if both have any then no resource should be common
 	if len(r.MatchResources.Any) > 0 && len(r.ExcludeResources.Any) > 0 {
+		if len(r.MatchResources.Any)*len(r.ExcludeResources.Any) > maxMatchExcludeConflictPairs {
+			return errs
+		}
 		for _, rmr := range r.MatchResources.Any {
 			for _, rer := range r.ExcludeResources.Any {
 				if datautils.DeepEqual(rmr, rer) {
@@ -330,6 +339,10 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		// if exclude block has something and match doesn't it means we
 		// have a non empty set
 		if len(r.MatchResources.Names) == 0 {
+			return errs
+		}
+
+		if len(matchSlice)*len(excludeSlice) > maxMatchExcludeConflictPairs {
 			return errs
 		}
 

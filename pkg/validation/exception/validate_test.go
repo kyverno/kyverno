@@ -2,6 +2,7 @@ package exception
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -72,4 +73,49 @@ func Test_Validate(t *testing.T) {
 			assert.Assert(t, len(warnings) == c.want)
 		})
 	}
+}
+
+func TestValidateGlobLengths(t *testing.T) {
+	overLimit := strings.Repeat("a", 2049)
+
+	t.Run("over limit name in match.any is rejected", func(t *testing.T) {
+		raw := []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"e","namespace":"ns"},"spec":{"exceptions":[{"policyName":"p","ruleNames":["r"]}],"match":{"any":[{"resources":{"kinds":["Pod"],"names":["` + overLimit + `"]}}]}}}`)
+		polex, err := admissionutils.UnmarshalPolicyException(raw)
+		assert.NilError(t, err)
+
+		err = ValidateGlobLengths(polex)
+		assert.Assert(t, err != nil)
+		assert.ErrorContains(t, err, "exceeds the maximum allowed length")
+	})
+
+	t.Run("at limit name in match.all is accepted", func(t *testing.T) {
+		atLimit := strings.Repeat("a", 2048)
+		raw := []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"e","namespace":"ns"},"spec":{"exceptions":[{"policyName":"p","ruleNames":["r"]}],"match":{"all":[{"resources":{"kinds":["Pod"],"names":["` + atLimit + `"]}}]}}}`)
+		polex, err := admissionutils.UnmarshalPolicyException(raw)
+		assert.NilError(t, err)
+
+		err = ValidateGlobLengths(polex)
+		assert.NilError(t, err)
+	})
+}
+
+func TestValidateGlobLengthsRejectsOversizedRuleName(t *testing.T) {
+	overLimit := strings.Repeat("a", 2049)
+	raw := []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"e","namespace":"ns"},"spec":{"exceptions":[{"policyName":"p","ruleNames":["` + overLimit + `"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`)
+	polex, err := admissionutils.UnmarshalPolicyException(raw)
+	assert.NilError(t, err)
+
+	err = ValidateGlobLengths(polex)
+	assert.Assert(t, err != nil)
+	assert.ErrorContains(t, err, "exceeds the maximum allowed length")
+}
+
+func TestValidateGlobLengthsAcceptsRuleNameAtLimit(t *testing.T) {
+	atLimit := strings.Repeat("a", 2048)
+	raw := []byte(`{"apiVersion":"kyverno.io/v2","kind":"PolicyException","metadata":{"name":"e","namespace":"ns"},"spec":{"exceptions":[{"policyName":"p","ruleNames":["` + atLimit + `"]}],"match":{"any":[{"resources":{"kinds":["Pod"]}}]}}}`)
+	polex, err := admissionutils.UnmarshalPolicyException(raw)
+	assert.NilError(t, err)
+
+	err = ValidateGlobLengths(polex)
+	assert.NilError(t, err)
 }

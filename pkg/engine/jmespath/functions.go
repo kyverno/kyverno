@@ -25,6 +25,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
@@ -85,6 +86,24 @@ var (
 	SHA1                   = "sha1"
 	MD5                    = "md5"
 )
+
+// maxPatternOperandLength bounds the pattern operand of pattern_match,
+// regex_match, regex_replace_all, and regex_replace_all_literal. All four
+// share the same product-shape cost -- work proportional to input length
+// times pattern length, with both operands attacker-sizable -- so the
+// same cap keeps each call's per-byte cost linear instead of quadratic.
+// 1024 is well above the longest legitimate glob/regex shapes seen in
+// policies (image references, paths).
+const maxPatternOperandLength = 1024
+
+// checkPatternOperandLength caps a function's pattern operand length,
+// returning a visible, fail-closed expression error over the cap.
+func checkPatternOperandLength(functionName, pattern string) error {
+	if n := utf8.RuneCountInString(pattern); n > maxPatternOperandLength {
+		return formatError(argumentLengthExceeded, functionName, 1, maxPatternOperandLength, n)
+	}
+	return nil
+}
 
 func GetFunctions(configuration config.Configuration) []FunctionEntry {
 	return []FunctionEntry{{
@@ -754,6 +773,9 @@ func jpRegexReplaceAll(arguments []any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkPatternOperandLength(regexReplaceAll, regex.String()); err != nil {
+		return nil, err
+	}
 
 	src, err := ifaceToString(arguments[1])
 	if err != nil {
@@ -776,6 +798,9 @@ func jpRegexReplaceAllLiteral(arguments []any) (any, error) {
 	var err error
 	regex, err := validateArg(regexReplaceAllLiteral, arguments, 0, reflect.String)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkPatternOperandLength(regexReplaceAllLiteral, regex.String()); err != nil {
 		return nil, err
 	}
 
@@ -802,6 +827,9 @@ func jpRegexMatch(arguments []any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := checkPatternOperandLength(regexMatch, regex.String()); err != nil {
+		return nil, err
+	}
 
 	src, err := ifaceToString(arguments[1])
 	if err != nil {
@@ -814,6 +842,9 @@ func jpRegexMatch(arguments []any) (any, error) {
 func jpPatternMatch(arguments []any) (any, error) {
 	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
 	if err != nil {
+		return nil, err
+	}
+	if err := checkPatternOperandLength(patternMatch, pattern.String()); err != nil {
 		return nil, err
 	}
 
@@ -1168,7 +1199,10 @@ func ifaceToString(iface any) (string, error) {
 }
 
 func jpRandom(arguments []any) (any, error) {
-	pattern := arguments[0].(string)
+	pattern, ok := arguments[0].(string)
+	if !ok {
+		return nil, formatError(invalidArgumentTypeError, random, 1, "String")
+	}
 	if pattern == "" {
 		return "", errors.New("no pattern provided")
 	}

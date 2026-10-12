@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -1298,4 +1299,399 @@ func Test_ReplaceAllVars(t *testing.T) {
 
 	result = ReplaceAllVars("{{ foo {{foo}} }}", func(s string) string { return "test" })
 	assert.Equal(t, result, "{{ foo test }}")
+}
+
+func Test_SubstituteDoesNotRescanSubstitutedValue(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"badValue": "prefix {{ badValue }} suffix",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	patternRaw := []byte(`"prefix {{ badValue }} suffix"`)
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), `"prefix prefix {{ badValue }} suffix suffix"`)
+}
+
+func Test_SubstituteTerminatesWhenValueReintroducesTemplate(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"msg": "X{{ msg }}",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "A{{ msg }}",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "AX{{ msg }}")
+}
+
+func Test_SubstitutedValueTailIsNotRescanned(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"obj": map[string]interface{}{
+			"k": "{{ x }}",
+		},
+		"x": "RESOLVED",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "{{ obj }}Z",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), `{"k":"{{ x }}"}Z`)
+}
+
+func Test_AdjacentVariableAfterLongSubstitutionStillResolves(t *testing.T) {
+	ctx := context.NewContext(jp)
+	longValue := strings.Repeat("x", 200)
+	data := map[string]interface{}{
+		"a": longValue,
+		"b": "resolved_b",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "{{ a }}-{{ b }}",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), longValue+"-resolved_b")
+}
+
+func Test_DuplicateTokensBothResolve(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"x": "dup",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "{{ x }} and {{ x }}",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "dup and dup")
+}
+
+func Test_NestedSubstitutionCountEqualsBraceCountDoesNotError(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"inner": "b",
+		"meta": map[string]interface{}{
+			"b": "resolved_meta_b",
+		},
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	patternRaw := []byte(`"{{ meta.{{ inner }} }}"`)
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), `"resolved_meta_b"`)
+}
+
+func Test_AliasChainResolvesThroughHops(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"x": "{{y}}",
+		"y": "{{z}}",
+		"z": "final",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "A{{ x }}B",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "AfinalB")
+}
+
+func Test_SelfReferentialAliasReturnsError(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"x": "{{x}}",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	_, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "A{{ x }}B",
+		Path:     "/",
+	})
+
+	assert.ErrorContains(t, err, "cyclic")
+}
+
+func Test_AliasCycleReturnsError(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"x": "{{y}}",
+		"y": "{{x}}",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	_, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "A{{ x }}B",
+		Path:     "/",
+	})
+
+	assert.ErrorContains(t, err, "cyclic")
+}
+
+func Test_EmbeddedTokenInResolvedValueStaysLiteral(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"outer": "A{{ msg }}B",
+		"msg":   "oops",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "X{{ outer }}Y",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "XA{{ msg }}BY")
+}
+
+func Test_MultiTokenResolvedValueStaysLiteral(t *testing.T) {
+	ctx := context.NewContext(jp)
+	big := strings.Repeat("{{tok}} ", 50)
+	data := map[string]interface{}{
+		"big": big,
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "prefix {{ big }} suffix",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "prefix "+big+" suffix")
+}
+
+func Test_WholeLeafAliasReturnsRawValue(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"variablesNested": "{{foo2}}",
+		"foo2":            "bar2",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "{{variablesNested}}",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), "{{foo2}}")
+}
+
+func Test_SubstituteShallowNonStringValueEscapesEmbeddedBraces(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"obj": map[string]interface{}{
+			"k": "{{ x }}",
+		},
+		"x": "should-not-resolve",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "prefix {{- obj }} suffix",
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), `prefix {"k":"{{ x }}"} suffix`)
+}
+
+// Test_AcyclicAliasChainHitsHardSubstitutionCap pins the hard backstop
+// (independent of budget and the visited cycle-detection set): a long,
+// strictly acyclic alias chain -- each hop introduces a brand new name, so
+// the visited set never repeats and budget keeps replenishing by one per
+// alias hop -- must still stop once it crosses the absolute cap, rather
+// than running for as many substitutions as there are distinct addressable
+// names in context.
+func Test_AcyclicAliasChainHitsHardSubstitutionCap(t *testing.T) {
+	ctx := context.NewContext(jp)
+
+	chainLength := maxTotalSubstitutions + 1
+	data := make(map[string]interface{}, chainLength+1)
+	for i := 0; i < chainLength; i++ {
+		data[fmt.Sprintf("v%d", i)] = fmt.Sprintf("{{v%d}}", i+1)
+	}
+	data[fmt.Sprintf("v%d", chainLength)] = "terminal"
+
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	_, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "A{{ v0 }}B",
+		Path:     "/",
+	})
+
+	assert.ErrorContains(t, err, "exceeded the hard limit on total variable substitutions")
+}
+
+// Test_SubstitutionOutputSizeIsBoundedPerLeaf pins the output-size cap: a
+// single substitution whose resolved value, spliced into surrounding text,
+// exceeds maxSubstitutedOutputBytes is rejected. The count cap alone does not
+// catch this -- it is one substitution.
+func Test_SubstitutionOutputSizeIsBoundedPerLeaf(t *testing.T) {
+	ctx := context.NewContext(jp)
+	big := strings.Repeat("a", maxSubstitutedOutputBytes+1)
+	assert.NilError(t, context.AddJSONObject(ctx, map[string]interface{}{"big": big}))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	_, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  "A{{ big }}B",
+		Path:     "/",
+	})
+
+	assert.ErrorContains(t, err, "exceeded the maximum substituted output size")
+}
+
+// Test_SubstitutionOutputSizeIsBoundedPerDocument pins that the output cap is
+// per-document, not per-leaf: many leaves each under the cap cannot
+// collectively expand the document past it.
+func Test_SubstitutionOutputSizeIsBoundedPerDocument(t *testing.T) {
+	ctx := context.NewContext(jp)
+	chunk := strings.Repeat("a", 1<<20) // 1 MiB, well under the per-leaf cap
+	assert.NilError(t, context.AddJSONObject(ctx, map[string]interface{}{"c": chunk}))
+
+	// 12 leaves, each embedding a 1 MiB substitution: ~12 MiB total output,
+	// over the 10 MiB per-document cap though no single leaf exceeds it.
+	doc := make(map[string]interface{}, 12)
+	for i := 0; i < 12; i++ {
+		doc[fmt.Sprintf("f%d", i)] = "x{{ c }}y"
+	}
+
+	_, err := SubstituteAll(logr.Discard(), ctx, doc)
+	assert.ErrorContains(t, err, "exceeded the maximum substituted output size")
+}
+
+// Test_SubstitutionOutputSizeBoundsWholeLeafForm pins that the cap also covers
+// a leaf that is exactly "{{ var }}" (the most common authoring shape), which
+// returns the resolved value directly. Many such leaves each resolving a large
+// value expand the marshalled document without bound, so this path must be
+// accounted too, not only the embedded "x{{ var }}y" form.
+func Test_SubstitutionOutputSizeBoundsWholeLeafForm(t *testing.T) {
+	ctx := context.NewContext(jp)
+	chunk := strings.Repeat("a", 1<<20) // 1 MiB, well under the per-leaf cap
+	assert.NilError(t, context.AddJSONObject(ctx, map[string]interface{}{"c": chunk}))
+
+	// 12 whole-leaf "{{ c }}" fields: ~12 MiB total, over the 10 MiB cap.
+	doc := make(map[string]interface{}, 12)
+	for i := 0; i < 12; i++ {
+		doc[fmt.Sprintf("f%d", i)] = "{{ c }}"
+	}
+
+	_, err := SubstituteAll(logr.Discard(), ctx, doc)
+	assert.ErrorContains(t, err, "exceeded the maximum substituted output size")
+}
+
+// Test_SubstitutionManyTokensPerLeafIsCorrect pins that a leaf carrying many
+// tokens resolves every one correctly, both adjacent and separated by text.
+// The substitution loop resolves a whole pass of tokens at once rather than one
+// per full-string rescan; this guards that batching keeps per-token semantics.
+func Test_SubstitutionManyTokensPerLeafIsCorrect(t *testing.T) {
+	ctx := context.NewContext(jp)
+	assert.NilError(t, context.AddJSONObject(ctx, map[string]interface{}{"a": "A", "b": "B"}))
+
+	const n = 1000
+	adjacent := strings.Repeat("{{ a }}", n)
+	out, err := SubstituteAll(logr.Discard(), ctx, adjacent)
+	assert.NilError(t, err)
+	assert.Equal(t, out, strings.Repeat("A", n))
+
+	separated := strings.Repeat("{{ a }}-{{ b }}|", n)
+	out, err = SubstituteAll(logr.Discard(), ctx, separated)
+	assert.NilError(t, err)
+	assert.Equal(t, out, strings.Repeat("A-B|", n))
+}
+
+// Test_SubstitutionCostIsNotQuadratic guards the substitution loop against the
+// O(tokens x length) shape it once had, where a full-string rescan ran per
+// token. A leaf of many tokens whose combined output stays under the size cap
+// must still complete in roughly linear time. The bound is deliberately loose
+// so it is not timing-flaky: the quadratic form took tens of seconds at 3 MiB
+// where the linear form takes well under a second.
+func Test_SubstitutionCostIsNotQuadratic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("timing-sensitive; skipped under -short")
+	}
+	ctx := context.NewContext(jp)
+	chunk := strings.Repeat("a", 5000)
+	assert.NilError(t, context.AddJSONObject(ctx, map[string]interface{}{"c": chunk}))
+
+	// ~3 MiB of output across ~629 tokens, well under the 10 MiB cap.
+	leaf := strings.Repeat("{{ c }}", 629)
+
+	start := time.Now()
+	out, err := SubstituteAll(logr.Discard(), ctx, leaf)
+	elapsed := time.Since(start)
+
+	assert.NilError(t, err)
+	assert.Equal(t, len(out.(string)), 629*5000)
+	// Measured on this workload: linear 0.22s, the quadratic predecessor 29.4s.
+	// A flat budget cannot serve both builds -- 10s is below the instrumented
+	// linear cost on a CI runner (10.17s), and anything high enough to clear that
+	// stops catching a 29.4s quadratic. So scale with the instrumentation instead:
+	// CI runs `go test -race -covermode atomic`, roughly 20x uninstrumented.
+	budget := 10 * time.Second
+	if raceEnabled {
+		budget = 120 * time.Second
+	}
+	if elapsed > budget {
+		t.Fatalf("substitution of %d tokens took %s (budget %s), expected roughly linear (quadratic regression?)", 629, elapsed, budget)
+	}
 }
