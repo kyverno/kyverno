@@ -12,9 +12,9 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
@@ -287,7 +287,7 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 			transform.Latest(),
 		),
 		gzip.Lib(
-			gzip.Latest(),
+			gzip.Latest(), 0,
 		),
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
@@ -295,7 +295,9 @@ func (c *compilerImpl) createBaseVpolEnv(libsctx libs.Context, namespace string)
 		),
 	}
 
-	extendedBase, err := base.Extend(
+	// compiler.BaseEnvSet, not base.Extend: registers CostLib last, in this one Extend
+	// call (see pkg/cel/compiler/env.go).
+	extendedBase, err := compiler.BaseEnvSet(vpolCompilerVersion,
 		environment.VersionedOptions{
 			IntroducedVersion: vpolCompilerVersion,
 			EnvOptions:        baseOpts,
