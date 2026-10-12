@@ -105,8 +105,8 @@ func TestForRef_RejectsUnknownConfigSize(t *testing.T) {
 
 	_, err := adapter.ForRef(context.Background(), ref)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "config size")
-	assert.True(t, errors.Is(err, verifiers.ErrLayerTooLarge), "got %v", err)
+	assert.Contains(t, err.Error(), "not a valid declared size")
+	assert.False(t, errors.Is(err, verifiers.ErrLayerTooLarge), "a malformed descriptor is not a size refusal: %v", err)
 }
 
 func TestForRef_AcceptsNormalConfig(t *testing.T) {
