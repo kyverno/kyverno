@@ -96,6 +96,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 	responses := []generateResponse{}
 	var err error
 	var newGenResources []kyvernov1.ResourceSpec
+	var capacityErr error
 
 	if err := g.loadContext(context.TODO()); err != nil {
 		return newGenResources, fmt.Errorf("failed to load context: %v", err)
@@ -172,7 +173,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		logger.V(3).Info("applying generate rule", "mode", response.GetAction())
 		if response.GetData() == nil && response.GetAction() == Update {
 			logger.V(4).Info("no changes required for generate target resource")
-			return newGenResources, nil
+			continue
 		}
 
 		newResource := &unstructured.Unstructured{}
@@ -188,6 +189,13 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 		g.preserveProvenanceAnnotation(newResource, nil)
 		var persisted *unstructured.Unstructured
 		if response.GetAction() == Create {
+			if err := g.checkProvenanceCapacity(context.TODO(), newResource); err != nil {
+				if errors.Is(err, errGeneratedReceiptCapacity) {
+					capacityErr = err
+					continue
+				}
+				return newGenResources, err
+			}
 			newResource.SetResourceVersion("")
 			if g.policy.GetSpec().UseServerSideApply {
 				persisted, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
@@ -211,6 +219,13 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 			generatedObj, err := g.client.GetResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName())
 			if err != nil {
 				logger.V(2).Info("creating new target due to the failure when fetching", "err", err.Error())
+				if err := g.checkProvenanceCapacity(context.TODO(), newResource); err != nil {
+					if errors.Is(err, errGeneratedReceiptCapacity) {
+						capacityErr = err
+						continue
+					}
+					return newGenResources, err
+				}
 				if g.policy.GetSpec().UseServerSideApply {
 					persisted, err = g.client.ApplyResource(context.TODO(), targetMeta.GetAPIVersion(), targetMeta.GetKind(), targetMeta.GetNamespace(), targetMeta.GetName(), newResource, false, "generate")
 				} else {
@@ -250,6 +265,10 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 				if err := validate.MatchPattern(logger, newResource.Object, generatedObj.Object); err == nil {
 					if err := validate.MatchPattern(logger, generatedObj.Object, newResource.Object); err == nil {
 						if err := g.stampProvenance(context.TODO(), generatedObj, newResource.GetLabels()); err != nil {
+							if errors.Is(err, errGeneratedReceiptCapacity) {
+								capacityErr = err
+								continue
+							}
 							return newGenResources, err
 						}
 						logger.V(4).Info("patterns match, skipping updates")
@@ -259,6 +278,13 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 
 				logger.V(4).Info("updating existing resource")
 
+				if err := g.checkProvenanceCapacity(context.TODO(), newResource); err != nil {
+					if errors.Is(err, errGeneratedReceiptCapacity) {
+						capacityErr = err
+						continue
+					}
+					return newGenResources, err
+				}
 				if g.policy.GetSpec().UseServerSideApply {
 					persisted, err = g.client.ApplyResource(context.TODO(), effectiveAPIVersion, targetMeta.GetKind(), effectiveNamespace, targetMeta.GetName(), newResource, false, "generate")
 				} else {
@@ -275,7 +301,7 @@ func (g *generator) generate() ([]kyvernov1.ResourceSpec, error) {
 			logger.V(3).Info("updated generate target resource")
 		}
 	}
-	return newGenResources, nil
+	return newGenResources, capacityErr
 }
 
 // Keep the controller-owned stamp out of policy/clone data comparisons. Only an
@@ -319,14 +345,22 @@ func (g *generator) stampProvenance(ctx context.Context, persisted *unstructured
 	if err != nil {
 		return fmt.Errorf("%w: sign generated resource provenance: %w", errGeneratedProvenance, err)
 	}
+	if persisted.GetAnnotations()[provenance.Annotation] == stamp {
+		return nil
+	}
+	receipt := generationReceipt{
+		Target: common.ResourceSpecFromUnstructured(*persisted),
+		Labels: generateRoutingLabels(persisted.GetLabels()), Stamp: stamp,
+	}
+	if g.pending != nil {
+		if err := g.pending.checkCapacity(ctx, receipt, 0); err != nil {
+			return fmt.Errorf("%w: %w", errGeneratedProvenance, err)
+		}
+	}
 	if err := g.patchProvenance(ctx, persisted, stamp); err != nil {
 		if g.pending != nil {
 			// Only a failed (possibly ambiguously completed) patch needs durable
 			// recovery. Ordinary generation does not write extra request metadata.
-			receipt := generationReceipt{
-				Target: common.ResourceSpecFromUnstructured(*persisted),
-				Labels: generateRoutingLabels(persisted.GetLabels()), Stamp: stamp,
-			}
 			if saveErr := g.pending.save(ctx, receipt); saveErr != nil {
 				return multierr.Combine(err, fmt.Errorf("%w: save generated resource receipt: %w", errGeneratedProvenance, saveErr))
 			}
@@ -375,6 +409,7 @@ func generateRoutingLabels(labels map[string]string) map[string]string {
 
 func (g *generator) generateForeach() ([]kyvernov1.ResourceSpec, error) {
 	var errors []error
+	var capacityErr error
 	var genResources []kyvernov1.ResourceSpec
 
 	for i, foreach := range g.forEach {
@@ -384,18 +419,20 @@ func (g *generator) generateForeach() ([]kyvernov1.ResourceSpec, error) {
 			continue
 		}
 		gen, err := g.generateElements(foreach, elements, nil)
-		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to process %v foreach in rule %s: %v", i, g.rule.Name, err))
+		for _, err := range multierr.Errors(err) {
+			err = fmt.Errorf("failed to process %v foreach in rule %s: %w", i, g.rule.Name, err)
+			errors, capacityErr = collectGenerationErrors(errors, capacityErr, err)
 		}
 		if gen != nil {
 			genResources = append(genResources, gen...)
 		}
 	}
-	return genResources, multierr.Combine(errors...)
+	return genResources, multierr.Combine(append(errors, capacityErr)...)
 }
 
 func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elements []interface{}, elementScope *bool) ([]kyvernov1.ResourceSpec, error) {
 	var errors []error
+	var capacityErr error
 	var genResources []kyvernov1.ResourceSpec
 	g.policyContext.JSONContext().Checkpoint()
 	defer g.policyContext.JSONContext().Restore()
@@ -426,14 +463,24 @@ func (g *generator) generateElements(foreach kyvernov1.ForEachGeneration, elemen
 		child.provenance = g.provenance
 		child.pending = g.pending
 		gen, err := child.generate()
-		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to process %v element: %v", index, err))
+		for _, err := range multierr.Errors(err) {
+			err = fmt.Errorf("failed to process %v element: %w", index, err)
+			errors, capacityErr = collectGenerationErrors(errors, capacityErr, err)
 		}
 		if gen != nil {
 			genResources = append(genResources, gen...)
 		}
 	}
-	return genResources, multierr.Combine(errors...)
+	return genResources, multierr.Combine(append(errors, capacityErr)...)
+}
+
+// Keep scanning capacity-blocked elements for receipts that can be recovered
+// later in the batch, without building an unbounded repeated status message.
+func collectGenerationErrors(errs []error, capacityErr, err error) ([]error, error) {
+	if errors.Is(err, errGeneratedReceiptCapacity) {
+		return errs, err
+	}
+	return append(errs, err), capacityErr
 }
 
 func (g *generator) loadContext(ctx context.Context) error {

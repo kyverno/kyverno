@@ -3,6 +3,7 @@ package generate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	kyvernov2client "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apivalidation "k8s.io/apimachinery/pkg/api/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -21,6 +23,18 @@ import (
 )
 
 const pendingProvenanceAnnotation = "generate.kyverno.io/pending-provenance"
+
+const (
+	// Keep the ledger below the aggregate annotation limit, with a conservative
+	// request-size budget that also leaves room for status and metadata updates.
+	maxPendingProvenanceBytes      = 128 * 1024
+	maxGenerationRetryRequestBytes = 1024 * 1024
+	// The desired routing labels are counted exactly. Reserve additional space
+	// for the server UID, resolved API version/namespace/name and final stamp.
+	generationReceiptHeadroomBytes = 4 * 1024
+)
+
+var errGeneratedReceiptCapacity = errors.New("generated resource receipt capacity exceeded")
 
 // A receipt retains the final stamp produced from an independently authorized
 // server response. UpdateRequest metadata is not itself trusted: recovery must
@@ -38,6 +52,12 @@ type generationRetry struct {
 	policyUID types.UID
 	receipts  []generationReceipt
 	loaded    bool
+	// Cached sizes exclude the current ledger from the request/annotation base.
+	// receiptObjectBytes includes the ledger's second layer of JSON escaping.
+	annotationBytes    int
+	requestBytes       int
+	receiptBytes       int
+	receiptObjectBytes int
 }
 
 func (r *generationRetry) read(ctx context.Context) (*kyvernov2.UpdateRequest, []generationReceipt, error) {
@@ -64,13 +84,87 @@ func (r *generationRetry) read(ctx context.Context) (*kyvernov2.UpdateRequest, [
 // a receipt when the informer has not observed a previous failed attempt yet.
 func (r *generationRetry) load(ctx context.Context) ([]generationReceipt, error) {
 	if !r.loaded {
-		_, receipts, err := r.read(ctx)
+		ur, receipts, err := r.read(ctx)
 		if err != nil {
 			return nil, err
 		}
-		r.receipts, r.loaded = receipts, true
+		if err := r.cache(ur, receipts); err != nil {
+			return nil, err
+		}
 	}
 	return r.receipts, nil
+}
+
+func (r *generationRetry) cache(ur *kyvernov2.UpdateRequest, receipts []generationReceipt) error {
+	base := ur.DeepCopy()
+	annotations := base.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[pendingProvenanceAnnotation] = ""
+	base.SetAnnotations(annotations)
+	encoded, err := json.Marshal(base)
+	if err != nil {
+		return err
+	}
+	annotationBytes := 0
+	for key, value := range annotations {
+		annotationBytes += len(key) + len(value)
+	}
+	ledger, err := json.Marshal(receipts)
+	if err != nil {
+		return err
+	}
+	if len(receipts) == 0 {
+		ledger = []byte("[]")
+	}
+	quoted, err := json.Marshal(string(ledger))
+	if err != nil {
+		return err
+	}
+	r.annotationBytes, r.requestBytes = annotationBytes, len(encoded)
+	r.receiptBytes, r.receiptObjectBytes = len(ledger), len(quoted)-2
+	r.receipts, r.loaded = receipts, true
+	return nil
+}
+
+func (r *generationRetry) checkCapacity(ctx context.Context, receipt generationReceipt, headroom int) error {
+	if _, err := r.load(ctx); err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(receipt)
+	if err != nil {
+		return err
+	}
+	quoted, err := json.Marshal(string(encoded))
+	if err != nil {
+		return err
+	}
+	ledgerBytes := r.receiptBytes + len(encoded) + headroom
+	objectBytes := r.receiptObjectBytes + len(quoted) - 2 + 2*headroom
+	if len(r.receipts) != 0 {
+		ledgerBytes++ // Comma before the additional receipt.
+		objectBytes++
+	}
+	if ledgerBytes > maxPendingProvenanceBytes ||
+		r.annotationBytes+ledgerBytes > apivalidation.TotalAnnotationSizeLimitB ||
+		r.requestBytes+objectBytes > maxGenerationRetryRequestBytes {
+		return fmt.Errorf("%w: recover pending receipts or reduce update request metadata before generating more targets", errGeneratedReceiptCapacity)
+	}
+	return nil
+}
+
+func (g *generator) checkProvenanceCapacity(ctx context.Context, desired *unstructured.Unstructured) error {
+	if g.provenance == nil || g.pending == nil {
+		return nil
+	}
+	target := common.ResourceSpecFromUnstructured(*desired)
+	target.UID = "" // Creation uses a server-assigned identity.
+	receipt := generationReceipt{Target: target, Labels: generateRoutingLabels(desired.GetLabels())}
+	if err := g.pending.checkCapacity(ctx, receipt, generationReceiptHeadroomBytes); err != nil {
+		return fmt.Errorf("%w: %w", errGeneratedProvenance, err)
+	}
+	return nil
 }
 
 func (r *generationRetry) save(ctx context.Context, receipt generationReceipt) error {
@@ -100,6 +194,7 @@ func (r *generationRetry) modify(ctx context.Context, change func([]generationRe
 		if err != nil {
 			return err
 		}
+		previousCount := len(receipts)
 		receipts = change(receipts)
 		annotations := ur.GetAnnotations()
 		if annotations == nil {
@@ -115,13 +210,29 @@ func (r *generationRetry) modify(ctx context.Context, change func([]generationRe
 			annotations[pendingProvenanceAnnotation] = string(encoded)
 		}
 		if previous == annotations[pendingProvenanceAnnotation] {
-			r.receipts, r.loaded = receipts, true
-			return nil
+			return r.cache(ur, receipts)
 		}
 		ur.SetAnnotations(annotations)
-		_, err = r.requests.Update(ctx, ur, metav1.UpdateOptions{})
+		if len(receipts) > previousCount {
+			// Recheck live metadata on every conflict retry. Recovery/removal must
+			// remain possible for ledgers written before these bounds existed.
+			if len(annotations[pendingProvenanceAnnotation]) > maxPendingProvenanceBytes {
+				return fmt.Errorf("%w: pending receipt ledger exceeds %d bytes", errGeneratedReceiptCapacity, maxPendingProvenanceBytes)
+			}
+			if err := apivalidation.ValidateAnnotationsSize(annotations); err != nil {
+				return fmt.Errorf("%w: %w", errGeneratedReceiptCapacity, err)
+			}
+			encoded, err := json.Marshal(ur)
+			if err != nil {
+				return err
+			}
+			if len(encoded) > maxGenerationRetryRequestBytes {
+				return fmt.Errorf("%w: update request exceeds %d bytes", errGeneratedReceiptCapacity, maxGenerationRetryRequestBytes)
+			}
+		}
+		updated, err := r.requests.Update(ctx, ur, metav1.UpdateOptions{})
 		if err == nil {
-			r.receipts, r.loaded = receipts, true
+			return r.cache(updated, receipts)
 		}
 		return err
 	})
