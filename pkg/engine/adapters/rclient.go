@@ -7,11 +7,9 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
 )
-
-// an attacker-authored config descriptor otherwise sizes this read
-const maxConfigSize = int64(10 * 1000 * 1000)
 
 type rclientAdapter struct {
 	registryclient.Client
@@ -50,8 +48,9 @@ func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.Ima
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}
-	if manifest.Config.Size > maxConfigSize {
-		return nil, fmt.Errorf("config size %d exceeds %d for image reference: %s", manifest.Config.Size, maxConfigSize, ref)
+	// Without this the config descriptor the registry serves sizes the read.
+	if limit := verifiers.PayloadLimit(); manifest.Config.Size > limit {
+		return nil, fmt.Errorf("%w: config size %d exceeds %d for image reference: %s", verifiers.ErrLayerTooLarge, manifest.Config.Size, limit, ref)
 	}
 	rawConfig, err := image.RawConfigFile()
 	if err != nil {

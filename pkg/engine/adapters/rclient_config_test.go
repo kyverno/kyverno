@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,7 +69,7 @@ func pushImageWithConfig(t *testing.T, configSize int) string {
 }
 
 func TestForRef_RejectsOversizedConfig(t *testing.T) {
-	ref := pushImageWithConfig(t, int(maxConfigSize)+1)
+	ref := pushImageWithConfig(t, int(verifiers.PayloadLimit())+1)
 	adapter := RegistryClient(registryclient.New())
 	require.NotNil(t, adapter)
 
@@ -75,6 +77,7 @@ func TestForRef_RejectsOversizedConfig(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "config size")
 	assert.Contains(t, err.Error(), "exceeds")
+	assert.True(t, errors.Is(err, verifiers.ErrLayerTooLarge), "a size refusal must be distinguishable: %v", err)
 }
 
 func TestForRef_AcceptsNormalConfig(t *testing.T) {
