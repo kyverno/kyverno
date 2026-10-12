@@ -709,7 +709,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | backgroundController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 |
 | backgroundController.metering.collector | string | `""` | Otel collector endpoint |
 | backgroundController.metering.creds | string | `""` | Otel collector credentials |
-| backgroundController.server | object | `{"port":9443}` | backgroundController server port in case you are using hostNetwork: true, you might want to change the port the backgroundController is listening to |
+| backgroundController.server | deprecated | `{"port":9443}` | backgroundController server port. The background controller does not expose an HTTP/webhook server. |
 | backgroundController.profiling.enabled | bool | `false` | Enable profiling |
 | backgroundController.profiling.port | int | `6060` | Profiling endpoint port |
 | backgroundController.profiling.serviceType | string | `"ClusterIP"` | Service type. |
@@ -918,7 +918,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | reportsController.metering.tlsKeyAlgorithm | string | `"RSA"` | Key algorithm for self-signed TLS certificates. Supported values: RSA, ECDSA, Ed25519 |
 | reportsController.metering.collector | string | `nil` | Otel collector endpoint |
 | reportsController.metering.creds | string | `nil` | Otel collector credentials |
-| reportsController.server | object | `{"port":9443}` | reportsController server port in case you are using hostNetwork: true, you might want to change the port the reportsController is listening to |
+| reportsController.server | deprecated | `{"port":9443}` | reportsController server port. The reports controller does not expose an HTTP/webhook server. |
 | reportsController.profiling.enabled | bool | `false` | Enable profiling |
 | reportsController.profiling.port | int | `6060` | Profiling endpoint port |
 | reportsController.profiling.serviceType | string | `"ClusterIP"` | Service type. |

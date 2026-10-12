@@ -1963,8 +1963,8 @@ backgroundController:
     # -- Otel collector credentials
     creds: ''
 
-  # -- backgroundController server port
-  # in case you are using hostNetwork: true, you might want to change the port the backgroundController is listening to
+  # -- (deprecated) backgroundController server port.
+  # The background controller does not expose an HTTP/webhook server.
   server:
     port: 9443
 
@@ -2741,8 +2741,8 @@ reportsController:
     # -- (string) Otel collector credentials
     creds: ~
 
-  # -- reportsController server port
-  # in case you are using hostNetwork: true, you might want to change the port the reportsController is listening to
+  # -- (deprecated) reportsController server port.
+  # The reports controller does not expose an HTTP/webhook server.
   server:
     port: 9443
 
