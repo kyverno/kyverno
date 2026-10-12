@@ -33,6 +33,13 @@ func ReadLayerLimited(layer v1.Layer, maxSize int64) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A negative size means the descriptor declares no size, which also turns off
+	// go-containerregistry's own bound on the body: measured 10 MB of compressed
+	// input consumed for 1 byte of output. Not a size refusal - raising the limit
+	// would not help - so it carries no sentinel and is treated as malformed.
+	if size < 0 {
+		return nil, fmt.Errorf("layer declares an unknown size")
+	}
 	if size > maxSize {
 		return nil, fmt.Errorf("%w: layer size %d exceeds %d", ErrLayerTooLarge, size, maxSize)
 	}
