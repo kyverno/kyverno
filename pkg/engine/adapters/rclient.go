@@ -48,9 +48,11 @@ func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.Ima
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}
-	// Without this the config descriptor the registry serves sizes the read.
-	if limit := verifiers.PayloadLimit(); manifest.Config.Size > limit {
-		return nil, fmt.Errorf("%w: config size %d exceeds %d for image reference: %s", verifiers.ErrLayerTooLarge, manifest.Config.Size, limit, ref)
+	// Without this the config descriptor the registry serves sizes the read, and a
+	// declared size of -1 means "unknown", which turns off go-containerregistry's
+	// own bound on the body as well.
+	if size, limit := manifest.Config.Size, verifiers.PayloadLimit(); size <= 0 || size > limit {
+		return nil, fmt.Errorf("%w: config size %d is not within (0, %d] for image reference: %s", verifiers.ErrLayerTooLarge, size, limit, ref)
 	}
 	rawConfig, err := image.RawConfigFile()
 	if err != nil {

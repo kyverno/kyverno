@@ -28,7 +28,7 @@ func ReferrersIndexManifest(index ReferrersIndex) (*v1.IndexManifest, error) {
 		return nil, err
 	}
 	if int64(len(raw)) > maxReferrersIndexSize {
-		return nil, fmt.Errorf("referrers index size %d exceeds %d", len(raw), maxReferrersIndexSize)
+		return nil, fmt.Errorf("%w: referrers index size %d exceeds %d", ErrLayerTooLarge, len(raw), maxReferrersIndexSize)
 	}
 	return index.IndexManifest()
 }

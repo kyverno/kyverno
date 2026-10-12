@@ -20,6 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func declared(real, override int64) int64 {
+	if override != 0 {
+		return override
+	}
+	return real
+}
+
 type rawManifest struct{ raw []byte }
 
 func (r rawManifest) RawManifest() ([]byte, error) { return r.raw, nil }
@@ -29,6 +36,13 @@ func (r rawManifest) MediaType() (types.MediaType, error) {
 
 // pushImageWithConfig publishes an image whose config blob is configSize bytes and returns its tagged ref.
 func pushImageWithConfig(t *testing.T, configSize int) string {
+	t.Helper()
+	return pushImageWithDeclaredConfigSize(t, configSize, 0)
+}
+
+// pushImageWithDeclaredConfigSize publishes an image whose config blob is configSize
+// bytes while its manifest declares declaredSize, or the real size when that is 0.
+func pushImageWithDeclaredConfigSize(t *testing.T, configSize int, declaredSize int64) string {
 	t.Helper()
 	srv := httptest.NewServer(registry.New())
 	t.Cleanup(srv.Close)
@@ -57,7 +71,7 @@ func pushImageWithConfig(t *testing.T, configSize int) string {
 		"config": map[string]any{
 			"mediaType": string(types.DockerConfigJSON),
 			"digest":    cfgDigest.String(),
-			"size":      cfgSize,
+			"size":      declared(cfgSize, declaredSize),
 		},
 		"layers": []any{},
 	})
@@ -78,6 +92,21 @@ func TestForRef_RejectsOversizedConfig(t *testing.T) {
 	assert.Contains(t, err.Error(), "config size")
 	assert.Contains(t, err.Error(), "exceeds")
 	assert.True(t, errors.Is(err, verifiers.ErrLayerTooLarge), "a size refusal must be distinguishable: %v", err)
+}
+
+// A declared size of -1 means "unknown", which switches off go-containerregistry's
+// own bound on the config body: measured 410 MiB buffered from a 200 MB blob that
+// verification then accepted. An under-reported size is already refused by the
+// Content-Length check, so only the unknown case needs guarding here.
+func TestForRef_RejectsUnknownConfigSize(t *testing.T) {
+	ref := pushImageWithDeclaredConfigSize(t, 4096, -1)
+	adapter := RegistryClient(registryclient.New())
+	require.NotNil(t, adapter)
+
+	_, err := adapter.ForRef(context.Background(), ref)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "config size")
+	assert.True(t, errors.Is(err, verifiers.ErrLayerTooLarge), "got %v", err)
 }
 
 func TestForRef_AcceptsNormalConfig(t *testing.T) {
