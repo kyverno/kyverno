@@ -25,17 +25,17 @@ type Mutate struct {
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) *Mutate {
+func NewMutateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string, authCache *auth.ResultCache) *Mutate {
 	var authCheckBackground, authCheckerReports auth.AuthChecks
 	if mock || backgroundSA == "" {
 		authCheckBackground = fake.NewFakeAuth()
 	} else {
-		authCheckBackground = auth.NewAuth(client, backgroundSA, logging.GlobalLogger())
+		authCheckBackground = auth.NewCachedAuth(auth.NewAuth(client, backgroundSA, logging.GlobalLogger()), authCache)
 	}
 	if mock || reportsSA == "" {
 		authCheckerReports = fake.NewFakeAuth()
 	} else {
-		authCheckerReports = auth.NewAuth(client, reportsSA, logging.GlobalLogger())
+		authCheckerReports = auth.NewCachedAuth(auth.NewAuth(client, reportsSA, logging.GlobalLogger()), authCache)
 	}
 
 	return &Mutate{
