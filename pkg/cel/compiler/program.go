@@ -36,14 +36,34 @@ func (p *costProgram) Eval(vars any) (ref.Val, *cel.EvalDetails, error) {
 	return p.ContextEval(context.Background(), vars)
 }
 
+// ConcurrentEval charges the same way ContextEval does. Forwarding the inner channel
+// straight through would leave a method on the chokepoint that accounts for nothing, so a
+// future caller could evaluate without ever touching the request budget. Nothing in this
+// repository calls it today; it is implemented so the chokepoint's guarantee holds for
+// anything that does.
 func (p *costProgram) ConcurrentEval(ctx context.Context, vars any) <-chan cel.EvalResult {
-	return p.prg.ConcurrentEval(ctx, vars)
+	in := p.prg.ConcurrentEval(ctx, vars)
+	out := make(chan cel.EvalResult, 1)
+	go func() {
+		defer close(out)
+		for res := range in {
+			res.Val, res.EvalDetails, res.Err = p.account(ctx, res.Val, res.EvalDetails, res.Err)
+			out <- res
+		}
+	}()
+	return out
 }
 
 // ContextEval is the one evaluation path every Kyverno program is expected to go through.
 func (p *costProgram) ContextEval(ctx context.Context, vars any) (ref.Val, *cel.EvalDetails, error) {
 	val, details, err := p.prg.ContextEval(ctx, vars)
+	return p.account(ctx, val, details, err)
+}
 
+// account translates cel-go's own cost cancellation into this package's sentinel and charges
+// the request budget. Shared by ContextEval and ConcurrentEval so neither can drift into
+// evaluating without charging.
+func (p *costProgram) account(ctx context.Context, val ref.Val, details *cel.EvalDetails, err error) (ref.Val, *cel.EvalDetails, error) {
 	var cost uint64
 	if details != nil {
 		if c := details.ActualCost(); c != nil {

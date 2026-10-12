@@ -13,6 +13,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -87,6 +88,11 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
+	// One cost budget for the whole update request, established outside the loop. Inside
+	// it, every iteration would start from a fresh context and so get its own ceiling,
+	// which bounds each rule context rather than the request that contains them.
+	ctx, releaseBudget := requestbudget.EnsureBackground(context.TODO())
+	defer releaseBudget()
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		if ur.Spec.RuleContext[i].DeleteDownstream {
 			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
@@ -130,14 +136,14 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		} else {
 			request = celengine.RequestFromAdmission(workerCtx, *admissionRequest)
 		}
-		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
+		policy, err := c.provider.Get(ctx, ur.Spec.GetPolicyKey())
 		if err != nil {
 			logger.Error(err, "failed to fetch gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
 		isSync := policy.Policy.GetSpec().SynchronizationEnabled()
-		gpolResponse, err := c.engine.Handle(request, policy, ur.Spec.RuleContext[i].CacheRestore)
+		gpolResponse, err := c.engine.Handle(ctx, request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))

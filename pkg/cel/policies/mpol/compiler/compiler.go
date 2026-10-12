@@ -93,7 +93,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
 			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, "output type must be a map"))
 		}
-		targetExpression, err = extendedCompiler.Program(ast)
+		targetExpression, err = compiler.NewProgram(extendedCompiler, ast)
 		if err != nil {
 			return nil, append(allErrs, field.InternalError(path.Child("targetMatchConstraints").Child("expression"), err))
 		}

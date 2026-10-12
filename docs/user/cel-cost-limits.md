@@ -63,11 +63,23 @@ The per-request limit applies to:
 - background mutation of existing resources,
 - the reports scanner.
 
-### Known limitation: generating policies
+Generating policies are included. The generating engine establishes its own budget for the
+generate scope, so a generating policy with many individually-cheap expressions is bounded in
+total as well as per expression.
 
-`GeneratingPolicy` expressions are limited per expression but **not** per request. The generating engine's entry point does not carry the request context needed to total the cost across expressions.
+### Known limitation: CEL evaluated by the API server's own validator
 
-A generating policy with many individually-cheap expressions is therefore not bounded in total. Each expression is still capped at 1,000,000 units, and the argument guards still apply.
+CEL in `kyverno.io/v1` policies, and in ValidatingAdmissionPolicy and
+MutatingAdmissionPolicy emulation, is compiled and evaluated by the API server's validator
+rather than by Kyverno. Those evaluations carry the per-expression limit, the pricing that
+makes it effective, and the argument guards, but **not** the per-request total: the API
+server applies its own 10,000,000-unit budget, and it applies it fresh for each rule and
+each parameter.
+
+A policy with many parameterized rules therefore gets that budget once per rule instead of
+once per request. Each individual evaluation is still bounded, so this limits the total a
+single request can reach rather than leaving it unbounded. Closing it would require changing
+how Kyverno calls the API server's validator, which is out of scope for this release.
 
 ## Effect on existing policies
 

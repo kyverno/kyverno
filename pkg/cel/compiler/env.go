@@ -173,7 +173,7 @@ func orValueCompatMacro(eh cel.MacroExprFactory, target celast.Expr, args []cela
 func NewEnv(opts ...cel.EnvOption) (*cel.Env, error) {
 	all := make([]cel.EnvOption, 0, len(opts)+1)
 	all = append(all, opts...)
-	all = append(all, cel.Lib(CostLib())) // must stay last; see the chokepoint comment above
+	all = append(all, CostLibOption()) // must stay last; see the chokepoint comment above
 	return cel.NewEnv(all...)
 }
 
@@ -188,7 +188,7 @@ func BaseEnvSet(v *version.Version, opts ...environment.VersionedOptions) (*envi
 	all = append(all, opts...)
 	all = append(all, environment.VersionedOptions{
 		IntroducedVersion: version.MajorMinor(1, 0),
-		EnvOptions:        []cel.EnvOption{cel.Lib(CostLib())},
+		EnvOptions:        []cel.EnvOption{CostLibOption()},
 	})
 	return base.Extend(all...)
 }

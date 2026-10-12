@@ -137,7 +137,7 @@ func urProcessorClosure(
 			if err != nil {
 				return fmt.Errorf("failed to fetch policy %s: %w", spec.GetPolicyKey(), err)
 			}
-			resp, err := engine.Handle(request, policy, rc.CacheRestore)
+			resp, err := engine.Handle(context.TODO(), request, policy, rc.CacheRestore)
 			if err != nil {
 				return fmt.Errorf("failed to process UR for policy %s: %w", spec.GetPolicyKey(), err)
 			}

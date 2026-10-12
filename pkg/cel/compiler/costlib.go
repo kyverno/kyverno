@@ -28,6 +28,25 @@ func CostLib() cel.Library {
 	return &costLib{}
 }
 
+// CostLibOption gives every environment it is applied to its own costLib instance.
+//
+// costLib captures the environment in CompileOptions and reads it back in ProgramOptions to
+// build the guard decorator's binding registry, which looks like it would break when one
+// instance is shared across an environment.EnvSet's two environments. It does not:
+// cel.Lib applies CompileOptions and then reads ProgramOptions immediately, in the same
+// per-environment call (cel-go cel/library.go), so each environment captures itself before
+// the next one runs. Verified by measurement on an EnvSet's two environments, which refuse
+// identically with and without this option.
+//
+// It is kept because it removes the dependency on that ordering detail: nothing in the
+// Library contract promises ProgramOptions is read eagerly, and if cel-go ever defers it the
+// shared-instance form would silently resolve guard bindings against the wrong environment.
+func CostLibOption() cel.EnvOption {
+	return func(e *cel.Env) (*cel.Env, error) {
+		return cel.Lib(CostLib())(e)
+	}
+}
+
 // LibraryName implements cel.SingletonLibrary, so a second registration (e.g. through a
 // chained Extend) is a no-op rather than a duplicate-function panic.
 func (l *costLib) LibraryName() string { return "kyverno.cost" }

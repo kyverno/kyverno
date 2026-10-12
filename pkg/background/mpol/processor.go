@@ -153,7 +153,9 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		targets = list
 	} else {
 		var objects *unstructured.UnstructuredList
-		objects, err = p.getTargetsFromExpression(context.TODO(), ur, mpol)
+		// ctx, not context.TODO(): the target expression is CEL and must charge the
+		// request budget established above.
+		objects, err = p.getTargetsFromExpression(ctx, ur, mpol)
 		if err != nil {
 			return updateURStatus(p.statusControl, *ur, err, nil)
 		}
@@ -585,7 +587,7 @@ func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policy
 	if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
 		return nil, field.Invalid(nil, expr, "output type of the target selector expression must be a map")
 	}
-	prog, err := e.Program(ast)
+	prog, err := compiler.NewProgram(e, ast)
 	if err != nil {
 		return nil, err
 	}
