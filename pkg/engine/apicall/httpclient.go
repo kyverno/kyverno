@@ -76,7 +76,9 @@ func NewScopedTokenClient() *scopedTokenClient {
 }
 
 func (c *scopedTokenClient) Do(req *http.Request) (*http.Response, error) {
-	if req.Header.Get("Authorization") == "" {
+	// Test presence, not emptiness: a caller that sets Authorization to "" is opting
+	// out of token injection, and Get cannot tell that apart from an absent header.
+	if len(req.Header.Values("Authorization")) == 0 {
 		token, ok := readScopedToken()
 		if ok && token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
