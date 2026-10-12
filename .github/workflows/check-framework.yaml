@@ -25,6 +25,8 @@ env:
 
 jobs:
   packages:
+    permissions:
+      contents: read
     name: List framework test packages
     runs-on: ubuntu-slim
     outputs:

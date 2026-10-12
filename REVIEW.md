@@ -94,9 +94,9 @@ own comment) is a lead to verify against the actual code, not a verdict to rubbe
   the directories under `test/integration/` (all but `framework/`), so a new package needs no workflow change.
 - **`Registry tests (ivpol)`** (`check-framework-registry.yaml`) runs the ivpol tests behind the `registry` build
   tag, which pull and verify real signed images. It runs nightly, on manual dispatch, and on PRs that touch
-  those tests, `test/integration/framework/ivpol.go` or the workflow itself. It fails when no registry test
-  passed, since an unreachable registry makes the tests skip, and a failed nightly run opens a
-  `workflow-failure` issue.
+  anything under `test/integration/ivpol/`, `test/integration/framework/ivpol.go` or the workflow itself. It
+  fails when no registry test passed, since an unreachable registry makes the tests skip, and a failed nightly
+  run opens a `workflow-failure` issue.
 - **The ~1000+ chainsaw conformance suite in `test/conformance/chainsaw/` does *not* run automatically on a PR.**
   `.github/workflows/tests-conformance.yaml` is `workflow_call`-only; it's actually triggered either by
   `comment-conformance.yaml` (posting `/conformance` on the PR, `issue_comment` triggered) or by

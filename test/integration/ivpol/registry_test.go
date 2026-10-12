@@ -97,10 +97,6 @@ func pinnedByDigest(t *testing.T, image string) string {
 	return image + "@" + requireImageReachable(t, image).Digest
 }
 
-// digestDenial is the message the validating route returns for an image without a digest. A test
-// that expects a signature check to deny must not be satisfied by this one.
-const digestDenial = "does not have a digest"
-
 // cosignKeyedPolicy builds a policy that verifies images against a cosign public key. Key based
 // signatures need no transparency log lookup, so this shape only depends on the registry.
 func cosignKeyedPolicy(name, publicKey string) *policiesv1beta1.ImageValidatingPolicy {
@@ -173,7 +169,7 @@ func TestValidate_UnsignedImage_Denies(t *testing.T) {
 	allowed, _, message := validatePod(t, "cosign-unsigned", "unsigned-pod", "default", image)
 
 	assert.False(t, allowed, "an unsigned image must be denied")
-	assert.NotContains(t, message, digestDenial, "the image is pinned, so the denial must come from the signature check")
+	assert.Contains(t, message, signatureDenial, "the denial must come from the signature check")
 }
 
 // TestValidate_CosignKeyedOrgImage_Admits covers the key based images published by the kyverno
@@ -215,7 +211,7 @@ func TestValidate_KeylessWrongIdentity_Denies(t *testing.T) {
 	allowed, _, message := validatePod(t, "cosign-wrong-identity", "wrong-identity-pod", "default", image)
 
 	assert.False(t, allowed, "an image signed by another workflow identity must be denied")
-	assert.NotContains(t, message, digestDenial, "the image is pinned, so the denial must come from the signature check")
+	assert.Contains(t, message, signatureDenial, "the denial must come from the identity check")
 }
 
 // TestValidate_SignedImage_AdmitsInSinglePhase confirms the post-#16336 single-phase model: the pod
