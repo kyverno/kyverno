@@ -35,9 +35,9 @@ func TestPrintCheckResult(t *testing.T) {
 		"v1,Pod,default,good": {newResponse("good", *engineapi.RuleSkip("check-team", engineapi.Validation, "skipped", nil))},
 	}}
 	tests := []struct {
-		name     string
-		check    string
-		wantPass int
+		name             string
+		check            string
+		wantPass         int
 		wantSkip         int
 		wantFail         int
 		wantErr          string
