@@ -1,0 +1,37 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: checks-only-pass
+policies:
+  - ../checks/policy.yaml
+resources:
+  - ../checks/resource.yaml
+checks:
+  - match:
+      policy:
+        metadata:
+          name: require-team-label
+      resource:
+        metadata:
+          name: no-team-label
+    assert:
+      status: fail
+---
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: checks-only-fail
+policies:
+  - ../checks/policy.yaml
+resources:
+  - ../checks/resource.yaml
+checks:
+  - match:
+      policy:
+        metadata:
+          name: require-team-label
+      resource:
+        metadata:
+          name: no-team-label
+    assert:
+      status: pass

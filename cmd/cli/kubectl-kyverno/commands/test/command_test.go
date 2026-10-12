@@ -62,6 +62,24 @@ func TestCommandNoTests(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
 }
 
+func TestCommandWithChecksOnly(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "checks-only")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(errBuffer)
+	cmd.SetArgs([]string{testDir})
+
+	err = cmd.Execute()
+	require.ErrorContains(t, err, "1 tests failed")
+	assert.Contains(t, outBuffer.String(), "Test Summary: 1 tests passed and 1 tests failed")
+}
+
 func TestCommandRequireTests(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
