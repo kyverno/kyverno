@@ -39,6 +39,9 @@ const backgroundBudget = 3_000_000
 // cost-limit or guard refusal.
 var ErrBudgetExceeded = errors.New("cel: per-request cost budget exceeded")
 
+// unbudgeted makes the no-budget path report itself once per process.
+var unbudgeted sync.Once
+
 type contextKey struct{}
 
 type budget struct {
@@ -70,6 +73,15 @@ func EnsureBackground(ctx context.Context) (context.Context, func()) {
 	return ensure(ctx, backgroundBudget)
 }
 
+// ensure reuses an existing budget REGARDLESS of the limit asked for, and that is
+// deliberate: the outermost entry point owns the limit, because it is the one that knows
+// which process -- and therefore which container memory limit -- the evaluation runs in.
+// The reports scanner depends on this. It calls EnsureBackground (3,000,000, sized for the
+// 128Mi background pod) and then calls vpolengine.Handle, which calls Ensure (10,000,000);
+// because this reuses rather than replaces, the tighter background ceiling is what binds.
+// Clamping or replacing here would raise the ceiling for exactly the pod that has the least
+// memory. Conversely, an engine reached from admission is running in the 384Mi admission
+// pod, where the larger ceiling is the correct one.
 func ensure(ctx context.Context, limit uint64) (context.Context, func()) {
 	if _, ok := ctx.Value(contextKey{}).(*budget); ok {
 		return ctx, func() {}
@@ -92,6 +104,14 @@ func ensure(ctx context.Context, limit uint64) (context.Context, func()) {
 func Charge(ctx context.Context, units uint64) error {
 	b, ok := ctx.Value(contextKey{}).(*budget)
 	if !ok {
+		// Degrading silently is what made several missed entry points invisible: the
+		// evaluation worked, nothing was charged, and no signal said so. One line per
+		// process is enough to find that from a running controller without being noisy
+		// (a CLI run and most unit tests legitimately have no budget).
+		unbudgeted.Do(func() {
+			klog.V(3).InfoS("cel: evaluating with no per-request cost budget on the context; " +
+				"this evaluation is bounded per program but does not count toward any request total")
+		})
 		return nil
 	}
 	b.mu.Lock()

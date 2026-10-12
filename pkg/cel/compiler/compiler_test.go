@@ -772,7 +772,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		out, details, err := traced.Program.Eval(map[string]any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "hello", out.Value())
-		assert.Nil(t, details, "no EvalDetails when the program wasn't built with tracking on")
+		assert.Nil(t, details.State(), "no tracked state when the program wasn't built with tracking on")
 	})
 
 	t.Run("trace=true keeps the deciding program untracked and adds a tracking twin", func(t *testing.T) {
@@ -785,7 +785,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		out, details, err := traced.Program.Eval(map[string]any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "ab", out.Value())
-		assert.Nil(t, details, "the deciding program must not track state")
+		assert.Nil(t, details.State(), "the deciding program must not track state")
 
 		// the twin records per-node state for the explanation
 		require.NotNil(t, traced.Traced)

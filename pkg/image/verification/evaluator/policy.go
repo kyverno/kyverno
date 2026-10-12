@@ -149,7 +149,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	if req, ok := request.(*admissionv1.AdmissionRequest); ok {
 		gvr = req.RequestResource
 	}
-	images, err := engine.ExtractImages(data, c.imageExtractors.ForResource(gvr))
+	images, err := engine.ExtractImages(ctx, data, c.imageExtractors.ForResource(gvr))
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	for category, imgs := range images {
 		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
 		for _, img := range imgs {
-			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
+			if apply, err := matching.MatchImage(ctx, img, c.matchImageReferences...); err != nil {
 				return nil, err
 			} else if apply {
 				filteredImages[category] = append(filteredImages[category], img)
@@ -190,7 +190,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, imgCtx imagedataloader.Im
 	attestors := lazy.NewMapValue(cel.DynType)
 	for _, attestor := range c.attestors {
 		attestors.Append(attestor.Key, func(*lazy.MapValue) ref.Val {
-			data, err := attestor.Evaluate(data)
+			data, err := attestor.Evaluate(ctx, data)
 			if err != nil {
 				return types.WrapErr(err)
 			}
@@ -366,7 +366,7 @@ func (c *compiledPolicy) MutateDigest(
 				continue
 			}
 			image := info.String()
-			if apply, err := matching.MatchImage(image, c.matchImageReferences...); err != nil {
+			if apply, err := matching.MatchImage(ctx, image, c.matchImageReferences...); err != nil {
 				return nil, err
 			} else if !apply {
 				continue

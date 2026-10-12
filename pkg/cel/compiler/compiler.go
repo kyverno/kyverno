@@ -31,8 +31,10 @@ type TracedProgram struct {
 }
 
 // tracingProgram builds the explain-only twin of a program: same AST, with state tracking on.
+// It goes through NewProgram like every other program, so the twin's own evaluation is priced
+// and charged: it runs the expression a second time and that work is as real as the first.
 func tracingProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
-	return env.Program(ast, cel.EvalOptions(cel.OptTrackState))
+	return NewProgram(env, ast, cel.EvalOptions(cel.OptTrackState))
 }
 
 // TraceDetails re-runs traced on the same activation to collect the per-node values for a trace.
@@ -44,6 +46,12 @@ func tracingProgram(env *cel.Env, ast *cel.Ast) (cel.Program, error) {
 // which trace.Build handles by showing only the result.
 func TraceDetails(ctx context.Context, traced cel.Program, activation any, decidedErr error) *cel.EvalDetails {
 	if traced == nil {
+		return nil
+	}
+	// The twin carries the same per-program limit, but re-running an expression the limit
+	// already refused doubles the work for an explanation that cannot be produced. A
+	// cost-limit refusal reaches here wrapped by NewProgram, so match on the class.
+	if IsResourceError(decidedErr) {
 		return nil
 	}
 	var cancelled interpreter.EvalCancelledError
