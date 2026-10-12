@@ -190,6 +190,8 @@ policyPreconditions: {}
   #     value: "dcgm-exporter*"
 
 # -- Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`)
+# With `policyType: ValidatingPolicy` this sets `spec.autogen.podControllers.controllers`, and only `DaemonSet`, `Deployment`,
+# `ReplicaSet`, `StatefulSet`, `Job` and `CronJob` are supported.
 # For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/.
 autogenControllers: ""
 

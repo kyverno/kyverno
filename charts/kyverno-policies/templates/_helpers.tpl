@@ -133,6 +133,27 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- end -}}
 {{- end -}}
 
+{{/* Map autogenControllers to spec.autogen.podControllers.controllers of a ValidatingPolicy.
+The value uses Kind names (`none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`), the same as for a ClusterPolicy.
+Nothing is rendered when it is empty, so Kyverno generates rules for all the pod controllers. */}}
+{{- define "kyverno-policies.vpolAutogen" -}}
+{{- with .Values.autogenControllers }}
+{{- $supported := list "daemonsets" "deployments" "replicasets" "statefulsets" "jobs" "cronjobs" }}
+{{- $controllers := list }}
+{{- if ne (lower (trim (toString .))) "none" }}
+{{- range splitList "," (toString .) }}
+{{- $name := printf "%ss" (lower (trim .)) }}
+{{- if has $name $supported }}
+{{- $controllers = append $controllers $name }}
+{{- end }}
+{{- end }}
+{{- end -}}
+autogen:
+  podControllers:
+    controllers: {{ toJson $controllers }}
+{{- end }}
+{{- end -}}
+
 {{/* Get validationActions from validationFailureAction for ValidatingPolicy */}}
 {{/* Maps: Audit -> Audit, Enforce -> Deny */}}
 {{- define "kyverno-policies.validationActions" -}}
