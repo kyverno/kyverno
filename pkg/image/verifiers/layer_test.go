@@ -58,6 +58,25 @@ func (l *sizeOverrideLayer) Size() (int64, error) {
 	return l.size, nil
 }
 
+// A declared size of -1 switches off go-containerregistry's bound on the body, so
+// the decoder can be fed arbitrarily many compressed bytes for almost no output.
+func TestReadLayerLimited_RejectsUnknownDeclaredSize(t *testing.T) {
+	base := static.NewLayer(gzipBytes(t, 16), types.MediaType("test"))
+	l := &sizeOverrideLayer{Layer: base, size: -1}
+	b, err := ReadLayerLimited(l, testMaxSize)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown size")
+	assert.False(t, errors.Is(err, ErrLayerTooLarge), "raising the limit would not help: %v", err)
+	assert.Nil(t, b)
+}
+
+// A zero-length layer stays readable: unlike an image config, an empty blob is valid.
+func TestReadLayerLimited_AllowsZeroLengthLayer(t *testing.T) {
+	b, err := ReadLayerLimited(static.NewLayer(nil, types.MediaType("test")), testMaxSize)
+	require.NoError(t, err)
+	assert.Empty(t, b)
+}
+
 func gzipBytes(t *testing.T, n int) []byte {
 	t.Helper()
 	var buf bytes.Buffer
