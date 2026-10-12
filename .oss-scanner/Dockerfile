@@ -28,7 +28,8 @@ RUN mkdir -p /src/bin \
     && go build -o /src/bin/readiness-checker ./cmd/readiness-checker \
     && go build -o /src/bin/kubectl-kyverno ./cmd/cli/kubectl-kyverno
 
-# Run the policy engine unit tests as a sanity check (this also warms the build cache so tests can be
-# re-run offline during the audit). A failing test must not abort the build.
+# Run the unit tests as a sanity check; this also fills the Go build cache.
+# Tests that pull images or call HTTP endpoints (parts of pkg/engine and pkg/cel) only pass with network
+# access. pkg/validation passes offline. A failing test must not abort the build.
 RUN go test -count=1 ./pkg/engine/... ./pkg/cel/... ./pkg/validation/... \
     || echo "WARNING: unit tests reported failures"
