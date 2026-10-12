@@ -2,6 +2,7 @@ package notary
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -148,5 +149,14 @@ func TestApplyManifestTypeRejectsMalformedType(t *testing.T) {
 		data := map[string]interface{}{"type": 1337}
 		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
 		assert.ErrorContains(t, err, "manifest type is not a string")
+	})
+
+	t.Run("nil map errors instead of panicking", func(t *testing.T) {
+		// A manifest body of literal "null" unmarshals into a nil map, and
+		// writing the fallback type into one panics.
+		var data map[string]interface{}
+		assert.NilError(t, json.Unmarshal([]byte("null"), &data))
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.ErrorContains(t, err, "manifest is empty")
 	})
 }

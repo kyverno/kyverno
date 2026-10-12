@@ -343,6 +343,11 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 // string. The manifest is attacker-suppliable OCI content; a malformed type
 // must fail this rule, not sail through into a later unchecked assertion.
 func applyManifestType(data map[string]interface{}, artifactType string) error {
+	// A manifest body of literal "null" unmarshals into a nil map, and writing
+	// to one panics. Reject it rather than filling in a type.
+	if data == nil {
+		return fmt.Errorf("manifest is empty")
+	}
 	if data["type"] == nil {
 		data["type"] = artifactType
 		return nil

@@ -186,6 +186,12 @@ func (h validateImageHandler) validateImage(
 		return engineapi.RuleStatusFail, fmt.Errorf("rule requires image verification but configures no attestors or attestations: %s", image)
 	}
 
+	if h.rclientFactory == nil {
+		// The factory is an optional engine dependency; verification here needs
+		// registry access, so report a rule error rather than panicking.
+		return engineapi.RuleStatusError, fmt.Errorf("no registry client configured to verify %s", image)
+	}
+
 	rclient, err := h.rclientFactory.GetClient(ctx, imageVerify.ImageRegistryCredentials, resourceNamespace, imagePullSecrets)
 	if err != nil {
 		return engineapi.RuleStatusError, fmt.Errorf("failed to fetch registry credentials for %s: %w", image, err)

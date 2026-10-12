@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,6 +97,25 @@ func Test_Cache_RefusesMutableKeys(t *testing.T) {
 		found, err := c.Get(context.TODO(), pol, "rule", testTagRef, true)
 		assert.NoError(t, err)
 		assert.False(t, found, "a tag-only reference must never be served, even if something else wrote it")
+	})
+
+	t.Run("Get refuses a bare-tag entry already in the store", func(t *testing.T) {
+		// Set refuses the key, so the sub-test above cannot tell the read guard
+		// apart from an ordinary miss. Seed the store directly to exercise the
+		// read guard on its own.
+		impl, ok := c.(*cache)
+		assert.True(t, ok)
+		impl.cache.SetWithTTL(generateKey(pol, "rule", testTagRef), nil, 1, time.Hour)
+		impl.cache.Wait()
+
+		found, err := c.Get(context.TODO(), pol, "rule", testTagRef, true)
+		assert.NoError(t, err)
+		assert.False(t, found, "a seeded tag-only entry must still never be served")
+
+		found, payloads, err := c.GetWithPayload(context.TODO(), pol, "rule", testTagRef, true)
+		assert.NoError(t, err)
+		assert.False(t, found, "a seeded tag-only entry must still never be served with payloads")
+		assert.Nil(t, payloads)
 	})
 
 	t.Run("Set/Get accept a digest and distinguish digests", func(t *testing.T) {

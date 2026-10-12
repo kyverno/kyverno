@@ -226,6 +226,35 @@ func TestValidateImage_DoesNotTrustPriorStageMetadata(t *testing.T) {
 	assert.NotContains(t, responses[0].Message(), "pass", "pre-existing verification metadata must never be echoed back as a pass")
 }
 
+// TestValidateImage_NilRegistryClientFactoryErrors pins that a missing
+// registry dependency is reported as a rule error: the factory is an optional
+// engine argument, and verification here needs registry access.
+func TestValidateImage_NilRegistryClientFactoryErrors(t *testing.T) {
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyImageAttestorPolicy), &cpol))
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(priorStageMetadataPod))
+	require.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+
+	rule := cpol.Spec.Rules[0]
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	h := handler.(validateImageHandler)
+	_, responses := h.Process(context.Background(), logr.Discard(), policyContext, *resource, rule, nil, nil)
+	require.NotEmpty(t, responses, "expected a rule response")
+	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+	assert.Contains(t, responses[0].Message(), "no registry client configured")
+}
+
 // TestVerifyDigestFailsClosedBeforeSkipMapping pins the ordering the design
 // requires: a verifyDigest rule against an unpinned image fails closed, and
 // this check runs before "no attestors/attestations configured" is mapped to

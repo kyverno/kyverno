@@ -217,8 +217,9 @@ func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testi
 	}
 	// reuse the same signed image as the other tests: the fetch succeeds, but the bogus
 	// cert above means verification never passes, so the count never reaches len(attestors)
-	// and the result must not be cached.
-	image := "ghcr.io/kyverno/test-verify-image:signed"
+	// and the result must not be cached. Digest-pinned so the absence of an entry is
+	// attributable to the failed verification and not to the cache refusing a bare tag.
+	image := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
 
 	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
@@ -747,4 +748,82 @@ func Test_attestorCacheRule_BindsMaterialNotName(t *testing.T) {
 	ruleAttestation, err := attestorCacheRule(attestationCacheRule, "slsa", withKey("KEY-A"))
 	assert.NoError(t, err)
 	assert.NotEqual(t, ruleA, ruleAttestation)
+}
+
+// Test_attestorsHaveUnbindableKeyMaterial pins which attestor shapes the cache
+// rule can bind. A KMS url names key material that is fetched during
+// verification, after the rule is derived, so a cached verdict could outlive a
+// rotation of what sits behind the url. Inline and expression-derived keys are
+// materialized before hashing and stay bound.
+func Test_attestorsHaveUnbindableKeyMaterial(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		attestors  []v1beta1.Attestor
+		unbindable bool
+	}{
+		{"inline key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: "KEY"}}}}, false},
+		{"expression key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Expression: "variables.key"}}}}, false},
+		{"kms key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/signing"}}}}, true},
+		{"notary only", []v1beta1.Attestor{{Name: "notary", Notary: &v1beta1.Notary{}}}, false},
+		{"one kms among many", []v1beta1.Attestor{
+			{Name: "inline", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: "KEY"}}},
+			{Name: "kms", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/signing"}}},
+		}, true},
+		{"no attestors", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.unbindable, attestorsHaveUnbindableKeyMaterial(tc.attestors))
+		})
+	}
+}
+
+// Test_impl_verify_image_signature_kms_attestor_ignores_cache is the regression
+// for the write and read sides together: with a KMS-backed attestor the cache
+// must be bypassed, so a seeded entry must not be served as a pass.
+func Test_impl_verify_image_signature_kms_attestor_ignores_cache(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name:   "kms-signer",
+			Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/does-not-exist"}},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "cache-policy-kms",
+			UID:             "test-uid-kms",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{Attestors: attestors},
+	}
+	image := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	// Seed the entry the pre-fix code would have read: same rule, same image.
+	cacheRule, err := attestorCacheRule(signatureCacheRule, "", attestors)
+	assert.NoError(t, err)
+	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	f := &ivfuncs{
+		Adapter:        types.DefaultTypeAdapter,
+		imgCtx:         imgCtx,
+		policy:         pol,
+		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier: notary.NewVerifier(logr.Discard()),
+		ivCache:        ivCache,
+	}
+
+	out := f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+	count, ok := out.Value().(int64)
+	assert.True(t, ok, "expected an integer result, got an error instead: %v", out.Value())
+	assert.Less(t, count, int64(len(attestors)), "a seeded entry must not be served for a KMS-backed attestor")
 }
