@@ -132,6 +132,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	for name, variable := range c.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, data)
+			// A budget refusal arrives together with a usable value (the counter is charged
+			// after evaluation), so it must win over the value, as the policy compilers do.
+			if engine.IsResourceError(err) {
+				return types.WrapErr(err)
+			}
 			if out != nil {
 				return out
 			}

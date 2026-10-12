@@ -56,6 +56,12 @@ func (p *costProgram) ConcurrentEval(ctx context.Context, vars any) <-chan cel.E
 
 // ContextEval is the one evaluation path every Kyverno program is expected to go through.
 func (p *costProgram) ContextEval(ctx context.Context, vars any) (ref.Val, *cel.EvalDetails, error) {
+	// Refuse before running if the request budget is already spent: cel-go charges a step
+	// only after it returns, so without this every program after the one that empties the
+	// counter would still run to its per-program limit before account() refused it.
+	if err := requestbudget.Exhausted(ctx); err != nil {
+		return nil, nil, err
+	}
 	val, details, err := p.prg.ContextEval(ctx, vars)
 	return p.account(ctx, val, details, err)
 }

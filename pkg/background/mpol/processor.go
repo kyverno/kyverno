@@ -533,6 +533,12 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 			for name, variable := range pol.CompiledPolicy.GetCompiledVariables() {
 				vars.Append(name, func(*lazy.MapValue) ref.Val {
 					out, _, err := variable.ContextEval(ctx, data)
+					// A budget refusal arrives together with a usable value (the counter is
+					// charged after evaluation), so it must win over the value, as the
+					// vpol/mpol/dpol/gpol compiler closures do.
+					if compiler.IsResourceError(err) {
+						return types.WrapErr(err)
+					}
 					if out != nil {
 						return out
 					}

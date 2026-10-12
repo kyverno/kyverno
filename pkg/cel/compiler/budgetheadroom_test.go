@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/google/cel-go/cel"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"gotest.tools/v3/assert"
@@ -69,4 +70,28 @@ func TestOrdinaryPolicyWithManyExpressionsStaysWellWithinBudget(t *testing.T) {
 	assert.Assert(t, total > 0, "the measurement itself must charge something, or it proves nothing")
 	assert.Assert(t, total < backgroundCeiling/10,
 		"an ordinary policy must use well under a tenth of the request ceiling, charged %d of %d", total, backgroundCeiling)
+}
+
+// Once the shared request budget is spent, a further program must be refused BEFORE it runs,
+// not merely charged after. cel-go charges a step only once it returns, so without the
+// pre-evaluation check in NewProgram's ContextEval the next program would still execute to
+// its per-program limit before the refusal; this pins that it does not.
+func TestExhaustedRequestBudgetRefusesBeforeEvaluating(t *testing.T) {
+	env, err := NewEnv(cel.Variable("object", cel.DynType))
+	assert.NilError(t, err)
+	ast, cerr := Compile(env, `object.n`)
+	assert.NilError(t, cerr)
+	prog, perr := NewProgram(env, ast)
+	assert.NilError(t, perr)
+
+	ctx, release := requestbudget.Ensure(context.Background())
+	defer release()
+	// Spend the whole counter outright (any charge at or above the ceiling exhausts it).
+	assert.ErrorContains(t, requestbudget.Charge(ctx, 1<<62), "cost budget exceeded")
+
+	// A program evaluated on the spent budget is refused, and the value it would have
+	// produced (object.n == 1) never surfaces, proving it did not run.
+	val, _, evalErr := prog.ContextEval(ctx, map[string]any{"object": map[string]any{"n": 1}})
+	assert.Assert(t, IsResourceError(evalErr), "want a resource refusal, got: %v", evalErr)
+	assert.Assert(t, val == nil, "the program must not have evaluated, got value: %v", val)
 }
