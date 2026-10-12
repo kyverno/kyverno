@@ -94,7 +94,7 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 		return nil
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
@@ -185,7 +185,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 		return nil
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
@@ -260,7 +260,7 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 		return nil
 	}
 
-	celexceptions, err := c.getCELExceptions(mpol.GetName())
+	celexceptions, err := c.getCELExceptions(mpol.GetName(), mpol.GetKind())
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
