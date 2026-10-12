@@ -580,6 +580,26 @@ func Test_URLPathCanonicalization(t *testing.T) {
 		assert.ErrorContains(t, err, "must be a relative Kubernetes API path")
 	})
 
+	// /api/v1/namespaces/<name> carries a namespace segment but is the cluster-scoped
+	// Namespace object (or its status/finalize subresource), not a resource inside it.
+	t.Run("the cluster-scoped Namespace object is rejected for a namespaced policy", func(t *testing.T) {
+		for _, urlPath := range []string{
+			"/api/v1/namespaces/default",
+			"/api/v1/namespaces/default/",
+			"/api/v1/namespaces/default/status",
+			"/api/v1/namespaces/default/finalize",
+		} {
+			ctx := enginecontext.NewContext(jp)
+			client := &recordingClient{}
+
+			call, err := New(logr.Discard(), jp, newCall(urlPath), ctx, client, apiConfig, "default")
+			assert.NilError(t, err)
+			_, err = call.Fetch(context.TODO())
+			assert.ErrorContains(t, err, "cluster-scoped Namespace object", urlPath)
+			assert.Equal(t, "", client.gotPath, urlPath)
+		}
+	})
+
 	// The namespace clamp looks for a /namespaces/<name>/ segment anywhere in the
 	// string it is handed. If that string includes the query, a decoy segment in a
 	// query value satisfies the clamp while the path itself targets a cluster-scoped

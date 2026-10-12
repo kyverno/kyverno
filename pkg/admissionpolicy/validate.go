@@ -74,7 +74,7 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 					// these go straight into a GVR with no mapper lookup, and the dynamic
 					// client joins them into the request path with path.Join, which resolves
 					// ".." - skip rather than reinterpret, so an inert rule stays inert
-					if isUnsafeGVRSegment(group) || isUnsafeGVRSegment(version) || isUnsafeGVRSegment(resource) {
+					if isUnsafeGVRSegment(group, true) || isUnsafeGVRSegment(version, false) || isUnsafeGVRSegment(resource, false) {
 						vapLogger.Error(errors.New("unsafe api path segment"), fmt.Sprintf("skipping resource for group %s, version %s, resource %s", group, version, resource))
 						continue
 					}
@@ -87,9 +87,14 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 }
 
 // isUnsafeGVRSegment reports whether a policy-supplied GVR component cannot be
-// used as a URL path segment. An empty component keeps its existing meaning.
-func isUnsafeGVRSegment(value string) bool {
-	return value != "" && dclient.ValidatePathSegment("resource", value) != nil
+// used as a URL path segment. Only the core API group may be empty; an empty
+// version or resource would be collapsed by path.Join and address a different
+// API path (e.g. /api/v1 when resource is empty).
+func isUnsafeGVRSegment(value string, allowEmpty bool) bool {
+	if value == "" {
+		return !allowEmpty
+	}
+	return dclient.ValidatePathSegment("resource", value) != nil
 }
 
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {

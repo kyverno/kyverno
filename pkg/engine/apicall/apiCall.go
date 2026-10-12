@@ -16,6 +16,11 @@ import (
 
 var namespacePathRegex = regexp.MustCompile(`^/api(s)?/.*?/namespaces/([^/]+)/?.*$`)
 
+// namespaceObjectPathRegex matches the core Namespace object itself and its subresources.
+// /api/v1/namespaces/<name> has a namespace segment but is the cluster-scoped Namespace
+// resource, not something inside the namespace, so it must not satisfy the clamp.
+var namespaceObjectPathRegex = regexp.MustCompile(`^/api/[^/]+/namespaces/[^/]+(/(status|finalize))?/?$`)
+
 type apiCall struct {
 	logger          logr.Logger
 	jp              jmespath.Interface
@@ -84,6 +89,9 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 				ns := matches[2]
 				if ns != a.policyNamespace {
 					return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", validationPath, ns, a.policyNamespace)
+				}
+				if namespaceObjectPathRegex.MatchString(validationPath) {
+					return nil, fmt.Errorf("path %s refers to the cluster-scoped Namespace object, which namespaced policies cannot access", validationPath)
 				}
 			} else {
 				return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", validationPath)
