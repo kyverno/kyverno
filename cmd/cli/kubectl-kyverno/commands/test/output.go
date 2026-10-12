@@ -27,7 +27,7 @@ func printCheckResult(
 	resultsTable *table.Table,
 ) error {
 	ctx := context.Background()
-	testCount := 1
+	testCount := len(resultsTable.RawRows) + 1
 	for _, check := range checks {
 		// filter engine responses
 		var matchingEngineResponses []engineapi.EngineResponse

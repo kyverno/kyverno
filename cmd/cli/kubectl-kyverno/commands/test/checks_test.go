@@ -38,9 +38,11 @@ func TestPrintCheckResult(t *testing.T) {
 		name     string
 		check    string
 		wantPass int
-		wantSkip int
-		wantFail int
-		wantErr  string
+		wantSkip         int
+		wantFail         int
+		wantErr          string
+		initialRow       bool
+		wantFirstCheckID int
 	}{{
 		name: "assert",
 		check: `
@@ -51,6 +53,12 @@ assert: {status: fail, message: "The label ` + "`team`" + ` is required."}`,
 		name:     "assert fails",
 		check:    `{match: {resource: {metadata: {name: bad}}}, assert: {message: wrong}}`,
 		wantFail: 1,
+	}, {
+		name:             "continues row IDs after existing test results",
+		check:            `{match: {resource: {metadata: {name: bad}}}, assert: {status: fail}}`,
+		wantPass:         1,
+		initialRow:       true,
+		wantFirstCheckID: 2,
 	}, {
 		name:     "assert expression",
 		check:    `{assert: {(object.ruleType == 'Validation'): true}}`,
@@ -78,12 +86,19 @@ assert: {status: fail, message: "The label ` + "`team`" + ` is required."}`,
 			require.NoError(t, yaml.UnmarshalStrict([]byte(tt.check), &check))
 			rc := &resultCounts{}
 			var resultsTable table.Table
+			if tt.initialRow {
+				resultsTable.Add(table.Row{RowCompact: table.RowCompact{ID: 1}})
+			}
 			err := printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable)
 			if tt.wantErr != "" {
 				require.ErrorContains(t, err, tt.wantErr)
 				return
 			}
 			require.NoError(t, err)
+			if tt.wantFirstCheckID != 0 {
+				require.Len(t, resultsTable.RawRows, 2)
+				assert.Equal(t, tt.wantFirstCheckID, resultsTable.RawRows[1].ID)
+			}
 			assert.Equal(t, tt.wantPass, rc.Pass, "pass")
 			assert.Equal(t, tt.wantSkip, rc.Skip, "skip")
 			assert.Equal(t, tt.wantFail, rc.Fail, "fail")
