@@ -177,7 +177,7 @@ These packages have real, package-specific gotchas that don't belong at root sco
 working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AGENTS.md),
 [`pkg/cel/`](./pkg/cel/AGENTS.md), [`pkg/webhooks/`](./pkg/webhooks/AGENTS.md),
 [`pkg/background/`](./pkg/background/AGENTS.md), [`pkg/image/`](./pkg/image/AGENTS.md),
-[`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
+[`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/admissionpolicy/`](./pkg/admissionpolicy/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
 [`pkg/controllers/`](./pkg/controllers/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md). Every claim in them is grounded in code actually read in the
