@@ -33,7 +33,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 	if polType == "ClusterPolicy" {
 		vapName = "cpol-" + policy.GetName()
 	} else {
-		vapName = "vpol-" + policy.GetName()
+		vapName = admissionpolicy.ValidatingPolicyVAPName(policy.GetNamespace(), policy.GetName())
 	}
 	vapBindingName := constructBindingName(vapName)
 	// get the ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding if exists.
@@ -75,7 +75,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
 		}
 	} else {
-		pol := policy.AsValidatingPolicy()
+		pol := policy.AsValidatingPolicyLike()
 		wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
 		shouldDelete := !wantVap
 
@@ -94,7 +94,11 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 				return fmt.Errorf("failed to compute autogen configs for %s: %w", pol.GetName(), err)
 			}
 			isAutogen := len(autogenConfigs) > 0
-			if isAutogen {
+			if ok, msg := admissionpolicy.CanGenerateFromValidatingPolicy(pol); !ok {
+				// also removes a VAP generated before the policy was changed
+				shouldDelete = true
+				reason = "skip generating ValidatingAdmissionPolicy: " + msg
+			} else if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
 			} else if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -124,6 +125,11 @@ func NewController(
 
 	// Set up an event handler for when validating policies change
 	if _, err := controllerutils.AddEventHandlersT(vpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
+		logger.Error(err, "failed to register event handlers")
+	}
+
+	// Set up an event handler for when namespaced validating policies change
+	if _, err := controllerutils.AddEventHandlersT(nvpolInformer.Informer(), c.addVP, c.updateVP, c.deleteVP); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
 
@@ -260,6 +266,44 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		if err != nil {
 			return err
 		}
+	} else if polType == "NamespacedValidatingPolicy" {
+		var ok bool
+		namespace, name, ok = parseNamespacedPolicyKey(key)
+		if !ok {
+			logger.Error(nil, "invalid namespaced validating policy key")
+			return nil
+		}
+		// without the ValidatingAdmissionPolicy API there is nothing to generate or clean up
+		if c.vapLister == nil || c.vapbindingLister == nil {
+			return nil
+		}
+		// the generated VAP and binding are cluster-scoped and cannot be garbage collected through the
+		// namespaced policy, so delete them explicitly when generation is turned off or the policy is gone.
+		// Generated objects are listed again on startup and requeue their policy, which also removes the
+		// ones left behind while the controller was down.
+		vapName := admissionpolicy.ValidatingPolicyVAPName(namespace, name)
+		nvpol, err := c.getNamespacedValidatingPolicy(namespace, name)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return c.deleteGeneratedVAP(ctx, vapName)
+			}
+			logger.Error(err, "unable to get the policy from policy informer")
+			return err
+		}
+		if !toggle.FromContext(ctx).GenerateValidatingAdmissionPolicy() {
+			if err := c.deleteGeneratedVAP(ctx, vapName); err != nil {
+				return err
+			}
+			if nvpol.Status.Generated {
+				c.updatePolicyStatus(ctx, engineapi.NewNamespacedValidatingPolicy(nvpol), false, "skip generating ValidatingAdmissionPolicy: generation is disabled.")
+			}
+			return nil
+		}
+		policy = engineapi.NewNamespacedValidatingPolicy(nvpol)
+		err = c.handleVAPGeneration(ctx, polType, policy)
+		if err != nil {
+			return err
+		}
 	} else if polType == "MutatingPolicy" {
 		mpol, err := c.getMutatingPolicy(name)
 		if err != nil {
@@ -309,6 +353,18 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		}
 
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
+	} else if nvpol := policy.AsNamespacedValidatingPolicy(); nvpol != nil {
+		latest := nvpol.DeepCopy()
+		latest.Status.Generated = generated
+		latest.Status.GetConditionStatus().Message = msg
+
+		new, err := c.kyvernoClient.PoliciesV1beta1().NamespacedValidatingPolicies(nvpol.GetNamespace()).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
+		if err != nil {
+			logging.Error(err, "failed to update namespaced validating policy status", "name", nvpol.GetName(), "namespace", nvpol.GetNamespace(), "status", latest.Status)
+			return
+		}
+
+		logging.V(3).Info("updated namespaced validating policy status", "name", nvpol.GetName(), "namespace", nvpol.GetNamespace(), "status", new.Status)
 	} else if mpol := policy.AsMutatingPolicy(); mpol != nil {
 		latest := mpol.DeepCopy()
 		latest.Status.Generated = generated
