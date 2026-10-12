@@ -187,6 +187,8 @@ func (rc *ResultCounts) addValidatingAdmissionResponse(engineResponse engineapi.
 			rc.Fail++
 		} else if ruleResp.Status() == engineapi.RuleStatusError {
 			rc.Error++
+		} else if ruleResp.Status() == engineapi.RuleStatusSkip {
+			rc.Skip++
 		}
 	}
 }
