@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"math"
 	"regexp/syntax"
 	"strconv"
 	"strings"
@@ -491,6 +492,19 @@ func replaceGuard(args []ref.Val) ref.Val {
 	return nil
 }
 
+// mulSat multiplies as int64 but saturates at math.MaxInt64 instead of wrapping. A guard
+// bound is only ever compared against a byte cap, so a product that overflows int64 must
+// read as "huge" (refuse), never wrap to a small or negative value that slips under the cap.
+func mulSat(a, b int64) int64 {
+	if a <= 0 || b <= 0 {
+		return 0
+	}
+	if a > math.MaxInt64/b {
+		return math.MaxInt64
+	}
+	return a * b
+}
+
 // regexReplaceGuard bounds ext.Regex's regex.replace(t, re, repl[, n]): with a backslash
 // digit in repl (a backreference), the worst case is (runes(t)+1) * len(repl) * len(t);
 // otherwise it is the same "empty match at every position" bound as replace.
@@ -511,7 +525,7 @@ func regexReplaceGuard(args []ref.Val) ref.Val {
 	tRunes := int64(utf8.RuneCountInString(ts))
 	var bound int64
 	if hasBackreference(rs) {
-		bound = (tRunes + 1) * int64(len(rs)) * int64(len(ts))
+		bound = mulSat(mulSat(tRunes+1, int64(len(rs))), int64(len(ts)))
 	} else {
 		bound = int64(len(ts)) + (tRunes+1)*int64(len(rs))
 	}
