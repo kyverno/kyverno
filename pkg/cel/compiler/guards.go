@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp/syntax"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"unicode/utf8"
 
@@ -247,6 +248,29 @@ var constGuardArgIndex = map[string]int{
 	"quantity": 0, "isQuantity": 0,
 }
 
+// guardPreservingRegexOptimizations shadows the constant-pattern regex optimizations that
+// k8s.io/apiserver's library.Regex installs for find and findAll. Each of those rebuilds the
+// call node around its own closure (its Factory calls interpreter.NewCall), which discards
+// this package's guard decorator wrapper and with it both the argument cap and the guard --
+// so with a constant pattern findAll ran unguarded while a variable pattern was refused.
+// decRegexOptimizer keys optimizations by function name in a map and CostLib registers last,
+// so these entries replace the apiserver's; returning the call unchanged keeps the guarded
+// node. A constant pattern is then recompiled per evaluation: cel.ValidateRegexLiterals in
+// the base env still rejects a malformed literal at compile time, and patternGuard still
+// bounds the pattern, so only the precompilation is given up.
+func guardPreservingRegexOptimizations() []*interpreter.RegexOptimization {
+	keepGuardedNode := func(fn string) *interpreter.RegexOptimization {
+		return &interpreter.RegexOptimization{
+			Function:   fn,
+			RegexIndex: 1,
+			Factory: func(call interpreter.InterpretableCall, _ string) (interpreter.InterpretableCall, error) {
+				return call, nil
+			},
+		}
+	}
+	return []*interpreter.RegexOptimization{keepGuardedNode("find"), keepGuardedNode("findAll")}
+}
+
 // --- the guard table ---
 
 var guardTable = map[string]guardFunc{
@@ -274,6 +298,7 @@ var guardTable = map[string]guardFunc{
 	"format":           formatGuard,       // string_format left tier 1; args[0] template, args[1] list
 	"distinct":         distinctGuard,     // ext/lists.go's distinct is O(n^2) element comparisons
 	"json.encode":      expander6Guard(0), // ext.Encoders' cel.Function("json.encode", ...), a literal dotted global name
+	"lists.range":      listsRangeGuard,   // allocates one element per requested index, from an int
 }
 
 // --- regex pattern gate + unrolled-length walk ---
@@ -519,10 +544,15 @@ func setsGuard(args []ref.Val) ref.Val {
 	return nil
 }
 
-// splitGuard bounds ext.Strings' split(t, sep): strings.Split returns up to
-// len(t)/len(sep) + 1 substrings, each a 16-byte header; with an empty or one-byte
-// separator that is len(t)+1 headers. The guard bounds the header array to <= maxArgBytes
-// for every separator length.
+// splitGuard bounds ext.Strings' split(t, sep): strings.Split returns one 16-byte header
+// per piece, and the guard bounds that header array to <= maxArgBytes.
+//
+// The piece count is counted, not assumed. len(t)/len(sep) is the count only if every
+// separator-length window is a separator, which no real input reaches: a 640 KiB file split
+// on "\n" was refused for 655,360 pieces when it had 64 lines. strings.Count is a single
+// O(n) scan that allocates nothing -- far cheaper than the split it is guarding -- and
+// strings.Split returns exactly Count+1 pieces for a non-empty separator. An empty
+// separator splits into runes instead, so that case counts runes.
 func splitGuard(args []ref.Val) ref.Val {
 	if len(args) < 2 {
 		return nil
@@ -532,12 +562,12 @@ func splitGuard(args []ref.Val) ref.Val {
 	if !ok1 || !ok2 {
 		return nil
 	}
-	sepLen := len(string(sep))
-	div := int64(sepLen)
-	if div == 0 {
-		div = 1
+	var pieces int64
+	if len(string(sep)) == 0 {
+		pieces = int64(utf8.RuneCountInString(string(t)))
+	} else {
+		pieces = int64(strings.Count(string(t), string(sep))) + 1
 	}
-	pieces := int64(len(string(t))) / div
 	limit := int64(maxArgBytes() / 16) //nolint:gosec // maxArgBytes/maxRandomRunes are operator-configured caps, never attacker-controlled and never near 1<<63
 	if pieces > limit {
 		return guardError("split produces %d pieces, over the %d-piece cap", pieces, limit)
@@ -664,6 +694,29 @@ func parserGuard(inputIdx int, limit func() uint64) guardFunc {
 		}
 		return nil
 	}
+}
+
+// listsRangeGuard bounds ext.Lists' lists.range(n): it materializes one element per
+// requested index from a single integer argument, so the result -- not the argument -- is
+// what grows, and the generic rule's result term is charged only after the allocation has
+// already happened. Bound the element count to maxArgBytes at the same per-element weight
+// argBytes and resultBytes use.
+func listsRangeGuard(args []ref.Val) ref.Val {
+	if len(args) < 1 {
+		return nil
+	}
+	n, ok := args[0].(types.Int)
+	if !ok {
+		return nil
+	}
+	if n <= 0 {
+		return nil
+	}
+	limit := maxArgBytes() / bytesPerElement
+	if uint64(n) > limit {
+		return guardError("lists.range(%d) produces more than the %d-element cap", int64(n), limit)
+	}
+	return nil
 }
 
 // --- quantity guard ---

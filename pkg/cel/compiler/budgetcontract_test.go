@@ -33,8 +33,14 @@ func TestBudgetRefusalArrivesWithAUsableValue(t *testing.T) {
 	defer release()
 
 	// Each evaluation is individually legal (well under the per-program limit); only their
-	// total exceeds the background ceiling.
-	data := map[string]any{"object": map[string]any{"blob": strings.Repeat("b", 2_200_000)}}
+	// total exceeds the background ceiling. The blob is sized to keep that true: the
+	// expression concatenates it and then calls size() on the result, and size() on a string
+	// is charged for its scan, so roughly 0.6 units land per blob byte. At 1,000,000 bytes
+	// one evaluation costs about 600,000 of the 1,000,000 per-program limit and the
+	// 3,000,000 background ceiling is reached on the sixth. Raise the blob much past this
+	// and the per-program limit refuses a single evaluation first, which tests a different
+	// limit than the one this test is about.
+	data := map[string]any{"object": map[string]any{"blob": strings.Repeat("b", 1_000_000)}}
 	for i := 1; i <= 20; i++ {
 		val, _, evalErr := prog.ContextEval(ctx, data)
 		if evalErr == nil {

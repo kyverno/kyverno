@@ -88,6 +88,7 @@ func (l *costLib) ProgramOptions() []cel.ProgramOption {
 		cel.CostLimit(perProgramLimit()),
 		cel.InterruptCheckFrequency(interruptEvery),
 		cel.EvalOptions(cel.OptOptimize),
+		cel.OptimizeRegex(guardPreservingRegexOptimizations()...),
 		cel.CustomDecoratorV2(newGuardDecorator(reg)),
 	)
 	opts = append(opts, trackerOpts...)

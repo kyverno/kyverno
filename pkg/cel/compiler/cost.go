@@ -294,6 +294,26 @@ func (e *Estimator) CallCost(function, overloadID string, args []ref.Val, result
 		c := foldStepCost(function, args)
 		return &c
 	}
+	// size() is exempt because it allocates nothing and returns an int. That holds for
+	// lists, maps and bytes, whose Size() is a length read, but not for a string:
+	// types.String.Size() is len([]rune(s)), an O(n) scan. Go lowers that to
+	// RuneCountInString, so it allocates nothing and every regression test that asserts on
+	// TotalAlloc misses it, while a comprehension calling size() on a large string burned
+	// seconds of controller CPU for a few hundred charged units. Charge the scan at the
+	// generic rule's argument rate, before the exemption.
+	//
+	// Only the pricing moves. exemptFunctions still covers size() in the guard decorator
+	// (guards.go), so size() keeps its freedom from the argument cap and does not start
+	// refusing a value larger than maxArgBytes.
+	if function == "size" && len(args) == 1 {
+		if str, ok := args[0].(types.String); ok {
+			c := uint64(math.Ceil(f * float64(len(string(str)))))
+			if c < 1 {
+				c = 1
+			}
+			return &c
+		}
+	}
 	if exemptFunctions[function] {
 		return nil
 	}
