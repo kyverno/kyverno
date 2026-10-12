@@ -89,6 +89,25 @@ func ensure(ctx context.Context, limit uint64) (context.Context, func()) {
 	return context.WithValue(ctx, contextKey{}, &budget{limit: limit, remaining: limit}), func() {}
 }
 
+// Exhausted reports ctx's budget as already spent, without charging anything, so a caller
+// can refuse before doing work rather than only after. cel-go charges a step's cost only
+// after the step returns, so Charge alone lets every program after the one that empties the
+// counter still run to its per-program limit before being refused; checking this first bounds
+// that overshoot to the single program that crosses the line. Same graceful-degrade contract
+// as Charge: a ctx with no budget is never exhausted.
+func Exhausted(ctx context.Context) error {
+	b, ok := ctx.Value(contextKey{}).(*budget)
+	if !ok {
+		return nil
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.exhaustedBy > 0 {
+		return fmt.Errorf("%w: already exhausted by an earlier charge of %d (of %d)", ErrBudgetExceeded, b.exhaustedBy, b.limit)
+	}
+	return nil
+}
+
 // Charge deducts units from ctx's budget and refuses once it is spent.
 //
 // Degrades gracefully when ctx carries no budget: charges nothing and never refuses, so a
