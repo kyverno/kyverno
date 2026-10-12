@@ -9,9 +9,9 @@ generate and clean up resources, and verify image signatures and attestations.
 Untrusted input:
 - **Policies and exceptions from namespaced users (tenants).** Tenants have less privilege than cluster admins. A
   namespaced policy must not read or affect anything outside its own namespace. By default it cannot use
-  `globalContext` or `http`, and its `configMap` and `apiCall` `urlPath` lookups are limited to its own namespace.
-  An admin can allow `http` in namespaced policies with `--allowHTTPInNamespacedPolicies`, and `apiCall` `service`
-  URLs are not namespace-restricted. Both are subject to the HTTP egress controls.
+  `globalContext` or `http`, its `configMap` lookups are limited to its own namespace, and its `apiCall` must use a
+  `urlPath` inside its own namespace (`service` calls are rejected). An admin can allow `http` in namespaced
+  policies with `--allowHTTPInNamespacedPolicies`, which is subject to the HTTP egress controls.
 - **AdmissionReview requests**, which carry arbitrary resource content.
 - **Cluster resources** read by the background and reports controllers.
 - **External data**: image registries, signatures and attestations (cosign, notary), and HTTP endpoints.
