@@ -31,11 +31,7 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	case int, int32, int64, float32, float64, bool:
 		return nin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
-		var stringSlice []string
-		for _, v := range typedKey {
-			stringSlice = append(stringSlice, v.(string))
-		}
-		return nin.validateValueWithStringSetPattern(stringSlice, value)
+		return nin.validateValueWithElementSetPattern(toElements(typedKey), value)
 	default:
 		nin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
@@ -52,7 +48,7 @@ func (nin NotInHandler) validateValueWithStringPattern(key string, value interfa
 	return !keyExists
 }
 
-func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
+func (nin NotInHandler) validateValueWithElementSetPattern(key []element, value interface{}) bool {
 	invalidType, isNotIn := setExistsInArray(key, value, nin.log, true)
 	if invalidType {
 		nin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))

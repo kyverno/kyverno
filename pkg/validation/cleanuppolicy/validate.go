@@ -6,12 +6,14 @@ import (
 	"regexp"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/discovery"
 )
@@ -42,21 +44,65 @@ func FetchClusteredResources(logger logr.Logger, client dclient.Interface) (sets
 }
 
 // Validate checks policy is valid
-func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface, policy kyvernov2.CleanupPolicyInterface) error {
+func Validate(ctx context.Context, logger logr.Logger, client dclient.Interface, cleanupPolicy kyvernov2.CleanupPolicyInterface) error {
 	clusteredResources, err := FetchClusteredResources(logger, client)
 	if err != nil {
 		return err
 	}
-	if err := validatePolicy(clusteredResources, policy); err != nil {
+	if err := validatePolicy(clusteredResources, cleanupPolicy); err != nil {
 		return err
 	}
-	if err := validateAuth(ctx, client, policy); err != nil {
+	if err := validateGlobLengths(cleanupPolicy); err != nil {
+		return err
+	}
+	if err := validateAuth(ctx, client, cleanupPolicy); err != nil {
 		return err
 	}
 
-	if err := validateVariables(logger, policy); err != nil {
+	if err := validateVariables(logger, cleanupPolicy); err != nil {
 		return err
 	}
+	return nil
+}
+
+// validateGlobLengths caps the length of every wildcard-bearing string
+// field under match/exclude, reusing the same caps pkg/validation/policy
+// applies to Policy/ClusterPolicy rules -- CleanupPolicy has its own
+// validator and does not otherwise go through that package.
+func validateGlobLengths(cleanupPolicy kyvernov2.CleanupPolicyInterface) error {
+	spec := cleanupPolicy.GetSpec()
+
+	checkFilter := func(prefix string, rf kyvernov1.ResourceFilter) error {
+		if err := policyvalidation.ValidateResourceDescriptionGlobLengths(prefix, rf.ResourceDescription); err != nil {
+			return err
+		}
+		return policyvalidation.ValidateUserInfoGlobLengths(prefix, rf.UserInfo)
+	}
+
+	for i, rmr := range spec.MatchResources.Any {
+		if err := checkFilter(fmt.Sprintf("match.any[%d]", i), rmr); err != nil {
+			return err
+		}
+	}
+	for i, rmr := range spec.MatchResources.All {
+		if err := checkFilter(fmt.Sprintf("match.all[%d]", i), rmr); err != nil {
+			return err
+		}
+	}
+
+	if exclude := spec.ExcludeResources; exclude != nil {
+		for i, rmr := range exclude.Any {
+			if err := checkFilter(fmt.Sprintf("exclude.any[%d]", i), rmr); err != nil {
+				return err
+			}
+		}
+		for i, rmr := range exclude.All {
+			if err := checkFilter(fmt.Sprintf("exclude.all[%d]", i), rmr); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

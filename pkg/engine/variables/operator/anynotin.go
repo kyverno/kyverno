@@ -29,11 +29,7 @@ func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 	case int, int32, int64, float32, float64, bool:
 		return anynin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
-		var stringSlice []string
-		for _, v := range typedKey {
-			stringSlice = append(stringSlice, fmt.Sprint(v))
-		}
-		return anynin.validateValueWithStringSetPattern(stringSlice, value)
+		return anynin.validateValueWithElementSetPattern(toElements(typedKey), value)
 	default:
 		anynin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
@@ -50,7 +46,7 @@ func (anynin AnyNotInHandler) validateValueWithStringPattern(key string, value i
 	return !keyExists
 }
 
-func (anynin AnyNotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
+func (anynin AnyNotInHandler) validateValueWithElementSetPattern(key []element, value interface{}) bool {
 	invalidType, isAnyNotIn := anySetExistsInArray(key, value, anynin.log, true)
 	if invalidType {
 		anynin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))

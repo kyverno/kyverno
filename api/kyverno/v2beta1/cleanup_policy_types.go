@@ -278,12 +278,19 @@ func ValidateSchedule(path *field.Path, schedule string) (errs field.ErrorList) 
 }
 
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
+//
+// maxMatchExcludeConflictPairs (declared in rule_types.go, same package)
+// bounds this DeepEqual-based comparison, which the wildcard matcher's own
+// step budget never protects.
 func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
 	if spec.ExcludeResources == nil || len(spec.ExcludeResources.All) > 0 || len(spec.MatchResources.All) > 0 {
 		return errs
 	}
 	// if both have any then no resource should be common
 	if len(spec.MatchResources.Any) > 0 && len(spec.ExcludeResources.Any) > 0 {
+		if len(spec.MatchResources.Any)*len(spec.ExcludeResources.Any) > maxMatchExcludeConflictPairs {
+			return errs
+		}
 		for _, rmr := range spec.MatchResources.Any {
 			for _, rer := range spec.ExcludeResources.Any {
 				if datautils.DeepEqual(rmr, rer) {

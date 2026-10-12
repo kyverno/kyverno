@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	"github.com/kyverno/kyverno/pkg/engine/pattern"
@@ -34,11 +33,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 	case int, int32, int64, float32, float64, bool:
 		return anyin.validateValueWithStringPattern(fmt.Sprint(typedKey), value)
 	case []interface{}:
-		var stringSlice []string
-		for _, v := range typedKey {
-			stringSlice = append(stringSlice, fmt.Sprint(v))
-		}
-		return anyin.validateValueWithStringSetPattern(stringSlice, value)
+		return anyin.validateValueWithElementSetPattern(toElements(typedKey), value)
 	default:
 		anyin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
@@ -59,16 +54,18 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
 func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+	keyElement := toElement(key)
+
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
+			if wildcardElements(toElement(val), keyElement) {
 				return false, true
 			}
 		}
 
 	case string:
-		if wildcard.Match(valuesAvailable, key) {
+		if wildcardElementDirectional(toElement(valuesAvailable), keyElement) {
 			return false, true
 		}
 
@@ -94,7 +91,19 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 		}
 
 	default:
-		return true, false
+		// A bare comparable scalar is a one-element set; an opaque value
+		// (null, map, nested object) is not comparable, so fail safe to an
+		// invalid type (In/*NotIn both false) rather than firing a deny on
+		// absent or non-scalar data (#1039).
+		valueElement := toElement(valuesAvailable)
+		if !valueElement.comparable {
+			return true, false
+		}
+		// Directional, matching the scalar-value semantics above: value
+		// is the pattern, key is the concrete string.
+		if wildcardElementDirectional(valueElement, keyElement) {
+			return false, true
+		}
 	}
 
 	return false, false
@@ -108,7 +117,7 @@ func handleRange(key string, value interface{}, log logr.Logger) bool {
 	}
 }
 
-func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
+func (anyin AnyInHandler) validateValueWithElementSetPattern(key []element, value interface{}) (keyExists bool) {
 	invalidType, isAnyIn := anySetExistsInArray(key, value, anyin.log, false)
 	if invalidType {
 		anyin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
@@ -122,28 +131,24 @@ func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value 
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
 // notIn argument if set to true will check for NotIn
-func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNotIn bool) (invalidType bool, keyExists bool) {
+func anySetExistsInArray(key []element, value interface{}, log logr.Logger, anyNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
-		valueSlice := make([]string, 0, len(valuesAvailable))
-		for _, val := range valuesAvailable {
-			valueSlice = append(valueSlice, fmt.Sprint(val))
-		}
+		valueElements := toElements(valuesAvailable)
 		if anyNotIn {
-			return false, isAnyNotIn(key, valueSlice)
+			return false, isAnyNotIn(key, valueElements)
 		}
-		return false, isAnyIn(key, valueSlice)
+		return false, isAnyIn(key, valueElements)
 
 	case int, int32, int64, float32, float64, bool:
-		valueSlice := make([]string, 0, 1)
-		valueSlice = append(valueSlice, fmt.Sprint(value))
+		valueElements := []element{toElement(value)}
 		if anyNotIn {
-			return false, isAnyNotIn(key, valueSlice)
+			return false, isAnyNotIn(key, valueElements)
 		}
-		return false, isAnyIn(key, valueSlice)
+		return false, isAnyIn(key, valueElements)
 
 	case string:
-		if len(key) == 1 && key[0] == valuesAvailable {
+		if len(key) == 1 && equalElements(key[0], toElement(valuesAvailable)) {
 			if anyNotIn {
 				return false, false
 			}
@@ -156,7 +161,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 				isAnyNotInBool := false
 				stringForAnyNotIn := strings.Replace(valuesAvailable, "-", "!-", 1)
 				for _, k := range key {
-					if handleRange(k, stringForAnyNotIn, log) {
+					if handleRange(k.str, stringForAnyNotIn, log) {
 						isAnyNotInBool = true
 						break
 					}
@@ -165,7 +170,7 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 			} else {
 				isAnyInBool := false
 				for _, k := range key {
-					if handleRange(k, value, log) {
+					if handleRange(k.str, value, log) {
 						isAnyInBool = true
 						break
 					}
@@ -183,22 +188,34 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		} else {
 			arr = append(arr, valuesAvailable)
 		}
+		valueElements := elementsFromStrings(arr)
 		if anyNotIn {
-			return false, isAnyNotIn(key, arr)
+			return false, isAnyNotIn(key, valueElements)
 		}
 
-		return false, isAnyIn(key, arr)
+		return false, isAnyIn(key, valueElements)
 
 	default:
-		return true, false
+		// Same rationale as anyKeyExistsInArray's default case. An opaque
+		// value (null, map, nested object) is not comparable, so report an
+		// invalid type and fail safe to false (#1039).
+		valueElement := toElement(value)
+		if !valueElement.comparable {
+			return true, false
+		}
+		valueElements := []element{valueElement}
+		if anyNotIn {
+			return false, isAnyNotIn(key, valueElements)
+		}
+		return false, isAnyIn(key, valueElements)
 	}
 }
 
-// isAnyIn checks if any values in S1 are in S2
-func isAnyIn(key []string, value []string) bool {
+// isAnyIn checks if any values in S1 are in S2 under wildcard matching
+func isAnyIn(key []element, value []element) bool {
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
+			if wildcardElements(valKey, valValue) {
 				return true
 			}
 		}
@@ -206,13 +223,13 @@ func isAnyIn(key []string, value []string) bool {
 	return false
 }
 
-// isAnyNotIn checks if any of the values in S1 are not in S2
-func isAnyNotIn(key []string, value []string) bool {
+// isAnyNotIn checks if any of the values in S1 are not in S2 under wildcard matching
+func isAnyNotIn(key []element, value []element) bool {
 	for _, valKey := range key {
 		matchFound := false
 
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
+			if wildcardElements(valKey, valValue) {
 				matchFound = true
 				break
 			}

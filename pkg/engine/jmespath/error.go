@@ -13,6 +13,7 @@ const (
 	nonIntModuloError        = errorPrefix + "Non-integer argument(s) passed for modulo"
 	typeMismatchError        = errorPrefix + "Types mismatch"
 	nonIntRoundError         = errorPrefix + "Non-integer argument(s) passed for round off"
+	argumentLengthExceeded   = errorPrefix + "argument #%d exceeds the maximum allowed length of %d runes (got %d)"
 )
 
 func formatError(format string, function string, values ...interface{}) error {

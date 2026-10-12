@@ -473,7 +473,10 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
 		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, err.Error())
 	} else {
-		msg := msgRaw.(string)
+		msg, ok := msgRaw.(string)
+		if !ok {
+			msg = fmt.Sprint(msgRaw)
+		}
 		if !strings.HasSuffix(msg, ".") {
 			msg = msg + "."
 		}
@@ -494,7 +497,10 @@ func (v *validator) buildAnyPatternErrorMessage(errors []string) string {
 		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
 		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, errStr)
 	} else {
-		msg := msgRaw.(string)
+		msg, ok := msgRaw.(string)
+		if !ok {
+			msg = fmt.Sprint(msgRaw)
+		}
 		if strings.HasSuffix(msg, ".") {
 			return fmt.Sprintf("validation error: %s %s", msg, errStr)
 		}

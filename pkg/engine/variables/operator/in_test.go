@@ -131,6 +131,25 @@ func TestInHandler_Evaluate(t *testing.T) {
 			value:    12345,
 			expected: false,
 		},
+		// Non-string key elements (panic-safety)
+		{
+			name:     "numeric key element coerces like a scalar numeric key",
+			key:      []interface{}{1, 2},
+			value:    []interface{}{"1", "2", "3"},
+			expected: true,
+		},
+		{
+			name:     "opaque key element does not panic and fails the conjunction",
+			key:      []interface{}{"apple", map[string]interface{}{"foo": "bar"}},
+			value:    []interface{}{"apple", "banana", "cherry"},
+			expected: false,
+		},
+		{
+			name:     "opaque key element alone does not panic and fails the conjunction",
+			key:      []interface{}{[]interface{}{"nested"}},
+			value:    []interface{}{"apple", "banana", "cherry"},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -185,49 +204,49 @@ func TestInHandler_ValidateValueWithStringPattern(t *testing.T) {
 	}
 }
 
-func TestInHandler_ValidateValueWithStringSetPattern(t *testing.T) {
+func TestInHandler_ValidateValueWithElementSetPattern(t *testing.T) {
 	log := logr.Discard()
 	handler := InHandler{log: log}
 
 	tests := []struct {
 		name     string
-		key      []string
+		key      []interface{}
 		value    interface{}
 		expected bool
 	}{
 		{
 			name:     "all keys in slice",
-			key:      []string{"a", "b"},
+			key:      []interface{}{"a", "b"},
 			value:    []interface{}{"a", "b", "c"},
 			expected: true,
 		},
 		{
 			name:     "not all keys in slice",
-			key:      []string{"a", "d"},
+			key:      []interface{}{"a", "d"},
 			value:    []interface{}{"a", "b", "c"},
 			expected: false,
 		},
 		{
 			name:     "all keys in JSON array",
-			key:      []string{"a", "b"},
+			key:      []interface{}{"a", "b"},
 			value:    `["a", "b", "c"]`,
 			expected: true,
 		},
 		{
 			name:     "single key matches string",
-			key:      []string{"test"},
+			key:      []interface{}{"test"},
 			value:    "test",
 			expected: true,
 		},
 		{
 			name:     "single key no match string",
-			key:      []string{"other"},
+			key:      []interface{}{"other"},
 			value:    "test",
 			expected: false,
 		},
 		{
 			name:     "invalid value type",
-			key:      []string{"a"},
+			key:      []interface{}{"a"},
 			value:    123,
 			expected: false,
 		},
@@ -235,7 +254,7 @@ func TestInHandler_ValidateValueWithStringSetPattern(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := handler.validateValueWithStringSetPattern(tt.key, tt.value)
+			result := handler.validateValueWithElementSetPattern(toElements(tt.key), tt.value)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -315,10 +334,13 @@ func TestKeyExistsInArray(t *testing.T) {
 			expectKeyExist: false,
 		},
 		{
-			name:           "invalid value type",
+			// Behavior change (D2', scalar-value gap): a bare comparable
+			// scalar value is no longer flagged invalid -- it compares
+			// like a one-element set through the shared primitive.
+			name:           "bare scalar value compares instead of erroring",
 			key:            "a",
 			value:          12345,
-			expectInvalid:  true,
+			expectInvalid:  false,
 			expectKeyExist: false,
 		},
 	}
@@ -337,7 +359,7 @@ func TestSetExistsInArray(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		key            []string
+		key            []interface{}
 		value          interface{}
 		notIn          bool
 		expectInvalid  bool
@@ -345,7 +367,7 @@ func TestSetExistsInArray(t *testing.T) {
 	}{
 		{
 			name:           "all keys in slice - In check",
-			key:            []string{"a", "b"},
+			key:            []interface{}{"a", "b"},
 			value:          []interface{}{"a", "b", "c"},
 			notIn:          false,
 			expectInvalid:  false,
@@ -353,7 +375,7 @@ func TestSetExistsInArray(t *testing.T) {
 		},
 		{
 			name:           "not all keys in slice - In check",
-			key:            []string{"a", "d"},
+			key:            []interface{}{"a", "d"},
 			value:          []interface{}{"a", "b", "c"},
 			notIn:          false,
 			expectInvalid:  false,
@@ -361,7 +383,7 @@ func TestSetExistsInArray(t *testing.T) {
 		},
 		{
 			name:           "any key not in slice - NotIn check",
-			key:            []string{"a", "d"},
+			key:            []interface{}{"a", "d"},
 			value:          []interface{}{"a", "b", "c"},
 			notIn:          true,
 			expectInvalid:  false,
@@ -369,7 +391,7 @@ func TestSetExistsInArray(t *testing.T) {
 		},
 		{
 			name:           "all keys in slice - NotIn check",
-			key:            []string{"a", "b"},
+			key:            []interface{}{"a", "b"},
 			value:          []interface{}{"a", "b", "c"},
 			notIn:          true,
 			expectInvalid:  false,
@@ -377,7 +399,7 @@ func TestSetExistsInArray(t *testing.T) {
 		},
 		{
 			name:           "single key matches string value",
-			key:            []string{"test"},
+			key:            []interface{}{"test"},
 			value:          "test",
 			notIn:          false,
 			expectInvalid:  false,
@@ -385,41 +407,50 @@ func TestSetExistsInArray(t *testing.T) {
 		},
 		{
 			name:           "keys in JSON array",
-			key:            []string{"a", "b"},
+			key:            []interface{}{"a", "b"},
 			value:          `["a", "b", "c"]`,
 			notIn:          false,
 			expectInvalid:  false,
 			expectKeyExist: true,
 		},
 		{
-			name:           "invalid JSON",
-			key:            []string{"a"},
+			// Behavior change (D2', ruling B): the string-value grammar is
+			// harmonized with the Any/All operators -- a non-JSON string is
+			// treated as a single-element value instead of an unmarshal
+			// error, so this now compares cleanly instead of bailing out.
+			name:           "non-JSON string value falls back to a single element",
+			key:            []interface{}{"a"},
 			value:          `not-json`,
 			notIn:          false,
-			expectInvalid:  true,
+			expectInvalid:  false,
 			expectKeyExist: false,
 		},
 		{
-			name:           "non-string in value slice",
-			key:            []string{"a"},
+			// Behavior change (D2'): a non-string element no longer bails
+			// the whole comparison out; it is coerced like any other
+			// scalar, so the string element it sits next to still compares.
+			name:           "non-string in value slice no longer bails out",
+			key:            []interface{}{"a"},
 			value:          []interface{}{"a", 123},
 			notIn:          false,
-			expectInvalid:  true,
-			expectKeyExist: false,
+			expectInvalid:  false,
+			expectKeyExist: true,
 		},
 		{
-			name:           "invalid value type",
-			key:            []string{"a"},
+			// Behavior change (D2', scalar-value gap): same as
+			// keyExistsInArray's equivalent case above.
+			name:           "bare scalar value compares instead of erroring",
+			key:            []interface{}{"a"},
 			value:          12345,
 			notIn:          false,
-			expectInvalid:  true,
+			expectInvalid:  false,
 			expectKeyExist: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			invalidType, keyExists := setExistsInArray(tt.key, tt.value, log, tt.notIn)
+			invalidType, keyExists := setExistsInArray(toElements(tt.key), tt.value, log, tt.notIn)
 			assert.Equal(t, tt.expectInvalid, invalidType)
 			assert.Equal(t, tt.expectKeyExist, keyExists)
 		})
@@ -467,7 +498,7 @@ func TestIsIn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isIn(tt.key, tt.value)
+			result := isIn(elementsFromStrings(tt.key), elementsFromStrings(tt.value))
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -514,7 +545,7 @@ func TestIsNotIn(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isNotIn(tt.key, tt.value)
+			result := isNotIn(elementsFromStrings(tt.key), elementsFromStrings(tt.value))
 			assert.Equal(t, tt.expected, result)
 		})
 	}
