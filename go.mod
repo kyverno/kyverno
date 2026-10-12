@@ -38,6 +38,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
+	github.com/klauspost/compress v1.19.2
 	github.com/kyverno/api v0.0.1-alpha.5
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
@@ -287,7 +288,6 @@ require (
 	github.com/jedisct1/go-minisign v0.0.0-20230811132847-661be99b8267 // indirect
 	github.com/jellydator/ttlcache/v3 v3.4.1 // indirect
 	github.com/kevinburke/ssh_config v1.4.0 // indirect
-	github.com/klauspost/compress v1.19.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.4 // indirect

@@ -64,6 +64,8 @@ var (
 	// cleanupServer port and host for listening address
 	cleanupServerHost string
 	cleanupServerPort int
+	// image verify payload limit
+	imageVerifyPayloadLimit int64
 	// image verify cache
 	imageVerifyCacheEnabled     bool
 	imageVerifyCacheTTLDuration time.Duration
@@ -160,6 +162,7 @@ func initRegistryClientFlags() {
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
+	flag.Int64Var(&imageVerifyPayloadLimit, "imageVerifyPayloadLimit", 0, "Maximum decompressed size in bytes of a sigstore bundle or attestation payload read during image validating policy verification. Raise it to verify payloads larger than the 10000000 byte default, such as large SBOM attestations. 0 keeps the default.")
 }
 
 func initImageVerifyCacheFlags() {
