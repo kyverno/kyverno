@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/klauspost/compress/zstd"
@@ -65,9 +66,17 @@ func ReadLayerLimited(layer v1.Layer, maxSize int64) ([]byte, error) {
 		reader = br
 	}
 
-	b, err := io.ReadAll(io.LimitReader(reader, maxSize+1))
+	// maxSize+1 is how an over-limit read is detected, so it must not overflow.
+	probe := maxSize
+	if probe == math.MaxInt64 {
+		probe--
+	}
+	b, err := io.ReadAll(io.LimitReader(reader, probe+1))
 	if err != nil {
-		if errors.Is(err, zstd.ErrWindowSizeExceeded) {
+		// Both are the decoder refusing a declared size, not malformed content:
+		// a single-segment frame reports ErrDecoderSizeExceeded, a windowed one
+		// ErrWindowSizeExceeded.
+		if errors.Is(err, zstd.ErrWindowSizeExceeded) || errors.Is(err, zstd.ErrDecoderSizeExceeded) {
 			return nil, fmt.Errorf("%w: %w", ErrLayerTooLarge, err)
 		}
 		return nil, fmt.Errorf("failed to read layer: %w", err)

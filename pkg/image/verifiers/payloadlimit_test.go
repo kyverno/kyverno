@@ -2,6 +2,7 @@ package verifiers
 
 import (
 	"errors"
+	"math"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/static"
@@ -64,6 +65,24 @@ func TestReadLayerLimited_SizeRefusalsAreTagged(t *testing.T) {
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, ErrLayerTooLarge), "got %v", err)
 		assert.True(t, errors.Is(err, zstd.ErrWindowSizeExceeded), "the cause must survive wrapping: %v", err)
+	})
+
+	t.Run("zstd declared content size", func(t *testing.T) {
+		frame := []byte{
+			0x28, 0xB5, 0x2F, 0xFD, // magic
+			0b1110_0000,                  // FHD: FCS size flag = 3 (8 bytes), single segment
+			0, 0, 0, 0, 0, 0, 0x01, 0x00, // frame content size = 1<<40
+		}
+		_, err := ReadLayerLimited(static.NewLayer(frame, types.MediaType("test")), 1024)
+		require.Error(t, err)
+		assert.True(t, errors.Is(err, ErrLayerTooLarge), "got %v", err)
+		assert.True(t, errors.Is(err, zstd.ErrDecoderSizeExceeded), "the cause must survive wrapping: %v", err)
+	})
+
+	t.Run("a limit at MaxInt64 still reads the payload", func(t *testing.T) {
+		b, err := ReadLayerLimited(static.NewLayer(gzipBytes(t, 4096), types.MediaType("test")), math.MaxInt64)
+		require.NoError(t, err)
+		assert.Len(t, b, 4096)
 	})
 
 	t.Run("malformed content is not a size refusal", func(t *testing.T) {
