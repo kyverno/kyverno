@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -61,4 +62,25 @@ func Test_SetWithPayload_round_trips_real_payload_size(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, found)
 	assert.Equal(t, largePayload, got)
+}
+
+// ristretto accepts a Set into its buffer and only later drops an item whose
+// cost exceeds the entire budget, so SetWithTTL alone reports success for a
+// write that never lands. A multi-KB attestation payload at the default
+// --imageVerifyCacheMaxSize is exactly that case, and callers rely on stored
+// to tell that the payload was too large to cache.
+func Test_SetWithPayload_reports_oversized_payload_as_not_stored(t *testing.T) {
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(0), WithTTLDuration(0))
+	assert.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "oversize-test-policy", UID: "oversize-test-uid", ResourceVersion: "1"}
+	payload := map[string][]byte{"sbom/cyclone-dx": []byte(`{"pad":"` + strings.Repeat("x", 2*defaultMaxSize) + `"}`)}
+
+	stored, err := c.SetWithPayload(context.TODO(), pol, "attestation-rule", "image-c", true, payload)
+	assert.NoError(t, err)
+	assert.False(t, stored, "a payload larger than the whole cost budget must not be reported as stored")
+
+	found, _, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", "image-c", true)
+	assert.NoError(t, err)
+	assert.False(t, found)
 }

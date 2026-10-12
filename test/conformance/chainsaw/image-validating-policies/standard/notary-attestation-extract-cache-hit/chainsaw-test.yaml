@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+# Regression: verifyAttestationSignatures cache hit must still allow extractPayload for
+# Notary/OCI-referrer attestations (process-lifetime image verify cache on the admission
+# controller), without ever falling back to an unverified live registry fetch (#17130).
+# Referrer/Notary counterpart to ../cosign-attestation-extract-cache-hit.
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: notary-attestation-extract-cache-hit
+spec:
+  concurrent: false
+  steps:
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-image-validating-policy-ready
+    use:
+      template: ../../../_step-templates/image-validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: ivpol-notary-attestation-extract-cache
+  - name: create pod (cache miss)
+    try:
+    - create:
+        file: pod.yaml
+        # Cold-start allowance: the first-ever Notary verification in a freshly started
+        # admission controller does real registry I/O (fetch referrers, fetch signature,
+        # fetch SBOM content) and can exceed the default ApplyTimeout, mirroring the
+        # Cosign/Sigstore cold-start allowance in cosign-attestation-extract-cache-hit.
+        timeout: 90s
+    - assert:
+        file: pod.yaml
+  - name: delete pod after first admission
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Pod
+          name: test-pod-notary-attestation-cache
+          namespace: default
+  - name: recreate pod (cache hit)
+    try:
+    - create:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml
+  - name: delete pod after second admission
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Pod
+          name: test-pod-notary-attestation-cache
+          namespace: default
+  - name: recreate pod again (cache hit, third attempt)
+    try:
+    - create:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml

@@ -91,6 +91,10 @@ func generateKey(policy metav1.Object, ruleName string, imageRef string) string 
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
+func (c *cache) Enabled() bool {
+	return c.isCacheEnabled
+}
+
 func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
 	return c.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, nil)
 }
@@ -109,8 +113,15 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
+	cost := payloadCost(payloads)
+	if cost > c.maxSize {
+		// ristretto queues the Set and reports success, then drops an item
+		// costlier than its whole budget asynchronously, so SetWithTTL alone
+		// would claim this write was stored when it never lands.
+		return false, nil
+	}
 
-	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
+	stored := c.cache.SetWithTTL(key, clonePayloads(payloads), cost, c.ttl)
 	c.cache.Wait()
 	if stored {
 		return true, nil
