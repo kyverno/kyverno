@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"gomodules.xyz/jsonpatch/v2"
 	"gotest.tools/v3/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubefake "k8s.io/client-go/kubernetes/fake"
 )
@@ -1117,6 +1118,49 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
 }
 
+// observedCache wraps a real cache client and records what the engine asked of
+// it, so a test can assert on hits and stores rather than on elapsed time.
+type observedCache struct {
+	imageverifycache.Client
+	gets   int
+	hits   int
+	stores int
+}
+
+func (c *observedCache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	c.gets++
+	found, err := c.Client.Get(ctx, policy, ruleName, imageRef, useCache)
+	if found {
+		c.hits++
+	}
+	return found, err
+}
+
+func (c *observedCache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, map[string][]byte, error) {
+	c.gets++
+	found, payloads, err := c.Client.GetWithPayload(ctx, policy, ruleName, imageRef, useCache)
+	if found {
+		c.hits++
+	}
+	return found, payloads, err
+}
+
+func (c *observedCache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	stored, err := c.Client.Set(ctx, policy, ruleName, imageRef, useCache)
+	if stored {
+		c.stores++
+	}
+	return stored, err
+}
+
+func (c *observedCache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error) {
+	stored, err := c.Client.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, payloads)
+	if stored {
+		c.stores++
+	}
+	return stored, err
+}
+
 // Test_ImageVerifyCacheTagReferenceCosign covers the companion behaviour of the
 // digest guard: a tag can be moved in the registry after an entry is written,
 // so a tag-referenced image keeps being verified rather than served from the
@@ -1127,22 +1171,24 @@ func Test_ImageVerifyCacheTagReferenceCosign(t *testing.T) {
 		imageverifycache.WithMaxSize(1000),
 		imageverifycache.WithTTLDuration(24 * time.Hour),
 	}
-	imageVerifyCache, err := imageverifycache.New(opts...)
+	inner, err := imageverifycache.New(opts...)
 	assert.NilError(t, err)
+	imageVerifyCache := &observedCache{Client: inner}
 
 	image := "ghcr.io/kyverno/test-verify-image:signed"
 	policyContext := buildContext(t, cosignTestPolicy, cosignTestResource, "")
 
-	// Two passes over a tag-referenced image: both must verify on their own.
-	// There is deliberately no timing assertion here, because elapsed time does
-	// not discriminate a cache hit from a fast re-verification. That the entry
-	// is neither stored nor served is asserted directly, against the cache
-	// client, in Test_Cache_RefusesMutableKeys.
+	// Two passes over a tag-referenced image. Both must verify, and the engine
+	// must never be handed a hit: elapsed time cannot tell a hit from a fast
+	// re-verification, so the cache client is wrapped and observed directly.
 	for i := range 2 {
 		er, ivm := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, policyContext, cfg)
 		errorAssertionUtil(t, image, ivm, er)
 		assert.Check(t, !ivm.IsEmpty(), "pass %d: a tag-referenced image must still be verified", i)
 	}
+	assert.Check(t, imageVerifyCache.gets > 0, "the engine must consult the cache, or this test proves nothing")
+	assert.Equal(t, imageVerifyCache.hits, 0, "a tag reference must never be served from the cache")
+	assert.Equal(t, imageVerifyCache.stores, 0, "a tag reference must never be stored in the cache")
 }
 
 func Test_ImageVerifyCacheDisabled(t *testing.T) {
