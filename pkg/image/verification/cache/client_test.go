@@ -105,8 +105,14 @@ func Test_Cache_RefusesMutableKeys(t *testing.T) {
 		// read guard on its own.
 		impl, ok := c.(*cache)
 		assert.True(t, ok)
-		impl.cache.SetWithTTL(generateKey(pol, "rule", testTagRef), nil, 1, time.Hour)
+		key := generateKey(pol, "rule", testTagRef)
+		impl.cache.SetWithTTL(key, nil, 1, time.Hour)
 		impl.cache.Wait()
+		// Without this, a store that dropped the entry would make the
+		// assertions below pass as ordinary misses. Ristretto reports presence
+		// separately from the stored value, which is nil here.
+		_, seeded := impl.cache.Get(key)
+		assert.True(t, seeded, "the entry must actually be in the store for this to test the read guard")
 
 		found, err := c.Get(context.TODO(), pol, "rule", testTagRef, true)
 		assert.NoError(t, err)

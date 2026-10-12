@@ -196,6 +196,11 @@ func (h validateImageHandler) validateImage(
 	if err != nil {
 		return engineapi.RuleStatusError, fmt.Errorf("failed to fetch registry credentials for %s: %w", image, err)
 	}
+	if rclient == nil {
+		// A factory with no global client returns it unchanged when the rule
+		// declares no credentials, so a non-nil factory can still yield none.
+		return engineapi.RuleStatusError, fmt.Errorf("no registry client configured to verify %s", image)
+	}
 
 	// The patches produced here are discarded: the validating webhook cannot
 	// mutate the admitted object, it can only decide pass/fail based on its

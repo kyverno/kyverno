@@ -244,15 +244,30 @@ func TestValidateImage_NilRegistryClientFactoryErrors(t *testing.T) {
 	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
 
 	rule := cpol.Spec.Rules[0]
-	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, true)
-	require.NoError(t, err)
-	require.NotNil(t, handler)
+	for name, factory := range map[string]engineapi.RegistryClientFactory{
+		"nil factory":              nil,
+		"factory without a client": nilClientRegistryClientFactory{},
+	} {
+		t.Run(name, func(t *testing.T) {
+			handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, factory, nil, nil, true)
+			require.NoError(t, err)
+			require.NotNil(t, handler)
 
-	h := handler.(validateImageHandler)
-	_, responses := h.Process(context.Background(), logr.Discard(), policyContext, *resource, rule, nil, nil)
-	require.NotEmpty(t, responses, "expected a rule response")
-	assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
-	assert.Contains(t, responses[0].Message(), "no registry client configured")
+			h := handler.(validateImageHandler)
+			_, responses := h.Process(context.Background(), logr.Discard(), policyContext, *resource, rule, nil, nil)
+			require.NotEmpty(t, responses, "expected a rule response")
+			assert.Equal(t, engineapi.RuleStatusError, responses[0].Status())
+			assert.Contains(t, responses[0].Message(), "no registry client configured")
+		})
+	}
+}
+
+// nilClientRegistryClientFactory models a factory built with no global client:
+// it returns that client unchanged, so the caller gets no error and no client.
+type nilClientRegistryClientFactory struct{}
+
+func (nilClientRegistryClientFactory) GetClient(context.Context, *kyvernov1.ImageRegistryCredentials, string, []string) (engineapi.RegistryClient, error) {
+	return nil, nil
 }
 
 // TestVerifyDigestFailsClosedBeforeSkipMapping pins the ordering the design
