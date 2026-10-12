@@ -306,7 +306,7 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 	predicateDesc := manifest.Layers[0]
 	digest := predicateDesc.Digest.String()
 	if predicateDesc.Size > verifiers.PayloadLimit() {
-		return nil, fmt.Errorf("predicate size %d exceeds %d for digest %s", predicateDesc.Size, verifiers.PayloadLimit(), digest)
+		return nil, fmt.Errorf("%w: predicate size %d exceeds %d for digest %s", verifiers.ErrLayerTooLarge, predicateDesc.Size, verifiers.PayloadLimit(), digest)
 	}
 
 	layer, err := gcrremote.Layer(ref.Context().Digest(digest), remoteOpts...)

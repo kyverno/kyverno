@@ -91,7 +91,7 @@ func (c *repositoryClient) FetchSignatureBlob(ctx context.Context, desc ocispec.
 
 	// This check ensures that the size of a layer isn't abnormally large to avoid malicious payloads
 	if manifestDesc.Size > verifiers.PayloadLimit() {
-		return nil, ocispec.Descriptor{}, fmt.Errorf("payload size %d exceeds %d for digest %s", manifestDesc.Size, verifiers.PayloadLimit(), manifestDesc.Digest)
+		return nil, ocispec.Descriptor{}, fmt.Errorf("%w: payload size %d exceeds %d for digest %s", verifiers.ErrLayerTooLarge, manifestDesc.Size, verifiers.PayloadLimit(), manifestDesc.Digest)
 	}
 
 	signatureBlobRef, err := name.ParseReference(c.getReferenceFromDescriptor(manifestDesc))
