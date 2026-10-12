@@ -1138,6 +1138,46 @@ func Test_ImageVerifyCacheDisabled(t *testing.T) {
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache is disabled, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
 }
 
+// Test_ImageVerifyCacheSkipReferenceNotServedFromCache pins that a reference
+// the entry skips is never answered from the cache. The cache key is
+// normalised to the resolved digest, so a pass cached for the digest form
+// would otherwise be served for a tag that skipImageReferences excludes,
+// turning a Skip into "verified from cache".
+func Test_ImageVerifyCacheSkipReferenceNotServedFromCache(t *testing.T) {
+	const tagged = "ghcr.io/kyverno/test-verify-image:signed"
+	const digestRef = tagged + "@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	var policy map[string]interface{}
+	assert.NilError(t, json.Unmarshal([]byte(cosignTestPolicy), &policy))
+	rules := policy["spec"].(map[string]interface{})["rules"].([]interface{})
+	entry := rules[0].(map[string]interface{})["verifyImages"].([]interface{})[0].(map[string]interface{})
+	// Match both reference forms, but skip the tag one.
+	entry["imageReferences"] = []string{"ghcr.io/kyverno/test-verify-image*"}
+	entry["skipImageReferences"] = []string{"*:signed"}
+	policyJSON, err := json.Marshal(policy)
+	assert.NilError(t, err)
+
+	imageVerifyCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24*time.Hour),
+	)
+	assert.NilError(t, err)
+
+	// The digest form is verified and cached.
+	pinned := buildContext(t, string(policyJSON), strings.ReplaceAll(cosignTestResource, tagged, digestRef), "")
+	er, _ := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, pinned, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Message())
+
+	// The tag form resolves to the same digest, so a digest-keyed entry exists
+	// for it. It must still be skipped rather than served.
+	skipped := buildContext(t, string(policyJSON), cosignTestResource, "")
+	er, _ = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, skipped, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip, er.PolicyResponse.Rules[0].Message())
+}
+
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
 	opts := []imageverifycache.Option{
 		imageverifycache.WithCacheEnableFlag(true),

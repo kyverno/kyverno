@@ -104,8 +104,19 @@ func (iv *imageVerifier) Verify(
 		// between the mutable name and the immutable verdict, not overhead
 		// to optimize away: skipping it would let a moved tag serve a stale
 		// cache hit.
+		// verifyImage matches imageReferences and skipImageReferences below,
+		// after the lookup, and the cache key is digest-normalised, so a pass
+		// cached for the digest form would be served for a tag this entry
+		// means to skip or does not match at all. Decide that here instead.
+		imageUseCache := useCache &&
+			matchReferences(imageVerify.ImageReferences, image) &&
+			!matchReferences(imageVerify.SkipImageReferences, image)
+		if useCache && !imageUseCache {
+			iv.logger.V(2).Info("caching disabled: entry skips or does not match this image reference", "image", image, "ruleName", iv.rule.Name)
+		}
+
 		cacheInfo := imageInfo
-		if cacheInfo.Digest == "" && iv.ivCache != nil && useCache {
+		if cacheInfo.Digest == "" && iv.ivCache != nil && imageUseCache {
 			if desc, err := iv.rclient.FetchImageDescriptor(ctx, image); err == nil {
 				cacheInfo.Digest = desc.Digest.String()
 			} else {
@@ -116,7 +127,7 @@ func (iv *imageVerifier) Verify(
 
 		isInCache := false
 		if iv.ivCache != nil {
-			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), cacheScope, cacheKey, useCache)
+			found, err := iv.ivCache.Get(ctx, iv.policyContext.Policy(), cacheScope, cacheKey, imageUseCache)
 			if err != nil {
 				iv.logger.Error(err, "error occurred during cache get", "image", cacheKey)
 			} else {
@@ -145,7 +156,7 @@ func (iv *imageVerifier) Verify(
 						setInfo.Digest = digest
 					}
 					setKey := setInfo.String()
-					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), cacheScope, setKey, useCache)
+					setted, err := iv.ivCache.Set(ctx, iv.policyContext.Policy(), cacheScope, setKey, imageUseCache)
 					if err != nil {
 						iv.logger.Error(err, "error occurred during cache set", "image", setKey)
 					} else {
