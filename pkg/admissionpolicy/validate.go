@@ -78,6 +78,13 @@ func GetGVRs(matchResources *admissionregistrationv1.MatchResources, mapper meta
 	return gvrList
 }
 
+func wildcardToEmpty(s string) string {
+	if s == "*" {
+		return ""
+	}
+	return s
+}
+
 func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]string, error) {
 	var kinds []string
 
@@ -96,7 +103,9 @@ func resolveKinds(group, version, resource string, mapper meta.RESTMapper) ([]st
 	switch {
 	case group == "*" || version == "*" || resource == "*":
 		gvrList, err := mapper.ResourcesFor(schema.GroupVersionResource{
-			Group: group, Version: version, Resource: resource,
+			Group:    wildcardToEmpty(group),
+			Version:  wildcardToEmpty(version),
+			Resource: wildcardToEmpty(resource),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("list resources failed for %s/%s/%s: %w", group, version, resource, err)
