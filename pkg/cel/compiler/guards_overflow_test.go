@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"math"
 	"strings"
 	"testing"
 
@@ -9,16 +8,17 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 )
 
-// mulSat must saturate rather than wrap: a product used only in a `bound > limit` comparison
-// that overflowed int64 to a negative or small value would let the guard pass a bomb.
-func TestMulSatSaturates(t *testing.T) {
-	if got := mulSat(math.MaxInt64, 2); got != math.MaxInt64 {
-		t.Fatalf("overflow must saturate to MaxInt64, got %d", got)
+// saturatingMul must saturate rather than wrap: a product used only in a `bound > limit`
+// comparison that overflowed int64 to a negative or small value would let the guard pass a
+// bomb. (The regex.replace guard's backreference branch is the one that can reach overflow.)
+func TestSaturatingMulGuardsAgainstOverflow(t *testing.T) {
+	if got := saturatingMul(maxInt64Val, 4); got != maxInt64Val {
+		t.Fatalf("overflow must saturate to the ceiling, got %d", got)
 	}
-	if got := mulSat(3_000_000, 3_000_000); got != 9_000_000_000_000 {
+	if got := saturatingMul(3_000_000, 3_000_000); got != 9_000_000_000_000 {
 		t.Fatalf("in-range product must be exact, got %d", got)
 	}
-	if got := mulSat(0, math.MaxInt64); got != 0 {
+	if got := saturatingMul(0, maxInt64Val); got != 0 {
 		t.Fatalf("zero must be zero, got %d", got)
 	}
 }

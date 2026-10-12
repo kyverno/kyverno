@@ -42,6 +42,13 @@ func (p *costProgram) Eval(vars any) (ref.Val, *cel.EvalDetails, error) {
 // repository calls it today; it is implemented so the chokepoint's guarantee holds for
 // anything that does.
 func (p *costProgram) ConcurrentEval(ctx context.Context, vars any) <-chan cel.EvalResult {
+	// Refuse before running if the request budget is already spent, as ContextEval does.
+	if err := requestbudget.Exhausted(ctx); err != nil {
+		out := make(chan cel.EvalResult, 1)
+		out <- cel.EvalResult{Err: err}
+		close(out)
+		return out
+	}
 	in := p.prg.ConcurrentEval(ctx, vars)
 	out := make(chan cel.EvalResult, 1)
 	go func() {
