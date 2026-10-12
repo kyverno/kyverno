@@ -318,6 +318,12 @@ func TestGetGVRs_SkipsUnsafeResourceSegments(t *testing.T) {
 	assert.Equal(t, len(GetGVRs(rules("..", "v1", "pods"), nil)), 0, "unsafe api group")
 	assert.Equal(t, len(GetGVRs(rules("", "..", "pods"), nil)), 0, "unsafe api version")
 
+	// only the core group may be empty: path.Join would collapse an empty version or
+	// resource and address a different API path (e.g. /api/v1 for an empty resource)
+	assert.Equal(t, len(GetGVRs(rules("", "", "pods"), nil)), 0, "empty api version")
+	assert.Equal(t, len(GetGVRs(rules("", "v1", ""), nil)), 0, "empty resource")
+	assert.Equal(t, len(GetGVRs(rules("apps", "v1", ""), nil)), 0, "empty resource, named group")
+
 	// wildcards and the core group must still resolve
 	wild := GetGVRs(rules("", "v1", "*"), nil)
 	assert.Equal(t, len(wild), 1)

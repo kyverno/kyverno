@@ -1410,7 +1410,9 @@ func TestCollectGVK_RejectsClusterScopedKindForNamespacedPolicy(t *testing.T) {
 		}},
 	}
 
-	result, _ := collectGVK(&fakeNSClient{Interface: dclient.NewEmptyFakeClient()}, mapper, constraints, "ns1")
+	result, err := collectGVK(&fakeNSClient{Interface: dclient.NewEmptyFakeClient()}, mapper, constraints, "ns1")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "cluster-scoped")
 
 	assert.Contains(t, result, "ns1")
 	assert.Len(t, result["ns1"], 1, "only the namespace-scoped ConfigMap kind should be resolved for a namespaced policy")
