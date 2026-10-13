@@ -56,6 +56,57 @@ func Test_SortStatementsAndGetRawResp_MultipleVersions(t *testing.T) {
 	assert.Equal(t, "2026-10-12T10:00:00Z", meta["scanTime"])
 	vulns := extracted["vulnerabilities"].([]any)
 	assert.Empty(t, vulns)
+
+	// Mixed timestamps: chronology is unknown, so getRawResp must preserve the original order (first matching).
+	noTimestampScan := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"reportId": "no-timestamp-report",
+		},
+	}
+	timestampedScan := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"reportId": "timestamped-report",
+			"metadata": map[string]any{
+				"scanFinishedOn": "2026-10-12T10:00:00Z",
+			},
+		},
+	}
+	rawMixed, err := getRawResp([]map[string]any{noTimestampScan, timestampedScan}, "cosign.sigstore.dev/attestation/vuln/v1")
+	assert.NoError(t, err)
+	var extractedMixed map[string]any
+	err = json.Unmarshal(rawMixed, &extractedMixed)
+	assert.NoError(t, err)
+	assert.Equal(t, "no-timestamp-report", extractedMixed["reportId"])
+
+	// Both have timestamps using scanStartedOn/scanFinishedOn: newest is selected.
+	scanStartedEarlier := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"reportId": "earlier-report",
+			"metadata": map[string]any{
+				"scanStartedOn":  "2026-10-10T10:00:00Z",
+				"scanFinishedOn": "2026-10-10T10:15:00Z",
+			},
+		},
+	}
+	scanFinishedLater := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"reportId": "later-report",
+			"metadata": map[string]any{
+				"scanStartedOn":  "2026-10-11T10:00:00Z",
+				"scanFinishedOn": "2026-10-11T10:15:00Z",
+			},
+		},
+	}
+	rawBoth, err := getRawResp([]map[string]any{scanStartedEarlier, scanFinishedLater}, "cosign.sigstore.dev/attestation/vuln/v1")
+	assert.NoError(t, err)
+	var extractedBoth map[string]any
+	err = json.Unmarshal(rawBoth, &extractedBoth)
+	assert.NoError(t, err)
+	assert.Equal(t, "later-report", extractedBoth["reportId"])
 }
 
 func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
@@ -103,6 +154,40 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 				},
 			},
 			expected: "2026-08-01T10:00:00Z",
+		},
+		{
+			name: "cosign vuln scanStartedOn",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanStartedOn": "2026-09-01T10:00:00Z",
+					},
+				},
+			},
+			expected: "2026-09-01T10:00:00Z",
+		},
+		{
+			name: "cosign vuln scanFinishedOn",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanFinishedOn": "2026-09-01T10:30:00Z",
+					},
+				},
+			},
+			expected: "2026-09-01T10:30:00Z",
+		},
+		{
+			name: "cosign vuln prefers scanFinishedOn over scanStartedOn",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanStartedOn":  "2026-09-01T10:00:00Z",
+						"scanFinishedOn": "2026-09-01T10:30:00Z",
+					},
+				},
+			},
+			expected: "2026-09-01T10:30:00Z",
 		},
 	}
 
@@ -220,5 +305,30 @@ func Test_VerifyAttestation_EvaluatesNewestStatement(t *testing.T) {
 		},
 	}
 	err = iv.verifyAttestation([]map[string]any{noTimestampPassingScan, anotherPassingScan}, attestation, imageInfo)
+	assert.NoError(t, err)
+
+	// Case 6: Timestamps specified via scanStartedOn and scanFinishedOn.
+	// Newest scan finished with 0 vulnerabilities, so verification passes despite older failing scan.
+	scanWithFinishedFailing := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"metadata": map[string]any{
+				"scanStartedOn":  "2026-10-01T10:00:00Z",
+				"scanFinishedOn": "2026-10-01T10:20:00Z",
+			},
+			"vulnerabilities": []any{"CVE-2026-1111"},
+		},
+	}
+	scanWithFinishedClean := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"metadata": map[string]any{
+				"scanStartedOn":  "2026-10-10T10:00:00Z",
+				"scanFinishedOn": "2026-10-10T10:20:00Z",
+			},
+			"vulnerabilities": []any{},
+		},
+	}
+	err = iv.verifyAttestation([]map[string]any{scanWithFinishedFailing, scanWithFinishedClean}, attestation, imageInfo)
 	assert.NoError(t, err)
 }

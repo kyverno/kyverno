@@ -570,19 +570,8 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 		return fmt.Errorf("attestions not found for predicate type %s", attestation.Type)
 	}
 
-	sortStatementsByTimestamp(statements)
-
-	allHaveTimestamps := len(statements) > 1
-	if allHaveTimestamps {
-		for _, s := range statements {
-			if _, ok := extractStatementTimestamp(s); !ok {
-				allHaveTimestamps = false
-				break
-			}
-		}
-	}
-
-	if allHaveTimestamps {
+	if allStatementsHaveTimestamps(statements) {
+		sortStatementsByTimestamp(statements)
 		s := statements[0]
 		iv.logger.V(3).Info("checking newest attestation", "type", attestation.Type, "image", imageInfo.String())
 		val, msg, err := iv.checkAttestations(attestation, s)

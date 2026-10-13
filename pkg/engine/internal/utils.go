@@ -124,11 +124,13 @@ func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) jsonpatch.J
 }
 
 var timestampKeys = []string{
+	"scanFinishedOn",
 	"scanTime",
-	"buildStartedOn",
+	"scanStartedOn",
 	"buildFinishedOn",
-	"startedOn",
+	"buildStartedOn",
 	"finishedOn",
+	"startedOn",
 	"timestamp",
 	"CreatedAt",
 	"created",
@@ -215,6 +217,18 @@ func sortStatementsByTimestamp(statements []map[string]any) {
 	})
 }
 
+func allStatementsHaveTimestamps(statements []map[string]any) bool {
+	if len(statements) <= 1 {
+		return false
+	}
+	for _, s := range statements {
+		if _, ok := extractStatementTimestamp(s); !ok {
+			return false
+		}
+	}
+	return true
+}
+
 func getRawResp(statements []map[string]any, attestationType string) ([]byte, error) {
 	matching := make([]map[string]any, 0, len(statements))
 	for _, s := range statements {
@@ -237,7 +251,9 @@ func getRawResp(statements []map[string]any, attestationType string) ([]byte, er
 		return nil, fmt.Errorf("predicate not found in any statement")
 	}
 
-	sortStatementsByTimestamp(matching)
+	if allStatementsHaveTimestamps(matching) {
+		sortStatementsByTimestamp(matching)
+	}
 	predicate := matching[0]["predicate"].(map[string]any)
 	return json.Marshal(predicate)
 }
