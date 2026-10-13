@@ -345,7 +345,11 @@ func kubectlValidateLoader(allowLegacyPolicies, lenient bool) loader {
 						if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 							return nil, err
 						}
-						results.addError(path, fmt.Errorf("failed to process List: %w", err))
+						// a List whose shape is broken holds no policy we can identify, policy items that
+						// fail are reported by handleListItems itself
+						if !lenient {
+							results.addError(path, fmt.Errorf("failed to process List: %w", err))
+						}
 					}
 					continue
 				}
@@ -433,7 +437,10 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 	for i, item := range listItems {
 		itemMap, ok := item.(map[string]interface{})
 		if !ok {
-			results.addError(path, fmt.Errorf("List item %d is not a valid object", i))
+			// an item that is not an object cannot be a policy
+			if !lenient {
+				results.addError(path, fmt.Errorf("List item %d is not a valid object", i))
+			}
 			continue
 		}
 

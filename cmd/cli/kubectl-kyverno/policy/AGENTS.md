@@ -11,7 +11,7 @@ deliberately different failure behaviour; keep them apart when changing either o
 - **`LoadSkippingInvalidFiles` (lenient)** is used only by `kyverno apply` (`loadPolicies` in
   `commands/apply/command.go`). Failures are recorded in `LoaderResults.NonFatalErrors` under the path they came
   from and everything else still loads: valid documents in the same file, the rest of a directory, and the other
-  paths of the same call. apply prints these under "Policies Not Loaded".
+  paths of the same call. apply prints these under "Policies Not Loaded" (see `commands/apply/AGENTS.md`).
 
 The lenient behaviour is threaded through `kubectlValidateLoader(allowLegacyPolicies, lenient)`, `handleListItems`,
 `loadWithLoader(..., skipUnreadable, ...)` and `fsLoad(..., skipUnreadable)`, plus the `skipInvalidFiles` wrapper.
@@ -38,7 +38,9 @@ Every new branch is gated on that flag; the strict path must keep behaving as be
 Anything else (resources, `kyverno-test.yaml`, values and context files, `kustomization.yaml`) is ignored, because
 policy folders routinely hold those next to the policies. A document that is not valid YAML is always reported,
 since there is no way to tell what it was meant to be. In a directory, hidden entries are skipped before they are
-touched and an unreadable entry is reported only if it is a directory or a YAML file.
+touched and an unreadable entry is reported only if it is a directory or a YAML file. For a `v1/List`, policy items
+that fail are reported one by one from `handleListItems`, while a broken List shape (an item that is not an object,
+or `items` that is not a list) is ignored in lenient mode because it holds no policy that can be identified.
 
 Document level errors are prefixed with the document's kind and name (`documentError`, `namedError`, also used
 for `List` items) so several broken policies in one file can be told apart.

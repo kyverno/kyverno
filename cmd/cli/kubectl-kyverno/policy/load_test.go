@@ -969,6 +969,26 @@ spec:
 	assert.EqualError(t, results.NonFatalErrors[0].Error, "unable to read yaml")
 }
 
+// TestLoadSkippingInvalidFiles_IgnoresMalformedNonPolicyLists checks that a List whose shape is broken
+// is not reported as a policy that could not be loaded, while the strict loader still records it.
+func TestLoadSkippingInvalidFiles_IgnoresMalformedNonPolicyLists(t *testing.T) {
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		"scalar-item.yaml":    "apiVersion: v1\nkind: List\nitems:\n- just a string\n- apiVersion: v1\n  kind: ConfigMap\n  metadata:\n    name: example\n",
+		"items-not-list.yaml": "apiVersion: v1\nkind: List\nitems: not a list\n",
+	} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
+	}
+
+	strict, err := Load(nil, "", false, filepath.Join(dir, "scalar-item.yaml"), filepath.Join(dir, "items-not-list.yaml"))
+	require.NoError(t, err)
+	assert.Len(t, strict.NonFatalErrors, 3)
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	require.NoError(t, err)
+	assert.Empty(t, results.NonFatalErrors)
+}
+
 // TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies checks that a legacy policy still fails the
 // lenient load.
 func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {
