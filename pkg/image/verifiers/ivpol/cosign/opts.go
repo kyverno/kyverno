@@ -21,7 +21,6 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
 	sigs "github.com/sigstore/cosign/v3/pkg/signature"
-	rekor "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/rekor/pkg/generated/client"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -383,7 +382,7 @@ func getRekor(_ context.Context, ctlog *v1beta1.CTLog, defaultRekorPubKeys, defa
 		if len(ctlog.URL) == 0 {
 			return nil, nil, nil, fmt.Errorf("rekor URL must be provided")
 		}
-		rekorClient, err = rekor.GetRekorClient(ctlog.URL)
+		rekorClient, err = sigstoreguard.NewRekorClient(ctlog.URL)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("error creating Rekor client: %w", err)
 		}
