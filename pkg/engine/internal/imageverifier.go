@@ -272,7 +272,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 				name := imageVerify.Attestations[i].Name
 
-				rawResp, err := getRawResp(cosignResp.Statements)
+				rawResp, err := getRawResp(cosignResp.Statements, attestation.Type)
 				if err != nil {
 					iv.logger.Error(err, "Error while finding report in statement")
 					errorList = append(errorList, err)
@@ -569,8 +569,17 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 		iv.logger.V(2).Info("no attestations found for predicate", "type", attestation.Type, "predicates", types, "image", imageInfo.String())
 		return fmt.Errorf("attestions not found for predicate type %s", attestation.Type)
 	}
-	for _, s := range statements {
-		iv.logger.V(3).Info("checking attestation", "predicates", types, "image", imageInfo.String())
+
+	sortStatementsByTimestamp(statements)
+
+	hasTimestamps := false
+	if len(statements) > 1 {
+		_, hasTimestamps = extractStatementTimestamp(statements[0])
+	}
+
+	if hasTimestamps {
+		s := statements[0]
+		iv.logger.V(3).Info("checking newest attestation", "type", attestation.Type, "image", imageInfo.String())
 		val, msg, err := iv.checkAttestations(attestation, s)
 		if err != nil {
 			return fmt.Errorf("failed to check attestations: %w", err)
@@ -578,6 +587,24 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 		if !val {
 			return fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.Type, msg)
 		}
+		return nil
+	}
+
+	var lastErr error
+	for _, s := range statements {
+		iv.logger.V(3).Info("checking attestation", "predicates", types, "image", imageInfo.String())
+		val, msg, err := iv.checkAttestations(attestation, s)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to check attestations: %w", err)
+			continue
+		}
+		if val {
+			return nil
+		}
+		lastErr = fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.Type, msg)
+	}
+	if lastErr != nil {
+		return lastErr
 	}
 	return nil
 }
