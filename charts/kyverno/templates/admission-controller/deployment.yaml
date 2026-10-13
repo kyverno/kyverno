@@ -209,6 +209,7 @@ spec:
               "dumpPayload"
               "excludeBootstrapResources"
               "forceFailurePolicyIgnore"
+              "webhookAuthentication"
               "generateValidatingAdmissionPolicy"
               "generateMutatingAdmissionPolicy"
               "dumpPatches"

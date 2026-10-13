@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/auth"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 )
 
@@ -49,7 +50,12 @@ func NewServer(
 	debugModeOpts webhooks.DebugModeOptions,
 	probes Probes,
 	cfg config.Configuration,
+	receiver ...*auth.Receiver,
 ) Server {
+	var webhookAuth *auth.Receiver
+	if len(receiver) != 0 {
+		webhookAuth = receiver[0]
+	}
 	policyLogger := logging.WithName("cleanup-policy")
 	labelLogger := logging.WithName("ttl-label")
 	mux := httprouter.New()
@@ -60,7 +66,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(policyLogger, metrics.WebhookValidating).
-			WithAdmission(policyLogger.WithName("validate")).
+			WithAdmission(policyLogger.WithName("validate"), webhookAuth).
 			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc(
@@ -70,7 +76,7 @@ func NewServer(
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
 			WithMetrics(labelLogger, metrics.WebhookValidating).
-			WithAdmission(labelLogger.WithName("validate")).
+			WithAdmission(labelLogger.WithName("validate"), webhookAuth).
 			ToHandlerFunc("VALIDATE"),
 	)
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(probes.IsLive))

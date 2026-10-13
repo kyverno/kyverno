@@ -26,6 +26,10 @@ const (
 	ForceFailurePolicyIgnoreDescription = "Set the flag to 'true', to force set Failure Policy to 'ignore'."
 	forceFailurePolicyIgnoreEnvVar      = "FLAG_FORCE_FAILURE_POLICY_IGNORE"
 	defaultForceFailurePolicyIgnore     = false
+	WebhookAuthenticationFlagName       = "webhookAuthentication"
+	WebhookAuthenticationDescription    = "Require Kubernetes-issued authentication tokens on admission webhooks (experimental)."
+	webhookAuthenticationEnvVar         = "FLAG_WEBHOOK_AUTHENTICATION"
+	defaultWebhookAuthentication        = false
 	// enable deferred context loading
 	EnableDeferredLoadingFlagName    = "enableDeferredLoading"
 	EnableDeferredLoadingDescription = "enable deferred loading of context variables"
@@ -73,6 +77,7 @@ const (
 var (
 	ProtectManagedResources           = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
 	ForceFailurePolicyIgnore          = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
+	WebhookAuthentication             = newToggle(defaultWebhookAuthentication, webhookAuthenticationEnvVar)
 	EnableDeferredLoading             = newToggle(defaultEnableDeferredLoading, enableDeferredLoadingEnvVar)
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)
 	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)

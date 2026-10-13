@@ -1,0 +1,12 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        apiVersion: kubeadm.k8s.io/v1beta4
+        apiServer:
+          extraArgs:
+            - name: feature-gates
+              value: APIServerWebhookAuthenticationToken=true

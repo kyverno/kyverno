@@ -9,14 +9,16 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/pkg/webhooks/auth"
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (inner AdmissionHandler) WithAdmission(logger logr.Logger) HttpHandler {
-	return inner.withAdmission(logger).WithMetrics(logger).WithTrace("ADMISSION")
+func (inner AdmissionHandler) WithAdmission(logger logr.Logger, receiver ...*auth.Receiver) HttpHandler {
+	return inner.withAdmission(logger, receiver...).WithMetrics(logger).WithTrace("ADMISSION")
 }
 
-func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
+func (inner AdmissionHandler) withAdmission(logger logr.Logger, receiver ...*auth.Receiver) HttpHandler {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		startTime := time.Now()
 		if request.Body == nil {
@@ -42,6 +44,28 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 		if admissionReview.Request == nil {
 			HttpError(request.Context(), writer, request, logger, errors.New("AdmissionReview request is nil"), http.StatusBadRequest)
 			return
+		}
+		if len(receiver) != 0 && receiver[0] != nil {
+			if err := receiver[0].VerifyRequest(request, admissionReview.Request.Resource.Group); err != nil {
+				admissionReview.Response = &admissionv1.AdmissionResponse{
+					UID:     admissionReview.Request.UID,
+					Allowed: false,
+					Result: &metav1.Status{
+						Status:  metav1.StatusFailure,
+						Reason:  metav1.StatusReasonUnauthorized,
+						Code:    http.StatusUnauthorized,
+						Message: "webhook authentication failed",
+					},
+				}
+				responseJSON, marshalErr := json.Marshal(admissionReview)
+				if marshalErr != nil {
+					HttpError(request.Context(), writer, request, logger, marshalErr, http.StatusInternalServerError)
+					return
+				}
+				writer.Header().Set("Content-Type", "application/json; charset=utf-8")
+				_, _ = writer.Write(responseJSON)
+				return
+			}
 		}
 		logger := logger.WithValues(
 			"gvk", admissionReview.Request.Kind,

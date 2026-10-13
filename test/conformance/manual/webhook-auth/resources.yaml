@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno-webhook-auth-proof
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: webhook-auth-proof
+  namespace: kyverno-webhook-auth-proof
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: webhook-auth-tokenrequest
+  namespace: kyverno-webhook-auth-proof
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    resourceNames: ["webhook-auth-proof"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: webhook-auth-tokenrequest
+  namespace: kyverno-webhook-auth-proof
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: webhook-auth-tokenrequest
+subjects:
+  - kind: ServiceAccount
+    name: webhook-auth-proof
+    namespace: kyverno-webhook-auth-proof
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: webhook-auth-proof-attest
+rules:
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["admissionReviewAPIGroups"]
+    resourceNames: ["*", "apps"]
+    verbs: ["attest"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: webhook-auth-proof-attest
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: webhook-auth-proof-attest
+subjects:
+  - kind: ServiceAccount
+    name: webhook-auth-proof
+    namespace: kyverno-webhook-auth-proof
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: webhook-auth-proof-validate
+spec:
+  background: false
+  rules:
+    - name: require-proof-label
+      match:
+        any:
+          - resources:
+              kinds: ["Deployment"]
+              namespaces: ["kyverno-webhook-auth-proof"]
+      validate:
+        failureAction: Enforce
+        message: "webhook authentication proof label is required"
+        pattern:
+          metadata:
+            labels:
+              webhook-auth-proof: "true"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: webhook-auth-proof-mutate
+spec:
+  background: false
+  rules:
+    - name: add-proof-label
+      match:
+        any:
+          - resources:
+              kinds: ["Deployment"]
+              namespaces: ["kyverno-webhook-auth-proof"]
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              webhook-auth-mutated: "true"
