@@ -46,12 +46,16 @@ func NewMutateImageHandler(
 	if len(rule.VerifyImages) == 0 {
 		return nil, nil
 	}
-	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
-	if err != nil {
-		return nil, err
-	}
-	if len(ruleImages) == 0 {
-		return nil, nil
+	var ruleImages []apiutils.ImageInfo
+	if !internal.ImageReferencesHasVariables(rule) {
+		var err error
+		ruleImages, _, err = engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+		if err != nil {
+			return nil, err
+		}
+		if len(ruleImages) == 0 {
+			return nil, nil
+		}
 	}
 	return mutateImageHandler{
 		configuration:  configuration,
@@ -95,18 +99,45 @@ func (h mutateImageHandler) Process(
 	}
 
 	jsonContext := policyContext.JSONContext()
-	ruleCopy, err := internal.SubstituteRuleVariables(rule, jsonContext, logger)
+	var (
+		images map[string]map[string]apiutils.ImageInfo
+		err    error
+	)
+	if rule.ImageExtractors != nil {
+		images, err = jsonContext.GenerateCustomImageInfo(&resource, rule.ImageExtractors, h.configuration)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to extract custom images", err, rule.ReportProperties),
+			)
+		}
+	} else {
+		images, err = jsonContext.GenerateCustomImageInfo(&resource, nil, h.configuration)
+		if err != nil {
+			return resource, handlers.WithResponses(
+				engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to extract images", err, rule.ReportProperties),
+			)
+		}
+	}
+
+	ruleCopy, err := internal.SubstituteImageVerifyVariables(rule, jsonContext, logger)
 	if err != nil {
 		return resource, handlers.WithResponses(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
 		)
 	}
-	newResource := policyContext.NewResource()
-	resourceNamespace := newResource.GetNamespace()
+	matchingImages, _ := engineutils.GetMatchingImages(images, *ruleCopy)
+	if internal.ImageReferencesHasVariables(rule) && len(matchingImages) == 0 {
+		return resource, nil
+	}
+	resourceNamespace := resource.GetNamespace()
+	if resourceNamespace == "" {
+		newResource := policyContext.NewResource()
+		resourceNamespace = newResource.GetNamespace()
+	}
 	// Get imagePullSecrets from the first image (all images from same resource share the same secrets)
 	var imagePullSecrets []string
-	if len(h.images) > 0 {
-		imagePullSecrets = h.images[0].ImagePullSecrets
+	if len(matchingImages) > 0 {
+		imagePullSecrets = matchingImages[0].ImagePullSecrets
 	}
 
 	var engineResponses []*engineapi.RuleResponse
@@ -120,7 +151,7 @@ func (h mutateImageHandler) Process(
 			)
 		}
 		iv := internal.NewImageVerifier(logger, rclient, h.ivCache, policyContext, *ruleCopy, h.ivm)
-		patch, ruleResponse := iv.Verify(ctx, imageVerify, h.images, h.configuration)
+		patch, ruleResponse := iv.Verify(ctx, imageVerify, matchingImages, h.configuration)
 		patches = append(patches, patch...)
 		engineResponses = append(engineResponses, ruleResponse...)
 	}
