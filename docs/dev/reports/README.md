@@ -19,6 +19,8 @@ Reports that are created at admission time and in the background are intermediar
 
 Keep in mind that only validation and image verification rules are recorded in the reports, mutation and generation rules are not.
 
+Image verification rules are verified directly by the reports controller during a background scan, rather than by reading verification metadata left on the stored resource by a prior admission. This means the reports controller needs registry access to evaluate `verifyImages` rules; if it can't reach the registry, the affected results report as errors or failures rather than passes, so a background report never records a pass for an image it didn't verify.
+
 ## Report types
 
 In the following sections we will discuss the different report types, how they are managed and how Kyverno uses them.

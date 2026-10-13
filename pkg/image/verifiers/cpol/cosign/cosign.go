@@ -243,9 +243,13 @@ func matchType(sig oci.Signature, expectedType string) (bool, string, error) {
 			return false, "", fmt.Errorf("failed to decode type: %w", err)
 		}
 
-		if pType, ok := statement["type"]; ok {
-			if pType.(string) == expectedType {
-				return true, pType.(string), nil
+		if _, ok := statement["type"]; ok {
+			pType, err := datautils.GetStringField(statement, "type")
+			if err != nil {
+				return false, "", fmt.Errorf("failed to read statement type: %w", err)
+			}
+			if pType == expectedType {
+				return true, pType, nil
 			}
 		}
 	}
@@ -295,17 +299,17 @@ func decodeStatement(sig oci.Signature) (map[string]any, string, error) {
 		return nil, "", fmt.Errorf("failed to unmarshal JSON payload: %v: %w", sig, err)
 	}
 
-	if dataPayload, ok := data["payload"]; !ok {
-		return nil, "", fmt.Errorf("missing payload in %v", data)
-	} else {
-		decodedStatement, err := decodePayload(dataPayload.(string))
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to decode statement %s: %w", string(pld), err)
-		}
-		decodedStatement["type"] = decodedStatement["predicateType"]
-
-		return decodedStatement, digest, nil
+	payloadStr, err := datautils.GetStringField(data, "payload")
+	if err != nil {
+		return nil, "", fmt.Errorf("missing payload in %v: %w", data, err)
 	}
+	decodedStatement, err := decodePayload(payloadStr)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to decode statement %s: %w", string(pld), err)
+	}
+	decodedStatement["type"] = decodedStatement["predicateType"]
+
+	return decodedStatement, digest, nil
 }
 
 func decodePayload(payloadBase64 string) (map[string]any, error) {
@@ -443,38 +447,44 @@ func matchSignatures(signatures []oci.Signature, subject, subjectRegExp, issuer,
 
 func matchCertificateData(cert *x509.Certificate, subject, subjectRegExp, issuer, issuerRegExp string, extensions map[string]string) error {
 	if subject != "" || subjectRegExp != "" {
-		if sans := cryptoutils.GetSubjectAlternateNames(cert); len(sans) > 0 {
-			subjectMatched := false
-			if subject != "" {
-				for _, s := range sans {
-					if wildcard.Match(subject, s) {
-						subjectMatched = true
-						break
-					}
-				}
-			}
-			if subjectRegExp != "" {
-				regex, err := regexp.Compile(subjectRegExp)
-				if err != nil {
-					return fmt.Errorf("invalid regexp for subject: %s : %w", subjectRegExp, err)
-				}
-				for _, s := range sans {
-					if regex.MatchString(s) {
-						subjectMatched = true
-						break
-					}
-				}
-			}
+		sans := cryptoutils.GetSubjectAlternateNames(cert)
+		if len(sans) == 0 {
+			// A subject constraint is configured but the certificate has
+			// nothing to check it against: fail closed rather than skip
+			// the check entirely.
+			return fmt.Errorf("subject mismatch: certificate contains no subject alternative name")
+		}
 
-			if !subjectMatched {
-				sub := ""
-				if subject != "" {
-					sub = subject
-				} else if subjectRegExp != "" {
-					sub = subjectRegExp
+		subjectMatched := false
+		if subject != "" {
+			for _, s := range sans {
+				if wildcard.Match(subject, s) {
+					subjectMatched = true
+					break
 				}
-				return fmt.Errorf("subject mismatch: expected %s, received %s", sub, strings.Join(sans, ", "))
 			}
+		}
+		if subjectRegExp != "" {
+			regex, err := regexp.Compile(subjectRegExp)
+			if err != nil {
+				return fmt.Errorf("invalid regexp for subject: %s : %w", subjectRegExp, err)
+			}
+			for _, s := range sans {
+				if regex.MatchString(s) {
+					subjectMatched = true
+					break
+				}
+			}
+		}
+
+		if !subjectMatched {
+			sub := ""
+			if subject != "" {
+				sub = subject
+			} else if subjectRegExp != "" {
+				sub = subjectRegExp
+			}
+			return fmt.Errorf("subject mismatch: expected %s, received %s", sub, strings.Join(sans, ", "))
 		}
 	}
 

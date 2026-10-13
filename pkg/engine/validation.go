@@ -59,6 +59,8 @@ func (e *engine) validate(
 					policyContext.NewResource(),
 					rule,
 					e.configuration,
+					e.rclientFactory,
+					e.ivCache,
 					e.client,
 					e.isCluster,
 				)
