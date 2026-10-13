@@ -16,6 +16,7 @@ The following policies are included in each profile.
 * disallow-host-namespaces
 * disallow-host-path
 * disallow-host-ports
+* disallow-host-probes
 * disallow-host-process
 * disallow-privileged-containers
 * disallow-proc-mount

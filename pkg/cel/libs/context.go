@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -160,6 +159,16 @@ func (cp *contextProvider) ListResources(apiVersion, resource, namespace string,
 	if err != nil {
 		return nil, err
 	}
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	if err := validatePathSegment("resource", resource); err != nil {
+		return nil, err
+	}
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 
 	labelSelector := labels.Everything()
@@ -177,9 +186,19 @@ func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name str
 	if err != nil {
 		return nil, err
 	}
-	parts := strings.Split(resource, "/")
-	resource = parts[0]
-	subresources := parts[1:]
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	resource, subresources, err := splitResourcePath(resource)
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePathSegment("name", name); err != nil {
+		return nil, err
+	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
@@ -190,9 +209,16 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	if err != nil {
 		return nil, err
 	}
-	parts := strings.Split(resource, "/")
-	resource = parts[0]
-	subresources := parts[1:]
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	resource, subresources, err := splitResourcePath(resource)
+	if err != nil {
+		return nil, err
+	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)

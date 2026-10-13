@@ -6,6 +6,7 @@ import (
 
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -91,6 +92,15 @@ func generateKey(policy metav1.Object, ruleName string, imageRef string) string 
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
+// isDigestRef reports whether imageRef is pinned to a digest (either
+// "repo@sha256:d" or "repo:tag@sha256:d"). Only such references are immutable
+// enough to key a verification verdict; a bare tag can be moved by the
+// registry after the entry is written.
+func isDigestRef(imageRef string) bool {
+	_, err := name.NewDigest(imageRef)
+	return err == nil
+}
+
 func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
 	return c.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, nil)
 }
@@ -106,6 +116,11 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 		return false, nil
 	} else if !useCache {
 		// Else If enabled globally then return if locally disabled
+		return false, nil
+	} else if !isDigestRef(imageRef) {
+		// A cache entry keyed on anything other than a resolved digest is a
+		// verdict bound to a mutable reference, not an immutable one. Refuse
+		// to store it rather than optimise the caller into holding a stale key.
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
@@ -124,6 +139,10 @@ func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 		return false, nil, nil
 	} else if !useCache {
 		// Else If enabled globally then return if locally disabled
+		return false, nil, nil
+	} else if !isDigestRef(imageRef) {
+		// Never serve a hit for a mutable reference: the registry may have
+		// moved it since any entry could have been written.
 		return false, nil, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)

@@ -3,6 +3,8 @@ package compiler
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
@@ -11,6 +13,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -30,10 +33,24 @@ type Policy struct {
 	validations      []compiler.Validation
 	auditAnnotations map[string]cel.Program
 	exceptions       []compiler.Exception
+
+	// trace is set when the policy was compiled with tracing on. Only then are the traced
+	// match conditions and variables populated (they hold the ASTs trace.Build needs), and
+	// only then does evaluation attach a trace to its result. With tracing off all three are
+	// zero values and evaluation takes exactly the same path as before.
+	trace                 bool
+	tracedMatchConditions []compiler.TracedProgram
+	tracedVariables       map[string]compiler.TracedProgram
 }
 
 func (p *Policy) MatchConstraints() *admissionregistrationv1.MatchResources {
 	return p.matchConstraints
+}
+
+// Tracing reports whether the policy was compiled with tracing on, i.e. whether its evaluation
+// results carry a Trace.
+func (p *Policy) Tracing() bool {
+	return p.trace
 }
 
 func (p *Policy) Evaluate(
@@ -79,6 +96,9 @@ func (p *Policy) evaluateKubernetes(
 	return p.evaluateWithData(ctx, data)
 }
 
+// evaluateWithData evaluates the compiled CEL policy against the provided resource data,
+// capturing any validation failures or runtime errors (including message expression errors)
+// in the returned EvaluationResult.
 func (p *Policy) evaluateWithData(
 	ctx context.Context,
 	data evaluationData,
@@ -97,7 +117,7 @@ func (p *Policy) evaluateWithData(
 		matchedExceptions := make([]*policiesv1beta1.PolicyException, 0)
 		fullExemptionFound := false
 		for _, polex := range p.exceptions {
-			match, err := p.match(ctx, dataNew, polex.MatchConditions)
+			match, err := p.match(ctx, dataNew, polex.MatchConditions, nil)
 			if err != nil {
 				if fullExemptionFound {
 					// exception already granted; a broken later exception must not negate it
@@ -134,18 +154,74 @@ func (p *Policy) evaluateWithData(
 		AllowedImages: allowedImages,
 		AllowedValues: allowedValues,
 	}
-	match, err := p.match(ctx, dataNew, p.matchConditions)
+	var matchTraces, variableTraces []trace.NamedExpressionTrace
+	// excludedBy is the condition that came out false, if any; erroredMatches are the ones that
+	// errored or did not return a bool. With failurePolicy Ignore, errors alone skip the policy
+	// after every condition has run, so the skip message needs these rather than the last trace.
+	var excludedBy string
+	var erroredMatches []string
+	var recordMatch func(int, ref.Val, error)
+	if p.trace {
+		// out and err are the deciding evaluation's; the tracking twin is only re-run here to
+		// collect node values for the trace (see compiler.TracedProgram)
+		recordMatch = func(i int, out ref.Val, err error) {
+			if i >= len(p.tracedMatchConditions) {
+				return
+			}
+			t := p.tracedMatchConditions[i]
+			details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
+			matchTraces = append(matchTraces, trace.NamedExpressionTrace{
+				Name:            t.Name,
+				ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+			})
+			if err != nil {
+				erroredMatches = append(erroredMatches, t.Name)
+			} else if result, err := utils.ConvertToNative[bool](out); err != nil {
+				erroredMatches = append(erroredMatches, t.Name)
+			} else if !result {
+				excludedBy = t.Name
+			}
+		}
+	}
+	match, err := p.match(ctx, dataNew, p.matchConditions, recordMatch)
 	if err != nil {
-		return nil, err
+		if !p.trace {
+			return nil, err
+		}
+		// the error stays the second return value so callers handle it exactly as before; the
+		// result only carries the match traces recorded up to the failure, so --explain can show
+		// which condition errored instead of a bare ERROR
+		return &EvaluationResult{Trace: &trace.Decision{
+			Match:   matchTraces,
+			Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
+		}}, err
 	}
 	if !match {
-		return nil, nil
+		if !p.trace {
+			return nil, nil
+		}
+		return &EvaluationResult{Skipped: true, Trace: &trace.Decision{
+			Match:   matchTraces,
+			Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: skipMessage(len(matchTraces), excludedBy, erroredMatches)},
+		}}, nil
 	}
 	vars := lazy.NewMapValue(compiler.VariablesType)
 	dataNew[compiler.VariablesKey] = vars
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, dataNew)
+			if p.trace {
+				if t, ok := p.tracedVariables[name]; ok {
+					// out is still the deciding program's value; the twin only explains it. Any
+					// variable the re-run reads comes from this same lazy map, so it matches.
+					details := compiler.TraceDetails(ctx, t.Traced, dataNew, err)
+					// variables are lazy, so this records them in the order they are first read
+					variableTraces = append(variableTraces, trace.NamedExpressionTrace{
+						Name:            name,
+						ExpressionTrace: buildExpressionTrace(t.AST, out, details, err),
+					})
+				}
+			}
 			if out != nil {
 				return out
 			}
@@ -155,59 +231,137 @@ func (p *Policy) evaluateWithData(
 			return nil
 		})
 	}
+	// verdict tracks the validation that decides the outcome: the one that failed or errored, or
+	// the last one evaluated when everything passes. validationTraces keeps every validation that
+	// ran, each with its own status. Both are only ever read when tracing is on.
+	verdict := trace.VerdictTrace{Status: trace.VerdictPass}
+	var validationTraces []trace.ValidationTrace
+	ran := func(index int, status string) {
+		if p.trace {
+			validationTraces = append(validationTraces, trace.ValidationTrace{Index: index, Status: status, ExpressionTrace: verdict.ExpressionTrace})
+		}
+	}
+	decision := func() *trace.Decision {
+		if !p.trace {
+			return nil
+		}
+		// evaluation stops at the first validation that does not pass; the rest are listed so
+		// the reader sees them, but they are never evaluated just for the trace
+		validations := validationTraces
+		for i := len(validationTraces); i < len(p.validations); i++ {
+			validations = append(validations, trace.ValidationTrace{
+				Index:           i,
+				Status:          trace.VerdictNotRun,
+				ExpressionTrace: buildExpressionTrace(p.validations[i].AST, nil, nil, nil),
+			})
+		}
+		return &trace.Decision{Match: matchTraces, Variables: variableTraces, Validations: validations, Verdict: verdict}
+	}
 	for index, validation := range p.validations {
 		out, _, err := validation.Program.ContextEval(ctx, dataNew)
+		if p.trace {
+			details := compiler.TraceDetails(ctx, validation.Traced, dataNew, err)
+			verdict = trace.VerdictTrace{
+				Status:          trace.VerdictPass,
+				ExpressionTrace: buildExpressionTrace(validation.AST, out, details, err),
+			}
+		}
 		if err != nil {
-			return &EvaluationResult{Error: err, Index: index}, nil
+			ran(index, trace.VerdictError)
+			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
 		if outcome, err := utils.ConvertToNative[bool](out); err == nil && !outcome {
-			message := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
+			ran(index, trace.VerdictFail)
+			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
+			verdict.Status, verdict.Message = trace.VerdictFail, message
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
-				return &EvaluationResult{Error: err, Index: index}, nil
+				verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+				return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 			}
 			return &EvaluationResult{
-				Result:           outcome,
-				Message:          message,
-				Index:            index,
-				AuditAnnotations: auditAnnotations,
-				RefusedException: refused,
+				Result:                 outcome,
+				Message:                message,
+				MessageExpressionError: msgErr,
+				Index:                  index,
+				AuditAnnotations:       auditAnnotations,
+				RefusedException:       refused,
+				Trace:                  decision(),
 			}, nil
 		} else if err != nil {
-			return &EvaluationResult{Error: err, Index: index}, nil
+			ran(index, trace.VerdictError)
+			verdict.Status, verdict.Message = trace.VerdictError, err.Error()
+			return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
 		}
+		ran(index, trace.VerdictPass)
 	}
 	auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 	if err != nil {
 		return nil, err
 	}
-	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations}, nil
+	return &EvaluationResult{Result: true, AuditAnnotations: auditAnnotations, Trace: decision()}, nil
+}
+
+// skipMessage says why the match conditions skipped the policy: either one came out false (match
+// stops there), or none did and some errored, which failurePolicy Ignore treats as a non-match.
+func skipMessage(recorded int, excludedBy string, errored []string) string {
+	switch {
+	case recorded == 0:
+		return "a match condition excluded this resource"
+	case excludedBy != "":
+		return fmt.Sprintf("match condition %q did not pass, so the policy was skipped", excludedBy)
+	case len(errored) == 1:
+		return fmt.Sprintf("match condition %q failed to evaluate and failurePolicy is Ignore, so the policy was skipped", errored[0])
+	case len(errored) > 1:
+		quoted := make([]string, 0, len(errored))
+		for _, name := range errored {
+			quoted = append(quoted, strconv.Quote(name))
+		}
+		return fmt.Sprintf("match conditions %s failed to evaluate and failurePolicy is Ignore, so the policy was skipped", strings.Join(quoted, ", "))
+	}
+	return "a match condition did not pass, so the policy was skipped"
+}
+
+// buildExpressionTrace turns one traced evaluation into an ExpressionTrace. The source text is
+// read back from the retained AST. When the evaluation failed outright and produced no value,
+// the error itself becomes the result so the trace shows why.
+func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, err error) trace.ExpressionTrace {
+	if out == nil && err != nil {
+		out = types.WrapErr(err)
+	}
+	source := ""
+	if ast != nil {
+		source = ast.Source().Content()
+	}
+	return trace.Build(source, ast, out, details)
 }
 
 // resolveMessage returns the message to report for a failed validation, preferring
 // messageExpression over the static message and falling back when neither yields anything.
+// It also returns any error encountered during message expression evaluation.
 func (p *Policy) resolveMessage(
 	ctx context.Context,
 	data map[string]any,
 	validation compiler.Validation,
 	fallback string,
-) string {
+) (string, error) {
 	message := validation.Message
 	if validation.MessageExpression != nil {
 		out, _, err := validation.MessageExpression.ContextEval(ctx, data)
 		if err != nil {
-			return fmt.Sprintf("failed to evaluate message expression: %s", err)
+			return fmt.Sprintf("failed to evaluate message expression: %s", err), err
 		}
 		msg, err := utils.ConvertToNative[string](out)
 		if err != nil {
-			return fmt.Sprintf("failed to convert message expression to string: %s", err)
+			return fmt.Sprintf("failed to convert message expression to string: %s", err), err
 		}
 		message = msg
 	}
 	if message == "" {
-		return fallback
+		return fallback, nil
 	}
-	return message
+	return message, nil
 }
 
 // evaluateExceptionValidations evaluates the compensating controls of an exception already known
@@ -232,9 +386,11 @@ func (p *Policy) evaluateExceptionValidations(
 				"compensating control at index %d failed for policy exception %s",
 				index, cache.MetaObjectToName(polex.Exception),
 			)
+			msg, msgErr := p.resolveMessage(ctx, data, validation, fallback)
 			return &RefusedException{
-				Exception: polex.Exception,
-				Message:   p.resolveMessage(ctx, data, validation, fallback),
+				Exception:              polex.Exception,
+				Message:                msg,
+				MessageExpressionError: msgErr,
 			}
 		}
 	}
@@ -257,15 +413,21 @@ func (p *Policy) evaluateAuditAnnotations(ctx context.Context, data map[string]a
 	return auditAnnotations, nil
 }
 
+// match evaluates the conditions in order. record, when non-nil, is called after each condition
+// is evaluated (including one that errors or comes back false) so a trace can be captured.
 func (p *Policy) match(
 	ctx context.Context,
 	data map[string]any,
 	matchConditions []cel.Program,
+	record func(index int, out ref.Val, err error),
 ) (bool, error) {
 	var errs []error
-	for _, matchCondition := range matchConditions {
+	for i, matchCondition := range matchConditions {
 		// evaluate the condition
 		out, _, err := matchCondition.ContextEval(ctx, data)
+		if record != nil {
+			record(i, out, err)
+		}
 		// check error
 		if err != nil {
 			errs = append(errs, err)

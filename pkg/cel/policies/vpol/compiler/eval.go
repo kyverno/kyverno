@@ -6,6 +6,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -15,23 +16,39 @@ import (
 )
 
 type EvaluationResult struct {
-	Error            error
-	Message          string
-	Index            int
-	Result           bool
-	AuditAnnotations map[string]string
-	Exceptions       []*policiesv1beta1.PolicyException
-	PatchedResource  unstructured.Unstructured
-	RefusedException *RefusedException
+	Error error
+	// MessageExpressionError holds the raw error returned when evaluating the
+	// CEL messageExpression field fails at runtime. The Message field is still
+	// set to a human-readable fallback string (per the Kubernetes API spec), but
+	// this field lets tooling distinguish a legitimate rule failure from one where
+	// the failure message itself could not be computed.
+	MessageExpressionError error
+	Message                string
+	Index                  int
+	Result                 bool
+	AuditAnnotations       map[string]string
+	Exceptions             []*policiesv1beta1.PolicyException
+	PatchedResource        unstructured.Unstructured
+	RefusedException       *RefusedException
+	// Trace is the decision trace for this evaluation. It is nil unless the policy was compiled
+	// with tracing on, so callers must nil-check it. Only Match, Variables and Verdict are
+	// filled here; the policy/resource header and Scope are unknown at this level and are left
+	// for the caller to fill in.
+	Trace *trace.Decision
+	// Skipped is set when a match condition excluded the resource. Without tracing that case
+	// returns a nil result, and it still does; a non-nil skipped result is only returned when
+	// tracing is on, so the match traces are not lost. Consumers must treat it exactly like nil.
+	Skipped bool
 }
 
 // RefusedException records an exception that matched but whose compensating controls did not
 // hold. It rides alongside the policy's own outcome: a compliant resource needs no exception and
 // must not be denied by one, so this is only reported, as the message, once the policy failed.
 type RefusedException struct {
-	Exception *policiesv1beta1.PolicyException
-	Message   string
-	Error     error
+	Exception              *policiesv1beta1.PolicyException
+	Message                string
+	Error                  error
+	MessageExpressionError error
 }
 
 type evaluationData struct {
