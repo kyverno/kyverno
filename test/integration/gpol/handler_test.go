@@ -12,6 +12,7 @@ import (
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -239,6 +240,60 @@ func TestGenerate_DeleteMatchingDeleteOpFiresGeneration(t *testing.T) {
 	specs := mock.GetSpecs()
 	require.Len(t, specs, 1)
 	assert.False(t, specs[0].RuleContext[0].DeleteDownstream, "should fire generation, not deletion")
+}
+
+func TestEngineHandle_DeleteGenOnDeleteSetsTriggerUIDLabel(t *testing.T) {
+	// On DELETE, request.Object is empty and the deleted resource is in OldObject.
+	// Handle() must still stamp trigger UID/namespace labels from the deleted trigger.
+	policy := &policiesv1beta1.GeneratingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "gen-delete-trigger-labels"},
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			MatchConstraints: framework.PodMatchRulesWithOps(admissionregistrationv1.Delete),
+			Variables: []admissionregistrationv1.Variable{
+				{
+					Name: "configmap",
+					Expression: `[{
+						"kind": dyn("ConfigMap"),
+						"apiVersion": dyn("v1"),
+						"metadata": dyn({"name": "generated-on-delete-" + request.name})
+					}]`,
+				},
+			},
+			Generation: []policiesv1beta1.Generation{
+				{Expression: `generator.Apply(request.namespace, variables.configmap)`},
+			},
+		},
+	}
+
+	createGpolWithCleanup(t, policy)
+	waitForGpolInLister(t, "gen-delete-trigger-labels")
+
+	processor := framework.NewURProcessor(gpolEngine, gpolProvider, testEnv.ContextProvider)
+	mock := framework.NewProcessingURGenerator(processor)
+	h := gpol.New(mock, gpolLister, ngpolLister, "")
+
+	ctx := framework.ContextWithPolicies(context.Background(), "gen-delete-trigger-labels")
+	resp := h.Generate(ctx, logr.Discard(), framework.PodAdmissionRequestWithOp("del-trigger-pod", "default", admissionv1.Delete, podJSON), "", time.Now())
+	assert.True(t, resp.Allowed)
+
+	require.Eventually(t, func() bool {
+		return len(mock.GetSpecs()) >= 1
+	}, 5*time.Second, 100*time.Millisecond, "UR not processed in time")
+
+	assert.Empty(t, mock.ProcessingErrors(), "processing should succeed without errors")
+
+	cm := &corev1.ConfigMap{}
+	err := testEnv.Client.Get(context.Background(), client.ObjectKey{
+		Namespace: "default",
+		Name:      "generated-on-delete-del-trigger-pod",
+	}, cm)
+	require.NoError(t, err, "generated ConfigMap should exist in envtest")
+	assert.Equal(t, "abc-123", cm.Labels[common.GenerateTriggerUIDLabel])
+	assert.Equal(t, "default", cm.Labels[common.GenerateTriggerNSLabel])
+
+	t.Cleanup(func() {
+		testEnv.Client.Delete(context.Background(), cm)
+	})
 }
 
 func TestGenerate_UpdateWithSyncSetsSynchronize(t *testing.T) {
