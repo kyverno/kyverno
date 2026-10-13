@@ -161,11 +161,15 @@ func Load(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, pa
 // LoadSkippingInvalidFiles behaves like Load, except that a file which fails to load does not
 // abort the whole load. The failure is recorded in NonFatalErrors under that file's own path and
 // the file is skipped, so a single broken file in a directory no longer hides the valid policies
-// next to it. Documents outside the policy API groups (resources, test manifests, values files and
-// so on) are ignored rather than reported, since they are not policies to begin with. Legacy
-// policy block errors still abort the load.
+// next to it, and the same goes for directory entries that cannot be read. Documents outside the
+// policy API groups (resources, test manifests, values files and so on) are ignored rather than
+// reported, since they are not policies to begin with. Legacy policy block errors and failures to
+// set up the schema validator still abort the load, since they are not caused by a single file.
 func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
-	return LoadWithLoader(skipInvalidFiles(kubectlValidateLoader(allowLegacyPolicies, true)), fs, resourcePath, allowLegacyPolicies, paths...)
+	if _, err := loaderDelegate(); err != nil {
+		return nil, err
+	}
+	return loadWithLoader(skipInvalidFiles(kubectlValidateLoader(allowLegacyPolicies, true)), fs, resourcePath, true, paths...)
 }
 
 func skipInvalidFiles(l loader) loader {
@@ -187,6 +191,10 @@ func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLeg
 	if l == nil {
 		l = kubectlValidateLoaderFor(allowLegacyPolicies)
 	}
+	return loadWithLoader(l, fs, resourcePath, false, paths...)
+}
+
+func loadWithLoader(l loader, fs billy.Filesystem, resourcePath string, skipUnreadable bool, paths ...string) (*LoaderResults, error) {
 	aggregateResults := &LoaderResults{}
 	for _, path := range paths {
 		var err error
@@ -198,7 +206,7 @@ func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLeg
 		} else if source.IsHttp(path) {
 			results, err = httpLoad(l, path)
 		} else {
-			results, err = fsLoad(l, path)
+			results, err = fsLoad(l, path, skipUnreadable)
 		}
 		if err != nil {
 			return nil, err
@@ -534,7 +542,10 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 	return nil
 }
 
-func fsLoad(loader loader, path string) (*LoaderResults, error) {
+// fsLoad loads a file or walks a directory. When skipUnreadable is set, a directory entry that
+// cannot be read (a broken symlink, a permission error) is recorded under its own path and skipped
+// instead of aborting the whole directory.
+func fsLoad(loader loader, path string, skipUnreadable bool) (*LoaderResults, error) {
 	fi, err := os.Stat(filepath.Clean(path))
 	if err != nil {
 		return nil, err
@@ -550,8 +561,20 @@ func fsLoad(loader loader, path string) (*LoaderResults, error) {
 			return nil, errors.Wrapf(err, "failed to read %s", path)
 		}
 		for _, file := range files {
-			results, err := fsLoad(loader, filepath.Join(path, file.Name()))
+			entry := filepath.Join(path, file.Name())
+			if skipUnreadable && strings.HasPrefix(file.Name(), ".") {
+				// skip hidden entries before touching them, so a broken hidden symlink is not reported
+				continue
+			}
+			results, err := fsLoad(loader, entry, skipUnreadable)
 			if err != nil {
+				if skipUnreadable && !pkgdeprecations.IsLegacyPolicyBlockError(err) {
+					// only report entries that could have held policies, other files are ignored anyway
+					if ext := filepath.Ext(file.Name()); file.IsDir() || ext == ".yaml" || ext == ".yml" {
+						aggregateResults.addError(entry, err)
+					}
+					continue
+				}
 				return nil, errors.Wrapf(err, "failed to load %s", path)
 			}
 			aggregateResults.Merge(results)

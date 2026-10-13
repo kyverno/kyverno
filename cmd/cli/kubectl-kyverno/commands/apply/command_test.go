@@ -1045,6 +1045,21 @@ func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
 	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
+
+	// a legacy policy inside a directory must still fail the command, not be listed as skipped
+	cmd := Command()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{
+		"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/",
+		"--resource", "../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/resources.yaml",
+	})
+	err = cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.NotContains(t, stdout.String(), "Policies Not Loaded")
+	assert.NotContains(t, stderr.String(), "Policies Not Loaded")
 }
 
 func TestCommandHelp(t *testing.T) {

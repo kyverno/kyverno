@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -686,6 +688,53 @@ func TestIsPolicyGroupKind(t *testing.T) {
 	for _, tt := range tests {
 		assert.Equal(t, tt.want, isPolicyGroupKind(tt.gvk), tt.gvk.String())
 	}
+}
+
+func TestLoadSkippingInvalidFiles_UnreadableEntries(t *testing.T) {
+	dir := t.TempDir()
+	valid := `
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-team-label
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  validations:
+  - expression: "true"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "valid.yaml"), []byte(valid), 0o600))
+	missing := filepath.Join(dir, "does-not-exist")
+	require.NoError(t, os.Symlink(missing, filepath.Join(dir, "dangling.yaml")))
+	require.NoError(t, os.Symlink(missing, filepath.Join(dir, "README.md")))
+	require.NoError(t, os.Symlink(missing, filepath.Join(dir, ".hidden.yaml")))
+
+	// the strict loader still fails the whole directory
+	_, err := Load(nil, "", false, dir)
+	require.Error(t, err)
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	require.NoError(t, err)
+	assert.Len(t, results.ValidatingPolicies, 1)
+	// only the dangling YAML entry is reported, the non YAML and hidden ones are ignored
+	require.Len(t, results.NonFatalErrors, 1)
+	assert.Equal(t, filepath.Join(dir, "dangling.yaml"), results.NonFatalErrors[0].Path)
+}
+
+func TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal(t *testing.T) {
+	original := loaderDelegate
+	t.Cleanup(func() { loaderDelegate = original })
+	loaderDelegate = func() (resourceloader.Loader, error) {
+		return nil, errors.New("failed to build validator")
+	}
+
+	_, err := LoadSkippingInvalidFiles(nil, "", false, "testdata/list-vaps.yaml")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to build validator")
 }
 
 func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {
