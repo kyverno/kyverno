@@ -307,6 +307,24 @@ class CherryPickTests(unittest.TestCase):
             self.assertIn("error", result)
             self.assertNotIn("result", result)
 
+    def test_merge_skips_comments_without_authors(self):
+        for user in (None, {}):
+            with self.subTest(user=user):
+                authorless = self.comment("/cherry-pick main", number=10)
+                authorless["user"] = user
+                result = self.javascript(
+                    MERGE_STEPS,
+                    comments=[authorless, self.comment("/cherry-pick release-1.19")],
+                    permissions={"maintainer": "write"},
+                )
+                self.assertEqual(result["result"], ["release-1.19"])
+                self.assertEqual(len(result["warnings"]), 1)
+                self.assertIn("without an author", result["warnings"][0])
+                self.assertEqual(
+                    result["calls"],
+                    [["paginate", 100], ["permission", "maintainer"], ["branch", "release-1.19"]],
+                )
+
     def test_merge_skips_missing_target_and_keeps_valid_targets(self):
         result = self.javascript(
             MERGE_STEPS, comments=[

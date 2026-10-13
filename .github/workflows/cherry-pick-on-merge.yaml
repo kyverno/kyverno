@@ -37,11 +37,16 @@ jobs:
               if (!match) {
                 continue;
               }
+              const username = comment.user?.login;
+              if (!username) {
+                core.warning(`Ignoring cherry-pick comment ${comment.id} without an author`);
+                continue;
+              }
               let permission;
               try {
                 const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
                   ...context.repo,
-                  username: comment.user.login
+                  username
                 });
                 permission = data.permission;
               } catch (error) {
