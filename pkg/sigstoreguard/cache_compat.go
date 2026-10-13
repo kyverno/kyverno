@@ -223,12 +223,14 @@ func storeOperatorMirror(opts *tuf.Options) error {
 	return os.Rename(file.Name(), filepath.Join(opts.CachePath, "remote.json"))
 }
 
-// A refresh can authenticate a newer root. Always advance the operation-local
-// options so a subsequent PEM updater uses the same accepted root. Ordinary
-// reads also retain it for subsequent offline default lookups, but startup must
+// A refresh can authenticate a newer root. For cache-backed clients, advance the
+// operation-local options so a subsequent PEM updater uses the same accepted root.
+// Ordinary reads also retain it for offline default lookups, but startup must
 // defer publishing until targets and mirror persistence have succeeded.
 func retainRefreshedRoot(opts *tuf.Options, publishDefault bool) {
 	if opts.DisableLocalCache {
+		// Explicit policy clients always disable the local cache. This also
+		// prevents their authenticated rotations from updating operator trust.
 		return
 	}
 	data, err := os.ReadFile(filepath.Join(opts.CachePath, tuf.URLToPath(opts.RepositoryBaseURL), "root.json"))
@@ -236,8 +238,8 @@ func retainRefreshedRoot(opts *tuf.Options, publishDefault bool) {
 		return
 	}
 	if publishDefault {
-		// Compare the full configuration snapshot: an isolated policy or
-		// concurrent operator change must not replace the active default.
+		// Compare the full configuration snapshot so a concurrent operator
+		// change cannot be overwritten by a refresh of the previous default.
 		mu.Lock()
 		if defaultMirror == opts.RepositoryBaseURL && bytes.Equal(defaultRoot, opts.Root) {
 			defaultRoot = append([]byte(nil), data...)
