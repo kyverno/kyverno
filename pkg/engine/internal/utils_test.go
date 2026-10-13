@@ -190,4 +190,35 @@ func Test_VerifyAttestation_EvaluatesNewestStatement(t *testing.T) {
 	}
 	err = iv.verifyAttestation([]map[string]any{newScan, latestFailingScan}, attestation, imageInfo)
 	assert.Error(t, err)
+
+	// Case 3: Mixed timestamps (one has timestamp, one does not).
+	// Because not all statements have timestamps, chronology is uncertain and fallback requires all to pass.
+	noTimestampFailingScan := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"vulnerabilities": []any{"CVE-2026-5555"},
+		},
+	}
+	err = iv.verifyAttestation([]map[string]any{newScan, noTimestampFailingScan}, attestation, imageInfo)
+	assert.Error(t, err)
+
+	// Case 4: No timestamps at all, but one fails. Verification must fail.
+	noTimestampPassingScan := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"vulnerabilities": []any{},
+		},
+	}
+	err = iv.verifyAttestation([]map[string]any{noTimestampPassingScan, noTimestampFailingScan}, attestation, imageInfo)
+	assert.Error(t, err)
+
+	// Case 5: No timestamps at all, and all pass. Verification must succeed.
+	anotherPassingScan := map[string]any{
+		"type": "cosign.sigstore.dev/attestation/vuln/v1",
+		"predicate": map[string]any{
+			"vulnerabilities": []any{},
+		},
+	}
+	err = iv.verifyAttestation([]map[string]any{noTimestampPassingScan, anotherPassingScan}, attestation, imageInfo)
+	assert.NoError(t, err)
 }

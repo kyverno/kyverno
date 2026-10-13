@@ -572,12 +572,17 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 
 	sortStatementsByTimestamp(statements)
 
-	hasTimestamps := false
-	if len(statements) > 1 {
-		_, hasTimestamps = extractStatementTimestamp(statements[0])
+	allHaveTimestamps := len(statements) > 1
+	if allHaveTimestamps {
+		for _, s := range statements {
+			if _, ok := extractStatementTimestamp(s); !ok {
+				allHaveTimestamps = false
+				break
+			}
+		}
 	}
 
-	if hasTimestamps {
+	if allHaveTimestamps {
 		s := statements[0]
 		iv.logger.V(3).Info("checking newest attestation", "type", attestation.Type, "image", imageInfo.String())
 		val, msg, err := iv.checkAttestations(attestation, s)
@@ -590,21 +595,15 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 		return nil
 	}
 
-	var lastErr error
 	for _, s := range statements {
 		iv.logger.V(3).Info("checking attestation", "predicates", types, "image", imageInfo.String())
 		val, msg, err := iv.checkAttestations(attestation, s)
 		if err != nil {
-			lastErr = fmt.Errorf("failed to check attestations: %w", err)
-			continue
+			return fmt.Errorf("failed to check attestations: %w", err)
 		}
-		if val {
-			return nil
+		if !val {
+			return fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.Type, msg)
 		}
-		lastErr = fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.Type, msg)
-	}
-	if lastErr != nil {
-		return lastErr
 	}
 	return nil
 }
