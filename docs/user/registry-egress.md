@@ -134,13 +134,17 @@ file should produce `--privateRegistryEgressMode=audit` on all four controllers.
 Cleanup does not receive the registry credential-helper or insecure-registry flags.
 
 Use `privateRegistryAllowlist: []` when no entries are needed. Helm rejects empty
-strings (including whitespace-only entries) before serializing the list to a
-controller flag. This also applies to controller-specific overrides.
+strings (including whitespace-only entries) and commas inside list items before
+serializing the list to a controller flag. Use one list item per hostname, IP, or
+CIDR; an item such as `"registry.corp.example,10.0.0.0/8"` is invalid. This also
+applies to controller-specific overrides.
 
 A local regression check renders both modes and each supported controller override,
 then passes the rendered arguments to the corresponding executable with `--help`.
 This checks the actual flag parsers without starting controllers or contacting a
-cluster. It also checks that Helm rejects empty allowlist entries. With Helm and
+cluster. It also checks that Helm rejects empty, non-string, and comma-containing entries.
+For rendering checks without controller binaries, pass `--render-only` instead of
+`--bin-dir`. With Helm and
 Python's PyYAML installed, run from the repository root:
 
 ```sh

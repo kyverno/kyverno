@@ -5,7 +5,6 @@
 package sigstoreguard
 
 import (
-	"bytes"
 	"context"
 	"crypto/x509"
 	"encoding/json"
@@ -21,7 +20,6 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore-go/pkg/tuf"
-	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	legacytuf "github.com/sigstore/sigstore/pkg/tuf"
 	"github.com/theupdateframework/go-tuf/v2/metadata/config"
 	"github.com/theupdateframework/go-tuf/v2/metadata/fetcher"
@@ -290,14 +288,30 @@ func FulcioRoots() (*x509.CertPool, *x509.CertPool, error) {
 // FulcioRootsWithContext preserves the caller's verification deadline while
 // retaining historical CAs needed to validate certificates at signing time.
 func FulcioRootsWithContext(ctx context.Context) (*x509.CertPool, *x509.CertPool, error) {
-	if roots, intermediates, err := fulcioRootsFromTargets(ctx); err == nil {
-		return roots, intermediates, nil
+	mirror, rootBytes := defaultRepository()
+	if err := lockSharedCache(ctx); err != nil {
+		return nil, nil, err
 	}
-	tr, err := TrustedRoot(ctx)
+	defer unlockSharedCache()
+	opts, err := tufOptions(ctx, mirror, rootBytes, true, registryclient.EgressHTTPClient(), false)
 	if err != nil {
 		return nil, nil, err
 	}
-	return fulcioRootsFromTrustedRoot(tr, false)
+	client, err := newUpdaterClient(opts)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Read both formats under the same repository snapshot and cache lock.
+	// Missing trusted_root.json is valid for an operator's PEM-only mirror.
+	targets, _ := targetsFromClient(client, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
+	var tr *root.TrustedRoot
+	if data, err := client.GetTarget("trusted_root.json"); err == nil {
+		tr, _ = root.NewTrustedRootFromJSON(data)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+	return fulcioRootsFromRepository(tr, targets, false)
 }
 
 // WithLock serializes access to the shared TUF cache. The callback must not call
@@ -412,35 +426,4 @@ func publicKeysFromTargets(targets []legacytuf.TargetFile) (*cosign.TrustedTrans
 		}
 	}
 	return &keys, nil
-}
-
-func fulcioRootsFromTargets(ctx context.Context) (*x509.CertPool, *x509.CertPool, error) {
-	targets, err := defaultTargets(ctx, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
-	if err != nil {
-		return nil, nil, err
-	}
-	return fulcioRootsFromTargetFiles(targets)
-}
-
-func fulcioRootsFromTargetFiles(targets []legacytuf.TargetFile) (*x509.CertPool, *x509.CertPool, error) {
-	roots, intermediates := x509.NewCertPool(), x509.NewCertPool()
-	rootsAdded := 0
-	for _, target := range targets {
-		certs, err := cryptoutils.UnmarshalCertificatesFromPEM(target.Target)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, cert := range certs {
-			if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
-				roots.AddCert(cert)
-				rootsAdded++
-			} else {
-				intermediates.AddCert(cert)
-			}
-		}
-	}
-	if rootsAdded == 0 {
-		return nil, nil, fmt.Errorf("no Fulcio root certificates found in legacy targets")
-	}
-	return roots, intermediates, nil
 }

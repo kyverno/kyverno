@@ -21,7 +21,7 @@ spec:
       matchLabels:
         test.kyverno.io/registry-egress: 'true'
   validations:
-  - expression: 'true'
+  - expression: getImageData(object.spec.containers[0].image) != null
   matchImageReferences:
   - glob: '*'
   validationConfigurations:
