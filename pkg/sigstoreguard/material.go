@@ -120,16 +120,16 @@ func fulcioRootsFromRepository(tr *root.TrustedRoot, targets []tuf.TargetFile, a
 			}
 		}
 	}
-	// Parse the whole legacy set before adding it, preserving the existing
-	// fallback to modern material when a legacy PEM target is malformed.
+	// A declared legacy target must be valid even when the modern format
+	// supplies roots. Never return a partial set after a PEM parse failure.
 	var legacyCertificates []*x509.Certificate
 	for _, target := range targets {
 		certificates, err := cryptoutils.UnmarshalCertificatesFromPEM(target.Target)
 		if err != nil {
-			if rootsAdded == 0 {
-				return nil, nil, err
-			}
-			return roots, intermediates, nil
+			return nil, nil, fmt.Errorf("parsing Fulcio target %q: %w", target.Name, err)
+		}
+		if len(certificates) == 0 {
+			return nil, nil, fmt.Errorf("no certificates in Fulcio target %q", target.Name)
 		}
 		legacyCertificates = append(legacyCertificates, certificates...)
 	}
