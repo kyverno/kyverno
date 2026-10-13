@@ -1162,6 +1162,11 @@ admissionController:
     size: 2048
     # -- CA certificate configuration
     ca:
+      # -- (string) Common name of the CA certificate.
+      # Defaults to `<fullname>-admission-controller-ca` when omitted. Set this when an
+      # external issuer enforces a common name format, for example a corporate PKI
+      # that requires an FQDN suffix.
+      commonName: ~
       # -- Duration of the CA certificate (default 10 years)
       duration: 87600h
       # -- Time before expiry to renew the CA certificate (default 30 days)
@@ -2059,6 +2064,11 @@ cleanupController:
     size: 2048
     # -- CA certificate configuration
     ca:
+      # -- (string) Common name of the CA certificate.
+      # Defaults to `<fullname>-cleanup-controller-ca` when omitted. Set this when an
+      # external issuer enforces a common name format, for example a corporate PKI
+      # that requires an FQDN suffix.
+      commonName: ~
       # -- Duration of the CA certificate (default 10 years)
       duration: 87600h
       # -- Time before expiry to renew the CA certificate (default 30 days)
