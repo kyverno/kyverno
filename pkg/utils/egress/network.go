@@ -75,9 +75,9 @@ func dialSeries(ctx context.Context, dial DialContextFunc, network, port string,
 	return nil, lastErr
 }
 
-// partialDialDeadline follows net.Dialer's allocation of the remaining budget:
-// split it across pending addresses, with at least two seconds per attempt when
-// available. A shorter caller budget always wins, and the final address gets
+// partialDialDeadline splits the remaining budget across all pending addresses.
+// A minimum attempt duration would starve later candidates when the caller's
+// budget cannot provide that duration for every address. The final address gets
 // whatever remains of the original deadline.
 func partialDialDeadline(now, deadline time.Time, remaining int) (time.Time, error) {
 	if deadline.IsZero() {
@@ -88,9 +88,6 @@ func partialDialDeadline(now, deadline time.Time, remaining int) (time.Time, err
 		return time.Time{}, context.DeadlineExceeded
 	}
 	share := budget / time.Duration(remaining)
-	if share < 2*time.Second {
-		share = min(budget, 2*time.Second)
-	}
 	return now.Add(share), nil
 }
 

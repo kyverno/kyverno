@@ -10,8 +10,11 @@ import (
 	"crypto/x509/pkix"
 	"fmt"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -387,6 +390,23 @@ func TestGetRekor_WithURL(t *testing.T) {
 	assert.NotNil(t, rekorClient)
 	assert.NotNil(t, rekorPubKeys)
 	assert.NotNil(t, ctlogPubKeys)
+}
+
+func TestGetRekorBlocksCustomLoopbackEndpoint(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"rootHash":"00","treeSize":0,"signedTreeHead":""}`))
+	}))
+	defer server.Close()
+
+	rekor, _, _, err := getRekor(context.Background(), &v1beta1.CTLog{URL: server.URL}, nil, nil)
+	require.NoError(t, err)
+	require.NotNil(t, rekor)
+	_, err = rekor.Tlog.GetLogInfo(nil)
+	require.ErrorIs(t, err, egress.ErrAddressBlocked)
+	require.Zero(t, requests.Load(), "policy-selected Rekor requests must be blocked before reaching loopback")
 }
 
 func TestGetRekor_NilCTLog(t *testing.T) {

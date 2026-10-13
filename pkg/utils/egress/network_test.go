@@ -13,34 +13,57 @@ import (
 
 func TestDialAddressesFallsBackWithinSameFamily(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	peer, expected := net.Pipe()
-	defer peer.Close()
-	defer expected.Close()
-	var attempted []string
-	var deadlines []time.Time
-	connection, err := DialAddresses(ctx, func(attemptCtx context.Context, _, address string) (net.Conn, error) {
-		attempted = append(attempted, address)
-		deadline, ok := attemptCtx.Deadline()
-		require.True(t, ok)
-		deadlines = append(deadlines, deadline)
-		if len(attempted) == 1 {
-			// Model a blackholed IPv4 address. The attempt must expire before
-			// the caller's budget so the second address can still connect.
-			<-attemptCtx.Done()
-			return nil, attemptCtx.Err()
-		}
-		return expected, nil
-	}, "tcp", "443", []net.IP{net.ParseIP("192.0.2.1"), net.ParseIP("192.0.2.2")})
-	require.NoError(t, err)
-	assert.Same(t, expected, connection)
-	assert.NoError(t, ctx.Err(), "fallback must finish inside the original aggregate deadline")
-	assert.Equal(t, []string{"192.0.2.1:443", "192.0.2.2:443"}, attempted)
-	require.Len(t, deadlines, 2)
-	assert.True(t, deadlines[0].Before(deadlines[1]))
-	outerDeadline, _ := ctx.Deadline()
-	assert.Equal(t, outerDeadline, deadlines[1])
+	for _, tc := range []struct {
+		name       string
+		budget     time.Duration
+		candidates int
+	}{
+		{name: "ordinary deadline", budget: 3 * time.Second, candidates: 2},
+		{name: "short deadline", budget: 500 * time.Millisecond, candidates: 2},
+		{name: "many candidates", budget: 3 * time.Second, candidates: 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithTimeout(context.Background(), tc.budget)
+			defer cancel()
+			peer, expected := net.Pipe()
+			defer peer.Close()
+			defer expected.Close()
+			addresses := []net.IP{
+				net.ParseIP("192.0.2.1"), net.ParseIP("192.0.2.2"),
+				net.ParseIP("192.0.2.3"), net.ParseIP("192.0.2.4"),
+			}[:tc.candidates]
+			var wantAttempts []string
+			for _, ip := range addresses {
+				wantAttempts = append(wantAttempts, net.JoinHostPort(ip.String(), "443"))
+			}
+			var attempted []string
+			var deadlines []time.Time
+			connection, err := DialAddresses(ctx, func(attemptCtx context.Context, _, address string) (net.Conn, error) {
+				attempted = append(attempted, address)
+				deadline, ok := attemptCtx.Deadline()
+				require.True(t, ok)
+				deadlines = append(deadlines, deadline)
+				if len(attempted) < tc.candidates {
+					// Model blackholed addresses before the usable final candidate.
+					// Each attempt must leave time for every remaining address.
+					<-attemptCtx.Done()
+					return nil, attemptCtx.Err()
+				}
+				return expected, nil
+			}, "tcp", "443", addresses)
+			require.NoError(t, err)
+			assert.Same(t, expected, connection)
+			assert.NoError(t, ctx.Err(), "fallback must finish inside the original aggregate deadline")
+			assert.Equal(t, wantAttempts, attempted)
+			require.Len(t, deadlines, tc.candidates)
+			for i := 1; i < len(deadlines); i++ {
+				assert.True(t, deadlines[i-1].Before(deadlines[i]))
+			}
+			outerDeadline, _ := ctx.Deadline()
+			assert.Equal(t, outerDeadline, deadlines[len(deadlines)-1])
+		})
+	}
 }
 
 func TestDialAddressesCancellationStopsRemainingCandidates(t *testing.T) {
@@ -106,8 +129,9 @@ func TestPartialDialDeadline(t *testing.T) {
 	}{
 		{name: "registry budget split", budget: 5 * time.Second, remaining: 2, want: 2500 * time.Millisecond},
 		{name: "apiCall budget split", budget: 30 * time.Second, remaining: 4, want: 7500 * time.Millisecond},
-		{name: "minimum attempt budget", budget: 5 * time.Second, remaining: 8, want: 2 * time.Second},
-		{name: "short caller budget", budget: 500 * time.Millisecond, remaining: 2, want: 500 * time.Millisecond},
+		{name: "many candidates share budget", budget: 5 * time.Second, remaining: 8, want: 625 * time.Millisecond},
+		{name: "two seconds available to every candidate", budget: 16 * time.Second, remaining: 8, want: 2 * time.Second},
+		{name: "short caller budget", budget: 500 * time.Millisecond, remaining: 2, want: 250 * time.Millisecond},
 		{name: "last candidate", budget: 3 * time.Second, remaining: 1, want: 3 * time.Second},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
