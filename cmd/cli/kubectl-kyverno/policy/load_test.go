@@ -576,6 +576,8 @@ spec:
 	}
 }
 
+// TestLoad_CELExceptionUnknownField checks that a CEL PolicyException with an unknown field fails
+// the strict load.
 func TestLoad_CELExceptionUnknownField(t *testing.T) {
 	manifest := `
 apiVersion: policies.kyverno.io/v1
@@ -603,6 +605,8 @@ spec:
 	}
 }
 
+// TestLoadSkippingInvalidFiles checks that broken policies are reported by file and name while valid
+// policies and non policy files around them are handled as expected.
 func TestLoadSkippingInvalidFiles(t *testing.T) {
 	const validPolicy = `
 apiVersion: policies.kyverno.io/v1
@@ -681,6 +685,8 @@ spec:
 	}
 }
 
+// TestLoadSkippingInvalidFiles_KeepsWarningsFromPartiallyLoadedFile checks that a file with a broken
+// policy keeps the warnings of the valid documents next to it.
 func TestLoadSkippingInvalidFiles_KeepsWarningsFromPartiallyLoadedFile(t *testing.T) {
 	legacy, err := os.ReadFile("testdata/list-single-clusterpolicy.yaml")
 	require.NoError(t, err)
@@ -706,6 +712,7 @@ spec:
 	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "unknown field")
 }
 
+// TestIsPolicyGroupKind checks which kinds are treated as policies when deciding what to report.
 func TestIsPolicyGroupKind(t *testing.T) {
 	tests := []struct {
 		gvk  schema.GroupVersionKind
@@ -730,6 +737,8 @@ func TestIsPolicyGroupKind(t *testing.T) {
 	}
 }
 
+// TestLoadSkippingInvalidFiles_UnreadableEntries checks that a dangling symlink is reported without
+// dropping the rest of the directory, and that hidden and non YAML entries are ignored.
 func TestLoadSkippingInvalidFiles_UnreadableEntries(t *testing.T) {
 	dir := t.TempDir()
 	valid := `
@@ -765,6 +774,8 @@ spec:
 	assert.Equal(t, filepath.Join(dir, "dangling.yaml"), results.NonFatalErrors[0].Path)
 }
 
+// TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal checks that a validator that cannot be set
+// up fails the load instead of being reported against every file.
 func TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal(t *testing.T) {
 	original := loaderDelegate
 	t.Cleanup(func() { loaderDelegate = original })
@@ -778,6 +789,7 @@ func TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to build validator")
 }
 
+// TestDocumentError checks how errors are prefixed with the kind and name of their document.
 func TestDocumentError(t *testing.T) {
 	base := errors.New("boom")
 	named := documentError([]byte("apiVersion: policies.kyverno.io/v1\nkind: ValidatingPolicy\nmetadata:\n  name: check\n"), base)
@@ -791,6 +803,8 @@ func TestDocumentError(t *testing.T) {
 	assert.Equal(t, base, documentError([]byte("kind: ValidatingPolicy\n"), base))
 }
 
+// TestSkipInvalidFiles_KeepsPartialResults checks that the wrapper keeps what a loader returned
+// alongside its error.
 func TestSkipInvalidFiles_KeepsPartialResults(t *testing.T) {
 	partial := &LoaderResults{
 		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{&policiesv1beta1.ValidatingPolicy{}},
@@ -822,6 +836,7 @@ func TestSkipInvalidFiles_KeepsPartialResults(t *testing.T) {
 // document processing step with kinds the real validator would reject earlier.
 type schemaLessLoader struct{}
 
+// Load returns the document as is with its declared GVK, without any schema validation.
 func (schemaLessLoader) Load(document []byte) (schema.GroupVersionKind, unstructured.Unstructured, error) {
 	var untyped unstructured.Unstructured
 	if err := yaml.Unmarshal(document, &untyped.Object); err != nil {
@@ -830,6 +845,8 @@ func (schemaLessLoader) Load(document []byte) (schema.GroupVersionKind, unstruct
 	return untyped.GroupVersionKind(), untyped, nil
 }
 
+// TestLoadSkippingInvalidFiles_ReportsPolicyDocumentsThatCannotBeProcessed checks that a policy
+// document that passes validation but cannot be converted is reported, while a ConfigMap is not.
 func TestLoadSkippingInvalidFiles_ReportsPolicyDocumentsThatCannotBeProcessed(t *testing.T) {
 	original := loaderDelegate
 	t.Cleanup(func() { loaderDelegate = original })
@@ -860,6 +877,8 @@ metadata:
 	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "policy type not supported")
 }
 
+// TestLoadSkippingInvalidFiles_NamesFailingListItems checks that a failing policy inside a List is
+// reported by kind and name, while the valid item still loads and a Pod is ignored.
 func TestLoadSkippingInvalidFiles_NamesFailingListItems(t *testing.T) {
 	content := `apiVersion: v1
 kind: List
@@ -893,6 +912,8 @@ items:
 	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "policy type not supported")
 }
 
+// TestLoadSkippingInvalidFiles_KeepsOtherPathsWhenOneFails checks that a missing path is reported
+// without dropping the policies loaded from the other paths.
 func TestLoadSkippingInvalidFiles_KeepsOtherPathsWhenOneFails(t *testing.T) {
 	dir := t.TempDir()
 	valid := filepath.Join(dir, "valid.yaml")
@@ -918,6 +939,38 @@ spec:
 	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "no such file or directory")
 }
 
+// TestLoadSkippingInvalidFiles_KeepsDocumentsReadBeforeSplitError checks that a read error part way
+// through a file keeps the documents read before it and reports the rest of the file.
+func TestLoadSkippingInvalidFiles_KeepsDocumentsReadBeforeSplitError(t *testing.T) {
+	original := splitDocuments
+	t.Cleanup(func() { splitDocuments = original })
+	valid := []byte(`apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: valid
+spec:
+  validations:
+  - expression: "true"
+`)
+	splitDocuments = func([]byte) ([][]byte, error) {
+		return [][]byte{valid}, errors.New("unable to read yaml")
+	}
+	path := filepath.Join(t.TempDir(), "partial.yaml")
+	require.NoError(t, os.WriteFile(path, valid, 0o600))
+
+	_, err := Load(nil, "", false, path)
+	require.Error(t, err)
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	require.NoError(t, err)
+	assert.Len(t, results.ValidatingPolicies, 1)
+	require.Len(t, results.NonFatalErrors, 1)
+	assert.Equal(t, path, results.NonFatalErrors[0].Path)
+	assert.EqualError(t, results.NonFatalErrors[0].Error, "unable to read yaml")
+}
+
+// TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies checks that a legacy policy still fails the
+// lenient load.
 func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {
 	dir := t.TempDir()
 	content, err := os.ReadFile("testdata/list-single-clusterpolicy.yaml")

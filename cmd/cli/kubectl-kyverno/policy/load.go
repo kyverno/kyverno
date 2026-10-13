@@ -143,6 +143,7 @@ func (l *LoaderResults) addError(path string, err error) {
 	})
 }
 
+// addWarning records a warning, such as a deprecation notice, for the document at path.
 func (l *LoaderResults) addWarning(path, warning string) {
 	l.Warnings = append(l.Warnings, LoaderWarning{
 		Path:    path,
@@ -151,6 +152,10 @@ func (l *LoaderResults) addWarning(path, warning string) {
 }
 
 type loader = func(string, []byte) (*LoaderResults, error)
+
+// splitDocuments splits a file into YAML documents. It is a variable so tests can simulate a read
+// error part way through a file.
+var splitDocuments = extyaml.SplitDocuments
 
 // ErrValidatorSetup is returned when the schema validator used by the loader cannot be built. It is
 // not caused by any input file, so callers that skip invalid files must still treat it as fatal.
@@ -177,6 +182,8 @@ func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, allowLeg
 	return loadWithLoader(skipInvalidFiles(kubectlValidateLoader(allowLegacyPolicies, true)), fs, resourcePath, true, paths...)
 }
 
+// skipInvalidFiles wraps a loader so that an ordinary error is recorded as a non fatal error for the
+// file, keeping any partial results, while legacy policy block errors are still returned.
 func skipInvalidFiles(l loader) loader {
 	return func(path string, content []byte) (*LoaderResults, error) {
 		results, err := l(path, content)
@@ -193,6 +200,8 @@ func skipInvalidFiles(l loader) loader {
 	}
 }
 
+// LoadWithLoader loads policies from paths with the given loader, or the default validating loader
+// when l is nil. The first path that fails to load fails the whole call.
 func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
 	if l == nil {
 		l = kubectlValidateLoaderFor(allowLegacyPolicies)
@@ -200,6 +209,9 @@ func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLeg
 	return loadWithLoader(l, fs, resourcePath, false, paths...)
 }
 
+// loadWithLoader reads every path from stdin, git, http or the local filesystem and merges the
+// results. With skipUnreadable set, a path that cannot be read is recorded under its own name instead
+// of failing the call.
 func loadWithLoader(l loader, fs billy.Filesystem, resourcePath string, skipUnreadable bool, paths ...string) (*LoaderResults, error) {
 	aggregateResults := &LoaderResults{}
 	for _, path := range paths {
@@ -293,6 +305,7 @@ func namedError(kind, name string, err error) error {
 	return fmt.Errorf("%s %s: %w", kind, name, err)
 }
 
+// isValidYAML reports whether document parses as YAML.
 func isValidYAML(document []byte) bool {
 	_, err := yaml.YAMLToJSON(document)
 	return err == nil
@@ -303,11 +316,15 @@ func isValidYAML(document []byte) bool {
 // policy API groups are ignored. Otherwise the first failing document fails the whole file.
 func kubectlValidateLoader(allowLegacyPolicies, lenient bool) loader {
 	return func(path string, content []byte) (*LoaderResults, error) {
-		documents, err := extyaml.SplitDocuments(content)
-		if err != nil {
-			return nil, err
-		}
 		results := &LoaderResults{}
+		documents, err := splitDocuments(content)
+		if err != nil {
+			if !lenient {
+				return nil, err
+			}
+			// keep the documents that were read before the error and report the rest of the file
+			results.addError(path, err)
+		}
 		factory, err := loaderDelegate()
 		if err != nil {
 			return nil, err

@@ -148,6 +148,7 @@ func (c *ApplyCommandConfig) cloneRepo(repoURL string, fs billy.Filesystem, bran
 	return cloneFn(repoURL, fs, branch, auth)
 }
 
+// Command returns the kyverno apply command.
 func Command() *cobra.Command {
 	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
@@ -281,6 +282,9 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+// applyCommandHelper loads the policies, resources and exceptions and applies them, returning the
+// result counts, the processed resources, the skipped, invalid and not loaded policies, and the
+// engine responses.
 func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
@@ -1121,6 +1125,9 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
+// loadPolicies loads policies from every policy path (local, OCI or git). Files and documents that
+// cannot be loaded are recorded in policyLoadErrors and skipped; blocked legacy policies and
+// validator setup failures stop the command.
 func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
@@ -1255,6 +1262,8 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
 }
 
+// recordPolicyWarnings prints deprecation warnings raised while loading policies and keeps them for
+// --warnings-as-errors.
 func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {
 	for _, warning := range warnings {
 		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
@@ -1277,6 +1286,7 @@ func (c *ApplyCommandConfig) recordPolicyLoadErrors(loadErrors []policy.LoaderEr
 	}
 }
 
+// recordPolicyLoadError records a single policy file or document that could not be loaded.
 func (c *ApplyCommandConfig) recordPolicyLoadError(path string, err error) {
 	log.Log.V(3).Info("skipping policy that could not be loaded", "path", path, "error", err)
 	c.policyLoadErrors = append(c.policyLoadErrors, PolicyDiagnostic{name: path, reason: err.Error()})

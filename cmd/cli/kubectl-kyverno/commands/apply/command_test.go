@@ -1037,6 +1037,8 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
+// TestApplyBlocksLegacyClusterPolicy checks that a legacy ClusterPolicy fails apply, for a file and
+// for a directory, and is never listed under Policies Not Loaded.
 func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 	blocked := ApplyCommandConfig{
 		PolicyPaths:   []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/policy.yaml"},
@@ -1691,6 +1693,8 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 	}
 }
 
+// writePolicyLoadErrorFixtures writes a policy directory with one valid and one broken policy, plus
+// a Pod, and returns the directory and the Pod path.
 func writePolicyLoadErrorFixtures(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -1742,6 +1746,8 @@ spec:
 	return policies, filepath.Join(dir, "pod.yaml")
 }
 
+// TestCommandReportsPoliciesThatCouldNotBeLoaded checks that a broken policy is listed on stdout
+// while the valid policy next to it is still applied.
 func TestCommandReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
 	policies, pod := writePolicyLoadErrorFixtures(t)
 
@@ -1762,6 +1768,8 @@ func TestCommandReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
 	assert.NotContains(t, stderr.String(), "Policies Not Loaded")
 }
 
+// TestCommandReportsPoliciesThatCouldNotBeLoadedOnStderrForPolicyReports checks that the load errors
+// go to stderr when stdout carries a policy report, so the report still parses.
 func TestCommandReportsPoliciesThatCouldNotBeLoadedOnStderrForPolicyReports(t *testing.T) {
 	policies, pod := writePolicyLoadErrorFixtures(t)
 
@@ -1779,6 +1787,8 @@ func TestCommandReportsPoliciesThatCouldNotBeLoadedOnStderrForPolicyReports(t *t
 	assert.Contains(t, stderr.String(), filepath.Join(policies, "typo.yaml"))
 }
 
+// TestPrintPolicyLoadErrors checks the Policies Not Loaded section and that nothing is printed
+// without errors.
 func TestPrintPolicyLoadErrors(t *testing.T) {
 	var out bytes.Buffer
 	printPolicyLoadErrors(&out, nil)
@@ -1789,6 +1799,8 @@ func TestPrintPolicyLoadErrors(t *testing.T) {
 	assert.Contains(t, out.String(), "1. policies/typo.yaml: unknown field")
 }
 
+// TestLoadPoliciesFromGitReportsPoliciesThatCouldNotBeLoaded checks the same reporting for policies
+// loaded from a git repository.
 func TestLoadPoliciesFromGitReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
 	policies, pod := writePolicyLoadErrorFixtures(t)
 	cloner := func(_ string, fs billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
@@ -1822,6 +1834,7 @@ func TestLoadPoliciesFromGitReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
 	assert.Contains(t, skipped.loadErrors[0].reason, "unknown field")
 }
 
+// TestIsFatalPolicyLoadError checks which loading errors stop apply instead of being reported.
 func TestIsFatalPolicyLoadError(t *testing.T) {
 	legacyErr, ok := pkgdeprecations.BuildKindError("kyverno.io", "v1", "ClusterPolicy")
 	require.True(t, ok)

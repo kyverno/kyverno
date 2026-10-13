@@ -23,6 +23,8 @@ import (
 
 const divider = "----------------------------------------------------------------------"
 
+// printPolicyLoadErrors lists the policy files and documents that could not be loaded, with the
+// reason for each.
 func printPolicyLoadErrors(out io.Writer, loadErrors []PolicyDiagnostic) {
 	if len(loadErrors) == 0 {
 		return
