@@ -29,20 +29,40 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// Engine evaluates MutatingPolicies against admission requests and existing
+// resources. It is the central entry point for both the admission webhook path
+// (Handle) and the background/CLI mutate-existing path (Evaluate).
 type Engine interface {
+	// Handle evaluates all non-mutateExisting policies against the given
+	// admission request and applies any matching mutations.
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
+	// Evaluate evaluates mutateExisting policies against the supplied target
+	// resource, resolving its namespace so that namespaceSelector matching
+	// mirrors the admission path.
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
+	// MatchedMutateExistingPolicies returns the names of all mutateExisting
+	// policies whose trigger constraints match the given admission request.
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
+	// GetCompiledPolicy returns the compiled representation of the policy
+	// identified by name. Only cluster-scoped names are supported for now.
 	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
+	// GetCompiledPolicies returns compiled policies indexed by the provided
+	// names. When names is empty all compiled policies are returned.
 	GetCompiledPolicies(names ...string) map[string]Policy
 }
 
+// EngineResponse is the result of evaluating one or more MutatingPolicies
+// against a resource. PatchedResource is non-nil only when at least one
+// policy produced a mutation.
 type EngineResponse struct {
 	PatchedResource *unstructured.Unstructured
 	Resource        *unstructured.Unstructured
 	Policies        []MutatingPolicyResponse
 }
 
+// GetPatches computes the JSON Patch operations needed to transform Resource
+// into PatchedResource. It returns nil if either resource is missing or the
+// diff cannot be computed.
 func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 	originalBytes, err := er.Resource.MarshalJSON()
 	if err != nil {
@@ -59,6 +79,8 @@ func (er EngineResponse) GetPatches() []jsonpatch.JsonPatchOperation {
 	return patches
 }
 
+// MutatingPolicyResponse holds the per-policy result of a single engine
+// evaluation pass, including every rule response produced for that policy.
 type MutatingPolicyResponse struct {
 	Policy policiesv1beta1.MutatingPolicyLike
 	Rules  []engineapi.RuleResponse
@@ -74,6 +96,9 @@ type engineImpl struct {
 	contextProvider libs.Context
 }
 
+// NewEngine constructs an Engine backed by the given provider and helpers.
+// Pass matching.NewMatcher() for matcher in production; nil disables
+// matchConstraints/namespaceSelector evaluation (for testing only).
 func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher, typeConverter compiler.TypeConverterManager, contextProvider libs.Context) *engineImpl {
 	return &engineImpl{
 		provider:        provider,
@@ -84,6 +109,10 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
+// Evaluate processes mutateExisting MutatingPolicies for a target resource
+// identified by attr. The namespace of attr is resolved via nsResolver so
+// that namespaceSelector matching mirrors the admission-webhook path. A nil
+// predicate evaluates all policies.
 func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, predicate Predicate) (EngineResponse, error) {
 	mpols := e.provider.Fetch(ctx, true)
 	var object *unstructured.Unstructured
@@ -144,6 +173,10 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 	return response, nil
 }
 
+// Handle evaluates admission-time (non-mutateExisting) MutatingPolicies
+// against request. Policies that pass the predicate gate are matched and,
+// when applicable, their mutations are applied. A nil predicate evaluates
+// all policies.
 func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, predicate Predicate) (EngineResponse, error) {
 	var response EngineResponse
 	mpols := e.provider.Fetch(ctx, false)
@@ -216,6 +249,11 @@ func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, p
 	return response, nil
 }
 
+// handlePolicy runs a single compiled MutatingPolicy against attr. When
+// target is true the policy is evaluated in target mode (mutateExisting):
+// constraints are taken from targetMatchConstraints and target operations are
+// normalised to OperationAll so that the background controller's synthetic
+// Update and the CLI's empty operation do not incorrectly filter out targets.
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: mpol.Policy,
@@ -362,6 +400,9 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	return ruleResponse, result.PatchedResource
 }
 
+// GetCompiledPolicy returns the compiled Policy for the given name. It
+// searches across both admission and mutateExisting policy sets and returns
+// an error if the policy is not found.
 func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
 	policies := e.GetCompiledPolicies(policyName)
 	if policy, ok := policies[policyName]; ok {
@@ -370,6 +411,9 @@ func (e *engineImpl) GetCompiledPolicy(policyName string) (Policy, error) {
 	return Policy{}, fmt.Errorf("policy with name %s wasn't found", policyName)
 }
 
+// GetCompiledPolicies returns compiled policies indexed by each provided name.
+// Policies are looked up by both their stable policy key (namespace/name) and
+// their bare name. When names is empty all compiled policies are returned.
 func (e *engineImpl) GetCompiledPolicies(names ...string) map[string]Policy {
 	expectedNames := make(map[string]struct{}, len(names))
 	for _, name := range names {
@@ -410,6 +454,10 @@ func (e *engineImpl) GetCompiledPolicies(names ...string) map[string]Policy {
 	return policies
 }
 
+// MatchedMutateExistingPolicies returns the policy names (or namespace/name
+// keys) of all mutateExisting MutatingPolicies whose trigger constraints
+// match request. Used by the background controller to determine which
+// policies must be re-evaluated for a given admission event.
 func (e *engineImpl) MatchedMutateExistingPolicies(ctx context.Context, request engine.EngineRequest) []string {
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
 	if err != nil {
