@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: signed-nginx
+  namespace: kyverno-cap-test
+spec:
+  containers:
+    - name: nginx
+      image: dahu-registry-vpc.cn-hangzhou.cr.aliyuncs.com/dahu/nginx:1.14.1-8.6

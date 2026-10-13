@@ -1,0 +1,39 @@
+# Merge these values on top of your existing Kyverno helm values.
+# They enable the alibabacloud ACR credential helper and use RRSA to give
+# the controllers temporary credentials.
+
+admissionController:
+  container:
+    extraArgs:
+      registryCredentialHelpers: alibabacloud
+  rbac:
+    serviceAccount:
+      annotations:
+        pod-identity.alibabacloud.com/role-name: kyverno-acr-role
+
+backgroundController:
+  container:
+    extraArgs:
+      registryCredentialHelpers: alibabacloud
+  rbac:
+    serviceAccount:
+      annotations:
+        pod-identity.alibabacloud.com/role-name: kyverno-acr-role
+
+cleanupController:
+  container:
+    extraArgs:
+      registryCredentialHelpers: alibabacloud
+  rbac:
+    serviceAccount:
+      annotations:
+        pod-identity.alibabacloud.com/role-name: kyverno-acr-role
+
+reportsController:
+  container:
+    extraArgs:
+      registryCredentialHelpers: alibabacloud
+  rbac:
+    serviceAccount:
+      annotations:
+        pod-identity.alibabacloud.com/role-name: kyverno-acr-role

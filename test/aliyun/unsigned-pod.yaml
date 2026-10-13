@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unsigned-nginx
+  namespace: kyverno-cap-test
+spec:
+  containers:
+    - name: nginx
+      # same repository, an unsigned tag: the request should be denied
+      image: dahu-registry-vpc.cn-hangzhou.cr.aliyuncs.com/dahu/nginx:unsigned
