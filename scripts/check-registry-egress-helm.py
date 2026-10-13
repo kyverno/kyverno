@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Render registry egress settings and check them with real controller parsers.
 
-Requires Helm, PyYAML, and binaries built from the same checkout. Appending --help
-exits during argument parsing, before Kubernetes clients or controllers start.
+Requires Helm and PyYAML. Full parser checks also need binaries built from the
+same checkout. Appending --help exits during argument parsing, before Kubernetes
+clients or controllers start. Use --render-only to check chart serialization alone.
 """
 
 import argparse
@@ -30,13 +31,16 @@ def check(condition, message):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--bin-dir", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--bin-dir", type=Path)
+    mode.add_argument("--render-only", action="store_true",
+                      help="Check rendered flags and rejected values without controller binaries")
     parser.add_argument("--helm", type=Path)
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
     helm = str((args.helm or root / ".tools/helm").resolve())
-    binaries = {role: args.bin_dir.resolve() / values[0]
-                for role, values in CONTROLLERS.items()}
+    binaries = ({role: args.bin_dir.resolve() / values[0]
+                 for role, values in CONTROLLERS.items()} if args.bin_dir else {})
     for binary in binaries.values():
         check(binary.is_file(), f"Build the controller binary first: {binary}")
 
@@ -90,27 +94,35 @@ def main():
                       f"{name}: cleanup must not enable registry credentials")
             check(sorted(egress_args) == sorted(expected_args),
                   f"{name}: unexpected {role} registry flags: {egress_args}")
-            parsed = subprocess.run([str(binaries[role]), *rendered_args, "--help"],
-                                    capture_output=True, text=True, check=False, timeout=30)
-            check(parsed.returncode == 0,
-                  f"{name}: {role} rejected rendered arguments:\n{parsed.stderr}\n{parsed.stdout}")
+            if binaries:
+                parsed = subprocess.run([str(binaries[role]), *rendered_args, "--help"],
+                                        capture_output=True, text=True, check=False, timeout=30)
+                check(parsed.returncode == 0,
+                      f"{name}: {role} rejected rendered arguments:\n{parsed.stderr}\n{parsed.stdout}")
         missing = set(CONTROLLERS) - seen
         check(not missing, f"{name}: missing controller deployments: {missing}")
-        print(f"PASS: {name}: all four controller parsers accept their rendered arguments")
+        detail = ("all four controller parsers accept their rendered arguments" if binaries
+                  else "all four deployments have the expected registry flags")
+        print(f"PASS: {name}: {detail}")
 
     scopes = [("global", "features")]
     scopes += [(role, section) for role, (_, section) in CONTROLLERS.items()]
     for name, section in scopes:
-        for invalid in ([""], ["  "], ["registry.corp.example", ""], [42], [None]):
+        invalid_cases = [(entries, "must be a non-empty string") for entries in
+                         ([""], ["  "], ["registry.corp.example", ""], [42], [None])]
+        invalid_cases += [(entries, "must not contain commas") for entries in
+                          (["registry.corp.example,10.0.0.0/8"],
+                           ["registry.corp.example", "10.0.0.0/8,"], [",registry.corp.example"])]
+        for invalid, message in invalid_cases:
             registry = {"registryClient": {"privateRegistryAllowlist": invalid}}
             values = {section: registry if section == "features"
                       else {"featuresOverride": registry}}
             result = render(values)
             rejected = (result.returncode != 0 and
-                        "must be a non-empty string" in result.stderr)
+                        message in result.stderr)
             check(rejected, f"{name}: Helm must reject allowlist {invalid!r}, "
                             f"got {result.returncode}: {result.stderr}")
-        print(f"PASS: {name}: Helm rejects empty and non-string allowlist entries")
+        print(f"PASS: {name}: Helm rejects empty, non-string, and comma-containing allowlist entries")
 
 
 if __name__ == "__main__":

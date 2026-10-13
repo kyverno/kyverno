@@ -380,7 +380,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.privateRegistryEgressMode | string | `"audit"` | Registry egress policy for admission, background, reports, and cleanup controllers: audit permits private addresses and logs requests enforce would block; enforce requires an allowlist entry. Both modes always block metadata and other unsafe addresses. |
-| features.registryClient.privateRegistryAllowlist | list | `[]` | Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Entries must be non-empty strings. Metadata and other unsafe addresses remain blocked. |
+| features.registryClient.privateRegistryAllowlist | list | `[]` | Exact registry hostnames, IP addresses, or CIDRs permitted to reach private addresses in enforce mode. Entries must be non-empty strings without commas; use one list item per entry. Metadata and other unsafe addresses remain blocked. |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |
 | features.tuf.enabled | bool | `false` | Enables the feature |

@@ -140,6 +140,63 @@ func TestVerificationMaterialRejectsBlockedMirrorAndCancellation(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
+func TestFulcioRootsCombineLegacyAndModernCertificates(t *testing.T) {
+	previousMirror, previousRoot := defaultRepository()
+	t.Cleanup(func() { SetDefaultRepository(previousMirror, previousRoot) })
+	t.Setenv("SIGSTORE_REKOR_PUBLIC_KEY", "")
+	t.Setenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE", "")
+	t.Setenv("SIGSTORE_NO_CACHE", "false")
+	for _, path := range []string{"explicit_repository", "operator_default"} {
+		for _, historicalRoot := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/historical_root=%t", path, historicalRoot), func(t *testing.T) {
+				t.Setenv("TUF_ROOT", t.TempDir())
+				fixture := newVerificationFixture(t)
+				issue := func(name string, parent *x509.Certificate, intermediate bool) *x509.Certificate {
+					template := &x509.Certificate{
+						SerialNumber: big.NewInt(3), Subject: pkix.Name{CommonName: name},
+						NotBefore: fixture.modernCA.NotBefore, NotAfter: fixture.modernCA.NotAfter,
+						BasicConstraintsValid: true, IsCA: intermediate,
+						KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+					}
+					if intermediate {
+						template.KeyUsage = x509.KeyUsageCertSign
+					}
+					der, err := x509.CreateCertificate(rand.Reader, template, parent, &fixture.key.PublicKey, fixture.key)
+					require.NoError(t, err)
+					certificate, err := x509.ParseCertificate(der)
+					require.NoError(t, err)
+					return certificate
+				}
+				intermediate := issue("current-intermediate", fixture.modernCA, true)
+				currentLeaf := issue("current-signer", fixture.modernCA, false)
+				intermediateLeaf := issue("current-signer-via-intermediate", intermediate, false)
+				rootBytes, mirror, client := fixture.repository(t, historicalRoot, legacytuf.TargetFile{
+					Name: "fulcio_intermediate_v1.crt.pem", Target: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: intermediate.Raw}),
+				})
+				var roots, intermediates *x509.CertPool
+				if path == "operator_default" {
+					require.NoError(t, initializeWithHTTP(context.Background(), mirror, rootBytes, client))
+					var err error
+					roots, intermediates, err = FulcioRootsWithContext(context.Background())
+					require.NoError(t, err)
+				} else {
+					material, err := verificationMaterialFor(context.Background(), mirror, rootBytes, client)
+					require.NoError(t, err)
+					roots, intermediates = material.FulcioRoots, material.FulcioIntermediates
+				}
+				for _, certificate := range []*x509.Certificate{currentLeaf, intermediateLeaf} {
+					_, err := certificate.Verify(x509.VerifyOptions{Roots: roots, Intermediates: intermediates, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning}})
+					require.NoError(t, err, "current certificate %s must retain its complete trust chain", certificate.Subject.CommonName)
+				}
+				if historicalRoot {
+					_, err := fixture.historicalLeaf.Verify(x509.VerifyOptions{Roots: roots, Intermediates: intermediates, CurrentTime: fixture.signingTime, KeyUsages: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning}})
+					require.NoError(t, err, "historical signatures must remain verifiable at their signing time")
+				}
+			})
+		}
+	}
+}
+
 type verificationFixture struct {
 	trustedRoot    *root.TrustedRoot
 	modernCA       *x509.Certificate
