@@ -26,6 +26,7 @@ func (c *controller) buildGenerationLabelProtectionWebhook(caBundle []byte) admi
 		AdmissionReviewVersions: []string{"v1"},
 		TimeoutSeconds:          &timeout,
 		MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
+		MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
 		// Every controller-owned downstream has a policy association. Kubernetes
 		// checks both old and new objects, so removing it cannot bypass protection.
 		// Object selectors also work on servers predating webhook match conditions.
