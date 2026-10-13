@@ -19,6 +19,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CHART_DIR="${ROOT_DIR}/charts/kyverno-policies"
 HELM="${HELM:-helm}"
 
+# EXPECTED_POLICIES is the number of ValidatingPolicy templates rendered with the
+# restricted profile. A policy that stops rendering would otherwise lower both
+# counts below and go unchecked. Update it when a ValidatingPolicy is added or removed.
+EXPECTED_POLICIES=20
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
@@ -26,13 +31,19 @@ log() { echo "[verify-policies-autogen] $*"; }
 fail() { echo "[verify-policies-autogen] FAIL: $*" >&2; exit 1; }
 
 # render prints the chart rendered with the restricted profile, so that the
-# baseline and restricted ValidatingPolicy templates are all included.
+# baseline and restricted ValidatingPolicy templates are all included. The last
+# three arguments switch on the templates that are conditional: the ones that
+# need Kubernetes 1.34 (disallow-host-probes), user namespaces
+# (disallow-proc-mount-strict) and the opt-in require-non-root-groups.
 # The remaining arguments are passed to helm template. Some templates use CRLF
 # line endings, so carriage returns are dropped from the output.
 render() {
   "${HELM}" template verify "${CHART_DIR}" \
     --set policyType=ValidatingPolicy \
     --set podSecurityStandard=restricted \
+    --kube-version 1.34.0 \
+    --set podSecurityUserNamespaces=true \
+    --set 'includeOtherPolicies={require-non-root-groups}' \
     "$@" | tr -d '\r'
 }
 
@@ -54,7 +65,8 @@ check() {
     out="$(render)"
   fi
   policies="$(grep -c '^kind: ValidatingPolicy' <<<"${out}" || true)"
-  [ "${policies}" -gt 0 ] || fail "no ValidatingPolicy rendered"
+  [ "${policies}" -eq "${EXPECTED_POLICIES}" ] ||
+    fail "expected ${EXPECTED_POLICIES} ValidatingPolicy resources, rendered ${policies}"
   if [ -z "${want}" ]; then
     grep -q 'podControllers' <<<"${out}" && fail "unset: an autogen field was rendered"
     log "  OK   unset: no autogen field on ${policies} policies"
@@ -84,4 +96,8 @@ check "Deployment, Job,CronJob" '\["deployments","jobs","cronjobs"\]'
 check_fails "Deploymnt"
 check_fails "Deployment,Foo"
 check_fails ","
+check_fails "Deployment,"
+check_fails ",Deployment"
+check_fails "Deployment,,Job"
+check_fails "ReplicationController"
 log "all checks passed"

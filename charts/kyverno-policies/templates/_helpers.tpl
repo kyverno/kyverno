@@ -142,22 +142,18 @@ is accepted for ClusterPolicy compatibility, but ValidatingPolicy autogen does n
 {{- with .Values.autogenControllers }}
 {{- $supported := list "daemonsets" "deployments" "replicasets" "statefulsets" "jobs" "cronjobs" }}
 {{- $controllers := list }}
-{{- $named := 0 }}
 {{- if ne (lower (trim (toString .))) "none" }}
 {{- range splitList "," (toString .) }}
 {{- $kind := lower (trim .) }}
 {{- $name := printf "%ss" $kind }}
-{{- if $kind }}
-{{- $named = add1 $named }}
-{{- end }}
 {{- if has $name $supported }}
 {{- $controllers = append $controllers $name }}
-{{- else if and $kind (ne $kind "replicationcontroller") }}
+{{- else if ne $kind "replicationcontroller" }}
 {{- fail (printf "autogenControllers: unsupported controller %q, use `none` or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" (trim .)) }}
 {{- end }}
 {{- end }}
-{{- if eq $named 0 }}
-{{- fail "autogenControllers: no controller given, use `none` or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" }}
+{{- if not $controllers }}
+{{- fail "autogenControllers: no supported controller given, use `none` or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" }}
 {{- end }}
 {{- end -}}
 autogen:
