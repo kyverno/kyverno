@@ -109,10 +109,11 @@ func (iv *imageVerifier) Verify(
 		// cached for the digest form would be served for a tag this entry
 		// means to skip or does not match at all. Decide that here instead.
 		imageUseCache := useCache &&
+			(len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0) &&
 			matchReferences(imageVerify.ImageReferences, image) &&
 			!matchReferences(imageVerify.SkipImageReferences, image)
 		if useCache && !imageUseCache {
-			iv.logger.V(2).Info("caching disabled: entry skips or does not match this image reference", "image", image, "ruleName", iv.rule.Name)
+			iv.logger.V(2).Info("caching disabled for this entry/image", "image", image, "ruleName", iv.rule.Name)
 		}
 
 		// Resolving the tag costs a registry round trip and exists only to
