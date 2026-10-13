@@ -166,3 +166,6 @@ For credential-free regression coverage, run
 `python3 scripts/test-cherry-pick-workflows.py` (requires Python with PyYAML,
 Node.js, Bash, and Git). The tests execute the actual workflow scripts against
 mocked GitHub and Git operations without network access or real credentials.
+The `Cherry-pick workflow tests` CI workflow runs this suite for PRs and pushes
+to `main` and `release-*` when the action, caller workflows, test script, or
+test workflow changes. It uses read-only repository access and no secrets.
