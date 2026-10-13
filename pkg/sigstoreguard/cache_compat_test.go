@@ -183,6 +183,57 @@ func TestOperatorInitializationWithoutCache(t *testing.T) {
 	require.Empty(t, entries, "SIGSTORE_NO_CACHE must prevent metadata, target, and mirror cache writes")
 }
 
+func TestOperatorInitializationPublishesRotatedRootOnlyAfterSuccess(t *testing.T) {
+	previousMirror, previousRoot := defaultRepository()
+	t.Cleanup(func() { SetDefaultRepository(previousMirror, previousRoot) })
+	for _, failure := range []string{"target_download", "mirror_persistence", "none"} {
+		t.Run(failure, func(t *testing.T) {
+			cacheRoot := t.TempDir()
+			t.Setenv("TUF_ROOT", cacheRoot)
+			t.Setenv("SIGSTORE_NO_CACHE", "false")
+			initial, rotated, mirror, _, httpClient := rotatingRepository(t)
+			SetDefaultRepository(mirror, initial)
+			remotePath := filepath.Join(cacheRoot, "remote.json")
+			if failure == "mirror_persistence" {
+				// An existing directory prevents the atomic mirror-file rename,
+				// after metadata refresh and all target downloads have succeeded.
+				require.NoError(t, os.Mkdir(remotePath, 0o700))
+			}
+			transport := httpClient.Transport
+			targetRequests := 0
+			httpClient.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if strings.HasPrefix(req.URL.Path, "/targets/") {
+					targetRequests++
+					configuredMirror, configuredRoot := defaultRepository()
+					require.Equal(t, mirror, configuredMirror)
+					require.JSONEq(t, string(initial), string(configuredRoot), "warming must not publish the pending root")
+					if failure == "target_download" {
+						return &http.Response{StatusCode: http.StatusNotFound, Body: io.NopCloser(strings.NewReader("unavailable target")), Request: req}, nil
+					}
+				}
+				return transport.RoundTrip(req)
+			})
+			err := initializeWithHTTP(context.Background(), mirror, initial, httpClient)
+			if failure == "none" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+			require.Positive(t, targetRequests, "the failure must occur after authenticated root rotation")
+			cachedRoot, err := os.ReadFile(filepath.Join(cacheRoot, tuf.URLToPath(mirror), "root.json"))
+			require.NoError(t, err)
+			require.JSONEq(t, string(rotated), string(cachedRoot))
+			configuredMirror, configuredRoot := defaultRepository()
+			require.Equal(t, mirror, configuredMirror)
+			if failure == "none" {
+				require.JSONEq(t, string(rotated), string(configuredRoot))
+			} else {
+				require.JSONEq(t, string(initial), string(configuredRoot), "a failed initialization must retain the active root")
+			}
+		})
+	}
+}
+
 func TestDefaultRootRotationRetainsOfflineCache(t *testing.T) {
 	previousMirror, previousRoot := defaultRepository()
 	t.Cleanup(func() { SetDefaultRepository(previousMirror, previousRoot) })

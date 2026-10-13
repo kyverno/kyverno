@@ -185,10 +185,11 @@ func warmTargets(opts *tuf.Options) error {
 	}
 	cached := *opts
 	cached.ForceCache = true
-	client, err := newUpdaterClient(&cached)
+	client, err := newUpdaterClientWithRootUpdate(&cached, false)
 	if err != nil {
 		return err
 	}
+	opts.Root = cached.Root
 	for name := range client.GetTopLevelTargets() {
 		if _, err := client.GetTarget(name); err != nil {
 			return fmt.Errorf("warming TUF target %s: %w", name, err)
@@ -222,13 +223,11 @@ func storeOperatorMirror(opts *tuf.Options) error {
 	return os.Rename(file.Name(), filepath.Join(opts.CachePath, "remote.json"))
 }
 
-// A refresh can authenticate a newer root. Retain it for subsequent offline
-// default lookups, instead of repeatedly replacing it with the startup anchor.
-// Compare the complete configuration snapshot before publishing the new root:
-// an isolated policy or concurrent operator change cannot replace the default.
-// Also advance these operation-local options so a subsequent PEM updater uses
-// the same authenticated root as the modern client that precedes it.
-func retainRefreshedDefaultRoot(opts *tuf.Options) {
+// A refresh can authenticate a newer root. Always advance the operation-local
+// options so a subsequent PEM updater uses the same accepted root. Ordinary
+// reads also retain it for subsequent offline default lookups, but startup must
+// defer publishing until targets and mirror persistence have succeeded.
+func retainRefreshedRoot(opts *tuf.Options, publishDefault bool) {
 	if opts.DisableLocalCache {
 		return
 	}
@@ -236,10 +235,14 @@ func retainRefreshedDefaultRoot(opts *tuf.Options) {
 	if err != nil {
 		return
 	}
-	mu.Lock()
-	if defaultMirror == opts.RepositoryBaseURL && bytes.Equal(defaultRoot, opts.Root) {
-		defaultRoot = append([]byte(nil), data...)
+	if publishDefault {
+		// Compare the full configuration snapshot: an isolated policy or
+		// concurrent operator change must not replace the active default.
+		mu.Lock()
+		if defaultMirror == opts.RepositoryBaseURL && bytes.Equal(defaultRoot, opts.Root) {
+			defaultRoot = append([]byte(nil), data...)
+		}
+		mu.Unlock()
 	}
-	mu.Unlock()
 	opts.Root = data
 }

@@ -26,7 +26,6 @@ import (
 )
 
 type Policy struct {
-	imageContext          libs.Context
 	patchers              []Patcher
 	matchConditions       []cel.Program
 	targetMatchConditions []cel.Program
@@ -171,7 +170,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 // mpol (processor.Process -> GetPolicy), so this is genuinely single-shot,
 // not a per-policy loop. There is no hoist benefit; building the request
 // map locally is correct here.
-func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) (map[string]interface{}, error) {
+func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, contextProvider libs.Context) (map[string]interface{}, error) {
 	if p.targetExpression == nil {
 		return nil, nil
 	}
@@ -179,7 +178,7 @@ func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.At
 	if err != nil {
 		return nil, err
 	}
-	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, p.imageContext)
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
 	p.appendVariables(ctx, data, nil)
 	out, _, err := p.targetExpression.ContextEval(ctx, data)
 	if err != nil {
