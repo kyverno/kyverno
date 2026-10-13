@@ -15,29 +15,57 @@ jobs:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
       issues: read
-      statuses: write
-      checks: write
     steps:
       - name: Fetch cherry-pick targets from comments
         id: cherry
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const comments = await github.rest.issues.listComments({
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number
+              issue_number: context.payload.pull_request.number,
+              per_page: 100
             });
             
             const branches = new Set();
-            for (const comment of comments.data) {
-              const match = comment.body.match(/^\/cherry-pick\s+(\S+)/);
-              if (match) {
-                branches.add(match[1]);
+            for (const comment of comments) {
+              const match = (comment.body || '').split(/\r?\n/, 1)[0]
+                .match(/^\/cherry-pick[ \t]+([A-Za-z0-9][A-Za-z0-9._/-]*)[ \t]*$/);
+              if (!match) {
+                continue;
               }
+              let permission;
+              try {
+                const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                  ...context.repo,
+                  username: comment.user.login
+                });
+                permission = data.permission;
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+              }
+              if (!['write', 'maintain', 'admin'].includes(permission)) {
+                core.warning(`Ignoring unauthorized cherry-pick comment ${comment.id}`);
+                continue;
+              }
+              try {
+                await github.rest.repos.getBranch({
+                  ...context.repo,
+                  branch: match[1]
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+                core.warning(`Ignoring missing cherry-pick target ${match[1]} from comment ${comment.id}`);
+                continue;
+              }
+              branches.add(match[1]);
             }
             return Array.from(branches);
       - name: Checkout repository
@@ -45,6 +73,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
       - name: Normalize GitHub App private key
         if: steps.cherry.outputs.result != '[]'
         id: normalize-key
@@ -99,5 +129,5 @@ jobs:
           github-token: ${{ steps.app-token.outputs.token }}
           source-pr: ${{ github.event.pull_request.number }}
           source-pr-title: ${{ github.event.pull_request.title }}
-          target-branches: ${{ fromJSON(steps.cherry.outputs.result)[0] }}
+          target-branches: ${{ join(fromJSON(steps.cherry.outputs.result), ',') }}
           merge-commit: ${{ github.event.pull_request.merge_commit_sha }}
