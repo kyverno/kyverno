@@ -79,16 +79,11 @@ func verificationMaterialFromTargets(tr *root.TrustedRoot, client *legacyTUFClie
 	if err != nil {
 		return nil, fmt.Errorf("getting CTLog public keys: %w", err)
 	}
+	var targets []legacytuf.TargetFile
 	if client != nil {
-		targets, targetErr := targetsFromClient(client, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
-		if targetErr == nil {
-			material.FulcioRoots, material.FulcioIntermediates, err = fulcioRootsFromTargetFiles(targets)
-			if err == nil {
-				return material, nil
-			}
-		}
+		targets, _ = targetsFromClient(client, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
 	}
-	material.FulcioRoots, material.FulcioIntermediates, err = FulcioRootsFromTrustedRoot(tr)
+	material.FulcioRoots, material.FulcioIntermediates, err = fulcioRootsFromRepository(tr, targets, true)
 	if err != nil {
 		return nil, fmt.Errorf("getting Fulcio material: %w", err)
 	}

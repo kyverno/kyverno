@@ -81,17 +81,27 @@ func TestTUFHonorsCancellation(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-func TestRekorDefaultsToPublicService(t *testing.T) {
-	var destination string
-	client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		destination = req.URL.String()
-		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"rootHash":"00","treeSize":0,"signedTreeHead":""}`)), Request: req}, nil
-	})}
-	rekor, err := newRekorClient("", client)
-	require.NoError(t, err)
-	_, err = rekor.Tlog.GetLogInfo(nil)
-	require.NoError(t, err)
-	require.Equal(t, "https://rekor.sigstore.dev/api/v1/log", destination)
+func TestRekorRequestBasePath(t *testing.T) {
+	for _, test := range []struct{ server, want string }{
+		{"", "https://rekor.sigstore.dev/api/v1/log"},
+		{"https://rekor.example", "https://rekor.example/api/v1/log"},
+		{"https://rekor.example/", "https://rekor.example/api/v1/log"},
+		{"https://rekor.example/custom", "https://rekor.example/custom/api/v1/log"},
+		{"https://rekor.example/custom/", "https://rekor.example/custom/api/v1/log"},
+	} {
+		t.Run(test.server, func(t *testing.T) {
+			var destination string
+			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				destination = req.URL.String()
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": []string{"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"rootHash":"00","treeSize":0,"signedTreeHead":""}`)), Request: req}, nil
+			})}
+			rekor, err := newRekorClient(test.server, client)
+			require.NoError(t, err)
+			_, err = rekor.Tlog.GetLogInfo(nil)
+			require.NoError(t, err)
+			require.Equal(t, test.want, destination)
+		})
+	}
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
