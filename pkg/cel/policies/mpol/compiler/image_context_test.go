@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -17,6 +18,7 @@ type targetImageContext struct {
 	libs.Context
 	name     string
 	requests []context.Context
+	err      error
 }
 
 func (p *targetImageContext) GetImageData(image string, options []remote.Option) (map[string]any, error) {
@@ -25,6 +27,9 @@ func (p *targetImageContext) GetImageData(image string, options []remote.Option)
 
 func (p *targetImageContext) GetImageDataWithContext(ctx context.Context, _ string, _ []remote.Option) (map[string]any, error) {
 	p.requests = append(p.requests, ctx)
+	if p.err != nil {
+		return nil, p.err
+	}
 	return map[string]any{"provider": p.name}, nil
 }
 
@@ -67,6 +72,12 @@ func TestEvaluateTargetExpressionUsesRuntimeImageContext(t *testing.T) {
 			_, err = policy.EvaluateTargetExpression(ctx, &mockAttributes{}, &admissionv1.AdmissionRequest{}, nil, runtimeProvider)
 			require.ErrorContains(t, err, context.Canceled.Error())
 			require.Len(t, runtimeProvider.requests, 1, "canceled evaluations must not start image requests")
+			providerError := errors.New("runtime image provider rejected request")
+			runtimeProvider.err = providerError
+			result, err = policy.EvaluateTargetExpression(context.Background(), &mockAttributes{}, &admissionv1.AdmissionRequest{}, nil, runtimeProvider)
+			require.ErrorContains(t, err, providerError.Error())
+			require.Nil(t, result)
+			require.Len(t, runtimeProvider.requests, 2, "provider errors must propagate after the image lookup starts")
 		})
 	}
 }

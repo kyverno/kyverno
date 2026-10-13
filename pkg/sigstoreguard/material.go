@@ -1,6 +1,7 @@
 package sigstoreguard
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
+	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
@@ -80,11 +82,21 @@ func FulcioRootsFromTrustedRoot(tr *root.TrustedRoot) (*x509.CertPool, *x509.Cer
 }
 
 func fulcioRootsFromTrustedRoot(tr *root.TrustedRoot, activeOnly bool) (*x509.CertPool, *x509.CertPool, error) {
-	if tr == nil {
+	return fulcioRootsFromRepository(tr, nil, activeOnly)
+}
+
+// fulcioRootsFromRepository combines both authenticated repository formats.
+// Historical PEM targets remain useful after current CAs move to trusted_root.json,
+// and a PEM intermediate may complete a chain rooted in the modern target.
+func fulcioRootsFromRepository(tr *root.TrustedRoot, targets []tuf.TargetFile, activeOnly bool) (*x509.CertPool, *x509.CertPool, error) {
+	if tr == nil && len(targets) == 0 {
 		return nil, nil, fmt.Errorf("trusted root not available")
 	}
-	cas := tr.FulcioCertificateAuthorities()
-	if len(cas) == 0 {
+	var cas []root.CertificateAuthority
+	if tr != nil {
+		cas = tr.FulcioCertificateAuthorities()
+	}
+	if len(cas) == 0 && len(targets) == 0 {
 		return nil, nil, fmt.Errorf("no certificate authority in trusted root")
 	}
 	roots := x509.NewCertPool()
@@ -108,8 +120,29 @@ func fulcioRootsFromTrustedRoot(tr *root.TrustedRoot, activeOnly bool) (*x509.Ce
 			}
 		}
 	}
+	// Parse the whole legacy set before adding it, preserving the existing
+	// fallback to modern material when a legacy PEM target is malformed.
+	var legacyCertificates []*x509.Certificate
+	for _, target := range targets {
+		certificates, err := cryptoutils.UnmarshalCertificatesFromPEM(target.Target)
+		if err != nil {
+			if rootsAdded == 0 {
+				return nil, nil, err
+			}
+			return roots, intermediates, nil
+		}
+		legacyCertificates = append(legacyCertificates, certificates...)
+	}
+	for _, cert := range legacyCertificates {
+		if bytes.Equal(cert.RawSubject, cert.RawIssuer) {
+			roots.AddCert(cert)
+			rootsAdded++
+		} else {
+			intermediates.AddCert(cert)
+		}
+	}
 	if rootsAdded == 0 {
-		return nil, nil, fmt.Errorf("no Fulcio root certificates found in trusted root")
+		return nil, nil, fmt.Errorf("no Fulcio root certificates found in repository")
 	}
 	return roots, intermediates, nil
 }
