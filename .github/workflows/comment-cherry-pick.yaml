@@ -19,6 +19,7 @@ jobs:
       github.event.issue.pull_request &&
       startsWith(github.event.comment.body, '/cherry-pick')
     permissions:
+      issues: write
       pull-requests: write
       contents: read
     steps:

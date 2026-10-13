@@ -80,6 +80,9 @@ const github = {
         if (input.missingBranch) {
           throw Object.assign(new Error('Branch not found'), {status: 404});
         }
+        if (input.branchErrors && input.branchErrors[branch]) {
+          throw Object.assign(new Error('Branch API failed'), {status: input.branchErrors[branch]});
+        }
         return {data: {name: branch}};
       }
     }
@@ -175,6 +178,9 @@ class CherryPickTests(unittest.TestCase):
             checkout = next(step for step in steps if step.get("uses", "").startswith("actions/checkout@"))
             self.assertEqual(checkout["with"]["ref"], "${{ github.event.repository.default_branch }}")
             self.assertFalse(checkout["with"]["persist-credentials"])
+
+    def test_comment_reaction_permissions(self):
+        self.assertEqual(COMMENT["jobs"]["execute"]["permissions"]["issues"], "write")
 
     def test_rejects_invalid_action_inputs(self):
         invalid_branches = (
@@ -300,6 +306,30 @@ class CherryPickTests(unittest.TestCase):
             )
             self.assertIn("error", result)
             self.assertNotIn("result", result)
+
+    def test_merge_skips_missing_target_and_keeps_valid_targets(self):
+        result = self.javascript(
+            MERGE_STEPS, comments=[
+                self.comment("/cherry-pick deleted-target"),
+                self.comment("/cherry-pick release-1.19"),
+            ],
+            permissions={"maintainer": "write"},
+            branchErrors={"deleted-target": 404},
+        )
+        self.assertEqual(result["result"], ["release-1.19"])
+        self.assertEqual(len(result["warnings"]), 1)
+        self.assertIn("deleted-target", result["warnings"][0])
+
+    def test_merge_branch_api_errors_fail_closed(self):
+        for status in (403, 500):
+            with self.subTest(status=status):
+                result = self.javascript(
+                    MERGE_STEPS, comments=[self.comment("/cherry-pick release-1.19")],
+                    permissions={"maintainer": "write"},
+                    branchErrors={"release-1.19": status},
+                )
+                self.assertIn("error", result)
+                self.assertNotIn("result", result)
 
     def local_repository(self, conflict=False):
         def git(*args):

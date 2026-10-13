@@ -53,10 +53,18 @@ jobs:
                 core.warning(`Ignoring unauthorized cherry-pick comment ${comment.id}`);
                 continue;
               }
-              await github.rest.repos.getBranch({
-                ...context.repo,
-                branch: match[1]
-              });
+              try {
+                await github.rest.repos.getBranch({
+                  ...context.repo,
+                  branch: match[1]
+                });
+              } catch (error) {
+                if (error.status !== 404) {
+                  throw error;
+                }
+                core.warning(`Ignoring missing cherry-pick target ${match[1]} from comment ${comment.id}`);
+                continue;
+              }
               branches.add(match[1]);
             }
             return Array.from(branches);
