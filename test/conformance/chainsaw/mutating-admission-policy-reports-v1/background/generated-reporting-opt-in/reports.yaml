@@ -1,0 +1,27 @@
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+scope:
+  kind: ConfigMap
+  name: reporting-opt-in-map-v1-configmap-pass
+(length(results[?policy == 'mpol-reporting-opt-in-map-v1' && source == 'MutatingAdmissionPolicy' && result == 'pass'])): 1
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+scope:
+  kind: ConfigMap
+  name: reporting-opt-in-map-v1-configmap-fail
+(length(results[?policy == 'mpol-reporting-opt-in-map-v1' && source == 'MutatingAdmissionPolicy' && result == 'fail'])): 1
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+scope:
+  kind: Namespace
+  name: reporting-opt-in-map-v1-namespace-pass
+(length(results[?policy == 'mpol-reporting-opt-in-map-v1' && source == 'MutatingAdmissionPolicy' && result == 'pass'])): 1
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: ClusterPolicyReport
+scope:
+  kind: Namespace
+  name: reporting-opt-in-map-v1-namespace-fail
+(length(results[?policy == 'mpol-reporting-opt-in-map-v1' && source == 'MutatingAdmissionPolicy' && result == 'fail'])): 1
