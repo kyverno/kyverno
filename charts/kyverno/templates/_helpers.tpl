@@ -24,6 +24,9 @@
   {{- if eq (trim $entry) "" -}}
     {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must be a non-empty string" $index) -}}
   {{- end -}}
+  {{- if contains "," $entry -}}
+    {{- fail (printf "registryClient.privateRegistryAllowlist[%d] must not contain commas; use a separate list item for each entry" $index) -}}
+  {{- end -}}
 {{- end -}}
 {{- end -}}
 

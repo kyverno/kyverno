@@ -93,9 +93,11 @@ Entries accept exact DNS hostnames, IP literals, and CIDRs. A hostname entry per
 that hostname's ordinary private addresses; an IP or CIDR entry permits matching
 resolved addresses. Hostname matching is case-insensitive and ignores a trailing
 dot. A hostname may include a port, but the permission applies to the hostname
-across ports. Wildcards, URLs, paths, malformed addresses, and empty list elements
-are rejected. Use the narrowest practical hostnames or subnets. Public registries
-do not need allowlist entries.
+across ports. Each Helm list item must contain one entry; embedded commas are
+rejected instead of being interpreted as additional entries. Wildcards, URLs,
+paths, malformed addresses, and empty list elements are also rejected. Use the
+narrowest practical hostnames or subnets. Public registries do not need allowlist
+entries.
 
 Registry credentials remain scoped to their configured registry. Permitting a
 network destination does not give that destination another registry's credentials.
@@ -161,14 +163,22 @@ values. Rendering without this values file should produce
 deployment should contain neither flag.
 
 Use `privateRegistryAllowlist: []` when no entries are needed. Helm rejects empty
-strings (including whitespace-only entries) before serializing the list to a
-controller flag. This also applies to controller-specific overrides.
+strings (including whitespace-only entries), non-string entries, and entries
+containing commas before serializing the list to a controller flag. This also
+applies to controller-specific overrides.
+
+To check rendered arguments and rejected values without building controller
+binaries, run:
+
+```sh
+python3 scripts/check-registry-egress-helm.py --render-only --helm .tools/helm
+```
 
 A local regression check renders both modes and each supported controller override,
 then passes the rendered arguments to the corresponding executable with `--help`.
 This checks the actual flag parsers without starting controllers or contacting a
-cluster. It also checks that Helm rejects empty allowlist entries. With Helm and
-Python's PyYAML installed, run from the repository root:
+cluster. It also checks that Helm rejects invalid allowlist entries. With Helm
+and Python's PyYAML installed, run from the repository root:
 
 ```sh
 binary_dir="$(mktemp -d)"
