@@ -28,7 +28,8 @@ def main():
         output = result.stdout + result.stderr
         if host:
             expected = f'connection blocked to network host "{host}"'
-            if result.returncode == 0 or expected not in output:
+            # YAML reports may fold the message across lines.
+            if result.returncode == 0 or expected not in " ".join(output.split()):
                 raise AssertionError(f"{resource}: expected guarded rejection, "
                                      f"got exit {result.returncode}:\n{output}")
         elif result.returncode != 0:
