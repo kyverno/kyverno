@@ -246,6 +246,11 @@ func newVerificationFixture(t *testing.T) *verificationFixture {
 
 func (f *verificationFixture) repository(t *testing.T, includeLegacy bool, extra ...legacytuf.TargetFile) ([]byte, string, *http.Client) {
 	t.Helper()
+	return f.repositoryWithChanges(t, includeLegacy, nil, extra...)
+}
+
+func (f *verificationFixture) repositoryWithChanges(t *testing.T, includeLegacy bool, change func(*metadata.Metadata[metadata.TargetsType], map[string][]byte), extra ...legacytuf.TargetFile) ([]byte, string, *http.Client) {
+	t.Helper()
 	expires := time.Now().Add(time.Hour)
 	signer, err := signature.LoadSignerVerifier(f.key, crypto.SHA256)
 	require.NoError(t, err)
@@ -279,6 +284,9 @@ func (f *verificationFixture) repository(t *testing.T, includeLegacy bool, extra
 	}
 	for _, target := range extra {
 		addTarget(target.Name, target.Target, "Fulcio", "Active")
+	}
+	if change != nil {
+		change(targets, files)
 	}
 	type signedMetadata interface {
 		Sign(signature.Signer) (*metadata.Signature, error)
