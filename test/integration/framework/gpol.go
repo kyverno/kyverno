@@ -131,8 +131,10 @@ func urProcessorClosure(
 			if admissionRequest == nil {
 				return fmt.Errorf("no admission request in UR context for policy %s", spec.Policy)
 			}
-			contextProvider.ClearGeneratedResources()
-			request := celengine.RequestFromAdmission(contextProvider, *admissionRequest)
+			// A fresh clone per trigger, as the CELGenerateController does: the context provider
+			// holds per-evaluation state (the trigger it labels downstreams with and the generated
+			// list), and URs from concurrent admission requests would otherwise overwrite each other's.
+			request := celengine.RequestFromAdmission(contextProvider.Clone(), *admissionRequest)
 			policy, err := provider.Get(context.TODO(), spec.GetPolicyKey())
 			if err != nil {
 				return fmt.Errorf("failed to fetch policy %s: %w", spec.GetPolicyKey(), err)
