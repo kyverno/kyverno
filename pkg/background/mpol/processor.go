@@ -3,6 +3,7 @@ package mpol
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -63,6 +64,9 @@ type gvkItem struct {
 	parentResource schema.GroupVersionResource
 	subresource    string
 	resourceNames  []string
+	// namespaced is the kind's REST scope, resolved once in collectGVK. Scope is the only
+	// thing that decides whether a list may span the cluster; a kind's name cannot.
+	namespaced bool
 }
 
 type resolvedTarget struct {
@@ -114,15 +118,30 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	}
 
 	if mpol.GetTargetMatchConstraints().Expression == "" {
-		results := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		results, err := collectGVK(p.client, p.mapper, targetConstraints, mpol.GetNamespace())
+		if err != nil {
+			failures = append(failures, fmt.Errorf("failed to resolve target resources for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
+		}
 		list := make([]resolvedTarget, 0)
+		// results maps every selected namespace to the same gvkItem set, so a cluster-scoped
+		// kind would otherwise be listed once per namespace and yield duplicate targets.
+		listedClusterWide := sets.New[*gvkItem]()
 		for ns, gvks := range results {
 			for r := range gvks {
-				if r.gvk.Kind == "Namespace" || ns == "*" {
-					ns = ""
+				// listNS, not ns: ns is the range variable, and assigning to it would leak a
+				// cluster-wide listing to every later kind in the same set.
+				listNS := ns
+				if !r.namespaced || ns == "*" {
+					listNS = ""
+				}
+				if !r.namespaced {
+					if listedClusterWide.Has(r) {
+						continue
+					}
+					listedClusterWide.Insert(r)
 				}
 
-				resources, err := p.client.ListResource(context.TODO(), r.gvk.GroupVersion().String(), r.gvk.Kind, ns, targetConstraints.ObjectSelector)
+				resources, err := p.client.ListResource(context.TODO(), r.gvk.GroupVersion().String(), r.gvk.Kind, listNS, targetConstraints.ObjectSelector)
 				if err != nil {
 					failures = append(failures, fmt.Errorf("failed to fetch targets %s for mpol %s: %v", r.gvk.String(), ur.Spec.GetPolicyKey(), err))
 					continue
@@ -151,14 +170,43 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 		}
 		if objects != nil {
 			for _, object := range objects.Items {
-				parentResource, subresource, err := p.resolveTargetRoute(object, mpol.GetTargetMatchConstraints().MatchResources)
+				parentResource, subresource, scope, err := p.resolveTargetRoute(object, mpol.GetTargetMatchConstraints().MatchResources)
 				if err != nil {
 					failures = append(failures, fmt.Errorf("failed to resolve target route for mpol %s: %v", ur.Spec.GetPolicyKey(), err))
 					continue
 				}
+				if mpolNamespace := mpol.GetNamespace(); mpolNamespace != "" {
+					if scope != meta.RESTScopeNameNamespace {
+						failures = append(failures, fmt.Errorf("target %s %s is cluster-scoped, which is not permitted for namespaced mpol %s", object.GetKind(), object.GetName(), ur.Spec.GetPolicyKey()))
+						continue
+					}
+					if object.GetNamespace() != mpolNamespace {
+						failures = append(failures, fmt.Errorf("target %s/%s/%s is outside policy namespace %s for mpol %s", object.GetNamespace(), object.GetKind(), object.GetName(), mpolNamespace, ur.Spec.GetPolicyKey()))
+						continue
+					}
+				}
 				targets = append(targets, resolvedTarget{object: object, parentResource: parentResource, subresource: subresource})
 			}
 		}
+	}
+
+	// One checkpoint for every resolution arm above: a namespaced policy may only ever act on
+	// targets in its own namespace. Each arm also confines as it resolves; this is the backstop
+	// that stops the write if a future arm forgets to, but it cannot undo a read that already
+	// happened, so it does not make the per-arm guards optional. It is a namespace check only:
+	// a CEL-constructed target can be cluster-scoped while self-reporting the policy namespace,
+	// and the expression arm's REST-scope check is what rejects that.
+	if policyNamespace := mpol.GetNamespace(); policyNamespace != "" {
+		confined := make([]resolvedTarget, 0, len(targets))
+		for _, target := range targets {
+			if target.object.GetNamespace() != policyNamespace {
+				failures = append(failures, fmt.Errorf("target %s %s/%s is outside policy namespace %s for mpol %s",
+					target.object.GetKind(), target.object.GetNamespace(), target.object.GetName(), policyNamespace, ur.Spec.GetPolicyKey()))
+				continue
+			}
+			confined = append(confined, target)
+		}
+		targets = confined
 	}
 
 	if len(targets) == 0 {
@@ -253,6 +301,18 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 				continue
 			}
 			new := response.PatchedResource
+			// The mutation itself must not redirect the write to a different object than the
+			// one that was resolved, confined, and just re-fetched: patching identifying fields
+			// (namespace/kind/apiVersion/name) would otherwise let a mutation escape the
+			// confinement above via the write path instead of the read/resolve path.
+			if new.GetAPIVersion() != object.GetAPIVersion() || new.GetKind() != object.GetKind() ||
+				new.GetNamespace() != object.GetNamespace() || new.GetName() != object.GetName() {
+				failures = append(failures, fmt.Errorf("mutation for mpol %s changed the target's identity from %s/%s %s/%s to %s/%s %s/%s, which is not permitted",
+					ur.Spec.GetPolicyKey(),
+					object.GetAPIVersion(), object.GetKind(), object.GetNamespace(), object.GetName(),
+					new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.GetName()))
+				continue
+			}
 			new.SetResourceVersion(object.GetResourceVersion())
 			subresources := []string{}
 			if target.subresource != "" {
@@ -276,10 +336,10 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	return updateURStatus(p.statusControl, *ur, multierr.Combine(failures...), nil)
 }
 
-func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constraints admissionregistrationv1.MatchResources) (schema.GroupVersionResource, string, error) {
+func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constraints admissionregistrationv1.MatchResources) (schema.GroupVersionResource, string, meta.RESTScopeName, error) {
 	mapping, err := p.mapper.RESTMapping(object.GroupVersionKind().GroupKind(), object.GroupVersionKind().Version)
 	if err != nil {
-		return schema.GroupVersionResource{}, "", err
+		return schema.GroupVersionResource{}, "", "", err
 	}
 	for _, rule := range constraints.ResourceRules {
 		for _, group := range rule.APIGroups {
@@ -293,16 +353,20 @@ func (p *processor) resolveTargetRoute(object unstructured.Unstructured, constra
 				for _, resource := range rule.Resources {
 					parts := strings.SplitN(resource, "/", 2)
 					if wildcard.Match(parts[0], mapping.Resource.Resource) {
-						if len(parts) == 2 {
-							return mapping.Resource, parts[1], nil
+						if len(parts) == 2 && parts[1] != "" {
+							// policy-author-controlled, and becomes a raw path segment for UpdateResource
+							if err := dclient.ValidatePathSegment("subresource", parts[1]); err != nil {
+								return schema.GroupVersionResource{}, "", "", fmt.Errorf("invalid target resource %q: %w", resource, err)
+							}
+							return mapping.Resource, parts[1], mapping.Scope.Name(), nil
 						}
-						return mapping.Resource, "", nil
+						return mapping.Resource, "", mapping.Scope.Name(), nil
 					}
 				}
 			}
 		}
 	}
-	return mapping.Resource, "", nil
+	return mapping.Resource, "", mapping.Scope.Name(), nil
 }
 
 func (p *processor) audit(object *unstructured.Unstructured, response *mpolengine.EngineResponse) error {
@@ -351,9 +415,10 @@ func (p *processor) audit(object *unstructured.Unstructured, response *mpolengin
 	return nil
 }
 
-func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) map[string]sets.Set[*gvkItem] {
+func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionregistrationv1.MatchResources, ns string) (map[string]sets.Set[*gvkItem], error) {
 	result := make(map[string]sets.Set[*gvkItem])
 
+	var errs []error
 	gvkSet := sets.New[*gvkItem]()
 	for _, rule := range m.ResourceRules {
 		for _, group := range rule.APIGroups {
@@ -368,31 +433,57 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 						Version:  version,
 						Resource: baseResource,
 					}
+					// Resource rules are a group x version x resource cross-product, so most
+					// KindFor misses are legitimate non-combinations. Reporting each one would
+					// be noise; an empty result for the whole rule set is reported below.
 					gvk, err := mapper.KindFor(gvr)
 					if err != nil {
 						continue
 					}
+					// Without a REST mapping the scope is unknown, and an unknown scope must
+					// never be treated as safe to list cluster-wide.
+					mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+					if err != nil {
+						errs = append(errs, fmt.Errorf("cannot resolve the REST scope of target kind %s", gvk.String()))
+						continue
+					}
+					namespaced := mapping.Scope.Name() == meta.RESTScopeNameNamespace
+					if ns != "" && !namespaced {
+						errs = append(errs, fmt.Errorf("target kind %s is cluster-scoped, which is not permitted for a namespaced policy", gvk.String()))
+						continue
+					}
 					subresource := ""
-					if parts := strings.SplitN(resource, "/", 2); len(parts) == 2 {
+					if parts := strings.SplitN(resource, "/", 2); len(parts) == 2 && parts[1] != "" {
+						// policy-author-controlled, and becomes a raw path segment for UpdateResource
+						if err := dclient.ValidatePathSegment("subresource", parts[1]); err != nil {
+							errs = append(errs, fmt.Errorf("invalid target resource %q: %w", resource, err))
+							continue
+						}
 						subresource = parts[1]
 					}
-					gvkSet.Insert(&gvkItem{gvk: gvk, parentResource: gvr, subresource: subresource, resourceNames: rule.ResourceNames})
+					gvkSet.Insert(&gvkItem{gvk: gvk, parentResource: gvr, subresource: subresource, resourceNames: rule.ResourceNames, namespaced: namespaced})
 				}
 			}
 		}
 	}
 
+	if len(m.ResourceRules) > 0 && gvkSet.Len() == 0 {
+		errs = append(errs, errors.New("no target kinds could be resolved from the policy's resource rules"))
+	}
+
 	if ns != "" {
 		namespace, err := client.GetResource(context.TODO(), "v1", "Namespace", "", ns)
 		if err != nil {
-			return result
+			errs = append(errs, fmt.Errorf("cannot resolve the policy's own namespace %s: %v", ns, err))
+			return result, multierr.Combine(errs...)
 		}
 		result[namespace.GetName()] = gvkSet
-		return result
+		return result, multierr.Combine(errs...)
 	} else if m.NamespaceSelector != nil {
 		namespaces, err := client.ListResource(context.TODO(), "v1", "Namespace", "", m.NamespaceSelector)
 		if err != nil {
-			return result
+			errs = append(errs, fmt.Errorf("cannot resolve the policy's namespace selector: %v", err))
+			return result, multierr.Combine(errs...)
 		}
 
 		for _, ns := range namespaces.Items {
@@ -401,7 +492,7 @@ func collectGVK(client dclient.Interface, mapper meta.RESTMapper, m admissionreg
 	} else {
 		result["*"] = gvkSet
 	}
-	return result
+	return result, multierr.Combine(errs...)
 }
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov2.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec) error {
