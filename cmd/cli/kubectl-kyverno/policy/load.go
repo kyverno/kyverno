@@ -151,6 +151,10 @@ func (l *LoaderResults) addWarning(path, warning string) {
 
 type loader = func(string, []byte) (*LoaderResults, error)
 
+// ErrValidatorSetup is returned when the schema validator used by the loader cannot be built. It is
+// not caused by any input file, so callers that skip invalid files must still treat it as fatal.
+var ErrValidatorSetup = errors.New("failed to set up the policy schema validator")
+
 // Load loads policies from the given paths. When allowLegacyPolicies is false, any legacy
 // kyverno.io policy kind (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException)
 // is rejected with a migration hint, matching the 1.20 admission-time block.
@@ -167,7 +171,7 @@ func Load(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, pa
 // set up the schema validator still abort the load, since they are not caused by a single file.
 func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
 	if _, err := loaderDelegate(); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrValidatorSetup, err)
 	}
 	return loadWithLoader(skipInvalidFiles(kubectlValidateLoader(allowLegacyPolicies, true)), fs, resourcePath, true, paths...)
 }

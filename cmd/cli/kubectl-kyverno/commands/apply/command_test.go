@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -1818,4 +1820,12 @@ func TestLoadPoliciesFromGitReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
 	require.Len(t, skipped.loadErrors, 1)
 	assert.Equal(t, "/typo.yaml", skipped.loadErrors[0].name)
 	assert.Contains(t, skipped.loadErrors[0].reason, "unknown field")
+}
+
+func TestIsFatalPolicyLoadError(t *testing.T) {
+	legacyErr, ok := pkgdeprecations.BuildKindError("kyverno.io", "v1", "ClusterPolicy")
+	require.True(t, ok)
+	assert.True(t, isFatalPolicyLoadError(fmt.Errorf("failed to load file policy.yaml: %w", legacyErr)))
+	assert.True(t, isFatalPolicyLoadError(fmt.Errorf("%w: crds unavailable", policy.ErrValidatorSetup)))
+	assert.False(t, isFatalPolicyLoadError(errors.New("stat nope.yaml: no such file or directory")))
 }

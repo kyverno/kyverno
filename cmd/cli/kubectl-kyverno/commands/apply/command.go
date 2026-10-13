@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -1194,7 +1195,7 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 			for _, policyYaml := range policyYamls {
 				loaderResults, err := policy.LoadSkippingInvalidFiles(fs, "", false, policyYaml)
 				if err != nil {
-					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
+					if isFatalPolicyLoadError(err) {
 						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 					}
 					c.recordPolicyLoadError(policyYaml, err)
@@ -1220,7 +1221,7 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 			}
 		} else {
 			loaderResults, err := policy.LoadSkippingInvalidFiles(nil, "", false, path)
-			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
+			if err != nil && isFatalPolicyLoadError(err) {
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			if err != nil {
@@ -1260,6 +1261,12 @@ func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []poli
 		fmt.Fprintln(out, msg)
 		c.deprecationWarnings = append(c.deprecationWarnings, msg)
 	}
+}
+
+// isFatalPolicyLoadError reports whether a policy loading error must stop apply instead of being
+// reported as a skipped policy: a blocked legacy policy, or a validator that could not be set up.
+func isFatalPolicyLoadError(err error) bool {
+	return pkgdeprecations.IsLegacyPolicyBlockError(err) || errors.Is(err, policy.ErrValidatorSetup)
 }
 
 // recordPolicyLoadErrors keeps track of policy files and documents that were skipped because they

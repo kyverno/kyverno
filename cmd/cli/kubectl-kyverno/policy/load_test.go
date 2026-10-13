@@ -734,6 +734,7 @@ func TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal(t *testing.T) {
 
 	_, err := LoadSkippingInvalidFiles(nil, "", false, "testdata/list-vaps.yaml")
 	require.Error(t, err)
+	assert.ErrorIs(t, err, ErrValidatorSetup)
 	assert.Contains(t, err.Error(), "failed to build validator")
 }
 
