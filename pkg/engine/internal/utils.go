@@ -240,14 +240,6 @@ func getRawResp(statements []map[string]any, attestationType string) ([]byte, er
 		}
 	}
 	if len(matching) == 0 {
-		for _, s := range statements {
-			if _, ok := s["predicate"].(map[string]any); ok {
-				matching = append(matching, s)
-				break
-			}
-		}
-	}
-	if len(matching) == 0 {
 		return nil, fmt.Errorf("predicate not found in any statement")
 	}
 

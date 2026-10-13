@@ -107,6 +107,10 @@ func Test_SortStatementsAndGetRawResp_MultipleVersions(t *testing.T) {
 	err = json.Unmarshal(rawBoth, &extractedBoth)
 	assert.NoError(t, err)
 	assert.Equal(t, "later-report", extractedBoth["reportId"])
+
+	// Unrelated predicate type: must return error and not return another type's predicate
+	_, err = getRawResp([]map[string]any{sbom}, "cosign.sigstore.dev/attestation/vuln/v1")
+	assert.Error(t, err)
 }
 
 func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
