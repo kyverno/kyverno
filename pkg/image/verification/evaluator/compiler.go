@@ -120,7 +120,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		path := path.Child("validations")
 		for i, rule := range spec.Validations {
 			path := path.Index(i)
-			program, errs := engine.CompileValidation(path, env, rule)
+			program, errs := engine.CompileValidation(path, env, rule, false)
 			if errs != nil {
 				return nil, append(allErrs, errs...)
 			}
@@ -173,7 +173,7 @@ func (c *compilerImpl) Compile(ivpolicy policiesv1beta1.ImageValidatingPolicyLik
 		exceptions:           compiledExceptions,
 		variables:            variables,
 		validationConfig:     spec.ValidationConfigurations,
-		imageVerifyFactory:   imageverify.NewFactory(logging.WithName("ivpol/imageverify").WithValues("policy", ivpolicy.GetName(), "namespace", ivpolicy.GetNamespace()), ivpolicy, c.lister, env.CELTypeAdapter(), matchImageReferences),
+		ivFuncs:              imageverify.NewIvFuncs(logging.WithName("ivpol/imageverify").WithValues("policy", ivpolicy.GetName(), "namespace", ivpolicy.GetNamespace()), ivpolicy, c.lister, env.CELTypeAdapter(), matchImageReferences),
 	}, nil
 }
 

@@ -85,6 +85,8 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 
 	// Set appropriate claim verifier based on format
 	if cOpts.NewBundleFormat {
+		// cosign checks these against the subject annotations of each bundle it verified
+		cOpts.Annotations = toAnnotationsOpt(attestor.Cosign.Annotations)
 		cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
 	} else {
 		cOpts.ClaimVerifier = cosign.SimpleClaimVerifier
@@ -115,15 +117,16 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 		return err
 	}
 
-	if len(attestor.Cosign.Annotations) != 0 {
+	if len(attestor.Cosign.Annotations) != 0 && !cOpts.NewBundleFormat {
 		var annotationErrors []error
 		for _, sig := range sigs {
-			if err := checkSignatureAnnotations(sig, attestor.Cosign.Annotations); err != nil {
+			if err := checkSignatureAnnotationsV2(sig, attestor.Cosign.Annotations); err != nil {
 				annotationErrors = append(annotationErrors, err)
 				continue
 			}
 			return nil
 		}
+
 		err := fmt.Errorf("no signature matched the required annotations: %v", annotationErrors)
 		logger.Error(err, "image verification failed")
 		return err
@@ -152,6 +155,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	// Attestations always use IntotoSubjectClaimVerifier
 	cOpts.ClaimVerifier = cosign.IntotoSubjectClaimVerifier
+	cOpts.Annotations = toAnnotationsOpt(attestor.Cosign.Annotations)
 
 	sigs, verified, err := cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
 	if err != nil {
@@ -166,7 +170,6 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	checkedTypes := []string{}
 	found := false
-	var annotationErrors []error
 	for _, s := range sigs {
 		payload, gotType, err := policy.AttestationToPayloadJSON(ctx, attestation.InToto.Type, s)
 		if err != nil {
@@ -178,27 +181,26 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 			continue
 		}
 
-		if len(attestor.Cosign.Annotations) != 0 {
-			if err := checkSignatureAnnotations(s, attestor.Cosign.Annotations); err != nil {
-				annotationErrors = append(annotationErrors, err)
-				continue
-			}
-		}
-
 		found = true
 		image.AddVerifiedIntotoPayloads(gotType, payload)
 	}
 
 	if !found {
-		if len(annotationErrors) > 0 {
-			err := fmt.Errorf("no attestation matched the required annotations: %v", annotationErrors)
-			logger.Error(err, "image verification failed")
-			return err
-		}
 		err := fmt.Errorf("required predicate type %s not found, found %v", attestation.InToto.Type, checkedTypes)
 		logger.Error(err, "image verification failed")
 		return err
 	}
 
 	return nil
+}
+
+func toAnnotationsOpt(annotations map[string]string) map[string]interface{} {
+	if len(annotations) == 0 {
+		return nil
+	}
+	out := make(map[string]interface{}, len(annotations))
+	for k, v := range annotations {
+		out[k] = v
+	}
+	return out
 }

@@ -418,3 +418,111 @@ func TestGetTrigger_UpdateOperation_TriggerGone(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 }
+
+// countingClient records how the trigger was resolved so the tests below can
+// assert on the access pattern, not just the result.
+type countingClient struct {
+	*fakeListClient
+	listCalls int
+	getCalls  int
+}
+
+func (c *countingClient) ListResource(ctx context.Context, apiVersion, kind, namespace string, selector *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	c.listCalls++
+	return c.fakeListClient.ListResource(ctx, apiVersion, kind, namespace, selector)
+}
+
+func (c *countingClient) GetResource(ctx context.Context, apiVersion, kind, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	c.getCalls++
+	return c.fakeListClient.GetResource(ctx, apiVersion, kind, namespace, name, subresources...)
+}
+
+func newCountingClient(objects ...unstructured.Unstructured) *countingClient {
+	return &countingClient{fakeListClient: &fakeListClient{
+		Interface:  dclient.NewEmptyFakeClient(),
+		namespaces: objects,
+	}}
+}
+
+func makeService(namespace, name string, uid types.UID) unstructured.Unstructured {
+	svc := unstructured.Unstructured{}
+	svc.SetAPIVersion("v1")
+	svc.SetKind("Service")
+	svc.SetNamespace(namespace)
+	svc.SetName(name)
+	svc.SetUID(uid)
+	return svc
+}
+
+// TestGetResource_NameAndUID_GetsByNameWithoutListing guards the fix for
+// https://github.com/kyverno/kyverno/issues/17700: when the trigger spec carries
+// a name, the lookup must be a single GET plus a UID comparison. Listing the
+// namespace and scanning for the UID made every generateExisting pass O(N²) in
+// the namespace's object count.
+func TestGetResource_NameAndUID_GetsByNameWithoutListing(t *testing.T) {
+	client := newCountingClient(
+		makeService("kafka", "broker-0", "uid-0"),
+		makeService("kafka", "broker-1", "uid-1"),
+		makeService("kafka", "broker-2", "uid-2"),
+	)
+	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "uid-1"}
+
+	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, types.UID("uid-1"), result.GetUID())
+	assert.Equal(t, 1, client.getCalls, "the trigger must be fetched by name")
+	assert.Equal(t, 0, client.listCalls, "the namespace must not be listed when the trigger has a name")
+}
+
+// TestGetResource_NameAndUID_Mismatch_DoesNotList verifies that the UID check
+// keeps the semantics of #16603 without a list: a same-name object with a
+// different UID (deleted and recreated, or a rejected admission whose UID never
+// existed) is rejected, and nothing is listed to look for the stale UID.
+func TestGetResource_NameAndUID_Mismatch_DoesNotList(t *testing.T) {
+	client := newCountingClient(makeService("kafka", "broker-1", "new-uid"))
+	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "old-uid"}
+
+	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "old-uid")
+	assert.ErrorContains(t, err, "not found in the cluster")
+	assert.Nil(t, result)
+	assert.Equal(t, 0, client.listCalls)
+}
+
+// TestGetResource_NameAndUID_TransientGetError surfaces a non-NotFound GET
+// failure as an error to retry, rather than reporting the trigger as gone.
+func TestGetResource_NameAndUID_TransientGetError(t *testing.T) {
+	client := newCountingClient(makeService("kafka", "broker-1", "uid-1"))
+	client.fakeListClient.getResourceErr = fmt.Errorf("temporary API failure")
+	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", Name: "broker-1", UID: "uid-1"}
+
+	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
+
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to get trigger resource")
+	assert.NotContains(t, err.Error(), "not found in the cluster")
+	assert.Nil(t, result)
+	assert.Equal(t, 0, client.listCalls)
+}
+
+// TestGetResource_UIDWithoutName_FallsBackToList keeps the list-and-scan path for
+// a trigger spec that carries a UID but no name.
+func TestGetResource_UIDWithoutName_FallsBackToList(t *testing.T) {
+	client := newCountingClient(
+		makeService("kafka", "broker-0", "uid-0"),
+		makeService("kafka", "broker-1", "uid-1"),
+	)
+	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Service", Namespace: "kafka", UID: "uid-1"}
+
+	result, err := GetResource(client, spec, kyvernov2.UpdateRequestSpec{}, logr.Discard())
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "broker-1", result.GetName())
+	assert.Equal(t, 1, client.listCalls, "without a name the namespace must be listed")
+	assert.Equal(t, 0, client.getCalls)
+}

@@ -46,6 +46,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/informers"
+	"github.com/kyverno/kyverno/pkg/informers/health"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -82,7 +83,9 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
+	ctrlcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
@@ -515,6 +518,8 @@ func main() {
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
+		informerHealth := health.NewTracker(setup.Logger.WithName("informer-health"), clock.RealClock{})
+		registerAdmissionInformers(kyvernoInformer, setup.KyvernoClient, informerHealth, internal.PolicyExceptionEnabled())
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
@@ -615,6 +620,7 @@ func main() {
 			serverIP,
 			kubeKyvernoInformer.Apps().V1().Deployments(),
 			certRenewer,
+			informerHealth.Ready,
 		)
 		// engine
 		engine := internal.NewEngine(
@@ -760,6 +766,7 @@ func main() {
 			}
 			mgr, err := ctrl.NewManager(setup.RestConfig, ctrl.Options{
 				Scheme: scheme,
+				Cache:  ctrlcache.Options{NewInformer: informerHealth.NewInformer},
 				Metrics: server.Options{
 					BindAddress: controllerRuntimeMetricsAddress,
 				},

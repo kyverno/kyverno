@@ -49,11 +49,11 @@ func TestFactoryCredentialsObserveSecretRotation(t *testing.T) {
 	}
 	update("first")
 	policy := &policiesv1beta1.ImageValidatingPolicy{Spec: policiesv1beta1.ImageValidatingPolicySpec{Credentials: &policiesv1beta1.Credentials{Secrets: []string{"registry"}, AllowInsecureRegistry: true}}}
-	factory := NewFactory(logr.Discard(), policy, corev1listers.NewSecretLister(indexer), types.DefaultTypeAdapter, nil)
-	ref, err := name.ParseReference(host+"/image:tag", factory.functions.nameOpts...)
+	ivFuncs := NewIvFuncs(logr.Discard(), policy, corev1listers.NewSecretLister(indexer), types.DefaultTypeAdapter, nil)
+	ref, err := name.ParseReference(host+"/image:tag", ivFuncs.nameOpts...)
 	require.NoError(t, err)
 	check := func() error {
-		opts := append([]remote.Option{}, factory.functions.authOpts...)
+		opts := append([]remote.Option{}, ivFuncs.authOpts...)
 		opts = append(opts, remote.WithContext(context.Background()))
 		_, err := remote.Head(ref, opts...)
 		return err
@@ -62,5 +62,5 @@ func TestFactoryCredentialsObserveSecretRotation(t *testing.T) {
 	expected.Store("second")
 	require.Error(t, check(), "the registry must reject the old credentials")
 	update("second")
-	require.NoError(t, check(), "the existing compiled factory must use the updated Secret")
+	require.NoError(t, check(), "the existing compiled ivFuncs must use the updated Secret")
 }

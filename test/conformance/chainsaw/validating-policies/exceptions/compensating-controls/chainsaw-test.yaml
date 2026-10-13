@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: compensating-controls
+spec:
+  concurrent: false
+  steps:
+  - name: create exception
+    try:
+    - create:
+        file: exception.yaml
+    - sleep:
+        duration: 10s
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-validating-policy-ready
+    use:
+      template: ../../../_step-templates/validating-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: disallow-root-user
+  # in scope for the exception and both controls satisfied: the bypass is granted
+  - name: exception granted when compensating controls are satisfied
+    try:
+    - apply:
+        file: good-pod.yaml
+  # in scope but missing the ticket annotation, so the exception grants nothing and the policy
+  # denies on its own. The message must be the exception's control, not the base policy's:
+  # it is the only place the submitter learns what would have qualified them.
+  - name: refused when the ticket annotation is missing
+    try:
+    - script:
+        content: kubectl apply -f bad-pod-no-ticket.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'Exception requires a valid security ticket annotation')): true
+          (contains($stderr, 'Running as root is not allowed')): false
+  # in scope, ticket present, but not network isolated: the second control refuses it
+  - name: refused when the workload is not network isolated
+    try:
+    - script:
+        content: kubectl apply -f bad-pod-not-isolated.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'Workload must run with')): true
+  # compensating controls gate the bypass, never the resource. This pod matches the exception
+  # and fails its controls, but it already complies with the policy, so it needs no bypass and
+  # must be admitted.
+  - name: a compliant resource is admitted even though its controls failed
+    try:
+    - apply:
+        file: compliant-pod-no-ticket.yaml
+  # out of scope for the exception: its controls are irrelevant and the base policy applies
+  - name: base policy still denies resources outside the exception
+    try:
+    - script:
+        content: kubectl apply -f bad-pod-other-app.yaml
+        check:
+          ($error != null): true
+          (contains($stderr, 'Running as root is not allowed')): true
+          (contains($stderr, 'Compensating Control Failure')): false
+  - name: base policy still admits compliant resources outside the exception
+    try:
+    - apply:
+        file: good-pod-other-app.yaml

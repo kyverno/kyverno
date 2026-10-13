@@ -34,17 +34,20 @@ func (*lib) LibraryName() string                 { return libraryName }
 func (*lib) ProgramOptions() []cel.ProgramOption { return nil }
 
 func (*lib) CompileOptions() []cel.EnvOption {
+	// for all functions in the library, declare an anonymous struct
+	// containing a `call` which takes the args and passes them over
+	// the actual cel lib function
 	functions := []struct {
 		name   string
 		args   []*cel.Type
 		result *cel.Type
-		call   func(*ivfuncs, []ref.Val) ref.Val
+		call   func(*IvFuncs, []ref.Val) ref.Val
 	}{
 		{
 			"verifyImageSignatures",
 			[]*cel.Type{cel.StringType, cel.ListType(cel.DynType)},
 			cel.IntType,
-			func(f *ivfuncs, args []ref.Val) ref.Val {
+			func(f *IvFuncs, args []ref.Val) ref.Val {
 				return f.verify_image_signature_string_stringarray(args[0], args[1])
 			},
 		},
@@ -52,7 +55,7 @@ func (*lib) CompileOptions() []cel.EnvOption {
 			"verifyAttestationSignatures",
 			[]*cel.Type{cel.StringType, cel.StringType, cel.ListType(cel.DynType)},
 			cel.IntType,
-			func(f *ivfuncs, args []ref.Val) ref.Val {
+			func(f *IvFuncs, args []ref.Val) ref.Val {
 				return f.verify_image_attestations_string_string_stringarray(args...)
 			},
 		},
@@ -60,13 +63,13 @@ func (*lib) CompileOptions() []cel.EnvOption {
 			"getImageData",
 			[]*cel.Type{cel.StringType},
 			cel.DynType,
-			func(f *ivfuncs, args []ref.Val) ref.Val { return f.get_image_data_string(args[0]) },
+			func(f *IvFuncs, args []ref.Val) ref.Val { return f.get_image_data_string(args[0]) },
 		},
 		{
 			"extractPayload",
 			[]*cel.Type{cel.StringType, cel.StringType},
 			cel.DynType,
-			func(f *ivfuncs, args []ref.Val) ref.Val { return f.payload_string_string(args[0], args[1]) },
+			func(f *IvFuncs, args []ref.Val) ref.Val { return f.payload_string_string(args[0], args[1]) },
 		},
 	}
 	options := make([]cel.EnvOption, 0, 2+2*len(functions))
@@ -77,10 +80,16 @@ func (*lib) CompileOptions() []cel.EnvOption {
 	for _, fn := range functions {
 		internalName := "__" + fn.name
 		options = append(options,
+			// create a macro that replaces a call to a library function with a runtime member call
+			// e.x: verifyAttestationSignatures -> __kyverno_runtime._verifyAttestationSignatures
 			cel.Macros(cel.GlobalMacro(fn.name, len(fn.args), func(e cel.MacroExprFactory, _ ast.Expr, args []ast.Expr) (ast.Expr, *cel.Error) {
 				return e.NewMemberCall(internalName, e.NewIdent(RuntimeKey), args...), nil
 			})),
 			cel.Function(internalName, cel.MemberOverload(internalName+"_runtime", append([]*cel.Type{runtimeType}, fn.args...), fn.result,
+				// the actual implementation of those generated function names is.. for example
+				// __kyverno_runtime._verifyAttestationSignatures: convert the first argument to
+				// a Runtime, the perform the call stored in `call`. which is simply calling the
+				// impl with args
 				cel.FunctionBinding(func(args ...ref.Val) ref.Val {
 					r, err := utils.ConvertToNative[Runtime](args[0])
 					if err != nil {

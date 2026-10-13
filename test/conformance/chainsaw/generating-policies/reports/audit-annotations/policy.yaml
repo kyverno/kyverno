@@ -30,10 +30,11 @@ spec:
   generate:
     - expression: generator.apply(variables.nsName, variables.configmap)
   auditAnnotations:
+    # Audit annotation values must type-check as string, as in a ValidatingAdmissionPolicy.
     - key: namespace
-      valueExpression: "object.metadata.name"
+      valueExpression: "string(object.metadata.name)"
     - key: env
       valueExpression: >-
         has(object.metadata.labels) && 'env' in object.metadata.labels
-          ? object.metadata.labels['env']
+          ? string(object.metadata.labels['env'])
           : 'unknown'

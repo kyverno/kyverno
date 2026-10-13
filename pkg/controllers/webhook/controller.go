@@ -1035,6 +1035,9 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		caBundle,
 		nmpols,
 		c.celExpressionCache)...)
+	// Only the (namespaced) MutatingPolicy webhooks are reinvoked; the image
+	// verification webhooks below keep the API default.
+	mutatingPolicyWebhooks := len(validate)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -1065,7 +1068,11 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
-	for _, w := range validate {
+	for i, w := range validate {
+		var reinvocationPolicy *admissionregistrationv1.ReinvocationPolicyType
+		if i < mutatingPolicyWebhooks {
+			reinvocationPolicy = &ifNeeded
+		}
 		mutate = append(mutate, admissionregistrationv1.MutatingWebhook{
 			Name:                    w.Name,
 			ClientConfig:            w.ClientConfig,
@@ -1076,7 +1083,9 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			ObjectSelector:          w.ObjectSelector,
 			Rules:                   sortedRules(deDuplicatedRules(w.Rules)),
 			MatchConditions:         w.MatchConditions,
+			MatchPolicy:             w.MatchPolicy,
 			TimeoutSeconds:          w.TimeoutSeconds,
+			ReinvocationPolicy:      reinvocationPolicy,
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
