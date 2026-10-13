@@ -11,11 +11,13 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	legacytuf "github.com/sigstore/sigstore/pkg/tuf"
+	"github.com/theupdateframework/go-tuf/v2/metadata"
 )
 
 // VerificationMaterial contains the trust used for both legacy signatures and
 // modern bundles. All repository material comes from the same TUF trust anchor.
 type VerificationMaterial struct {
+	// TrustedRoot is nil for authenticated PEM-only operator repositories.
 	TrustedRoot         *root.TrustedRoot
 	RekorPublicKeys     *cosign.TrustedTransparencyLogPubKeys
 	CTLogPublicKeys     *cosign.TrustedTransparencyLogPubKeys
@@ -25,7 +27,9 @@ type VerificationMaterial struct {
 
 // VerificationMaterialFor preserves operator key-file overrides and legacy PEM
 // targets, falling back to trusted_root.json when individual targets are absent.
-// Policy mirrors and roots cannot read or overwrite the operator's TUF cache.
+// Operator repositories may omit the modern target when authenticated metadata
+// proves it is absent. Explicit policy mirrors and roots still require that target
+// and cannot read or overwrite the operator's TUF cache.
 func VerificationMaterialFor(ctx context.Context, mirror string, rootBytes []byte) (*VerificationMaterial, error) {
 	return verificationMaterialFor(ctx, mirror, rootBytes, registryclient.EgressHTTPClient())
 }
@@ -43,11 +47,40 @@ func verificationMaterialFor(ctx context.Context, mirror string, rootBytes []byt
 	if err != nil {
 		return nil, err
 	}
-	client, err := newTUFClientWithOptions(opts)
+	client, err := newUpdaterClient(opts)
 	if err != nil {
 		return nil, fmt.Errorf("initializing TUF: %w", err)
 	}
-	data, err := client.GetTarget("trusted_root.json")
+	tr, err := trustedRootFromRepository(client, !isolate)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	material, err := verificationMaterialFromTargets(tr, client)
+	if contextErr := ctx.Err(); contextErr != nil {
+		return nil, contextErr
+	}
+	return material, err
+}
+
+func trustedRootFromRepository(client *legacyTUFClient, allowAbsent bool) (*root.TrustedRoot, error) {
+	const targetName = "trusted_root.json"
+	if allowAbsent {
+		// Only authenticated metadata can establish absence. A failed download,
+		// invalid target, or incomplete delegated lookup must never downgrade
+		// an operator repository to legacy trust material.
+		trusted := client.GetTrustedMetadataSet()
+		if targets := trusted.Targets[metadata.TARGETS]; targets != nil {
+			_, declared := targets.Signed.Targets[targetName]
+			delegations := targets.Signed.Delegations
+			if !declared && (delegations == nil || len(delegations.GetRolesForTarget(targetName)) == 0) {
+				return nil, nil
+			}
+		}
+	}
+	data, err := client.GetTarget(targetName)
 	if err != nil {
 		return nil, fmt.Errorf("getting trusted_root.json from TUF: %w", err)
 	}
@@ -55,17 +88,7 @@ func verificationMaterialFor(ctx context.Context, mirror string, rootBytes []byt
 	if err != nil {
 		return nil, fmt.Errorf("parsing trusted root: %w", err)
 	}
-	// A separate go-tuf/v2 updater exposes authenticated usage tags for rotated
-	// legacy targets. Both clients use the identical guarded fetcher and anchor.
-	legacy, _ := newUpdaterClient(opts)
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-	material, err := verificationMaterialFromTargets(tr, legacy)
-	if contextErr := ctx.Err(); contextErr != nil {
-		return nil, contextErr
-	}
-	return material, err
+	return tr, nil
 }
 
 func verificationMaterialFromTargets(tr *root.TrustedRoot, client *legacyTUFClient) (*VerificationMaterial, error) {
