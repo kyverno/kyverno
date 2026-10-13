@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
-	"github.com/sigstore/sigstore-go/pkg/tuf"
 	legacytuf "github.com/sigstore/sigstore/pkg/tuf"
 )
 
@@ -44,7 +43,7 @@ func verificationMaterialFor(ctx context.Context, mirror string, rootBytes []byt
 	if err != nil {
 		return nil, err
 	}
-	client, err := tuf.New(opts)
+	client, err := newTUFClientWithOptions(opts)
 	if err != nil {
 		return nil, fmt.Errorf("initializing TUF: %w", err)
 	}
