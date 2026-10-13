@@ -10,12 +10,10 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
 	"github.com/kyverno/kyverno/pkg/engine/internal"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -97,7 +95,7 @@ func (h mutateImageHandler) Process(
 	}
 
 	jsonContext := policyContext.JSONContext()
-	ruleCopy, err := substituteVariables(rule, jsonContext, logger)
+	ruleCopy, err := internal.SubstituteRuleVariables(rule, jsonContext, logger)
 	if err != nil {
 		return resource, handlers.WithResponses(
 			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
@@ -154,35 +152,4 @@ func (h mutateImageHandler) Process(
 		}
 	}
 	return resource, handlers.WithResponses(engineResponses...)
-}
-
-func substituteVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.Rule, error) {
-	// remove attestations as variables are not substituted in them
-	hasValidateImageVerification := rule.HasValidateImageVerification()
-	ruleCopy := *rule.DeepCopy()
-	for i := range ruleCopy.VerifyImages {
-		for j := range ruleCopy.VerifyImages[i].Attestations {
-			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
-		}
-		if hasValidateImageVerification {
-			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = nil
-		}
-	}
-
-	var err error
-	ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, ruleCopy)
-	if err != nil {
-		return nil, err
-	}
-
-	// replace attestations
-	for i := range ruleCopy.VerifyImages {
-		for j := range ruleCopy.VerifyImages[i].Attestations {
-			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
-		}
-		if hasValidateImageVerification {
-			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = rule.VerifyImages[i].Validation.Deny.RawAnyAllConditions
-		}
-	}
-	return &ruleCopy, nil
 }

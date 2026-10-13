@@ -625,3 +625,52 @@ func TestExtractCertExtensionValue(t *testing.T) {
 		})
 	}
 }
+
+// TestDecodeStatementRejectsMalformedPayloadField is the harden-type-handling
+// regression for the outer signature envelope: a "payload" field that is not
+// a string (attacker-controlled, remote data) must produce an error instead
+// of panicking on an unchecked type assertion.
+func TestDecodeStatementRejectsMalformedPayloadField(t *testing.T) {
+	raw := `{
+		"critical": {
+			"identity": {"docker-reference": "example.com/repo"},
+			"image": {"docker-manifest-digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+			"type": "cosign container image signature"
+		},
+		"payload": 12345
+	}`
+	sig, err := getSignature(cosignPkg.SignedPayload{Payload: []byte(raw)})
+	if err != nil {
+		t.Fatalf("failed to build test signature: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("decodeStatement panicked on a non-string payload field: %v", r)
+		}
+	}()
+
+	if _, _, err := decodeStatement(sig); err == nil {
+		t.Fatal("expected an error for a non-string payload field, got nil")
+	}
+}
+
+// TestMatchTypeDoesNotPanicOnDecodeFailure confirms matchType propagates a
+// decode error instead of dereferencing a malformed statement.
+func TestMatchTypeDoesNotPanicOnDecodeFailure(t *testing.T) {
+	raw := `{"payload": 12345}`
+	sig, err := getSignature(cosignPkg.SignedPayload{Payload: []byte(raw)})
+	if err != nil {
+		t.Fatalf("failed to build test signature: %v", err)
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("matchType panicked: %v", r)
+		}
+	}()
+
+	if _, _, err := matchType(sig, "some-predicate-type"); err == nil {
+		t.Fatal("expected an error, got nil")
+	}
+}

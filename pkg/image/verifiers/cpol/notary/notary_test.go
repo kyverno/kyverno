@@ -2,6 +2,7 @@ package notary
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -123,4 +124,39 @@ func TestExtractStatementRoundTripsValidPredicate(t *testing.T) {
 	predicateMap, ok := data["predicate"].(map[string]interface{})
 	assert.Assert(t, ok)
 	assert.Equal(t, predicateMap["hello"], "world")
+}
+
+// TestApplyManifestTypeRejectsMalformedType is the harden-type-handling
+// regression: a referrer manifest whose declared type is present but not a
+// string must error, and a missing type falls back to the descriptor's
+// artifact type as before.
+func TestApplyManifestTypeRejectsMalformedType(t *testing.T) {
+	t.Run("missing type falls back to artifact type", func(t *testing.T) {
+		data := map[string]interface{}{}
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.NilError(t, err)
+		assert.Equal(t, data["type"], "application/vnd.cncf.notary.signature")
+	})
+
+	t.Run("string type is left alone", func(t *testing.T) {
+		data := map[string]interface{}{"type": "existing-type"}
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.NilError(t, err)
+		assert.Equal(t, data["type"], "existing-type")
+	})
+
+	t.Run("non-string type errors instead of surfacing later as a panic", func(t *testing.T) {
+		data := map[string]interface{}{"type": 1337}
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.ErrorContains(t, err, "manifest type is not a string")
+	})
+
+	t.Run("nil map errors instead of panicking", func(t *testing.T) {
+		// A manifest body of literal "null" unmarshals into a nil map, and
+		// writing the fallback type into one panics.
+		var data map[string]interface{}
+		assert.NilError(t, json.Unmarshal([]byte("null"), &data))
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.ErrorContains(t, err, "manifest is empty")
+	})
 }

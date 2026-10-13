@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -46,4 +47,18 @@ func ToMap(data interface{}) (map[string]interface{}, error) {
 // SliceContains checks whether values are contained in slice
 func SliceContains(slice []string, values ...string) bool {
 	return sets.New(slice...).HasAny(values...)
+}
+
+// GetStringField returns m[key] as a string, or an error if the key is
+// absent or the value is not a string.
+func GetStringField(m map[string]interface{}, key string) (string, error) {
+	v, ok := m[key]
+	if !ok {
+		return "", fmt.Errorf("field %q is missing", key)
+	}
+	s, ok := v.(string)
+	if !ok {
+		return "", fmt.Errorf("field %q is not a string", key)
+	}
+	return s, nil
 }

@@ -328,14 +328,34 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 	if err := json.Unmarshal(manifestBytes, &data); err != nil {
 		return nil, err
 	}
-	if data["type"] == nil {
-		data["type"] = desc.ArtifactType
+	if err := applyManifestType(data, desc.ArtifactType); err != nil {
+		return nil, err
 	}
 	if data["predicate"] == nil {
 		data["predicate"] = predicate
 	}
 
 	return data, nil
+}
+
+// applyManifestType fills in the manifest's declared type from the referrer
+// descriptor when absent, and rejects an already-present value that isn't a
+// string. The manifest is attacker-suppliable OCI content; a malformed type
+// must fail this rule, not sail through into a later unchecked assertion.
+func applyManifestType(data map[string]interface{}, artifactType string) error {
+	// A manifest body of literal "null" unmarshals into a nil map, and writing
+	// to one panics. Reject it rather than filling in a type.
+	if data == nil {
+		return fmt.Errorf("manifest is empty")
+	}
+	if data["type"] == nil {
+		data["type"] = artifactType
+		return nil
+	}
+	if _, ok := data["type"].(string); !ok {
+		return fmt.Errorf("manifest type is not a string")
+	}
+	return nil
 }
 
 func matchArtifactType(ref v1.Descriptor, expectedArtifactType string) (bool, string, error) {

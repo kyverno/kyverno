@@ -1106,7 +1106,9 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 					}
 				}
 			}
-			if rule.HasValidateImageVerification() {
+			// Deny is optional per entry; HasValidateImageVerification is true
+			// when any entry has a validate block, message-only included.
+			if rule.HasValidateImageVerification() && vi.Validation.Deny != nil {
 				if target := vi.Validation.Deny.GetAnyAllConditions(); target != nil {
 					if path, err := validateConditions(target, "conditions"); err != nil {
 						return fmt.Sprintf("imageVerify.validate.deny.%s", path), err
