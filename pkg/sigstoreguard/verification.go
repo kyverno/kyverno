@@ -11,7 +11,6 @@ import (
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	legacytuf "github.com/sigstore/sigstore/pkg/tuf"
-	"github.com/theupdateframework/go-tuf/v2/metadata"
 )
 
 // VerificationMaterial contains the trust used for both legacy signatures and
@@ -67,20 +66,17 @@ func verificationMaterialFor(ctx context.Context, mirror string, rootBytes []byt
 
 func trustedRootFromRepository(client *legacyTUFClient, allowAbsent bool) (*root.TrustedRoot, error) {
 	const targetName = "trusted_root.json"
+	var data []byte
+	var err error
 	if allowAbsent {
-		// Only authenticated metadata can establish absence. A failed download,
-		// invalid target, or incomplete delegated lookup must never downgrade
-		// an operator repository to legacy trust material.
-		trusted := client.GetTrustedMetadataSet()
-		if targets := trusted.Targets[metadata.TARGETS]; targets != nil {
-			_, declared := targets.Signed.Targets[targetName]
-			delegations := targets.Signed.Delegations
-			if !declared && (delegations == nil || len(delegations.GetRolesForTarget(targetName)) == 0) {
-				return nil, nil
-			}
+		var present bool
+		data, present, err = client.optionalTarget(targetName)
+		if err == nil && !present {
+			return nil, nil
 		}
+	} else {
+		data, err = client.GetTarget(targetName)
 	}
-	data, err := client.GetTarget(targetName)
 	if err != nil {
 		return nil, fmt.Errorf("getting trusted_root.json from TUF: %w", err)
 	}
@@ -104,7 +100,10 @@ func verificationMaterialFromTargets(tr *root.TrustedRoot, client *legacyTUFClie
 	}
 	var targets []legacytuf.TargetFile
 	if client != nil {
-		targets, _ = targetsFromClient(client, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
+		targets, err = targetsFromClient(client, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
+		if err != nil {
+			return nil, fmt.Errorf("getting Fulcio targets: %w", err)
+		}
 	}
 	material.FulcioRoots, material.FulcioIntermediates, err = fulcioRootsFromRepository(tr, targets, true)
 	if err != nil {
@@ -117,10 +116,12 @@ func repositoryPublicKeys(client *legacyTUFClient, environment string, usage leg
 	if file := os.Getenv(environment); file != "" {
 		return publicKeysFromFile(file)
 	} else if client != nil {
-		if targets, err := targetsFromClient(client, usage, name); err == nil {
-			if keys, err := publicKeysFromTargets(targets); err == nil {
-				return keys, nil
-			}
+		targets, err := targetsFromClient(client, usage, name)
+		if err != nil {
+			return nil, err
+		}
+		if len(targets) != 0 {
+			return publicKeysFromTargets(targets)
 		}
 	}
 	return fallback(tr)

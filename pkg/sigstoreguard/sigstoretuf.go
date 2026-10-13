@@ -227,6 +227,19 @@ func (c *legacyTUFClient) GetTarget(name string) ([]byte, error) {
 	return data, err
 }
 
+// optionalTarget skips only targets whose absence is proven by authenticated
+// metadata. A failed download or incomplete delegated lookup remains an error.
+func (c *legacyTUFClient) optionalTarget(name string) ([]byte, bool, error) {
+	if authenticatedTargetAbsent(c, name) {
+		return nil, false, nil
+	}
+	data, err := c.GetTarget(name)
+	if err != nil && authenticatedTargetAbsent(c, name) {
+		return nil, false, nil
+	}
+	return data, true, err
+}
+
 // The TUF fetcher otherwise creates requests with context.Background(). Carry
 // the verification deadline through every metadata and target download.
 type contextHTTPClient func(*http.Request) (*http.Response, error)
@@ -241,8 +254,12 @@ func RekorPublicKeys(ctx context.Context) (*cosign.TrustedTransparencyLogPubKeys
 	if file := os.Getenv("SIGSTORE_REKOR_PUBLIC_KEY"); file != "" {
 		return publicKeysFromFile(file)
 	}
-	if keys, err := publicKeysFromTarget(ctx, legacytuf.Rekor, "rekor.pub"); err == nil {
-		return keys, nil
+	targets, err := defaultTargets(ctx, legacytuf.Rekor, "rekor.pub")
+	if err != nil {
+		return nil, err
+	}
+	if len(targets) != 0 {
+		return publicKeysFromTargets(targets)
 	}
 	tr, err := TrustedRoot(ctx)
 	if err != nil {
@@ -257,8 +274,12 @@ func CTLogPublicKeys(ctx context.Context) (*cosign.TrustedTransparencyLogPubKeys
 	if file := os.Getenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE"); file != "" {
 		return publicKeysFromFile(file)
 	}
-	if keys, err := publicKeysFromTarget(ctx, legacytuf.CTFE, "ctfe.pub"); err == nil {
-		return keys, nil
+	targets, err := defaultTargets(ctx, legacytuf.CTFE, "ctfe.pub")
+	if err != nil {
+		return nil, err
+	}
+	if len(targets) != 0 {
+		return publicKeysFromTargets(targets)
 	}
 	tr, err := TrustedRoot(ctx)
 	if err != nil {
@@ -303,10 +324,13 @@ func FulcioRootsWithContext(ctx context.Context) (*x509.CertPool, *x509.CertPool
 	}
 	// Read both formats under the same repository snapshot and cache lock.
 	// Missing trusted_root.json is valid for an operator's PEM-only mirror.
-	targets, _ := targetsFromClient(client, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
-	var tr *root.TrustedRoot
-	if data, err := client.GetTarget("trusted_root.json"); err == nil {
-		tr, _ = root.NewTrustedRootFromJSON(data)
+	tr, err := trustedRootFromRepository(client, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	targets, err := targetsFromClient(client, legacytuf.Fulcio, "fulcio.crt.pem", "fulcio_v1.crt.pem", "fulcio_intermediate_v1.crt.pem")
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting Fulcio targets: %w", err)
 	}
 	if err := ctx.Err(); err != nil {
 		return nil, nil, err
@@ -388,37 +412,30 @@ func targetsFromClient(client *legacyTUFClient, usage legacytuf.UsageKind, names
 		}
 		target, err := client.GetTarget(name)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("getting target %q: %w", name, err)
 		}
 		targets = append(targets, legacytuf.TargetFile{Name: name, Target: target, Status: custom.Sigstore.Status})
 	}
 	if len(targets) != 0 {
 		return targets, nil
 	}
-	var lastErr error
 	for _, name := range names {
-		target, err := client.GetTarget(name)
+		target, present, err := client.optionalTarget(name)
 		if err != nil {
-			lastErr = err
+			return nil, fmt.Errorf("getting target %q: %w", name, err)
+		}
+		if !present {
 			continue
 		}
 		targets = append(targets, legacytuf.TargetFile{Name: name, Target: target, Status: legacytuf.Active})
 	}
-	if len(targets) == 0 {
-		return nil, lastErr
-	}
 	return targets, nil
 }
 
-func publicKeysFromTarget(ctx context.Context, usage legacytuf.UsageKind, name string) (*cosign.TrustedTransparencyLogPubKeys, error) {
-	targets, err := defaultTargets(ctx, usage, name)
-	if err != nil {
-		return nil, err
-	}
-	return publicKeysFromTargets(targets)
-}
-
 func publicKeysFromTargets(targets []legacytuf.TargetFile) (*cosign.TrustedTransparencyLogPubKeys, error) {
+	if len(targets) == 0 {
+		return nil, fmt.Errorf("no public key targets found in repository")
+	}
 	keys := cosign.NewTrustedTransparencyLogPubKeys()
 	for _, target := range targets {
 		if err := keys.AddTransparencyLogPubKey(target.Target, target.Status); err != nil {
