@@ -603,6 +603,26 @@ func TestResolveTrustedMaterial(t *testing.T) {
 		assert.Contains(t, err.Error(), "parsing inline trustedRoot JSON")
 	})
 
+	t.Run("PEM-only repository leaves the bundle trust interface nil", func(t *testing.T) {
+		tm, err := resolveTrustedMaterial(&v1beta1.Cosign{}, nil)
+		require.NoError(t, err)
+		// A typed nil *TrustedRoot would bypass cosign's missing-trust check.
+		require.True(t, tm == nil, "missing modern trust must remain a nil interface")
+	})
+
+	t.Run("keyless bundles reject absent modern trust before evaluating the bundle", func(t *testing.T) {
+		tm, err := resolveTrustedMaterial(&v1beta1.Cosign{}, nil)
+		require.NoError(t, err)
+		opts := &cosign.CheckOpts{TrustedMaterial: tm, IgnoreTlog: true}
+		require.NotPanics(t, func() {
+			// No bundle is needed: identity verification must reject missing
+			// modern trust before inspecting any bundle contents.
+			result, err := cosign.VerifyNewBundle(context.Background(), opts, nil, nil)
+			require.ErrorContains(t, err, "a trusted root is required for identity-based verification")
+			require.Nil(t, result)
+		})
+	})
+
 	t.Run("nil TrustedRoot falls back to the pre-fetched default", func(t *testing.T) {
 		// Fetch the default trusted root explicitly so this subtest doesn't
 		// depend on another test having already initialized TUF.

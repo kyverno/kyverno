@@ -259,9 +259,9 @@ func TestDefaultRootRotationRetainsOfflineCache(t *testing.T) {
 			require.Equal(t, mirror, retainedMirror)
 			require.JSONEq(t, string(rotated), string(retainedRoot))
 			requests := 0
-			// VerificationMaterialFor creates the modern client and the PEM
-			// updater from the same options. The second client must retain the
-			// first client's accepted rotation, even after the mirror goes offline.
+			// Modern and PEM clients may reuse the same options. The second
+			// client must retain the first client's accepted rotation, even after
+			// the mirror goes offline.
 			opts.ForceCache = true
 			opts.Fetcher = localFetchFunc(func(rawURL string, _ int64) ([]byte, error) {
 				requests++

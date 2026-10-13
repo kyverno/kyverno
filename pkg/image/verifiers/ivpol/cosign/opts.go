@@ -494,7 +494,7 @@ func logKeyStatus(start, end time.Time) tuf.StatusKind {
 // the trusted_root.json already fetched atomically by initTUFAndFetch. This
 // allows verifying attestations/signatures from private Sigstore instances
 // (e.g. GitHub's) that don't operate a TUF server, while still falling back
-// to the TUF-derived trusted root for standard Sigstore verification.
+// to the TUF-derived trusted root when the repository publishes one.
 func resolveTrustedMaterial(att *v1beta1.Cosign, defaultTrustedRoot *root.TrustedRoot) (root.TrustedMaterial, error) {
 	if att.TrustedRoot != nil && att.TrustedRoot.Value != "" {
 		if n := len(att.TrustedRoot.Value); n > maxTrustedRootJSONSize {
@@ -505,6 +505,11 @@ func resolveTrustedMaterial(att *v1beta1.Cosign, defaultTrustedRoot *root.Truste
 			return nil, fmt.Errorf("parsing inline trustedRoot JSON: %w", err)
 		}
 		return tr, nil
+	}
+	if defaultTrustedRoot == nil {
+		// PEM-only repositories can verify legacy signatures. Keep the
+		// interface nil so modern bundle verification can reject missing trust.
+		return nil, nil
 	}
 	return defaultTrustedRoot, nil
 }
