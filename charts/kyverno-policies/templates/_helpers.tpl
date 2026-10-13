@@ -135,17 +135,29 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 
 {{/* Map autogenControllers to spec.autogen.podControllers.controllers of a ValidatingPolicy.
 The value uses Kind names (`none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`), the same as for a ClusterPolicy.
-Nothing is rendered when it is empty, so Kyverno generates rules for all the pod controllers. */}}
+Nothing is rendered when it is empty, so Kyverno generates rules for all the pod controllers. Only `none` renders an
+empty list. An unknown name fails the render so that a typo cannot silently turn autogen off. `ReplicationController`
+is accepted for ClusterPolicy compatibility, but ValidatingPolicy autogen does not support it, so it is ignored. */}}
 {{- define "kyverno-policies.vpolAutogen" -}}
 {{- with .Values.autogenControllers }}
 {{- $supported := list "daemonsets" "deployments" "replicasets" "statefulsets" "jobs" "cronjobs" }}
 {{- $controllers := list }}
+{{- $named := 0 }}
 {{- if ne (lower (trim (toString .))) "none" }}
 {{- range splitList "," (toString .) }}
-{{- $name := printf "%ss" (lower (trim .)) }}
+{{- $kind := lower (trim .) }}
+{{- $name := printf "%ss" $kind }}
+{{- if $kind }}
+{{- $named = add1 $named }}
+{{- end }}
 {{- if has $name $supported }}
 {{- $controllers = append $controllers $name }}
+{{- else if and $kind (ne $kind "replicationcontroller") }}
+{{- fail (printf "autogenControllers: unsupported controller %q, use `none` or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" (trim .)) }}
 {{- end }}
+{{- end }}
+{{- if eq $named 0 }}
+{{- fail "autogenControllers: no controller given, use `none` or a comma-separated list of DaemonSet, Deployment, ReplicaSet, StatefulSet, Job and CronJob" }}
 {{- end }}
 {{- end -}}
 autogen:

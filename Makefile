@@ -977,6 +977,11 @@ verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list match
 	@echo Verify restrict-sysctls allow-list... >&2
 	@HELM=$(HELM) ./scripts/verify-policies-sysctls.sh
 
+.PHONY: verify-policies-autogen
+verify-policies-autogen: $(HELM) ## Verify the autogenControllers value maps to the ValidatingPolicy autogen controllers (no cluster needed)
+	@echo Verify policies autogen controllers... >&2
+	@HELM=$(HELM) ./scripts/verify-policies-autogen.sh
+
 .PHONY: verify-legacy-policy-gate
 verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
 	@echo Verify legacy policy gate... >&2

@@ -71,6 +71,13 @@ jobs:
         run: |
           set -e
           make verify-policies-sysctls
+      - name: Verify autogenControllers mapping
+        # Renders the chart with autogenControllers unset, `none` and a list,
+        # and checks the controllers rendered on every ValidatingPolicy. It also
+        # checks that an unknown controller name fails the render.
+        run: |
+          set -e
+          make verify-policies-autogen
 
   sync-issue:
     if: always() && github.event_name == 'push'

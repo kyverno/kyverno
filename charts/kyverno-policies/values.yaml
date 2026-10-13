@@ -191,7 +191,8 @@ policyPreconditions: {}
 
 # -- Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`)
 # With `policyType: ValidatingPolicy` this sets `spec.autogen.podControllers.controllers`, and only `DaemonSet`, `Deployment`,
-# `ReplicaSet`, `StatefulSet`, `Job` and `CronJob` are supported.
+# `ReplicaSet`, `StatefulSet`, `Job` and `CronJob` are supported. Any other name fails the render, except `ReplicationController`,
+# which is accepted for ClusterPolicy compatibility and ignored.
 # For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/.
 autogenControllers: ""
 
