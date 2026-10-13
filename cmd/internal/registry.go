@@ -39,7 +39,7 @@ func setupRegistryClient(ctx context.Context, logger logr.Logger, client kuberne
 
 	registryClient := registryclient.SetupGlobalRegistryClient(ms, config.KyvernoNamespace(),
 		imagePullSecrets,
-		registryCredentialHelpers, allowInsecureRegistry)
+		registryCredentialHelpers, allowInsecureRegistry, registryclient.WithLogger(logger))
 
 	// Guarded policy clients own a separate instance; SDK clients keep their global.
 	guardedregistry.SetupGlobalRegistryClient(ms, config.KyvernoNamespace(), imagePullSecrets, registryCredentialHelpers, allowInsecureRegistry, privateRegistryAllowlist, privateRegistryEgressMode)
