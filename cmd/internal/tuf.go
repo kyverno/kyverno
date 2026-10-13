@@ -7,7 +7,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/sigstoreguard"
-	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 )
 
 func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
@@ -22,10 +21,8 @@ func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
 		checkError(logger, err, "Failed to load alternate TUF root")
 	}
 
-	// Preserve the existing singleton while the guarded verifier owns its repository.
-	sigstoreguard.SetDefaultRepository(tufMirror, tufRootBytes)
 	logger.V(2).Info("Initializing TUF root")
-	if err := sigstoretuf.Initialize(ctx, tufMirror, tufRootBytes); err != nil {
+	if err := sigstoreguard.Initialize(ctx, tufMirror, tufRootBytes); err != nil {
 		checkError(logger, err, fmt.Sprintf("Failed to initialize TUF client from %s : %v", tufRoot, err))
 	}
 }

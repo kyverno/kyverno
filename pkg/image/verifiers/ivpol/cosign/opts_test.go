@@ -19,6 +19,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/sigstoreguard"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/tuf"
@@ -361,15 +362,13 @@ func TestInitTUFAndFetch_Default(t *testing.T) {
 }
 
 func TestInitTUFAndFetch_WithCustomMirror(t *testing.T) {
-	ctx := context.TODO()
-	tufCfg := &v1beta1.TUF{
-		Mirror: "https://custom-tuf.example.com",
-	}
-
-	_, err := initTUFAndFetch(ctx, tufCfg)
-	if err != nil {
-		t.Logf("Custom TUF mirror test (expected to fail in test env): %v", err)
-	}
+	t.Setenv("TUF_ROOT", t.TempDir())
+	_, err := initTUFAndFetch(context.Background(), &v1beta1.TUF{Mirror: "http://127.0.0.1:1"})
+	require.ErrorIs(t, err, egress.ErrAddressBlocked)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = initTUFAndFetch(ctx, &v1beta1.TUF{Mirror: "https://policy.example"})
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestGetRekor_WithURL(t *testing.T) {

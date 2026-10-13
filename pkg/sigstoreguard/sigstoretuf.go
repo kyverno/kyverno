@@ -36,7 +36,7 @@ var (
 )
 
 // SetDefaultRepository records the operator trust configuration for guarded
-// verification without changing or refreshing the existing TUF singleton.
+// verification without downloading metadata or targets.
 func SetDefaultRepository(mirror string, rootBytes []byte) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -47,14 +47,28 @@ func SetDefaultRepository(mirror string, rootBytes []byte) {
 // Initialize validates the controller's configured TUF repository before
 // retaining it as the default. No global HTTP clients or transports are changed.
 func Initialize(ctx context.Context, mirror string, rootBytes []byte) error {
+	return initializeWithHTTP(ctx, mirror, rootBytes, registryclient.EgressHTTPClient())
+}
+
+func initializeWithHTTP(ctx context.Context, mirror string, rootBytes []byte, httpClient *http.Client) error {
 	if err := lockSharedCache(ctx); err != nil {
 		return err
 	}
 	defer unlockSharedCache()
-	if _, err := newTUFClient(ctx, mirror, rootBytes, false); err != nil {
+	opts, err := tufOptions(ctx, mirror, rootBytes, false, httpClient, false)
+	if err != nil {
 		return err
 	}
-	SetDefaultRepository(mirror, rootBytes)
+	if _, err := newTUFClientWithOptions(opts); err != nil {
+		return err
+	}
+	if err := warmTargets(opts); err != nil {
+		return err
+	}
+	if err := storeOperatorMirror(opts); err != nil {
+		return err
+	}
+	SetDefaultRepository(opts.RepositoryBaseURL, opts.Root)
 	return nil
 }
 
@@ -98,7 +112,16 @@ func newTUFClientWithHTTP(ctx context.Context, mirror string, rootBytes []byte, 
 	if err != nil {
 		return nil, err
 	}
-	return tuf.New(opts)
+	return newTUFClientWithOptions(opts)
+}
+
+func newTUFClientWithOptions(opts *tuf.Options) (*tuf.Client, error) {
+	client, err := tuf.New(opts)
+	if err != nil {
+		return nil, err
+	}
+	retainRefreshedDefaultRoot(opts)
+	return client, nil
 }
 
 func tufOptions(ctx context.Context, mirror string, rootBytes []byte, useCache bool, httpClient *http.Client, isolate bool) (*tuf.Options, error) {
@@ -129,6 +152,9 @@ func tufOptions(ctx context.Context, mirror string, rootBytes []byte, useCache b
 		opts.WithDisableLocalCache()
 	}
 	if !isolate {
+		if err := operatorRepository(opts, mirror, len(rootBytes) != 0, useCache); err != nil {
+			return nil, err
+		}
 		mirrorURL, err := url.Parse(opts.RepositoryBaseURL)
 		if err != nil {
 			return nil, err
@@ -163,6 +189,7 @@ func newUpdaterClient(opts *tuf.Options) (*legacyTUFClient, error) {
 		local.UnsafeLocalMode = true
 		cached, err := updater.New(&local)
 		if err == nil && cached.Refresh() == nil {
+			retainRefreshedDefaultRoot(opts)
 			return &legacyTUFClient{cached}, nil
 		}
 	}
@@ -173,6 +200,7 @@ func newUpdaterClient(opts *tuf.Options) (*legacyTUFClient, error) {
 	if err := client.Refresh(); err != nil {
 		return nil, err
 	}
+	retainRefreshedDefaultRoot(opts)
 	return &legacyTUFClient{client}, nil
 }
 
