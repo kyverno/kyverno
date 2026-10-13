@@ -115,8 +115,12 @@ func (iv *imageVerifier) Verify(
 			iv.logger.V(2).Info("caching disabled: entry skips or does not match this image reference", "image", image, "ruleName", iv.rule.Name)
 		}
 
+		// Resolving the tag costs a registry round trip and exists only to
+		// build a digest-bound cache key, so skip it when the cache is off:
+		// the lookup below would return a miss regardless.
+		cacheUsable := iv.ivCache != nil && iv.ivCache.IsEnabled() && imageUseCache
 		cacheInfo := imageInfo
-		if cacheInfo.Digest == "" && iv.ivCache != nil && imageUseCache {
+		if cacheInfo.Digest == "" && cacheUsable {
 			if desc, err := iv.rclient.FetchImageDescriptor(ctx, image); err == nil {
 				cacheInfo.Digest = desc.Digest.String()
 			} else {
@@ -440,6 +444,12 @@ func (iv *imageVerifier) verifyAttestations(
 			attestorPath := fmt.Sprintf("%s.attestors[%d]", path, j)
 			requiredCount := attestor.RequiredCount()
 			verifiedCount := 0
+			// errorList spans every attestor set of this attestation, but the
+			// Error-vs-Fail decision below belongs to the set that failed: an
+			// infrastructure error recorded by an earlier, satisfied set must
+			// not turn this set's genuine rejection into an Error, which
+			// failurePolicy Ignore admits.
+			setErrorsFrom := len(errorList)
 
 			for _, a := range attestor.Entries {
 				var attestationError error
@@ -499,10 +509,8 @@ func (iv *imageVerifier) verifyAttestations(
 				// rejected credential means the constraint was never
 				// actually checked; report that distinctly from a genuine
 				// rejection.
-				for _, e := range errorList {
-					if isInfrastructureError(e) {
-						return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, msg, e, iv.rule.ReportProperties), ""
-					}
+				if e := firstInfrastructureError(errorList[setErrorsFrom:]); e != nil {
+					return engineapi.RuleError(iv.rule.Name, engineapi.ImageVerify, msg, e, iv.rule.ReportProperties), ""
 				}
 				return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, msg, iv.rule.ReportProperties), ""
 			}
@@ -588,6 +596,20 @@ func (iv *imageVerifier) verifyAttestorSet(
 	err := multierr.Combine(errorList...)
 	iv.logger.Info("image attestors verification failed", "image", image, "verifiedCount", verifiedCount, "requiredCount", requiredCount, "errors", err.Error())
 	return nil, err
+}
+
+// firstInfrastructureError returns the first error that means the constraint
+// was never actually checked, rather than checked and rejected. Callers must
+// pass only the errors of the attestor set they are deciding: an error from a
+// different, already satisfied set would turn this set's genuine rejection
+// into an Error, which failurePolicy Ignore admits.
+func firstInfrastructureError(errs []error) error {
+	for _, e := range errs {
+		if isInfrastructureError(e) {
+			return e
+		}
+	}
+	return nil
 }
 
 func (iv *imageVerifier) buildVerifier(

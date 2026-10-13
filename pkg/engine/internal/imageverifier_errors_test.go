@@ -222,3 +222,35 @@ func nestedSet(t *testing.T, keys *kyvernov1.StaticKeyAttestor) kyvernov1.Attest
 	require.NoError(t, err)
 	return kyvernov1.AttestorSet{Entries: []kyvernov1.Attestor{{Attestor: &apiextv1.JSON{Raw: raw}}}}
 }
+
+// TestFirstInfrastructureErrorIsSetScoped pins the contract that makes the
+// Error-vs-Fail decision safe: only the failing attestor set's own errors may
+// be considered. errorList accumulates across every set of an attestation, so
+// scanning all of it would let an earlier, satisfied set's network error turn
+// a genuine signature rejection into an Error, which failurePolicy Ignore
+// admits.
+func TestFirstInfrastructureErrorIsSetScoped(t *testing.T) {
+	infra := &net.OpError{Op: "dial", Err: errors.New("connection refused")}
+	rejected := errors.New("signature mismatch")
+
+	t.Run("reports an infrastructure error from this set", func(t *testing.T) {
+		assert.Equal(t, infra, firstInfrastructureError([]error{rejected, infra}))
+	})
+
+	t.Run("a genuine rejection alone is not infrastructure", func(t *testing.T) {
+		assert.Nil(t, firstInfrastructureError([]error{rejected}))
+	})
+
+	t.Run("an earlier set's error must not leak in", func(t *testing.T) {
+		// errorList as a whole: set A hit the network error but was satisfied,
+		// set B then rejected the signature.
+		all := []error{infra, rejected}
+		setBErrors := all[1:]
+		assert.Nil(t, firstInfrastructureError(setBErrors), "set B rejected the signature; it must Fail, not Error")
+		assert.Equal(t, infra, firstInfrastructureError(all), "scanning the whole list is the bug this guards against")
+	})
+
+	t.Run("no errors", func(t *testing.T) {
+		assert.Nil(t, firstInfrastructureError(nil))
+	})
+}

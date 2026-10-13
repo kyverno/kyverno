@@ -114,8 +114,19 @@ func (h validateImageHandler) Process(
 	passedImages := make([]string, 0)
 	for _, v := range ruleCopy.VerifyImages {
 		imageVerify := v.Convert()
+		// GetMatchingImages appends an image once per matching verifyImages
+		// entry, so h.images holds duplicates whenever entries overlap. Each
+		// verification is registry and signature work now, so do each distinct
+		// image once per entry. The key includes the resource pointer so two
+		// containers sharing one image are still reported separately.
+		verified := make(map[string]struct{}, len(h.images))
 		for _, imageInfo := range h.images {
 			image := imageInfo.String()
+			key := imageInfo.Pointer + "\x00" + image
+			if _, done := verified[key]; done {
+				continue
+			}
+			verified[key] = struct{}{}
 
 			if !engineutils.ImageMatches(image, imageVerify.ImageReferences) {
 				logger.V(4).Info("image does not match, skipping", "image", image, "imageReferences", imageVerify.ImageReferences)
@@ -184,6 +195,13 @@ func (h validateImageHandler) validateImage(
 	if len(imageVerify.Attestors) == 0 && len(imageVerify.Attestations) == 0 {
 		// required is set but nothing is configured to verify against, so no image can satisfy it.
 		return engineapi.RuleStatusFail, fmt.Errorf("rule requires image verification but configures no attestors or attestations: %s", image)
+	}
+
+	if engineutils.ImageMatches(image, imageVerify.SkipImageReferences) {
+		// verifyImage skips this reference, but it needs a registry client to
+		// get there. Decide it here so a skipped image is not reported as an
+		// error when credentials are unavailable.
+		return engineapi.RuleStatusSkip, nil
 	}
 
 	if h.rclientFactory == nil {

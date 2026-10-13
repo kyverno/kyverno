@@ -88,6 +88,10 @@ func WithTTLDuration(t time.Duration) Option {
 	}
 }
 
+func (c *cache) IsEnabled() bool {
+	return c.isCacheEnabled
+}
+
 func generateKey(policy metav1.Object, ruleName string, imageRef string) string {
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }

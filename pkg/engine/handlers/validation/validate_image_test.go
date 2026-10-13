@@ -262,6 +262,38 @@ func TestValidateImage_NilRegistryClientFactoryErrors(t *testing.T) {
 	}
 }
 
+// TestValidateImage_SkipReferenceNeedsNoRegistryClient pins that a reference
+// the rule skips is honoured without acquiring a registry client. verifyImage
+// matches skipImageReferences internally, so reaching that decision used to
+// require a client first and reported an error when none was available.
+func TestValidateImage_SkipReferenceNeedsNoRegistryClient(t *testing.T) {
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(verifyImageAttestorPolicy), &cpol))
+	cpol.Spec.Rules[0].VerifyImages[0].SkipImageReferences = []string{"*"}
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(priorStageMetadataPod))
+	require.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	require.NoError(t, err)
+	policyContext = policyContext.WithPolicy(&cpol).WithNewResource(*resource)
+
+	rule := cpol.Spec.Rules[0]
+	// A nil factory would be an error for any image that must be verified, so
+	// a Skip here proves no client was needed.
+	handler, err := NewValidateImageHandler(policyContext, *resource, rule, cfg, nil, nil, nil, true)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	h := handler.(validateImageHandler)
+	_, responses := h.Process(context.Background(), logr.Discard(), policyContext, *resource, rule, nil, nil)
+	require.NotEmpty(t, responses, "expected a rule response")
+	assert.NotEqual(t, engineapi.RuleStatusError, responses[0].Status(), "a skipped reference must not need a registry client: %s", responses[0].Message())
+}
+
 // nilClientRegistryClientFactory models a factory built with no global client:
 // it returns that client unchanged, so the caller gets no error and no client.
 type nilClientRegistryClientFactory struct{}
