@@ -115,6 +115,20 @@ controllers support `featuresOverride.registryClient` to change it for one
 controller. Keep these settings consistent unless a difference is intentional.
 Cleanup receives neither registry egress flag.
 
+## Sigstore trust configuration during upgrade
+
+TUF startup and signature verification share the configured registry egress mode
+and allowlist. Include private TUF mirrors in the allowlist when using enforce
+mode. Existing operator root settings, file mirrors, and public-key file overrides
+continue to apply. A policy-specific TUF mirror or root uses an isolated repository
+and cannot replace the controller's default trust material.
+
+Existing `TUF_ROOT` caches are imported into the per-mirror cache when the stored
+mirror matches. The old database and targets are retained, and imported metadata
+and targets are verified before use. Cached custom trust and authenticated root
+rotations remain usable offline while their metadata is valid. `SIGSTORE_NO_CACHE`
+continues to disable local cache reads and writes.
+
 ## HTTP and HTTPS proxies
 
 An operator-configured `HTTP_PROXY` or `HTTPS_PROXY` may itself use an ordinary
