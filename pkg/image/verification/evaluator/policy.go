@@ -93,6 +93,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		return nil, err
 	}
 	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, context)
+	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err
@@ -325,6 +326,7 @@ func (c *compiledPolicy) MutateDigest(
 		return nil, err
 	}
 	data[engine.ImageDataKey] = libs.ImageDataContext(ctx, c.imageContext)
+	data[imageverify.RequestContextKey] = imageverify.NewEvaluationContext(ctx)
 	matched, err := c.match(ctx, data, c.matchConditions)
 	if err != nil {
 		return nil, err

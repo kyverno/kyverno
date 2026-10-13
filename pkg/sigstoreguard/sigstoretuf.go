@@ -59,7 +59,10 @@ func initializeWithHTTP(ctx context.Context, mirror string, rootBytes []byte, ht
 	if err != nil {
 		return err
 	}
-	if _, err := newTUFClientWithOptions(opts); err != nil {
+	// Initialization publishes the default only after metadata, targets, and
+	// the persisted mirror have all succeeded. Ordinary trust reads retain
+	// authenticated root rotations as soon as their metadata refresh succeeds.
+	if _, err := tuf.New(opts); err != nil {
 		return err
 	}
 	if err := warmTargets(opts); err != nil {
@@ -120,7 +123,7 @@ func newTUFClientWithOptions(opts *tuf.Options) (*tuf.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	retainRefreshedDefaultRoot(opts)
+	retainRefreshedRoot(opts, true)
 	return client, nil
 }
 
@@ -173,6 +176,12 @@ type legacyTUFClient struct {
 }
 
 func newUpdaterClient(opts *tuf.Options) (*legacyTUFClient, error) {
+	return newUpdaterClientWithRootUpdate(opts, true)
+}
+
+// Startup updates only its local options until the entire initialization has
+// succeeded; ordinary reads also retain rotations in the matching default.
+func newUpdaterClientWithRootUpdate(opts *tuf.Options, publishDefault bool) (*legacyTUFClient, error) {
 	cfg, err := config.New(opts.RepositoryBaseURL, opts.Root)
 	if err != nil {
 		return nil, err
@@ -189,7 +198,7 @@ func newUpdaterClient(opts *tuf.Options) (*legacyTUFClient, error) {
 		local.UnsafeLocalMode = true
 		cached, err := updater.New(&local)
 		if err == nil && cached.Refresh() == nil {
-			retainRefreshedDefaultRoot(opts)
+			retainRefreshedRoot(opts, publishDefault)
 			return &legacyTUFClient{cached}, nil
 		}
 	}
@@ -200,7 +209,7 @@ func newUpdaterClient(opts *tuf.Options) (*legacyTUFClient, error) {
 	if err := client.Refresh(); err != nil {
 		return nil, err
 	}
-	retainRefreshedDefaultRoot(opts)
+	retainRefreshedRoot(opts, publishDefault)
 	return &legacyTUFClient{client}, nil
 }
 

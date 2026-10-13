@@ -97,9 +97,7 @@ func verificationMaterialFromTargets(tr *root.TrustedRoot, client *legacyTUFClie
 
 func repositoryPublicKeys(client *legacyTUFClient, environment string, usage legacytuf.UsageKind, name string, tr *root.TrustedRoot, fallback func(*root.TrustedRoot) (*cosign.TrustedTransparencyLogPubKeys, error)) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if file := os.Getenv(environment); file != "" {
-		if keys, err := publicKeysFromFile(file); err == nil {
-			return keys, nil
-		}
+		return publicKeysFromFile(file)
 	} else if client != nil {
 		if targets, err := targetsFromClient(client, usage, name); err == nil {
 			if keys, err := publicKeysFromTargets(targets); err == nil {

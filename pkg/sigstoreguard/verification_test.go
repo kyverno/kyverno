@@ -53,13 +53,33 @@ func TestVerificationMaterialHonorsOperatorKeyOverrides(t *testing.T) {
 			}
 		})
 	}
-	// Invalid overrides retain the previous trusted_root fallback behavior.
-	t.Setenv("SIGSTORE_REKOR_PUBLIC_KEY", filepath.Join(t.TempDir(), "missing"))
-	t.Setenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE", filepath.Join(t.TempDir(), "missing"))
-	material, err := verificationMaterialFromTargets(fixture.trustedRoot, nil)
-	require.NoError(t, err)
-	require.Contains(t, material.RekorPublicKeys.Keys, fixture.modernID)
-	require.Contains(t, material.CTLogPublicKeys.Keys, fixture.modernID)
+}
+
+func TestVerificationMaterialRejectsInvalidOperatorKeyOverrides(t *testing.T) {
+	fixture := newVerificationFixture(t)
+	for _, environment := range []string{"SIGSTORE_REKOR_PUBLIC_KEY", "SIGSTORE_CT_LOG_PUBLIC_KEY_FILE"} {
+		t.Run(environment, func(t *testing.T) {
+			t.Setenv("SIGSTORE_REKOR_PUBLIC_KEY", "")
+			t.Setenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE", "")
+			for _, invalid := range []string{"missing", "malformed"} {
+				t.Run(invalid, func(t *testing.T) {
+					file := filepath.Join(t.TempDir(), "operator.pub")
+					if invalid == "malformed" {
+						require.NoError(t, os.WriteFile(file, []byte("not a PEM public key"), 0o600))
+					}
+					t.Setenv(environment, file)
+					// The repository has valid keys, but an explicit override must
+					// not silently substitute them when its selected file fails.
+					material, err := verificationMaterialFromTargets(fixture.trustedRoot, nil)
+					require.Error(t, err)
+					require.Nil(t, material)
+					if invalid == "missing" {
+						require.ErrorIs(t, err, os.ErrNotExist)
+					}
+				})
+			}
+		})
+	}
 }
 
 func TestVerificationMaterialPreservesLegacyAndModernTrust(t *testing.T) {
