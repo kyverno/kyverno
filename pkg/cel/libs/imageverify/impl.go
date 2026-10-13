@@ -49,6 +49,9 @@ type ivfuncs struct {
 	nameOpts        []name.Option
 	verifications   *ImageVerificationResults
 
+	// requestCtx is set only on the callback-local copy made by the CEL binding.
+	requestCtx context.Context //nolint:containedctx
+
 	// pendingIntotoRestores holds intoto payloads read back from the cache on
 	// a verifyAttestationSignatures() hit, keyed by "<image>\x00<attestation>".
 	// Applying them to ImageData (which needs an imgCtx.Get()) is deferred
@@ -62,6 +65,15 @@ type ivfuncs struct {
 	// never completes the write -- so it would never get a real cache hit
 	// again, defeating caching entirely for that common case.
 	pendingIntotoRestores map[string]map[string][]byte
+}
+
+// requestContext returns the evaluation context, or the historical standalone
+// default when a callback is invoked directly without an activation.
+func (f *ivfuncs) requestContext() context.Context {
+	if f.requestCtx != nil {
+		return f.requestCtx
+	}
+	return context.Background()
 }
 
 func ImageVerifyCELFuncs(
@@ -169,7 +181,7 @@ func attestorsHaveUnbindableKeyMaterial(attestors []v1beta1.Attestor) bool {
 }
 
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
@@ -250,7 +262,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 }
 
 func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if len(args) != 3 {
 		return types.NewErr("function usage: <image> <attestation> <attestor list>")
 	}
@@ -394,7 +406,7 @@ func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Atte
 }
 
 func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
@@ -430,7 +442,7 @@ func (f *ivfuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 }
 
 func (f *ivfuncs) get_image_data_string(image ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {

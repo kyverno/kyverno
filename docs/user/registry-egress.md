@@ -85,11 +85,17 @@ it does not enable registry credential helpers or image-pull Secret informers.
 
 ## Sigstore trust configuration during upgrade
 
-TUF startup and signature verification share the configured registry egress mode
-and allowlist. Include private TUF mirrors in the allowlist when using enforce
-mode. Existing operator root settings, file mirrors, and public-key file overrides
-continue to apply. A policy-specific TUF mirror or root uses an isolated repository
-and cannot replace the controller's default trust material.
+Shared controller TUF startup, refresh, and trust-material helpers use the
+configured registry egress mode and allowlist, as do ImageValidatingPolicy
+signature HTTP requests. Include private TUF mirrors in the allowlist when using
+enforce mode. Existing operator root settings, file mirrors, and public-key file
+overrides continue to apply. A policy-specific TUF mirror or root uses an isolated
+repository and cannot replace the controller's default trust material.
+
+The shared TUF migration also supplies trust material to legacy Policy and
+ClusterPolicy verification. Their Rekor clients and HTTP public-key loaders retain
+their existing request paths in this CEL change. Guards for those legacy requests
+are handled separately in [the legacy policy update](https://github.com/kyverno/kyverno/pull/17920).
 
 Existing `TUF_ROOT` caches are imported into the per-mirror cache when the stored
 mirror matches. The old database and targets are retained, and imported metadata
