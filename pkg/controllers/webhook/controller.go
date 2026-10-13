@@ -1260,8 +1260,8 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
-	// Metadata protection is independent of policy selectors and bootstrap exclusions.
-	// Its association selector skips ordinary resources, including bootstrap traffic.
+	// Metadata protection is independent of policy selectors and applies the same
+	// configured bootstrap exclusion. Its association selector skips ordinary resources.
 	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
 	webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(caBundle))
 
