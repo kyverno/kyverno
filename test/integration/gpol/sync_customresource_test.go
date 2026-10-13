@@ -5,7 +5,9 @@ package gpol_test
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -148,12 +150,26 @@ func buildTenantPolicy(policyName string, userNamespaces ...string) *policiesv1b
 // once all three downstream resources exist, so tests can act on a fully synced tenant.
 func setupTenantSync(t *testing.T, policyName, userNs string) {
 	t.Helper()
+	setupTenantSyncWith(t, buildTenantPolicy(policyName, userNs), userNs)
+}
+
+// setupTenantSyncWith is setupTenantSync for a policy the test has adjusted. It returns a func
+// that stops the WatchManager, for tests that simulate a background controller restart.
+func setupTenantSyncWith(t *testing.T, policy *policiesv1beta1.GeneratingPolicy, userNs string) (stopWatchManager func()) {
+	t.Helper()
+	policyName := policy.GetName()
 	requireQueueCRDServed(t)
 	createTierConfigMap(t)
 
-	createGpolWithCleanup(t, buildTenantPolicy(policyName, userNs))
+	createGpolWithCleanup(t, policy)
 	waitForGpolInLister(t, policyName)
 	framework.CreateNamespace(t, testEnv.KubeClient, userNs)
+
+	// The cluster scoped Queue outlives the namespace, so remove it explicitly. Registered before the
+	// WatchManager cleanup so it runs after the watcher has stopped, which would otherwise recreate it.
+	t.Cleanup(func() {
+		_ = testEnv.DClient.GetDynamicInterface().Resource(queueGVR).Delete(context.Background(), userNs, metav1.DeleteOptions{})
+	})
 
 	// The WatchManager reads discovery when it is built, so it must come after the Queue CRD is served.
 	wm, stopWM := framework.NewGpolWatchManager(testEnv.DClient, logr.Discard())
@@ -171,14 +187,10 @@ func setupTenantSync(t *testing.T, policyName, userNs string) {
 	}, 10*time.Second, 200*time.Millisecond, "UR not processed in time")
 	require.Empty(t, mock.ProcessingErrors())
 
-	// The cluster scoped Queue outlives the namespace, so remove it explicitly.
-	t.Cleanup(func() {
-		_ = testEnv.DClient.GetDynamicInterface().Resource(queueGVR).Delete(context.Background(), userNs, metav1.DeleteOptions{})
-	})
-
 	waitForQueueField(t, userNs, "displayName", "Free Tier")
 	waitForQuotaCPURequest(t, userNs, "1")
 	waitForNetworkPolicyTypes(t, userNs, 2)
+	return stopWM
 }
 
 // namespaceTrigger returns the trigger the background controller records for a tenant namespace.
@@ -245,6 +257,7 @@ func TestGenerateSync_CustomResourceDownstreamDrift_Reverts(t *testing.T) {
 	queue, err := dyn.Resource(queueGVR).Get(ctx, userNs, metav1.GetOptions{})
 	require.NoError(t, err)
 	require.NoError(t, unstructured.SetNestedField(queue.Object, "Tampered Tier", "spec", "displayName"))
+	queue.SetAnnotations(map[string]string{"tampered-by": "tenant"})
 	_, err = dyn.Resource(queueGVR).Update(ctx, queue, metav1.UpdateOptions{})
 	require.NoError(t, err)
 
@@ -266,6 +279,121 @@ func TestGenerateSync_CustomResourceDownstreamDrift_Reverts(t *testing.T) {
 	waitForQueueField(t, userNs, "displayName", "Free Tier")
 	waitForQuotaCPURequest(t, userNs, "1")
 	waitForNetworkPolicyTypes(t, userNs, 2)
+
+	// Without server-side apply the revert restores exactly what was generated, so an annotation
+	// the policy did not set is removed again.
+	queue, err = dyn.Resource(queueGVR).Get(ctx, userNs, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.NotContains(t, queue.GetAnnotations(), "tampered-by", "an annotation the policy did not generate is removed")
+}
+
+// TestGenerateSync_ServerSideApply_KeepsOtherControllersMetadata covers a downstream that another
+// controller writes to as well, the way Crossplane adds a finalizer and an annotation to a Usage that
+// a policy generates. The fake controller below puts its finalizer and annotation back whenever they
+// are missing. A revert that replaces the whole object strips the annotation, the controller writes
+// it back, that looks like drift again, and the two keep overwriting each other. With
+// useServerSideApply the revert applies only what the policy generated and leaves the rest alone.
+func TestGenerateSync_ServerSideApply_KeepsOtherControllersMetadata(t *testing.T) {
+	const (
+		policyName = "generate-tenant-resources-coowned"
+		userNs     = "tenant-coowned"
+		finalizer  = "example.com/queue-protection"
+		annotation = "example.com/queue-details"
+	)
+	policy := buildTenantPolicy(policyName, userNs)
+	policy.Spec.UseServerSideApply = true
+	stopWatchManager := setupTenantSyncWith(t, policy, userNs)
+	dyn := testEnv.DClient.GetDynamicInterface()
+
+	// the value the fake controller keeps its annotation at
+	var details atomic.Value
+	details.Store("protected")
+	hasOwnMetadata := func(q *unstructured.Unstructured) bool {
+		return slices.Contains(q.GetFinalizers(), finalizer) && q.GetAnnotations()[annotation] == details.Load().(string)
+	}
+	var controllerWrites atomic.Int32
+	ctx, stop := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for ctx.Err() == nil {
+			q, err := dyn.Resource(queueGVR).Get(ctx, userNs, metav1.GetOptions{})
+			if err == nil && !hasOwnMetadata(q) {
+				if !slices.Contains(q.GetFinalizers(), finalizer) {
+					q.SetFinalizers(append(q.GetFinalizers(), finalizer))
+				}
+				annotations := q.GetAnnotations()
+				if annotations == nil {
+					annotations = map[string]string{}
+				}
+				annotations[annotation] = details.Load().(string)
+				q.SetAnnotations(annotations)
+				if _, err := dyn.Resource(queueGVR).Update(ctx, q, metav1.UpdateOptions{}); err == nil {
+					controllerWrites.Add(1)
+				}
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+	}()
+	// Stop the fake controller and drop its finalizer, so the Queue can be deleted by the cleanup
+	// that setupTenantSync registered.
+	t.Cleanup(func() {
+		stop()
+		<-done
+		if q, err := dyn.Resource(queueGVR).Get(context.Background(), userNs, metav1.GetOptions{}); err == nil {
+			q.SetFinalizers(nil)
+			_, _ = dyn.Resource(queueGVR).Update(context.Background(), q, metav1.UpdateOptions{})
+		}
+	})
+
+	quiet := func(msg string) {
+		t.Helper()
+		before := controllerWrites.Load()
+		time.Sleep(3 * time.Second)
+		assert.Equal(t, before, controllerWrites.Load(), msg)
+	}
+	require.Eventually(t, func() bool { return controllerWrites.Load() > 0 }, 10*time.Second, 50*time.Millisecond,
+		"the fake controller should have added its metadata")
+	quiet("once the other controller added its metadata, sync must leave it alone instead of fighting it")
+
+	// A user edit to what the policy generated is still reverted, without touching the other
+	// controller's finalizer and annotation.
+	queue, err := dyn.Resource(queueGVR).Get(context.Background(), userNs, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.NoError(t, unstructured.SetNestedField(queue.Object, "Tampered Tier", "spec", "displayName"))
+	_, err = dyn.Resource(queueGVR).Update(context.Background(), queue, metav1.UpdateOptions{})
+	require.NoError(t, err)
+	waitForQueueField(t, userNs, "displayName", "Free Tier")
+	quiet("the revert must not strip the other controller's metadata")
+
+	queue, err = dyn.Resource(queueGVR).Get(context.Background(), userNs, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, hasOwnMetadata(queue), "the other controller's finalizer and annotation are kept")
+
+	// After a restart the cache is rebuilt from the live Queue, which now carries the other
+	// controller's annotation. Sync must still treat it as that controller's: when the controller
+	// changes the value, Kyverno must not force the old one back.
+	stopWatchManager()
+	wm, stopWM := framework.NewGpolWatchManager(testEnv.DClient, logr.Discard())
+	t.Cleanup(stopWM)
+	restored, err := gpolProvider.Get(context.Background(), policyName)
+	require.NoError(t, err)
+	request := framework.NamespaceAdmissionRequest(userNs, namespaceJSON(userNs))
+	resp, err := gpolEngine.Handle(context.Background(), celengine.RequestFromAdmission(testEnv.ContextProvider.Clone(), request.AdmissionRequest), restored, true)
+	require.NoError(t, err)
+	require.Len(t, resp.Policies, 1)
+	require.NoError(t, wm.SyncWatchers(policyName, namespaceTrigger(userNs), resp.Policies[0].Result.GeneratedResources(), true))
+
+	details.Store("updated")
+	require.Eventually(t, func() bool {
+		q, err := dyn.Resource(queueGVR).Get(context.Background(), userNs, metav1.GetOptions{})
+		return err == nil && hasOwnMetadata(q)
+	}, 10*time.Second, 50*time.Millisecond, "the other controller should have changed its annotation")
+	quiet("after a restart, sync must not take back an annotation another controller owns")
+
+	queue, err = dyn.Resource(queueGVR).Get(context.Background(), userNs, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, "updated", queue.GetAnnotations()[annotation])
 }
 
 // TestGenerateSync_CustomResourceDownstream_RestoredAfterRestart covers the other half of the tenant
@@ -295,7 +423,7 @@ func TestGenerateSync_CustomResourceDownstream_RestoredAfterRestart(t *testing.T
 	require.NotNil(t, resp.Policies[0].Result, "cache restore should produce a rule result")
 
 	restored := resp.Policies[0].Result.GeneratedResources()
-	require.NoError(t, wm.SyncWatchers(policyName, namespaceTrigger(userNs), restored))
+	require.NoError(t, wm.SyncWatchers(policyName, namespaceTrigger(userNs), restored, policy.Policy.GetSpec().UseServerSideApply))
 
 	kinds := map[string]bool{}
 	for _, d := range wm.GetDownstreams(policyName) {
@@ -371,7 +499,7 @@ func TestGenerateSync_MultiTenantRestart_KeepsOtherTenantsResources(t *testing.T
 		require.NoError(t, err)
 		require.Len(t, resp.Policies, 1)
 		require.NotNil(t, resp.Policies[0].Result, "cache restore should produce a rule result for %s", ns)
-		require.NoError(t, wm.SyncWatchers(policyName, namespaceTrigger(ns), resp.Policies[0].Result.GeneratedResources()))
+		require.NoError(t, wm.SyncWatchers(policyName, namespaceTrigger(ns), resp.Policies[0].Result.GeneratedResources(), policy.Policy.GetSpec().UseServerSideApply))
 	}
 
 	// Tenant A is untouched by tenant B's restore: its Queue is still there and still watched.
