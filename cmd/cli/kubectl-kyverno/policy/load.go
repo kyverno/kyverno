@@ -158,6 +158,31 @@ func Load(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, pa
 	return LoadWithLoader(nil, fs, resourcePath, allowLegacyPolicies, paths...)
 }
 
+// LoadSkippingInvalidFiles behaves like Load, except that a file which fails to load does not
+// abort the whole load. The failure is recorded in NonFatalErrors under that file's own path and
+// the file is skipped, so a single broken file in a directory no longer hides the valid policies
+// next to it. Documents outside the policy API groups (resources, test manifests, values files and
+// so on) are ignored rather than reported, since they are not policies to begin with. Legacy
+// policy block errors still abort the load.
+func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
+	return LoadWithLoader(skipInvalidFiles(kubectlValidateLoader(allowLegacyPolicies, true)), fs, resourcePath, allowLegacyPolicies, paths...)
+}
+
+func skipInvalidFiles(l loader) loader {
+	return func(path string, content []byte) (*LoaderResults, error) {
+		results, err := l(path, content)
+		if err == nil || pkgdeprecations.IsLegacyPolicyBlockError(err) {
+			return results, err
+		}
+		skipped := &LoaderResults{}
+		if results != nil {
+			skipped.NonFatalErrors = results.NonFatalErrors
+		}
+		skipped.addError(path, err)
+		return skipped, nil
+	}
+}
+
 func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
 	if l == nil {
 		l = kubectlValidateLoaderFor(allowLegacyPolicies)
@@ -203,6 +228,28 @@ var loaderDelegate = sync.OnceValues(func() (resourceloader.Loader, error) {
 // kubectlValidateLoaderFor returns a loader that rejects legacy kyverno.io policy kinds with a
 // migration-hint error unless allowLegacyPolicies is set, matching the 1.20 admission-time block.
 func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
+	return kubectlValidateLoader(allowLegacyPolicies, false)
+}
+
+// isPolicyGroupKind reports whether gvk belongs to one of the API groups the loader reads policies
+// from. It matches on group rather than on the exact supported kinds and versions, so a policy
+// written for a newer CLI is still reported as a policy that could not be loaded.
+func isPolicyGroupKind(gvk schema.GroupVersionKind) bool {
+	switch gvk.Group {
+	case kyvernov1.GroupVersion.Group, policiesv1.GroupVersion.Group:
+		return true
+	case admissionregistrationv1.GroupName:
+		return strings.Contains(gvk.Kind, "AdmissionPolicy")
+	}
+	return false
+}
+
+func isValidYAML(document []byte) bool {
+	_, err := yaml.YAMLToJSON(document)
+	return err == nil
+}
+
+func kubectlValidateLoader(allowLegacyPolicies, ignoreNonPolicies bool) loader {
 	return func(path string, content []byte) (*LoaderResults, error) {
 		documents, err := extyaml.SplitDocuments(content)
 		if err != nil {
@@ -225,7 +272,7 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 			if err != nil {
 				// Check if this is a List object and handle it explicitly
 				if gvk.Kind == "List" && gvk.Version == "v1" {
-					if err := handleListItems(document, path, results, allowLegacyPolicies); err != nil {
+					if err := handleListItems(document, path, results, allowLegacyPolicies, ignoreNonPolicies); err != nil {
 						if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 							return nil, err
 						}
@@ -240,6 +287,11 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 					if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
 						return nil, blockErr
 					}
+				}
+				// a document that is not even valid YAML could be a broken policy, so only skip
+				// documents we could read and that turned out not to be policies
+				if ignoreNonPolicies && !isPolicyGroupKind(gvk) && isValidYAML(document) {
+					continue
 				}
 				msg := err.Error()
 				if strings.Contains(msg, "Invalid value: value provided for unknown field") {
@@ -263,6 +315,9 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 				if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 					return nil, wrapped
 				}
+				if ignoreNonPolicies && !isPolicyGroupKind(gvk) {
+					continue
+				}
 				if pendingErr == nil {
 					pendingErr = wrapped
 				}
@@ -273,7 +328,7 @@ func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
 }
 
 // handleListItems processes a v1.List object by extracting and processing its items
-func handleListItems(document []byte, path string, results *LoaderResults, allowLegacyPolicies bool) error {
+func handleListItems(document []byte, path string, results *LoaderResults, allowLegacyPolicies, ignoreNonPolicies bool) error {
 	var jsonData []byte
 	var parseErr error
 
@@ -309,6 +364,9 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 		if err := processDocumentItem(path, itemGVK, itemUnstructured, results, allowLegacyPolicies); err != nil {
 			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 				return fmt.Errorf("List item %d (%s): %w", i, itemGVK, err)
+			}
+			if ignoreNonPolicies && !isPolicyGroupKind(itemGVK) {
+				continue
 			}
 			results.addError(path, fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err))
 		}

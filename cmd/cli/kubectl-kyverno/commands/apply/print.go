@@ -23,6 +23,18 @@ import (
 
 const divider = "----------------------------------------------------------------------"
 
+func printPolicyLoadErrors(out io.Writer, loadErrors []PolicyDiagnostic) {
+	if len(loadErrors) == 0 {
+		return
+	}
+	fmt.Fprintln(out, divider)
+	fmt.Fprintln(out, "Policies Not Loaded:")
+	for i, loadError := range loadErrors {
+		printPolicyDiagnostic(out, i+1, loadError)
+	}
+	fmt.Fprintln(out, divider)
+}
+
 func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedInvalidPolicies) {
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Fprintln(out, divider)

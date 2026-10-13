@@ -3,6 +3,7 @@ package apply
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,6 +11,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-billy/v5"
+	"github.com/go-git/go-billy/v5/util"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
@@ -1667,4 +1672,135 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 			assert.Equal(t, plainErr == nil, explainedErr == nil, "--explain must not change whether the command succeeds")
 		})
 	}
+}
+
+func writePolicyLoadErrorFixtures(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	policies := filepath.Join(dir, "policies")
+	require.NoError(t, os.Mkdir(policies, 0o700))
+	files := map[string]string{
+		filepath.Join(policies, "disallow-latest.yaml"): `
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-latest
+spec:
+  validationActions: [Deny]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+  - expression: "object.spec.containers.all(c, !c.image.endsWith(':latest'))"
+    message: "latest tag is not allowed"
+`,
+		filepath.Join(policies, "typo.yaml"): `
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: typo
+spec:
+  validationActionz: [Deny]
+  validations:
+  - expression: "true"
+`,
+		filepath.Join(dir, "pod.yaml"): `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: default
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest
+`,
+	}
+	for path, content := range files {
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+	}
+	return policies, filepath.Join(dir, "pod.yaml")
+}
+
+func TestCommandReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
+	policies, pod := writePolicyLoadErrorFixtures(t)
+
+	cmd := Command()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{policies, "--resource", pod})
+	// the valid policy next to the broken one must still be applied, so the pod fails
+	assert.Error(t, cmd.Execute())
+
+	printed := stdout.String()
+	assert.Contains(t, printed, "Applying 1 policy rule(s) to 1 resource(s)")
+	assert.Contains(t, printed, "Policies Not Loaded:")
+	assert.Contains(t, printed, "1. "+filepath.Join(policies, "typo.yaml")+": ")
+	assert.Contains(t, printed, "unknown field")
+	assert.Contains(t, printed, "policy disallow-latest -> resource default/Pod/nginx failed")
+	assert.NotContains(t, stderr.String(), "Policies Not Loaded")
+}
+
+func TestCommandReportsPoliciesThatCouldNotBeLoadedOnStderrForPolicyReports(t *testing.T) {
+	policies, pod := writePolicyLoadErrorFixtures(t)
+
+	cmd := Command()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{policies, "--resource", pod, "--policy-report", "--output-format", "json"})
+	_ = cmd.Execute()
+
+	assert.NotContains(t, stdout.String(), "Policies Not Loaded")
+	var report map[string]any
+	assert.NoError(t, json.Unmarshal(stdout.Bytes(), &report), "stdout should only hold the policy report")
+	assert.Contains(t, stderr.String(), "Policies Not Loaded:")
+	assert.Contains(t, stderr.String(), filepath.Join(policies, "typo.yaml"))
+}
+
+func TestPrintPolicyLoadErrors(t *testing.T) {
+	var out bytes.Buffer
+	printPolicyLoadErrors(&out, nil)
+	assert.Empty(t, out.String())
+
+	printPolicyLoadErrors(&out, []PolicyDiagnostic{{name: "policies/typo.yaml", reason: "unknown field"}})
+	assert.Contains(t, out.String(), "Policies Not Loaded:")
+	assert.Contains(t, out.String(), "1. policies/typo.yaml: unknown field")
+}
+
+func TestLoadPoliciesFromGitReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
+	policies, pod := writePolicyLoadErrorFixtures(t)
+	cloner := func(_ string, fs billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
+		for _, name := range []string{"disallow-latest.yaml", "typo.yaml"} {
+			content, err := os.ReadFile(filepath.Join(policies, name))
+			if err != nil {
+				return nil, err
+			}
+			if err := util.WriteFile(fs, name, content, 0o600); err != nil {
+				return nil, err
+			}
+		}
+		podContent, err := os.ReadFile(pod)
+		if err != nil {
+			return nil, err
+		}
+		return nil, util.WriteFile(fs, "example-pod.yaml", podContent, 0o600)
+	}
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"https://github.com/acme/policies"},
+		ResourcePaths: []string{pod},
+		Cloner:        cloner,
+	}
+
+	var out bytes.Buffer
+	rc, _, skipped, _, err := config.applyCommandHelper(context.Background(), &out)
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc.Fail)
+	require.Len(t, skipped.loadErrors, 1)
+	assert.Equal(t, "/typo.yaml", skipped.loadErrors[0].name)
+	assert.Contains(t, skipped.loadErrors[0].reason, "unknown field")
 }

@@ -75,8 +75,9 @@ import (
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []PolicyDiagnostic
-	invalid []PolicyDiagnostic
+	skipped    []PolicyDiagnostic
+	invalid    []PolicyDiagnostic
+	loadErrors []PolicyDiagnostic
 }
 
 type PolicyDiagnostic struct {
@@ -127,6 +128,7 @@ type ApplyCommandConfig struct {
 	ShowPerformance           bool
 	CrdPaths                  []string
 	deprecationWarnings       []string
+	policyLoadErrors          []PolicyDiagnostic
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -163,6 +165,12 @@ func Command() *cobra.Command {
 				return err
 			}
 			cmd.SilenceErrors = true
+			loadErrorsOut := out
+			if applyCommandConfig.Stdin || applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions {
+				// stdout is meant to be parsed by another program in these modes, keep it clean
+				loadErrorsOut = cmd.ErrOrStderr()
+			}
+			printPolicyLoadErrors(loadErrorsOut, skipInvalidPolicies.loadErrors)
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReports(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat)
@@ -275,6 +283,7 @@ func Command() *cobra.Command {
 func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
+	c.policyLoadErrors = nil
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -311,6 +320,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	skippedInvalidPolicies.loadErrors = c.policyLoadErrors
 	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -1182,18 +1192,15 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				loaderResults, err := policy.Load(fs, "", false, policyYaml)
-				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-					for _, err := range loaderResults.NonFatalErrors {
-						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
-					}
-				}
+				loaderResults, err := policy.LoadSkippingInvalidFiles(fs, "", false, policyYaml)
 				if err != nil {
 					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 					}
+					c.recordPolicyLoadError(policyYaml, err)
 					continue
 				}
+				c.recordPolicyLoadErrors(loaderResults.NonFatalErrors)
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
@@ -1212,18 +1219,14 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		} else {
-			loaderResults, err := policy.Load(nil, "", false, path)
-			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-				for _, err := range loaderResults.NonFatalErrors {
-					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
-				}
-			}
+			loaderResults, err := policy.LoadSkippingInvalidFiles(nil, "", false, path)
 			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			if err != nil {
-				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
+				c.recordPolicyLoadError(path, err)
 			} else {
+				c.recordPolicyLoadErrors(loaderResults.NonFatalErrors)
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
@@ -1257,6 +1260,19 @@ func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []poli
 		fmt.Fprintln(out, msg)
 		c.deprecationWarnings = append(c.deprecationWarnings, msg)
 	}
+}
+
+// recordPolicyLoadErrors keeps track of policy files and documents that were skipped because they
+// could not be loaded, so they can be reported to the user instead of silently disappearing.
+func (c *ApplyCommandConfig) recordPolicyLoadErrors(loadErrors []policy.LoaderError) {
+	for _, loadErr := range loadErrors {
+		c.recordPolicyLoadError(loadErr.Path, loadErr.Error)
+	}
+}
+
+func (c *ApplyCommandConfig) recordPolicyLoadError(path string, err error) {
+	log.Log.V(3).Info("skipping policy that could not be loaded", "path", path, "error", err)
+	c.policyLoadErrors = append(c.policyLoadErrors, PolicyDiagnostic{name: path, reason: err.Error()})
 }
 
 func (c *ApplyCommandConfig) failOnDeprecationWarnings() error {

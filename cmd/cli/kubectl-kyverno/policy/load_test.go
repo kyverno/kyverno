@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestLoad(t *testing.T) {
@@ -594,4 +596,105 @@ spec:
 	if res != nil {
 		assert.Empty(t, res.PolicyCelExceptions)
 	}
+}
+
+func TestLoadSkippingInvalidFiles(t *testing.T) {
+	const validPolicy = `
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-team-label
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  validations:
+  - expression: "has(object.metadata.labels) && 'team' in object.metadata.labels"
+`
+	const unknownField = `
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: typo
+spec:
+  validationActionz: [Deny]
+  validations:
+  - expression: "true"
+`
+	const pod = `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`
+	dir := t.TempDir()
+	for name, content := range map[string]string{
+		"a-typo.yaml":        unknownField,
+		"b-valid.yaml":       validPolicy,
+		"c-pod.yaml":         pod,
+		"d-broken.yaml":      "apiVersion: policies.kyverno.io/v1\nkind: ValidatingPolicy\nmetadata:\n  name: [broken\n",
+		"e-newer.yaml":       strings.Replace(validPolicy, "policies.kyverno.io/v1", "policies.kyverno.io/v9", 1),
+		"f-mixed.yaml":       strings.Replace(validPolicy, "require-team-label", "require-team-label-2", 1) + "---\n" + pod,
+		"kustomization.yaml": "apiVersion: kustomize.config.k8s.io/v1beta1\nkind: Kustomization\nresources:\n- b-valid.yaml\n",
+		"values.yaml":        "policies:\n- name: require-team-label\n",
+		"notes.txt":          "not yaml",
+		".hidden.yaml":       unknownField,
+	} {
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
+	}
+
+	// the strict loader still fails the whole directory on the first broken file
+	_, err := Load(nil, "", false, dir)
+	require.Error(t, err)
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	require.NoError(t, err)
+	// the valid policy file and the policy sharing a file with a Pod are both loaded
+	assert.Len(t, results.ValidatingPolicies, 2)
+	// only policy documents that failed are reported, the Pod, kustomization and values file are not
+	require.Len(t, results.NonFatalErrors, 3)
+	assert.Equal(t, filepath.Join(dir, "a-typo.yaml"), results.NonFatalErrors[0].Path)
+	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "unknown field")
+	assert.Equal(t, filepath.Join(dir, "d-broken.yaml"), results.NonFatalErrors[1].Path)
+	assert.ErrorContains(t, results.NonFatalErrors[1].Error, "yaml")
+	assert.Equal(t, filepath.Join(dir, "e-newer.yaml"), results.NonFatalErrors[2].Path)
+	assert.ErrorContains(t, results.NonFatalErrors[2].Error, "policies.kyverno.io/v9")
+}
+
+func TestIsPolicyGroupKind(t *testing.T) {
+	tests := []struct {
+		gvk  schema.GroupVersionKind
+		want bool
+	}{
+		{gvk: schema.GroupVersionKind{Group: "policies.kyverno.io", Version: "v1", Kind: "ValidatingPolicy"}, want: true},
+		{gvk: schema.GroupVersionKind{Group: "policies.kyverno.io", Version: "v9", Kind: "SomethingNew"}, want: true},
+		{gvk: schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}, want: true},
+		{gvk: schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "ValidatingAdmissionPolicy"}, want: true},
+		{gvk: schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "MutatingAdmissionPolicyBinding"}, want: true},
+		{gvk: schema.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "ValidatingWebhookConfiguration"}, want: false},
+		{gvk: schema.GroupVersionKind{Group: "cli.kyverno.io", Version: "v1alpha1", Kind: "Test"}, want: false},
+		{gvk: schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, want: false},
+		{gvk: schema.GroupVersionKind{}, want: false},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, isPolicyGroupKind(tt.gvk), tt.gvk.String())
+	}
+}
+
+func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {
+	dir := t.TempDir()
+	content, err := os.ReadFile("testdata/list-single-clusterpolicy.yaml")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "legacy.yaml"), content, 0o600))
+
+	_, err = LoadSkippingInvalidFiles(nil, "", false, dir)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
 }
