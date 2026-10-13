@@ -215,6 +215,11 @@ func loadWithLoader(l loader, fs billy.Filesystem, resourcePath string, skipUnre
 			results, err = fsLoad(l, path, skipUnreadable)
 		}
 		if err != nil {
+			// one path that cannot be read must not drop what the other paths loaded
+			if skipUnreadable && !pkgdeprecations.IsLegacyPolicyBlockError(err) {
+				aggregateResults.addError(path, err)
+				continue
+			}
 			return nil, err
 		}
 		aggregateResults.Merge(results)
@@ -273,10 +278,19 @@ func documentError(document []byte, err error) error {
 			Name string `json:"name"`
 		} `json:"metadata"`
 	}
-	if yaml.Unmarshal(document, &meta) != nil || meta.Kind == "" || meta.Metadata.Name == "" {
+	if yaml.Unmarshal(document, &meta) != nil {
 		return err
 	}
-	return fmt.Errorf("%s %s: %w", meta.Kind, meta.Metadata.Name, err)
+	return namedError(meta.Kind, meta.Metadata.Name, err)
+}
+
+// namedError prefixes err with a document's kind and name, or returns it unchanged when either is
+// unknown.
+func namedError(kind, name string, err error) error {
+	if kind == "" || name == "" {
+		return err
+	}
+	return fmt.Errorf("%s %s: %w", kind, name, err)
 }
 
 func isValidYAML(document []byte) bool {
@@ -416,7 +430,8 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 			if lenient && !isPolicyGroupKind(itemGVK) {
 				continue
 			}
-			results.addError(path, fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err))
+			itemErr := fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err)
+			results.addError(path, namedError(itemGVK.Kind, itemUnstructured.GetName(), itemErr))
 		}
 	}
 

@@ -783,6 +783,9 @@ func TestDocumentError(t *testing.T) {
 	named := documentError([]byte("apiVersion: policies.kyverno.io/v1\nkind: ValidatingPolicy\nmetadata:\n  name: check\n"), base)
 	assert.EqualError(t, named, "ValidatingPolicy check: boom")
 	assert.ErrorIs(t, named, base)
+	assert.EqualError(t, namedError("ValidatingPolicy", "check", base), "ValidatingPolicy check: boom")
+	assert.Equal(t, base, namedError("", "check", base))
+	assert.Equal(t, base, namedError("ValidatingPolicy", "", base))
 	// documents without a readable kind and name keep the original error
 	assert.Equal(t, base, documentError([]byte("name: [broken"), base))
 	assert.Equal(t, base, documentError([]byte("kind: ValidatingPolicy\n"), base))
@@ -855,6 +858,64 @@ metadata:
 	require.Len(t, results.NonFatalErrors, 1)
 	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "SomethingNew")
 	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "policy type not supported")
+}
+
+func TestLoadSkippingInvalidFiles_NamesFailingListItems(t *testing.T) {
+	content := `apiVersion: v1
+kind: List
+items:
+- apiVersion: policies.kyverno.io/v1
+  kind: ValidatingPolicy
+  metadata:
+    name: valid
+  spec:
+    validations:
+    - expression: "true"
+- apiVersion: policies.kyverno.io/v1
+  kind: SomethingNew
+  metadata:
+    name: newer
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    name: example
+`
+	path := filepath.Join(t.TempDir(), "list.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	require.NoError(t, err)
+	assert.Len(t, results.ValidatingPolicies, 1)
+	// the unknown policy kind is reported by kind and name, the Pod is ignored
+	require.Len(t, results.NonFatalErrors, 1)
+	assert.Equal(t, path, results.NonFatalErrors[0].Path)
+	assert.True(t, strings.HasPrefix(results.NonFatalErrors[0].Error.Error(), "SomethingNew newer: failed to process List item 1"), results.NonFatalErrors[0].Error.Error())
+	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "policy type not supported")
+}
+
+func TestLoadSkippingInvalidFiles_KeepsOtherPathsWhenOneFails(t *testing.T) {
+	dir := t.TempDir()
+	valid := filepath.Join(dir, "valid.yaml")
+	require.NoError(t, os.WriteFile(valid, []byte(`apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: valid
+spec:
+  validations:
+  - expression: "true"
+`), 0o600))
+	missing := filepath.Join(dir, "missing.yaml")
+
+	// the strict loader fails the whole call
+	_, err := Load(nil, "", false, valid, missing)
+	require.Error(t, err)
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, missing, valid)
+	require.NoError(t, err)
+	assert.Len(t, results.ValidatingPolicies, 1)
+	require.Len(t, results.NonFatalErrors, 1)
+	assert.Equal(t, missing, results.NonFatalErrors[0].Path)
+	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "no such file or directory")
 }
 
 func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {
