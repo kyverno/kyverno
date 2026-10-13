@@ -158,7 +158,7 @@ func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namesp
 func parseCloneKind(gvks string) (gvk, sub string) {
 	gv, ks := kubeutils.GetKindFromGVK(gvks)
 	k, sub := kubeutils.SplitSubresource(ks)
-	if !strings.Contains(gv, "*") {
+	if gv != "" && !strings.Contains(gv, "*") {
 		k = strings.Join([]string{gv, k}, "/")
 	}
 	return k, sub

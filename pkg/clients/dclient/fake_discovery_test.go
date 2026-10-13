@@ -113,9 +113,9 @@ func TestFakeDiscoveryGetGVRFromGVK(t *testing.T) {
 
 func TestFakeDiscoveryPreferredVersion(t *testing.T) {
 	t.Parallel()
-	v1 := schema.GroupVersionResource{Group: "networking.example", Version: "v1", Resource: "networkpolicies"}
-	v2 := schema.GroupVersionResource{Group: "networking.example", Version: "v2", Resource: "networkpolicies"}
-	other := schema.GroupVersionResource{Group: "other.example", Version: "v2", Resource: "networkpolicies"}
+	v1 := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
+	v2 := schema.GroupVersionResource{Group: "example.com", Version: "v2", Resource: "widgets"}
+	other := schema.GroupVersionResource{Group: "other.example", Version: "v2", Resource: "widgets"}
 	for _, test := range []struct {
 		name       string
 		registered []schema.GroupVersionResource
@@ -124,29 +124,41 @@ func TestFakeDiscoveryPreferredVersion(t *testing.T) {
 		want       schema.GroupVersionResource
 		wantError  bool
 	}{
-		{name: "preferred version", registered: []schema.GroupVersionResource{v1, v2}, preferred: "v2", gvk: schema.GroupVersionKind{Kind: "NetworkPolicy"}, want: v2},
-		{name: "preference independent of order", registered: []schema.GroupVersionResource{v2, v1}, preferred: "v2", gvk: schema.GroupVersionKind{Kind: "NetworkPolicy"}, want: v2},
-		{name: "explicit version overrides preference", registered: []schema.GroupVersionResource{v2, v1}, preferred: "v2", gvk: v1.GroupVersion().WithKind("NetworkPolicy"), want: v1},
-		{name: "group with omitted version", registered: []schema.GroupVersionResource{v1, v2}, preferred: "v2", gvk: schema.GroupVersionKind{Group: v1.Group, Kind: "NetworkPolicy"}, want: v2},
-		{name: "ambiguous versions", registered: []schema.GroupVersionResource{v1, v2}, gvk: schema.GroupVersionKind{Kind: "NetworkPolicy"}, wantError: true},
-		{name: "ambiguous groups", registered: []schema.GroupVersionResource{other, v1, v2}, preferred: "v2", gvk: schema.GroupVersionKind{Kind: "NetworkPolicy"}, wantError: true},
+		{name: "preferred version", registered: []schema.GroupVersionResource{v1, v2}, preferred: "v2", gvk: schema.GroupVersionKind{Kind: "Widget"}, want: v2},
+		{name: "preference independent of order", registered: []schema.GroupVersionResource{v2, v1}, preferred: "v2", gvk: schema.GroupVersionKind{Kind: "Widget"}, want: v2},
+		{name: "explicit version overrides preference", registered: []schema.GroupVersionResource{v2, v1}, preferred: "v2", gvk: v1.GroupVersion().WithKind("Widget"), want: v1},
+		{name: "group with omitted version", registered: []schema.GroupVersionResource{v1, v2}, preferred: "v2", gvk: schema.GroupVersionKind{Group: v1.Group, Kind: "Widget"}, want: v2},
+		{name: "ambiguous versions", registered: []schema.GroupVersionResource{v1, v2}, gvk: schema.GroupVersionKind{Kind: "Widget"}, wantError: true},
+		{name: "ambiguous groups", registered: []schema.GroupVersionResource{other, v1, v2}, preferred: "v2", gvk: schema.GroupVersionKind{Kind: "Widget"}, wantError: true},
 	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-			discovery := NewFakeDiscoveryClient(test.registered)
-			for _, gvr := range test.registered {
-				discovery.AddGVRToGVKMapping(gvr, gvr.GroupVersion().WithKind("NetworkPolicy"))
-			}
-			discovery.SetPreferredVersion(v1.Group, test.preferred)
-			got, err := discovery.GetGVRFromGVK(test.gvk)
-			if test.wantError {
-				require.ErrorContains(t, err, "ambiguous")
-				require.Empty(t, got)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, test.want, got)
-		})
+		for _, mode := range []struct {
+			name   string
+			mapped map[schema.GroupVersionResource]bool
+		}{
+			{name: "inferred"},
+			{name: "mapped", mapped: map[schema.GroupVersionResource]bool{v1: true, v2: true, other: true}},
+			{name: "mapped v1 only", mapped: map[schema.GroupVersionResource]bool{v1: true}},
+			{name: "mapped v2 only", mapped: map[schema.GroupVersionResource]bool{v2: true}},
+		} {
+			t.Run(mode.name+"/"+test.name, func(t *testing.T) {
+				t.Parallel()
+				discovery := NewFakeDiscoveryClient(test.registered)
+				for _, gvr := range test.registered {
+					if mode.mapped[gvr] {
+						discovery.AddGVRToGVKMapping(gvr, gvr.GroupVersion().WithKind("Widget"))
+					}
+				}
+				discovery.SetPreferredVersion(v1.Group, test.preferred)
+				got, err := discovery.GetGVRFromGVK(test.gvk)
+				if test.wantError {
+					require.ErrorContains(t, err, "ambiguous")
+					require.Empty(t, got)
+					return
+				}
+				require.NoError(t, err)
+				require.Equal(t, test.want, got)
+			})
+		}
 	}
 }
 
@@ -155,11 +167,7 @@ func TestFakeDiscoveryCorePreference(t *testing.T) {
 	core := schema.GroupVersionResource{Version: "v1", Resource: "events"}
 	events := schema.GroupVersionResource{Group: "events.k8s.io", Version: "v1", Resource: "events"}
 	groups := []*restmapper.APIGroupResources{}
-	discovery := NewFakeDiscoveryClient([]schema.GroupVersionResource{events, core})
 	for _, gvr := range []schema.GroupVersionResource{events, core} {
-		discovery.AddGVRToGVKMapping(gvr, gvr.GroupVersion().WithKind("Event"))
-		discovery.SetPreferredVersion(gvr.Group, gvr.Version)
-		discovery.SetResourceScope(gvr, true)
 		version := metav1.GroupVersionForDiscovery{GroupVersion: gvr.GroupVersion().String(), Version: gvr.Version}
 		groups = append(groups, &restmapper.APIGroupResources{
 			Group: metav1.APIGroup{Name: gvr.Group, Versions: []metav1.GroupVersionForDiscovery{version}, PreferredVersion: version},
@@ -172,13 +180,76 @@ func TestFakeDiscoveryCorePreference(t *testing.T) {
 	mapping, err := restmapper.NewDiscoveryRESTMapper(groups).RESTMapping(schema.GroupKind{Kind: "Event"})
 	require.NoError(t, err)
 	require.Equal(t, core, mapping.Resource)
-	got, err := discovery.GetGVRFromGVK(schema.GroupVersionKind{Kind: "Event"})
+	for _, mode := range []struct {
+		name   string
+		mapped map[schema.GroupVersionResource]bool
+	}{
+		{name: "inferred"},
+		{name: "mapped", mapped: map[schema.GroupVersionResource]bool{core: true, events: true}},
+		{name: "mapped core only", mapped: map[schema.GroupVersionResource]bool{core: true}},
+		{name: "mapped non-core only", mapped: map[schema.GroupVersionResource]bool{events: true}},
+	} {
+		t.Run(mode.name, func(t *testing.T) {
+			t.Parallel()
+			for _, registered := range [][]schema.GroupVersionResource{{events, core}, {core, events}} {
+				discovery := NewFakeDiscoveryClient(registered)
+				for _, gvr := range registered {
+					if mode.mapped[gvr] {
+						discovery.AddGVRToGVKMapping(gvr, gvr.GroupVersion().WithKind("Event"))
+					}
+					discovery.SetPreferredVersion(gvr.Group, gvr.Version)
+					discovery.SetResourceScope(gvr, true)
+				}
+				got, err := discovery.GetGVRFromGVK(schema.GroupVersionKind{Kind: "Event"})
+				require.NoError(t, err)
+				require.Equal(t, mapping.Resource, got)
+				got, err = discovery.GetGVRFromGVK(events.GroupVersion().WithKind("Event"))
+				require.NoError(t, err)
+				require.Equal(t, events, got, "an explicit group must override core preference")
+				resources, err := discovery.FindResources("*", "*", "Event", "")
+				require.NoError(t, err)
+				require.Len(t, resources, 2, "scope checks must still inspect both API groups")
+			}
+		})
+	}
+}
+
+func TestFakeDiscoveryDuplicateRegistrations(t *testing.T) {
+	t.Parallel()
+	for _, gvr := range []schema.GroupVersionResource{
+		{Group: "example.com", Version: "v1", Resource: "widgets"},
+		{Version: "v1", Resource: "configmaps"},
+	} {
+		t.Run(gvr.Resource, func(t *testing.T) {
+			t.Parallel()
+			kind := "Widget"
+			if gvr.Resource == "configmaps" {
+				kind = "ConfigMap"
+			}
+			discovery := NewFakeDiscoveryClient([]schema.GroupVersionResource{gvr, gvr})
+			got, err := discovery.GetGVRFromGVK(schema.GroupVersionKind{Kind: kind})
+			require.NoError(t, err)
+			require.Equal(t, gvr, got)
+		})
+	}
+}
+
+func TestFakeDiscoveryExplicitMappingIsAuthoritative(t *testing.T) {
+	t.Parallel()
+	gvr := schema.GroupVersionResource{Group: "example.com", Version: "v1", Resource: "widgets"}
+	discovery := NewFakeDiscoveryClient([]schema.GroupVersionResource{gvr})
+	discovery.AddGVRToGVKMapping(gvr, gvr.GroupVersion().WithKind("Gadget"))
+	got, err := discovery.GetGVRFromGVK(schema.GroupVersionKind{Kind: "Widget"})
+	require.ErrorContains(t, err, "not found")
+	require.Empty(t, got, "an explicit mapping must suppress name inference")
+	got, err = discovery.GetGVRFromGVK(schema.GroupVersionKind{Kind: "Gadget"})
 	require.NoError(t, err)
-	require.Equal(t, mapping.Resource, got)
-	got, err = discovery.GetGVRFromGVK(events.GroupVersion().WithKind("Event"))
+	require.Equal(t, gvr, got)
+
+	// A mapping can also supply a resource absent from constructor registrations.
+	irregular := schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"}
+	discovery.AddGVRToGVKMapping(irregular, irregular.GroupVersion().WithKind("NetworkPolicy"))
+	got, err = discovery.GetGVRFromGVK(schema.GroupVersionKind{Kind: "NetworkPolicy"})
 	require.NoError(t, err)
-	require.Equal(t, events, got, "an explicit group must override core preference")
-	resources, err := discovery.FindResources("*", "*", "Event", "")
-	require.NoError(t, err)
-	require.Len(t, resources, 2, "scope checks must still inspect both API groups")
+	require.Equal(t, irregular, got)
 }

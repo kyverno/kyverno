@@ -125,23 +125,6 @@ func (c *fakeDiscoveryClient) SetPreferredVersion(group, version string) {
 	c.preferredVersions[group] = version
 }
 
-func (c *fakeDiscoveryClient) getGVR(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
-	resource := strings.ToLower(gvk.Kind) + "s"
-	for _, gvr := range c.registeredResources {
-		// Explicit mappings are authoritative, including irregular resource names.
-		if _, mapped := c.gvrToGVK[gvr]; mapped {
-			continue
-		}
-		if gvr.Resource == resource &&
-			(gvk.Group == "" && gvk.Version == "" || gvr.Group == gvk.Group) &&
-			(gvk.Version == "" || gvr.Version == gvk.Version) {
-			// Unmapped test fixtures retain their explicit registration-order preference.
-			return gvr, nil
-		}
-	}
-	return schema.GroupVersionResource{}, errors.New("not found")
-}
-
 func (c *fakeDiscoveryClient) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
 	if c.gvrToGVK != nil {
 		if gvk, exists := c.gvrToGVK[gvr]; exists {
@@ -180,13 +163,31 @@ func inferKindFromResourceName(resource string) string {
 }
 
 func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
-	var matches []schema.GroupVersionResource
+	candidates := make(map[schema.GroupVersionResource]struct{})
 	for gvr, mappedGVK := range c.gvrToGVK {
 		if mappedGVK.Kind == gvk.Kind &&
 			(gvk.Group == "" && gvk.Version == "" || mappedGVK.Group == gvk.Group) &&
 			(gvk.Version == "" || mappedGVK.Version == gvk.Version) {
-			matches = append(matches, gvr)
+			candidates[gvr] = struct{}{}
 		}
+	}
+	resource := strings.ToLower(gvk.Kind) + "s"
+	for _, gvr := range c.registeredResources {
+		// Explicit mappings are authoritative, including irregular resource names.
+		if _, mapped := c.gvrToGVK[gvr]; mapped {
+			continue
+		}
+		if gvr.Resource == resource &&
+			(gvk.Group == "" && gvk.Version == "" || gvr.Group == gvk.Group) &&
+			(gvk.Version == "" || gvr.Version == gvk.Version) {
+			candidates[gvr] = struct{}{}
+		}
+	}
+	// Apply the same discovery preferences to mapped and inferred registrations.
+	// Deduplicate constructor defaults and repeated fixture registrations first.
+	matches := make([]schema.GroupVersionResource, 0, len(candidates))
+	for gvr := range candidates {
+		matches = append(matches, gvr)
 	}
 	if len(matches) > 1 && gvk.Group == "" && gvk.Version == "" {
 		// The runtime discovery RESTMapper gives core/v1 priority for kind-only lookups.
@@ -211,7 +212,7 @@ func (c *fakeDiscoveryClient) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema
 	}
 	switch len(matches) {
 	case 0:
-		return c.getGVR(gvk)
+		return schema.GroupVersionResource{}, errors.New("not found")
 	case 1:
 		return matches[0], nil
 	default:

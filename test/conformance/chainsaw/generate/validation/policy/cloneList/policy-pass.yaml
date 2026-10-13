@@ -41,7 +41,7 @@ spec:
       cloneList:
         namespace: target-scope-validation-fail-ns
         kinds:
-          - v1/Secret
+          - Secret
         selector:
           matchLabels:
             allowedToBeCloned: "true"
@@ -67,7 +67,7 @@ spec:
         namespace: target-scope-validation-fail-ns
         kinds:
           - v1/Secret
-          - v1/ConfigMap
+          - ConfigMap
         selector:
           matchLabels:
             allowedToBeCloned: "true"
