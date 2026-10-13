@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/handlers"
+	"github.com/kyverno/kyverno/pkg/engine/internal"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,8 +20,9 @@ import (
 )
 
 type validateImageHandler struct {
-	client    engineapi.Client
-	isCluster bool
+	configuration config.Configuration
+	client        engineapi.Client
+	isCluster     bool
 }
 
 func NewValidateImageHandler(
@@ -34,16 +36,19 @@ func NewValidateImageHandler(
 	if engineutils.IsDeleteRequest(policyContext) {
 		return nil, nil
 	}
-	ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
-	if err != nil {
-		return nil, err
-	}
-	if len(ruleImages) == 0 {
-		return nil, nil
+	if !internal.ImageReferencesHasVariables(rule) {
+		ruleImages, _, err := engineutils.ExtractMatchingImages(resource, policyContext.JSONContext(), rule, configuration)
+		if err != nil {
+			return nil, err
+		}
+		if len(ruleImages) == 0 {
+			return nil, nil
+		}
 	}
 	return validateImageHandler{
-		client:    client,
-		isCluster: isCluster,
+		configuration: configuration,
+		client:        client,
+		isCluster:     isCluster,
 	}, nil
 }
 
@@ -77,10 +82,40 @@ func (h validateImageHandler) Process(
 		)
 	}
 
+	var (
+		images map[string]map[string]apiutils.ImageInfo
+		err    error
+	)
+	if rule.ImageExtractors != nil {
+		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&resource, rule.ImageExtractors, h.configuration)
+		if err != nil {
+			return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract custom images", err)
+		}
+	} else {
+		images, err = policyContext.JSONContext().GenerateCustomImageInfo(&resource, nil, h.configuration)
+		if err != nil {
+			return resource, handlers.WithError(rule, engineapi.ImageVerify, "failed to extract images", err)
+		}
+	}
+
+	ruleCopy, err := internal.SubstituteImageVerifyVariables(rule, policyContext.JSONContext(), logger)
+	if err != nil {
+		return resource, handlers.WithResponses(
+			engineapi.RuleError(rule.Name, engineapi.ImageVerify, "failed to substitute variables", err, rule.ReportProperties),
+		)
+	}
+
+	if internal.ImageReferencesHasVariables(rule) {
+		matchingImages, _ := engineutils.GetMatchingImages(images, *ruleCopy)
+		if len(matchingImages) == 0 {
+			return resource, nil
+		}
+	}
+
 	skippedImages := make([]string, 0)
 	passedImages := make([]string, 0)
 	failedErrors := make([]string, 0)
-	for _, v := range rule.VerifyImages {
+	for _, v := range ruleCopy.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range policyContext.JSONContext().ImageInfo() {
 			for _, imageInfo := range infoMap {
@@ -90,7 +125,7 @@ func (h validateImageHandler) Process(
 					continue
 				}
 				logger.V(4).Info("validating image", "image", image)
-				if v, err := validateImage(policyContext, rule.Name, imageVerify, imageInfo, logger); err != nil {
+				if v, err := validateImage(policyContext, resource, rule.Name, imageVerify, imageInfo, logger); err != nil {
 					failedErrors = append(failedErrors, err.Error())
 				} else if v == engineapi.ImageVerificationSkip {
 					skippedImages = append(skippedImages, image)
@@ -125,7 +160,7 @@ func (h validateImageHandler) Process(
 	}
 }
 
-func validateImage(ctx engineapi.PolicyContext, rule string, imageVerify *kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
+func validateImage(ctx engineapi.PolicyContext, resource unstructured.Unstructured, rule string, imageVerify *kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
 	var verified engineapi.ImageVerificationMetadataStatus
 	var err error
 	image := imageInfo.String()
@@ -137,10 +172,13 @@ func validateImage(ctx engineapi.PolicyContext, rule string, imageVerify *kyvern
 			return engineapi.ImageVerificationFail, fmt.Errorf("missing digest for %s", image)
 		}
 	}
-	newResource := ctx.NewResource()
-	if imageVerify.Required && newResource.Object != nil {
+	targetResource := resource
+	if targetResource.Object == nil {
+		targetResource = ctx.NewResource()
+	}
+	if imageVerify.Required && targetResource.Object != nil {
 		policy := ctx.Policy()
-		verified, err = engineutils.IsImageVerifiedForPolicy(newResource, policy.GetNamespace(), policy.GetName(), rule, image, log)
+		verified, err = engineutils.IsImageVerifiedForPolicy(targetResource, policy.GetNamespace(), policy.GetName(), rule, image, log)
 		if err != nil {
 			return engineapi.ImageVerificationFail, err
 		}

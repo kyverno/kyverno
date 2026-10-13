@@ -52,12 +52,25 @@ func ExtractMatchingImages(
 		images map[string]map[string]apiutils.ImageInfo
 		err    error
 	)
-	images = context.ImageInfo()
 	if rule.ImageExtractors != nil {
-		images, err = context.GenerateCustomImageInfo(&resource, rule.ImageExtractors, cfg)
+		if context != nil {
+			images, err = context.GenerateCustomImageInfo(&resource, rule.ImageExtractors, cfg)
+		} else {
+			images, err = apiutils.ExtractImagesFromResource(resource, rule.ImageExtractors, cfg)
+		}
 		if err != nil {
 			// if we get an error while generating custom images from image extractors,
 			// don't check for matching images in imageExtractors
+			return nil, "", err
+		}
+	} else if context != nil {
+		images, err = context.GenerateCustomImageInfo(&resource, nil, cfg)
+		if err != nil {
+			return nil, "", err
+		}
+	} else {
+		images, err = apiutils.ExtractImagesFromResource(resource, nil, cfg)
+		if err != nil {
 			return nil, "", err
 		}
 	}
