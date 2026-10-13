@@ -29,7 +29,7 @@ metadata:
     {{- include "kyverno.admission-controller.labels" . | nindent 4 }}
 spec:
   isCA: true
-  commonName: {{ .Values.admissionController.certManager.ca.commonName | default (printf "%s-admission-controller-ca" (include "kyverno.fullname" .)) }}
+  commonName: {{ .Values.admissionController.certManager.ca.commonName | default (printf "%s-admission-controller-ca" (include "kyverno.fullname" .)) | quote }}
   # Use the exact secret name Kyverno expects for admission controller CA
   secretName: {{ $fullSvcName }}.kyverno-tls-ca
   duration: {{ .Values.admissionController.certManager.ca.duration | default "87600h" }}
