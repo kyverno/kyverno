@@ -137,6 +137,9 @@ var timestampKeys = []string{
 	"time",
 }
 
+// extractStatementTimestamp extracts a trusted timestamp from signed in-toto statement fields.
+// Unsigned OCI manifest annotations are intentionally excluded to prevent mutable registry metadata
+// from manipulating attestation evaluation order.
 func extractStatementTimestamp(statement map[string]any) (time.Time, bool) {
 	if predicate, ok := statement["predicate"].(map[string]any); ok {
 		if meta, ok := predicate["metadata"].(map[string]any); ok {
@@ -167,13 +170,6 @@ func extractStatementTimestamp(statement map[string]any) (time.Time, bool) {
 		}
 	}
 
-	if annotations, ok := statement["annotations"].(map[string]any); ok {
-		for _, k := range []string{"org.opencontainers.image.created", "dev.cosignproject.cosign/created"} {
-			if t, ok := parseTimeValue(annotations[k]); ok {
-				return t, true
-			}
-		}
-	}
 	for _, k := range []string{"created", "timestamp", "time"} {
 		if t, ok := parseTimeValue(statement[k]); ok {
 			return t, true

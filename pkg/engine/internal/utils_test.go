@@ -155,14 +155,13 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 			expected: "2026-07-01T15:20:00Z",
 		},
 		{
-			name: "annotation created",
+			name: "unsigned OCI annotations are ignored",
 			statement: map[string]any{
 				"annotations": map[string]any{
 					"org.opencontainers.image.created": "2026-08-01T10:00:00Z",
 				},
 			},
-			expectOk: true,
-			expected: "2026-08-01T10:00:00Z",
+			expectOk: false,
 		},
 		{
 			name: "cosign vuln scanStartedOn",
