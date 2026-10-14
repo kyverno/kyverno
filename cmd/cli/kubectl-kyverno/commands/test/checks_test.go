@@ -156,6 +156,9 @@ func TestPrintCheckResultIncludesGeneratedAndPatchedFields(t *testing.T) {
 	}}
 
 	checkYAML := `assert:
+  generatedResource:
+    metadata:
+      name: generated-one
   generatedResources:
   - metadata:
       name: generated-one
