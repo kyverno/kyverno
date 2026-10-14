@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/random"
@@ -77,4 +78,56 @@ func TestCheckOptions_SignaturePullSecretsApplyOverReusedPuller(t *testing.T) {
 
 	_, err = ociremote.SignedEntity(ref, opts.RegistryClientOpts...)
 	require.NoError(t, err, "the signature pull secret must authenticate despite the reused puller")
+}
+
+// TestBundleDetection_SignaturePullSecretsApplyOverReusedPuller is the bundle
+// detection counterpart of TestCheckOptions_SignaturePullSecretsApplyOverReusedPuller:
+// loadBundles reads referrers from the signature repository through the same
+// options, so a bundle that only the signaturePullSecrets can read must still be
+// found when the image's options carry a reused puller.
+func TestBundleDetection_SignaturePullSecretsApplyOverReusedPuller(t *testing.T) {
+	var requireAuth atomic.Bool
+	inner := registry.New(registry.WithReferrersSupport(true), registry.Logger(log.New(io.Discard, "", 0)))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if user, password, ok := r.BasicAuth(); requireAuth.Load() && (!ok || user != "sig" || password != "pw") {
+			w.Header().Set("WWW-Authenticate", `Basic realm="registry"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		inner.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	host := strings.TrimPrefix(server.URL, "http://")
+
+	imageRepo, err := name.NewRepository(host+"/test/img", name.Insecure)
+	require.NoError(t, err)
+	sigRepo, err := name.NewRepository(host+"/signatures/img", name.Insecure)
+	require.NoError(t, err)
+	subject := pushSubject(t, imageRepo, "subject")
+	pushReferrer(t, sigRepo, subject, []byte(validBundle), testBundleMediaType, testBundleMediaType)
+	requireAuth.Store(true)
+
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	require.NoError(t, indexer.Add(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "signatures", Namespace: config.KyvernoNamespace()},
+		Type:       corev1.SecretTypeDockerConfigJson,
+		Data: map[string][]byte{corev1.DockerConfigJsonKey: []byte(fmt.Sprintf(`{"auths":{%q:{"auth":%q}}}`,
+			host, base64.StdEncoding.EncodeToString([]byte("sig:pw"))))},
+	}))
+
+	// the image's options as imageverify binds them: a puller built from the
+	// policy's own credentials, which have no access to the registry
+	puller, err := remote.NewPuller()
+	require.NoError(t, err)
+
+	cosignCfg := bundleTestAttestor()
+	cosignCfg.Source = &v1beta1.Source{
+		Repository:           sigRepo.String(),
+		SignaturePullSecrets: []corev1.LocalObjectReference{{Name: "signatures"}},
+	}
+	opts, err := checkOptions(context.Background(), cosignCfg, []remote.Option{remote.Reuse(puller)}, []name.Option{name.Insecure}, corev1listers.NewSecretLister(indexer))
+	require.NoError(t, err)
+
+	bundles, _ := NewVerifier(nil, logr.Discard()).loadBundles(imageRepo.Tag("subject"), opts.RegistryClientOpts)
+	require.Len(t, bundles, 1, "the signature pull secret must reach the bundle despite the reused puller")
 }
