@@ -418,22 +418,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			storedTrigger := admission.NewAttributesRecord(&resource, admitted.oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admitted.operation, nil, false, admissionpolicy.NewUser(user))
 			triggeredPolicies = conditionsStillMatch(context.TODO(), provider, triggeredPolicies, storedTrigger, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
 			if len(p.TargetResources) > 0 && len(triggeredPolicies) > 0 {
+				// CEL resource.get()/resource.list() must see the supplied targets, in cluster mode too
+				targetContext := targetResourceContext(contextProvider, p.TargetResources, restMapper)
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
-				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
+				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, targetContext)
 				targetMatcher := matching.NewMatcher()
-				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
-				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
-					for _, target := range p.TargetResources {
-						tGVK := target.GroupVersionKind()
-						tMapping, err := restMapper.RESTMapping(tGVK.GroupKind(), tGVK.Version)
-						if err != nil {
-							continue
-						}
-						_ = fakeCtx.AddResource(tMapping.Resource, target)
-					}
-				}
-				celTargets, err := discoverCELTargets(provider, contextProvider, &resource, triggeredPolicies)
+				celTargets, err := discoverCELTargets(provider, targetContext, &resource, triggeredPolicies)
 				if err != nil {
 					return nil, fmt.Errorf("failed to discover CEL targets: %w", err)
 				}
