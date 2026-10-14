@@ -89802,6 +89802,53 @@ rules:
       - patch
       - update
       - watch
+  # Everything else the chart aggregates into the admin and view roles (see
+  # templates/rbac/). Generate rules that create a RoleBinding to those roles
+  # are rejected by the RBAC escalation check unless the background controller
+  # holds every permission they grant.
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - cleanuppolicies
+      - clustercleanuppolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - deletingpolicies
+      - imagevalidatingpolicies
+      - namespaceddeletingpolicies
+      - namespacedimagevalidatingpolicies
+      - namespacedvalidatingpolicies
+      - validatingpolicies
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - wgpolicyk8s.io
+    resources:
+      - policyreports
+      - clusterpolicyreports
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
   - apiGroups:
       - ''
     resources:
