@@ -1,0 +1,187 @@
+package processor
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
+)
+
+const targetFixture = "../../../../test/cli/test-mutating-policy/mutate-existing-secret-trigger-deployment-target"
+
+// readUnstructured reads a single resource from a YAML file.
+func readUnstructured(t *testing.T, path string) *unstructured.Unstructured {
+	t.Helper()
+	content, err := os.ReadFile(path)
+	require.NoError(t, err)
+	var object map[string]any
+	require.NoError(t, yaml.Unmarshal(content, &object))
+	return &unstructured.Unstructured{Object: object}
+}
+
+// TestApplyPoliciesOnResource_MutatingPolicyTargets checks the trigger and target passes for a
+// MutatingPolicy with targetMatchConstraints: the trigger is never mutated, the target is mutated only
+// when the trigger matches the policy, a failed target mutation is counted as an error, and only the
+// patched target is printed or written to the output file.
+func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
+	loaded, err := policy.Load(nil, "", false, filepath.Join(targetFixture, "policy.yaml"))
+	require.NoError(t, err)
+	require.Len(t, loaded.MutatingPolicies, 1)
+
+	content, err := os.ReadFile(filepath.Join(targetFixture, "policy.yaml"))
+	require.NoError(t, err)
+	failingPath := filepath.Join(t.TempDir(), "failing-policy.yaml")
+	require.NoError(t, os.WriteFile(failingPath, []byte(strings.Replace(string(content), "replicas: 3", "replicas: object.spec.missing.count", 1)), 0o600))
+	failing, err := policy.Load(nil, "", false, failingPath)
+	require.NoError(t, err)
+	require.Len(t, failing.MutatingPolicies, 1)
+
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	configMap := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata":   map[string]any{"name": "test-config", "namespace": "test-ns"},
+	}}
+	target := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+
+	tests := []struct {
+		name          string
+		failing       bool
+		trigger       *unstructured.Unstructured
+		mutateLogPath string // "-" means a file that cannot be opened
+		wantPass      int
+		wantError     int
+		wantErr       string
+	}{
+		{name: "matching trigger mutates the target", trigger: secret, wantPass: 1},
+		{name: "trigger the policy does not match leaves the target alone", trigger: configMap},
+		{name: "failed target mutation is counted as an error", failing: true, trigger: secret, wantError: 1},
+		{name: "patched target is written to the output file", trigger: secret, mutateLogPath: "file", wantPass: 1},
+		{name: "unwritable output file fails the run", trigger: secret, mutateLogPath: "-", wantErr: "failed to print mutated target result"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mpols := loaded.MutatingPolicies
+			if tt.failing {
+				mpols = failing.MutatingPolicies
+			}
+			var mutateLogPath string
+			switch tt.mutateLogPath {
+			case "file":
+				mutateLogPath = filepath.Join(t.TempDir(), "mutated.yaml")
+				require.NoError(t, os.WriteFile(mutateLogPath, nil, 0o600))
+			case "-":
+				mutateLogPath = filepath.Join(t.TempDir(), "missing-dir", "mutated.yaml")
+			}
+			rc := &ResultCounts{}
+			out := &bytes.Buffer{}
+			processor := PolicyProcessor{
+				Store:              &store.Store{},
+				MutatingPolicies:   mpols,
+				Resource:           *tt.trigger.DeepCopy(),
+				TargetResources:    []*unstructured.Unstructured{target.DeepCopy()},
+				Variables:          &variables.Variables{},
+				Rc:                 rc,
+				MutateLogPath:      mutateLogPath,
+				PrintPatchResource: true,
+				Out:                out,
+			}
+			responses, err := processor.ApplyPoliciesOnResource()
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, tt.wantError, rc.Error)
+
+			for _, response := range responses {
+				assert.Equal(t, "Deployment", response.Resource.GetKind(), "the trigger must never be evaluated by a target only policy")
+				for _, rule := range response.PolicyResponse.Rules {
+					patched, _, _ := rule.PatchedTarget()
+					if rule.Status() == engineapi.RuleStatusPass {
+						require.NotNil(t, patched)
+						assert.Equal(t, "true", patched.GetLabels()["mutated"])
+					} else {
+						assert.Nil(t, patched, "a failed mutation must not produce a patched target")
+					}
+				}
+			}
+			if tt.trigger == configMap {
+				assert.Empty(t, responses, "a trigger the policy does not match must not mutate any target")
+			}
+
+			printed := out.String()
+			if mutateLogPath != "" {
+				written, err := os.ReadFile(mutateLogPath)
+				require.NoError(t, err)
+				printed = string(written)
+				assert.True(t, strings.HasPrefix(printed, "apiVersion: "), "unexpected start of output: %q", printed)
+			}
+			assert.Equal(t, tt.wantPass > 0, strings.Contains(printed, "name: test-deploy"))
+			assert.NotContains(t, printed, "kind: Secret", "the trigger must not be printed as mutated")
+		})
+	}
+}
+
+// TestApplyPoliciesOnResource_InlineMutatingPolicyOutput checks that an ordinary MutatingPolicy, which
+// has no targetMatchConstraints, still mutates the trigger inline and prints or writes it.
+func TestApplyPoliciesOnResource_InlineMutatingPolicyOutput(t *testing.T) {
+	const fixture = "../../../../test/cli/test-mutating-policy/mutating-label"
+	loaded, err := policy.Load(nil, "", false, filepath.Join(fixture, "policy.yaml"))
+	require.NoError(t, err)
+	require.Len(t, loaded.MutatingPolicies, 1)
+	resource := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "apps/v1",
+		"kind":       "Deployment",
+		"metadata":   map[string]any{"name": "dev-deploy-2", "namespace": "dev"},
+		"spec":       map[string]any{"replicas": int64(1)},
+	}}
+
+	for _, toFile := range []bool{false, true} {
+		t.Run(map[bool]string{false: "stdout", true: "output file"}[toFile], func(t *testing.T) {
+			var mutateLogPath string
+			if toFile {
+				mutateLogPath = filepath.Join(t.TempDir(), "mutated.yaml")
+				require.NoError(t, os.WriteFile(mutateLogPath, nil, 0o600))
+			}
+			rc := &ResultCounts{}
+			out := &bytes.Buffer{}
+			processor := PolicyProcessor{
+				Store:              &store.Store{},
+				MutatingPolicies:   loaded.MutatingPolicies,
+				Resource:           *resource.DeepCopy(),
+				Variables:          &variables.Variables{},
+				Rc:                 rc,
+				MutateLogPath:      mutateLogPath,
+				PrintPatchResource: true,
+				Out:                out,
+			}
+			_, err := processor.ApplyPoliciesOnResource()
+			require.NoError(t, err)
+			// the inline path counts its response more than once on main as well, only check it passed
+			assert.NotZero(t, rc.Pass)
+			assert.Zero(t, rc.Fail+rc.Error)
+
+			printed := out.String()
+			if toFile {
+				written, err := os.ReadFile(mutateLogPath)
+				require.NoError(t, err)
+				printed = string(written)
+				assert.True(t, strings.HasPrefix(printed, "apiVersion: "), "unexpected start of output: %q", printed)
+			}
+			assert.Contains(t, printed, "name: dev-deploy-2")
+			assert.NotContains(t, printed, "patched targets")
+		})
+	}
+}

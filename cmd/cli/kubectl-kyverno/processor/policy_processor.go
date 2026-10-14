@@ -403,8 +403,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				responses = append(responses, response)
 				resource = response.PatchedResource
 			}
-			// mutateExisting MutatingPolicies - process target resources
-			if len(p.TargetResources) > 0 {
+			// mutateExisting MutatingPolicies - process target resources. Like the admission webhook, only
+			// policies whose trigger rules (matchConstraints, matchConditions) match this resource may
+			// mutate targets; the target engine below has no matcher and never checks the trigger itself.
+			// MatchNames with no names matches every policy, so an empty result must skip the targets.
+			triggeredPolicies := eng.MatchedMutateExistingPolicies(context.TODO(), request)
+			if len(p.TargetResources) > 0 && len(triggeredPolicies) > 0 {
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
 				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
@@ -444,7 +448,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, targetMatchPredicate(targetMatcher, attr, celTargets))
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, mpolengine.And(mpolengine.MatchNames(triggeredPolicies...), targetMatchPredicate(targetMatcher, attr, celTargets)))
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}

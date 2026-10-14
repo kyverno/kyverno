@@ -11,8 +11,12 @@
    `pkg/webhooks/resource/mpol/handler.go`. Policies with active `targetMatchConstraints` (`resourceRules` or
    `expression`) must never mutate the trigger here. Policies with no or empty `targetMatchConstraints` mutate the
    trigger inline.
-2. **Target pass** — only runs when `p.TargetResources` is set. Each target is evaluated with `Evaluate(...)` and
-   `targetMatchPredicate`, and gets its own response whose `Resource` is the target. A passing rule carries the
+2. **Target pass** — only runs when `p.TargetResources` is set, and only for the policies whose trigger rules match
+   this resource: `eng.MatchedMutateExistingPolicies(...)` (the same check the admission webhook uses) checks
+   `matchConstraints` and `matchConditions`, because the target engine has no matcher and never looks at the
+   trigger. An empty result skips the targets entirely, since `MatchNames()` with no names matches every policy.
+   Each target is evaluated with `Evaluate(...)`, `MatchNames(triggered...)` and `targetMatchPredicate`, and gets
+   its own response whose `Resource` is the target. A passing rule carries the
    patched target through `WithPatchedTarget`; a rule that fails or errors carries no patched target and is
    counted, never printed as mutated. `processMutateExistingEngineResponse` prints only the patched targets
    (`printOutput` with a nil resource), so the trigger is never written out as if it had been mutated.

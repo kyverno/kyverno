@@ -1099,9 +1099,11 @@ func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testi
 	tests := []struct {
 		name       string
 		dir        string
+		testDir    func(t *testing.T) string // overrides dir when set
 		policy     string
 		targetKind string
 		targetName string
+		wantError  bool // the target's mutation fails instead of passing
 	}{
 		{
 			name:       "deployment trigger, configmap target",
@@ -1117,10 +1119,23 @@ func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testi
 			targetKind: "Deployment",
 			targetName: "test-deploy",
 		},
+		{
+			name: "secret trigger, deployment target whose mutation fails",
+			testDir: func(t *testing.T) string {
+				return writeFailingTargetFixture(t, filepath.Join(rootDir, "test", "cli", "test-mutating-policy", "mutate-existing-secret-trigger-deployment-target"))
+			},
+			policy:     "mutate-existing-deployment-from-secret",
+			targetKind: "Deployment",
+			targetName: "test-deploy",
+			wantError:  true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testDir := filepath.Join(rootDir, "test", "cli", "test-mutating-policy", tt.dir)
+			if tt.testDir != nil {
+				testDir = tt.testDir(t)
+			}
 			if _, statErr := os.Stat(testDir); os.IsNotExist(statErr) {
 				t.Skip("Test directory not found, skipping test")
 				return
@@ -1133,7 +1148,7 @@ func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testi
 			testResponse, err := runTest(context.TODO(), out, testCases[0], false)
 			require.NoError(t, err, "Failed to run test: %s", out.String())
 
-			var targetMutated bool
+			var targetMutated, targetErrored bool
 			for _, responses := range testResponse.Trigger {
 				for _, r := range responses {
 					if r.Policy().GetName() != tt.policy {
@@ -1145,6 +1160,15 @@ func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testi
 					}
 					for _, rule := range r.PolicyResponse.Rules {
 						patched, _, _ := rule.PatchedTarget()
+						if tt.wantError {
+							// the failed target carries no patched target and is the target, never the trigger
+							require.Equal(t, engineapi.RuleStatusError, rule.Status(), rule.Message())
+							assert.Nil(t, patched, "a failed mutation must not produce a patched target")
+							assert.Equal(t, tt.targetKind, r.Resource.GetKind())
+							assert.Equal(t, tt.targetName, r.Resource.GetName())
+							targetErrored = true
+							continue
+						}
 						require.NotNil(t, patched, "rule %q evaluated against the trigger instead of a target: %s", rule.Name(), rule.Message())
 						require.Equal(t, engineapi.RuleStatusPass, rule.Status(), rule.Message())
 						if patched.GetKind() == tt.targetKind && patched.GetName() == tt.targetName {
@@ -1154,9 +1178,28 @@ func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testi
 					}
 				}
 			}
-			assert.True(t, targetMutated, "expected target %s %s to be mutated", tt.targetKind, tt.targetName)
+			assert.Equal(t, !tt.wantError, targetMutated, "target %s %s mutated", tt.targetKind, tt.targetName)
+			assert.Equal(t, tt.wantError, targetErrored, "target %s %s reported as an error", tt.targetKind, tt.targetName)
 		})
 	}
+}
+
+// writeFailingTargetFixture copies the Secret trigger, Deployment target fixture into a temporary
+// directory with a mutation that fails at evaluation time on the selected target, and returns it.
+func writeFailingTargetFixture(t *testing.T, fixture string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for _, name := range []string{"kyverno-test.yaml", "trigger.yaml", "target.yaml", "patched-target.yaml", "policy.yaml"} {
+		content, err := os.ReadFile(filepath.Join(fixture, name))
+		require.NoError(t, err)
+		if name == "policy.yaml" {
+			failing := strings.Replace(string(content), "replicas: 3", "replicas: object.spec.missing.count", 1)
+			require.NotEqual(t, string(content), failing)
+			content = []byte(failing)
+		}
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), content, 0o600))
+	}
+	return dir
 }
 
 func TestRunTestDeletingPolicyObjectSelectorSkipsUnmatchedResource(t *testing.T) {
