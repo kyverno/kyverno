@@ -108,10 +108,7 @@ func printCheckResult(
 					"ruleType": rule.RuleType(),
 					"message":  rule.Message(),
 					"status":   string(rule.Status()),
-					// generatedResource unstructured.Unstructured
-					// patchedTarget *unstructured.Unstructured
-					// patchedTargetParentResourceGVR metav1.GroupVersionResource
-					// patchedTargetSubresourceName string
+					// Generated resource and patched-target data are added below when available.
 					// podSecurityChecks contains pod security checks (only if this is a pod security rule)
 					"podSecurityChecks": rule.PodSecurityChecks(),
 					"exceptions":        rule.Exceptions(),
@@ -176,7 +173,7 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
+							Policy:    color.Policy("", policyName),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
 							IsFailure: len(errs) == 0,
