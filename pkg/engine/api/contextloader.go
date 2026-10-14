@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type RegistryClientFactory interface {
@@ -14,8 +15,16 @@ type RegistryClientFactory interface {
 
 type Initializer = func(jsonContext enginecontext.Interface) error
 
+// PolicyScope is the only part of a policy a ContextLoader needs: its identity and whether
+// it is namespace-scoped. Both kyvernov1.PolicyInterface and kyvernov2.CleanupPolicyInterface
+// satisfy it, so no caller has to pass nil and silently lose the namespace clamp.
+type PolicyScope interface {
+	metav1.Object
+	IsNamespaced() bool
+}
+
 // ContextLoaderFactory provides a ContextLoader given a policy context and rule name
-type ContextLoaderFactory = func(policy kyvernov1.PolicyInterface, rule kyvernov1.Rule) ContextLoader
+type ContextLoaderFactory = func(policy PolicyScope, rule kyvernov1.Rule) ContextLoader
 
 // ContextLoader abstracts the mechanics to load context entries in the underlying json context
 type ContextLoader interface {

@@ -171,7 +171,7 @@ func (c *controller) cleanup(ctx context.Context, logger logr.Logger, policy kyv
 	}
 	enginectx := enginecontext.NewContext(c.jp)
 	ctxFactory := factories.DefaultContextLoaderFactory(c.cmResolver, factories.WithGlobalContextStore(c.gctxStore))
-	loader := ctxFactory(nil, kyvernov1.Rule{})
+	loader := ctxFactory(policy, kyvernov1.Rule{})
 	if err := loader.Load(
 		ctx,
 		c.jp,

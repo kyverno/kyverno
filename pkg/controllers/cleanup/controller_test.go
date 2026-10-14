@@ -15,6 +15,8 @@ import (
 	configpkg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/globalcontext/store"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -240,4 +242,65 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	if cq.lastDelay < minRequeueDelay-100*time.Millisecond || cq.lastDelay > minRequeueDelay+60*time.Second {
 		t.Fatalf("expected delay to next cron minute, got %v", cq.lastDelay)
 	}
+}
+
+// noDeferredLoading disables deferred context loading so Load surfaces loader errors directly.
+type noDeferredLoading struct{}
+
+func (noDeferredLoading) ProtectManagedResources() bool           { return false }
+func (noDeferredLoading) ForceFailurePolicyIgnore() bool          { return false }
+func (noDeferredLoading) EnableDeferredLoading() bool             { return false }
+func (noDeferredLoading) GenerateValidatingAdmissionPolicy() bool { return false }
+func (noDeferredLoading) GenerateMutatingAdmissionPolicy() bool   { return false }
+func (noDeferredLoading) DumpMutatePatches() bool                 { return false }
+func (noDeferredLoading) AutogenV2() bool                         { return false }
+func (noDeferredLoading) AllowHTTPInNamespacedPolicies() bool     { return false }
+
+type stubGctxStore struct{}
+
+func (stubGctxStore) Get(key string) (store.Entry, bool) { return nil, false }
+
+func gctxContextEntries() []kyvernov1.ContextEntry {
+	return []kyvernov1.ContextEntry{{
+		Name:            "gctx",
+		GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "some-entry"},
+	}}
+}
+
+func newGctxController() *controller {
+	return &controller{
+		client:    dclient.NewEmptyFakeClient(),
+		jp:        jmespath.New(configpkg.NewDefaultConfiguration(false)),
+		gctxStore: stubGctxStore{},
+	}
+}
+
+func Test_Cleanup_NamespacedPolicyContextIsClamped(t *testing.T) {
+	policy := &kyvernov2.CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "tenant-a"},
+		Spec: kyvernov2.CleanupPolicySpec{
+			Context: gctxContextEntries(),
+		},
+	}
+
+	ctx := toggle.NewContext(context.Background(), noDeferredLoading{})
+	err := newGctxController().cleanup(ctx, logr.Discard(), policy)
+
+	assert.ErrorContains(t, err, "globalReference is not allowed in namespaced policies")
+}
+
+func Test_Cleanup_ClusterPolicyContextIsNotClamped(t *testing.T) {
+	policy := &kyvernov2.ClusterCleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: kyvernov2.CleanupPolicySpec{
+			Context: gctxContextEntries(),
+		},
+	}
+	assert.Equal(t, "", policy.GetNamespace(), "cluster-scoped policies must report an empty namespace")
+
+	ctx := toggle.NewContext(context.Background(), noDeferredLoading{})
+	err := newGctxController().cleanup(ctx, logr.Discard(), policy)
+
+	// The entry is still resolved (and fails on the empty store) instead of being rejected as namespaced.
+	assert.ErrorContains(t, err, "failed to fetch entry key=some-entry")
 }

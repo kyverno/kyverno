@@ -5,12 +5,24 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/apicall"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// Both policy families must satisfy PolicyScope. These assertions are the point of the
+// narrowed signature: if either stops satisfying it, this package stops compiling rather
+// than silently falling back to a caller passing nil.
+var (
+	_ engineapi.PolicyScope = (*kyvernov1.Policy)(nil)
+	_ engineapi.PolicyScope = (*kyvernov1.ClusterPolicy)(nil)
+	_ engineapi.PolicyScope = (*kyvernov2.CleanupPolicy)(nil)
+	_ engineapi.PolicyScope = (*kyvernov2.ClusterCleanupPolicy)(nil)
 )
 
 // TestDefaultContextLoaderFactory verifies the factory is created successfully
@@ -232,4 +244,45 @@ func TestRegistryClientFactory_GetClient_TableDriven(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A CleanupPolicy does not satisfy kyvernov1.PolicyInterface, which is why callers used to
+// pass nil here and lose the namespace clamp entirely. It does satisfy PolicyScope, so the
+// factory can now take it directly.
+func TestDefaultContextLoaderFactory_NamespacedCleanupPolicyIsClamped(t *testing.T) {
+	policy := &kyvernov2.CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "tenant-a"},
+	}
+
+	loader := DefaultContextLoaderFactory(nil)(policy, kyvernov1.Rule{})
+
+	cl, ok := loader.(*contextLoader)
+	require.True(t, ok)
+	assert.Equal(t, "tenant-a", cl.policyNamespace)
+}
+
+// A ClusterCleanupPolicy is cluster-scoped, so it must stay unclamped.
+func TestDefaultContextLoaderFactory_ClusterCleanupPolicyIsNotClamped(t *testing.T) {
+	policy := &kyvernov2.ClusterCleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p"},
+	}
+
+	loader := DefaultContextLoaderFactory(nil)(policy, kyvernov1.Rule{})
+
+	cl, ok := loader.(*contextLoader)
+	require.True(t, ok)
+	assert.Equal(t, "", cl.policyNamespace)
+}
+
+// A namespaced v1 Policy must behave exactly as before the signature was narrowed.
+func TestDefaultContextLoaderFactory_NamespacedV1PolicyStillClamped(t *testing.T) {
+	policy := &kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p", Namespace: "tenant-b"},
+	}
+
+	loader := DefaultContextLoaderFactory(nil)(policy, kyvernov1.Rule{})
+
+	cl, ok := loader.(*contextLoader)
+	require.True(t, ok)
+	assert.Equal(t, "tenant-b", cl.policyNamespace)
 }
