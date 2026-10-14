@@ -132,6 +132,7 @@ var timestampKeys = []string{
 	"finishedOn",
 	"startedOn",
 	"timestamp",
+	"Timestamp",
 	"CreatedAt",
 	"created",
 	"time",
@@ -170,7 +171,7 @@ func extractStatementTimestamp(statement map[string]any) (time.Time, bool) {
 		}
 	}
 
-	for _, k := range []string{"created", "timestamp", "time"} {
+	for _, k := range []string{"created", "timestamp", "Timestamp", "time"} {
 		if t, ok := parseTimeValue(statement[k]); ok {
 			return t, true
 		}

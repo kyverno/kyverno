@@ -108,6 +108,28 @@ func Test_SortStatementsAndGetRawResp_MultipleVersions(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "later-report", extractedBoth["reportId"])
 
+	// Cosign custom-provenance statements using capitalized Timestamp: newest is selected.
+	provEarlier := map[string]any{
+		"type": "https://cosign.sigstore.dev/attestation/v1",
+		"predicate": map[string]any{
+			"Data":      `{"build": "v1"}`,
+			"Timestamp": "2026-01-01T00:00:00Z",
+		},
+	}
+	provLater := map[string]any{
+		"type": "https://cosign.sigstore.dev/attestation/v1",
+		"predicate": map[string]any{
+			"Data":      `{"build": "v2"}`,
+			"Timestamp": "2026-02-01T00:00:00Z",
+		},
+	}
+	rawProv, err := getRawResp([]map[string]any{provEarlier, provLater}, "https://cosign.sigstore.dev/attestation/v1")
+	assert.NoError(t, err)
+	var extractedProv map[string]any
+	err = json.Unmarshal(rawProv, &extractedProv)
+	assert.NoError(t, err)
+	assert.Equal(t, `{"build": "v2"}`, extractedProv["Data"])
+
 	// Unrelated predicate type: must return error and not return another type's predicate
 	_, err = getRawResp([]map[string]any{sbom}, "cosign.sigstore.dev/attestation/vuln/v1")
 	assert.Error(t, err)
@@ -162,6 +184,17 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 				},
 			},
 			expectOk: false,
+		},
+		{
+			name: "cosign custom provenance Timestamp",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"Data":      `{"buildConfig": "test"}`,
+					"Timestamp": "2026-07-15T10:00:00Z",
+				},
+			},
+			expectOk: true,
+			expected: "2026-07-15T10:00:00Z",
 		},
 		{
 			name: "cosign vuln scanStartedOn",
