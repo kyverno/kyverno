@@ -356,6 +356,8 @@ func createrLeaderControllers(
 			mapBindingAlphaInformer,
 			eventGenerator,
 			checker,
+			internal.PolicyExceptionEnabled(),
+			internal.ExceptionNamespace(),
 		)
 		leaderControllers = append(leaderControllers, internal.NewController(admissionpolicygenerator.ControllerName, admissionpolicyController, admissionpolicygenerator.Workers))
 	}
