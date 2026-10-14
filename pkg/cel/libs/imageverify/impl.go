@@ -147,10 +147,11 @@ func (r Runtime) AuthOpts() []remote.Option {
 // Each NewRuntimeForPolicy builds its own puller from the options it was handed,
 // so two evaluations never share one.
 //
-// That alone does not isolate policies carrying different spec.Credentials: the
-// ImageContext cache is keyed by image reference only, so the first policy to
-// fetch an image fixes the options -- keychain as much as puller -- recorded on
-// the ImageData that every later policy reuses for it. That sharing predates
+// That alone does not isolate policies carrying different spec.Credentials where
+// one ImageContext serves several of them (digest mutation, the CLI evaluator):
+// its cache is keyed by image reference only, so the first policy to fetch an
+// image fixes the options -- keychain as much as puller -- recorded on the
+// ImageData that every later policy reuses for it. That sharing predates
 // this change and is not widened by it: the cached keychain already resolved the
 // first policy's credentials for those calls, so reusing its token alongside
 // grants no access the keychain did not already grant.
