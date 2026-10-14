@@ -164,6 +164,8 @@ func Command() *cobra.Command {
 			applyCommandConfig.PolicyPaths = args
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
+				// a later step failed, still say which policies were skipped before returning that error
+				printPolicyLoadErrors(cmd.ErrOrStderr(), skipInvalidPolicies.loadErrors)
 				return err
 			}
 			cmd.SilenceErrors = true

@@ -15,9 +15,11 @@ of this contract is described in `cmd/cli/kubectl-kyverno/policy/AGENTS.md`; thi
 
 ## Printing what was not loaded
 
-- `printPolicyLoadErrors` prints the "Policies Not Loaded" section, one `path: reason` line per entry.
+- `printPolicyLoadErrors` prints the "Policies Not Loaded" section, one `path: reason` line per entry. When a
+  later step of apply fails, `Command` still prints it, on stderr, before returning that error.
 - `Command` sends that section to stdout normally, but to stderr when stdout is meant for another program
   (`--policy-report`, `--generate-exceptions`, `--stdin`), so the report, the generated exceptions or the mutated
   resource on stdout stay parseable. Add any new machine readable output mode to that condition.
-- Load errors do not change the exit code and are not counted by `--warnings-as-errors`, which only covers
-  deprecation warnings recorded by `recordPolicyWarnings`.
+- Recorded load errors do not change the exit code and are not counted by `--warnings-as-errors`, which only
+  covers deprecation warnings recorded by `recordPolicyWarnings`. The fatal ones (a blocked legacy policy,
+  `policy.ErrValidatorSetup`) are returned as errors and fail the command.

@@ -9,8 +9,9 @@ deliberately different failure behaviour; keep them apart when changing either o
   fails on the first path that cannot be read, a file that cannot be split into documents, a blocked legacy
   policy, and a document with unknown fields or one that cannot be converted into a policy (`pendingErr` in
   `kubectlValidateLoader`), so a broken policy can never pass a test run silently. Other document errors, such as
-  a kind the validator does not know, invalid YAML, and `v1/List` shape or item errors, are only recorded in
-  `LoaderResults.NonFatalErrors`.
+  a kind the validator does not know, a single document that is not valid YAML, and `v1/List` shape or item
+  errors, are only recorded in `LoaderResults.NonFatalErrors`. Splitting a file (`splitDocuments`) does not parse
+  YAML, so it only fails when the content cannot be read; parse errors show up per document.
 - **`LoadSkippingInvalidFiles` (lenient)** is used only by `kyverno apply` (`loadPolicies` in
   `commands/apply/command.go`). Failures are recorded in `LoaderResults.NonFatalErrors` under the path they came
   from and everything else still loads: valid documents in the same file, the rest of a directory, and the other

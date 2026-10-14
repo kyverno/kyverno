@@ -1833,6 +1833,25 @@ func TestCommandKeepsLoadErrorsOffStdoutForPipedOutput(t *testing.T) {
 	assert.Equal(t, 1, exceptions)
 }
 
+// TestCommandReportsPoliciesThatCouldNotBeLoadedWhenALaterStepFails checks that the skipped policies
+// are still listed, on stderr, when apply fails after loading them, and that the original error is
+// returned.
+func TestCommandReportsPoliciesThatCouldNotBeLoadedWhenALaterStepFails(t *testing.T) {
+	policies, pod := writePolicyLoadErrorFixtures(t)
+
+	cmd := Command()
+	var stdout, stderr bytes.Buffer
+	cmd.SetOut(&stdout)
+	cmd.SetErr(&stderr)
+	cmd.SetArgs([]string{policies, "--resource", pod, "--exception", filepath.Join(t.TempDir(), "missing.yaml")})
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load exceptions")
+	assert.Contains(t, stderr.String(), "Policies Not Loaded:")
+	assert.Contains(t, stderr.String(), filepath.Join(policies, "typo.yaml"))
+	assert.NotContains(t, stdout.String(), "Policies Not Loaded")
+}
+
 // TestPrintPolicyLoadErrors checks the Policies Not Loaded section and that nothing is printed
 // without errors.
 func TestPrintPolicyLoadErrors(t *testing.T) {
