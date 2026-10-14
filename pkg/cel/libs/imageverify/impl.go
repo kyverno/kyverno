@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/google/cel-go/common/types"
@@ -94,7 +95,7 @@ func NewRuntimeForPolicy(ctx context.Context, f *IvFuncs, imgCtx imagedataloader
 	newFuncs.imgCtx = imgCtx
 	newFuncs.ivCache = cache
 	newFuncs.verifications = results
-	newFuncs.authOpts = reuseRegistryAuth(f.authOpts, f.logger)
+	newFuncs.authOpts = boundRegistryAuth(ctx, f)
 	newFuncs.pendingIntotoRestores = map[string]map[string][]byte{}
 	newFuncs.diagnostics = &verificationDiagnostics{}
 
@@ -145,7 +146,8 @@ func (r Runtime) AuthOpts() []remote.Option {
 // TestFactoryCredentialsObserveSecretRotation covers.
 //
 // Each NewRuntimeForPolicy builds its own puller from the options it was handed,
-// so two evaluations never share one.
+// so two evaluations never share one, unless they evaluate the same policy under
+// one WithSharedRegistryAuth context.
 //
 // That alone does not isolate policies carrying different spec.Credentials where
 // one ImageContext serves several of them (digest mutation, the CLI evaluator):
@@ -168,6 +170,43 @@ func reuseRegistryAuth(authOpts []remote.Option, logger logr.Logger) []remote.Op
 	bound := make([]remote.Option, 0, len(authOpts)+1)
 	bound = append(bound, authOpts...)
 	return append(bound, remote.Reuse(puller))
+}
+
+type sharedRegistryAuthKey struct{}
+
+// sharedRegistryAuth holds the options bound for each policy evaluated under a
+// WithSharedRegistryAuth context, keyed by the policy's IvFuncs.
+type sharedRegistryAuth struct {
+	mu    sync.Mutex
+	bound map[*IvFuncs][]remote.Option
+}
+
+// WithSharedRegistryAuth returns a context under which every NewRuntimeForPolicy
+// for the same policy reuses one puller instead of building its own. It is for a
+// caller that evaluates one policy several times for one request -- extraction
+// mode evaluates it once per pod template -- so that the request costs that
+// policy a single auth handshake per repository. Pullers live as long as the
+// returned context, so derive it per request.
+func WithSharedRegistryAuth(ctx context.Context) context.Context {
+	return context.WithValue(ctx, sharedRegistryAuthKey{}, &sharedRegistryAuth{bound: map[*IvFuncs][]remote.Option{}})
+}
+
+// boundRegistryAuth returns f's options with a puller bound to them: the one
+// already bound for f under a WithSharedRegistryAuth context, or a new one.
+// Keying by f keeps policies apart, as each carries its own credentials.
+func boundRegistryAuth(ctx context.Context, f *IvFuncs) []remote.Option {
+	shared, ok := ctx.Value(sharedRegistryAuthKey{}).(*sharedRegistryAuth)
+	if !ok {
+		return reuseRegistryAuth(f.authOpts, f.logger)
+	}
+	shared.mu.Lock()
+	defer shared.mu.Unlock()
+	opts, ok := shared.bound[f]
+	if !ok {
+		opts = reuseRegistryAuth(f.authOpts, f.logger)
+		shared.bound[f] = opts
+	}
+	return opts
 }
 
 func NewIvFuncs(
