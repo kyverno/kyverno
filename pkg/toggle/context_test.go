@@ -13,7 +13,6 @@ type mockToggles struct {
 	generateValidatingAdmissionPolicy bool
 	generateMutatingAdmissionPolicy   bool
 	dumpMutatePatches                 bool
-	autogenV2                         bool
 	allowHTTPInNamespacedPolicies     bool
 	blockLegacyPolicyAPIs             bool
 }
@@ -26,7 +25,6 @@ func (m mockToggles) GenerateValidatingAdmissionPolicy() bool {
 }
 func (m mockToggles) GenerateMutatingAdmissionPolicy() bool { return m.generateMutatingAdmissionPolicy }
 func (m mockToggles) DumpMutatePatches() bool               { return m.dumpMutatePatches }
-func (m mockToggles) AutogenV2() bool                       { return m.autogenV2 }
 func (m mockToggles) AllowHTTPInNamespacedPolicies() bool   { return m.allowHTTPInNamespacedPolicies }
 func (m mockToggles) BlockLegacyPolicyAPIs() bool           { return m.blockLegacyPolicyAPIs }
 
@@ -59,7 +57,6 @@ func TestNewContext(t *testing.T) {
 				generateValidatingAdmissionPolicy: true,
 				generateMutatingAdmissionPolicy:   true,
 				dumpMutatePatches:                 true,
-				autogenV2:                         true,
 			},
 			wantNil: false,
 		},
@@ -155,7 +152,6 @@ func TestFromContextReturnsStoredToggles(t *testing.T) {
 		generateValidatingAdmissionPolicy: true,
 		generateMutatingAdmissionPolicy:   true,
 		dumpMutatePatches:                 true,
-		autogenV2:                         true,
 	}
 
 	ctx := NewContext(context.Background(), expected)
@@ -179,9 +175,6 @@ func TestFromContextReturnsStoredToggles(t *testing.T) {
 	if result.DumpMutatePatches() != expected.DumpMutatePatches() {
 		t.Error("DumpMutatePatches mismatch")
 	}
-	if result.AutogenV2() != expected.AutogenV2() {
-		t.Error("AutogenV2 mismatch")
-	}
 }
 
 func TestDefaultToggles(t *testing.T) {
@@ -199,7 +192,6 @@ func TestDefaultToggles(t *testing.T) {
 	_ = result.GenerateValidatingAdmissionPolicy()
 	_ = result.GenerateMutatingAdmissionPolicy()
 	_ = result.DumpMutatePatches()
-	_ = result.AutogenV2()
 }
 
 func TestContextChaining(t *testing.T) {
