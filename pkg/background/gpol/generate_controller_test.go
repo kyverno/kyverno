@@ -40,7 +40,7 @@ type testEngine struct {
 	generated []*unstructured.Unstructured
 }
 
-func (e *testEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, cacheRestore bool) (gpolengine.EngineResponse, error) {
+func (e *testEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, cacheRestore bool) (gpolengine.EngineResponse, error) {
 	rule := engineapi.RulePass("rule", engineapi.Generation, "ok", nil)
 	if !cacheRestore {
 		rule = rule.WithGeneratedResources(e.generated)
@@ -58,7 +58,7 @@ type countingEngine struct {
 	calls int
 }
 
-func (e *countingEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+func (e *countingEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
 	e.calls++
 	return gpolengine.EngineResponse{
 		Trigger: &unstructured.Unstructured{},
@@ -95,7 +95,7 @@ func (testEventGen) Add(...event.Info) {}
 
 type errorEngine struct{}
 
-func (e *errorEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+func (e *errorEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
 	return gpolengine.EngineResponse{
 		Trigger: &unstructured.Unstructured{},
 		Policies: []gpolengine.GeneratingPolicyResponse{{

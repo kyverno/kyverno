@@ -212,7 +212,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		return types.WrapErr(err)
 	} else {
 		count := 0
-		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
+		if match, err := matching.MatchImage(ctx, image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
 		} else if !match {
 			f.logger.V(4).Info("skipping image, no matchImageReferences match", "image", image)
@@ -300,7 +300,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 		return types.WrapErr(err)
 	} else {
 		count := 0
-		if match, err := matching.MatchImage(image, f.imgRules...); err != nil {
+		if match, err := matching.MatchImage(ctx, image, f.imgRules...); err != nil {
 			return types.WrapErr(err)
 		} else if !match {
 			f.logger.V(4).Info("skipping image, no matchImageReferences match", "image", image)

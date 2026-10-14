@@ -124,7 +124,7 @@ type raceEngine struct {
 	attempts atomic.Int32
 }
 
-func (e *raceEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+func (e *raceEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
 	e.attempts.Add(1)
 	gvk := e.target.GroupVersionKind()
 	if _, err := e.client.Discovery().GetGVRFromGVK(gvk); err != nil {
