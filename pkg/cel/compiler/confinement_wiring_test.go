@@ -28,16 +28,41 @@ var confinementRules = []struct {
 	{importSuffix: "/libs/http", confinedBy: map[string]int{"NewLazyCELHTTPContext": 0}},
 }
 
-// requiredDirs lists every place that builds a CEL activation. Each must carry at
-// least one confined activation per rule, so removing the wiring from one policy
-// compiler cannot hide behind the others still being present.
-var requiredDirs = []string{
-	"pkg/cel/policies/vpol/compiler",
-	"pkg/cel/policies/mpol/compiler",
-	"pkg/cel/policies/dpol/compiler",
-	"pkg/cel/policies/gpol/compiler",
+// decorators wrap an already-confined context without changing what it is
+// confined to, so a value built from one is still derived from the wrapper:
+// decorator name -> index of the argument that carries the wrapped context.
+var decorators = map[string]int{"NewMockAwareHTTPContext": 0}
+
+// extraRequiredDirs are the activation sites that do not follow the
+// pkg/cel/policies/<kind>/compiler layout.
+var extraRequiredDirs = []string{
 	"pkg/background/mpol",
 	"pkg/image/verification/evaluator",
+}
+
+// requiredDirs returns every place that builds a CEL activation. Each must carry at
+// least one confined activation per rule, so removing the wiring from one policy
+// compiler cannot hide behind the others still being present. The per-kind
+// compiler packages are discovered from the repository layout, so a new policy
+// kind is covered without anyone remembering to list it here.
+func requiredDirs(t *testing.T, root string) []string {
+	t.Helper()
+	matches, err := filepath.Glob(filepath.Join(root, "pkg", "cel", "policies", "*", "compiler"))
+	if err != nil {
+		t.Fatalf("globbing policy compilers: %v", err)
+	}
+	if len(matches) == 0 {
+		t.Fatal("found no pkg/cel/policies/*/compiler packages; the layout changed and this test is no longer checking them")
+	}
+	dirs := append([]string{}, extraRequiredDirs...)
+	for _, m := range matches {
+		rel, err := filepath.Rel(root, m)
+		if err != nil {
+			t.Fatalf("relative path for %s: %v", m, err)
+		}
+		dirs = append(dirs, filepath.ToSlash(rel))
+	}
+	return dirs
 }
 
 func TestNamespaceConfinementIsWiredEverywhere(t *testing.T) {
@@ -73,7 +98,7 @@ func TestNamespaceConfinementIsWiredEverywhere(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("no namespace-confined activations found; this test is no longer checking anything")
 	}
-	for _, dir := range requiredDirs {
+	for _, dir := range requiredDirs(t, root) {
 		for _, rule := range confinementRules {
 			if perDir[dir+"|"+rule.importSuffix] == 0 {
 				t.Errorf("%s has no namespace-confined %s activation; confinement must be wired in every policy compiler", dir, rule.importSuffix)
@@ -105,6 +130,9 @@ func TestNamespaceOperandIsValidated(t *testing.T) {
 		`libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(""), mocks)`,
 		`compiler.ConfineGlobalContext(libsctx)`,
 		`libsctx`,
+		// the wrapper is mentioned, but the assigned value is not derived from it
+		`other.Wrap(compiler.NewLazyCELHTTPContext(namespace))`,
+		`libs.NewMockAwareHTTPContext(rawCtx, mocks)`,
 	} {
 		if got := check(bad); len(got) == 0 {
 			t.Errorf("%s: expected a problem, got none", bad)
@@ -195,49 +223,61 @@ func contextInterfaceValue(lit *ast.CompositeLit) ast.Expr {
 	return nil
 }
 
-// confinementProblems inspects the expression assigned to ContextInterface. It must
-// contain a call to one of the wrappers, and that call's namespace operand must be
-// present and must not be the empty string literal: the wrappers treat an empty
-// namespace as "no confinement", so an empty literal would silently remove it.
+// callName returns the called function's name for both pkg.Fn(...) and Fn(...).
+func callName(call *ast.CallExpr) string {
+	switch fn := call.Fun.(type) {
+	case *ast.Ident:
+		return fn.Name
+	case *ast.SelectorExpr:
+		return fn.Sel.Name
+	}
+	return ""
+}
+
+// confinementProblems checks the expression assigned to ContextInterface. The
+// value must itself be a call to one of the wrappers, optionally nested inside a
+// known decorator; merely mentioning a wrapper somewhere (for example passing it
+// to an unrelated call) leaves the assigned value unconfined. The wrapper's
+// namespace operand must be present and not the empty string literal, since the
+// wrappers treat an empty namespace as "no confinement".
 func confinementProblems(expr ast.Expr, wrappers map[string]int) []string {
-	var problems []string
-	called := false
-	ast.Inspect(expr, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
+	for {
+		paren, ok := expr.(*ast.ParenExpr)
 		if !ok {
-			return true
+			break
 		}
-		var name string
-		switch fn := call.Fun.(type) {
-		case *ast.Ident:
-			name = fn.Name
-		case *ast.SelectorExpr:
-			name = fn.Sel.Name
-		}
-		idx, ok := wrappers[name]
-		if !ok {
-			return true
-		}
-		called = true
-		if idx >= len(call.Args) {
-			problems = append(problems, fmt.Sprintf("%s is missing its namespace argument", name))
-			return true
-		}
-		if lit, ok := call.Args[idx].(*ast.BasicLit); ok && lit.Kind == token.STRING {
-			if v, err := strconv.Unquote(lit.Value); err == nil && v == "" {
-				problems = append(problems, fmt.Sprintf("%s is given an empty namespace, which disables confinement", name))
-			}
-		}
-		return true
-	})
-	if !called {
+		expr = paren.X
+	}
+
+	notConfined := func() []string {
 		names := make([]string, 0, len(wrappers))
 		for name := range wrappers {
 			names = append(names, name)
 		}
-		problems = append(problems, fmt.Sprintf("not namespace-confined; wrap the inner context with one of %v", names))
+		return []string{fmt.Sprintf("value is not derived from a namespace-confining wrapper; wrap the inner context with one of %v", names)}
 	}
-	return problems
+
+	call, ok := expr.(*ast.CallExpr)
+	if !ok {
+		return notConfined()
+	}
+	name := callName(call)
+
+	if idx, ok := wrappers[name]; ok {
+		if idx >= len(call.Args) {
+			return []string{fmt.Sprintf("%s is missing its namespace argument", name)}
+		}
+		if lit, ok := call.Args[idx].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			if v, err := strconv.Unquote(lit.Value); err == nil && v == "" {
+				return []string{fmt.Sprintf("%s is given an empty namespace, which disables confinement", name)}
+			}
+		}
+		return nil
+	}
+	if idx, ok := decorators[name]; ok && idx < len(call.Args) {
+		return confinementProblems(call.Args[idx], wrappers)
+	}
+	return notConfined()
 }
 
 func moduleRoot(t *testing.T) string {
