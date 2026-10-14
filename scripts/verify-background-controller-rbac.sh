@@ -53,13 +53,22 @@ fail() { echo "[verify-background-controller-rbac] FAIL: $*" >&2; exit 1; }
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 
-RENDER="${WORK_DIR}/render.yaml"
-log "rendering ${CHART_DIR} with --kube-version ${KUBE_VERSION}"
-"${HELM}" template "${RELEASE_NAME}" "${CHART_DIR}" \
-  --kube-version "${KUBE_VERSION}" \
-  > "${RENDER}"
+# Each entry is a set of extra `helm template` flags. The background
+# controller's grant depends on which user-facing roles are aggregated, so
+# check the default (admin and view) and view only.
+VARIANTS=(
+  ""
+  "--set rbac.roles.aggregate.admin=false"
+)
 
-"${PYTHON}" - "${RENDER}" <<'EOF'
+for variant in "${VARIANTS[@]}"; do
+  RENDER="${WORK_DIR}/render.yaml"
+  log "rendering ${CHART_DIR} with --kube-version ${KUBE_VERSION} ${variant:-(default values)}"
+  # shellcheck disable=SC2086 # variant is a list of flags
+  "${HELM}" template "${RELEASE_NAME}" "${CHART_DIR}" \
+    --kube-version "${KUBE_VERSION}" ${variant} \
+    > "${RENDER}"
+  "${PYTHON}" - "${RENDER}" <<'EOF'
 import sys
 
 import yaml
@@ -139,9 +148,26 @@ held = [
 ]
 print(f"{PREFIX} {background['metadata']['name']} aggregates {len(held)} rules")
 
-# Holding bind on clusterroles satisfies the escalation check on its own.
-if covers(held, "rbac.authorization.k8s.io", "clusterroles", "bind"):
-    print(f"{PREFIX} background controller holds bind on clusterroles; nothing else to check")
+def can_bind(rules, role_name):
+    for rule in rules:
+        names = rule.get("resourceNames") or []
+        if names and role_name not in names:
+            continue
+        if (
+            matches(rule.get("apiGroups") or [], "rbac.authorization.k8s.io")
+            and matches(rule.get("resources") or [], "clusterroles")
+            and matches(rule.get("verbs") or [], "bind")
+        ):
+            return True
+    return False
+
+
+# Holding bind on a role satisfies the escalation check for that role on its
+# own, whether the grant is unrestricted or limited by resourceNames. Only
+# skip the check when every user-facing role the chart aggregates into is
+# bindable.
+if all(can_bind(held, name) for name in ("admin", "edit", "view")):
+    print(f"{PREFIX} background controller holds bind on admin, edit and view; nothing else to check")
     sys.exit(0)
 
 aggregated = [r for r in roles if any(labels(r).get(l) == "true" for l in AGGREGATE_LABELS)]
@@ -176,3 +202,4 @@ if missing:
 
 print(f"{PREFIX} background controller covers everything Kyverno aggregates into admin/edit/view")
 EOF
+done
