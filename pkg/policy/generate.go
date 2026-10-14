@@ -20,6 +20,7 @@ import (
 	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
@@ -224,7 +225,18 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 	}
 
-	downstreams, err := common.FindDownstream(context.TODO(), pc.client, pattern.GetAPIVersion(), pattern.GetKind(), labels)
+	apiVersion, kind := pattern.GetAPIVersion(), pattern.GetKind()
+	if apiVersion == "" {
+		// Use the same discovery preference as generation when a version is omitted.
+		// Resolve before listing so discovery failures cannot become an empty GVR lookup.
+		apiVersion, kind = kubeutils.GetKindFromGVK(kind)
+		gvr, err := pc.client.Discovery().GetGVRFromGVK(schema.FromAPIVersionAndKind(apiVersion, kind))
+		if err != nil {
+			return ur, fmt.Errorf("resolve downstream kind %q: %w", pattern.GetKind(), err)
+		}
+		apiVersion = gvr.GroupVersion().String()
+	}
+	downstreams, err := common.FindDownstream(context.TODO(), pc.client, apiVersion, kind, labels)
 	if err != nil {
 		return ur, err
 	}
@@ -255,7 +267,7 @@ func (pc *policyController) buildURForGenerateRuleChanges(policy kyvernov1.Polic
 }
 
 func cleanupPatterns(pattern kyvernov1.GeneratePattern) []kyvernov1.GeneratePattern {
-	if pattern.GetAPIVersion() != "" && pattern.GetKind() != "" {
+	if pattern.GetKind() != "" {
 		return []kyvernov1.GeneratePattern{pattern}
 	}
 	if len(pattern.CloneList.Kinds) == 0 {
@@ -264,7 +276,7 @@ func cleanupPatterns(pattern kyvernov1.GeneratePattern) []kyvernov1.GeneratePatt
 	out := make([]kyvernov1.GeneratePattern, 0, len(pattern.CloneList.Kinds))
 	for _, gvk := range pattern.CloneList.Kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(gvk)
-		if apiVersion == "" || kind == "" {
+		if kind == "" {
 			continue
 		}
 		// Wildcard GVKs are allowed in CloneList but can't be resolved by downstream lookup.

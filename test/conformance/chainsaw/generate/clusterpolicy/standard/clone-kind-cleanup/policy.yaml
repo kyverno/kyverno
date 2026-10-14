@@ -1,0 +1,50 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: clone-kind-cleanup
+spec:
+  rules:
+  - name: direct
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          selector:
+            matchLabels:
+              test.kyverno.io/clone-kind-cleanup: target
+    generate:
+      generateExisting: false
+      synchronize: true
+      orphanDownstreamOnPolicyDelete: false
+      namespace: '{{ request.object.metadata.name }}'
+      cloneList:
+        namespace: clone-kind-cleanup-source
+        kinds:
+        - ConfigMap
+        selector:
+          matchLabels:
+            test.kyverno.io/clone-kind-cleanup: direct
+  - name: foreach
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+          selector:
+            matchLabels:
+              test.kyverno.io/clone-kind-cleanup: target
+    generate:
+      generateExisting: false
+      synchronize: true
+      orphanDownstreamOnPolicyDelete: false
+      foreach:
+      - list: '[request.object.metadata.name]'
+        namespace: '{{ element }}'
+        cloneList:
+          namespace: clone-kind-cleanup-source
+          kinds:
+          - ConfigMap
+          selector:
+            matchLabels:
+              test.kyverno.io/clone-kind-cleanup: foreach

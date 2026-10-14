@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: direct-source
+  namespace: clone-kind-cleanup-source
+data:
+  value: direct
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foreach-source
+  namespace: clone-kind-cleanup-source
+data:
+  value: foreach
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: unsigned-direct
+  namespace: clone-kind-cleanup-target
+  (annotations."generate.kyverno.io/provenance" == null): true
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/policy-name: clone-kind-cleanup
+    generate.kyverno.io/policy-namespace: ""
+    generate.kyverno.io/rule-name: direct
+data:
+  value: unsigned
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: unsigned-foreach
+  namespace: clone-kind-cleanup-target
+  (annotations."generate.kyverno.io/provenance" == null): true
+  labels:
+    app.kubernetes.io/managed-by: kyverno
+    generate.kyverno.io/policy-name: clone-kind-cleanup
+    generate.kyverno.io/policy-namespace: ""
+    generate.kyverno.io/rule-name: foreach
+data:
+  value: unsigned
