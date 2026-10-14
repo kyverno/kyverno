@@ -6,13 +6,19 @@ import (
 	"strings"
 )
 
+// Entries are matched against every resolved address at dial time, so a range
+// closes the whole class rather than a single named address.
 var defaultPolicyHTTPBlocklist = []string{
-	"169.254.169.254/32",       // AWS/GCP/Azure metadata service
-	"169.254.169.253/32",       // GCP metadata service alternate
-	"fd00:ec2::254/128",        // AWS IMDS IPv6 endpoint
-	"metadata.google.internal", // GCP metadata service hostname
-	"127.0.0.0/8",              // IPv4 loopback
+	"169.254.0.0/16",           // IPv4 link-local: AWS, GCP and Azure IMDS, plus AWS ECS task metadata on 169.254.170.2
+	"fe80::/10",                // IPv6 link-local
+	"fd00:ec2::254/128",        // AWS IPv6 IMDS: one address, not the fc00::/7 ULA range it sits in, which stays reachable for in-cluster IPv6
+	"100.100.100.200/32",       // Alibaba Cloud metadata service
+	"127.0.0.0/8",              // IPv4 loopback: sidecars in the Kyverno pod
+	"0.0.0.0/32",               // unspecified IPv4: connects to loopback, so 127.0.0.0/8 on its own is bypassable
 	"::1/128",                  // IPv6 loopback
+	"::/128",                   // unspecified IPv6: same bypass as 0.0.0.0
+	"metadata.google.internal", // GCP metadata service hostname
+	"metadata.internal",        // Oracle Cloud metadata service hostname
 }
 
 const (
