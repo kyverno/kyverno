@@ -67,6 +67,12 @@ func TestTriggerMatchesExcludeRules(t *testing.T) {
 			exclude: excludeRule([]string{""}, []string{"v1"}, []string{"pods/*"}, nil),
 			want:    false,
 		},
+		{
+			name:    "pods star drops the pod",
+			gvr:     pods,
+			exclude: excludeRule([]string{""}, []string{"v1"}, []string{"pods/*"}, nil),
+			want:    false,
+		},
 	}
 
 	for _, tc := range tests {

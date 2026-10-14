@@ -234,7 +234,9 @@ func (pc *policyController) triggerMatches(
 	excludeRules []admissionregistrationv1.NamedRuleWithOperations,
 	nsSelector *metav1.LabelSelector,
 ) bool {
-	// check if the resource matches the excluded rules
+	// generateExisting is not an admission request, so exclude operations are
+	// not consulted. rules.Matcher returns false when operations is empty,
+	// which would skip excludes that do not set operations.
 	if len(excludeRules) > 0 {
 		for _, rule := range excludeRules {
 			if exactOrWildcard(rule.APIGroups, gvr.Group) &&
@@ -294,9 +296,10 @@ func exactOrWildcard(items []string, requested string) bool {
 	return false
 }
 
-// resourceWildcardMatches follows the admission resource rule.
+// resourceWildcardMatches follows admission rules.Matcher.
 // "*" matches every resource but not its subresources.
-// "pods/*" matches pods and any pod subresource.
+// "pods/*" matches pods and any pod subresource. rules.Matcher treats
+// "r/*" the same way: the resource itself matches, and so does "r/exec".
 func resourceWildcardMatches(patterns []string, resource string) bool {
 	gotRes, gotSub := splitResource(resource)
 	for _, pattern := range patterns {
