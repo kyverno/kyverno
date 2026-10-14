@@ -118,6 +118,7 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 		name      string
 		statement map[string]any
 		expected  string
+		expectOk  bool
 	}{
 		{
 			name: "cosign vuln scanTime",
@@ -128,6 +129,7 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 					},
 				},
 			},
+			expectOk: true,
 			expected: "2026-05-01T12:00:00Z",
 		},
 		{
@@ -139,6 +141,7 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 					},
 				},
 			},
+			expectOk: true,
 			expected: "2026-06-01T08:30:00Z",
 		},
 		{
@@ -148,6 +151,7 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 					"CreatedAt": "2026-07-01T15:20:00Z",
 				},
 			},
+			expectOk: true,
 			expected: "2026-07-01T15:20:00Z",
 		},
 		{
@@ -157,6 +161,7 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 					"org.opencontainers.image.created": "2026-08-01T10:00:00Z",
 				},
 			},
+			expectOk: true,
 			expected: "2026-08-01T10:00:00Z",
 		},
 		{
@@ -168,6 +173,7 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 					},
 				},
 			},
+			expectOk: true,
 			expected: "2026-09-01T10:00:00Z",
 		},
 		{
@@ -179,6 +185,7 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 					},
 				},
 			},
+			expectOk: true,
 			expected: "2026-09-01T10:30:00Z",
 		},
 		{
@@ -191,15 +198,100 @@ func Test_ExtractStatementTimestamp_Formats(t *testing.T) {
 					},
 				},
 			},
+			expectOk: true,
 			expected: "2026-09-01T10:30:00Z",
+		},
+		{
+			name: "timezone-less format",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanTime": "2026-05-01T12:00:00",
+					},
+				},
+			},
+			expectOk: true,
+			expected: "2026-05-01T12:00:00Z",
+		},
+		{
+			name: "space-separated format",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanTime": "2026-05-01 12:00:00",
+					},
+				},
+			},
+			expectOk: true,
+			expected: "2026-05-01T12:00:00Z",
+		},
+		{
+			name: "empty string timestamp",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanTime": "",
+					},
+				},
+			},
+			expectOk: false,
+		},
+		{
+			name: "non-string timestamp integer",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanTime": 12345,
+					},
+				},
+			},
+			expectOk: false,
+		},
+		{
+			name: "non-string timestamp boolean",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanTime": true,
+					},
+				},
+			},
+			expectOk: false,
+		},
+		{
+			name: "invalid unparseable timestamp",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"scanTime": "not-a-timestamp",
+					},
+				},
+			},
+			expectOk: false,
+		},
+		{
+			name: "statement without timestamp keys",
+			statement: map[string]any{
+				"predicate": map[string]any{
+					"metadata": map[string]any{
+						"foo": "bar",
+					},
+				},
+			},
+			expectOk: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tm, ok := extractStatementTimestamp(tt.statement)
-			assert.True(t, ok)
-			assert.Equal(t, tt.expected, tm.Format("2006-01-02T15:04:05Z07:00"))
+			if tt.expectOk {
+				assert.True(t, ok)
+				assert.Equal(t, tt.expected, tm.UTC().Format("2006-01-02T15:04:05Z07:00"))
+			} else {
+				assert.False(t, ok)
+				assert.True(t, tm.IsZero())
+			}
 		})
 	}
 }

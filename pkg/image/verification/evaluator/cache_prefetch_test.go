@@ -62,12 +62,15 @@ func Test_Evaluate_CacheHitSkipsImageFetch(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// The verification cache requires image references pinned to a digest.
+	pinnedSignedImage := signedImage + "@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
 	// 1. First evaluation: healthy image context to populate the cache
 	healthyCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	require.NoError(t, err)
 	verifications := imageverify.NewImageVerificationResults()
 
-	res1, err := compiled.Evaluate(context.Background(), healthyCtx, cacheClient, verifications, nil, obj(signedImage), nil, false, nil, nil)
+	res1, err := compiled.Evaluate(context.Background(), healthyCtx, cacheClient, verifications, nil, obj(pinnedSignedImage), nil, false, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res1)
 	assert.True(t, res1.Result)
@@ -78,7 +81,7 @@ func Test_Evaluate_CacheHitSkipsImageFetch(t *testing.T) {
 	erroringCtx := &recordingImageContext{failGet: true}
 	verifications2 := imageverify.NewImageVerificationResults()
 
-	res2, err := compiled.Evaluate(context.Background(), erroringCtx, cacheClient, verifications2, nil, obj(signedImage), nil, false, nil, nil)
+	res2, err := compiled.Evaluate(context.Background(), erroringCtx, cacheClient, verifications2, nil, obj(pinnedSignedImage), nil, false, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res2)
 	assert.True(t, res2.Result, "cached admission should pass even if registry is unreachable")
