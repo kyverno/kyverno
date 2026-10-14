@@ -132,6 +132,11 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	for name, variable := range c.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, data)
+			// A budget refusal arrives together with a usable value (the counter is charged
+			// after evaluation), so it must win over the value, as the policy compilers do.
+			if engine.IsResourceError(err) {
+				return types.WrapErr(err)
+			}
 			if out != nil {
 				return out
 			}
@@ -150,7 +155,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 		data[engine.ResourceKey] = resource.Context{ContextInterface: context}
 	}
 
-	images, err := engine.ExtractImages(data, c.imageExtractors)
+	images, err := engine.ExtractImages(ctx, data, c.imageExtractors)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +164,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	for category, imgs := range images {
 		filteredImages[category] = []string{} // ensure image.containers is always [] in CEL
 		for _, img := range imgs {
-			if apply, err := matching.MatchImage(img, c.matchImageReferences...); err != nil {
+			if apply, err := matching.MatchImage(ctx, img, c.matchImageReferences...); err != nil {
 				return nil, err
 			} else if apply {
 				filteredImages[category] = append(filteredImages[category], img)
@@ -191,7 +196,7 @@ func (c *compiledPolicy) Evaluate(ctx context.Context, ictx imagedataloader.Imag
 	attestors := lazy.NewMapValue(cel.DynType)
 	for _, attestor := range c.attestors {
 		attestors.Append(attestor.Key, func(*lazy.MapValue) ref.Val {
-			data, err := attestor.Evaluate(data)
+			data, err := attestor.Evaluate(ctx, data)
 			if err != nil {
 				return types.WrapErr(err)
 			}
@@ -359,7 +364,7 @@ func (c *compiledPolicy) MutateDigest(
 				continue
 			}
 			image := info.String()
-			if apply, err := matching.MatchImage(image, c.matchImageReferences...); err != nil {
+			if apply, err := matching.MatchImage(ctx, image, c.matchImageReferences...); err != nil {
 				return nil, err
 			} else if !apply {
 				continue

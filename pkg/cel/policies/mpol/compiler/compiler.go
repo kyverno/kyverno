@@ -13,8 +13,8 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
@@ -93,7 +93,7 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
 			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, "output type must be a map"))
 		}
-		targetExpression, err = extendedCompiler.Program(ast)
+		targetExpression, err = compiler.NewProgram(extendedCompiler, ast)
 		if err != nil {
 			return nil, append(allErrs, field.InternalError(path.Child("targetMatchConstraints").Child("expression"), err))
 		}
@@ -244,7 +244,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 			transform.Latest(),
 		),
 		gzip.Lib(
-			gzip.Latest(),
+			gzip.Latest(), 0,
 		),
 		user.Lib(
 			user.Latest(),
@@ -257,7 +257,9 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := base.Extend(
+	// compiler.BaseEnvSet, not base.Extend: registers CostLib last, in this one Extend
+	// call (see pkg/cel/compiler/env.go).
+	extendedBase, err := compiler.BaseEnvSet(mpolCompilerVersion,
 		environment.VersionedOptions{
 			IntroducedVersion: mpolCompilerVersion,
 			EnvOptions:        baseOpts,

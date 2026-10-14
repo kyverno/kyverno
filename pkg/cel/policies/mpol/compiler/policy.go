@@ -76,6 +76,13 @@ func (p *Policy) appendVariables(ctx context.Context, data map[string]any) *lazy
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {
 			out, _, err := variable.ContextEval(ctx, data)
+			// A resource refusal must win over a value. When the per-request budget is
+			// exhausted by a program that otherwise completed, ContextEval returns BOTH a
+			// usable value and the refusal, so checking out first discards the refusal and
+			// the variable evaluates as if the budget had never been exceeded.
+			if compiler.IsResourceError(err) {
+				return types.WrapErr(err)
+			}
 			if out != nil {
 				return out
 			}

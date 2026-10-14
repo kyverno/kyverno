@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
@@ -80,6 +81,11 @@ func NewEngine(
 }
 
 func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, error) {
+	// A shared CEL cost budget for every policy this call evaluates. Ensure is a no-op if
+	// an outer scope already set one, so this only matters for an entry point that does
+	// not go through the webhook handler or the reports scanner. Every other family does
+	// this in its own engine; without it ivpol was the one asymmetric family.
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -163,6 +169,11 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 // (pkg/engine/internal/imageverifier.go). Failing open here would silently admit
 // unpinned images, which is the very problem this handler exists to fix.
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
+	// A shared CEL cost budget for every policy this call evaluates. Ensure is a no-op if
+	// an outer scope already set one, so this only matters for an entry point that does
+	// not go through the webhook handler or the reports scanner. Every other family does
+	// this in its own engine; without it ivpol was the one asymmetric family.
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response eval.ImageVerifyEngineResponse
 	// load objects
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
