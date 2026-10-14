@@ -989,6 +989,19 @@ func TestLoadSkippingInvalidFiles_IgnoresMalformedNonPolicyLists(t *testing.T) {
 	assert.Empty(t, results.NonFatalErrors)
 }
 
+// TestLoadSkippingInvalidFiles_ReportsInvalidYAML checks that a document that is not valid YAML is
+// reported even when it looks like a List, unlike a valid List whose shape is broken.
+func TestLoadSkippingInvalidFiles_ReportsInvalidYAML(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "broken-list.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("apiVersion: v1\nkind: List\nitems: [unclosed\n"), 0o600))
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	require.NoError(t, err)
+	require.Len(t, results.NonFatalErrors, 1)
+	assert.Equal(t, path, results.NonFatalErrors[0].Path)
+	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "yaml")
+}
+
 // TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies checks that a legacy policy still fails the
 // lenient load.
 func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {

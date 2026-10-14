@@ -25,6 +25,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -1785,6 +1786,51 @@ func TestCommandReportsPoliciesThatCouldNotBeLoadedOnStderrForPolicyReports(t *t
 	assert.NoError(t, json.Unmarshal(stdout.Bytes(), &report), "stdout should only hold the policy report")
 	assert.Contains(t, stderr.String(), "Policies Not Loaded:")
 	assert.Contains(t, stderr.String(), filepath.Join(policies, "typo.yaml"))
+}
+
+// TestCommandKeepsLoadErrorsOffStdoutForPipedOutput checks that in the other modes whose stdout is
+// meant for another program the load errors go to stderr, and stdout is exactly what it would be
+// without the broken policy.
+func TestCommandKeepsLoadErrorsOffStdoutForPipedOutput(t *testing.T) {
+	policies, pod := writePolicyLoadErrorFixtures(t)
+	run := func(t *testing.T, policyPath, mode string) (string, string) {
+		t.Helper()
+		cmd := Command()
+		var stdout, stderr bytes.Buffer
+		cmd.SetOut(&stdout)
+		cmd.SetErr(&stderr)
+		cmd.SetArgs([]string{policyPath, "--resource", pod, mode})
+		_ = cmd.Execute()
+		return stdout.String(), stderr.String()
+	}
+	for _, mode := range []string{"--generate-exceptions", "--stdin"} {
+		t.Run(mode, func(t *testing.T) {
+			stdout, stderr := run(t, policies, mode)
+			assert.NotContains(t, stdout, "Policies Not Loaded")
+			assert.Contains(t, stderr, "Policies Not Loaded:")
+			assert.Contains(t, stderr, filepath.Join(policies, "typo.yaml"))
+
+			cleanStdout, cleanStderr := run(t, filepath.Join(policies, "disallow-latest.yaml"), mode)
+			assert.NotContains(t, cleanStderr, "Policies Not Loaded")
+			assert.Equal(t, cleanStdout, stdout, "load errors must not change stdout")
+		})
+	}
+
+	stdout, _ := run(t, policies, "--generate-exceptions")
+	decoder := yaml.NewYAMLOrJSONDecoder(strings.NewReader(stdout), 4096)
+	var exceptions int
+	for {
+		var doc map[string]any
+		if err := decoder.Decode(&doc); err != nil {
+			require.ErrorIs(t, err, io.EOF)
+			break
+		}
+		if doc != nil {
+			assert.Equal(t, "PolicyException", doc["kind"])
+			exceptions++
+		}
+	}
+	assert.Equal(t, 1, exceptions)
 }
 
 // TestPrintPolicyLoadErrors checks the Policies Not Loaded section and that nothing is printed
