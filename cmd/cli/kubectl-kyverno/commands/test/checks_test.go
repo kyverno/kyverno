@@ -43,6 +43,8 @@ func TestPrintCheckResult(t *testing.T) {
 		wantErr          string
 		initialRow       bool
 		wantFirstCheckID int
+		checkFailureState bool
+		wantRowFailure    bool
 	}{{
 		name: "assert",
 		check: `
@@ -65,13 +67,17 @@ assert: {status: fail, message: "The label ` + "`team`" + ` is required."}`,
 		wantPass: 1,
 		wantSkip: 1,
 	}, {
-		name:     "error",
-		check:    `{match: {resource: {metadata: {name: bad}}}, error: {status: pass}}`,
-		wantPass: 1,
+		name:              "error",
+		check:             `{match: {resource: {metadata: {name: bad}}}, error: {status: pass}}`,
+		wantPass:          1,
+		checkFailureState: true,
+		wantRowFailure:    false,
 	}, {
-		name:     "error fails",
-		check:    `{match: {resource: {metadata: {name: bad}}}, error: {status: fail}}`,
-		wantFail: 1,
+		name:              "error fails",
+		check:             `{match: {resource: {metadata: {name: bad}}}, error: {status: fail}}`,
+		wantFail:          1,
+		checkFailureState: true,
+		wantRowFailure:    true,
 	}, {
 		name:  "no match",
 		check: `{match: {policy: {metadata: {name: other}}}, assert: {status: fail}}`,
@@ -95,6 +101,10 @@ assert: {status: fail, message: "The label ` + "`team`" + ` is required."}`,
 				return
 			}
 			require.NoError(t, err)
+			if tt.checkFailureState {
+				require.Len(t, resultsTable.RawRows, 1)
+				assert.Equal(t, tt.wantRowFailure, resultsTable.RawRows[0].IsFailure)
+			}
 			if tt.wantFirstCheckID != 0 {
 				require.Len(t, resultsTable.RawRows, 2)
 				assert.Equal(t, tt.wantFirstCheckID, resultsTable.RawRows[1].ID)
