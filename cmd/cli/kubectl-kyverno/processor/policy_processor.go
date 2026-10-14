@@ -407,7 +407,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// policies whose trigger rules (matchConstraints, matchConditions) match this resource may
 			// mutate targets; the target engine below has no matcher and never checks the trigger itself.
 			// MatchNames with no names matches every policy, so an empty result must skip the targets.
-			triggeredPolicies := eng.MatchedMutateExistingPolicies(context.TODO(), request)
+			triggerAttr := admission.NewAttributesRecord(object, oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admission.Operation(operation), nil, false, admissionpolicy.NewUser(user))
+			triggeredPolicies := triggeredMutateExistingPolicies(context.TODO(), provider, triggerAttr, &request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
 			if len(p.TargetResources) > 0 && len(triggeredPolicies) > 0 {
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers

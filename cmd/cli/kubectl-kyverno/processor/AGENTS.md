@@ -12,9 +12,11 @@
    `expression`) must never mutate the trigger here. Policies with no or empty `targetMatchConstraints` mutate the
    trigger inline.
 2. **Target pass** — only runs when `p.TargetResources` is set, and only for the policies whose trigger rules match
-   this resource: `eng.MatchedMutateExistingPolicies(...)` (the same check the admission webhook uses) checks
-   `matchConstraints` and `matchConditions`, because the target engine has no matcher and never looks at the
-   trigger. An empty result skips the targets entirely, since `MatchNames()` with no names matches every policy.
+   this resource: `triggeredMutateExistingPolicies` (`mutate_existing.go`) checks `matchConstraints` and
+   `matchConditions`, because the target engine has no matcher and never looks at the trigger. It is the check
+   the webhook makes through `MatchedMutateExistingPolicies`, without that method's admission-enabled gate, so
+   background-only policies keep mutating their targets as the background controller would. An empty result
+   skips the targets entirely, since `MatchNames()` with no names matches every policy.
    Each target is evaluated with `Evaluate(...)`, `MatchNames(triggered...)` and `targetMatchPredicate`, and gets
    its own response whose `Resource` is the target. A passing rule carries the
    patched target through `WithPatchedTarget`; a rule that fails or errors carries no patched target and is

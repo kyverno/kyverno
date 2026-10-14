@@ -46,6 +46,16 @@ func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, failing.MutatingPolicies, 1)
 
+	// the same policy with admission disabled: background only policies still mutate their targets
+	backgroundOnlyPath := filepath.Join(t.TempDir(), "background-only-policy.yaml")
+	backgroundOnly := strings.Replace(string(content), "    mutateExisting:\n      enabled: true", "    admission:\n      enabled: false\n    mutateExisting:\n      enabled: true", 1)
+	require.NotEqual(t, string(content), backgroundOnly)
+	require.NoError(t, os.WriteFile(backgroundOnlyPath, []byte(backgroundOnly), 0o600))
+	background, err := policy.Load(nil, "", false, backgroundOnlyPath)
+	require.NoError(t, err)
+	require.Len(t, background.MutatingPolicies, 1)
+	require.False(t, background.MutatingPolicies[0].GetSpec().AdmissionEnabled())
+
 	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
 	configMap := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
@@ -55,17 +65,20 @@ func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
 	target := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
 
 	tests := []struct {
-		name          string
-		failing       bool
-		trigger       *unstructured.Unstructured
-		mutateLogPath string // "-" means a file that cannot be opened
-		wantPass      int
-		wantError     int
-		wantErr       string
+		name           string
+		failing        bool
+		backgroundOnly bool
+		trigger        *unstructured.Unstructured
+		mutateLogPath  string // "-" means a file that cannot be opened
+		wantPass       int
+		wantError      int
+		wantErr        string
 	}{
 		{name: "matching trigger mutates the target", trigger: secret, wantPass: 1},
 		{name: "trigger the policy does not match leaves the target alone", trigger: configMap},
 		{name: "failed target mutation is counted as an error", failing: true, trigger: secret, wantError: 1},
+		{name: "background only policy still mutates the target", backgroundOnly: true, trigger: secret, wantPass: 1},
+		{name: "background only policy still ignores a trigger it does not match", backgroundOnly: true, trigger: configMap},
 		{name: "patched target is written to the output file", trigger: secret, mutateLogPath: "file", wantPass: 1},
 		{name: "unwritable output file fails the run", trigger: secret, mutateLogPath: "-", wantErr: "failed to print mutated target result"},
 	}
@@ -74,6 +87,9 @@ func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
 			mpols := loaded.MutatingPolicies
 			if tt.failing {
 				mpols = failing.MutatingPolicies
+			}
+			if tt.backgroundOnly {
+				mpols = background.MutatingPolicies
 			}
 			var mutateLogPath string
 			switch tt.mutateLogPath {
