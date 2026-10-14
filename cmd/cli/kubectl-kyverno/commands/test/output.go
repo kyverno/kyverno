@@ -27,12 +27,20 @@ func printCheckResult(
 	resultsTable *table.Table,
 ) error {
 	ctx := context.Background()
+	for i, check := range checks {
+		if (check.Assert == nil || check.Assert.Value == nil) && (check.Error == nil || check.Error.Value == nil) {
+			return fmt.Errorf("checks[%d]: at least one of assert or error must be specified", i)
+		}
+	}
 	testCount := len(resultsTable.RawRows) + 1
 	for _, check := range checks {
 		// filter engine responses
 		var matchingEngineResponses []engineapi.EngineResponse
-		for _, engineresponses := range responses.Trigger {
-			matchingEngineResponses = append(matchingEngineResponses, engineresponses...)
+		for _, responseList := range responses.Trigger {
+			matchingEngineResponses = append(matchingEngineResponses, responseList...)
+		}
+		for _, responseList := range responses.Target {
+			matchingEngineResponses = append(matchingEngineResponses, responseList...)
 		}
 		// 1. by resource
 		if check.Match.Resource != nil {
@@ -52,7 +60,11 @@ func printCheckResult(
 		if check.Match.Policy != nil {
 			var filtered []engineapi.EngineResponse
 			for _, response := range matchingEngineResponses {
-				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(response.Policy().AsObject())
+				policy := response.Policy()
+				if policy == nil {
+					continue
+				}
+				data, err := runtime.DefaultUnstructuredConverter.ToUnstructured(policy.AsObject())
 				if err != nil {
 					return err
 				}
@@ -85,6 +97,10 @@ func printCheckResult(
 				}
 				matchingRuleResponses = filtered
 			}
+			policyName := ""
+			if policy := response.Policy(); policy != nil {
+				policyName = policy.GetName()
+			}
 			for _, rule := range matchingRuleResponses {
 				// perform check
 				data := map[string]any{
@@ -100,6 +116,27 @@ func printCheckResult(
 					"podSecurityChecks": rule.PodSecurityChecks(),
 					"exceptions":        rule.Exceptions(),
 				}
+				generatedResources := make([]any, 0, len(rule.GeneratedResources()))
+				for _, generated := range rule.GeneratedResources() {
+					if generated != nil {
+						generatedResources = append(generatedResources, generated.UnstructuredContent())
+					}
+				}
+				if len(generatedResources) > 0 {
+					data["generatedResources"] = generatedResources
+					if len(generatedResources) == 1 {
+						data["generatedResource"] = generatedResources[0]
+					}
+				}
+				if patchedTarget, parentResourceGVR, subresourceName := rule.PatchedTarget(); patchedTarget != nil {
+					data["patchedTarget"] = patchedTarget.UnstructuredContent()
+					data["patchedTargetParentResourceGVR"] = map[string]any{
+						"group":    parentResourceGVR.Group,
+						"version":  parentResourceGVR.Version,
+						"resource": parentResourceGVR.Resource,
+					}
+					data["patchedTargetSubresourceName"] = subresourceName
+				}
 				if check.Assert != nil && check.Assert.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
 					if err != nil {
@@ -108,7 +145,7 @@ func printCheckResult(
 					row := table.Row{
 						RowCompact: table.RowCompact{
 							ID:        testCount,
-							Policy:    color.Policy("", response.Policy().GetName()),
+							Policy:    color.Policy("", policyName),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
 							IsFailure: len(errs) != 0,
