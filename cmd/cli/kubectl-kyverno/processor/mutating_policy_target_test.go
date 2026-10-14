@@ -601,25 +601,27 @@ spec:
 		t.Run(tt.name, func(t *testing.T) {
 			loaded := loadMutatingPolicies(t, inline+"---\n"+tt.targetPolicy)
 			require.Len(t, loaded.MutatingPolicies, 2)
+			rc := &ResultCounts{}
 			processor := PolicyProcessor{
 				Store:              &store.Store{},
 				MutatingPolicies:   loaded.MutatingPolicies,
 				Resource:           *secret.DeepCopy(),
 				TargetResources:    []*unstructured.Unstructured{target.DeepCopy()},
 				Variables:          &variables.Variables{},
-				Rc:                 &ResultCounts{},
+				Rc:                 rc,
 				PrintPatchResource: true,
 				Out:                &bytes.Buffer{},
 			}
 			responses, err := processor.ApplyPoliciesOnResource()
 			require.NoError(t, err)
 
-			var inlineLabelled, targetMutated bool
+			var inlineLabelled, targetMutated, targetResponded bool
 			for _, response := range responses {
 				switch response.Policy().GetName() {
 				case "label-the-trigger":
 					inlineLabelled = response.PatchedResource.GetLabels()["marked"] == "true"
 				case "mutate-existing-deployment-from-secret":
+					targetResponded = true
 					for _, rule := range response.PolicyResponse.Rules {
 						if patched, _, _ := rule.PatchedTarget(); patched != nil && patched.GetLabels()["mutated"] == "true" {
 							targetMutated = true
@@ -629,6 +631,9 @@ spec:
 			}
 			require.True(t, inlineLabelled, "the ordinary policy must still label the trigger inline")
 			assert.Equal(t, tt.wantMutated, targetMutated)
+			// not mutated because the target policy was not triggered, not because evaluating it failed
+			assert.Zero(t, rc.Fail+rc.Error, "no rule may fail or error")
+			assert.Equal(t, tt.wantMutated, targetResponded, "the target policy must only respond when it is triggered")
 		})
 	}
 }
