@@ -14,18 +14,39 @@ import (
 )
 
 // liveContext stands in for the client-backed context used with --cluster: it is not a
-// *libs.FakeContextProvider, so targetResourceContext treats it as a live cluster.
+// *libs.FakeContextProvider, so targetResourceContext treats it as a live cluster. An empty namespace
+// lists every namespace the stand-in holds objects in, as a cluster-wide list does.
 type liveContext struct {
 	*libs.FakeContextProvider
+	namespaces []string
 }
 
 func (c liveContext) Clone() libs.Context { return c }
 
+func (c liveContext) ListResources(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+	if namespace != "" {
+		return c.FakeContextProvider.ListResources(apiVersion, resource, namespace, labels)
+	}
+	out := &unstructured.UnstructuredList{}
+	for _, ns := range c.namespaces {
+		list, err := c.FakeContextProvider.ListResources(apiVersion, resource, ns, labels)
+		if err != nil {
+			return nil, err
+		}
+		out.Items = append(out.Items, list.Items...)
+	}
+	return out, nil
+}
+
 func configMap(name string, labels map[string]string) *unstructured.Unstructured {
+	return configMapIn("test-ns", name, labels)
+}
+
+func configMapIn(namespace, name string, labels map[string]string) *unstructured.Unstructured {
 	object := &unstructured.Unstructured{Object: map[string]any{
 		"apiVersion": "v1",
 		"kind":       "ConfigMap",
-		"metadata":   map[string]any{"name": name, "namespace": "test-ns"},
+		"metadata":   map[string]any{"name": name, "namespace": namespace},
 	}}
 	object.SetLabels(labels)
 	return object
@@ -41,9 +62,14 @@ func testRESTMapper() meta.RESTMapper {
 // newLiveContext returns a stand-in live context holding the given ConfigMaps.
 func newLiveContext(t *testing.T, objects ...*unstructured.Unstructured) liveContext {
 	t.Helper()
-	live := liveContext{libs.NewFakeContextProvider()}
+	live := liveContext{FakeContextProvider: libs.NewFakeContextProvider()}
+	seen := map[string]bool{}
 	for _, object := range objects {
 		require.NoError(t, live.AddResource(schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}, object))
+		if !seen[object.GetNamespace()] {
+			seen[object.GetNamespace()] = true
+			live.namespaces = append(live.namespaces, object.GetNamespace())
+		}
 	}
 	return live
 }
@@ -138,4 +164,41 @@ func TestDiscoverCELTargets_WithCluster(t *testing.T) {
 	selected, err := discover(ctx)
 	require.NoError(t, err)
 	assert.True(t, selected[triggered[0]][celTargetKey(schema.GroupKind{Kind: "ConfigMap"}, "test-ns", "supplied-only")])
+}
+
+// TestTargetResourceContext_SuppliedTargetReplacesStaleLiveCopy checks that a supplied target replaces the
+// live object with the same identity in a list even when only the live copy still matches the selector.
+func TestTargetResourceContext_SuppliedTargetReplacesStaleLiveCopy(t *testing.T) {
+	live := newLiveContext(t, configMap("stale", map[string]string{"team": "a"}), configMap("other", map[string]string{"team": "a"}))
+	// the supplied version of stale no longer carries the label
+	ctx := targetResourceContext(live, []*unstructured.Unstructured{configMap("stale", nil)}, testRESTMapper())
+
+	list, err := ctx.ListResources("v1", "configmaps", "test-ns", map[string]string{"team": "a"})
+	require.NoError(t, err)
+	var names []string
+	for _, item := range list.Items {
+		names = append(names, item.GetName())
+	}
+	assert.Equal(t, []string{"other"}, names, "the stale live copy must not stand in for the supplied target")
+}
+
+// TestTargetResourceContext_AllNamespaces checks that a cluster-wide list keeps objects that only share a
+// name in different namespaces, and includes supplied targets from every namespace.
+func TestTargetResourceContext_AllNamespaces(t *testing.T) {
+	live := newLiveContext(t, configMapIn("ns-a", "cm", map[string]string{"from": "live"}))
+	ctx := targetResourceContext(live, []*unstructured.Unstructured{configMapIn("ns-b", "cm", map[string]string{"from": "supplied"})}, testRESTMapper())
+
+	list, err := ctx.ListResources("v1", "configmaps", "", nil)
+	require.NoError(t, err)
+	listed := map[string]string{}
+	for _, item := range list.Items {
+		listed[item.GetNamespace()+"/"+item.GetName()] = item.GetLabels()["from"]
+	}
+	assert.Equal(t, map[string]string{"ns-a/cm": "live", "ns-b/cm": "supplied"}, listed)
+
+	for ns, from := range map[string]string{"ns-a": "live", "ns-b": "supplied"} {
+		object, err := ctx.GetResource("v1", "configmaps", ns, "cm")
+		require.NoError(t, err, ns)
+		assert.Equal(t, from, object.GetLabels()["from"], ns)
+	}
 }

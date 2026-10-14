@@ -35,7 +35,9 @@
    (`target_context.go`), so CEL `resource.get()`/`resource.list()` see the supplied targets: registered in the
    processor's own `FakeContextProvider` without a cluster, and laid over the live context with `--cluster`,
    where a supplied target wins over a live object with the same identity and everything else still comes
-   from the cluster.
+   from the cluster. In lists a supplied target replaces the live object with the same namespace and name before
+   any label filtering, so a stale live copy never stands in for it, and a cluster-wide list includes supplied
+   targets from every namespace.
    Each target is evaluated with `Evaluate(...)`, `policyKeyIn(triggered)` and `targetMatchPredicate`, and gets
    its own response whose `Resource` is the target. A passing rule carries the
    patched target through `WithPatchedTarget`; a rule that fails or errors carries no patched target and is

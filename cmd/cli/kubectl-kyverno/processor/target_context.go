@@ -5,6 +5,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 // targetResourceContext returns the context the mutate-existing target pass evaluates with, in which CEL
@@ -14,61 +15,82 @@ import (
 // still comes from the cluster, so a supplied target that does not exist in the cluster can still be selected.
 func targetResourceContext(contextProvider libs.Context, targets []*unstructured.Unstructured, restMapper meta.RESTMapper) libs.Context {
 	fake, isFake := contextProvider.(*libs.FakeContextProvider)
-	if !isFake {
-		fake = libs.NewFakeContextProvider()
-	}
+	overlay := &targetOverlayContext{Context: contextProvider, targets: map[schema.GroupVersionResource][]*unstructured.Unstructured{}}
 	for _, target := range targets {
 		gvk := target.GroupVersionKind()
 		mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 		if err != nil {
 			continue
 		}
-		_ = fake.AddResource(mapping.Resource, target)
+		if isFake {
+			_ = fake.AddResource(mapping.Resource, target)
+			continue
+		}
+		overlay.targets[mapping.Resource] = append(overlay.targets[mapping.Resource], target)
 	}
 	if isFake {
 		return contextProvider
 	}
-	return &targetOverlayContext{Context: contextProvider, targets: fake}
+	return overlay
 }
 
 // targetOverlayContext lays the supplied target resources over a live context for resource lookups.
 type targetOverlayContext struct {
 	libs.Context
-	targets *libs.FakeContextProvider
+	targets map[schema.GroupVersionResource][]*unstructured.Unstructured
+}
+
+// supplied returns the supplied targets of a resource in namespace, or in every namespace when it is empty.
+func (c *targetOverlayContext) supplied(apiVersion, resource, namespace string) []*unstructured.Unstructured {
+	gv, err := schema.ParseGroupVersion(apiVersion)
+	if err != nil {
+		return nil
+	}
+	var out []*unstructured.Unstructured
+	for _, target := range c.targets[gv.WithResource(resource)] {
+		if namespace == "" || target.GetNamespace() == namespace {
+			out = append(out, target)
+		}
+	}
+	return out
 }
 
 // GetResource returns the supplied target with this identity, or else the live object.
 func (c *targetOverlayContext) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
-	if object, err := c.targets.GetResource(apiVersion, resource, namespace, name); err == nil {
-		return object, nil
+	for _, target := range c.supplied(apiVersion, resource, namespace) {
+		if target.GetNamespace() == namespace && target.GetName() == name {
+			return target.DeepCopy(), nil
+		}
 	}
 	return c.Context.GetResource(apiVersion, resource, namespace, name)
 }
 
-// ListResources returns the live objects with every supplied target added, a supplied target replacing a
-// live object with the same name. A kind that is missing from the cluster still lists the supplied targets.
+// ListResources returns the live objects with the supplied targets laid over them. A supplied target always
+// replaces the live object with the same namespace and name, even when only the live object matches the
+// label selector, so a stale live copy is never listed in its place. A kind that is missing from the cluster
+// still lists the supplied targets.
 func (c *targetOverlayContext) ListResources(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
-	supplied, suppliedErr := c.targets.ListResources(apiVersion, resource, namespace, labels)
+	supplied := c.supplied(apiVersion, resource, namespace)
 	live, err := c.Context.ListResources(apiVersion, resource, namespace, labels)
 	if err != nil {
-		if suppliedErr != nil || (!kerrors.IsNotFound(err) && !kerrors.IsBadRequest(err)) {
+		if len(supplied) == 0 || (!kerrors.IsNotFound(err) && !kerrors.IsBadRequest(err)) {
 			return nil, err
 		}
 		live = &unstructured.UnstructuredList{}
 	}
-	if suppliedErr != nil {
+	if len(supplied) == 0 {
 		return live, nil
 	}
 	out := &unstructured.UnstructuredList{Object: live.Object}
 	replaced := map[string]bool{}
-	for _, item := range supplied.Items {
+	for _, item := range supplied {
+		replaced[item.GetNamespace()+"/"+item.GetName()] = true
 		if matchesLabels(item.GetLabels(), labels) {
-			out.Items = append(out.Items, item)
-			replaced[item.GetName()] = true
+			out.Items = append(out.Items, *item.DeepCopy())
 		}
 	}
 	for _, item := range live.Items {
-		if !replaced[item.GetName()] {
+		if !replaced[item.GetNamespace()+"/"+item.GetName()] {
 			out.Items = append(out.Items, item)
 		}
 	}
