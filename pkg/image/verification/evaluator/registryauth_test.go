@@ -64,8 +64,8 @@ func (t *tokenRegistry) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // TestEvaluationReusesRegistryAuth asserts that evaluating a policy against one
-// request performs a single registry auth handshake per repository, covering the
-// image prefetch and the CEL image functions together.
+// request performs a single registry auth handshake per repository, across every
+// image the CEL image functions fetch.
 //
 // Regression test for #17832.
 func TestEvaluationReusesRegistryAuth(t *testing.T) {
@@ -95,7 +95,8 @@ func TestEvaluationReusesRegistryAuth(t *testing.T) {
 			Credentials:              &policiesv1beta1.Credentials{AllowInsecureRegistry: true},
 			ImageExtractors:          []policiesv1beta1.ImageExtractor{{Name: "all", Expression: "object.images"}},
 			Validations: []admissionregistrationv1.Validation{
-				{Expression: fmt.Sprintf("getImageData(%q).config != null", images[0])},
+				// fetch every image: a single fetch costs one handshake with or without reuse
+				{Expression: "object.images.all(image, getImageData(image).config != null)"},
 			},
 		},
 	}
