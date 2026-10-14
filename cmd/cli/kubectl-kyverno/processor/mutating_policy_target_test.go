@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
 )
 
@@ -349,4 +350,119 @@ func TestApplyPoliciesOnResource_CELTargetsKeyedByPolicyKey(t *testing.T) {
 	}
 	assert.Equal(t, map[string][]string{"cm-cluster": {"cluster"}, "cm-namespaced": {"namespaced"}}, owners)
 	assert.Equal(t, 2, rc.Pass)
+}
+
+// sameNameTargetPolicy is a policy named same-name that labels Deployment targets with owner, as a
+// MutatingPolicy when namespace is empty and as a NamespacedMutatingPolicy otherwise.
+func sameNameTargetPolicy(namespace, owner string) string {
+	header := "apiVersion: policies.kyverno.io/v1beta1\nkind: MutatingPolicy\nmetadata:\n  name: same-name\n"
+	if namespace != "" {
+		header = "apiVersion: policies.kyverno.io/v1\nkind: NamespacedMutatingPolicy\nmetadata:\n  name: same-name\n  namespace: " + namespace + "\n"
+	}
+	return header + `spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["secrets"]
+  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: Object.metadata.labels{owner: "` + owner + `"}}}
+`
+}
+
+// TestApplyPoliciesOnResource_TriggeredPolicyMatchedByExactKey checks that a triggered clustered policy
+// does not let a namespaced policy with the same name from another namespace mutate the targets.
+func TestApplyPoliciesOnResource_TriggeredPolicyMatchedByExactKey(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	target := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	loaded := loadMutatingPolicies(t, sameNameTargetPolicy("", "cluster")+"---\n"+sameNameTargetPolicy("other-ns", "namespaced"))
+	require.Len(t, loaded.MutatingPolicies, 2)
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{target.DeepCopy()},
+		Variables:          &variables.Variables{},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	var owners []string
+	for _, response := range responses {
+		assert.Empty(t, response.Policy().GetNamespace(), "the namespaced policy from another namespace must not be evaluated")
+		for _, rule := range response.PolicyResponse.Rules {
+			patched, _, _ := rule.PatchedTarget()
+			require.NotNil(t, patched, "rule %q: %s", rule.Name(), rule.Message())
+			owners = append(owners, patched.GetLabels()["owner"])
+		}
+	}
+	assert.Equal(t, []string{"cluster"}, owners)
+	assert.Equal(t, 1, rc.Pass)
+}
+
+// TestApplyPoliciesOnResource_CELTargetsMatchKind checks that a CEL target expression selecting a ConfigMap
+// does not also select a supplied Secret with the same namespace and name.
+func TestApplyPoliciesOnResource_CELTargetsMatchKind(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	loaded := loadMutatingPolicies(t, celTargetPolicy("", "foo", "cel"))
+	require.Len(t, loaded.MutatingPolicies, 1)
+	object := func(kind string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       kind,
+			"metadata":   map[string]any{"name": "foo", "namespace": "test-ns"},
+		}}
+	}
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{object("ConfigMap"), object("Secret")},
+		Variables:          &variables.Variables{},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	var mutatedKinds []string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			patched, _, _ := rule.PatchedTarget()
+			require.NotNil(t, patched, "rule %q: %s", rule.Name(), rule.Message())
+			mutatedKinds = append(mutatedKinds, patched.GetKind())
+		}
+	}
+	assert.Equal(t, []string{"ConfigMap"}, mutatedKinds, "only the selected kind may be mutated")
+	assert.Equal(t, 1, rc.Pass)
+}
+
+// TestCelTargetKey checks that the CEL selection key tells kinds and namespaces apart.
+func TestCelTargetKey(t *testing.T) {
+	configMap := schema.GroupKind{Kind: "ConfigMap"}
+	assert.NotEqual(t, celTargetKey(configMap, "ns", "foo"), celTargetKey(schema.GroupKind{Kind: "Secret"}, "ns", "foo"))
+	assert.NotEqual(t, celTargetKey(configMap, "ns", "foo"), celTargetKey(configMap, "other", "foo"))
+	assert.NotEqual(t, celTargetKey(configMap, "", "foo"), celTargetKey(configMap, "ns", "foo"))
+	assert.Equal(t, celTargetKey(configMap, "ns", "foo"), celTargetKey(configMap, "ns", "foo"))
 }

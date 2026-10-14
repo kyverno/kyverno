@@ -406,7 +406,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// mutateExisting MutatingPolicies - process target resources. Like the admission webhook, only
 			// policies whose trigger rules (matchConstraints, matchConditions) match this resource may
 			// mutate targets; the target engine below has no matcher and never checks the trigger itself.
-			// MatchNames with no names matches every policy, so an empty result must skip the targets.
+			// When no policy is triggered there is nothing to evaluate on the targets.
 			triggerAttr := admission.NewAttributesRecord(object, oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admission.Operation(operation), nil, false, admissionpolicy.NewUser(user))
 			triggeredPolicies := triggeredMutateExistingPolicies(context.TODO(), provider, triggerAttr, &request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
 			if len(p.TargetResources) > 0 && len(triggeredPolicies) > 0 {
@@ -449,7 +449,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, mpolengine.And(mpolengine.MatchNames(triggeredPolicies...), targetMatchPredicate(targetMatcher, attr, celTargets)))
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, mpolengine.And(policyKeyIn(triggeredPolicies), targetMatchPredicate(targetMatcher, attr, celTargets)))
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}
@@ -1186,7 +1186,7 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 // matches a MutatingPolicy's targetMatchConstraints. This filters out policies
 // whose target constraints don't match the given target, mirroring the filtering
 // the background controller does via API list calls before calling Evaluate.
-// celTargets maps policy keys (mpolengine.PolicyKey) to the set of target keys (namespace/name) discovered
+// celTargets maps policy keys (mpolengine.PolicyKey) to the set of target keys (celTargetKey) discovered
 // by evaluating CEL expressions.
 func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
 	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
@@ -1197,13 +1197,9 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 			if !ok {
 				return false
 			}
-			ns := attr.GetNamespace()
-			name := attr.GetName()
-			key := name
-			if ns != "" {
-				key = ns + "/" + name
-			}
-			return targets[key]
+			// an object the expression returned without apiVersion and kind is still matched by namespace and name
+			return targets[celTargetKey(attr.GetKind().GroupKind(), attr.GetNamespace(), attr.GetName())] ||
+				targets[celTargetKey(schema.GroupKind{}, attr.GetNamespace(), attr.GetName())]
 		}
 		// Mirror background controller logic: use targetMatchConstraints if set,
 		// otherwise fall back to matchConstraints
@@ -1228,7 +1224,7 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 }
 
 // discoverCELTargets evaluates CEL targetMatchConstraints expressions for mutateExisting
-// policies and returns a map of policy key (mpolengine.PolicyKey) → set of target keys (namespace/name).
+// policies and returns a map of policy key (mpolengine.PolicyKey) → set of target keys (celTargetKey).
 func discoverCELTargets(
 	provider mpolengine.Provider,
 	contextProvider libs.Context,
@@ -1299,21 +1295,13 @@ func discoverCELTargets(
 					continue
 				}
 				obj := unstructured.Unstructured{Object: m}
-				key := obj.GetName()
-				if ns := obj.GetNamespace(); ns != "" {
-					key = ns + "/" + key
-				}
-				targetKeys[key] = true
+				targetKeys[celTargetKey(obj.GroupVersionKind().GroupKind(), obj.GetNamespace(), obj.GetName())] = true
 			}
 		} else {
 			obj := unstructured.Unstructured{Object: unstructuredResources}
-			key := obj.GetName()
-			if ns := obj.GetNamespace(); ns != "" {
-				key = ns + "/" + key
-			}
-			targetKeys[key] = true
+			targetKeys[celTargetKey(obj.GroupVersionKind().GroupKind(), obj.GetNamespace(), obj.GetName())] = true
 		}
-		// keyed like MatchNames, so a clustered and a namespaced policy with the same name stay apart
+		// keyed like policyKeyIn, so a clustered and a namespaced policy with the same name stay apart
 		result[mpolengine.PolicyKey(pol.Policy)] = targetKeys
 	}
 	return result, nil
