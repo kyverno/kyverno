@@ -14,7 +14,28 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 )
 
-var namespacePathRegex = regexp.MustCompile(`^/api(s)?/.*?/namespaces/([^/]+)/?.*$`)
+// A namespaced API path carries its namespace in a fixed position: the core group
+// uses /api/<version>/namespaces/<ns>/..., every other group uses
+// /apis/<group>/<version>/namespaces/<ns>/.... Anchoring to that position is what
+// makes the clamp sound. An unanchored match also accepts a cluster-scoped path
+// that merely contains /namespaces/<ns>/ further along, such as
+// /api/v1/nodes/<node>/proxy/namespaces/<ns>/, which the API server routes as a
+// node subresource and not as a namespaced read.
+var namespacePathRegexes = []*regexp.Regexp{
+	regexp.MustCompile(`^/api/[^/]+/namespaces/([^/]+)(?:/.*)?$`),
+	regexp.MustCompile(`^/apis/[^/]+/[^/]+/namespaces/([^/]+)(?:/.*)?$`),
+}
+
+// namespaceFromPath returns the namespace a cleaned API path is scoped to, and
+// whether the path is namespace-scoped at all.
+func namespaceFromPath(cleanedPath string) (string, bool) {
+	for _, re := range namespacePathRegexes {
+		if matches := re.FindStringSubmatch(cleanedPath); matches != nil {
+			return matches[1], true
+		}
+	}
+	return "", false
+}
 
 // namespaceObjectPathRegex matches the core Namespace object itself and its subresources.
 // /api/v1/namespaces/<name> has a namespace segment but is the cluster-scoped Namespace
@@ -85,8 +106,7 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 			// Namespaced Policy: verify path accesses only the policy's namespace.
 			// Match the path component alone - a /namespaces/<name>/ decoy in a query
 			// value would otherwise satisfy this check.
-			if matches := namespacePathRegex.FindStringSubmatch(validationPath); len(matches) > 2 {
-				ns := matches[2]
+			if ns, ok := namespaceFromPath(validationPath); ok {
 				if ns != a.policyNamespace {
 					return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", validationPath, ns, a.policyNamespace)
 				}
