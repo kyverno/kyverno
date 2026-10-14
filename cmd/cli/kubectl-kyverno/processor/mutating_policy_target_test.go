@@ -637,3 +637,69 @@ spec:
 		})
 	}
 }
+
+// TestApplyPoliciesOnResource_CELListHonoursLabelSelector checks that without a cluster a CEL target
+// expression listing resources by label selects only the supplied targets that carry those labels.
+func TestApplyPoliciesOnResource_CELListHonoursLabelSelector(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	loaded := loadMutatingPolicies(t, `apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: list-selected-configmaps
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["secrets"]
+  targetMatchConstraints:
+    expression: >
+      resource.list("v1", "configmaps", object.metadata.namespace, {"select": "yes"})
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: Object.metadata.labels{mutated: "true"}}}
+`)
+	require.Len(t, loaded.MutatingPolicies, 1)
+	labelled := func(name, selectValue string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata": map[string]any{
+				"name":      name,
+				"namespace": "test-ns",
+				"labels":    map[string]any{"select": selectValue},
+			},
+		}}
+	}
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{labelled("selected", "yes"), labelled("not-selected", "no")},
+		Variables:          &variables.Variables{},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	var mutated []string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			patched, _, _ := rule.PatchedTarget()
+			require.NotNil(t, patched, "rule %q: %s", rule.Name(), rule.Message())
+			mutated = append(mutated, patched.GetName())
+		}
+	}
+	assert.Equal(t, []string{"selected"}, mutated, "only the target with the selected label may be mutated")
+	assert.Equal(t, 1, rc.Pass)
+}

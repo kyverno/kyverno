@@ -8,6 +8,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -19,11 +20,25 @@ import (
 type liveContext struct {
 	*libs.FakeContextProvider
 	namespaces []string
+	listErr    error // returned by every list when set
 }
 
 func (c liveContext) Clone() libs.Context { return c }
 
+// ListResources answers like an API server: NotFound for a kind it does not serve.
 func (c liveContext) ListResources(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
+	if c.listErr != nil {
+		return nil, c.listErr
+	}
+	list, err := c.list(apiVersion, resource, namespace, labels)
+	if kerrors.IsBadRequest(err) {
+		gv, _ := schema.ParseGroupVersion(apiVersion)
+		return nil, kerrors.NewNotFound(gv.WithResource(resource).GroupResource(), "")
+	}
+	return list, err
+}
+
+func (c liveContext) list(apiVersion, resource, namespace string, labels map[string]string) (*unstructured.UnstructuredList, error) {
 	if namespace != "" {
 		return c.FakeContextProvider.ListResources(apiVersion, resource, namespace, labels)
 	}
@@ -75,14 +90,39 @@ func newLiveContext(t *testing.T, objects ...*unstructured.Unstructured) liveCon
 }
 
 // TestTargetResourceContext_WithoutCluster checks that without a cluster the targets are registered in the
-// processor's own fake context, which is returned as is.
+// processor's own fake context, and that lists honour the label selector, which that context ignores.
 func TestTargetResourceContext_WithoutCluster(t *testing.T) {
 	fake := libs.NewFakeContextProvider()
-	got := targetResourceContext(fake, []*unstructured.Unstructured{configMap("supplied", nil)}, testRESTMapper())
-	assert.Same(t, fake, got)
-	object, err := fake.GetResource("v1", "configmaps", "test-ns", "supplied")
+	targets := []*unstructured.Unstructured{
+		configMap("selected", map[string]string{"app": "x"}),
+		configMap("other", map[string]string{"app": "y"}),
+	}
+	got := targetResourceContext(fake, targets, testRESTMapper())
+	require.IsType(t, &labelFilterContext{}, got)
+	object, err := fake.GetResource("v1", "configmaps", "test-ns", "selected")
 	require.NoError(t, err)
-	assert.Equal(t, "supplied", object.GetName())
+	assert.Equal(t, "selected", object.GetName())
+
+	all, err := got.ListResources("v1", "configmaps", "test-ns", nil)
+	require.NoError(t, err)
+	assert.Len(t, all.Items, 2)
+	filtered, err := got.ListResources("v1", "configmaps", "test-ns", map[string]string{"app": "x"})
+	require.NoError(t, err)
+	require.Len(t, filtered.Items, 1)
+	assert.Equal(t, "selected", filtered.Items[0].GetName())
+
+	require.IsType(t, &labelFilterContext{}, got.Clone())
+}
+
+// TestTargetResourceContext_PropagatesLiveListErrors checks that only a kind the cluster does not serve falls
+// back to the supplied targets; any other list error, such as a rejected selector, is returned.
+func TestTargetResourceContext_PropagatesLiveListErrors(t *testing.T) {
+	live := newLiveContext(t)
+	live.listErr = kerrors.NewBadRequest("invalid label selector")
+	ctx := targetResourceContext(live, []*unstructured.Unstructured{configMap("supplied", nil)}, testRESTMapper())
+	_, err := ctx.ListResources("v1", "configmaps", "test-ns", map[string]string{"bad key": "x"})
+	require.Error(t, err)
+	assert.True(t, kerrors.IsBadRequest(err), err.Error())
 }
 
 // TestTargetResourceContext_WithCluster checks the overlay on a live context: supplied targets win over live
