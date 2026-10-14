@@ -61,6 +61,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
 	"k8s.io/client-go/openapi"
@@ -425,7 +426,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						_ = fakeCtx.AddResource(tMapping.Resource, target)
 					}
 				}
-				celTargets, err := discoverCELTargets(provider, contextProvider, &resource)
+				celTargets, err := discoverCELTargets(provider, contextProvider, &resource, triggeredPolicies)
 				if err != nil {
 					return nil, fmt.Errorf("failed to discover CEL targets: %w", err)
 				}
@@ -1223,13 +1224,17 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 	}
 }
 
-// discoverCELTargets evaluates CEL targetMatchConstraints expressions for mutateExisting
+// discoverCELTargets evaluates the CEL targetMatchConstraints expressions of the triggered mutateExisting
 // policies and returns a map of policy key (mpolengine.PolicyKey) → set of target keys (celTargetKey).
 func discoverCELTargets(
 	provider mpolengine.Provider,
 	contextProvider libs.Context,
 	resource *unstructured.Unstructured,
+	triggeredPolicies []string,
 ) (map[string]map[string]bool, error) {
+	// only the policies this trigger triggered use the selections, so an expression written for another
+	// trigger is never evaluated against this one (where it may well fail)
+	triggered := sets.New(triggeredPolicies...)
 	result := make(map[string]map[string]bool)
 	// One shared cost budget for every target expression this call evaluates, so the CLI
 	// accounts for them the way a controller does. Without it the programs below are built
@@ -1239,7 +1244,7 @@ func discoverCELTargets(
 	pols := provider.Fetch(ctx, true)
 	for _, pol := range pols {
 		tc := pol.Policy.GetTargetMatchConstraints()
-		if tc.Expression == "" {
+		if tc.Expression == "" || !triggered.Has(mpolengine.PolicyKey(pol.Policy)) {
 			continue
 		}
 

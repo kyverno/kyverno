@@ -466,3 +466,56 @@ func TestCelTargetKey(t *testing.T) {
 	assert.NotEqual(t, celTargetKey(configMap, "", "foo"), celTargetKey(configMap, "ns", "foo"))
 	assert.Equal(t, celTargetKey(configMap, "ns", "foo"), celTargetKey(configMap, "ns", "foo"))
 }
+
+// TestApplyPoliciesOnResource_UntriggeredCELTargetExpressionIsNotEvaluated checks that the CEL target
+// expression of a policy this trigger does not trigger is never evaluated against it, so an expression
+// written for another kind of trigger cannot fail the run.
+func TestApplyPoliciesOnResource_UntriggeredCELTargetExpressionIsNotEvaluated(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	target := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	triggered, err := os.ReadFile(filepath.Join(targetFixture, "policy.yaml"))
+	require.NoError(t, err)
+	// triggered by ConfigMaps only; on the Secret trigger its expression fails with no such key
+	untriggered := `apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: configmap-triggered-only
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["configmaps"]
+  targetMatchConstraints:
+    expression: >
+      resource.get("v1", "configmaps", object.metadata.namespace, object.data.target)
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: Object.metadata.labels{other: "true"}}}
+`
+	loaded := loadMutatingPolicies(t, string(triggered)+"---\n"+untriggered)
+	require.Len(t, loaded.MutatingPolicies, 2)
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{target.DeepCopy()},
+		Variables:          &variables.Variables{},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+	assert.Equal(t, 1, rc.Pass)
+	require.Len(t, responses, 1)
+	assert.Equal(t, "mutate-existing-deployment-from-secret", responses[0].Policy().GetName())
+}

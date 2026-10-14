@@ -21,7 +21,9 @@
    `MatchNames` here: it also matches by bare name, so a triggered clustered policy would let a same-named
    namespaced policy from another namespace through. Targets selected by a CEL expression (`discoverCELTargets`)
    are stored per policy key and per `celTargetKey` (group, kind, namespace and name), so policies with the same
-   name never share selections and a selected ConfigMap never matches a Secret with the same name.
+   name never share selections and a selected ConfigMap never matches a Secret with the same name. Only the
+   triggered policies have their CEL target expression evaluated, so an expression written for another trigger
+   never runs against this one, where it could fail and abort the whole run.
    Each target is evaluated with `Evaluate(...)`, `policyKeyIn(triggered)` and `targetMatchPredicate`, and gets
    its own response whose `Resource` is the target. A passing rule carries the
    patched target through `WithPatchedTarget`; a rule that fails or errors carries no patched target and is
