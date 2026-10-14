@@ -1,0 +1,37 @@
+---
+apiVersion: policies.kyverno.io/v1beta1
+kind: DeletingPolicy
+metadata:
+  name: cleanup-configmaps
+spec:
+  conditions:
+  - expression: "true"
+    name: always
+  matchConstraints:
+    excludeResourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      resourceNames:
+      - keep-me
+      resources:
+      - configmaps
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      operations:
+      - DELETE
+      resourceNames:
+      - keep-me-too
+      resources:
+      - configmaps
+    resourceRules:
+    - apiGroups:
+      - ""
+      apiVersions:
+      - v1
+      resources:
+      - configmaps
+  schedule: '*/5 * * * *'
