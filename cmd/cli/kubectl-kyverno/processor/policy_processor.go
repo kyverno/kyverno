@@ -1191,6 +1191,11 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 // by evaluating CEL expressions.
 func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
 	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
+		// like the background controller, a namespaced policy only ever acts on targets in its own
+		// namespace, which also rules out cluster-scoped targets
+		if ns := mpol.GetNamespace(); ns != "" && attr.GetNamespace() != ns {
+			return false
+		}
 		tc := mpol.GetTargetMatchConstraints()
 		if tc.Expression != "" {
 			// CEL expression target selection — check pre-computed targets

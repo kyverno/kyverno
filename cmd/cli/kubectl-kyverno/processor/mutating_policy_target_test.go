@@ -519,3 +519,40 @@ spec:
 	require.Len(t, responses, 1)
 	assert.Equal(t, "mutate-existing-deployment-from-secret", responses[0].Policy().GetName())
 }
+
+// TestApplyPoliciesOnResource_NamespacedPolicyTargetsStayInItsNamespace checks that a namespaced policy
+// only mutates targets in its own namespace, like the background controller.
+func TestApplyPoliciesOnResource_NamespacedPolicyTargetsStayInItsNamespace(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	inNamespace := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	require.Equal(t, "test-ns", inNamespace.GetNamespace())
+	otherNamespace := inNamespace.DeepCopy()
+	otherNamespace.SetNamespace("other-ns")
+	loaded := loadMutatingPolicies(t, namespacedTargetPolicy("test-ns"))
+	require.Len(t, loaded.MutatingPolicies, 1)
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{inNamespace.DeepCopy(), otherNamespace},
+		Variables:          &variables.Variables{},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	var mutated []string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			patched, _, _ := rule.PatchedTarget()
+			require.NotNil(t, patched, "rule %q: %s", rule.Name(), rule.Message())
+			mutated = append(mutated, patched.GetNamespace()+"/"+patched.GetName())
+		}
+	}
+	assert.Equal(t, []string{"test-ns/test-deploy"}, mutated, "a target outside the policy namespace must not be mutated")
+	assert.Equal(t, 1, rc.Pass)
+}
