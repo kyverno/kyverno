@@ -12,7 +12,7 @@ spec:
           content: |
             #!/bin/bash
             set -eu
-            helm --repo https://kyverno.github.io/kyverno/ -n kyverno install kyverno-policies kyverno-policies  --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce
+            helm --repo https://kyverno.github.io/kyverno/ -n kyverno install kyverno-policies kyverno-policies --version 3.9.1 --set=policyType=ClusterPolicy --set=podSecurityStandard=restricted --set=background=true --set=validationFailureAction=Enforce
   - name: wait policy ready
     use:
       template: ../../../../../_step-templates/cluster-policy-ready.yaml

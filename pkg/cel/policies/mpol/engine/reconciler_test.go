@@ -409,7 +409,7 @@ func TestMatchesMutateExisting(t *testing.T) {
 			}
 			attrs := &mockAttributes{}
 			namespace := &corev1.Namespace{}
-			got := r.MatchesMutateExisting(context.TODO(), attrs, nil, namespace)
+			got := r.MatchesMutateExisting(context.TODO(), attrs, nil, namespace, nil)
 			assert.ElementsMatch(t, tt.expectedNames, got)
 		})
 	}

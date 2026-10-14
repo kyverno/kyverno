@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -120,23 +121,23 @@ func BuildValidatingAdmissionPolicy(
 					})
 				}
 				if len(celpolex.Spec.Images) > 0 {
-					quotedImages := make([]string, len(celpolex.Spec.Images))
-					for i, img := range celpolex.Spec.Images {
-						quotedImages[i] = fmt.Sprintf("'%s'", img)
+					expression, err := celStringListLiteral(celpolex.Spec.Images)
+					if err != nil {
+						return err
 					}
 					variables = append(variables, admissionregistrationv1.Variable{
 						Name:       "allowedImages",
-						Expression: fmt.Sprintf("[%s]", strings.Join(quotedImages, ", ")),
+						Expression: expression,
 					})
 				}
 				if len(celpolex.Spec.AllowedValues) > 0 {
-					quotedValues := make([]string, len(celpolex.Spec.AllowedValues))
-					for i, val := range celpolex.Spec.AllowedValues {
-						quotedValues[i] = fmt.Sprintf("'%s'", val)
+					expression, err := celStringListLiteral(celpolex.Spec.AllowedValues)
+					if err != nil {
+						return err
 					}
 					variables = append(variables, admissionregistrationv1.Variable{
 						Name:       "allowedValues",
-						Expression: fmt.Sprintf("[%s]", strings.Join(quotedValues, ", ")),
+						Expression: expression,
 					})
 				}
 			}
@@ -637,4 +638,17 @@ func translateOperations(operations []string) []admissionregistrationv1.Operatio
 		vapOperations = append(vapOperations, admissionregistrationv1.Delete)
 	}
 	return vapOperations
+}
+
+// celStringListLiteral encodes values as a CEL list-of-strings literal.
+//
+// A JSON array of strings is also a valid CEL list literal, and the JSON encoder
+// escapes quotes and backslashes, so an exception-supplied value stays a string
+// instead of breaking out of the literal and becoming expression code.
+func celStringListLiteral(values []string) (string, error) {
+	encoded, err := json.Marshal(values)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode %v as a CEL list literal: %w", values, err)
+	}
+	return string(encoded), nil
 }

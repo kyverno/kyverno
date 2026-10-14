@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/utils/ptr"
@@ -48,12 +47,7 @@ func Test_Compile_VerifyDigest_DefaultsToTrue(t *testing.T) {
 			p := ivpol.DeepCopy()
 			p.Spec.ValidationConfigurations = tt.cfg
 
-			compiled, errs := NewCompiler(
-				nil,
-				nil,
-				nil,
-				imageverifycache.DisabledImageVerifyCache(),
-			).Compile(p, nil, nil)
+			compiled, errs := NewCompiler(nil).Compile(p, nil)
 
 			require.Empty(t, errs)
 

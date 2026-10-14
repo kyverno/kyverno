@@ -4,18 +4,22 @@ kind: Test
 metadata:
   name: skip-background-requests
 spec:
+  description: >-
+    A mutateExisting MutatingPolicy skips requests made by the background controller
+    by default and processes them when skipBackgroundRequests is false. Creating a
+    mutateExisting policy scans existing targets right away, so the target ConfigMap
+    is created only after each policy is ready; otherwise that initial scan mutates it
+    before the background-user request under test is made.
   concurrent: false
   steps:
   - name: grant-background-user-permissions
     try:
     - apply:
         file: permissions.yaml
-  - name: create namespace and target configmap
+  - name: create namespace
     try:
     - apply:
         file: namespace.yaml
-    - apply:
-        file: configmap.yaml
   - name: create policy with default background skip
     use:
       template: ..//../../_step-templates/create-policy.yaml
@@ -34,11 +38,19 @@ spec:
     try:
     - sleep:
         duration: 5s
+  - name: create target configmap for the default policy
+    try:
+    - apply:
+        file: configmap.yaml
   - name: background-user-updates-namespace-default
     try:
     - script:
         content: |
           kubectl label namespace mpol-skip-background-ns trigger=default --overwrite --as system:serviceaccount:kyverno:kyverno-background-controller
+  - name: allow-time-for-a-skipped-request
+    try:
+    - sleep:
+        duration: 5s
   - name: no-mutation-happens-by-default
     try:
     - script:
@@ -55,6 +67,12 @@ spec:
           apiVersion: policies.kyverno.io/v1
           kind: MutatingPolicy
           name: mpol-skip-background-default
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: ConfigMap
+          name: target-cm
+          namespace: mpol-skip-background-ns
   - name: create policy with background skip disabled
     use:
       template: ..//../../_step-templates/create-policy.yaml
@@ -73,6 +91,10 @@ spec:
     try:
     - sleep:
         duration: 5s
+  - name: create target configmap for the opt-in policy
+    try:
+    - apply:
+        file: configmap.yaml
   - name: background-user-updates-namespace-optin
     try:
     - script:
