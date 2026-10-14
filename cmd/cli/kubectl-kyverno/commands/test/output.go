@@ -120,10 +120,10 @@ func printCheckResult(
 					}
 				}
 				if len(generatedResources) > 0 {
+					// Preserve the singular field as the first generated resource while exposing all
+					// generated resources in their engine order for multi-resource rules.
+					data["generatedResource"] = generatedResources[0]
 					data["generatedResources"] = generatedResources
-					if len(generatedResources) == 1 {
-						data["generatedResource"] = generatedResources[0]
-					}
 				}
 				if patchedTarget, parentResourceGVR, subresourceName := rule.PatchedTarget(); patchedTarget != nil {
 					data["patchedTarget"] = patchedTarget.UnstructuredContent()
