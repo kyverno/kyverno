@@ -26,6 +26,12 @@
    name never share selections and a selected ConfigMap never matches a Secret with the same name. Only the
    triggered policies have their CEL target expression evaluated, so an expression written for another trigger
    never runs against this one, where it could fail and abort the whole run.
+   The pass follows the cluster's order: which policies are triggered is decided on the trigger as it was
+   admitted (`newAdmittedTrigger`, a snapshot taken before the inline loop, because `object` and `request` point
+   at `resource`, which that loop overwrites), and `conditionsStillMatch` then checks their `matchConditions`
+   again on the trigger as stored after inline mutation, as the background controller does. CEL target
+   expressions see the stored trigger and targets are evaluated with the admitted trigger's request, also as in
+   the background controller.
    Each target is evaluated with `Evaluate(...)`, `policyKeyIn(triggered)` and `targetMatchPredicate`, and gets
    its own response whose `Resource` is the target. A passing rule carries the
    patched target through `WithPatchedTarget`; a rule that fails or errors carries no patched target and is

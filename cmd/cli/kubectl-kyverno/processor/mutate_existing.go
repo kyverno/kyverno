@@ -4,11 +4,16 @@ import (
 	"context"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
@@ -65,4 +70,60 @@ func celTargetKey(gk schema.GroupKind, namespace, name string) string {
 		key = namespace + "/" + name
 	}
 	return gk.String() + "|" + key
+}
+
+// admittedTrigger is a snapshot of the trigger as it was admitted, taken before inline mutations change the
+// resource the processor works on.
+type admittedTrigger struct {
+	operation admission.Operation
+	oldObject runtime.Object
+	request   celengine.EngineRequest
+	attr      admission.Attributes
+}
+
+// newAdmittedTrigger builds the admission request and attributes of trigger, which must be a copy the
+// processor does not mutate afterwards.
+func newAdmittedTrigger(
+	contextProvider libs.Context,
+	trigger *unstructured.Unstructured,
+	gvk schema.GroupVersionKind,
+	gvr schema.GroupVersionResource,
+	subresource string,
+	operation string,
+	user authenticationv1.UserInfo,
+) admittedTrigger {
+	op, object, oldObject := AdmissionRequestShape(operation, trigger)
+	return admittedTrigger{
+		operation: admission.Operation(op),
+		oldObject: oldObject,
+		request:   celengine.Request(contextProvider, gvk, gvr, subresource, trigger.GetName(), trigger.GetNamespace(), op, user, object, oldObject, false, nil),
+		attr:      admission.NewAttributesRecord(object, oldObject, gvk, trigger.GetNamespace(), trigger.GetName(), gvr, subresource, admission.Operation(op), nil, false, admissionpolicy.NewUser(user)),
+	}
+}
+
+// conditionsStillMatch keeps the triggered policies whose matchConditions still hold for the trigger as it
+// is stored after inline mutation, described by attr. The background controller checks them again this way
+// before it mutates any target, so a policy triggered at admission can still drop out here.
+func conditionsStillMatch(
+	ctx context.Context,
+	provider mpolengine.Provider,
+	triggered []string,
+	attr admission.Attributes,
+	request *admissionv1.AdmissionRequest,
+	namespace *corev1.Namespace,
+	contextProvider libs.Context,
+) []string {
+	keys := sets.New(triggered...)
+	var kept []string
+	for _, mpol := range provider.Fetch(ctx, true) {
+		key := mpolengine.PolicyKey(mpol.Policy)
+		if !keys.Has(key) {
+			continue
+		}
+		if mpol.Policy.GetSpec().MatchConditions != nil && !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, nil, contextProvider) {
+			continue
+		}
+		kept = append(kept, key)
+	}
+	return kept
 }

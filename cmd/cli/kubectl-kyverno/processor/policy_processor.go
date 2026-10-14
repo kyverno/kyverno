@@ -370,6 +370,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
+			// object and request point at resource, which the inline loop below overwrites with each patched
+			// result. The mutate-existing pass needs the trigger as it was admitted, so snapshot it first.
+			admitted := newAdmittedTrigger(contextProvider, resource.DeepCopy(), gvk, gvr, subresource, p.resolveOperation(), user)
 			// Policies with active targetMatchConstraints mutate their selected targets, not the trigger.
 			// Exclude them from inline mutation, as the admission webhook handlers do.
 			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
@@ -408,8 +411,12 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// policies whose trigger rules (matchConstraints, matchConditions) match this resource may
 			// mutate targets; the target engine below has no matcher and never checks the trigger itself.
 			// When no policy is triggered there is nothing to evaluate on the targets.
-			triggerAttr := admission.NewAttributesRecord(object, oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admission.Operation(operation), nil, false, admissionpolicy.NewUser(user))
-			triggeredPolicies := triggeredMutateExistingPolicies(context.TODO(), provider, triggerAttr, &request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
+			// Which policies are triggered is decided on the admitted trigger, as the admission webhook does,
+			// and their matchConditions are checked again on the trigger as it is now stored, as the
+			// background controller does before it touches any target.
+			triggeredPolicies := triggeredMutateExistingPolicies(context.TODO(), provider, admitted.attr, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
+			storedTrigger := admission.NewAttributesRecord(&resource, admitted.oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admitted.operation, nil, false, admissionpolicy.NewUser(user))
+			triggeredPolicies = conditionsStillMatch(context.TODO(), provider, triggeredPolicies, storedTrigger, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
 			if len(p.TargetResources) > 0 && len(triggeredPolicies) > 0 {
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
@@ -450,7 +457,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, mpolengine.And(policyKeyIn(triggeredPolicies), targetMatchPredicate(targetMatcher, attr, celTargets)))
+					// targets are evaluated with the admission request of the admitted trigger, as the background controller does
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, admitted.request.Request, mpolengine.And(policyKeyIn(triggeredPolicies), targetMatchPredicate(targetMatcher, attr, celTargets)))
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}

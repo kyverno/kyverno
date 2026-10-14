@@ -556,3 +556,79 @@ func TestApplyPoliciesOnResource_NamespacedPolicyTargetsStayInItsNamespace(t *te
 	assert.Equal(t, []string{"test-ns/test-deploy"}, mutated, "a target outside the policy namespace must not be mutated")
 	assert.Equal(t, 1, rc.Pass)
 }
+
+// TestApplyPoliciesOnResource_TargetPoliciesFollowAdmitThenBackgroundOrder checks that inline mutations of
+// the trigger do not decide which target policies are triggered, as at admission, while the matchConditions
+// are checked again on the stored trigger, as in the background controller, before any target is mutated.
+func TestApplyPoliciesOnResource_TargetPoliciesFollowAdmitThenBackgroundOrder(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	require.Empty(t, secret.GetLabels())
+	target := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	// an ordinary policy that labels the Secret trigger inline
+	const inline = `apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: label-the-trigger
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["secrets"]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: Object.metadata.labels{marked: "true"}}}
+`
+	targetPolicy, err := os.ReadFile(filepath.Join(targetFixture, "policy.yaml"))
+	require.NoError(t, err)
+	withCondition := func(expression string) string {
+		return strings.Replace(string(targetPolicy), "  targetMatchConstraints:", "  matchConditions:\n  - name: marked\n    expression: \""+expression+"\"\n  targetMatchConstraints:", 1)
+	}
+	const marked = "has(object.metadata.labels) && 'marked' in object.metadata.labels"
+	tests := []struct {
+		name         string
+		targetPolicy string
+		wantMutated  bool
+	}{
+		{name: "label only added inline does not trigger the target policy", targetPolicy: withCondition(marked)},
+		{name: "label added inline fails the background check of matchConditions", targetPolicy: withCondition("!(" + marked + ")")},
+		{name: "target policy without matchConditions still mutates the target", targetPolicy: string(targetPolicy), wantMutated: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			loaded := loadMutatingPolicies(t, inline+"---\n"+tt.targetPolicy)
+			require.Len(t, loaded.MutatingPolicies, 2)
+			processor := PolicyProcessor{
+				Store:              &store.Store{},
+				MutatingPolicies:   loaded.MutatingPolicies,
+				Resource:           *secret.DeepCopy(),
+				TargetResources:    []*unstructured.Unstructured{target.DeepCopy()},
+				Variables:          &variables.Variables{},
+				Rc:                 &ResultCounts{},
+				PrintPatchResource: true,
+				Out:                &bytes.Buffer{},
+			}
+			responses, err := processor.ApplyPoliciesOnResource()
+			require.NoError(t, err)
+
+			var inlineLabelled, targetMutated bool
+			for _, response := range responses {
+				switch response.Policy().GetName() {
+				case "label-the-trigger":
+					inlineLabelled = response.PatchedResource.GetLabels()["marked"] == "true"
+				case "mutate-existing-deployment-from-secret":
+					for _, rule := range response.PolicyResponse.Rules {
+						if patched, _, _ := rule.PatchedTarget(); patched != nil && patched.GetLabels()["mutated"] == "true" {
+							targetMutated = true
+						}
+					}
+				}
+			}
+			require.True(t, inlineLabelled, "the ordinary policy must still label the trigger inline")
+			assert.Equal(t, tt.wantMutated, targetMutated)
+		})
+	}
+}
