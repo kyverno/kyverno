@@ -117,7 +117,7 @@ func TestBoundRuntimeReusesRegistryAuth(t *testing.T) {
 
 	// the options bound to a runtime: one handshake for the whole evaluation
 	handler.reset()
-	exercise(NewRuntimeForPolicy(ivFuncs, nil, nil, nil).AuthOpts())
+	exercise(NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil).AuthOpts())
 	require.Equal(t, int64(1), handler.pings.Load(), "expected a single /v2/ ping for the whole evaluation")
 	require.Equal(t, int64(1), handler.tokens.Load(), "expected a single token exchange for the whole evaluation")
 
@@ -126,7 +126,7 @@ func TestBoundRuntimeReusesRegistryAuth(t *testing.T) {
 
 	// a second runtime must authenticate on its own: pullers are per request, so a
 	// token obtained for one never carries into the next
-	exercise(NewRuntimeForPolicy(ivFuncs, nil, nil, nil).AuthOpts())
+	exercise(NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil).AuthOpts())
 	require.Equal(t, int64(2), handler.pings.Load(), "expected the next runtime to re-authenticate rather than reuse the first puller")
 	require.Equal(t, int64(2), handler.tokens.Load())
 }
@@ -150,7 +150,7 @@ func TestBoundRuntimeSurfacesAuthFailure(t *testing.T) {
 	ictx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	require.NoError(t, err)
 
-	_, err = ictx.Get(context.Background(), host+"/test/image:tag", NewRuntimeForPolicy(ivFuncs, nil, nil, nil).AuthOpts(), ivFuncs.nameOpts)
+	_, err = ictx.Get(context.Background(), host+"/test/image:tag", NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil).AuthOpts(), ivFuncs.nameOpts)
 	require.Error(t, err, "a rejected token exchange must fail the fetch")
 }
 
@@ -162,8 +162,8 @@ func TestRuntimeDoesNotMutatePolicyOptions(t *testing.T) {
 	ivFuncs := NewIvFuncs(logr.Discard(), policy, nil, types.DefaultTypeAdapter, nil)
 	before := len(ivFuncs.authOpts)
 
-	first := NewRuntimeForPolicy(ivFuncs, nil, nil, nil).AuthOpts()
-	second := NewRuntimeForPolicy(ivFuncs, nil, nil, nil).AuthOpts()
+	first := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil).AuthOpts()
+	second := NewRuntimeForPolicy(context.Background(), ivFuncs, nil, nil, nil).AuthOpts()
 
 	require.Len(t, ivFuncs.authOpts, before, "NewRuntimeForPolicy must not append to the policy's options")
 	require.Len(t, first, before+1, "the bound options must carry the puller")
