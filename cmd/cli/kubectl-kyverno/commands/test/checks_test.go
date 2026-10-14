@@ -118,6 +118,7 @@ assert: {status: fail, message: "The label ` + "`team`" + ` is required."}`,
 			assert.Equal(t, tt.wantFail, rc.Fail, "fail")
 		})
 	}
+}
 
 func TestPrintCheckResultIncludesGeneratedAndPatchedFields(t *testing.T) {
 	color.Init(true)
