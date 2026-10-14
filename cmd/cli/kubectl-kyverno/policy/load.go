@@ -174,7 +174,8 @@ func Load(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, pa
 // valid policies around it, and the same goes for directory entries that cannot be read. Documents outside the
 // policy API groups (resources, test manifests, values files and so on) are ignored rather than
 // reported, since they are not policies to begin with. Legacy policy block errors and failures to
-// set up the schema validator still abort the load, since they are not caused by a single file.
+// set up the schema validator (ErrValidatorSetup) still abort the load, since they are not caused by a
+// single file; they are the only errors this function returns.
 func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
 	if _, err := loaderDelegate(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrValidatorSetup, err)

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,7 +16,6 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -1852,6 +1850,26 @@ func TestCommandReportsPoliciesThatCouldNotBeLoadedWhenALaterStepFails(t *testin
 	assert.NotContains(t, stdout.String(), "Policies Not Loaded")
 }
 
+// TestLoadPoliciesFromGitStopsOnLegacyPolicies checks that a legacy policy in a git repository stops
+// apply with the migration hint instead of being listed as a policy that was not loaded.
+func TestLoadPoliciesFromGitStopsOnLegacyPolicies(t *testing.T) {
+	legacy, err := os.ReadFile("../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/policy.yaml")
+	require.NoError(t, err)
+	_, pod := writePolicyLoadErrorFixtures(t)
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"https://github.com/acme/policies"},
+		ResourcePaths: []string{pod},
+		Cloner: func(_ string, fs billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
+			return nil, util.WriteFile(fs, "legacy.yaml", legacy, 0o600)
+		},
+	}
+
+	_, _, skipped, _, err := config.applyCommandHelper(context.Background(), io.Discard)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Empty(t, skipped.loadErrors)
+}
+
 // TestPrintPolicyLoadErrors checks the Policies Not Loaded section and that nothing is printed
 // without errors.
 func TestPrintPolicyLoadErrors(t *testing.T) {
@@ -1897,13 +1915,4 @@ func TestLoadPoliciesFromGitReportsPoliciesThatCouldNotBeLoaded(t *testing.T) {
 	require.Len(t, skipped.loadErrors, 1)
 	assert.Equal(t, "/typo.yaml", skipped.loadErrors[0].name)
 	assert.Contains(t, skipped.loadErrors[0].reason, "unknown field")
-}
-
-// TestIsFatalPolicyLoadError checks which loading errors stop apply instead of being reported.
-func TestIsFatalPolicyLoadError(t *testing.T) {
-	legacyErr, ok := pkgdeprecations.BuildKindError("kyverno.io", "v1", "ClusterPolicy")
-	require.True(t, ok)
-	assert.True(t, isFatalPolicyLoadError(fmt.Errorf("failed to load file policy.yaml: %w", legacyErr)))
-	assert.True(t, isFatalPolicyLoadError(fmt.Errorf("%w: crds unavailable", policy.ErrValidatorSetup)))
-	assert.False(t, isFatalPolicyLoadError(errors.New("stat nope.yaml: no such file or directory")))
 }

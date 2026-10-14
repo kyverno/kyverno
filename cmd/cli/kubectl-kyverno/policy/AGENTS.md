@@ -26,7 +26,8 @@ Every new branch is gated on that flag; the strict path must keep behaving as be
 - **Legacy policy blocks** (`pkgdeprecations.IsLegacyPolicyBlockError`) are returned as errors at every level, so
   a legacy policy anywhere in the input still stops apply with the migration hint.
 - **Validator setup failures**: `LoadSkippingInvalidFiles` builds `loaderDelegate` first and wraps a failure in
-  `ErrValidatorSetup`. apply checks both through `isFatalPolicyLoadError`. Without this, a broken embedded CRD
+  `ErrValidatorSetup`. These two are the only errors `LoadSkippingInvalidFiles` returns, and apply stops on any
+  error it gets back. Without this, a broken embedded CRD
   validator would show up as every file being skipped and apply would run with no policies.
 
 ## What lenient mode reports and what it ignores

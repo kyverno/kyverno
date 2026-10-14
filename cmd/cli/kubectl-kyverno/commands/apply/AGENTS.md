@@ -8,10 +8,11 @@ of this contract is described in `cmd/cli/kubectl-kyverno/policy/AGENTS.md`; thi
 - `loadPolicies` calls `policy.LoadSkippingInvalidFiles` for every policy path: once per local, OCI or stdin path,
   and once per YAML file returned by `gitutils.ListYamls` for git sources. Keep `kyverno test`, `oci push` and
   `fix policy` on the strict `policy.Load`; a broken policy must keep failing those.
-- `isFatalPolicyLoadError` decides what stops apply: a blocked legacy policy or `policy.ErrValidatorSetup`.
-  Everything else is recorded with `recordPolicyLoadError` / `recordPolicyLoadErrors` into
-  `ApplyCommandConfig.policyLoadErrors`, which `applyCommandHelper` resets on every run and hands back through
-  `SkippedInvalidPolicies.loadErrors`.
+- `LoadSkippingInvalidFiles` only returns an error for fatal problems (a blocked legacy policy,
+  `policy.ErrValidatorSetup`), so `loadPolicies` stops on any error it returns. Everything else arrives in
+  `NonFatalErrors` and is recorded with `recordPolicyLoadErrors` into `ApplyCommandConfig.policyLoadErrors`,
+  which `applyCommandHelper` resets on every run and hands back through `SkippedInvalidPolicies.loadErrors`.
+  If the loader ever returns a new kind of error, apply fails loudly rather than skipping a policy silently.
 
 ## Printing what was not loaded
 
