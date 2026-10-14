@@ -12,7 +12,8 @@ import (
 )
 
 // triggeredMutateExistingPolicies returns the keys of the mutate-existing policies whose trigger rules,
-// matchConstraints and matchConditions, match the resource described by attr. It is the check the
+// matchConstraints and matchConditions, match the resource described by attr. Like the admission
+// matcher, a namespaced policy only applies to resources in its own namespace. It is the check the
 // admission webhook makes through MatchedMutateExistingPolicies, without that method's admission-enabled
 // gate: the CLI also runs background-only policies against the target resources it is given, the way
 // the background controller does.
@@ -26,7 +27,11 @@ func triggeredMutateExistingPolicies(
 ) []string {
 	var keys []string
 	matcher := matching.NewMatcher()
+	inScope := mpolengine.Or(mpolengine.ClusteredPolicy(), mpolengine.NamespacedPolicy(attr.GetNamespace()))
 	for _, mpol := range provider.Fetch(ctx, true) {
+		if !inScope(mpol.Policy) {
+			continue
+		}
 		spec := mpol.Policy.GetSpec()
 		if ok, err := matcher.Match(&matching.MatchCriteria{Constraints: spec.MatchConstraints}, attr, namespace); err != nil || !ok {
 			continue

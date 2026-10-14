@@ -15,8 +15,11 @@
    this resource: `triggeredMutateExistingPolicies` (`mutate_existing.go`) checks `matchConstraints` and
    `matchConditions`, because the target engine has no matcher and never looks at the trigger. It is the check
    the webhook makes through `MatchedMutateExistingPolicies`, without that method's admission-enabled gate, so
-   background-only policies keep mutating their targets as the background controller would. An empty result
-   skips the targets entirely, since `MatchNames()` with no names matches every policy.
+   background-only policies keep mutating their targets as the background controller would. Like the admission
+   matcher, a namespaced policy is only considered for a trigger in its own namespace. An empty result skips the
+   targets entirely, since `MatchNames()` with no names matches every policy. Policies are identified by
+   `mpolengine.PolicyKey` (namespace/name) everywhere in this pass, including the CEL target map built by
+   `discoverCELTargets`, so a clustered and a namespaced policy with the same name never share selections.
    Each target is evaluated with `Evaluate(...)`, `MatchNames(triggered...)` and `targetMatchPredicate`, and gets
    its own response whose `Resource` is the target. A passing rule carries the
    patched target through `WithPatchedTarget`; a rule that fails or errors carries no patched target and is

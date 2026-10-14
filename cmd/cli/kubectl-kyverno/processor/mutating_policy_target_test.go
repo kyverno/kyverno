@@ -201,3 +201,152 @@ func TestApplyPoliciesOnResource_InlineMutatingPolicyOutput(t *testing.T) {
 		})
 	}
 }
+
+// loadMutatingPolicies writes the given manifest to a file and loads the MutatingPolicies in it.
+func loadMutatingPolicies(t *testing.T, manifest string) policy.LoaderResults {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "policies.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(manifest), 0o600))
+	loaded, err := policy.Load(nil, "", false, path)
+	require.NoError(t, err)
+	return *loaded
+}
+
+// namespacedTargetPolicy is the Secret trigger, Deployment target policy as a NamespacedMutatingPolicy in
+// the given namespace.
+func namespacedTargetPolicy(namespace string) string {
+	return `apiVersion: policies.kyverno.io/v1
+kind: NamespacedMutatingPolicy
+metadata:
+  name: namespaced-target-policy
+  namespace: ` + namespace + `
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["secrets"]
+  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: Object.metadata.labels{mutated: "true"}}}
+`
+}
+
+// TestApplyPoliciesOnResource_NamespacedMutatingPolicyTargetScope checks that a namespaced policy only
+// mutates targets for a trigger in its own namespace, like the admission matcher.
+func TestApplyPoliciesOnResource_NamespacedMutatingPolicyTargetScope(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	target := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	require.Equal(t, "test-ns", secret.GetNamespace())
+
+	for _, tt := range []struct {
+		namespace string
+		wantPass  int
+	}{
+		{namespace: "test-ns", wantPass: 1},
+		{namespace: "other-ns"},
+	} {
+		t.Run("policy in "+tt.namespace, func(t *testing.T) {
+			loaded := loadMutatingPolicies(t, namespacedTargetPolicy(tt.namespace))
+			require.Len(t, loaded.MutatingPolicies, 1)
+			rc := &ResultCounts{}
+			processor := PolicyProcessor{
+				Store:              &store.Store{},
+				MutatingPolicies:   loaded.MutatingPolicies,
+				Resource:           *secret.DeepCopy(),
+				TargetResources:    []*unstructured.Unstructured{target.DeepCopy()},
+				Variables:          &variables.Variables{},
+				Rc:                 rc,
+				PrintPatchResource: true,
+				Out:                &bytes.Buffer{},
+			}
+			responses, err := processor.ApplyPoliciesOnResource()
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Len(t, responses, tt.wantPass, "a policy from another namespace must not mutate targets of this trigger")
+		})
+	}
+}
+
+// celTargetPolicy is a policy named same-name whose CEL target expression selects one ConfigMap and labels
+// it with owner, as a MutatingPolicy when namespace is empty and as a NamespacedMutatingPolicy otherwise.
+func celTargetPolicy(namespace, configMap, owner string) string {
+	header := "apiVersion: policies.kyverno.io/v1beta1\nkind: MutatingPolicy\nmetadata:\n  name: same-name\n"
+	// a namespaced policy reads resources from its own namespace only, so it names no namespace
+	get := `resource.get("v1", "configmaps", object.metadata.namespace, "` + configMap + `")`
+	if namespace != "" {
+		header = "apiVersion: policies.kyverno.io/v1\nkind: NamespacedMutatingPolicy\nmetadata:\n  name: same-name\n  namespace: " + namespace + "\n"
+		get = `resource.get("v1", "configmaps", "` + configMap + `")`
+	}
+	return header + `spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE"]
+      resources: ["secrets"]
+  targetMatchConstraints:
+    expression: >
+      ` + get + `
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{metadata: Object.metadata{labels: Object.metadata.labels{owner: "` + owner + `"}}}
+`
+}
+
+// TestApplyPoliciesOnResource_CELTargetsKeyedByPolicyKey checks that a clustered and a namespaced policy
+// with the same name each mutate only the target their own CEL expression selected.
+func TestApplyPoliciesOnResource_CELTargetsKeyedByPolicyKey(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	configMap := func(name string) *unstructured.Unstructured {
+		return &unstructured.Unstructured{Object: map[string]any{
+			"apiVersion": "v1",
+			"kind":       "ConfigMap",
+			"metadata":   map[string]any{"name": name, "namespace": "test-ns"},
+		}}
+	}
+	loaded := loadMutatingPolicies(t, celTargetPolicy("", "cm-cluster", "cluster")+"---\n"+celTargetPolicy("test-ns", "cm-namespaced", "namespaced"))
+	require.Len(t, loaded.MutatingPolicies, 2)
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{configMap("cm-cluster"), configMap("cm-namespaced")},
+		Variables:          &variables.Variables{},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	owners := map[string][]string{}
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			patched, _, _ := rule.PatchedTarget()
+			require.NotNil(t, patched, "rule %q: %s", rule.Name(), rule.Message())
+			owners[patched.GetName()] = append(owners[patched.GetName()], patched.GetLabels()["owner"])
+		}
+	}
+	assert.Equal(t, map[string][]string{"cm-cluster": {"cluster"}, "cm-namespaced": {"namespaced"}}, owners)
+	assert.Equal(t, 2, rc.Pass)
+}

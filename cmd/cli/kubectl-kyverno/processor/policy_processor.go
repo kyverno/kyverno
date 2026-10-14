@@ -1186,14 +1186,14 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 // matches a MutatingPolicy's targetMatchConstraints. This filters out policies
 // whose target constraints don't match the given target, mirroring the filtering
 // the background controller does via API list calls before calling Evaluate.
-// celTargets maps policy names to the set of target keys (namespace/name) discovered
+// celTargets maps policy keys (mpolengine.PolicyKey) to the set of target keys (namespace/name) discovered
 // by evaluating CEL expressions.
 func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
 	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
 		tc := mpol.GetTargetMatchConstraints()
 		if tc.Expression != "" {
 			// CEL expression target selection — check pre-computed targets
-			targets, ok := celTargets[mpol.GetName()]
+			targets, ok := celTargets[mpolengine.PolicyKey(mpol)]
 			if !ok {
 				return false
 			}
@@ -1228,7 +1228,7 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 }
 
 // discoverCELTargets evaluates CEL targetMatchConstraints expressions for mutateExisting
-// policies and returns a map of policy name → set of target keys (namespace/name).
+// policies and returns a map of policy key (mpolengine.PolicyKey) → set of target keys (namespace/name).
 func discoverCELTargets(
 	provider mpolengine.Provider,
 	contextProvider libs.Context,
@@ -1313,7 +1313,8 @@ func discoverCELTargets(
 			}
 			targetKeys[key] = true
 		}
-		result[pol.Policy.GetName()] = targetKeys
+		// keyed like MatchNames, so a clustered and a namespaced policy with the same name stay apart
+		result[mpolengine.PolicyKey(pol.Policy)] = targetKeys
 	}
 	return result, nil
 }
