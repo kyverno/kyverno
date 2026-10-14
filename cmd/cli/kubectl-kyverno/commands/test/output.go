@@ -100,7 +100,7 @@ func printCheckResult(
 					"podSecurityChecks": rule.PodSecurityChecks(),
 					"exceptions":        rule.Exceptions(),
 				}
-				if check.Assert.Value != nil {
+				if check.Assert != nil && check.Assert.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Assert.Value), data, nil)
 					if err != nil {
 						return err
@@ -131,7 +131,7 @@ func printCheckResult(
 					resultsTable.Add(row)
 					testCount++
 				}
-				if check.Error.Value != nil {
+				if check.Error != nil && check.Error.Value != nil {
 					errs, err := assert.Assert(ctx, nil, assert.Parse(ctx, check.Error.Value), data, nil)
 					if err != nil {
 						return err
@@ -142,7 +142,7 @@ func printCheckResult(
 							Policy:    color.Policy("", response.Policy().GetName()),
 							Rule:      color.Rule(rule.Name()),
 							Resource:  color.Resource(response.Resource.GetKind(), response.Resource.GetNamespace(), response.Resource.GetName()),
-							IsFailure: len(errs) != 0,
+							IsFailure: len(errs) == 0,
 						},
 						Message: rule.Message(),
 					}
