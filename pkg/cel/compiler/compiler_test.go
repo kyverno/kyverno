@@ -741,12 +741,15 @@ generator.apply(
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			base, err := NewBaseEnv()
-			assert.NoError(t, err)
-			env, err := base.Extend(
+			// NewEnv with the whole option list in one call, not NewBaseEnv() + a second
+			// Extend: CostLib must be the last function-registering option, so a second
+			// Extend adding more functions afterward leaves them out of the guard
+			// decorator's binding registry and fails construction (env.go's chokepoint
+			// comment).
+			env, err := NewEnv(append(DefaultEnvOptions(),
 				cel.Variable(GeneratorKey, generator.ContextType),
 				generator.Lib(nil, "", versions.KyvernoLatest),
-			)
+			)...)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)
 			assert.Equal(t, tt.wantErrs, gotErrs)
@@ -769,7 +772,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		out, details, err := traced.Program.Eval(map[string]any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "hello", out.Value())
-		assert.Nil(t, details, "no EvalDetails when the program wasn't built with tracking on")
+		assert.Nil(t, details.State(), "no tracked state when the program wasn't built with tracking on")
 	})
 
 	t.Run("trace=true keeps the deciding program untracked and adds a tracking twin", func(t *testing.T) {
@@ -782,7 +785,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		out, details, err := traced.Program.Eval(map[string]any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "ab", out.Value())
-		assert.Nil(t, details, "the deciding program must not track state")
+		assert.Nil(t, details.State(), "the deciding program must not track state")
 
 		// the twin records per-node state for the explanation
 		require.NotNil(t, traced.Traced)
