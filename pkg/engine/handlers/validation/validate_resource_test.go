@@ -7,8 +7,12 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	"github.com/kyverno/kyverno/pkg/engine/policycontext"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -370,3 +374,35 @@ var (
 		}
 	}`
 )
+
+func Test_buildErrorMessage_NonStringMessageDoesNotPanic(t *testing.T) {
+	resourceRaw := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {"name": "test-pod", "namespace": "default"},
+		"spec": {"replicas": 5}
+	}`)
+	resource, err := kubeutils.BytesToUnstructured(resourceRaw)
+	assert.NoError(t, err)
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	policyContext, err := policycontext.NewPolicyContext(jp, *resource, kyvernov1.Create, nil, cfg)
+	assert.NoError(t, err)
+
+	rule := kyvernov1.Rule{
+		Name: "test-rule",
+		Validation: &kyvernov1.Validation{
+			Message: "{{ request.object.spec.replicas }}",
+		},
+	}
+
+	v := newValidator(logr.Discard(), nil, policyContext, rule)
+
+	msg := v.buildErrorMessage(fmt.Errorf("boom"), "")
+	assert.Contains(t, msg, "5")
+
+	anyMsg := v.buildAnyPatternErrorMessage([]string{"pattern failed"})
+	assert.Contains(t, anyMsg, "5")
+}

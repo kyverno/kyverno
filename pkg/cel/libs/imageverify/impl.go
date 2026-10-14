@@ -2,6 +2,8 @@ package imageverify
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -19,6 +21,7 @@ import (
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/kyverno/sdk/extensions/regcreds"
@@ -89,7 +92,7 @@ func ImageVerifyCELFuncs(
 	// by default, try to use the options built globally from flags
 	authOpts, nameOpts := registryclient.GlobalOptsOrDefault(context.Background())
 	if spec.Credentials != nil {
-		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace())
+		authOpts, nameOpts = regcreds.RemoteOptsFromIvpolCredentials(lister, *spec.Credentials, config.KyvernoNamespace(), logging.WithName("imageverify"))
 	}
 
 	return &ivfuncs{
@@ -110,21 +113,34 @@ func ImageVerifyCELFuncs(
 	}, nil
 }
 
-// build a cache key from a CEL function name, a qualifier (attestation name in practice)
-// and the sorted group of attestors
-func attestorCacheRule(fn string, qualifier string, attestors []v1beta1.Attestor) string {
-	names := make([]string, 0, len(attestors))
+// attestorCacheRule builds a cache key from a CEL function name, a qualifier
+// (the attestation name in practice) and the group of attestors.
+//
+// The attestors are hashed whole rather than by name. An attestor's name is a
+// label chosen by the policy author, while its key, certificate and trusted
+// root are resolved per request from CEL expressions, so keying on the name
+// alone would serve one request's verdict to another that resolved different
+// material under the same name. Returns an error if an attestor cannot be
+// encoded; the caller must then skip the cache rather than key on a partial
+// rule.
+func attestorCacheRule(fn string, qualifier string, attestors []v1beta1.Attestor) (string, error) {
+	digests := make([]string, 0, len(attestors))
 	for _, attestor := range attestors {
-		names = append(names, attestor.GetKey())
+		encoded, err := json.Marshal(attestor)
+		if err != nil {
+			return "", fmt.Errorf("failed to encode attestor %q: %w", attestor.GetKey(), err)
+		}
+		sum := sha256.Sum256(encoded)
+		digests = append(digests, hex.EncodeToString(sum[:]))
 	}
-	sort.Strings(names)
+	sort.Strings(digests)
 	var b strings.Builder
 	writeCacheKeyPart(&b, fn)
 	writeCacheKeyPart(&b, qualifier)
-	for _, name := range names {
-		writeCacheKeyPart(&b, name)
+	for _, digest := range digests {
+		writeCacheKeyPart(&b, digest)
 	}
-	return b.String()
+	return b.String(), nil
 }
 
 func writeCacheKeyPart(b *strings.Builder, part string) {
@@ -135,6 +151,23 @@ func writeCacheKeyPart(b *strings.Builder, part string) {
 // pendingIntotoRestores map.
 func pendingKey(image, attestation string) string {
 	return image + "\x00" + attestation
+}
+
+// attestorsHaveUnbindableKeyMaterial reports whether any attestor verifies with
+// key material the cache rule cannot bind. A KMS url names a key that is
+// fetched during verification, after the rule is derived, so rotating what sits
+// behind the url leaves the rule unchanged and the old verdict live. Inline and
+// expression-derived keys are materialized before hashing and so are bound.
+func attestorsHaveUnbindableKeyMaterial(attestors []v1beta1.Attestor) bool {
+	for _, attestor := range attestors {
+		if attestor.Cosign == nil || attestor.Cosign.Key == nil {
+			continue
+		}
+		if attestor.Cosign.Key.KMS != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
@@ -154,8 +187,15 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		f.logger.V(4).Info("verifyImageSignatures called", "image", image, "attestorCount", len(attestors))
 
 		// create a rule with the given attestors
-		cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
-		if f.ivCache != nil {
+		cacheRule, cacheRuleErr := attestorCacheRule(signatureCacheRule, "", attestors)
+		if cacheRuleErr != nil {
+			f.logger.Error(cacheRuleErr, "caching disabled: failed to derive cache rule", "image", image)
+		}
+		cacheable := cacheRuleErr == nil && !attestorsHaveUnbindableKeyMaterial(attestors)
+		if cacheRuleErr == nil && !cacheable {
+			f.logger.V(2).Info("caching disabled: attestor verifies with key material the cache rule cannot bind", "image", image)
+		}
+		if f.ivCache != nil && cacheable {
 			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
@@ -199,7 +239,7 @@ func (f *ivfuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			}
 		}
 		f.logger.V(6).Info("verifyImageSignatures returning", "image", image, "verifiedCount", count)
-		if f.ivCache != nil && len(attestors) > 0 && count == len(attestors) {
+		if f.ivCache != nil && cacheable && len(attestors) > 0 && count == len(attestors) {
 			if _, err := f.ivCache.Set(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
@@ -235,8 +275,15 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
-		cacheRule := attestorCacheRule(attestationCacheRule, attestation, attestors)
-		if f.ivCache != nil {
+		cacheRule, cacheRuleErr := attestorCacheRule(attestationCacheRule, attestation, attestors)
+		if cacheRuleErr != nil {
+			f.logger.Error(cacheRuleErr, "caching disabled: failed to derive cache rule", "image", image)
+		}
+		cacheable := cacheRuleErr == nil && !attestorsHaveUnbindableKeyMaterial(attestors)
+		if cacheRuleErr == nil && !cacheable {
+			f.logger.V(2).Info("caching disabled: attestor verifies with key material the cache rule cannot bind", "image", image)
+		}
+		if f.ivCache != nil && cacheable {
 			if found, payloads, err := f.ivCache.GetWithPayload(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
@@ -298,7 +345,7 @@ func (f *ivfuncs) verify_image_attestations_string_string_stringarray(args ...re
 			}
 		}
 		f.logger.V(6).Info("verifyAttestationSignatures returning", "image", image, "attestation", attestation, "verifiedCount", count)
-		if f.ivCache != nil && len(attestors) > 0 && count == len(attestors) {
+		if f.ivCache != nil && cacheable && len(attestors) > 0 && count == len(attestors) {
 			// The write stays eager: img is already in memory (fetched
 			// above for verification), so extracting the payload here costs
 			// no extra I/O -- unlike the read-side restore, which does.

@@ -25,4 +25,9 @@ type Client interface {
 	// found is true when the verification cache entry exists; payloads may be nil/empty
 	// when the entry was written with Set (presence-only).
 	GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (found bool, payloads map[string][]byte, err error)
+
+	// IsEnabled reports whether the cache can serve anything at all. Callers
+	// that must do work purely to build a cache key (resolving a tag to its
+	// digest, for instance) can skip it when this is false.
+	IsEnabled() bool
 }

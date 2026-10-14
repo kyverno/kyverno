@@ -1152,3 +1152,77 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 		assert.Equal(t, len(warnings) != 0, testcase.warning, testcase.name)
 	}
 }
+
+func TestMatchExcludeConflictSkipsOversizedNameLists(t *testing.T) {
+	path := field.NewPath("dummy")
+
+	matchNames := make([]string, 300)
+	excludeNames := make([]string, 300)
+	for i := range matchNames {
+		matchNames[i] = fmt.Sprintf("match-%d", i)
+		excludeNames[i] = fmt.Sprintf("exclude-%d", i)
+	}
+	// Plant one genuine conflict inside the oversized lists: without the
+	// pair cap, the nested loop would reach this pair and report a
+	// conflict; with the cap, the product (90000) exceeds the limit and
+	// the lint is skipped before the loop ever runs, so this stays
+	// error-free. This is what makes the test fail if the cap is removed.
+	matchNames[150] = "shared-name"
+	excludeNames[150] = "shared-name"
+
+	rule := Rule{
+		Name: "oversized-names",
+		MatchResources: MatchResources{
+			ResourceDescription: ResourceDescription{
+				Kinds: []string{"Pod"},
+				Names: matchNames,
+			},
+		},
+		ExcludeResources: &MatchResources{
+			ResourceDescription: ResourceDescription{
+				Kinds: []string{"Pod"},
+				Names: excludeNames,
+			},
+		},
+	}
+
+	errs := rule.ValidateMatchExcludeConflict(path)
+	assert.Equal(t, len(errs), 0)
+}
+
+func TestMatchExcludeConflictSkipsOversizedAnyLists(t *testing.T) {
+	path := field.NewPath("dummy")
+
+	buildFilters := func(count int) []ResourceFilter {
+		filters := make([]ResourceFilter, count)
+		for i := range filters {
+			filters[i] = ResourceFilter{
+				ResourceDescription: ResourceDescription{
+					Kinds: []string{"Pod"},
+					Names: []string{fmt.Sprintf("match-name-%d", i)},
+				},
+			}
+		}
+		return filters
+	}
+	matchFilters := buildFilters(300)
+	excludeFilters := buildFilters(300)
+	// Plant one genuine conflict: without the pair cap, the nested
+	// DeepEqual loop would reach this identical pair and report a
+	// conflict; with the cap, the product (90000) exceeds the limit and
+	// the lint is skipped before the loop ever runs.
+	excludeFilters[200] = matchFilters[200]
+
+	rule := Rule{
+		Name: "oversized-any",
+		MatchResources: MatchResources{
+			Any: matchFilters,
+		},
+		ExcludeResources: &MatchResources{
+			Any: excludeFilters,
+		},
+	}
+
+	errs := rule.ValidateMatchExcludeConflict(path)
+	assert.Equal(t, len(errs), 0)
+}

@@ -24,10 +24,7 @@ import (
 	"go.uber.org/multierr"
 )
 
-var (
-	maxReferrersCount = 50
-	maxPayloadSize    = int64(10 * 1000 * 1000) // 10 MB
-)
+var maxReferrersCount = 50
 
 type notaryVerifier struct{}
 
@@ -109,7 +106,7 @@ func (v *notaryVerifier) FetchAttestations(ctx context.Context, opts verifiers.O
 		return nil, err
 	}
 
-	referrersDescs, err := referrers.IndexManifest()
+	referrersDescs, err := verifiers.ReferrersIndexManifest(referrers)
 	if err != nil {
 		return nil, err
 	}
@@ -308,8 +305,8 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 
 	predicateDesc := manifest.Layers[0]
 	digest := predicateDesc.Digest.String()
-	if predicateDesc.Size > maxPayloadSize {
-		return nil, fmt.Errorf("predicate size %d exceeds %d for digest %s", predicateDesc.Size, maxPayloadSize, digest)
+	if predicateDesc.Size > verifiers.PayloadLimit() {
+		return nil, fmt.Errorf("%w: predicate size %d exceeds %d for digest %s", verifiers.ErrLayerTooLarge, predicateDesc.Size, verifiers.PayloadLimit(), digest)
 	}
 
 	layer, err := gcrremote.Layer(ref.Context().Digest(digest), remoteOpts...)
@@ -317,29 +314,13 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 		return nil, err
 	}
 
-	layerSize, err := layer.Size()
+	predicateBytes, err := verifiers.ReadLayerLimited(layer, verifiers.PayloadLimit())
 	if err != nil {
-		return nil, err
-	}
-
-	if layerSize > maxPayloadSize {
-		return nil, fmt.Errorf("layer size %d exceeds %d for digest %s", layerSize, maxPayloadSize, digest)
-	}
-
-	ioPredicate, err := layer.Uncompressed()
-	if err != nil {
-		return nil, err
-	}
-	defer ioPredicate.Close()
-
-	predicateBytes := new(bytes.Buffer)
-	_, err = predicateBytes.ReadFrom(ioPredicate)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read predicate for digest %s: %w", digest, err)
 	}
 
 	predicate := make(map[string]interface{})
-	if err := json.Unmarshal(predicateBytes.Bytes(), &predicate); err != nil {
+	if err := json.Unmarshal(predicateBytes, &predicate); err != nil {
 		return nil, err
 	}
 
@@ -347,14 +328,34 @@ func extractStatement(_ context.Context, repoRef name.Reference, desc v1.Descrip
 	if err := json.Unmarshal(manifestBytes, &data); err != nil {
 		return nil, err
 	}
-	if data["type"] == nil {
-		data["type"] = desc.ArtifactType
+	if err := applyManifestType(data, desc.ArtifactType); err != nil {
+		return nil, err
 	}
 	if data["predicate"] == nil {
 		data["predicate"] = predicate
 	}
 
 	return data, nil
+}
+
+// applyManifestType fills in the manifest's declared type from the referrer
+// descriptor when absent, and rejects an already-present value that isn't a
+// string. The manifest is attacker-suppliable OCI content; a malformed type
+// must fail this rule, not sail through into a later unchecked assertion.
+func applyManifestType(data map[string]interface{}, artifactType string) error {
+	// A manifest body of literal "null" unmarshals into a nil map, and writing
+	// to one panics. Reject it rather than filling in a type.
+	if data == nil {
+		return fmt.Errorf("manifest is empty")
+	}
+	if data["type"] == nil {
+		data["type"] = artifactType
+		return nil
+	}
+	if _, ok := data["type"].(string); !ok {
+		return fmt.Errorf("manifest type is not a string")
+	}
+	return nil
 }
 
 func matchArtifactType(ref v1.Descriptor, expectedArtifactType string) (bool, string, error) {

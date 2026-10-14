@@ -100,7 +100,11 @@ func (idl *imageDataLoader) fetchImageData() (interface{}, error) {
 	}
 
 	if path != "" {
-		imageData, err = applyJMESPath(idl.jp, path.(string), imageData)
+		pathStr, ok := path.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid JMESPath %s, JMESPath must be a string", path)
+		}
+		imageData, err = applyJMESPath(idl.jp, pathStr, imageData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
 		}

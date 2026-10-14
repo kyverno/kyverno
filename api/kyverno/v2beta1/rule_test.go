@@ -2,8 +2,10 @@ package v2beta1
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -548,4 +550,41 @@ func Test_Validate_ClusterPolicy_Generate_Variables(t *testing.T) {
 		assert.Equal(t, len(errs) != 0, testcase.shouldFail, testcase.name)
 		assert.Equal(t, len(warnings) != 0, testcase.warning, testcase.name)
 	}
+}
+
+func TestMatchExcludeConflictSkipsOversizedAnyLists(t *testing.T) {
+	path := field.NewPath("dummy")
+
+	buildFilters := func(count int) []kyvernov1.ResourceFilter {
+		filters := make([]kyvernov1.ResourceFilter, count)
+		for i := range filters {
+			filters[i] = kyvernov1.ResourceFilter{
+				ResourceDescription: kyvernov1.ResourceDescription{
+					Kinds: []string{"Pod"},
+					Names: []string{fmt.Sprintf("match-name-%d", i)},
+				},
+			}
+		}
+		return filters
+	}
+	matchFilters := buildFilters(300)
+	excludeFilters := buildFilters(300)
+	// Plant one genuine conflict: without the pair cap, the nested
+	// DeepEqual loop would reach this identical pair and report a
+	// conflict; with the cap, the product (90000) exceeds the limit and
+	// the lint is skipped before the loop ever runs.
+	excludeFilters[200] = matchFilters[200]
+
+	rule := Rule{
+		Name: "oversized-any",
+		MatchResources: MatchResources{
+			Any: matchFilters,
+		},
+		ExcludeResources: &MatchResources{
+			Any: excludeFilters,
+		},
+	}
+
+	errs := rule.ValidateMatchExcludeConflict(path)
+	assert.Equal(t, len(errs), 0)
 }

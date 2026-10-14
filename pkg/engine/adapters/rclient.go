@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
 )
 
@@ -42,6 +43,18 @@ func (a *rclientAdapter) ForRef(ctx context.Context, ref string) (*engineapi.Ima
 	rawManifest, err := image.RawManifest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
+	}
+	manifest, err := image.Manifest()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
+	}
+	// Without this the config descriptor the registry serves sizes the read. A
+	// declared size of -1 means "unknown", which turns off go-containerregistry's
+	// own bound on the body as well, so a real size is required either way.
+	if size := manifest.Config.Size; size <= 0 {
+		return nil, fmt.Errorf("config size %d is not a valid declared size for image reference: %s", size, ref)
+	} else if limit := verifiers.PayloadLimit(); size > limit {
+		return nil, fmt.Errorf("%w: config size %d exceeds %d for image reference: %s", verifiers.ErrLayerTooLarge, size, limit, ref)
 	}
 	rawConfig, err := image.RawConfigFile()
 	if err != nil {

@@ -2,14 +2,24 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/engine/factories"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/logging"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -212,5 +222,118 @@ func TestFilterMatchConditionSkips(t *testing.T) {
 			got := filterMatchConditionSkips(tt.rules)
 			assert.Equal(t, tt.expectedCount, len(got))
 		})
+	}
+}
+
+// erroringRegistryClientFactory simulates a registry the reports controller
+// cannot reach: every credential/client resolution fails. Used to prove the
+// background scan does not fall back to trusting stored annotations when it
+// cannot verify.
+type erroringRegistryClientFactory struct{}
+
+func (erroringRegistryClientFactory) GetClient(context.Context, *kyvernov1.ImageRegistryCredentials, string, []string) (engineapi.RegistryClient, error) {
+	return nil, fmt.Errorf("registry unreachable in test")
+}
+
+const scanPriorStageMetadataPolicy = `{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+		"name": "scan-verify-required"
+	},
+	"spec": {
+		"rules": [{
+			"name": "verify-image",
+			"match": {
+				"any": [{
+					"resources": {
+						"kinds": ["Pod"]
+					}
+				}]
+			},
+			"verifyImages": [{
+				"imageReferences": ["ghcr.io/verified/*"],
+				"required": true,
+				"attestors": [{
+					"entries": [{
+						"keys": {
+							"publicKeys": "dummy"
+						}
+					}]
+				}]
+			}]
+		}]
+	}
+}`
+
+const scanPriorStageMetadataPod = `{
+	"apiVersion": "v1",
+	"kind": "Pod",
+	"metadata": {
+		"name": "test-pod",
+		"namespace": "test-ns",
+		"annotations": {
+			"kyverno.io/verify-images-scoped": "{\"version\":1,\"policies\":{\"/scan-verify-required\":{\"verify-image\":{\"ghcr.io/verified/app:v1\":\"pass\"}}}}"
+		}
+	},
+	"spec": {
+		"containers": [{
+			"name": "app",
+			"image": "ghcr.io/verified/app:v1"
+		}]
+	}
+}`
+
+// TestScanResource_ImageVerify_DoesNotTrustPriorStageMetadata is the
+// background-scan regression: a stored resource carrying pre-existing
+// verification metadata must not be trusted as a verdict. With no reachable
+// verifier, the scan must not report the image verify rule as passed.
+func TestScanResource_ImageVerify_DoesNotTrustPriorStageMetadata(t *testing.T) {
+	reportutils.NewReportingConfig(nil, "validate")
+
+	cfg := config.NewDefaultConfiguration(false)
+	jp := jmespath.New(cfg)
+
+	scheme := runtime.NewScheme()
+	require.NoError(t, kubescheme.AddToScheme(scheme))
+	dClient, err := dclient.NewFakeClient(scheme, map[schema.GroupVersionResource]string{})
+	require.NoError(t, err)
+	dClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+
+	e := engine.NewEngine(
+		cfg,
+		jp,
+		nil,
+		erroringRegistryClientFactory{},
+		imageverifycache.DisabledImageVerifyCache(),
+		factories.DefaultContextLoaderFactory(nil),
+		nil,
+		nil,
+	)
+
+	sc := NewScanner(logging.GlobalLogger(), e, cfg, jp, dClient, nil, nil, nil, nil)
+
+	var cpol kyvernov1.ClusterPolicy
+	require.NoError(t, json.Unmarshal([]byte(scanPriorStageMetadataPolicy), &cpol))
+	policy := engineapi.NewKyvernoPolicy(&cpol)
+
+	resource, err := kubeutils.BytesToUnstructured([]byte(scanPriorStageMetadataPod))
+	require.NoError(t, err)
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "pods"}
+
+	results := sc.ScanResource(context.Background(), *resource, gvr, "", nil, nil, nil, nil, policy)
+	require.Len(t, results, 1)
+
+	for _, result := range results {
+		require.NotNil(t, result.EngineResponse, "expected an engine response even when verification cannot run")
+		var found bool
+		for _, rule := range result.EngineResponse.PolicyResponse.Rules {
+			if rule.RuleType() != engineapi.ImageVerify {
+				continue
+			}
+			found = true
+			assert.Equal(t, engineapi.RuleStatusError, rule.Status(), "verification must be attempted, and its infrastructure failure reported, regardless of pre-existing verification metadata in background scan reports")
+		}
+		require.True(t, found, "expected an ImageVerify rule response")
 	}
 }

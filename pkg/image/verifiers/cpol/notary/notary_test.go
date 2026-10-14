@@ -2,12 +2,16 @@ package notary
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
 	"github.com/kyverno/sdk/extensions/registryclient"
+	godigest "github.com/opencontainers/go-digest"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"gotest.tools/v3/assert"
 )
 
@@ -66,4 +70,93 @@ func TestNotaryImageVerification(t *testing.T) {
 	verifier := &notaryVerifier{}
 	_, err := verifier.VerifySignature(context.TODO(), opts)
 	assert.NilError(t, err)
+}
+
+func TestExtractStatementRejectsOversizedPredicate(t *testing.T) {
+	repo := newTestRegistry(t)
+	restore := verifiers.PayloadLimit()
+	verifiers.SetPayloadLimit(1 << 10)
+	t.Cleanup(func() { verifiers.SetPayloadLimit(restore) })
+
+	data := gzipBytes(t, int(verifiers.PayloadLimit())+1)
+	layerDigest, layerSize := pushBlob(t, repo, data, "application/vnd.in-toto+json")
+	manifest := ocispec.Manifest{
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    ocispec.Descriptor{MediaType: ocispec.MediaTypeEmptyJSON},
+		Layers: []ocispec.Descriptor{
+			{MediaType: "application/vnd.in-toto+json", Digest: godigest.Digest(layerDigest.DigestStr()), Size: layerSize},
+		},
+	}
+	manifestRef := pushManifest(t, repo, manifest)
+
+	repoRef, err := name.ParseReference(repo.Name())
+	assert.NilError(t, err)
+	h, err := v1.NewHash(manifestRef.DigestStr())
+	assert.NilError(t, err)
+
+	_, err = extractStatement(ctx, repoRef, v1.Descriptor{Digest: h}, nil, nil)
+	assert.ErrorContains(t, err, "exceeds")
+}
+
+// TestExtractStatementRoundTripsValidPredicate is a sanity control: a small predicate under
+// the limit must still verify, proving the harness above fails for the right reason.
+func TestExtractStatementRoundTripsValidPredicate(t *testing.T) {
+	repo := newTestRegistry(t)
+	predicate := []byte(`{"hello":"world"}`)
+	layerDigest, layerSize := pushBlob(t, repo, predicate, "application/vnd.in-toto+json")
+	manifest := ocispec.Manifest{
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    ocispec.Descriptor{MediaType: ocispec.MediaTypeEmptyJSON},
+		Layers: []ocispec.Descriptor{
+			{MediaType: "application/vnd.in-toto+json", Digest: godigest.Digest(layerDigest.DigestStr()), Size: layerSize},
+		},
+	}
+	manifestRef := pushManifest(t, repo, manifest)
+
+	repoRef, err := name.ParseReference(repo.Name())
+	assert.NilError(t, err)
+	h, err := v1.NewHash(manifestRef.DigestStr())
+	assert.NilError(t, err)
+
+	data, err := extractStatement(ctx, repoRef, v1.Descriptor{Digest: h, ArtifactType: "test"}, nil, nil)
+	assert.NilError(t, err)
+	assert.Equal(t, data["type"], "test")
+	predicateMap, ok := data["predicate"].(map[string]interface{})
+	assert.Assert(t, ok)
+	assert.Equal(t, predicateMap["hello"], "world")
+}
+
+// TestApplyManifestTypeRejectsMalformedType is the harden-type-handling
+// regression: a referrer manifest whose declared type is present but not a
+// string must error, and a missing type falls back to the descriptor's
+// artifact type as before.
+func TestApplyManifestTypeRejectsMalformedType(t *testing.T) {
+	t.Run("missing type falls back to artifact type", func(t *testing.T) {
+		data := map[string]interface{}{}
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.NilError(t, err)
+		assert.Equal(t, data["type"], "application/vnd.cncf.notary.signature")
+	})
+
+	t.Run("string type is left alone", func(t *testing.T) {
+		data := map[string]interface{}{"type": "existing-type"}
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.NilError(t, err)
+		assert.Equal(t, data["type"], "existing-type")
+	})
+
+	t.Run("non-string type errors instead of surfacing later as a panic", func(t *testing.T) {
+		data := map[string]interface{}{"type": 1337}
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.ErrorContains(t, err, "manifest type is not a string")
+	})
+
+	t.Run("nil map errors instead of panicking", func(t *testing.T) {
+		// A manifest body of literal "null" unmarshals into a nil map, and
+		// writing the fallback type into one panics.
+		var data map[string]interface{}
+		assert.NilError(t, json.Unmarshal([]byte("null"), &data))
+		err := applyManifestType(data, "application/vnd.cncf.notary.signature")
+		assert.ErrorContains(t, err, "manifest is empty")
+	})
 }

@@ -968,7 +968,63 @@ func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
 	return true
 }
 
+// validateMatchExcludeGlobLengths caps the length of every wildcard-bearing
+// string field under match/exclude, in both the direct and any/all forms.
+func validateMatchExcludeGlobLengths(rule kyvernov1.Rule) error {
+	checkFilter := func(prefix string, rf kyvernov1.ResourceFilter) error {
+		if err := ValidateResourceDescriptionGlobLengths(prefix, rf.ResourceDescription); err != nil {
+			return err
+		}
+		return ValidateUserInfoGlobLengths(prefix, rf.UserInfo)
+	}
+
+	match := rule.MatchResources
+	if err := ValidateResourceDescriptionGlobLengths("match", match.ResourceDescription); err != nil {
+		return err
+	}
+	if err := ValidateUserInfoGlobLengths("match", match.UserInfo); err != nil {
+		return err
+	}
+	for i, rmr := range match.Any {
+		if err := checkFilter(fmt.Sprintf("match.any[%d]", i), rmr); err != nil {
+			return err
+		}
+	}
+	for i, rmr := range match.All {
+		if err := checkFilter(fmt.Sprintf("match.all[%d]", i), rmr); err != nil {
+			return err
+		}
+	}
+
+	if exclude := rule.ExcludeResources; exclude != nil {
+		if err := ValidateResourceDescriptionGlobLengths("exclude", exclude.ResourceDescription); err != nil {
+			return err
+		}
+		if err := ValidateUserInfoGlobLengths("exclude", exclude.UserInfo); err != nil {
+			return err
+		}
+		for i, rmr := range exclude.Any {
+			if err := checkFilter(fmt.Sprintf("exclude.any[%d]", i), rmr); err != nil {
+				return err
+			}
+		}
+		for i, rmr := range exclude.All {
+			if err := checkFilter(fmt.Sprintf("exclude.all[%d]", i), rmr); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
+	// cap wildcard-bearing glob lengths in match/exclude before anything
+	// else touches them
+	if err := validateMatchExcludeGlobLengths(rule); err != nil {
+		return "", err
+	}
+
 	// validate userInfo in match and exclude
 	if exclude := rule.ExcludeResources; exclude != nil {
 		if errs := exclude.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
@@ -1050,7 +1106,9 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 					}
 				}
 			}
-			if rule.HasValidateImageVerification() {
+			// Deny is optional per entry; HasValidateImageVerification is true
+			// when any entry has a validate block, message-only included.
+			if rule.HasValidateImageVerification() && vi.Validation.Deny != nil {
 				if target := vi.Validation.Deny.GetAnyAllConditions(); target != nil {
 					if path, err := validateConditions(target, "conditions"); err != nil {
 						return fmt.Sprintf("imageVerify.validate.deny.%s", path), err
@@ -1579,8 +1637,12 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 				switch typedConditions := rule.Validation.Deny.GetAnyAllConditions().(type) {
 				case []kyvernov1.Condition: // backwards compatibility
 					for _, condition := range typedConditions {
-						key := condition.GetKey()
-						if !strings.Contains(key.(string), "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key.(string)) || strings.Contains(key.(string), "request.object.spec")) {
+						key, ok := condition.GetKey().(string)
+						if !ok {
+							return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+								" the rule does not match any kind")
+						}
+						if !strings.Contains(key, "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key) || strings.Contains(key, "request.object.spec")) {
 							return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 								" the rule does not match any kind")
 						}

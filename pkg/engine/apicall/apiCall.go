@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"path"
 	"regexp"
 
@@ -16,6 +15,11 @@ import (
 )
 
 var namespacePathRegex = regexp.MustCompile(`^/api(s)?/.*?/namespaces/([^/]+)/?.*$`)
+
+// namespaceObjectPathRegex matches the core Namespace object itself and its subresources.
+// /api/v1/namespaces/<name> has a namespace segment but is the cluster-scoped Namespace
+// resource, not something inside the namespace, so it must not satisfy the clamp.
+var namespaceObjectPathRegex = regexp.MustCompile(`^/api/[^/]+/namespaces/[^/]+(/(status|finalize))?/?$`)
 
 type apiCall struct {
 	logger          logr.Logger
@@ -71,26 +75,38 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
-	// Decode percent-encoded characters (e.g., %2e%2e -> ..) before normalizing
-	// to prevent path traversal bypasses using encoded dot-segments.
-	unescapedPath, err := url.PathUnescape(call.APICall.URLPath)
-	if err != nil {
-		// If unescaping fails, use the original path for validation.
-		// The K8s API server will reject invalid encoding if present.
-		unescapedPath = call.APICall.URLPath
-	}
-	cleanPath := path.Clean(unescapedPath)
-
-	if a.policyNamespace != "" {
-		// Namespaced Policy: verify path accesses only the policy's namespace
-		if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
-			ns := matches[2]
-			if ns != a.policyNamespace {
-				return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", cleanPath, ns, a.policyNamespace)
-			}
-		} else {
-			return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", cleanPath)
+	if call.APICall.URLPath != "" {
+		canonicalPath, validationPath, err := canonicalizeURLPath(call.APICall.URLPath)
+		if err != nil {
+			return nil, fmt.Errorf("invalid urlPath for context entry %s: %w", a.entry.Name, err)
 		}
+
+		if a.policyNamespace != "" {
+			// Namespaced Policy: verify path accesses only the policy's namespace.
+			// Match the path component alone - a /namespaces/<name>/ decoy in a query
+			// value would otherwise satisfy this check.
+			if matches := namespacePathRegex.FindStringSubmatch(validationPath); len(matches) > 2 {
+				ns := matches[2]
+				if ns != a.policyNamespace {
+					return nil, fmt.Errorf("path %s refers to namespace %s, which is different from the policy namespace %s", validationPath, ns, a.policyNamespace)
+				}
+				if namespaceObjectPathRegex.MatchString(validationPath) {
+					return nil, fmt.Errorf("path %s refers to the cluster-scoped Namespace object, which namespaced policies cannot access", validationPath)
+				}
+			} else {
+				return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", validationPath)
+			}
+		}
+
+		// Execute the exact same canonical path that was just validated -
+		// validation and execution must never diverge on representation.
+		call.APICall.URLPath = canonicalPath
+	} else if a.policyNamespace != "" {
+		// A service call carries no API path, so there is no namespace segment to
+		// clamp. Keep rejecting it for namespaced policies - an empty urlPath used
+		// to fail the clamp via path.Clean(""), and that is what keeps namespaced
+		// policies off the service-call path entirely.
+		return nil, fmt.Errorf("path %s does not contain a namespace segment, which is required for namespaced policies", path.Clean(call.APICall.URLPath))
 	}
 
 	data, err := a.Execute(ctx, &call.APICall)
@@ -142,7 +158,12 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
 
-	results, err := a.applyJMESPathJSON(path.(string), jsonData)
+	pathStr, ok := path.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: expected string, got %T", a.entry.Name, a.entry.APICall.JMESPath, path)
+	}
+
+	results, err := a.applyJMESPathJSON(pathStr, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}

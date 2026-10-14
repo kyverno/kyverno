@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	gcrv1 "github.com/google/go-containerregistry/pkg/v1"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -24,6 +26,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/image/verifiers/cpol/cosign"
+	apiimage "github.com/kyverno/kyverno/pkg/utils/image"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	"gomodules.xyz/jsonpatch/v2"
@@ -953,14 +956,19 @@ func Test_MarkImageVerified(t *testing.T) {
 	json := patchedAnnotations[kyverno.AnnotationImageVerify]
 	assert.Assert(t, json != "")
 
-	verified, err := engineutils.IsImageVerified(resource, image, logr.Discard())
+	// The annotation is informational only now; nothing in production reads
+	// it as a verdict. Parse it directly here to assert the mutating webhook
+	// still records what it did.
+	ivm, err := engineapi.ParseImageMetadata(json)
 	assert.NilError(t, err)
-	assert.Equal(t, verified, engineapi.ImageVerificationPass)
+	assert.Equal(t, ivm.ImageVerificationStatus(image), engineapi.ImageVerificationPass)
 
 	policy := policyContext.Policy()
-	verified, err = engineutils.IsImageVerifiedForPolicy(resource, policy.GetNamespace(), policy.GetName(), "attest", image, logr.Discard())
+	scopedJSON := patchedAnnotations[kyverno.AnnotationImageVerifyScoped]
+	assert.Assert(t, scopedJSON != "")
+	scopedIvm, err := engineapi.ParseImageMetadata(scopedJSON)
 	assert.NilError(t, err)
-	assert.Equal(t, verified, engineapi.ImageVerificationPass)
+	assert.Equal(t, scopedIvm.ScopedImageVerificationStatus(policy.GetNamespace(), policy.GetName(), "attest", image), engineapi.ImageVerificationPass)
 }
 
 func testApplyPatches(t *testing.T, patches []jsonpatch.JsonPatchOperation) unstructured.Unstructured {
@@ -1098,7 +1106,12 @@ func Test_ImageVerifyCacheCosign(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	// A tag reference still costs one registry lookup per admission even on a
+	// cache hit, so the strict cache-hit speedup this asserted pre-fix no longer
+	// holds for tag-referenced images (see the digest-binding cost model); the
+	// cache still saves the full crypto/attestation verification, so the second
+	// run must still be faster than the first.
+	assert.Check(t, secondOperationTime < firstOperationTime, "cache entry is valid, so image verification should skip signature/attestation verification.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheDisabled(t *testing.T) {
@@ -1123,6 +1136,46 @@ func Test_ImageVerifyCacheDisabled(t *testing.T) {
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
 	assert.Check(t, secondOperationTime > firstOperationTime/10 && secondOperationTime < firstOperationTime*10, "cache is disabled, so image verification should not be from cache.", firstOperationTime, secondOperationTime)
+}
+
+// Test_ImageVerifyCacheSkipReferenceNotServedFromCache pins that a reference
+// the entry skips is never answered from the cache. The cache key is
+// normalised to the resolved digest, so a pass cached for the digest form
+// would otherwise be served for a tag that skipImageReferences excludes,
+// turning a Skip into "verified from cache".
+func Test_ImageVerifyCacheSkipReferenceNotServedFromCache(t *testing.T) {
+	const tagged = "ghcr.io/kyverno/test-verify-image:signed"
+	const digestRef = tagged + "@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	var policy map[string]interface{}
+	assert.NilError(t, json.Unmarshal([]byte(cosignTestPolicy), &policy))
+	rules := policy["spec"].(map[string]interface{})["rules"].([]interface{})
+	entry := rules[0].(map[string]interface{})["verifyImages"].([]interface{})[0].(map[string]interface{})
+	// Match both reference forms, but skip the tag one.
+	entry["imageReferences"] = []string{"ghcr.io/kyverno/test-verify-image*"}
+	entry["skipImageReferences"] = []string{"*:signed"}
+	policyJSON, err := json.Marshal(policy)
+	assert.NilError(t, err)
+
+	imageVerifyCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24*time.Hour),
+	)
+	assert.NilError(t, err)
+
+	// The digest form is verified and cached.
+	pinned := buildContext(t, string(policyJSON), strings.ReplaceAll(cosignTestResource, tagged, digestRef), "")
+	er, _ := testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, pinned, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, er.PolicyResponse.Rules[0].Message())
+
+	// The tag form resolves to the same digest, so a digest-keyed entry exists
+	// for it. It must still be skipped rather than served.
+	skipped := buildContext(t, string(policyJSON), cosignTestResource, "")
+	er, _ = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, skipped, cfg)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip, er.PolicyResponse.Rules[0].Message())
 }
 
 func Test_ImageVerifyCacheExpiredCosign(t *testing.T) {
@@ -1321,7 +1374,12 @@ func Test_ImageVerifyCacheNotary(t *testing.T) {
 	er, ivm = testImageVerifyCache(imageVerifyCache, context.TODO(), registryclient.New(), nil, policyContext, cfg)
 	secondOperationTime := time.Since(start)
 	errorAssertionUtil(t, image, ivm, er)
-	assert.Check(t, secondOperationTime < firstOperationTime/10, "cache entry is valid, so image verification should be from cache.", firstOperationTime, secondOperationTime)
+	// A tag reference still costs one registry lookup per admission even on a
+	// cache hit, so the strict cache-hit speedup this asserted pre-fix no longer
+	// holds for tag-referenced images (see the digest-binding cost model); the
+	// cache still saves the full crypto/attestation verification, so the second
+	// run must still be faster than the first.
+	assert.Check(t, secondOperationTime < firstOperationTime, "cache entry is valid, so image verification should skip signature/attestation verification.", firstOperationTime, secondOperationTime)
 }
 
 func Test_ImageVerifyCacheExpiredNotary(t *testing.T) {
@@ -1721,4 +1779,454 @@ func Test_MultipleImageVerificationAttestationFail(t *testing.T) {
 	assert.Equal(t, erSkip.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusSkip,
 		fmt.Sprintf("expected: %v, got: %v, failure: %v",
 			engineapi.RuleStatusPass, erSkip.PolicyResponse.Rules[0].Status(), erSkip.PolicyResponse.Rules[0].Message()))
+}
+
+// firstContainerImage extracts spec.containers[0].image from an unstructured
+// Pod, since unstructured.NestedString cannot index into a slice by position.
+func firstContainerImage(t *testing.T, resource unstructured.Unstructured) string {
+	t.Helper()
+	containers, found, err := unstructured.NestedSlice(resource.Object, "spec", "containers")
+	assert.NilError(t, err)
+	assert.Assert(t, found)
+	assert.Assert(t, len(containers) > 0)
+	container, ok := containers[0].(map[string]interface{})
+	assert.Assert(t, ok)
+	image, ok := container["image"].(string)
+	assert.Assert(t, ok)
+	return image
+}
+
+const cacheSymmetryPolicy = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "Policy",
+    "metadata": {
+       "name": "check-image-cache-symmetry"
+    },
+    "spec": {
+       "validationFailureAction": "enforce",
+       "background": false,
+       "webhookTimeoutSeconds": 30,
+       "failurePolicy": "Fail",
+       "rules": [
+          {
+             "name": "check-image",
+             "match": {
+                "any": [
+                   {
+                      "resources": {
+                         "kinds": [
+                            "Pod"
+                         ]
+                      }
+                   }
+                ]
+             },
+             "verifyImages": [
+                {
+                   "imageReferences": [
+                      "*"
+                   ],
+                   "required": true,
+                   "mutateDigest": true,
+                   "useCache": true,
+                   "attestors": [
+                      {
+                         "count": 1,
+                         "entries": [
+                            {
+                               "keys": {
+                                  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfVMHGmFK4OgVqhy36KZ7a3r4R4/o\nCwaCVvXZV4ZULFbkFZ0IodGqKqcVmgycnoj7d8TpKpAUVNF8kKh90ewH3A==\n-----END PUBLIC KEY-----\n-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0f1W0XigyPFbX8Xq3QmkbL9gDFTf\nRfc8jF7UadBcwKxiyvPSOKZn+igQfXzpNjrwPSZ58JGvF4Fs8BB3fSRP2g==\n-----END PUBLIC KEY-----",
+                                  "rekor": {
+                                     "url": "https://rekor.sigstore.dev",
+                                     "ignoreTlog": true
+                                  },
+                                  "ctlog": {
+                                     "ignoreSCT": true
+                                  }
+                               }
+                            }
+                         ]
+                      }
+                   ]
+                }
+             ]
+          }
+       ]
+    }
+ }`
+
+// Test_CrossPathCacheKeySymmetry is the mandated regression: the mutate-side
+// Set and the validate-side Get must derive the same key for the same
+// verified image. If they don't, the validate side silently falls through to
+// a full re-verification on every request and nothing about that failure is
+// visible from the response alone -- except the "verified from cache" message,
+// which this test pins.
+func Test_CrossPathCacheKeySymmetry(t *testing.T) {
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err := cosign.SetMock(image, signaturePayloads)
+	defer cosign.ClearMock()
+	assert.NilError(t, err)
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
+	}
+	ivCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	// No network egress: FetchImageDescriptor is faked to always resolve to
+	// the digest the mocked signature identifies, exactly like a real
+	// admission where the HEAD and the signature agree on the same digest.
+	// Only Options/NameOptions/ForRef delegate to a real client, and none of
+	// those touch the network for this flow.
+	realClient := adapters.RegistryClient(registryclient.New())
+	fakeClient := &fakeDescriptorClient{
+		RegistryClient: realClient,
+		digests:        []string{"b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"},
+	}
+	rclientFactory := fakeDescriptorClientFactory{client: fakeClient}
+
+	// Mutate side: verify, pin the digest, and Set the cache entry.
+	mutateCtx := buildContext(t, cacheSymmetryPolicy, testResource, "")
+	mutateEngine := NewEngine(
+		cfg,
+		jp,
+		nil,
+		rclientFactory,
+		ivCache,
+		factories.DefaultContextLoaderFactory(nil),
+		nil,
+		nil,
+	)
+	mutateResponse, _ := mutateEngine.VerifyAndPatchImages(context.TODO(), mutateCtx)
+	assert.Equal(t, mutateResponse.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, mutateResponse.PolicyResponse.Rules[0].Message())
+
+	patchedResource := mutateResponse.PatchedResource
+	patchedImage := firstContainerImage(t, patchedResource)
+	assert.Assert(t, strings.Contains(patchedImage, "@sha256:"), "mutate side must have pinned the digest: %s", patchedImage)
+
+	// Prove key symmetry directly: derive the key the validate side would
+	// compute from the patched (digest-pinned) resource and check it hits the
+	// entry the mutate side just wrote.
+	patchedImageInfo, err := apiimage.GetImageInfo(patchedImage, cfg)
+	assert.NilError(t, err)
+	// The scope binds the entry's own requirements, so derive it the same way
+	// production does rather than assuming the bare rule name.
+	cacheScope, err := internal.VerifyImagesCacheScope("check-image", *mutateCtx.Policy().GetSpec().Rules[0].VerifyImages[0].Convert())
+	assert.NilError(t, err)
+	found, err := ivCache.Get(context.TODO(), mutateCtx.Policy(), cacheScope, patchedImageInfo.String(), true)
+	assert.NilError(t, err)
+	assert.Assert(t, found, "the key the validate side derives from the patched resource must hit the entry the mutate side wrote")
+
+	// Clear the mock before the validate side runs: if the keys were
+	// asymmetric, the validate side would fall through to a full
+	// re-verification with no mocked signature available and fail. A Pass
+	// here is only possible via a genuine cache hit.
+	cosign.ClearMock()
+
+	// Validate side: same policy, same cache, the mutate side's patched
+	// (digest-pinned) resource. This must be a cache hit, not a re-verification.
+	validateCtx := buildContext(t, cacheSymmetryPolicy, testResource, "")
+	validateCtx = validateCtx.WithNewResource(patchedResource)
+	validateEngine := NewEngine(
+		cfg,
+		jp,
+		nil,
+		rclientFactory,
+		ivCache,
+		factories.DefaultContextLoaderFactory(nil),
+		nil,
+		nil,
+	)
+	validateResponse := validateEngine.Validate(context.TODO(), validateCtx)
+	assert.Assert(t, len(validateResponse.PolicyResponse.Rules) > 0)
+
+	var ivRule *engineapi.RuleResponse
+	for i := range validateResponse.PolicyResponse.Rules {
+		if validateResponse.PolicyResponse.Rules[i].RuleType() == engineapi.ImageVerify {
+			ivRule = &validateResponse.PolicyResponse.Rules[i]
+		}
+	}
+	assert.Assert(t, ivRule != nil)
+	assert.Equal(t, ivRule.Status(), engineapi.RuleStatusPass, ivRule.Message())
+}
+
+// fakeDescriptorClient wraps a real RegistryClient but returns a
+// caller-controlled digest sequence from FetchImageDescriptor, so a test can
+// simulate a tag resolving to a different digest on a later admission
+// without depending on the real registry's current state.
+type fakeDescriptorClient struct {
+	engineapi.RegistryClient
+	digests []string
+	next    int
+}
+
+func (f *fakeDescriptorClient) FetchImageDescriptor(_ context.Context, _ string) (*gcrremote.Descriptor, error) {
+	d := f.digests[f.next]
+	if f.next < len(f.digests)-1 {
+		f.next++
+	}
+	return &gcrremote.Descriptor{Descriptor: gcrv1.Descriptor{Digest: gcrv1.Hash{Algorithm: "sha256", Hex: d}}}, nil
+}
+
+type fakeDescriptorClientFactory struct {
+	client engineapi.RegistryClient
+}
+
+func (f fakeDescriptorClientFactory) GetClient(context.Context, *kyvernov1.ImageRegistryCredentials, string, []string) (engineapi.RegistryClient, error) {
+	return f.client, nil
+}
+
+// Test_TagMoveForcesReVerification is the tag-move regression: a cache entry
+// bound to the digest verified on one admission must not cover whatever a
+// mutable tag resolves to on a later admission. When the resolved digest
+// changes, the cache must miss and a fresh check must run -- and here, with
+// no valid signature available for the fresh check, it must fail rather than
+// serve the earlier pass.
+func Test_TagMoveForcesReVerification(t *testing.T) {
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err := cosign.SetMock(image, signaturePayloads)
+	assert.NilError(t, err)
+
+	opts := []imageverifycache.Option{
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24 * time.Hour),
+	}
+	ivCache, err := imageverifycache.New(opts...)
+	assert.NilError(t, err)
+
+	// The first resolved digest matches what the mocked signature actually
+	// claims (a genuine admission's HEAD and its signature agree); the second
+	// is a different digest standing in for a moved tag.
+	realClient := adapters.RegistryClient(registryclient.New())
+	fakeClient := &fakeDescriptorClient{
+		RegistryClient: realClient,
+		digests: []string{
+			"b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105",
+			"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+		},
+	}
+	rclientFactory := fakeDescriptorClientFactory{client: fakeClient}
+
+	e := NewEngine(
+		cfg,
+		jp,
+		nil,
+		rclientFactory,
+		ivCache,
+		factories.DefaultContextLoaderFactory(nil),
+		nil,
+		nil,
+	)
+
+	// First admission: verifies and warms the cache under the digest that
+	// both the mocked signature and the resolved descriptor agree on.
+	firstCtx := buildContext(t, cacheSymmetryPolicy, testResource, "")
+	firstResponse, _ := e.VerifyAndPatchImages(context.TODO(), firstCtx)
+	assert.Equal(t, firstResponse.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, firstResponse.PolicyResponse.Rules[0].Message())
+
+	// The tag now resolves to a different digest -- the cache entry for the
+	// old digest must not cover it. No valid signature exists for a fresh
+	// check now, so this must fail rather than reuse the earlier pass.
+	cosign.ClearMock()
+	secondCtx := buildContext(t, cacheSymmetryPolicy, testResource, "")
+	secondResponse, _ := e.VerifyAndPatchImages(context.TODO(), secondCtx)
+	assert.Equal(t, secondResponse.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail, secondResponse.PolicyResponse.Rules[0].Message())
+}
+
+const updateNoOldVerificationTrustPolicy = `{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "Policy",
+    "metadata": {
+       "name": "check-image-update"
+    },
+    "spec": {
+       "validationFailureAction": "enforce",
+       "background": false,
+       "webhookTimeoutSeconds": 30,
+       "failurePolicy": "Fail",
+       "rules": [
+          {
+             "name": "check-image",
+             "match": {
+                "any": [
+                   {
+                      "resources": {
+                         "kinds": [
+                            "Pod"
+                         ]
+                      }
+                   }
+                ]
+             },
+             "verifyImages": [
+                {
+                   "imageReferences": [
+                      "*"
+                   ],
+                   "attestors": [
+                      {
+                         "count": 1,
+                         "entries": [
+                            {
+                               "keys": {
+                                  "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfVMHGmFK4OgVqhy36KZ7a3r4R4/o\nCwaCVvXZV4ZULFbkFZ0IodGqKqcVmgycnoj7d8TpKpAUVNF8kKh90ewH3A==\n-----END PUBLIC KEY-----\n-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE0f1W0XigyPFbX8Xq3QmkbL9gDFTf\nRfc8jF7UadBcwKxiyvPSOKZn+igQfXzpNjrwPSZ58JGvF4Fs8BB3fSRP2g==\n-----END PUBLIC KEY-----",
+                                  "rekor": {
+                                     "url": "https://rekor.sigstore.dev",
+                                     "ignoreTlog": true
+                                  },
+                                  "ctlog": {
+                                     "ignoreSCT": true
+                                  }
+                               }
+                            }
+                         ]
+                      }
+                   ]
+                }
+             ]
+          }
+       ]
+    }
+ }`
+
+// oldResourceWithPriorStageMetadata carries the same image reference as
+// testResource (so the image pointer is unchanged between old and new) and
+// pre-existing verification metadata claiming a pass for this exact
+// policy/rule/image. Nothing in production reads this metadata as a verdict
+// anymore, so it must not influence the outcome below.
+const oldResourceWithPriorStageMetadata = `{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+     "name": "test",
+     "annotations": {
+        "kyverno.io/verify-images-scoped": "{\"version\":1,\"policies\":{\"/check-image-update\":{\"check-image\":{\"ghcr.io/jimbugwadia/pause2:latest\":\"pass\"}}}}"
+     }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "pause2",
+        "image": "ghcr.io/jimbugwadia/pause2"
+      }
+    ]
+  }
+}`
+
+// Test_UpdateDoesNotTrustPriorStageMetadataOnUnchangedImage pins the deletion
+// of the old "unchanged image, previously verified" fast path: an UPDATE
+// where the image reference didn't change, and the prior version of the
+// resource carries pre-existing verification metadata claiming a pass, must
+// still be independently verified, not fast-pathed to a pass derived from
+// that metadata. A genuine verification response (with the message
+// verifyImage produces) must be present; the deleted fast path produced none
+// at all for this image, since it "continue"d before ever calling verifyImage.
+func Test_UpdateDoesNotTrustPriorStageMetadataOnUnchangedImage(t *testing.T) {
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	err := cosign.SetMock(image, signaturePayloads)
+	defer cosign.ClearMock()
+	assert.NilError(t, err)
+
+	policyContext := buildContext(t, updateNoOldVerificationTrustPolicy, testResource, oldResourceWithPriorStageMetadata)
+
+	engineResponse, _ := testVerifyAndPatchImages(context.TODO(), registryclient.New(), nil, policyContext, cfg)
+	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1,
+		"a genuine verification must have run and produced a response; the deleted fast path produced none for an unchanged, previously-verified image")
+	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusPass, engineResponse.PolicyResponse.Rules[0].Message())
+	assert.Assert(t, strings.Contains(engineResponse.PolicyResponse.Rules[0].Message(), "verified image signatures"),
+		"the pass must come from a genuine signature check, not from the old resource's verification metadata: %s", engineResponse.PolicyResponse.Rules[0].Message())
+}
+
+// Test_VerifyImagesEntryScopeIsolatesEntries pins that two verifyImages entries
+// under a single rule cannot share a cached verdict. rule.VerifyImages is a
+// slice and every entry verifies under the same rule name, so before the scope
+// bound the entry's own requirements, a pass written by a permissive entry was
+// served to a stricter entry in the same rule, within one admission.
+func Test_VerifyImagesEntryScopeIsolatesEntries(t *testing.T) {
+	const ruleName = "check-image"
+	const pinned = "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	entry := func(publicKey string) kyvernov1.ImageVerification {
+		return kyvernov1.ImageVerification{
+			ImageReferences: []string{"*"},
+			Attestors: []kyvernov1.AttestorSet{{
+				Entries: []kyvernov1.Attestor{{
+					Keys: &kyvernov1.StaticKeyAttestor{PublicKeys: publicKey},
+				}},
+			}},
+		}
+	}
+
+	permissive := entry("-----BEGIN PUBLIC KEY-----\npermissive\n-----END PUBLIC KEY-----")
+	strict := entry("-----BEGIN PUBLIC KEY-----\nstrict\n-----END PUBLIC KEY-----")
+
+	permissiveScope, err := internal.VerifyImagesCacheScope(ruleName, permissive)
+	assert.NilError(t, err)
+	strictScope, err := internal.VerifyImagesCacheScope(ruleName, strict)
+	assert.NilError(t, err)
+	assert.Assert(t, permissiveScope != strictScope, "entries with different attestors must not share a cache scope")
+
+	// 24h, not a bare 600: WithTTLDuration takes a Duration, so 600 would be
+	// 600ns and every entry would expire before the lookup.
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(1000),
+		imageverifycache.WithTTLDuration(24*time.Hour),
+	)
+	assert.NilError(t, err)
+
+	policyContext := buildContext(t, cacheSymmetryPolicy, testResource, "")
+	policy := policyContext.Policy()
+
+	stored, err := ivCache.Set(context.TODO(), policy, permissiveScope, pinned, true)
+	assert.NilError(t, err)
+	assert.Assert(t, stored)
+
+	found, err := ivCache.Get(context.TODO(), policy, strictScope, pinned, true)
+	assert.NilError(t, err)
+	assert.Assert(t, !found, "a pass written by the permissive entry must not be served to the stricter entry")
+
+	found, err = ivCache.Get(context.TODO(), policy, permissiveScope, pinned, true)
+	assert.NilError(t, err)
+	assert.Assert(t, found, "the entry that wrote the verdict must still hit it")
+
+	// Required test 4 is "binds all security-relevant inputs", not just the
+	// attestors: anything that changes what verification means must scope too.
+	base := entry("-----BEGIN PUBLIC KEY-----\nbase\n-----END PUBLIC KEY-----")
+	baseScope, err := internal.VerifyImagesCacheScope(ruleName, base)
+	assert.NilError(t, err)
+
+	variants := map[string]func(*kyvernov1.ImageVerification){
+		"type":                 func(v *kyvernov1.ImageVerification) { v.Type = kyvernov1.Notary },
+		"repository":           func(v *kyvernov1.ImageVerification) { v.Repository = "ghcr.io/attacker/sigs" },
+		"skipImageReferences":  func(v *kyvernov1.ImageVerification) { v.SkipImageReferences = []string{"ghcr.io/skipped/*"} },
+		"additionalExtensions": func(v *kyvernov1.ImageVerification) { v.AdditionalExtensions = map[string]string{"k": "v"} },
+		"imageRegistryCredentials": func(v *kyvernov1.ImageVerification) {
+			v.ImageRegistryCredentials = &kyvernov1.ImageRegistryCredentials{AllowInsecureRegistry: true}
+		},
+		"imageReferences": func(v *kyvernov1.ImageVerification) { v.ImageReferences = []string{"ghcr.io/other/*"} },
+	}
+	for name, mutate := range variants {
+		variant := *base.DeepCopy()
+		mutate(&variant)
+		scope, err := internal.VerifyImagesCacheScope(ruleName, variant)
+		assert.NilError(t, err)
+		assert.Assert(t, scope != baseScope, "changing %s must change the cache scope", name)
+	}
+
+	// Cache-control and stage-variable fields must NOT scope, or the mutate and
+	// validate sides would derive different keys and caching would silently die.
+	for name, mutate := range map[string]func(*kyvernov1.ImageVerification){
+		"mutateDigest": func(v *kyvernov1.ImageVerification) { v.MutateDigest = !v.MutateDigest },
+		"useCache":     func(v *kyvernov1.ImageVerification) { v.UseCache = !v.UseCache },
+	} {
+		variant := *base.DeepCopy()
+		mutate(&variant)
+		scope, err := internal.VerifyImagesCacheScope(ruleName, variant)
+		assert.NilError(t, err)
+		assert.Equal(t, baseScope, scope, "%s must not affect the cache scope", name)
+	}
 }

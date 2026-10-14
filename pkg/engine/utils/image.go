@@ -1,15 +1,11 @@
 package utils
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/config"
-	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -63,44 +59,4 @@ func ExtractMatchingImages(
 	}
 	matchingImages, imageRefs := GetMatchingImages(images, rule)
 	return matchingImages, imageRefs, nil
-}
-
-func IsImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
-	return isImageVerified(resource, "", "", "", image, log)
-}
-
-func IsImageVerifiedForPolicy(resource unstructured.Unstructured, namespace, policy, rule, image string, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
-	if resource.Object == nil {
-		return engineapi.ImageVerificationFail, fmt.Errorf("nil resource")
-	}
-	data, ok := resource.GetAnnotations()[kyverno.AnnotationImageVerifyScoped]
-	if !ok {
-		return engineapi.ImageVerificationFail, nil
-	}
-	ivm, err := engineapi.ParseImageMetadata(data)
-	if err != nil {
-		log.Error(err, "failed to parse scoped image verification metadata", "data", data)
-		return engineapi.ImageVerificationFail, fmt.Errorf("failed to parse scoped image metadata: %w", err)
-	}
-	return ivm.ScopedImageVerificationStatus(namespace, policy, rule, image), nil
-}
-
-func isImageVerified(resource unstructured.Unstructured, namespace, policy, rule, image string, log logr.Logger) (engineapi.ImageVerificationMetadataStatus, error) {
-	if resource.Object == nil {
-		return engineapi.ImageVerificationFail, fmt.Errorf("nil resource")
-	}
-	if annotations := resource.GetAnnotations(); len(annotations) == 0 {
-		return engineapi.ImageVerificationFail, nil
-	} else if data, ok := annotations[kyverno.AnnotationImageVerify]; !ok {
-		log.V(2).Info("missing image metadata in annotation", "key", kyverno.AnnotationImageVerify)
-		return engineapi.ImageVerificationFail, fmt.Errorf("image is not verified")
-	} else if ivm, err := engineapi.ParseImageMetadata(data); err != nil {
-		log.Error(err, "failed to parse image verification metadata", "data", data)
-		return engineapi.ImageVerificationFail, fmt.Errorf("failed to parse image metadata: %w", err)
-	} else {
-		if policy != "" {
-			return ivm.ScopedImageVerificationStatus(namespace, policy, rule, image), nil
-		}
-		return ivm.ImageVerificationStatus(image), nil
-	}
 }

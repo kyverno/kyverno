@@ -12,6 +12,7 @@ import (
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/kyverno/kyverno/pkg/utils/data"
 	"gomodules.xyz/jsonpatch/v2"
 )
 
@@ -52,6 +53,45 @@ func EvaluateConditions(
 		return false, "", fmt.Errorf("failed to substitute variables in attestation conditions: %w", err)
 	}
 	return variables.EvaluateAnyAllConditionsWithContext(log, ctx, c, "attestation.conditions")
+}
+
+// SubstituteRuleVariables resolves variable placeholders (for example a
+// ConfigMap-backed public key) into a copy of the rule before it is used for
+// image verification. Attestation and deny conditions are excluded from
+// substitution and restored afterward, since they are evaluated per-statement
+// later, not up front. Shared by the mutating and validating verify-image
+// handlers so both operate on the same resolved rule.
+func SubstituteRuleVariables(rule kyvernov1.Rule, ctx enginecontext.EvalInterface, logger logr.Logger) (*kyvernov1.Rule, error) {
+	hasValidateImageVerification := rule.HasValidateImageVerification()
+	ruleCopy := *rule.DeepCopy()
+	for i := range ruleCopy.VerifyImages {
+		for j := range ruleCopy.VerifyImages[i].Attestations {
+			ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
+		}
+		// Deny is optional per entry, while hasValidateImageVerification is
+		// true when ANY entry carries a validate block, message-only included.
+		if hasValidateImageVerification && ruleCopy.VerifyImages[i].Validation.Deny != nil {
+			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = nil
+		}
+	}
+
+	var err error
+	ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, ruleCopy)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range ruleCopy.VerifyImages {
+		for j := range ruleCopy.VerifyImages[i].Attestations {
+			ruleCopy.VerifyImages[i].Attestations[j].Conditions = rule.VerifyImages[i].Attestations[j].Conditions
+		}
+		if hasValidateImageVerification &&
+			ruleCopy.VerifyImages[i].Validation.Deny != nil &&
+			rule.VerifyImages[i].Validation.Deny != nil {
+			ruleCopy.VerifyImages[i].Validation.Deny.RawAnyAllConditions = rule.VerifyImages[i].Validation.Deny.RawAnyAllConditions
+		}
+	}
+	return &ruleCopy, nil
 }
 
 func matchReferences(imageReferences []string, image string) bool {
@@ -98,11 +138,14 @@ func createStaticKeyAttestors(keys []string, base kyvernov1.Attestor) []kyvernov
 	return attestors
 }
 
-func buildStatementMap(statements []map[string]any) (map[string][]map[string]any, []string) {
+func buildStatementMap(statements []map[string]any) (map[string][]map[string]any, []string, error) {
 	results := map[string][]map[string]any{}
 	predicateTypes := make([]string, 0, len(statements))
 	for _, s := range statements {
-		predicateType := s["type"].(string)
+		predicateType, err := data.GetStringField(s, "type")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to read statement type: %w", err)
+		}
 		if results[predicateType] != nil {
 			results[predicateType] = append(results[predicateType], s)
 		} else {
@@ -110,7 +153,7 @@ func buildStatementMap(statements []map[string]any) (map[string][]map[string]any
 		}
 		predicateTypes = append(predicateTypes, predicateType)
 	}
-	return results, predicateTypes
+	return results, predicateTypes, nil
 }
 
 func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) jsonpatch.JsonPatchOperation {

@@ -4,9 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/image/verifiers"
+
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	notationregistry "github.com/notaryproject/notation-go/registry"
+	godigest "github.com/opencontainers/go-digest"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"gotest.tools/v3/assert"
 )
@@ -80,4 +83,49 @@ func TestFetchSignatureBlob(t *testing.T) {
 			assert.Equal(t, desc.MediaType, "application/jose+json")
 		}
 	}
+}
+
+func TestFetchSignatureBlobRejectsEmptyManifest(t *testing.T) {
+	repo := newTestRegistry(t)
+	manifest := ocispec.Manifest{
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    ocispec.Descriptor{MediaType: ocispec.MediaTypeEmptyJSON},
+		Layers:    []ocispec.Descriptor{},
+	}
+	manifestRef := pushManifest(t, repo, manifest)
+
+	repoRef, err := name.ParseReference(repo.Name())
+	assert.NilError(t, err)
+	client := newRepository(nil, repoRef)
+
+	desc := ocispec.Descriptor{Digest: godigest.Digest(manifestRef.DigestStr())}
+	_, _, err = client.FetchSignatureBlob(ctx, desc)
+	assert.ErrorContains(t, err, "no signature blob")
+}
+
+func TestFetchSignatureBlobRejectsOversizedBlob(t *testing.T) {
+	repo := newTestRegistry(t)
+	restore := verifiers.PayloadLimit()
+	verifiers.SetPayloadLimit(1 << 10)
+	t.Cleanup(func() { verifiers.SetPayloadLimit(restore) })
+
+	data := gzipBytes(t, int(verifiers.PayloadLimit())+1)
+	layerDigest, layerSize := pushBlob(t, repo, data, "application/jose+json")
+	manifest := ocispec.Manifest{
+		MediaType: ocispec.MediaTypeImageManifest,
+		Config:    ocispec.Descriptor{MediaType: ocispec.MediaTypeEmptyJSON},
+		Layers: []ocispec.Descriptor{
+			{MediaType: "application/jose+json", Digest: godigest.Digest(layerDigest.DigestStr()), Size: layerSize},
+		},
+	}
+	manifestRef := pushManifest(t, repo, manifest)
+
+	repoRef, err := name.ParseReference(repo.Name())
+	assert.NilError(t, err)
+	client := newRepository(nil, repoRef)
+
+	desc := ocispec.Descriptor{Digest: godigest.Digest(manifestRef.DigestStr())}
+	blob, _, err := client.FetchSignatureBlob(ctx, desc)
+	assert.ErrorContains(t, err, "exceeds")
+	assert.Assert(t, blob == nil)
 }

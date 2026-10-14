@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -709,4 +710,74 @@ func Test_doesMatchExcludeConflict_cleanupPolicy(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCleanupPolicyMatchExcludeConflictSkipsOversizedAnyLists(t *testing.T) {
+	path := field.NewPath("dummy")
+
+	buildFilters := func(count int) []kyvernov1.ResourceFilter {
+		filters := make([]kyvernov1.ResourceFilter, count)
+		for i := range filters {
+			filters[i] = kyvernov1.ResourceFilter{
+				ResourceDescription: kyvernov1.ResourceDescription{
+					Kinds: []string{"Pod"},
+					Names: []string{fmt.Sprintf("match-name-%d", i)},
+				},
+			}
+		}
+		return filters
+	}
+	matchFilters := buildFilters(300)
+	excludeFilters := buildFilters(300)
+	// Plant one genuine conflict: without the pair cap, the nested
+	// DeepEqual loop would reach this identical pair and report a
+	// conflict; with the cap, the product (90000) exceeds the limit and
+	// the lint is skipped before the loop ever runs.
+	excludeFilters[200] = matchFilters[200]
+
+	spec := CleanupPolicySpec{
+		Schedule: "* * * * *",
+		MatchResources: MatchResources{
+			Any: matchFilters,
+		},
+		ExcludeResources: &MatchResources{
+			Any: excludeFilters,
+		},
+	}
+
+	errs := spec.ValidateMatchExcludeConflict(path)
+	assert.Equal(t, len(errs), 0)
+}
+
+func Test_CleanupPolicy_GlobalReferenceDenied(t *testing.T) {
+	subject := CleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: CleanupPolicySpec{
+			Schedule: "* * * * *",
+			Context: []kyvernov1.ContextEntry{{
+				Name:            "gctxEntry",
+				GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "gctxEntry"},
+			}},
+		},
+	}
+	errs := subject.Validate(nil)
+	assert.Assert(t, len(errs) == 1)
+	assert.Equal(t, errs[0].Field, "spec.context")
+	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
+	assert.Equal(t, errs[0].Detail, "globalReference is not allowed in namespaced policies")
+}
+
+func Test_ClusterCleanupPolicy_GlobalReferenceAllowed(t *testing.T) {
+	subject := ClusterCleanupPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: CleanupPolicySpec{
+			Schedule: "* * * * *",
+			Context: []kyvernov1.ContextEntry{{
+				Name:            "gctxEntry",
+				GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "gctxEntry"},
+			}},
+		},
+	}
+	errs := subject.Validate(nil)
+	assert.Assert(t, len(errs) == 0)
 }

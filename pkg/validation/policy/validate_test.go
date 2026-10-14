@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -3694,5 +3695,219 @@ func Test_validateGlobalReference_WithNameAndJMESPath_Allowed(t *testing.T) {
 		},
 	}
 	err := validateGlobalReference(entry)
+	assert.Nil(t, err)
+}
+
+func TestValidateWildcardDenyConditionNonStringKey(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "wildcard-deny"
+		},
+		"spec": {
+		  "background": false,
+		  "rules": [
+			{
+			  "name": "deny-rule",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"*"
+				  ]
+				}
+			  },
+			  "validate": {
+				"message": "denied",
+				"deny": {
+				  "conditions": [
+					{
+					  "key": {"foo": "bar"},
+					  "operator": "Equals",
+					  "value": "x"
+					}
+				  ]
+				}
+			  }
+			}
+		  ]
+		}
+	  }
+	`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.Nil(t, err)
+
+	_, err = Validate(policy, nil, nil, true, "", "")
+	assert.NotNil(t, err)
+}
+
+func TestPolicyGlobLengthLimit(t *testing.T) {
+	overLimit := strings.Repeat("a", maxGlobLength+1)
+	atLimit := strings.Repeat("a", maxGlobLength)
+
+	overLimitRule := kyverno.Rule{
+		Name: "over-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Names: []string{overLimit},
+			},
+		},
+	}
+	err := validateMatchExcludeGlobLengths(overLimitRule)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "exceeds the maximum allowed length")
+
+	atLimitRule := kyverno.Rule{
+		Name: "at-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Names: []string{atLimit},
+			},
+		},
+	}
+	err = validateMatchExcludeGlobLengths(atLimitRule)
+	assert.Nil(t, err)
+}
+
+func TestAnnotationGlobLengthLimit(t *testing.T) {
+	overLimit := strings.Repeat("a", maxAnnotationGlobLength+1)
+	atLimit := strings.Repeat("a", maxAnnotationGlobLength)
+
+	overLimitRule := kyverno.Rule{
+		Name: "over-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds:       []string{"Pod"},
+				Annotations: map[string]string{"app": overLimit},
+			},
+		},
+	}
+	err := validateMatchExcludeGlobLengths(overLimitRule)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "exceeds the maximum allowed length")
+
+	atLimitRule := kyverno.Rule{
+		Name: "at-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds:       []string{"Pod"},
+				Annotations: map[string]string{"app": atLimit},
+			},
+		},
+	}
+	err = validateMatchExcludeGlobLengths(atLimitRule)
+	assert.Nil(t, err)
+}
+
+func TestMatchExcludeGlobLengthLimitAppliesToExcludeAndAnyAll(t *testing.T) {
+	overLimit := strings.Repeat("a", maxGlobLength+1)
+
+	// exclude.any
+	rule := kyverno.Rule{
+		Name: "exclude-any-over-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}},
+		},
+		ExcludeResources: &kyverno.MatchResources{
+			Any: []kyverno.ResourceFilter{
+				{ResourceDescription: kyverno.ResourceDescription{Names: []string{overLimit}}},
+			},
+		},
+	}
+	err := validateMatchExcludeGlobLengths(rule)
+	assert.NotNil(t, err)
+
+	// match.all
+	rule2 := kyverno.Rule{
+		Name: "match-all-over-limit",
+		MatchResources: kyverno.MatchResources{
+			All: []kyverno.ResourceFilter{
+				{ResourceDescription: kyverno.ResourceDescription{Names: []string{overLimit}}},
+			},
+		},
+	}
+	err = validateMatchExcludeGlobLengths(rule2)
+	assert.NotNil(t, err)
+}
+
+func TestKindsGlobLengthLimit(t *testing.T) {
+	overLimit := strings.Repeat("a", maxGlobLength+1)
+
+	overLimitRule := kyverno.Rule{
+		Name: "over-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{overLimit},
+			},
+		},
+	}
+	err := validateMatchExcludeGlobLengths(overLimitRule)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "exceeds the maximum allowed length")
+
+	atLimit := strings.Repeat("a", maxGlobLength)
+	atLimitRule := kyverno.Rule{
+		Name: "at-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{atLimit},
+			},
+		},
+	}
+	err = validateMatchExcludeGlobLengths(atLimitRule)
+	assert.Nil(t, err)
+}
+
+func TestSelectorMatchLabelsGlobLengthLimit(t *testing.T) {
+	overLimit := strings.Repeat("a", maxGlobLength+1)
+
+	overLimitRule := kyverno.Rule{
+		Name: "over-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": overLimit},
+				},
+			},
+		},
+	}
+	err := validateMatchExcludeGlobLengths(overLimitRule)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "exceeds the maximum allowed length")
+
+	overLimitKeyRule := kyverno.Rule{
+		Name: "over-limit-key",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{overLimit: "prod"},
+				},
+			},
+		},
+	}
+	err = validateMatchExcludeGlobLengths(overLimitKeyRule)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "exceeds the maximum allowed length")
+
+	atLimit := strings.Repeat("a", maxGlobLength)
+	atLimitRule := kyverno.Rule{
+		Name: "at-limit",
+		MatchResources: kyverno.MatchResources{
+			ResourceDescription: kyverno.ResourceDescription{
+				Kinds: []string{"Pod"},
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"app": atLimit},
+				},
+			},
+		},
+	}
+	err = validateMatchExcludeGlobLengths(atLimitRule)
 	assert.Nil(t, err)
 }

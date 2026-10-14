@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
@@ -1789,4 +1790,53 @@ func Test_MD5(t *testing.T) {
 	str, ok := result.(string)
 	assert.Assert(t, ok)
 	assert.Equal(t, str, "def42e1abd2462df1f9f0a4b3d488221")
+}
+
+func Test_jpRandom_NonStringPatternDoesNotPanic(t *testing.T) {
+	_, err := jpRandom([]any{123})
+	assert.ErrorContains(t, err, "String")
+}
+
+func Test_jpPatternMatch_RejectsOversizedPattern(t *testing.T) {
+	overLimit := strings.Repeat("a", 1025)
+	_, err := jpPatternMatch([]any{overLimit, "value"})
+	assert.ErrorContains(t, err, "exceeds the maximum allowed length")
+
+	atLimit := strings.Repeat("a", 1024)
+	result, err := jpPatternMatch([]any{atLimit, "value"})
+	assert.NilError(t, err)
+	assert.Equal(t, result, false)
+}
+
+func Test_jpRegexMatch_RejectsOversizedPattern(t *testing.T) {
+	overLimit := strings.Repeat("a", 1025)
+	_, err := jpRegexMatch([]any{overLimit, "value"})
+	assert.ErrorContains(t, err, "exceeds the maximum allowed length")
+
+	atLimit := strings.Repeat("a", 1024)
+	result, err := jpRegexMatch([]any{atLimit, "value"})
+	assert.NilError(t, err)
+	assert.Equal(t, result, false)
+}
+
+func Test_jpRegexReplaceAll_RejectsOversizedPattern(t *testing.T) {
+	overLimit := strings.Repeat("a", 1025)
+	_, err := jpRegexReplaceAll([]any{overLimit, "value", "repl"})
+	assert.ErrorContains(t, err, "exceeds the maximum allowed length")
+
+	atLimit := strings.Repeat("a", 1024)
+	result, err := jpRegexReplaceAll([]any{atLimit, "value", "repl"})
+	assert.NilError(t, err)
+	assert.Equal(t, result, "value")
+}
+
+func Test_jpRegexReplaceAllLiteral_RejectsOversizedPattern(t *testing.T) {
+	overLimit := strings.Repeat("a", 1025)
+	_, err := jpRegexReplaceAllLiteral([]any{overLimit, "value", "repl"})
+	assert.ErrorContains(t, err, "exceeds the maximum allowed length")
+
+	atLimit := strings.Repeat("a", 1024)
+	result, err := jpRegexReplaceAllLiteral([]any{atLimit, "value", "repl"})
+	assert.NilError(t, err)
+	assert.Equal(t, result, "value")
 }

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -480,6 +481,220 @@ func Test_PercentEncodedPathTraversal(t *testing.T) {
 	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
 }
 
+// recordingClient captures the exact path that was executed, so tests can
+// assert that the executor receives the same canonical path that namespace
+// validation checked - not the original, unvalidated URLPath.
+type recordingClient struct {
+	gotPath string
+}
+
+func (c *recordingClient) RawAbsPath(ctx context.Context, path string, method string, dataReader io.Reader) ([]byte, error) {
+	c.gotPath = path
+	return []byte("{}"), nil
+}
+
+// Test_URLPathCanonicalization covers GHSA-3xfv-vq8x-qhg4 / GHSA-pcx2-xcq4-65vf:
+// validation and execution must operate on the exact same canonical path, and
+// query/fragment/encoding tricks must not be able to spoof the namespace that
+// validation checks versus the resource that is actually requested.
+func Test_URLPathCanonicalization(t *testing.T) {
+	newCall := func(urlPath string) kyvernov1.ContextEntry {
+		return kyvernov1.ContextEntry{
+			Name: "test",
+			APICall: &kyvernov1.ContextAPICall{
+				APICall: kyvernov1.APICall{
+					URLPath: urlPath,
+					Method:  "GET",
+				},
+			},
+		}
+	}
+
+	t.Run("query-string namespace spoofing is rejected", func(t *testing.T) {
+		// The query string carries a traversal attempt targeting kube-system,
+		// but query strings are never used by the API server for routing -
+		// the actual resource stays within the declared namespace, so this
+		// must be accepted and the *path* portion alone must reach the executor.
+		entry := newCall("/api/v1/namespaces/default/pods?x=../../../kube-system/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/pods?x=../../../kube-system/secrets", client.gotPath)
+
+		// A path that genuinely resolves elsewhere via the path itself must
+		// still be rejected: the namespace segment is what is checked.
+		entry2 := newCall("/api/v1/namespaces/kube-system/secrets?x=default")
+		call2, err := New(logr.Discard(), jp, entry2, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call2.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "refers to namespace kube-system")
+	})
+
+	t.Run("fragment-hidden traversal is rejected", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default/pods#/../../kube-system/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "must not contain a fragment")
+	})
+
+	t.Run("executor receives only the validated canonical path", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default//pods/./foo/../bar")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/pods/bar", client.gotPath)
+	})
+
+	t.Run("percent-encoded traversal that stays in namespace is passed to the executor canonicalized", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default/pods/%2e%2e/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/secrets", client.gotPath)
+	})
+
+	t.Run("absolute URL as urlPath is rejected", func(t *testing.T) {
+		entry := newCall("https://evil.example.com/api/v1/namespaces/default/secrets")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "must be a relative Kubernetes API path")
+	})
+
+	// /api/v1/namespaces/<name> carries a namespace segment but is the cluster-scoped
+	// Namespace object (or its status/finalize subresource), not a resource inside it.
+	t.Run("the cluster-scoped Namespace object is rejected for a namespaced policy", func(t *testing.T) {
+		for _, urlPath := range []string{
+			"/api/v1/namespaces/default",
+			"/api/v1/namespaces/default/",
+			"/api/v1/namespaces/default/status",
+			"/api/v1/namespaces/default/finalize",
+		} {
+			ctx := enginecontext.NewContext(jp)
+			client := &recordingClient{}
+
+			call, err := New(logr.Discard(), jp, newCall(urlPath), ctx, client, apiConfig, "default")
+			assert.NilError(t, err)
+			_, err = call.Fetch(context.TODO())
+			assert.ErrorContains(t, err, "cluster-scoped Namespace object", urlPath)
+			assert.Equal(t, "", client.gotPath, urlPath)
+		}
+	})
+
+	// The namespace clamp looks for a /namespaces/<name>/ segment anywhere in the
+	// string it is handed. If that string includes the query, a decoy segment in a
+	// query value satisfies the clamp while the path itself targets a cluster-scoped
+	// endpoint - which the API server reaches, because it never routes on the query.
+	t.Run("query-value namespace decoy on a cluster-scoped path is rejected", func(t *testing.T) {
+		for _, urlPath := range []string{
+			"/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y",
+			"/api/v1/secrets?x=/namespaces/default/y",
+			"/api/v1/secrets?x=/../../../../api/v1/namespaces/default/y",
+		} {
+			ctx := enginecontext.NewContext(jp)
+			client := &recordingClient{}
+
+			call, err := New(logr.Discard(), jp, newCall(urlPath), ctx, client, apiConfig, "default")
+			assert.NilError(t, err)
+			_, err = call.Fetch(context.TODO())
+			assert.ErrorContains(t, err, "does not contain a namespace segment")
+			assert.Equal(t, "", client.gotPath)
+		}
+	})
+
+	t.Run("legitimate query string is preserved on the wire", func(t *testing.T) {
+		entry := newCall("/api/v1/namespaces/default/pods?labelSelector=app%3Dweb&limit=10")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "default")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/api/v1/namespaces/default/pods?labelSelector=app%3Dweb&limit=10", client.gotPath)
+	})
+
+	// An empty urlPath means a service call. There is no namespace segment to clamp, so
+	// a namespaced policy must not be able to make one at all - this is what keeps
+	// namespaced policies off the service-call path. 1.14-1.18 pin this in
+	// ssrf_e2e_test.go; this branch has no such file, so pin it here.
+	t.Run("namespaced policy cannot make a service call", func(t *testing.T) {
+		entry := kyvernov1.ContextEntry{
+			Name: "svc",
+			APICall: &kyvernov1.ContextAPICall{
+				APICall: kyvernov1.APICall{
+					Method:  "GET",
+					Service: &kyvernov1.ServiceCall{URL: "https://in-cluster.example/x"},
+				},
+			},
+		}
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "tenant-a")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.ErrorContains(t, err, "does not contain a namespace segment")
+	})
+
+	t.Run("cluster-scoped policy may still make a service call", func(t *testing.T) {
+		entry := kyvernov1.ContextEntry{
+			Name: "svc",
+			APICall: &kyvernov1.ContextAPICall{
+				APICall: kyvernov1.APICall{
+					Method:  "GET",
+					Service: &kyvernov1.ServiceCall{URL: "https://in-cluster.example/x"},
+				},
+			},
+		}
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		// empty policyNamespace == ClusterPolicy: the clamp must not apply, so this
+		// must get past validation (it fails later at the network layer, not here).
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		if err != nil {
+			assert.Assert(t, !strings.Contains(err.Error(), "namespace segment"),
+				"cluster-scoped service call must not be rejected by the namespace clamp, got: %v", err)
+		}
+	})
+
+	t.Run("cluster-scoped policy is unaffected by a query decoy", func(t *testing.T) {
+		entry := newCall("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y")
+		ctx := enginecontext.NewContext(jp)
+		client := &recordingClient{}
+
+		// empty policyNamespace == ClusterPolicy: no clamp applies, and the
+		// query must still survive to the executor untouched.
+		call, err := New(logr.Discard(), jp, entry, ctx, client, apiConfig, "")
+		assert.NilError(t, err)
+		_, err = call.Fetch(context.TODO())
+		assert.NilError(t, err)
+		assert.Equal(t, "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y", client.gotPath)
+	})
+}
+
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {
 	// Default timeout via constructor
 	config := NewAPICallConfiguration(1000, 30*time.Second)
@@ -493,4 +708,23 @@ func Test_APICallConfiguration_GetTimeout(t *testing.T) {
 	// Zero timeout means no timeout (as documented in flag help text)
 	config = APICallConfiguration{maxAPICallResponseLength: 1000, timeout: 0}
 	assert.Equal(t, time.Duration(0), config.GetTimeout())
+}
+
+func Test_transformAndStore_NonStringJMESPathDoesNotPanic(t *testing.T) {
+	ctx := enginecontext.NewContext(jp)
+	err := ctx.AddContextEntry("resource", []byte(`{"replicas": 5}`))
+	assert.NilError(t, err)
+
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			JMESPath: "{{ resource.replicas }}",
+		},
+	}
+
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
+	assert.NilError(t, err)
+
+	_, err = call.transformAndStore([]byte(`{}`))
+	assert.ErrorContains(t, err, "expected string")
 }

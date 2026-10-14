@@ -2,10 +2,16 @@ package cosign
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
 	"io"
+	"math/big"
 	"testing"
+	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/types"
@@ -317,6 +323,55 @@ func TestCosignMatchCertificateData(t *testing.T) {
 	extensions["githubWorkflowTrigger"] = "pull"
 	matchErr = matchCertificateData(cert1, subject1, "", issuer1, "", extensions)
 	assert.Error(t, matchErr, "extension mismatch: expected pull for key githubWorkflowTrigger, received push")
+}
+
+// TestCosignMatchCertificateData_SANLess pins the fail-closed behavior for a
+// certificate with no subject alternative names: a configured subject
+// constraint must fail closed instead of being silently skipped, and the
+// absence of any subject constraint must not itself be treated as a failure.
+func TestCosignMatchCertificateData_SANLess(t *testing.T) {
+	cert := generateSANLessCert(t)
+
+	t.Run("subject configured, no SAN on cert", func(t *testing.T) {
+		err := matchCertificateData(cert, "expected-subject", "", "", "", nil)
+		assert.ErrorContains(t, err, "no subject alternative name")
+	})
+
+	t.Run("subjectRegExp configured, no SAN on cert", func(t *testing.T) {
+		err := matchCertificateData(cert, "", "^expected.*$", "", "", nil)
+		assert.ErrorContains(t, err, "no subject alternative name")
+	})
+
+	t.Run("no subject constraint configured, no SAN on cert", func(t *testing.T) {
+		err := matchCertificateData(cert, "", "", "", "", nil)
+		assert.NilError(t, err)
+	})
+}
+
+// generateSANLessCert builds a minimal self-signed certificate carrying no
+// DNS/email/IP/URI/OtherName subject alternative names, to exercise the
+// zero-SAN path deterministically without depending on a fixed PEM fixture.
+func generateSANLessCert(t *testing.T) *x509.Certificate {
+	t.Helper()
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate key: %v", err)
+	}
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "sanless-test"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &priv.PublicKey, priv)
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatalf("failed to parse certificate: %v", err)
+	}
+	return cert
 }
 
 func TestTSACertChain(t *testing.T) {

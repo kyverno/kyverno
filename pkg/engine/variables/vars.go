@@ -308,27 +308,159 @@ func DefaultVariableResolver(ctx context.EvalInterface, variable string) (interf
 	return ctx.Query(variable)
 }
 
+// substSpan marks a byte range in the value under construction that must not
+// be re-scanned for variable delimiters, because it was introduced by a
+// resolved value rather than written by the policy author. An alias span is
+// the one exception: it holds exactly one "{{ ... }}" token that a resolved
+// value returned verbatim (a variable-to-variable indirection), and it stays
+// eligible for one further resolution at its own starting offset, carrying
+// the set of variable names already visited along that indirection chain so
+// a cycle is caught instead of retried forever.
+type substSpan struct {
+	start, end int
+	alias      bool
+	visited    map[string]struct{}
+}
+
+// spanContaining returns the span (if any) covering byte offset pos.
+// Spans are kept non-overlapping, so at most one can contain pos.
+func spanContaining(spans []substSpan, pos int) *substSpan {
+	for i := range spans {
+		if spans[i].start <= pos && pos < spans[i].end {
+			return &spans[i]
+		}
+	}
+	return nil
+}
+
+// adjustSpans reflects a splice of value[start:end] with a replacement delta
+// bytes longer (or shorter) into the existing span bookkeeping: spans wholly
+// before the splice are untouched, spans at or after it shift by delta, and
+// the portion of any span that falls inside the replaced range is consumed
+// by the splice. No existing span can start inside [start, end) other than
+// exactly at start, because that would have made the token ineligible for
+// substitution in the first place.
+func adjustSpans(spans []substSpan, start, end, delta int) []substSpan {
+	adjusted := make([]substSpan, 0, len(spans))
+	for _, s := range spans {
+		switch {
+		case s.end <= start:
+			adjusted = append(adjusted, s)
+		case s.start >= end:
+			adjusted = append(adjusted, substSpan{start: s.start + delta, end: s.end + delta, alias: s.alias, visited: s.visited})
+		case s.end <= end:
+			// entirely consumed by the splice
+		default:
+			// straddles the splice boundary; the surviving tail shifts
+			adjusted = append(adjusted, substSpan{start: end + delta, end: s.end + delta, alias: s.alias, visited: s.visited})
+		}
+	}
+	return adjusted
+}
+
+// isAliasValue reports whether a resolved-and-spliced value is exactly one
+// balanced "{{ ... }}" token and nothing else, the shape that makes it a
+// variable-to-variable indirection rather than arbitrary reintroduced text.
+func isAliasValue(v string) bool {
+	return v != "" && regex.RegexVariableInit.FindString(v) == v
+}
+
+// maxTotalSubstitutions is a hard backstop on the number of substitutions a
+// single document may require, independent of budget's alias-replenishment
+// and the visited-set cycle detection (see the comment on totalSubs in
+// substituteVariablesIfAny). It is counted across every leaf of one
+// SubstituteAll traversal, not per leaf, so many small leaves cannot
+// collectively exceed it. It is sized far above any legitimate nesting --
+// real policies nest a handful of variables deep -- so it only fires as a
+// defense-in-depth backstop, not a working-policy limit. Kept in the
+// thousands rather than larger: each alias hop's visited-set carries its own
+// copy of every name seen so far, so an n-hop chain costs O(n^2); a tighter
+// cap here bounds that work too, not just the hop count.
+const maxTotalSubstitutions = 5_000
+
+// maxSubstitutedOutputBytes caps the total bytes variable substitution may
+// produce across one SubstituteAll traversal. The count cap above bounds how
+// many substitutions run, but not how large each result is: a few thousand
+// substitutions each splicing in a multi-megabyte value stay within the count
+// budget while expanding the document into gigabytes. This bounds the output
+// itself. The anchor is the request size an admission webhook accepts: the
+// apiserver default --max-request-body-bytes is 3 MiB and the etcd object
+// limit is ~1.5 MiB, so 10 MiB is roughly 3x the largest legitimate single
+// request while still refusing gigabyte-scale blowups.
+const maxSubstitutedOutputBytes = 10 << 20
+
+// substituteVariablesIfAny resolves "{{ ... }}" variable references in a
+// leaf string.
+//
+// Within a substitution pass, variable delimiters are honored from the text
+// the pass started with, and from a resolved value that is exactly one
+// variable reference (an indirection, resolved further; cyclic references
+// are errors). Any other text introduced by a resolved value is treated as
+// data and is not re-scanned for delimiters in that pass.
 func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookupVar VariableResolver) jsonUtils.Action {
 	isDeleteRequest := isDeleteRequest(ctx)
+
+	// totalSubs and totalOutputBytes are per-document backstops shared across
+	// every leaf of this traversal. substituteVariablesIfAny is called once per
+	// SubstituteAll and returns a fresh Action each time, so these never leak
+	// across requests; the traversal visits leaves sequentially, so the shared
+	// counters need no synchronization.
+	totalSubs := 0
+	totalOutputBytes := 0
+
 	return jsonUtils.OnlyForLeafsAndKeys(func(data *jsonUtils.ActionData) (interface{}, error) {
 		value, ok := data.Element.(string)
 		if !ok {
 			return data.Element, nil
 		}
 
-		vars := regex.RegexVariables.FindAllString(value, -1)
-		for len(vars) > 0 {
-			originalPattern := value
-			shallowSubstitution := false
-			var variable string
-			for _, v := range vars {
-				initial := len(regex.RegexVariableInit.FindAllString(v, -1)) > 0
-				old := v
-				if !initial {
-					v = v[1:]
+		var spans []substSpan
+		// budget bounds the number of substitutions this leaf can require: it
+		// starts at the number of "{{" the author literally wrote, decreases
+		// by one per substitution performed, and increases by one whenever a
+		// substitution introduces an alias span (a resolved value that is
+		// itself exactly one token, which then needs its own resolution).
+		// Because every other kind of introduced text is protected and never
+		// re-scanned, this count is exact, not a heuristic cap.
+		budget := strings.Count(value, "{{")
+
+		// Each pass scans the string once and resolves every currently eligible
+		// token, rather than resolving one token and rescanning. Resolving all
+		// of a pass's tokens is equivalent to the one-at-a-time form -- a token's
+		// resolved value depends only on the context and the variable name, never
+		// on a sibling token -- but it turns an O(tokens x length) loop into one
+		// bounded by alias-nesting depth, not token count. Tokens are resolved
+		// and accounted left-to-right (so the budget and output-size errors name
+		// the same token the one-at-a-time form did), then spliced right-to-left
+		// so each splice leaves the earlier tokens' offsets untouched.
+		type pending struct {
+			g2start, g2end int
+			repl           string
+			alias          bool
+			visited        map[string]struct{}
+			variable       string
+		}
+
+		for {
+			matches := regex.RegexVariables.FindAllStringSubmatchIndex(value, -1)
+
+			var batch []pending
+			for _, m := range matches {
+				g2start, g2end := m[4], m[5]
+				var visited map[string]struct{}
+				s := spanContaining(spans, g2start)
+				switch {
+				case s == nil:
+					visited = map[string]struct{}{}
+				case s.alias && s.start == g2start:
+					visited = s.visited
+				default:
+					continue
 				}
 
-				variable, shallowSubstitution = replaceBracesAndTrimSpaces(v)
+				v := value[g2start:g2end]
+
+				variable, shallowSubstitution := replaceBracesAndTrimSpaces(v)
 				if variable == "@" {
 					pathPrefix := "target"
 					if _, err := ctx.Query("target"); err != nil {
@@ -346,6 +478,10 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 					variable = strings.ReplaceAll(variable, "request.object", "request.oldObject")
 				}
 
+				if _, cyclic := visited[variable]; cyclic {
+					return nil, fmt.Errorf("cyclic variable reference: %s at path %s", variable, data.Path)
+				}
+
 				substitutedVar, err := lookupVar(ctx, variable)
 				if err != nil {
 					switch err.(type) {
@@ -358,31 +494,109 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, lookup
 
 				log.V(3).Info("variable substituted", "variable", v, "value", substitutedVar, "path", data.Path)
 
-				if originalPattern == v {
+				if g2start == 0 && g2end == len(value) {
+					// A leaf that is exactly "{{ var }}" returns the resolved value
+					// as-is to preserve its type, but it must still count against the
+					// per-document budgets. Otherwise many such leaves, each resolving
+					// a large value, expand the marshalled document without bound while
+					// the embedded path below is capped.
+					outBytes := 0
+					if s, ok := substitutedVar.(string); ok {
+						outBytes = len(s)
+					} else if substitutedVar != nil {
+						buffer, mErr := json.Marshal(substitutedVar)
+						if mErr != nil {
+							return nil, fmt.Errorf("failed to resolve %v at path %s: failed to marshal %T: %v", variable, data.Path, substitutedVar, substitutedVar)
+						}
+						outBytes = len(buffer)
+					}
+
+					totalSubs++
+					if totalSubs > maxTotalSubstitutions {
+						return nil, fmt.Errorf("failed to resolve %v at path %s: exceeded the hard limit on total variable substitutions", variable, data.Path)
+					}
+
+					totalOutputBytes += outBytes
+					if totalOutputBytes > maxSubstitutedOutputBytes {
+						return nil, fmt.Errorf("failed to resolve %v at path %s: exceeded the maximum substituted output size of %d bytes", variable, data.Path, maxSubstitutedOutputBytes)
+					}
+
 					return substitutedVar, nil
 				}
 
-				prefix := ""
-				if !initial {
-					prefix = string(old[0])
-				}
+				_, substitutedIsString := substitutedVar.(string)
 
 				if shallowSubstitution && substitutedVar != nil {
-					substitutedVar = strings.ReplaceAll(substitutedVar.(string), "{{", "\\{{")
+					shallowStr, ok := substitutedVar.(string)
+					if !ok {
+						buffer, mErr := json.Marshal(substitutedVar)
+						if mErr != nil {
+							return nil, fmt.Errorf("failed to resolve %v at path %s: failed to marshal %T: %v", variable, data.Path, substitutedVar, substitutedVar)
+						}
+						shallowStr = string(buffer)
+					}
+					substitutedVar = strings.ReplaceAll(shallowStr, "{{", "\\{{")
 				}
 
-				if value, err = substituteVarInPattern(prefix, value, v, substitutedVar); err != nil {
-					return nil, fmt.Errorf("failed to resolve %v at path %s: %s", variable, data.Path, err.Error())
+				var repl string
+				if s, ok := substitutedVar.(string); ok {
+					repl = s
+				} else {
+					buffer, mErr := json.Marshal(substitutedVar)
+					if mErr != nil {
+						return nil, fmt.Errorf("failed to resolve %v at path %s: failed to marshal %T: %v", variable, data.Path, substitutedVar, substitutedVar)
+					}
+					repl = string(buffer)
 				}
 
-				continue
+				if budget == 0 {
+					return nil, fmt.Errorf("failed to resolve %v at path %s: exceeded the maximum number of variable substitutions", variable, data.Path)
+				}
+				budget--
+
+				totalSubs++
+				if totalSubs > maxTotalSubstitutions {
+					return nil, fmt.Errorf("failed to resolve %v at path %s: exceeded the hard limit on total variable substitutions", variable, data.Path)
+				}
+
+				// Bound the total output produced across the document, not just
+				// the number of substitutions: one value spliced in can be huge.
+				totalOutputBytes += len(repl)
+				if totalOutputBytes > maxSubstitutedOutputBytes {
+					return nil, fmt.Errorf("failed to resolve %v at path %s: exceeded the maximum substituted output size of %d bytes", variable, data.Path, maxSubstitutedOutputBytes)
+				}
+
+				p := pending{g2start: g2start, g2end: g2end, repl: repl, variable: variable}
+				if substitutedIsString && !shallowSubstitution && isAliasValue(repl) {
+					newVisited := make(map[string]struct{}, len(visited)+1)
+					for k := range visited {
+						newVisited[k] = struct{}{}
+					}
+					newVisited[variable] = struct{}{}
+					p.alias = true
+					p.visited = newVisited
+					budget++
+				}
+				batch = append(batch, p)
 			}
 
-			if shallowSubstitution {
-				vars = []string{}
-			} else {
-				// check for nested variables in strings
-				vars = regex.RegexVariables.FindAllString(value, -1)
+			if len(batch) == 0 {
+				break
+			}
+
+			for i := len(batch) - 1; i >= 0; i-- {
+				p := batch[i]
+				delta := len(p.repl) - (p.g2end - p.g2start)
+				spans = adjustSpans(spans, p.g2start, p.g2end, delta)
+
+				newSpan := substSpan{start: p.g2start, end: p.g2start + len(p.repl)}
+				if p.alias {
+					newSpan.alias = true
+					newSpan.visited = p.visited
+				}
+				spans = append(spans, newSpan)
+
+				value = value[:p.g2start] + p.repl + value[p.g2end:]
 			}
 		}
 
@@ -402,25 +616,6 @@ func isDeleteRequest(ctx context.EvalInterface) bool {
 	}
 
 	return false
-}
-
-func substituteVarInPattern(prefix, pattern, variable string, value interface{}) (string, error) {
-	var stringToSubstitute string
-
-	if s, ok := value.(string); ok {
-		stringToSubstitute = s
-	} else {
-		buffer, err := json.Marshal(value)
-		if err != nil {
-			return "", fmt.Errorf("failed to marshal %T: %v", value, value)
-		}
-		stringToSubstitute = string(buffer)
-	}
-
-	stringToSubstitute = prefix + stringToSubstitute
-	variable = prefix + variable
-
-	return strings.Replace(pattern, variable, stringToSubstitute, 1), nil
 }
 
 func replaceBracesAndTrimSpaces(v string) (variable string, isShallow bool) {

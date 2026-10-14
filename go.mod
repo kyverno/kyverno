@@ -5,7 +5,6 @@ go 1.26.9
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
 	github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
-	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alitto/pond/v2 v2.7.1
@@ -36,7 +35,7 @@ require (
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
-	github.com/kyverno/sdk v0.0.0-20260903124703-0ff2f8e2f2ef
+	github.com/kyverno/sdk v0.0.0-20261008171927-5a61cbc9e077
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2
@@ -282,7 +281,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.4.0 // indirect
-	github.com/klauspost/compress v1.19.1 // indirect
+	github.com/klauspost/compress v1.19.1
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/kyverno/pkg/ext v0.0.0-20250303002756-48769d003e55
@@ -348,7 +347,7 @@ require (
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sigstore/fulcio v1.8.8 // indirect
-	github.com/sigstore/protobuf-specs v0.5.1 // indirect
+	github.com/sigstore/protobuf-specs v0.5.1
 	github.com/sigstore/rekor-tiles/v2 v2.3.0 // indirect
 	github.com/sigstore/timestamp-authority/v2 v2.1.3 // indirect
 	github.com/sirupsen/logrus v1.9.4
