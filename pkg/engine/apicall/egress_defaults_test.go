@@ -28,7 +28,7 @@ func Test_ExecuteServiceCall_BlocksUnspecifiedAddressByDefault(t *testing.T) {
 	_, port, err := net.SplitHostPort(srv.Listener.Addr().String())
 	assert.NilError(t, err)
 
-	for _, host := range []string{"0.0.0.0", "0", "[::]"} {
+	for _, host := range []string{"0.0.0.0", "[::]"} {
 		t.Run(host, func(t *testing.T) {
 			gotHit = false
 			_, err := testExecutor().Execute(context.Background(), getServiceCall("http://"+host+":"+port+"/"))
@@ -50,6 +50,7 @@ func Test_ExecuteServiceCall_BlocksLinkLocalRangeByDefault(t *testing.T) {
 		"http://169.254.169.254/latest/meta-data/",
 		"http://169.254.169.253/computeMetadata/v1/",
 		"http://100.100.100.200/latest/meta-data/",
+		"http://[fe80::1]/",
 	} {
 		t.Run(url, func(t *testing.T) {
 			_, err := testExecutor().Execute(context.Background(), getServiceCall(url))

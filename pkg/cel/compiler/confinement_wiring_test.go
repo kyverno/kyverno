@@ -1,6 +1,7 @@
 package compiler_test
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -20,16 +21,29 @@ import (
 // This test pins the invariant instead of any one call site, so a new policy
 // kind that forgets to confine fails here rather than shipping.
 var confinementRules = []struct {
-	importSuffix string   // import path of the activation's package
-	confinedBy   []string // at least one must appear in the value expression
+	importSuffix string         // import path of the activation's package
+	confinedBy   map[string]int // wrapper name -> index of its namespace argument; one must appear in the value expression
 }{
-	{importSuffix: "/libs/globalcontext", confinedBy: []string{"ConfineGlobalContext"}},
-	{importSuffix: "/libs/http", confinedBy: []string{"NewLazyCELHTTPContext"}},
+	{importSuffix: "/libs/globalcontext", confinedBy: map[string]int{"ConfineGlobalContext": 1}},
+	{importSuffix: "/libs/http", confinedBy: map[string]int{"NewLazyCELHTTPContext": 0}},
+}
+
+// requiredDirs lists every place that builds a CEL activation. Each must carry at
+// least one confined activation per rule, so removing the wiring from one policy
+// compiler cannot hide behind the others still being present.
+var requiredDirs = []string{
+	"pkg/cel/policies/vpol/compiler",
+	"pkg/cel/policies/mpol/compiler",
+	"pkg/cel/policies/dpol/compiler",
+	"pkg/cel/policies/gpol/compiler",
+	"pkg/background/mpol",
+	"pkg/image/verification/evaluator",
 }
 
 func TestNamespaceConfinementIsWiredEverywhere(t *testing.T) {
 	root := moduleRoot(t)
 	checked := 0
+	perDir := map[string]int{}
 
 	for _, dir := range []string{"pkg", "cmd"} {
 		err := filepath.WalkDir(filepath.Join(root, dir), func(path string, d os.DirEntry, err error) error {
@@ -45,7 +59,8 @@ func TestNamespaceConfinementIsWiredEverywhere(t *testing.T) {
 			if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
-			checked += checkFile(t, root, path)
+			n, _ := checkFile(t, root, path, perDir)
+			checked += n
 			return nil
 		})
 		if err != nil {
@@ -58,10 +73,46 @@ func TestNamespaceConfinementIsWiredEverywhere(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("no namespace-confined activations found; this test is no longer checking anything")
 	}
+	for _, dir := range requiredDirs {
+		for _, rule := range confinementRules {
+			if perDir[dir+"|"+rule.importSuffix] == 0 {
+				t.Errorf("%s has no namespace-confined %s activation; confinement must be wired in every policy compiler", dir, rule.importSuffix)
+			}
+		}
+	}
 	t.Logf("verified %d confined activations", checked)
 }
 
-func checkFile(t *testing.T, root, path string) int {
+func TestNamespaceOperandIsValidated(t *testing.T) {
+	check := func(src string) []string {
+		expr, err := parser.ParseExpr(src)
+		if err != nil {
+			t.Fatalf("parsing %q: %v", src, err)
+		}
+		return confinementProblems(expr, map[string]int{"ConfineGlobalContext": 1, "NewLazyCELHTTPContext": 0})
+	}
+
+	for _, ok := range []string{
+		`compiler.ConfineGlobalContext(libsctx, namespace)`,
+		`libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(c.namespace), mocks)`,
+	} {
+		if got := check(ok); len(got) != 0 {
+			t.Errorf("%s: unexpected problems %v", ok, got)
+		}
+	}
+	for _, bad := range []string{
+		`compiler.ConfineGlobalContext(libsctx, "")`,
+		`libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(""), mocks)`,
+		`compiler.ConfineGlobalContext(libsctx)`,
+		`libsctx`,
+	} {
+		if got := check(bad); len(got) == 0 {
+			t.Errorf("%s: expected a problem, got none", bad)
+		}
+	}
+}
+
+func checkFile(t *testing.T, root, path string, perDir map[string]int) (int, string) {
 	t.Helper()
 
 	fset := token.NewFileSet()
@@ -118,14 +169,17 @@ func checkFile(t *testing.T, root, path string) int {
 				continue
 			}
 			found++
-			if !mentionsAny(value, rule.confinedBy) {
-				t.Errorf("%s:%d: %s.Context activation is not namespace-confined; wrap the inner context with one of %v",
-					rel, fset.Position(lit.Pos()).Line, pkgIdent.Name, rule.confinedBy)
+			problems := confinementProblems(value, rule.confinedBy)
+			for _, problem := range problems {
+				t.Errorf("%s:%d: %s.Context activation: %s", rel, fset.Position(lit.Pos()).Line, pkgIdent.Name, problem)
+			}
+			if len(problems) == 0 {
+				perDir[filepath.ToSlash(filepath.Dir(rel))+"|"+rule.importSuffix]++
 			}
 		}
 		return true
 	})
-	return found
+	return found, filepath.ToSlash(filepath.Dir(rel))
 }
 
 func contextInterfaceValue(lit *ast.CompositeLit) ast.Expr {
@@ -141,22 +195,49 @@ func contextInterfaceValue(lit *ast.CompositeLit) ast.Expr {
 	return nil
 }
 
-func mentionsAny(expr ast.Expr, names []string) bool {
-	hit := false
+// confinementProblems inspects the expression assigned to ContextInterface. It must
+// contain a call to one of the wrappers, and that call's namespace operand must be
+// present and must not be the empty string literal: the wrappers treat an empty
+// namespace as "no confinement", so an empty literal would silently remove it.
+func confinementProblems(expr ast.Expr, wrappers map[string]int) []string {
+	var problems []string
+	called := false
 	ast.Inspect(expr, func(n ast.Node) bool {
-		ident, ok := n.(*ast.Ident)
+		call, ok := n.(*ast.CallExpr)
 		if !ok {
 			return true
 		}
-		for _, name := range names {
-			if ident.Name == name {
-				hit = true
-				return false
+		var name string
+		switch fn := call.Fun.(type) {
+		case *ast.Ident:
+			name = fn.Name
+		case *ast.SelectorExpr:
+			name = fn.Sel.Name
+		}
+		idx, ok := wrappers[name]
+		if !ok {
+			return true
+		}
+		called = true
+		if idx >= len(call.Args) {
+			problems = append(problems, fmt.Sprintf("%s is missing its namespace argument", name))
+			return true
+		}
+		if lit, ok := call.Args[idx].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+			if v, err := strconv.Unquote(lit.Value); err == nil && v == "" {
+				problems = append(problems, fmt.Sprintf("%s is given an empty namespace, which disables confinement", name))
 			}
 		}
 		return true
 	})
-	return hit
+	if !called {
+		names := make([]string, 0, len(wrappers))
+		for name := range wrappers {
+			names = append(names, name)
+		}
+		problems = append(problems, fmt.Sprintf("not namespace-confined; wrap the inner context with one of %v", names))
+	}
+	return problems
 }
 
 func moduleRoot(t *testing.T) string {
