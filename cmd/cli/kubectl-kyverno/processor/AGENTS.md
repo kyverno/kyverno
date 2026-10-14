@@ -12,8 +12,10 @@
    `expression`) must never mutate the trigger here. Policies with no or empty `targetMatchConstraints` mutate the
    trigger inline.
 2. **Target pass** — only runs when `p.TargetResources` is set. Each target is evaluated with `Evaluate(...)` and
-   `targetMatchPredicate`; the patched target is attached to each rule with `WithPatchedTarget`, while the
-   response's `Resource` stays the trigger.
+   `targetMatchPredicate`, and gets its own response whose `Resource` is the target. A passing rule carries the
+   patched target through `WithPatchedTarget`; a rule that fails or errors carries no patched target and is
+   counted, never printed as mutated. `processMutateExistingEngineResponse` prints only the patched targets
+   (`printOutput` with a nil resource), so the trigger is never written out as if it had been mutated.
 
 Both callers must populate `TargetResources`: `commands/test` from `targetResources` in `kyverno-test.yaml`, and
 `commands/apply` from `--target-resource` / `--target-resources`. Without it, target-only policies produce no result.

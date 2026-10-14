@@ -1670,28 +1670,46 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 }
 
 // Test_Apply_MutatingPolicyTargetResources checks that a MutatingPolicy with targetMatchConstraints mutates
-// the resources passed with --target-resource and never the trigger itself.
+// the resources passed with --target-resource and never the trigger itself, and that a target whose
+// mutation fails is reported as an error without patching anything.
 func Test_Apply_MutatingPolicyTargetResources(t *testing.T) {
 	dir := "../../../../../test/cli/test-mutating-policy/mutate-existing-secret-trigger-deployment-target"
+	policy, err := os.ReadFile(dir + "/policy.yaml")
+	require.NoError(t, err)
+	// the same policy, but its mutation fails at evaluation time on every selected target
+	failing := strings.Replace(string(policy), "replicas: 3", "replicas: object.spec.missing.count", 1)
+	require.NotEqual(t, string(policy), failing)
+	failingPolicy := filepath.Join(t.TempDir(), "failing-policy.yaml")
+	require.NoError(t, os.WriteFile(failingPolicy, []byte(failing), 0o600))
+
 	tests := []struct {
 		name            string
+		policy          string
 		targetResources []string
 		wantPass        int
+		wantError       int
 	}{
 		{
 			name:            "with target resource",
+			policy:          dir + "/policy.yaml",
 			targetResources: []string{dir + "/target.yaml"},
 			wantPass:        1,
 		},
 		{
-			name:     "without target resource",
-			wantPass: 0,
+			name:   "without target resource",
+			policy: dir + "/policy.yaml",
+		},
+		{
+			name:            "with target resource whose mutation fails",
+			policy:          failingPolicy,
+			targetResources: []string{dir + "/target.yaml"},
+			wantError:       1,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			config := ApplyCommandConfig{
-				PolicyPaths:         []string{dir + "/policy.yaml"},
+				PolicyPaths:         []string{tt.policy},
 				ResourcePaths:       []string{dir + "/trigger.yaml"},
 				TargetResourcePaths: tt.targetResources,
 			}
@@ -1699,9 +1717,10 @@ func Test_Apply_MutatingPolicyTargetResources(t *testing.T) {
 			rc, _, _, responses, err := config.applyCommandHelper(context.TODO(), out)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantPass, rc.Pass)
-			assert.Equal(t, 0, rc.Fail+rc.Error)
+			assert.Equal(t, tt.wantError, rc.Error)
+			assert.Equal(t, 0, rc.Fail)
 
-			var targetMutated bool
+			var targetMutated, targetErrored bool
 			for _, response := range responses {
 				if response.Policy().GetName() != "mutate-existing-deployment-from-secret" {
 					continue
@@ -1710,16 +1729,26 @@ func Test_Apply_MutatingPolicyTargetResources(t *testing.T) {
 					assert.Equal(t, response.Resource.Object, response.PatchedResource.Object, "trigger must not be patched")
 				}
 				for _, rule := range response.PolicyResponse.Rules {
+					assert.Equal(t, "Deployment", response.Resource.GetKind(), "rule %q evaluated against the trigger: %s", rule.Name(), rule.Message())
 					patched, _, _ := rule.PatchedTarget()
-					if !assert.NotNil(t, patched, "rule %q evaluated against the trigger: %s", rule.Name(), rule.Message()) {
-						continue
+					switch rule.Status() {
+					case engineapi.RuleStatusPass:
+						if assert.NotNil(t, patched) {
+							assert.Equal(t, "Deployment", patched.GetKind())
+							assert.Equal(t, "true", patched.GetLabels()["mutated"])
+							targetMutated = true
+						}
+					case engineapi.RuleStatusError:
+						assert.Nil(t, patched, "a failed mutation must not produce a patched target")
+						assert.Contains(t, rule.Message(), "no such key")
+						targetErrored = true
+					default:
+						t.Errorf("unexpected rule status %s: %s", rule.Status(), rule.Message())
 					}
-					assert.Equal(t, "Deployment", patched.GetKind())
-					assert.Equal(t, "true", patched.GetLabels()["mutated"])
-					targetMutated = true
 				}
 			}
 			assert.Equal(t, tt.wantPass > 0, targetMutated)
+			assert.Equal(t, tt.wantError > 0, targetErrored)
 			assert.Equal(t, tt.wantPass > 0, strings.Contains(out.String(), "patched targets"))
 			assert.NotContains(t, out.String(), "kind: Secret", "trigger must not be printed as mutated")
 		})
