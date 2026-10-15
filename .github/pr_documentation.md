@@ -147,3 +147,25 @@ A new feature which has been implemented for the webhook may often need to be av
 ## Cherry Picking for Releases
 
 Kyverno releases are generated from release branches. When the release branch is created, if there's any change that needs to be back ported for patches we cherry-pick commits to include them in the release. To assist in the cherry-pick process, please check the box that this PR is targeting a specific release branch as reviewers want to make sure current PR has the right milestone and cherry-pick PR targets to the same release branch.
+
+Comment `/cherry-pick <branch>` on the first line of a PR comment to request a
+backport. The commenter must have current write, maintain, or admin permission
+on the repository, including when editing a command or when the PR is merged
+later. Each command accepts one existing branch, with letters, numbers, `.`,
+`_`, `/`, and `-` only; the branch must start with a letter or number and be a
+valid Git ref. Additional text may follow on separate lines. Multiple authorized
+comments can request different targets; duplicate targets are processed once.
+
+The shared action validates inputs before authentication, passes all input data
+through environment variables rather than interpolating it into shell code, and
+checks exact remote heads before changing branches. Both workflows check out
+the repository's default branch so a PR cannot supply the privileged action.
+Conflicts and API failures are reported rather than treated as successful picks.
+
+For credential-free regression coverage, run
+`python3 scripts/test-cherry-pick-workflows.py` (requires Python with PyYAML,
+Node.js, Bash, and Git). The tests execute the actual workflow scripts against
+mocked GitHub and Git operations without network access or real credentials.
+The `Cherry-pick workflow tests` CI workflow runs this suite for PRs and pushes
+to `main` and `release-*` when the action, caller workflows, test script, or
+test workflow changes. It uses read-only repository access and no secrets.

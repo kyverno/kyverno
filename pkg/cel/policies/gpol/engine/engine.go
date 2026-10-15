@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -30,7 +31,7 @@ var (
 )
 
 type Engine interface {
-	Handle(request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error)
+	Handle(ctx context.Context, request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error)
 }
 
 type engineImpl struct {
@@ -46,7 +47,7 @@ func NewEngine(nsResolver engine.NamespaceResolver, matcher matching.Matcher) En
 }
 
 // Handle evaluates a generating policy against the trigger in the provided request.
-func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error) {
+func (e *engineImpl) Handle(ctx context.Context, request engine.EngineRequest, policy Policy, cacheRestore bool) (EngineResponse, error) {
 	var response EngineResponse
 	// load objects
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
@@ -83,7 +84,13 @@ func (e *engineImpl) Handle(request engine.EngineRequest, policy Policy, cacheRe
 	}
 
 	startTime := time.Now()
-	genReresponse := e.generate(context.TODO(), policy, attr, &request.Request, namespace, request.Context, string(object.GetUID()), cacheRestore)
+	// Handle is the request scope for a generate, so establish the budget here if the
+	// caller has not already -- EnsureBackground reuses an existing one, so a budget from
+	// an outer scope still totals across the whole call chain. Without this a generating
+	// policy is bounded per expression but its expressions never total against a ceiling.
+	genCtx, releaseBudget := requestbudget.EnsureBackground(ctx)
+	defer releaseBudget()
+	genReresponse := e.generate(genCtx, policy, attr, &request.Request, namespace, request.Context, string(object.GetUID()), cacheRestore)
 	if genReresponse.Result != nil {
 		genReresponse.Result = ptr.To(genReresponse.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now())))
 	}

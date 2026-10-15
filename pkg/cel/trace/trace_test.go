@@ -261,7 +261,7 @@ func TestBuild_WithoutTrackingReturnsResultOnly(t *testing.T) {
 
 	out, details, err := prg.ContextEval(context.TODO(), map[string]any{})
 	require.NoError(t, err)
-	require.Nil(t, details, "cel-go returns no details unless a tracking option was set")
+	require.Nil(t, details.State(), "cel-go tracks no state unless a tracking option was set")
 
 	et := Build("1 + 1 == 2", ast, out, details)
 	assert.Equal(t, "true", et.Result)

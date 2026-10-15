@@ -35,6 +35,10 @@ func (c *recordingImageContext) Get(ctx context.Context, image string, authOpts 
 	return &imagedataloader.ImageData{}, nil
 }
 
+// signedImageDigest pins signedImage to a digest. The verification cache only stores and serves
+// entries for digest references, since a tag can be moved to different content after it was verified.
+const signedImageDigest = "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
 func Test_Evaluate_CacheHitSkipsImageFetch(t *testing.T) {
 	p := ivpol.DeepCopy()
 	p.ObjectMeta = metav1.ObjectMeta{
@@ -67,7 +71,7 @@ func Test_Evaluate_CacheHitSkipsImageFetch(t *testing.T) {
 	require.NoError(t, err)
 	verifications := imageverify.NewImageVerificationResults()
 
-	res1, err := compiled.Evaluate(context.Background(), healthyCtx, cacheClient, verifications, nil, obj(signedImage), nil, false, nil, nil)
+	res1, err := compiled.Evaluate(context.Background(), healthyCtx, cacheClient, verifications, nil, obj(signedImageDigest), nil, false, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res1)
 	assert.True(t, res1.Result)
@@ -78,7 +82,7 @@ func Test_Evaluate_CacheHitSkipsImageFetch(t *testing.T) {
 	erroringCtx := &recordingImageContext{failGet: true}
 	verifications2 := imageverify.NewImageVerificationResults()
 
-	res2, err := compiled.Evaluate(context.Background(), erroringCtx, cacheClient, verifications2, nil, obj(signedImage), nil, false, nil, nil)
+	res2, err := compiled.Evaluate(context.Background(), erroringCtx, cacheClient, verifications2, nil, obj(signedImageDigest), nil, false, nil, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res2)
 	assert.True(t, res2.Result, "cached admission should pass even if registry is unreachable")
