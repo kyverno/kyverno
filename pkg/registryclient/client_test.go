@@ -51,7 +51,7 @@ func TestRegistryClientsShareConnectionPools(t *testing.T) {
 	first := New(WithEgressMode("enforce"), WithPrivateRegistryAllowlist("registry.internal", "10.0.0.0/8")).(*client)
 	second := New(WithEgressMode("enforce"), WithPrivateRegistryAllowlist("10.0.0.0/8", "registry.internal"), WithAllowInsecureRegistry(true), WithKeychain(&contextKeychain{})).(*client)
 	require.Same(t, first.transport, second.transport)
-	require.NotSame(t, first.keychain, second.keychain)
+	require.NotSame(t, first.Keychain(), second.Keychain())
 	require.NotSame(t, first.transport, New().(*client).transport)
 }
 
