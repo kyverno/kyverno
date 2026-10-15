@@ -5,6 +5,33 @@ metadata:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
 webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /protect-generation-labels
+      port: 443
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: protect-generation-labels.kyverno.svc
+  objectSelector:
+    matchExpressions:
+    - key: generate.kyverno.io/policy-name
+      operator: Exists
+  rules:
+  - apiGroups:
+    - '*'
+    apiVersions:
+    - '*'
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - '*/*'
+    scope: '*'
+  sideEffects: None
 - failurePolicy: Fail
   rules:
   - apiGroups:
