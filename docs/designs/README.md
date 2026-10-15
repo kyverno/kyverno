@@ -12,9 +12,7 @@ Before the handoff, submit new proposals to the separate
 that repository contains historical proposals and should not receive new
 proposals.
 
-Use a file here instead of a proposal in `docs/dev/proposals/` only when
-**all** of the following are true:
-- The design is too small or too implementation-specific to justify a full KDP proposal.
+Use a file here instead of a full design proposal (in `kyverno/KDP` before the handoff or `docs/dev/proposals/` after it) only when
 - It's still useful to have the reasoning reviewed atomically with code, or preserved for whoever touches this area
   next — not just left in a PR description that gets harder to find over time.
 - It's not a lasting architectural decision on its own (if it is, it will belong in a `docs/decisions/` ADR instead
