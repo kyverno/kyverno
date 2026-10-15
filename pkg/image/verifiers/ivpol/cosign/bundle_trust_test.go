@@ -45,7 +45,7 @@ func testBundleDetectionWithPEMOnlyTrust(t *testing.T) {
 	require.NoError(t, err)
 	verifier := NewVerifier(nil, logr.Discard())
 	keyless := &v1beta1.Cosign{Keyless: &v1beta1.Keyless{Identities: []v1beta1.Identity{{Issuer: testIssuer, Subject: testSubject}}}}
-	opts, err := verifier.buildCheckOptsWithBundleDetection(ctx, keyless, image)
+	opts, _, _, err := verifier.buildCheckOptsWithBundleDetection(ctx, keyless, image)
 	require.NoError(t, err, "legacy image verification retains operator PEM trust")
 	require.False(t, opts.NewBundleFormat)
 
@@ -75,7 +75,7 @@ func testBundleDetectionWithPEMOnlyTrust(t *testing.T) {
 		{"key requiring timestamp", &v1beta1.Cosign{Key: &v1beta1.Key{Data: string(publicKey)}, CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: true, TSACertChain: testTSACertChain}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			opts, err := verifier.buildCheckOptsWithBundleDetection(ctx, test.attestor, image)
+			opts, _, _, err := verifier.buildCheckOptsWithBundleDetection(ctx, test.attestor, image)
 			require.ErrorContains(t, err, "modern Sigstore bundle verification requires trusted root material")
 			require.Nil(t, opts)
 		})
@@ -83,7 +83,7 @@ func testBundleDetectionWithPEMOnlyTrust(t *testing.T) {
 
 	t.Run("offline key bundle", func(t *testing.T) {
 		attestor := &v1beta1.Cosign{Key: &v1beta1.Key{Data: string(publicKey)}, CTLog: &v1beta1.CTLog{InsecureIgnoreTlog: true}}
-		opts, err := verifier.buildCheckOptsWithBundleDetection(ctx, attestor, image)
+		opts, _, _, err := verifier.buildCheckOptsWithBundleDetection(ctx, attestor, image)
 		require.NoError(t, err)
 		require.True(t, opts.NewBundleFormat)
 		require.True(t, opts.TrustedMaterial == nil)

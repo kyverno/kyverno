@@ -14,11 +14,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
-	"github.com/kyverno/kyverno/pkg/tracing"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/kyverno/sdk/extensions/regcreds"
 	sdkregistryclient "github.com/kyverno/sdk/extensions/registryclient"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -26,14 +25,9 @@ import (
 type Client = sdkregistryclient.Client
 
 type options struct {
-	secretLister             corev1listers.SecretLister
-	defaultNamespace         string
-	imagePullSecrets         []string
-	credentialHelpers        []string
-	keychain                 authn.Keychain
+	sdkOptions               []sdkregistryclient.Option
 	privateRegistryAllowlist []string
 	egressMode               string
-	allowInsecureRegistry    bool
 }
 
 // Option configures a registry client.
@@ -42,39 +36,35 @@ type Option func(*options)
 // WithSecretLister configures the source for Kubernetes image pull secrets.
 func WithSecretLister(lister corev1listers.SecretLister, defaultNamespace string) Option {
 	return func(o *options) {
-		o.secretLister = lister
-		o.defaultNamespace = defaultNamespace
+		o.sdkOptions = append(o.sdkOptions, sdkregistryclient.WithSecretLister(lister, defaultNamespace))
 	}
 }
 
 // WithImagePullSecrets configures Kubernetes image pull secrets.
 func WithImagePullSecrets(secrets ...string) Option {
-	return func(o *options) { o.imagePullSecrets = append(o.imagePullSecrets, secrets...) }
+	return func(o *options) {
+		o.sdkOptions = append(o.sdkOptions, sdkregistryclient.WithImagePullSecrets(secrets...))
+	}
 }
 
 // WithCredentialHelpers configures registry credential helpers.
 func WithCredentialHelpers(providers ...string) Option {
-	return func(o *options) { o.credentialHelpers = append(o.credentialHelpers, providers...) }
+	return func(o *options) {
+		o.sdkOptions = append(o.sdkOptions, sdkregistryclient.WithCredentialHelpers(providers...))
+	}
 }
 
 // WithAllowInsecureRegistry allows plain HTTP registry access.
 func WithAllowInsecureRegistry(allow bool) Option {
-	return func(options *options) {
-		options.allowInsecureRegistry = allow
+	return func(o *options) {
+		o.sdkOptions = append(o.sdkOptions, sdkregistryclient.WithAllowInsecureRegistry(allow))
 	}
 }
 
 // WithKeychain layers a keychain ahead of the configured credential sources.
 func WithKeychain(keychain authn.Keychain) Option {
 	return func(o *options) {
-		if keychain == nil {
-			return
-		}
-		if o.keychain == nil {
-			o.keychain = keychain
-		} else {
-			o.keychain = authn.NewMultiKeychain(keychain, o.keychain)
-		}
+		o.sdkOptions = append(o.sdkOptions, sdkregistryclient.WithKeychain(keychain))
 	}
 }
 
@@ -99,12 +89,13 @@ func ValidateEgressConfig(allowlist []string, mode string) error {
 }
 
 type client struct {
-	keychain              authn.Keychain
-	transport             http.RoundTripper
-	policy                *egress.Policy
-	egressConfig          egress.Config
-	configErr             error
-	allowInsecureRegistry bool
+	Client
+	transport    http.RoundTripper
+	policy       *egress.Policy
+	egressConfig egress.Config
+	configErr    error
+	imageOptions []gcrremote.Option
+	imageNames   []name.Option
 }
 
 type sharedEgress struct {
@@ -162,21 +153,8 @@ func New(opts ...Option) Client {
 			option(&config)
 		}
 	}
-	var keychains []authn.Keychain
-	if len(config.imagePullSecrets) != 0 && config.secretLister != nil {
-		keychains = append(keychains, NewSecretsKeychain(config.secretLister, config.defaultNamespace, config.imagePullSecrets...))
-	}
-	keychains = append(keychains, regcreds.KeychainsForProviders(config.credentialHelpers...)...)
-	var keychain authn.Keychain = authn.DefaultKeychain
-	if len(keychains) != 0 {
-		keychain = authn.NewMultiKeychain(keychains...)
-	}
-	if config.keychain != nil {
-		keychain = authn.NewMultiKeychain(config.keychain, keychain)
-	}
 	c := &client{
-		allowInsecureRegistry: config.allowInsecureRegistry,
-		egressConfig:          egress.Config{Allowlist: slices.Clone(config.privateRegistryAllowlist), Mode: config.egressMode},
+		egressConfig: egress.Config{Allowlist: slices.Clone(config.privateRegistryAllowlist), Mode: config.egressMode},
 	}
 	shared, err := sharedTransport(c.egressConfig)
 	c.configErr = err
@@ -185,7 +163,15 @@ func New(opts ...Option) Client {
 	} else {
 		c.policy, c.transport = shared.policy, shared.transport
 	}
-	c.keychain = &guardedKeychain{inner: keychain, policy: c.policy, configErr: err}
+	sdkOptions := append(config.sdkOptions,
+		sdkregistryclient.WithLogger(logging.GlobalLogger()),
+		sdkregistryclient.WithTransport(c.transport),
+		sdkregistryclient.WithKeychainWrapper(func(inner authn.Keychain) authn.Keychain {
+			return &guardedKeychain{inner: inner, policy: c.policy, configErr: c.configErr}
+		}),
+	)
+	c.Client = sdkregistryclient.New(sdkOptions...)
+	c.imageOptions, c.imageNames = sdkregistryclient.NewRemoteOptions(sdkOptions...)
 	return c
 }
 
@@ -249,12 +235,7 @@ func (g *guardedKeychain) ResolveContext(ctx context.Context, resource authn.Res
 }
 
 func (c *client) imageDataOptions() ([]gcrremote.Option, []name.Option) {
-	opts := []gcrremote.Option{
-		gcrremote.WithAuthFromKeychain(c.keychain),
-		gcrremote.WithTransport(tracing.Transport(c.transport, otelhttp.WithFilter(tracing.RequestFilterIsInSpan))),
-		gcrremote.WithUserAgent(regcreds.KyvernoUserAgent),
-	}
-	return opts, c.NameOptions()
+	return slices.Clone(c.imageOptions), slices.Clone(c.imageNames)
 }
 
 func (c *client) optionsWithoutPuller(ctx context.Context) ([]gcrremote.Option, []name.Option) {
@@ -267,50 +248,13 @@ func (c *client) Options(ctx context.Context) ([]gcrremote.Option, []name.Option
 	if c.configErr != nil {
 		return nil, nil, c.configErr
 	}
-	opts, nameOpts := c.optionsWithoutPuller(ctx)
-	pusher, err := gcrremote.NewPusher(opts...)
-	if err != nil {
-		return nil, nil, err
-	}
-	opts = append(opts, gcrremote.Reuse(pusher))
-	puller, err := gcrremote.NewPuller(opts...)
-	if err != nil {
-		return nil, nil, err
-	}
-	return append(opts, gcrremote.Reuse(puller)), nameOpts, nil
+	return c.Client.Options(ctx)
 }
 
-// NameOptions returns parsing options for registry references.
-func (c *client) NameOptions() []name.Option {
-	if c.allowInsecureRegistry {
-		return []name.Option{name.Insecure}
-	}
-	return nil
-}
-
-// Keychain returns the credential-confined keychain.
-func (c *client) Keychain() authn.Keychain {
-	return c.keychain
-}
-
-// FetchImageDescriptor fetches a registry descriptor through the guarded transport.
-func (c *client) FetchImageDescriptor(ctx context.Context, imageRef string) (*gcrremote.Descriptor, error) {
-	parsedRef, err := name.ParseReference(imageRef, c.NameOptions()...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %w", imageRef, err)
-	}
-	opts, _, err := c.Options(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registry options: %s, error: %w", imageRef, err)
-	}
-	descriptor, err := gcrremote.Get(parsedRef, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %w", imageRef, err)
-	}
-	if _, ok := parsedRef.(name.Digest); ok && parsedRef.Identifier() != descriptor.Digest.String() {
-		return nil, fmt.Errorf("digest mismatch, expected: %s, received: %s", parsedRef.Identifier(), descriptor.Digest.String())
-	}
-	return descriptor, nil
+// NewSecretsKeychain delegates request-aware, refreshable credential resolution
+// to the SDK. Policy namespace authorization stays with the supplied lister.
+func NewSecretsKeychain(lister corev1listers.SecretLister, namespace string, references ...string) authn.Keychain {
+	return regcreds.NewSecretsKeychain(lister, namespace, logging.GlobalLogger(), references...)
 }
 
 var (

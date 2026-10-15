@@ -2,8 +2,8 @@
 
 Image signature/attestation verification (cosign + notary). `pkg/cosign` and `pkg/notary` **no longer exist** — if
 you find a reference to them (in old docs, comments, or CODEOWNERS), it's stale; the real paths are
-`pkg/image/verifiers/{cpol,ivpol}/{cosign,notary}`. No package doc comments exist in this tree except
-`pkg/sigstoretuf` (see below).
+`pkg/image/verifiers/{cpol,ivpol}/{cosign,notary}`. Shared trust helpers live in
+`pkg/sigstoreguard` and `pkg/sigstoretuf` (see below).
 
 ## cpol and ivpol verification are genuinely duplicated, not layered over a shared core
 
@@ -15,15 +15,16 @@ verification parity gaps`, `f0c5d57c5 fix: IVPOL required has no effect`, `17fbb
 unimplemented stub`). If you're adding a verification feature, check whether it needs implementing in **both**
 places, and expect ivpol to be the one that's behind.
 
-## `pkg/sigstoretuf` is a hand-rolled mutex working around a real upstream data race
+## `pkg/sigstoreguard` owns guarded trust loading and shared cache synchronization
 
-Its package doc explains why: the upstream `sigstore/pkg/tuf` singleton's metadata-refresh mutates internal maps
-without holding its own initialization lock, while read paths do hold it — a genuine
-`fatal error: concurrent map writes` (https://github.com/kyverno/kyverno/issues/15983). `pkg/sigstoretuf` adds its
-own mutex around every touch point (`Initialize`, `TrustedRoot`, `RekorPublicKeys`, `CTLogPublicKeys`,
-`FulcioRoots`), shared by **both** cpol and ivpol verifiers plus CLI/controller bootstrap. **`WithLock`'s callback
-must never call another `sigstoretuf` exported function inside it** — the mutex is not re-entrant; ivpol's
-`initTUFAndFetch` documents this explicitly and calls `tuf`/`cosign` functions directly inside the closure instead.
+TUF access uses `sigstore-go` with Kyverno's guarded HTTP client. `pkg/sigstoreguard` serializes access to the
+shared operator cache and isolates policy-supplied repositories so they cannot replace the controller's default
+trust configuration. `pkg/sigstoretuf` preserves the existing `Initialize`, `TrustedRoot`, `RekorPublicKeys`,
+`CTLogPublicKeys`, and `FulcioRoots` helper API by delegating to this implementation; it no longer wraps the
+legacy Sigstore singleton. IVPOL's `initTUFAndFetch` obtains its trust material together through
+`sigstoreguard.VerificationMaterialFor`. **A `WithLock` callback must not call another helper that acquires the
+same non-reentrant cache lock.** IVPOL's Rekor and HTTP key/root loaders also use `sigstoreguard`; legacy
+verifiers retain their existing non-TUF HTTP paths in this CEL change.
 
 ## Verification fails closed, deliberately, with one narrow exception
 

@@ -12,11 +12,13 @@ func TestRegistryFlags(t *testing.T) {
 	originalAllowlist, originalMode := privateRegistryAllowlist, privateRegistryEgressMode
 	originalSecrets, originalHelpers := imagePullSecrets, registryCredentialHelpers
 	originalInsecure := allowInsecureRegistry
+	originalPayloadLimit := imageVerifyPayloadLimit
 	t.Cleanup(func() {
 		flag.CommandLine = originalFlags
 		privateRegistryAllowlist, privateRegistryEgressMode = originalAllowlist, originalMode
 		imagePullSecrets, registryCredentialHelpers = originalSecrets, originalHelpers
 		allowInsecureRegistry = originalInsecure
+		imageVerifyPayloadLimit = originalPayloadLimit
 	})
 	for _, tc := range []struct {
 		name        string
@@ -41,7 +43,7 @@ func TestRegistryFlags(t *testing.T) {
 			if privateRegistryEgressMode != "enforce" || privateRegistryAllowlist != "10.20.0.0/16" {
 				t.Fatal("registry egress flags did not reach startup configuration")
 			}
-			for _, name := range []string{"imagePullSecrets", "registryCredentialHelpers", "allowInsecureRegistry"} {
+			for _, name := range []string{"imagePullSecrets", "registryCredentialHelpers", "allowInsecureRegistry", "imageVerifyPayloadLimit"} {
 				if registered := flag.CommandLine.Lookup(name) != nil; registered != tc.credentials {
 					t.Fatalf("unexpected registration for %s: %v", name, registered)
 				}

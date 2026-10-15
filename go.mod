@@ -32,7 +32,6 @@ require (
 	github.com/google/cel-go v0.31.0
 	github.com/google/gnostic-models v0.7.1
 	github.com/google/go-containerregistry v0.22.1
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260224031529-85f2bf5f7303
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-retryablehttp v0.7.8
 	github.com/in-toto/in-toto-golang v0.11.0
@@ -265,6 +264,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/certificate-transparency-go v1.3.3 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260224031529-85f2bf5f7303 // indirect
 	github.com/google/go-github/v88 v88.0.0 // indirect
 	github.com/google/go-querystring v1.2.0 // indirect
 	github.com/google/jsonschema-go v0.4.2 // indirect
@@ -418,3 +418,6 @@ require (
 )
 
 replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
+
+// Temporary prerequisite from kyverno/sdk#160; use the merged canonical SDK before marking this PR ready.
+replace github.com/kyverno/sdk => github.com/sagark-nirmata/sdk v0.0.0-20261015044205-45eaf15bb825
