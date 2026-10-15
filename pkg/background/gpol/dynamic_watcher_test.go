@@ -1451,6 +1451,8 @@ func TestHandleUpdate(t *testing.T) {
 			common.GenerateTriggerUIDLabel: "trigger-uid",
 			kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
 		}, client.updatedObjects[0].GetLabels())
+		assert.Equal(t, client.updatedObjects[0].GetLabels(),
+			wm.dynamicWatchers[gvr].metadataCache[downstream.GetUID()].Labels)
 	})
 
 	t.Run("downstream changed by user gets reverted", func(t *testing.T) {
