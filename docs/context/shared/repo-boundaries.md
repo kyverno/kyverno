@@ -3,8 +3,8 @@
 The `kyverno` GitHub org has ~48 repos. This is the subset that actually matters when working in
 `kyverno/kyverno`, and why each one is separate rather than a folder in this repo.
 The in-repo design-proposal process is documented in
-[`docs/dev/proposals/`](../../dev/proposals/README.md); it is not a separate
-repository and is therefore not listed in the table.
+[`docs/dev/proposals/`](../../dev/proposals/README.md). Until the KDP handoff,
+[`kyverno/KDP`](https://github.com/kyverno/KDP) remains the authoritative venue for new proposals and substantive revisions; after the handoff, it is not a separate repository and is therefore not listed in the table.
 
 | Repo | What it holds | Why it's separate |
 |---|---|---|
