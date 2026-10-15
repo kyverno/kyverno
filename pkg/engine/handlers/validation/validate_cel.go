@@ -48,6 +48,10 @@ func (h validateCELHandler) Process(
 	_ engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
+	if _, err := engineapi.PolicyNamespace(policyContext.Policy()); err != nil {
+		return resource, handlers.WithError(rule, engineapi.Validation, "invalid policy scope", err)
+	}
+
 	// check if there are policy exceptions that match the incoming resource
 	matchedExceptions := engineutils.MatchesException(h.client, exceptions, policyContext, h.isCluster, logger)
 	if len(matchedExceptions) > 0 {
@@ -178,8 +182,7 @@ func (h validateCELHandler) Process(
 	if hasParam {
 		paramKind := rule.Validation.CEL.ParamKind
 		paramRef := rule.Validation.CEL.ParamRef
-
-		params, err := admissionpolicy.CollectParams(ctx, h.client, paramKind, paramRef, ns)
+		params, err := admissionpolicy.CollectParamsForPolicy(ctx, h.client, paramKind, paramRef, ns, policyContext.Policy())
 		if err != nil {
 			return resource, handlers.WithResponses(
 				engineapi.RuleError(rule.Name, engineapi.Validation, "error in parameterized resource", err, rule.ReportProperties),
