@@ -242,3 +242,26 @@ func TestTargetResourceContext_AllNamespaces(t *testing.T) {
 		assert.Equal(t, from, object.GetLabels()["from"], ns)
 	}
 }
+
+// TestTargetResourceContext_EdgeCases checks that an unmappable target is skipped, that an invalid
+// apiVersion falls through to the live context, and that a kind without supplied targets lists the live
+// objects unchanged.
+func TestTargetResourceContext_EdgeCases(t *testing.T) {
+	unmappable := configMap("unmappable", nil)
+	unmappable.SetKind("NotARealKind")
+	live := newLiveContext(t, configMap("live-only", nil))
+	ctx := targetResourceContext(live, []*unstructured.Unstructured{unmappable}, testRESTMapper())
+	overlay, ok := ctx.(*targetOverlayContext)
+	require.True(t, ok)
+	assert.Empty(t, overlay.targets, "a target the REST mapper cannot map must be skipped")
+
+	// an invalid apiVersion matches no supplied target and is left to the live context to reject
+	_, err := ctx.GetResource("not/a/valid/version", "configmaps", "test-ns", "live-only")
+	require.Error(t, err)
+
+	// no supplied ConfigMaps, so the live list comes back as it is
+	list, err := ctx.ListResources("v1", "configmaps", "test-ns", nil)
+	require.NoError(t, err)
+	require.Len(t, list.Items, 1)
+	assert.Equal(t, "live-only", list.Items[0].GetName())
+}
