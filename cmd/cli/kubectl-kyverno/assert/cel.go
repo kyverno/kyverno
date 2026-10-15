@@ -1,6 +1,7 @@
 package assert
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/google/cel-go/cel"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -51,11 +53,11 @@ func (c *celCompiler) Compile(statement string) (Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	ast, issues := env.Compile(statement)
-	if err := issues.Err(); err != nil {
+	ast, err := compiler.Compile(env, statement)
+	if err != nil {
 		return nil, err
 	}
-	prg, err := env.Program(ast)
+	prg, err := compiler.NewProgram(env, ast)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +73,9 @@ func (c *celCompiler) Compile(statement string) (Program, error) {
 		if vars == nil {
 			vars = map[string]any{}
 		}
-		out, _, err := prg.Eval(map[string]any{"object": object, "bindings": vars})
+		ctx, release := requestbudget.EnsureBackground(context.Background())
+		defer release()
+		out, _, err := prg.ContextEval(ctx, map[string]any{"object": object, "bindings": vars})
 		if err != nil {
 			return nil, err
 		}

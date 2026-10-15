@@ -10,13 +10,13 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/config"
 	ivpolvar "github.com/kyverno/kyverno/pkg/image/verification/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
@@ -258,7 +258,7 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 			transform.Latest(),
 		),
 		gzip.Lib(
-			gzip.Latest(),
+			gzip.Latest(), 0,
 		),
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(engine.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
@@ -266,7 +266,9 @@ func (c *compilerImpl) createBaseIvpolEnv(libsctx libs.Context, ivpol policiesv1
 		),
 	}
 
-	extendedBase, err := base.Extend(
+	// engine.BaseEnvSet (aliased import of pkg/cel/compiler), not base.Extend: registers
+	// CostLib last, in this one Extend call (see pkg/cel/compiler/env.go).
+	extendedBase, err := engine.BaseEnvSet(ivpolCompilerVersion,
 		environment.VersionedOptions{
 			IntroducedVersion: ivpolCompilerVersion,
 			EnvOptions:        baseOpts,

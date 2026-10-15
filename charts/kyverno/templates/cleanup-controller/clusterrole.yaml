@@ -123,6 +123,14 @@ rules:
       - subjectaccessreviews
     verbs:
       - create
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - updaterequests
+    verbs:
+      - list
+      - watch
+      - delete
 {{- with .Values.cleanupController.rbac.coreClusterRole.extraResources }}
   {{- toYaml . | nindent 2 }}
 {{- end }}
