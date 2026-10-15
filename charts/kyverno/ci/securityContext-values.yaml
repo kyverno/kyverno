@@ -1,0 +1,25 @@
+# Exercise arbitrary non-root identities for controllers, hooks, and Helm tests.
+upgrade:
+  legacyPolicyCheck:
+    securityContext: &highUid
+      runAsUser: 1000770000
+      runAsGroup: 1000770000
+crds:
+  migration:
+    securityContext: *highUid
+test:
+  securityContext: *highUid
+webhooksCleanup:
+  enable: true
+  securityContext: *highUid
+admissionController:
+  initContainer:
+    securityContext: *highUid
+  container:
+    securityContext: *highUid
+backgroundController:
+  securityContext: *highUid
+cleanupController:
+  securityContext: *highUid
+reportsController:
+  securityContext: *highUid

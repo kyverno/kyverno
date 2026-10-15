@@ -31,6 +31,8 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: fixed
+      description: Allow platforms such as OpenShift to assign container user and group IDs.
+    - kind: fixed
       description: Bump bundled reports-server dependency to v0.1.7 to fix APIServices being de-registered on pod termination when another replica is still ready.
     - kind: fixed
       description: Ensure spec.template.metadata isn't null
