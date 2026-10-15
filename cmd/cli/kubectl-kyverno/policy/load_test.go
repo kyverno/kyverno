@@ -1002,6 +1002,30 @@ func TestLoadSkippingInvalidFiles_ReportsInvalidYAML(t *testing.T) {
 	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "yaml")
 }
 
+// TestLoad_StrictListItemErrorsKeepTheirText checks that the strict loader reports a failing List item with
+// the same error text as before, without the kind and name prefix the lenient loader adds.
+func TestLoad_StrictListItemErrorsKeepTheirText(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "list.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`apiVersion: v1
+kind: List
+items:
+- apiVersion: policies.kyverno.io/v1
+  kind: SomethingNew
+  metadata:
+    name: newer
+`), 0o600))
+
+	strict, err := Load(nil, "", false, path)
+	require.NoError(t, err)
+	require.Len(t, strict.NonFatalErrors, 1)
+	assert.True(t, strings.HasPrefix(strict.NonFatalErrors[0].Error.Error(), "failed to process List item 0 ("), strict.NonFatalErrors[0].Error.Error())
+
+	lenient, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	require.NoError(t, err)
+	require.Len(t, lenient.NonFatalErrors, 1)
+	assert.True(t, strings.HasPrefix(lenient.NonFatalErrors[0].Error.Error(), "SomethingNew newer: failed to process List item 0 ("), lenient.NonFatalErrors[0].Error.Error())
+}
+
 // TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies checks that a legacy policy still fails the
 // lenient load.
 func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {

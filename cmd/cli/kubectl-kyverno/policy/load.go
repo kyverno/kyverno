@@ -456,7 +456,11 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 				continue
 			}
 			itemErr := fmt.Errorf("failed to process List item %d (%s): %w", i, itemGVK, err)
-			results.addError(path, namedError(itemGVK.Kind, itemUnstructured.GetName(), itemErr))
+			if lenient {
+				// name the item like other documents; the strict loader keeps its error text as it was
+				itemErr = namedError(itemGVK.Kind, itemUnstructured.GetName(), itemErr)
+			}
+			results.addError(path, itemErr)
 		}
 	}
 

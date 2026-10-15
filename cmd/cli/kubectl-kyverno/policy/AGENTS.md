@@ -47,5 +47,6 @@ touched and an unreadable entry is reported only if it is a directory or a YAML 
 that fail are reported one by one from `handleListItems`, while a broken List shape (an item that is not an object,
 or `items` that is not a list) is ignored in lenient mode because it holds no policy that can be identified.
 
-Document level errors are prefixed with the document's kind and name (`documentError`, `namedError`, also used
-for `List` items) so several broken policies in one file can be told apart.
+In lenient mode, document level errors are prefixed with the document's kind and name (`documentError`,
+`namedError`, also used for `List` items) so several broken policies in one file can be told apart. The strict
+loader keeps its error text unchanged.
