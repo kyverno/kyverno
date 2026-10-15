@@ -158,7 +158,7 @@ Kyverno's code and process live in more than one GitHub repo. See
 separate — most importantly `kyverno/api` (CEL policy CRD types) and
 the separate repositories listed there. The in-repo proposal process is
 documented in `docs/dev/proposals/`; the separate `kyverno/KDP` repository
-contains historical proposals during the staged migration.
+remains the authoritative venue for new proposals and substantive revisions until the handoff, then contains historical proposals.
 
 ## Test architecture
 
