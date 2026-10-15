@@ -8,20 +8,51 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/sdk/extensions/registryclient"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
-func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretLister) engineapi.RegistryClientFactory {
-	return &registryClientFactory{
+func DefaultRegistryClientFactory(globalClient engineapi.RegistryClient, secretsLister corev1listers.SecretLister, opts ...RegistryClientFactoryOption) engineapi.RegistryClientFactory {
+	factory := &registryClientFactory{
 		globalClient:  globalClient,
 		secretsLister: secretsLister,
+	}
+	for _, option := range opts {
+		if option != nil {
+			option(factory)
+		}
+	}
+	return factory
+}
+
+// RegistryClientFactoryOption configures clients created by the factory.
+type RegistryClientFactoryOption func(*registryClientFactory)
+
+// WithPrivateRegistryAllowlist configures exact hosts, IP addresses, and CIDRs
+// permitted to reach private addresses in enforce mode.
+func WithPrivateRegistryAllowlist(hosts string) RegistryClientFactoryOption {
+	return func(factory *registryClientFactory) {
+		if hosts == "" {
+			factory.privateRegistryAllowlist = nil
+		} else {
+			factory.privateRegistryAllowlist = strings.Split(hosts, ",")
+		}
+	}
+}
+
+// WithPrivateRegistryEgressMode configures audit or enforce mode for private
+// addresses on clients created for policy credentials or image pull secrets.
+func WithPrivateRegistryEgressMode(mode string) RegistryClientFactoryOption {
+	return func(factory *registryClientFactory) {
+		factory.privateRegistryEgressMode = mode
 	}
 }
 
 type registryClientFactory struct {
-	globalClient  engineapi.RegistryClient
-	secretsLister corev1listers.SecretLister
+	globalClient              engineapi.RegistryClient
+	secretsLister             corev1listers.SecretLister
+	privateRegistryAllowlist  []string
+	privateRegistryEgressMode string
 }
 
 func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.ImageRegistryCredentials, resourceNamespace string, imagePullSecrets []string) (engineapi.RegistryClient, error) {
@@ -57,6 +88,8 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			registryclient.WithImagePullSecrets(secrets...),
 			registryclient.WithCredentialHelpers(providers...),
 			registryclient.WithAllowInsecureRegistry(creds.AllowInsecureRegistry),
+			registryclient.WithPrivateRegistryAllowlist(f.privateRegistryAllowlist...),
+			registryclient.WithEgressMode(f.privateRegistryEgressMode),
 		)
 		return adapters.RegistryClient(client), nil
 	}
@@ -66,6 +99,8 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 	client := registryclient.New(
 		registryclient.WithSecretLister(f.secretsLister, resourceNamespace),
 		registryclient.WithImagePullSecrets(secrets...),
+		registryclient.WithPrivateRegistryAllowlist(f.privateRegistryAllowlist...),
+		registryclient.WithEgressMode(f.privateRegistryEgressMode),
 	)
 	return adapters.RegistryClient(client), nil
 }
