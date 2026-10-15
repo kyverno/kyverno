@@ -165,7 +165,7 @@ func TestNewServer(t *testing.T) {
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, "",
 	)
 
 	assert.NotNil(t, s)
@@ -176,12 +176,12 @@ func TestNewServer(t *testing.T) {
 
 // buildTestServer wires NewServer with mock handlers, mirroring TestNewServer, and returns the
 // underlying httprouter so route registration can be asserted against the real server.
-func buildTestServer(t *testing.T, backgroundServiceAccountName ...string) *httprouter.Router {
+func buildTestServer(t *testing.T, backgroundServiceAccountName string) *httprouter.Router {
 	t.Helper()
-	return buildTestServerWithContext(t, context.Background(), backgroundServiceAccountName...)
+	return buildTestServerWithContext(t, context.Background(), backgroundServiceAccountName)
 }
 
-func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundServiceAccountName ...string) *httprouter.Router {
+func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundServiceAccountName string) *httprouter.Router {
 	t.Helper()
 	dummyHandler := &mockHandler{}
 	cfg := config.NewDefaultConfiguration(false)
@@ -213,7 +213,7 @@ func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundSer
 		ctx, pHandlers, rHandlers, eHandlers, celHandlers, gcHandlers,
 		cfg, metricsMgr, debugOpts, tlsProvider,
 		mwcClient, vwcClient, leaseClient, runtimeMock,
-		rbLister, crbLister, discoveryMock, "localhost", 8080, backgroundServiceAccountName...,
+		rbLister, crbLister, discoveryMock, "localhost", 8080, backgroundServiceAccountName,
 	)
 	srv, ok := s.(*server)
 	require.True(t, ok, "NewServer must return a *server")
@@ -229,7 +229,7 @@ func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundSer
 // path the server does not serve and gets "the server could not find the requested resource"
 // (HTTP 404), meaning a NamespacedImageValidatingPolicy never runs at admission.
 func TestServer_NamespacedImageValidatingPolicyRoutesAreServed(t *testing.T) {
-	router := buildTestServer(t)
+	router := buildTestServer(t, "")
 
 	// All four image-validating-policy webhook paths registered by the webhook controller must be
 	// served by the webhook server, otherwise the API server's webhook call 404s.
@@ -405,7 +405,7 @@ func TestServerProtectionRoutes(t *testing.T) {
 	}{
 		{name: "association is checked only on dedicated route", username: tenant, object: association, managedAllowed: true},
 		{name: "managed resource protection remains optional", username: tenant, object: managed},
-		{name: "configured external controller", username: background, object: managed, generationAllowed: true, managedAllowed: true},
+		{name: "configured external controller retains existing managed-resource restrictions", username: background, object: managed, generationAllowed: true},
 		{name: "configured admission controller", username: config.KyvernoUserName(config.KyvernoServiceAccountName()), object: managed, generationAllowed: true, managedAllowed: true},
 		{name: "external controller name suffix", username: background + "-other", object: managed},
 		{name: "installation namespace compatibility", username: config.KyvernoUserName("existing-account"), object: managed, managedAllowed: true},

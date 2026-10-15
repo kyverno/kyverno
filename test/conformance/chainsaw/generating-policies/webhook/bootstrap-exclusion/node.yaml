@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: Node
-metadata:
-  generateName: generation-bootstrap-probe-
-  labels:
-    generate.kyverno.io/policy-name: bootstrap-probe
-    test.kyverno.io/bootstrap-probe: "true"

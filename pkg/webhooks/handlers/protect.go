@@ -24,11 +24,11 @@ const generateLabelPrefix = "generate.kyverno.io/"
 
 var kyvernoUsernamePrefix = fmt.Sprintf("system:serviceaccount:%s:", config.KyvernoNamespace())
 
-func (inner AdmissionHandler) WithProtection(enabled bool, controllerUsernames ...string) AdmissionHandler {
+func (inner AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
 	if !enabled {
 		return inner
 	}
-	return inner.withProtection(controllerUsernames).WithTrace("PROTECT")
+	return inner.withProtection().WithTrace("PROTECT")
 }
 
 // WithGenerateLabelProtection guards routing metadata on the dedicated generation webhook.
@@ -48,7 +48,7 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 			logger.Error(err, "failed to extract resources")
 			return admissionutils.Response(request.UID, err)
 		}
-		if !maps.Equal(generateMetadata(newResource.GetLabels()), generateMetadata(oldResource.GetLabels())) {
+		if !maps.Equal(extractKyvernoGenerateLabels(newResource.GetLabels()), extractKyvernoGenerateLabels(oldResource.GetLabels())) {
 			logger.V(2).Info("access to Kyverno generate labels is not authorized")
 			return admissionutils.Response(request.UID, errors.New("Kyverno generate labels can only be set by Kyverno"))
 		}
@@ -56,7 +56,7 @@ func (inner AdmissionHandler) WithGenerateLabelProtection(controllerUsernames ..
 	}
 }
 
-func generateMetadata(labels map[string]string) map[string]string {
+func extractKyvernoGenerateLabels(labels map[string]string) map[string]string {
 	metadata := make(map[string]string)
 	for key, value := range labels {
 		// Clone sources remain user-owned and may be restored or replaced without
@@ -79,11 +79,8 @@ func isControllerUsername(username string, controllerUsernames []string) bool {
 	return username != "" && slices.Contains(controllerUsernames, username)
 }
 
-func (inner AdmissionHandler) withProtection(controllerUsernames []string) AdmissionHandler {
+func (inner AdmissionHandler) withProtection() AdmissionHandler {
 	return func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
-		if isControllerUsername(request.UserInfo.Username, controllerUsernames) {
-			return inner(ctx, logger, request, startTime)
-		}
 		// Allows deletion of namespace containing managed resources
 		if request.Operation == admissionv1.Delete && request.UserInfo.Username == namespaceControllerUsername {
 			return inner(ctx, logger, request, startTime)

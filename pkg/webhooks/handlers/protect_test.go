@@ -584,7 +584,7 @@ func TestWithGenerateLabelProtection(t *testing.T) {
 				request.OldObject.Raw = resourceWithLabels(t, test.oldLabels)
 			}
 
-			handler := inner.WithGenerateLabelProtection(kyvernoUser).WithProtection(test.protectManagedResources, kyvernoUser)
+			handler := inner.WithGenerateLabelProtection(kyvernoUser).WithProtection(test.protectManagedResources)
 			response := handler(context.Background(), logr.Discard(), request, time.Now())
 			assert.Equal(t, test.wantAllowed, response.Allowed)
 			assert.Equal(t, test.wantAllowed, called)
@@ -661,62 +661,6 @@ func TestWithGenerateLabelProtection_ControllerIdentities(t *testing.T) {
 				assert.True(t, response.Allowed)
 				assert.True(t, called)
 			})
-		}
-	}
-}
-
-func TestWithProtection_ConfiguredControllerIdentities(t *testing.T) {
-	t.Parallel()
-	const controller = "system:serviceaccount:external-controllers:custom-background"
-	tests := []struct {
-		name        string
-		username    string
-		controllers []string
-		trusted     bool
-	}{
-		{name: "configured external controller", username: controller, controllers: []string{controller}, trusted: true},
-		{name: "installation namespace compatibility", username: kyvernoUsernamePrefix + "existing-account", trusted: true},
-		{name: "unconfigured external controller", username: controller},
-		{name: "different external account", username: "system:serviceaccount:external-controllers:other", controllers: []string{controller}},
-		{name: "controller name suffix", username: controller + "-other", controllers: []string{controller}},
-		{name: "empty controller name", controllers: []string{""}},
-	}
-	for _, test := range tests {
-		for _, enabled := range []bool{false, true} {
-			for _, operation := range []admissionv1.Operation{admissionv1.Create, admissionv1.Update, admissionv1.Delete} {
-				t.Run(fmt.Sprintf("%s/enabled=%t/%s", test.name, enabled, operation), func(t *testing.T) {
-					t.Parallel()
-					called := false
-					inner := AdmissionHandler(func(_ context.Context, _ logr.Logger, request AdmissionRequest, _ time.Time) AdmissionResponse {
-						called = true
-						return admissionv1.AdmissionResponse{UID: request.UID, Allowed: true}
-					})
-					request := AdmissionRequest{AdmissionRequest: admissionv1.AdmissionRequest{
-						UID: "managed-controller-identity", Operation: operation,
-						Kind:     metav1.GroupVersionKind{Version: "v1", Kind: "ConfigMap"},
-						UserInfo: authenticationv1.UserInfo{Username: test.username},
-					}}
-					resource := runtime.RawExtension{Raw: resourceWithLabels(t, map[string]string{
-						kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
-						common.GeneratePolicyLabel: "policy",
-					})}
-					if operation != admissionv1.Delete {
-						request.Object = resource
-					}
-					if operation != admissionv1.Create {
-						request.OldObject = resource
-					}
-					response := inner.WithProtection(enabled, test.controllers...)(context.Background(), logr.Discard(), request, time.Now())
-					allowed := !enabled || test.trusted
-					assert.Equal(t, allowed, response.Allowed)
-					assert.Equal(t, allowed, called)
-					assert.Equal(t, request.UID, response.UID)
-					if !allowed {
-						require.NotNil(t, response.Result)
-						assert.Contains(t, response.Result.Message, "kyverno managed resource can only be modified by kyverno")
-					}
-				})
-			}
 		}
 	}
 }
