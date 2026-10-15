@@ -200,7 +200,11 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 	if !opts.IgnoreTlog {
 		verifierOptions = append(verifierOptions, verify.WithTransparencyLog(1))
 	}
-	if !opts.IgnoreSCT {
+	if opts.TSACertChain != "" {
+		// A policy-supplied TSA chain explicitly requires at least one verified
+		// RFC3161 signed timestamp, even when SCT verification is skipped.
+		verifierOptions = append(verifierOptions, verify.WithSignedTimestamps(1))
+	} else if !opts.IgnoreSCT {
 		verifierOptions = append(verifierOptions, verify.WithObserverTimestamps(1))
 	}
 	if len(verifierOptions) == 0 {
@@ -232,7 +236,54 @@ func getTrustedMaterial(ctx context.Context, opts verifiers.Options) (root.Trust
 		}
 		return root.TrustedMaterialCollection{keyMaterial, trustedRoot}, nil
 	}
-	return getTrustedRoot(ctx)
+	return getBundleTrustedRoot(ctx, opts)
+}
+
+// getBundleTrustedRoot builds an in-memory trusted root from the policy's own
+// signing roots and TSA certificate chain when either is supplied, instead of
+// falling back to TUF. Policy trust is all-or-nothing: both roots and
+// tsaCertChain must be present, and partial, malformed, or rootless chains are
+// rejected rather than silently falling back to TUF.
+func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.TrustedMaterial, error) {
+	if opts.Roots == "" && opts.TSACertChain == "" {
+		return getTrustedRoot(ctx)
+	}
+	if opts.Roots == "" || opts.TSACertChain == "" {
+		return nil, fmt.Errorf("policy bundle trust requires both roots and tsaCertChain")
+	}
+	leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.Roots))
+	if err != nil {
+		return nil, fmt.Errorf("parsing policy signing roots: %w", err)
+	}
+	if len(leaves) != 0 || len(roots) == 0 {
+		return nil, fmt.Errorf("policy signing roots must contain a root CA and no leaf certificates")
+	}
+	authorities := make([]root.CertificateAuthority, 0, len(roots))
+	for _, cert := range roots {
+		authorities = append(authorities, &root.FulcioCertificateAuthority{
+			Root: cert, Intermediates: intermediates,
+			ValidityPeriodStart: cert.NotBefore, ValidityPeriodEnd: cert.NotAfter,
+		})
+	}
+	tsaLeaves, tsaIntermediates, tsaRoots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
+	if err != nil {
+		return nil, fmt.Errorf("parsing policy tsaCertChain: %w", err)
+	}
+	if len(tsaLeaves) > 1 || len(tsaRoots) == 0 {
+		return nil, fmt.Errorf("policy tsaCertChain must contain a root CA and at most one TSA leaf")
+	}
+	timestampAuthorities := make([]root.TimestampingAuthority, 0, len(tsaRoots))
+	for _, cert := range tsaRoots {
+		authority := &root.SigstoreTimestampingAuthority{
+			Root: cert, Intermediates: tsaIntermediates,
+			ValidityPeriodStart: cert.NotBefore, ValidityPeriodEnd: cert.NotAfter,
+		}
+		if len(tsaLeaves) == 1 {
+			authority.Leaf = tsaLeaves[0]
+		}
+		timestampAuthorities = append(timestampAuthorities, authority)
+	}
+	return root.NewTrustedRoot(root.TrustedRootMediaType01, authorities, nil, timestampAuthorities, nil)
 }
 
 func buildKeyTrustedMaterial(ctx context.Context, key, algorithm string) (root.TrustedMaterial, error) {
