@@ -6,6 +6,7 @@
 - Status: Draft
 - Author(s): (GitHub usernames)
 - Supersedes: (N/A or links to proposals this replaces)
+- Superseded By: (N/A or link to the proposal that replaces this one)
 
 # Table of Contents
 
