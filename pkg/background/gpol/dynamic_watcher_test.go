@@ -1452,6 +1452,139 @@ func TestHandleUpdate(t *testing.T) {
 		wm.handleUpdate(updated, gvr)
 		assert.Empty(t, client.updated)
 	})
+
+	// The write ProcessUR makes to a downstream lands before SyncWatchers can
+	// refresh the cache with its hash, so a watch event for that write can reach
+	// handleUpdate while the cache is stale. BeginGenerate marks that window so
+	// the mismatch is not reverted as a user edit.
+	newWM := func(policyName string, triggerUID types.UID) (*WatchManager, *MockClient, *unstructured.Unstructured) {
+		labels := map[string]string{
+			common.GeneratePolicyLabel:     policyName,
+			common.GenerateTriggerUIDLabel: string(triggerUID),
+		}
+		cached := makeObj("down-uid", "down-pod", "default", labels)
+		client := &MockClient{}
+		wm := &WatchManager{
+			log:    logging.WithName("test"),
+			client: client,
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {metadataCache: map[types.UID]Resource{
+					"down-uid": {Name: cached.GetName(), Namespace: cached.GetNamespace(), Labels: labels, Hash: reportutils.CalculateResourceHash(*cached), Data: cached},
+				}},
+			},
+		}
+		return wm, client, cached
+	}
+	withAnnotation := func(obj *unstructured.Unstructured, key, value string) *unstructured.Unstructured {
+		out := obj.DeepCopy()
+		out.SetAnnotations(map[string]string{key: value})
+		return out
+	}
+	// refreshCache mimics SyncWatchers recording obj as the desired state.
+	refreshCache := func(wm *WatchManager, obj *unstructured.Unstructured) {
+		wm.lock.Lock()
+		defer wm.lock.Unlock()
+		entry := wm.dynamicWatchers[gvr].metadataCache[obj.GetUID()]
+		entry.Hash = reportutils.CalculateResourceHash(*obj)
+		entry.Data = obj
+		wm.dynamicWatchers[gvr].metadataCache[obj.GetUID()] = entry
+	}
+
+	t.Run("in-flight generate write is not reverted", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		own := withAnnotation(cached, "tier", "free")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(own, gvr)
+		assert.Empty(t, client.updated, "a write Kyverno is still making for this trigger must not be reverted")
+		refreshCache(wm, own)
+		end()
+		assert.Empty(t, client.updated, "the write is now the cached state, there is nothing to revert")
+	})
+
+	t.Run("edit made while a generate write is in flight is reverted when it ends", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		own := withAnnotation(cached, "tier", "free")
+		edited := withAnnotation(cached, "tier", "premium")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(own, gvr)
+		wm.handleUpdate(edited, gvr)
+		assert.Empty(t, client.updated, "nothing is reverted while the write is in flight")
+		refreshCache(wm, own)
+		end()
+		assert.Len(t, client.updated, 1, "the edit skipped inside the window must be reverted when it closes")
+	})
+
+	t.Run("only the latest event skipped in the window is checked", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		own := withAnnotation(cached, "tier", "free")
+		edited := withAnnotation(cached, "tier", "premium")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(edited, gvr)
+		wm.handleUpdate(own, gvr)
+		refreshCache(wm, own)
+		end()
+		assert.Empty(t, client.updated, "the edit was undone before the window closed")
+	})
+
+	t.Run("skipped event is dropped when its cache entry is gone at the end", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		wm.handleUpdate(withAnnotation(cached, "tier", "premium"), gvr)
+		wm.lock.Lock()
+		delete(wm.dynamicWatchers[gvr].metadataCache, "down-uid")
+		wm.lock.Unlock()
+		end()
+		assert.Empty(t, client.updated)
+	})
+
+	t.Run("revert still applies once the generate write completes", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end()
+		wm.handleUpdate(withAnnotation(cached, "tampered", "true"), gvr)
+		assert.NotEmpty(t, client.updated, "once the generate write is no longer in flight, real drift must still be reverted")
+	})
+
+	t.Run("a write in flight for another trigger does not suppress the revert", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end := wm.BeginGenerate("generate-secret", "trigger-uid-2")
+		wm.handleUpdate(withAnnotation(cached, "tampered", "true"), gvr)
+		end()
+		assert.NotEmpty(t, client.updated)
+	})
+
+	t.Run("BeginGenerate ref-counts overlapping writes for the same trigger", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+		tampered := withAnnotation(cached, "tampered", "true")
+
+		end1 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end2 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end1()
+		wm.handleUpdate(tampered, gvr)
+		assert.Empty(t, client.updated, "still in flight: one BeginGenerate call is still outstanding")
+		end2()
+		assert.Len(t, client.updated, 1, "both calls have ended: the skipped edit is reverted")
+		wm.handleUpdate(tampered, gvr)
+		assert.Len(t, client.updated, 2, "no longer in flight: drift is reverted immediately")
+	})
+
+	t.Run("ending a generate window twice does not end an overlapping one", func(t *testing.T) {
+		wm, client, cached := newWM("generate-secret", "trigger-uid-1")
+
+		end1 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end2 := wm.BeginGenerate("generate-secret", "trigger-uid-1")
+		end1()
+		end1()
+		wm.handleUpdate(withAnnotation(cached, "tampered", "true"), gvr)
+		assert.Empty(t, client.updated, "the second window is still open")
+		end2()
+	})
 }
 
 func TestWatchManager_CacheIntegrity(t *testing.T) {

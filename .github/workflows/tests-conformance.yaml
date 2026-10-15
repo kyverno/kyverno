@@ -145,6 +145,8 @@ jobs:
           TEST_IMAGE_URL=ttl.sh/${IMAGE_NAME}:1h
           crane copy cgr.dev/chainguard/static@$DIGEST $TEST_IMAGE_URL
           cosign initialize --mirror $TUF_MIRROR --root $TUF_MIRROR/root.json
+          # The token from the setup step can expire while the copy to ttl.sh runs.
+          OIDC_TOKEN=$(curl -s "$ISSUER_URL")
           COSIGN_EXPERIMENTAL=1 cosign sign $TEST_IMAGE_URL --identity-token $OIDC_TOKEN --fulcio-url $FULCIO_URL --rekor-url $REKOR_URL -y
           echo "TEST_IMAGE_URL=$TEST_IMAGE_URL" >> $GITHUB_ENV
       # run tests

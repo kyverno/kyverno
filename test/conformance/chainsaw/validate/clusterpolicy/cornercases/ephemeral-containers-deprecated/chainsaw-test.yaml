@@ -31,6 +31,9 @@ spec:
     - command:
         args:
         - debug
+        # kubectl 1.36+ defaults to the general profile, which adds SYS_PTRACE to the
+        # ephemeral container; baseline adds nothing, so step-04's spec still matches.
+        - --profile=baseline
         - --image=bar.io/busybox:1.35
         - -c
         - debugger

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	vpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/vpol/autogen"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/event"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -79,7 +80,13 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 
 		var reason string
 		if wantVap {
-			isAutogen := len(pol.GetStatus().Autogen.Configs) > 0
+			// Read autogen from the spec: status.autogen is written later by the
+			// policystatus controller and can still be empty on a new policy.
+			autogenConfigs, err := vpolautogen.Autogen(pol)
+			if err != nil {
+				return fmt.Errorf("failed to compute autogen configs for %s: %w", pol.GetName(), err)
+			}
+			isAutogen := len(autogenConfigs) > 0
 			if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
