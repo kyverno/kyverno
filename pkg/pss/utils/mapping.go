@@ -52,6 +52,8 @@ var PSS_control_name_to_ids = map[string][]string{
 	},
 	"/proc Mount Type": {
 		"procMount",
+		// restricted 1.35+ check, overrides procMount
+		"procMount_restricted",
 	},
 
 	// Container and pod-level controls
@@ -171,6 +173,29 @@ var PSS_controls = map[string][]RestrictedField{
 		},
 	},
 	"procMount": {
+		{
+			Path: "spec.containers[*].securityContext.procMount",
+			AllowedValues: []interface{}{
+				nil,
+				"Default",
+			},
+		},
+		{
+			Path: "spec.initContainers[*].securityContext.procMount",
+			AllowedValues: []interface{}{
+				nil,
+				"Default",
+			},
+		},
+		{
+			Path: "spec.ephemeralContainers[*].securityContext.procMount",
+			AllowedValues: []interface{}{
+				nil,
+				"Default",
+			},
+		},
+	},
+	"procMount_restricted": {
 		{
 			Path: "spec.containers[*].securityContext.procMount",
 			AllowedValues: []interface{}{

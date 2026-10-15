@@ -1,0 +1,58 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: kyverno-test
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- kind: Deployment
+  policy: psa-userns
+  resources:
+  - userns-root-deploy
+  result: pass
+  rule: autogen-restricted
+- kind: Deployment
+  policy: psa-userns
+  resources:
+  - userns-root-deploy
+  result: fail
+  rule: autogen-restricted-v1-32
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - hostusers-unmasked
+  result: fail
+  rule: baseline
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - userns-root
+  - hostusers-root
+  - userns-unmasked
+  result: pass
+  rule: baseline
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - hostusers-root
+  - userns-unmasked
+  - hostusers-unmasked
+  result: fail
+  rule: restricted
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - userns-root
+  result: pass
+  rule: restricted
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - userns-root
+  - hostusers-root
+  - userns-unmasked
+  - hostusers-unmasked
+  result: fail
+  rule: restricted-v1-32
