@@ -420,4 +420,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2
 )
 
-replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20251031094455-46f20778634f
+replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20261015135348-40bb0fb141a9

@@ -7,56 +7,52 @@ policies:
 resources:
 - resources.yaml
 results:
-# user namespace pods relax runAsUser/runAsNonRoot at restricted:latest
-- policy: psa-userns
-  rule: restricted
-  kind: Pod
+- kind: Deployment
+  policy: psa-userns
   resources:
-  - userns-root
+  - userns-root-deploy
   result: pass
-- policy: psa-userns
-  rule: restricted
-  kind: Pod
-  resources:
-  - hostusers-root
-  - userns-unmasked
-  - hostusers-unmasked
-  result: fail
-# baseline:latest allows Unmasked only in a user namespace
-- policy: psa-userns
-  rule: baseline
-  kind: Pod
-  resources:
-  - userns-root
-  - hostusers-root
-  - userns-unmasked
-  result: pass
-- policy: psa-userns
-  rule: baseline
-  kind: Pod
-  resources:
-  - hostusers-unmasked
-  result: fail
-# pinned versions before 1.35 never relax
-- policy: psa-userns
-  rule: restricted-v1-32
-  kind: Pod
-  resources:
-  - userns-root
-  - hostusers-root
-  - userns-unmasked
-  - hostusers-unmasked
-  result: fail
-# autogen carries hostUsers from the pod template
-- policy: psa-userns
   rule: autogen-restricted
-  kind: Deployment
-  resources:
-  - userns-root-deploy
-  result: pass
-- policy: psa-userns
-  rule: autogen-restricted-v1-32
-  kind: Deployment
+- kind: Deployment
+  policy: psa-userns
   resources:
   - userns-root-deploy
   result: fail
+  rule: autogen-restricted-v1-32
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - hostusers-unmasked
+  result: fail
+  rule: baseline
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - userns-root
+  - hostusers-root
+  - userns-unmasked
+  result: pass
+  rule: baseline
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - hostusers-root
+  - userns-unmasked
+  - hostusers-unmasked
+  result: fail
+  rule: restricted
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - userns-root
+  result: pass
+  rule: restricted
+- kind: Pod
+  policy: psa-userns
+  resources:
+  - userns-root
+  - hostusers-root
+  - userns-unmasked
+  - hostusers-unmasked
+  result: fail
+  rule: restricted-v1-32
