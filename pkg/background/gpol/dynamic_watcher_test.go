@@ -1742,3 +1742,137 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	assert.True(t, hasFirst)
 	assert.True(t, hasSecond)
 }
+
+// Labels copied from a genuine downstream do not register a different UID in
+// the CEL controller's cache. Only controller-generated objects can be reverted.
+func TestHandleDownstreamEvent_RequiresRegisteredUID(t *testing.T) {
+	t.Parallel()
+	for _, operation := range []string{"update", "delete"} {
+		for _, registered := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/registered=%t", operation, registered), func(t *testing.T) {
+				t.Parallel()
+				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+				labels := map[string]string{
+					kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:     "test-policy",
+					common.GenerateTriggerUIDLabel: "trigger-uid",
+				}
+				genuine := makeUnstructured("1", "", "v1", "ConfigMap", "generated", "tenant", "generated-uid", labels)
+				genuine.Object["data"] = map[string]any{"value": "original"}
+				client := &MockClient{}
+				wm := &WatchManager{
+					log:    logging.WithName("test"),
+					client: client,
+					dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+						gvr: {metadataCache: map[types.UID]Resource{
+							genuine.GetUID(): {
+								Name:      genuine.GetName(),
+								Namespace: genuine.GetNamespace(),
+								Labels:    genuine.GetLabels(),
+								Hash:      reportutils.CalculateResourceHash(*genuine),
+								Data:      genuine,
+							},
+						}},
+					},
+				}
+				event := genuine.DeepCopy()
+				if !registered {
+					// A replacement with the same name, namespace and labels has a
+					// different UID from the registered downstream.
+					event.SetUID("replacement-uid")
+				}
+				if operation == "update" {
+					event.Object["data"] = map[string]any{"value": "changed"}
+					wm.handleUpdate(event, gvr)
+				} else {
+					wm.handleDelete(event, gvr)
+				}
+
+				if registered && operation == "update" {
+					assert.Len(t, client.updated, 1, "genuine downstream edits must be reverted")
+				} else {
+					assert.Empty(t, client.updated)
+				}
+				if registered && operation == "delete" {
+					assert.Len(t, client.created, 1, "genuine downstream deletions must be reverted")
+				} else {
+					assert.Empty(t, client.created)
+				}
+				assert.Empty(t, client.deleted)
+				assert.NotContains(t, wm.dynamicWatchers[gvr].metadataCache, types.UID("replacement-uid"))
+			})
+		}
+	}
+}
+
+type downstreamListClient struct {
+	MockClient
+	downstream unstructured.Unstructured
+}
+
+func (c *downstreamListClient) ListResource(context.Context, string, string, string, *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	return &unstructured.UnstructuredList{Items: []unstructured.Unstructured{c.downstream}}, nil
+}
+
+func TestHandleSourceEvent_RequiresRegisteredDownstreamUID(t *testing.T) {
+	t.Parallel()
+	for _, operation := range []string{"update", "delete"} {
+		for _, tt := range []struct {
+			name      string
+			cachedUID types.UID
+		}{
+			{name: "absent"},
+			{name: "replacement", cachedUID: "old-downstream-uid"},
+			{name: "registered", cachedUID: "downstream-uid"},
+		} {
+			t.Run(fmt.Sprintf("%s/%s", operation, tt.name), func(t *testing.T) {
+				t.Parallel()
+				gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+				source := makeUnstructured("1", "", "v1", "ConfigMap", "source", "tenant", "source-uid", nil)
+				source.Object["data"] = map[string]any{"value": "source"}
+				downstream := makeUnstructured("2", "", "v1", "ConfigMap", "generated", "tenant", "downstream-uid", map[string]string{
+					kyverno.LabelAppManagedBy:     kyverno.ValueKyvernoApp,
+					common.GeneratePolicyLabel:    "test-policy",
+					common.GenerateSourceUIDLabel: string(source.GetUID()),
+				})
+				client := &downstreamListClient{downstream: *downstream}
+				metadataCache := map[types.UID]Resource{}
+				if tt.cachedUID != "" {
+					cached := downstream.DeepCopy()
+					cached.SetUID(tt.cachedUID)
+					metadataCache[tt.cachedUID] = Resource{
+						Name:      cached.GetName(),
+						Namespace: cached.GetNamespace(),
+						Labels:    cached.GetLabels(),
+						Data:      cached,
+					}
+				}
+				wm := &WatchManager{
+					log:    logging.WithName("test"),
+					client: client,
+					dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+						gvr: {metadataCache: metadataCache},
+					},
+				}
+
+				if operation == "update" {
+					wm.handleUpdate(source, gvr)
+				} else {
+					wm.handleDelete(source, gvr)
+				}
+
+				if tt.cachedUID == downstream.GetUID() && operation == "update" {
+					assert.Len(t, client.updated, 1)
+				} else {
+					assert.Empty(t, client.updated)
+				}
+				if tt.cachedUID == downstream.GetUID() && operation == "delete" {
+					assert.Len(t, client.deleted, 1)
+				} else {
+					assert.Empty(t, client.deleted)
+				}
+				assert.Empty(t, client.created)
+			})
+		}
+	}
+}
