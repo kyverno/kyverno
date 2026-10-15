@@ -4,6 +4,7 @@ metadata:
   name: test-success
   namespace: mynamespace
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - image: public.ecr.aws/docker/library/nginx:latest
     name: test-success
