@@ -108,6 +108,32 @@ func Test_compileRegex_largeProgramBounds(t *testing.T) {
 	assert.True(t, isLargeProgram(`^`+strings.Repeat(`(`, 250)+`\pL`+strings.Repeat(`)`, 250)+`$`))
 }
 
+func Test_compileRegex_patternLengthBoundary(t *testing.T) {
+	resetCompiledRegexes()
+	atLimit := strings.Repeat("a", maxCachedPatternLen)
+	_, err := compileRegex(atLimit)
+	require.NoError(t, err)
+	assert.Equal(t, 1, compiledRegexes.Len(), "a pattern of exactly the limit is cached")
+
+	_, err = compileRegex(atLimit + "a")
+	require.NoError(t, err)
+	assert.Equal(t, 1, compiledRegexes.Len(), "a pattern one byte over the limit is not cached")
+}
+
+func Test_isLargeProgram_boundaries(t *testing.T) {
+	// a{500}b{k} compiles to 502+k instructions
+	assert.False(t, isLargeProgram(fmt.Sprintf("a{500}b{%d}", maxProgramInsts-502)), "instructions at the limit")
+	assert.True(t, isLargeProgram(fmt.Sprintf("a{500}b{%d}", maxProgramInsts-501)), "instructions one over the limit")
+
+	// each \pL instruction keeps 2048 runes of capacity, so four sit exactly at maxProgramRunes
+	assert.False(t, isLargeProgram(`\pL{4}`), "runes at the limit")
+	assert.True(t, isLargeProgram(`\pL{5}`), "runes over the limit")
+
+	// anchored: \pL has 684 ranges, and each capture adds two copies to the one-pass program
+	assert.False(t, isLargeProgram(`^(\pL)$`), "one-pass cost below the limit")
+	assert.True(t, isLargeProgram(`^((\pL))$`), "one-pass cost over the limit")
+}
+
 func Test_compileRegex_keyDoesNotRetainCallerString(t *testing.T) {
 	var keys []string
 	original := compiledRegexes
