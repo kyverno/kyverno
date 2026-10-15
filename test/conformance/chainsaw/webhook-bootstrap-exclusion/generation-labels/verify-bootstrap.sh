@@ -84,8 +84,8 @@ expect_dry_run() {
 for automatic in true false; do
   # Build each desired flag set from the original args and restore them on exit.
   jq --arg container "$container" --arg automatic "$automatic" '{spec:{template:{spec:{containers:[.spec.template.spec.containers[] | select(.name == $container) | {name,args:((.args // [] | map(select(startswith("--excludeBootstrapResources=") or startswith("--autoUpdateWebhooks=") | not))) + ["--excludeBootstrapResources=true", "--autoUpdateWebhooks=" + $automatic])}]}}}}' "$temp_dir/deployment.json" > "$temp_dir/args.json"
-  kubectl -n "$namespace" patch deployment "$deployment" --type=strategic --patch-file "$temp_dir/args.json"
   args_changed=true
+  kubectl -n "$namespace" patch deployment "$deployment" --type=strategic --patch-file "$temp_dir/args.json"
   kubectl -n "$namespace" rollout status deployment/"$deployment" --timeout=180s
   wait_for_exclusion
 
@@ -94,8 +94,8 @@ for automatic in true false; do
     # Reconciliation must refresh only the reserved entry, preserving the manual one.
     jq --arg name "$manual_name" '.name=$name | .failurePolicy="Ignore" | del(.matchConditions) | .objectSelector={matchLabels:{"test.kyverno.io/manual-bootstrap-proof":"true"}}' "$temp_dir/emitted.json" > "$temp_dir/manual.json"
     jq --arg protected "$protection" --slurpfile manual "$temp_dir/manual.json" '[{op:"test",path:"/metadata/resourceVersion",value:.metadata.resourceVersion},{op:"replace",path:"/webhooks",value:([.webhooks[] | if .name == $protected then .matchConditions=[] else . end] + $manual)}]' "$temp_dir/current.json" > "$temp_dir/manual-patch.json"
-    kubectl patch validatingwebhookconfiguration "$configuration" --type=json --patch-file "$temp_dir/manual-patch.json"
     manual_created=true
+    kubectl patch validatingwebhookconfiguration "$configuration" --type=json --patch-file "$temp_dir/manual-patch.json"
     wait_for_exclusion
     jq -e --arg name "$manual_name" --slurpfile expected "$temp_dir/manual.json" '[.webhooks[] | select(.name == $name)] == $expected' "$temp_dir/current.json" >/dev/null
   fi
@@ -103,8 +103,8 @@ for automatic in true false; do
   # Copy the emitted rule/selector/exclusion into a narrowly selected webhook
   # whose service does not exist. No controller or persisted Node is stopped.
   jq --arg name "$probe_name" --arg namespace "$namespace" '{apiVersion:"admissionregistration.k8s.io/v1",kind:"ValidatingWebhookConfiguration",metadata:{name:$name},webhooks:[(. | .name=($name + ".example.com") | .clientConfig={service:{namespace:$namespace,name:$name,path:"/validate",port:443}} | .timeoutSeconds=2 | .objectSelector.matchLabels["test.kyverno.io/bootstrap-probe"]="true" | .matchConditions=[])]}' "$temp_dir/emitted.json" > "$temp_dir/probe.json"
-  kubectl create -f "$temp_dir/probe.json"
   probe_created=true
+  kubectl create -f "$temp_dir/probe.json"
   for manifest in node.yaml csr.yaml; do
     expect_dry_run unavailable "$manifest"
   done
