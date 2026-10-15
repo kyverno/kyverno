@@ -9,12 +9,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/lru"
 )
 
 func resetCompiledRegexes() {
-	compiledRegexes.Lock()
-	clear(compiledRegexes.byPattern)
-	compiledRegexes.Unlock()
+	compiledRegexes.Clear()
 }
 
 func Test_compileRegex_reusesCompiledPattern(t *testing.T) {
@@ -30,9 +29,7 @@ func Test_compileRegex_doesNotCacheInvalidPattern(t *testing.T) {
 	resetCompiledRegexes()
 	_, err := compileRegex(`(`)
 	assert.Error(t, err)
-	compiledRegexes.RLock()
-	defer compiledRegexes.RUnlock()
-	assert.Empty(t, compiledRegexes.byPattern)
+	assert.Zero(t, compiledRegexes.Len())
 }
 
 func Test_compileRegex_isBounded(t *testing.T) {
@@ -41,9 +38,7 @@ func Test_compileRegex_isBounded(t *testing.T) {
 		_, err := compileRegex(fmt.Sprintf("^pattern-%d$", i))
 		require.NoError(t, err)
 	}
-	compiledRegexes.RLock()
-	defer compiledRegexes.RUnlock()
-	assert.LessOrEqual(t, len(compiledRegexes.byPattern), maxCompiledRegexes)
+	assert.Equal(t, maxCompiledRegexes, compiledRegexes.Len())
 }
 
 func Test_compileRegex_concurrentUse(t *testing.T) {
@@ -78,10 +73,9 @@ func Test_compileRegex_largeProgramIsNotRetained(t *testing.T) {
 		assert.True(t, reg.MatchString(strings.Repeat("abc", 1000)))
 		assert.False(t, reg.MatchString("abc"))
 	}
-	compiledRegexes.RLock()
-	defer compiledRegexes.RUnlock()
-	entry, ok := compiledRegexes.byPattern[pattern]
+	v, ok := compiledRegexes.Get(pattern)
 	require.True(t, ok, "a marker should be cached")
+	entry := v.(cachedRegex)
 	assert.True(t, entry.large)
 	assert.Nil(t, entry.re)
 }
@@ -92,9 +86,7 @@ func Test_compileRegex_longPatternIsNotCached(t *testing.T) {
 	reg, err := compileRegex(pattern)
 	require.NoError(t, err)
 	assert.True(t, reg.MatchString(pattern))
-	compiledRegexes.RLock()
-	defer compiledRegexes.RUnlock()
-	assert.Empty(t, compiledRegexes.byPattern)
+	assert.Zero(t, compiledRegexes.Len())
 }
 
 func Test_compileRegex_cachesTypicalPatterns(t *testing.T) {
@@ -117,15 +109,36 @@ func Test_compileRegex_largeProgramBounds(t *testing.T) {
 }
 
 func Test_compileRegex_keyDoesNotRetainCallerString(t *testing.T) {
-	resetCompiledRegexes()
+	var keys []string
+	original := compiledRegexes
+	compiledRegexes = lru.NewWithEvictionFunc(maxCompiledRegexes, func(key lru.Key, _ any) {
+		keys = append(keys, key.(string))
+	})
+	t.Cleanup(func() { compiledRegexes = original })
+
 	big := "prefix-" + strings.Repeat("x", 1<<20) + "-^abc$-suffix"
 	start := strings.Index(big, "^abc$")
 	pattern := big[start : start+len("^abc$")]
 	_, err := compileRegex(pattern)
 	require.NoError(t, err)
-	compiledRegexes.RLock()
-	defer compiledRegexes.RUnlock()
-	for key := range compiledRegexes.byPattern {
-		assert.NotSame(t, unsafe.StringData(pattern), unsafe.StringData(key))
+	compiledRegexes.Clear()
+	require.Len(t, keys, 1)
+	assert.Equal(t, pattern, keys[0])
+	assert.NotSame(t, unsafe.StringData(pattern), unsafe.StringData(keys[0]))
+}
+
+func Test_compileRegex_evictsLeastRecentlyUsed(t *testing.T) {
+	resetCompiledRegexes()
+	hot := `^hot$`
+	_, err := compileRegex(hot)
+	require.NoError(t, err)
+	for i := 0; i < 2*maxCompiledRegexes; i++ {
+		_, err := compileRegex(hot)
+		require.NoError(t, err)
+		_, err = compileRegex(fmt.Sprintf("^pattern-%d$", i))
+		require.NoError(t, err)
 	}
+	_, ok := compiledRegexes.Get(hot)
+	assert.True(t, ok, "a frequently used pattern should survive eviction")
+	assert.Equal(t, maxCompiledRegexes, compiledRegexes.Len())
 }

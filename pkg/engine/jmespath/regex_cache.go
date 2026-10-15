@@ -4,13 +4,14 @@ import (
 	"regexp"
 	"regexp/syntax"
 	"strings"
-	"sync"
+
+	"k8s.io/utils/lru"
 )
 
 const (
 	// maxCompiledRegexes bounds the number of compiled patterns kept in memory. Patterns can come
 	// from resource data, so the cache must not grow without limit.
-	maxCompiledRegexes = 1024
+	maxCompiledRegexes = 256
 
 	// The entry count alone does not bound the bytes, because a short pattern can compile to a
 	// very large program, e.g. `(abc|def|ghi){1000}` retains megabytes. A pattern whose program
@@ -30,19 +31,16 @@ type cachedRegex struct {
 	large bool
 }
 
-var compiledRegexes = struct {
-	sync.RWMutex
-	byPattern map[string]cachedRegex
-}{byPattern: make(map[string]cachedRegex)}
+// compiledRegexes holds a cachedRegex per pattern. It is safe for concurrent use and evicts the least
+// recently used entry when it is full.
+var compiledRegexes = lru.New(maxCompiledRegexes)
 
 // compileRegex returns the compiled form of pattern, reusing a previous compilation when there is
 // one. Patterns that fail to compile are not cached, and neither is the compiled form of a
 // pattern that is long or whose program is large. A *regexp.Regexp is safe for concurrent use.
 func compileRegex(pattern string) (*regexp.Regexp, error) {
-	compiledRegexes.RLock()
-	entry, ok := compiledRegexes.byPattern[pattern]
-	compiledRegexes.RUnlock()
-	if ok {
+	if v, ok := compiledRegexes.Get(pattern); ok {
+		entry := v.(cachedRegex)
 		if entry.large {
 			return regexp.Compile(pattern)
 		}
@@ -58,16 +56,11 @@ func compileRegex(pattern string) (*regexp.Regexp, error) {
 	if err != nil {
 		return nil, err
 	}
-	entry = cachedRegex{re: reg}
+	entry := cachedRegex{re: reg}
 	if isLargeProgram(pattern) {
 		entry = cachedRegex{large: true}
 	}
-	compiledRegexes.Lock()
-	if len(compiledRegexes.byPattern) >= maxCompiledRegexes {
-		clear(compiledRegexes.byPattern)
-	}
-	compiledRegexes.byPattern[pattern] = entry
-	compiledRegexes.Unlock()
+	compiledRegexes.Add(pattern, entry)
 	return reg, nil
 }
 
