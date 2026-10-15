@@ -70,8 +70,8 @@ spec:
       dnsConfig:
         {{- tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- with .Values.reportsController.terminationGracePeriodSeconds }}
-      terminationGracePeriodSeconds: {{ . }}
+      {{- if ne .Values.reportsController.terminationGracePeriodSeconds nil }}
+      terminationGracePeriodSeconds: {{ .Values.reportsController.terminationGracePeriodSeconds }}
       {{- end }}
       {{- if or .Values.reportsController.antiAffinity.enabled .Values.reportsController.podAffinity .Values.reportsController.nodeAffinity }}
       affinity:
