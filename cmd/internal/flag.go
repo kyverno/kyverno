@@ -59,6 +59,8 @@ var (
 	imagePullSecrets          string
 	allowInsecureRegistry     bool
 	registryCredentialHelpers string
+	privateRegistryAllowlist  string
+	privateRegistryEgressMode string
 	// leader election
 	leaderElectionRetryPeriod time.Duration
 	// cleanupServer port and host for listening address
@@ -163,6 +165,20 @@ func initRegistryClientFlags() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&registryCredentialHelpers, "registryCredentialHelpers", "", "Credential helpers to enable (default,google,amazon,azure,github). No helpers are added when this flag is empty.")
 	flag.Int64Var(&imageVerifyPayloadLimit, "imageVerifyPayloadLimit", 0, "Maximum decompressed size in bytes of a signature, attestation or bundle payload read during image verification. Raise it to verify payloads larger than the 10000000 byte default, such as large SBOM attestations. 0 keeps the default.")
+}
+
+func initRegistryEgressFlags() {
+	flag.StringVar(&privateRegistryAllowlist, "privateRegistryAllowlist", "", "Comma-separated exact hosts, IP addresses, or CIDRs permitted for private registry and signature services in enforce mode. Unsafe addresses remain blocked.")
+	flag.StringVar(&privateRegistryEgressMode, "privateRegistryEgressMode", "audit", "Registry egress policy: audit permits private addresses and logs enforce violations; enforce requires an allowlist. Both modes block metadata and unsafe addresses.")
+}
+
+func initRegistryFlags(config Configuration) {
+	if config.UsesRegistryClient() {
+		initRegistryClientFlags()
+	}
+	if config.UsesRegistryEgress() {
+		initRegistryEgressFlags()
+	}
 }
 
 func initImageVerifyCacheFlags() {
@@ -271,9 +287,7 @@ func initFlags(config Configuration, opts ...Option) {
 		initCosignFlags()
 	}
 	// registry client
-	if config.UsesRegistryClient() {
-		initRegistryClientFlags()
-	}
+	initRegistryFlags(config)
 	// image verify cache
 	if config.UsesImageVerifyCache() {
 		initImageVerifyCacheFlags()

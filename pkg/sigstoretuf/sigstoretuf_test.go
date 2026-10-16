@@ -6,35 +6,32 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/sigstoretuf"
+	"github.com/stretchr/testify/assert"
 )
 
-// TestConcurrentAccess exercises all exported sigstoretuf functions from
-// multiple goroutines simultaneously.  The test is intended to be run with
-// the race detector (-race flag) to surface data races in the shared sigstore
-// TUF singleton.  Network/TUF errors are expected in unit-test environments
-// and are intentionally ignored; only data races are failures.
+// Exercise concurrent compatibility calls with a canceled context, avoiding
+// public network access while checking cancellation and shared-cache locking.
 func TestConcurrentAccess(t *testing.T) {
-	ctx := context.Background()
-	const goroutines = 10
-
+	t.Setenv("SIGSTORE_REKOR_PUBLIC_KEY", "")
+	t.Setenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE", "")
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 	var wg sync.WaitGroup
-	wg.Add(goroutines)
-
-	for i := 0; i < goroutines; i++ {
+	for range 10 {
+		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
-			// Each of these may fail with a TUF network error in unit-test
-			// environments, which is fine. What matters is the absence of
-			// data races reported by the race detector.
-			_ = sigstoretuf.Initialize(ctx, "", nil)
-			_, _ = sigstoretuf.TrustedRoot(ctx)
-			_, _ = sigstoretuf.RekorPublicKeys(ctx)
-			_, _ = sigstoretuf.CTLogPublicKeys(ctx)
-			_, _, _ = sigstoretuf.FulcioRoots()
+			assert.ErrorIs(t, sigstoretuf.Initialize(ctx, "", nil), context.Canceled)
+			_, err := sigstoretuf.TrustedRoot(ctx)
+			assert.ErrorIs(t, err, context.Canceled)
+			_, err = sigstoretuf.RekorPublicKeys(ctx)
+			assert.ErrorIs(t, err, context.Canceled)
+			_, err = sigstoretuf.CTLogPublicKeys(ctx)
+			assert.ErrorIs(t, err, context.Canceled)
+			_, _, err = sigstoretuf.FulcioRootsWithContext(ctx)
+			assert.ErrorIs(t, err, context.Canceled)
 		}()
 	}
-
 	wg.Wait()
 }
 

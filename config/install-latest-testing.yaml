@@ -90940,6 +90940,7 @@ spec:
             - --protectManagedResources=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --privateRegistryEgressMode=audit
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
             
           resources:
@@ -91115,6 +91116,7 @@ spec:
             - --omitEvents=PolicyApplied,PolicySkipped
             - --enablePolicyException=false
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
+            - --privateRegistryEgressMode=audit
             
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
@@ -91246,6 +91248,7 @@ spec:
             - --v=2
             - --protectManagedResources=false
             - --ttlReconciliationInterval=1m
+            - --privateRegistryEgressMode=audit
             
           env:
           - name: KYVERNO_DEPLOYMENT
@@ -91416,6 +91419,7 @@ spec:
             - --enablePolicyException=false
             - --allowInsecureRegistry=false
             - --registryCredentialHelpers=default,google,amazon,azure,github
+            - --privateRegistryEgressMode=audit
             - --enableReporting=validate,mutate,mutateExisting,imageVerify,generate
           env:
           - name: KYVERNO_SERVICEACCOUNT_NAME
