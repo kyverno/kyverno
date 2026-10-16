@@ -123,8 +123,15 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	// error so it is retried with backoff, since evaluating now would match nothing and complete it
 	// silently. The lookup also matches bare names, so check the compiled policy is this one.
 	key := mpolengine.PolicyKey(mpol)
-	if compiled, err := p.engine.GetCompiledPolicy(key); err != nil || (compiled.Policy != nil && mpolengine.PolicyKey(compiled.Policy) != key) {
+	compiled, err := p.engine.GetCompiledPolicy(key)
+	if err != nil || (compiled.Policy != nil && mpolengine.PolicyKey(compiled.Policy) != key) {
 		return fmt.Errorf("mutating policy %s is not compiled yet", key)
+	}
+	// The same holds right after a policy update: until the engine has recompiled it, evaluation would
+	// run the previous spec and complete the request without ever applying the new one. Generation only
+	// moves on spec changes, so a compiled copy at an older generation is stale.
+	if compiled.Policy != nil && compiled.Policy.GetGeneration() < mpol.GetGeneration() {
+		return fmt.Errorf("mutating policy %s is not compiled yet: compiled generation %d is older than %d", key, compiled.Policy.GetGeneration(), mpol.GetGeneration())
 	}
 
 	targetConstraints := mpol.GetMatchConstraints()

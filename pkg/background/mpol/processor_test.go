@@ -952,6 +952,55 @@ func TestProcess_SameNamedPolicyFromAnotherScope_DoesNotCountAsCompiled(t *testi
 	assert.False(t, eng.evaluated)
 }
 
+func TestProcess_CompiledPolicyOlderThanLive_RetriesWithoutEvaluating(t *testing.T) {
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-nmpol-background-scan", Namespace: "test-nmpol-background-scan-ns", Generation: 2},
+		Spec:       backgroundScanSpec(),
+	}
+	fakeClient, kyvernoClient, restMapper := newBackgroundScanFixture(t, nmpol)
+	// the engine still holds the policy as compiled before the update
+	stale := nmpol.DeepCopy()
+	stale.SetGeneration(1)
+	eng := &notCompiledEngine{compiled: stale}
+	sc := &fakeStatusControl{}
+	p := NewProcessor(fakeClient, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, sc, event.NewFake(), config.NewDefaultConfiguration(false))
+
+	// the update request the policy controller creates when the policy is updated
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-policy-event", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELMutate,
+			Policy: "test-nmpol-background-scan-ns/test-nmpol-background-scan",
+		},
+	}
+	assert.Error(t, p.Process(ur))
+	assert.False(t, sc.successCalled, "a scan with the previous spec must not be marked completed")
+	assert.False(t, sc.failedCalled, "a failed status is retried at once and deleted after a few tries")
+	assert.False(t, eng.evaluated, "the previous spec must not be applied")
+}
+
+func TestProcess_CompiledPolicyAtLiveGeneration_Evaluates(t *testing.T) {
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-nmpol-background-scan", Namespace: "test-nmpol-background-scan-ns", Generation: 2},
+		Spec:       backgroundScanSpec(),
+	}
+	fakeClient, kyvernoClient, restMapper := newBackgroundScanFixture(t, nmpol)
+	eng := &notCompiledEngine{compiled: nmpol.DeepCopy()}
+	sc := &fakeStatusControl{}
+	p := NewProcessor(fakeClient, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, sc, event.NewFake(), config.NewDefaultConfiguration(false))
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-policy-event", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELMutate,
+			Policy: "test-nmpol-background-scan-ns/test-nmpol-background-scan",
+		},
+	}
+	assert.NoError(t, p.Process(ur))
+	assert.True(t, eng.evaluated)
+	assert.True(t, sc.successCalled)
+}
+
 // targetTrackingClient records the namespace every target list and write was issued against,
 // so a test can assert on what the processor actually asked the API server for.
 type targetTrackingClient struct {
