@@ -11,7 +11,7 @@ This package implements the `kubectl-kyverno apply` CLI command, which applies K
 2. **Offline CRD Eager Loading**:
    - When `--crd-paths` is specified, CRDs are eagerly loaded once via `common.LoadCrdsFromPath` before building the REST mapper.
    - This ensures custom resource definitions and GVKs are registered in discovery and the schema cache before evaluation begins.
-   - `CrdPaths` is omitted from the per-resource `PolicyProcessor` initializations in `applyPolicies` to avoid re-reading and re-parsing CRDs from disk for each resource.
+   - `PolicyProcessor.CrdPreloaded` is set to `true` so `ApplyPoliciesOnResource` skips redundant per-resource disk I/O and re-registration, while preserving `CrdPaths` for components that need schema access (such as OpenAPI type conversion in mutating policies).
 
 3. **Conditional CEL Context and Provider Pre-Initialization**:
    - `utils.GetRESTMapper`, `processor.NewContextProvider`, and compiled CEL policy providers (`VpolProvider`, `VpolJSONProvider`, `MpolProvider`) are initialized once prior to resource evaluation loops only when CEL policies (`vpols`, `gpols`, `mpols`) are present.

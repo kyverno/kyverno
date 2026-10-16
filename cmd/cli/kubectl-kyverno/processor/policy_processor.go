@@ -110,6 +110,7 @@ type PolicyProcessor struct {
 	Subresources              []v1alpha1.Subresource
 	Out                       io.Writer
 	CrdPaths                  []string
+	CrdPreloaded              bool
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
@@ -143,7 +144,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		rclient = registryclient.New()
 	}
 	isCluster := false
-	if len(p.CrdPaths) > 0 {
+	if !p.CrdPreloaded && p.RESTMapper == nil && len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
