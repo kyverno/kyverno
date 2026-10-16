@@ -120,7 +120,8 @@ func TestGenerateCloneSourceReadPermissionsByCaller(t *testing.T) {
 							want = append(want, "get")
 						}
 					}
-					assert.DeepEqual(t, sourceVerbs, want, "source writes must not be required")
+					// Source writes must not be required.
+					assert.DeepEqual(t, sourceVerbs, want)
 				})
 			}
 		}
