@@ -932,223 +932,226 @@ func (b *mockPolicyContextBuilder) Build(request admissionv1.AdmissionRequest, r
 	return pc, err
 }
 
-func Test_FineGrained_VerifyImages_ClusterPolicy(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func Test_FineGrained_RetrieveAndCategorizePolicies(t *testing.T) {
+	tests := []struct {
+		name                              string
+		setupHandlers                     func(ctx context.Context) (*resourceHandlers, handlers.AdmissionRequest)
+		expectedPolicyName                string
+		expectedPolicyNamespace           string
+		expectedMutateVerifyImagesCount   int
+		expectedMutatePoliciesCount       int
+		expectedValidateVerifyImagesCount int
+		expectedValidatePoliciesCount     int
+	}{
+		{
+			name: "ClusterPolicy with verifyImages and image checks",
+			setupHandlers: func(ctx context.Context) (*resourceHandlers, handlers.AdmissionRequest) {
+				policyCache := policycache.NewCache()
+				resourceHandlers := NewFakeHandlers(ctx, policyCache)
+				var policy kyverno.ClusterPolicy
+				err := json.Unmarshal([]byte(policyVerifySignature), &policy)
+				assert.NilError(t, err)
+				policy.Spec.Rules[0].VerifyImages[0].Required = true
+				cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+				err = cpolIndexer.Add(&policy)
+				assert.NilError(t, err)
+				resourceHandlers.cpolLister = kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
 
-	policyCache := policycache.NewCache()
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
-	logger := log.WithName("Test_FineGrained_VerifyImages_ClusterPolicy")
-
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyVerifySignature), &policy)
-	assert.NilError(t, err)
-
-	// Set required = true so HasVerifyImageChecks() is true
-	policy.Spec.Rules[0].VerifyImages[0].Required = true
-
-	cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	err = cpolIndexer.Add(&policy)
-	assert.NilError(t, err)
-	resourceHandlers.cpolLister = kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
-
-	request := handlers.AdmissionRequest{
-		AdmissionRequest: v1.AdmissionRequest{
-			Operation: v1.Create,
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object: apiruntime.RawExtension{
-				Raw: []byte(pod),
+				request := handlers.AdmissionRequest{
+					AdmissionRequest: v1.AdmissionRequest{
+						Operation: v1.Create,
+						Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+						Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+						Object: apiruntime.RawExtension{
+							Raw: []byte(pod),
+						},
+						RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+					},
+					URLParams: "/check-image",
+				}
+				return resourceHandlers, request
 			},
-			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			expectedPolicyName:                "check-image",
+			expectedPolicyNamespace:           "",
+			expectedMutateVerifyImagesCount:   1,
+			expectedMutatePoliciesCount:       0,
+			expectedValidateVerifyImagesCount: 1,
+			expectedValidatePoliciesCount:     1,
 		},
-		URLParams: "/check-image",
-	}
+		{
+			name: "ClusterPolicy with verifyImages without image checks",
+			setupHandlers: func(ctx context.Context) (*resourceHandlers, handlers.AdmissionRequest) {
+				policyCache := policycache.NewCache()
+				resourceHandlers := NewFakeHandlers(ctx, policyCache)
+				var policy kyverno.ClusterPolicy
+				err := json.Unmarshal([]byte(policyVerifySignature), &policy)
+				assert.NilError(t, err)
+				policy.Spec.Rules[0].VerifyImages[0].Required = false
+				policy.Spec.Rules[0].VerifyImages[0].VerifyDigest = false
+				cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+				err = cpolIndexer.Add(&policy)
+				assert.NilError(t, err)
+				resourceHandlers.cpolLister = kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
 
-	// 1. Mutating path: verifyImages policy must be categorized into imageVerifyValidatePolicies
-	policies, mutatePolicies, generatePolicies, verifyImagesPolicies, auditWarnPolicies, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", true)
-	assert.NilError(t, err)
-	assert.Equal(t, len(verifyImagesPolicies), 1, "imageVerifyValidatePolicies must contain the verifyImages policy on finegrained mutating route")
-	assert.Equal(t, verifyImagesPolicies[0].GetName(), "check-image")
-	assert.Equal(t, len(policies), 0, "policies should not contain verifyImages policy on finegrained mutating route")
-	assert.Equal(t, len(mutatePolicies), 0)
-	assert.Equal(t, len(generatePolicies), 0)
-	assert.Equal(t, len(auditWarnPolicies), 0)
-
-	// 2. Validating path with image validation checks (Required: true): must be categorized into imageVerifyValidatePolicies and policies
-	policies, mutatePolicies, generatePolicies, verifyImagesPolicies, auditWarnPolicies, err = resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
-	assert.NilError(t, err)
-	assert.Equal(t, len(verifyImagesPolicies), 1, "imageVerifyValidatePolicies must contain the verifyImages policy on finegrained validating route when image checks exist")
-	assert.Equal(t, len(policies), 1, "policies must contain the verifyImages policy on finegrained validating route when image checks exist")
-	assert.Equal(t, policies[0].GetName(), "check-image")
-	assert.Equal(t, len(mutatePolicies), 0)
-	assert.Equal(t, len(generatePolicies), 0)
-	assert.Equal(t, len(auditWarnPolicies), 0)
-}
-
-func Test_FineGrained_VerifyImages_ClusterPolicy_WithoutChecks(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	policyCache := policycache.NewCache()
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
-	logger := log.WithName("Test_FineGrained_VerifyImages_ClusterPolicy_WithoutChecks")
-
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyVerifySignature), &policy)
-	assert.NilError(t, err)
-
-	// Ensure HasVerifyImageChecks() is false (Required: false, VerifyDigest: false)
-	policy.Spec.Rules[0].VerifyImages[0].Required = false
-	policy.Spec.Rules[0].VerifyImages[0].VerifyDigest = false
-
-	cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	err = cpolIndexer.Add(&policy)
-	assert.NilError(t, err)
-	resourceHandlers.cpolLister = kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
-
-	request := handlers.AdmissionRequest{
-		AdmissionRequest: v1.AdmissionRequest{
-			Operation: v1.Create,
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object: apiruntime.RawExtension{
-				Raw: []byte(pod),
+				request := handlers.AdmissionRequest{
+					AdmissionRequest: v1.AdmissionRequest{
+						Operation: v1.Create,
+						Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+						Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+						Object: apiruntime.RawExtension{
+							Raw: []byte(pod),
+						},
+						RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+					},
+					URLParams: "/check-image",
+				}
+				return resourceHandlers, request
 			},
-			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			expectedPolicyName:                "check-image",
+			expectedPolicyNamespace:           "",
+			expectedMutateVerifyImagesCount:   1,
+			expectedMutatePoliciesCount:       0,
+			expectedValidateVerifyImagesCount: 0,
+			expectedValidatePoliciesCount:     0,
 		},
-		URLParams: "/check-image",
-	}
+		{
+			name: "ClusterPolicy with both validate and verifyImages rules (no duplicates in policies)",
+			setupHandlers: func(ctx context.Context) (*resourceHandlers, handlers.AdmissionRequest) {
+				policyCache := policycache.NewCache()
+				resourceHandlers := NewFakeHandlers(ctx, policyCache)
+				var policy kyverno.ClusterPolicy
+				err := json.Unmarshal([]byte(policyVerifySignature), &policy)
+				assert.NilError(t, err)
+				policy.SetName("mixed-policy")
+				policy.Spec.Rules[0].VerifyImages[0].Required = true
 
-	// 1. Mutating path: verifyImages policy must still be categorized into imageVerifyValidatePolicies so verification runs
-	policies, _, _, verifyImagesPolicies, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", true)
-	assert.NilError(t, err)
-	assert.Equal(t, len(verifyImagesPolicies), 1)
-	assert.Equal(t, len(policies), 0)
+				var validatePolicy kyverno.ClusterPolicy
+				err = json.Unmarshal([]byte(policyCheckLabel), &validatePolicy)
+				assert.NilError(t, err)
+				policy.Spec.Rules = append(policy.Spec.Rules, validatePolicy.Spec.Rules[0])
 
-	// 2. Validating path without image checks: should not be added to policies or imageVerifyValidatePolicies
-	policies, _, _, verifyImagesPolicies, _, err = resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
-	assert.NilError(t, err)
-	assert.Equal(t, len(verifyImagesPolicies), 0)
-	assert.Equal(t, len(policies), 0)
-}
+				assert.Assert(t, policy.Spec.HasValidate(), "spec must have validate rule")
+				assert.Assert(t, policy.Spec.HasVerifyImages(), "spec must have verifyImages rule")
+				assert.Assert(t, policy.Spec.HasVerifyImageChecks(), "spec must have verifyImage checks")
 
-func Test_FineGrained_Policy_WithValidateAndVerifyImages_NoDuplicates(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+				cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+				err = cpolIndexer.Add(&policy)
+				assert.NilError(t, err)
+				resourceHandlers.cpolLister = kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
 
-	policyCache := policycache.NewCache()
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
-	logger := log.WithName("Test_FineGrained_Policy_WithValidateAndVerifyImages_NoDuplicates")
-
-	var policy kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyVerifySignature), &policy)
-	assert.NilError(t, err)
-	policy.SetName("mixed-policy")
-	policy.Spec.Rules[0].VerifyImages[0].Required = true
-
-	// Add a validate rule as well
-	var validatePolicy kyverno.ClusterPolicy
-	err = json.Unmarshal([]byte(policyCheckLabel), &validatePolicy)
-	assert.NilError(t, err)
-	policy.Spec.Rules = append(policy.Spec.Rules, validatePolicy.Spec.Rules[0])
-
-	assert.Assert(t, policy.Spec.HasValidate(), "spec must have validate rule")
-	assert.Assert(t, policy.Spec.HasVerifyImages(), "spec must have verifyImages rule")
-	assert.Assert(t, policy.Spec.HasVerifyImageChecks(), "spec must have verifyImage checks")
-
-	cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
-	err = cpolIndexer.Add(&policy)
-	assert.NilError(t, err)
-	resourceHandlers.cpolLister = kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
-
-	request := handlers.AdmissionRequest{
-		AdmissionRequest: v1.AdmissionRequest{
-			Operation: v1.Create,
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Object: apiruntime.RawExtension{
-				Raw: []byte(pod),
+				request := handlers.AdmissionRequest{
+					AdmissionRequest: v1.AdmissionRequest{
+						Operation: v1.Create,
+						Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+						Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+						Object: apiruntime.RawExtension{
+							Raw: []byte(pod),
+						},
+						RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+					},
+					URLParams: "/mixed-policy",
+				}
+				return resourceHandlers, request
 			},
-			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			expectedPolicyName:                "mixed-policy",
+			expectedPolicyNamespace:           "",
+			expectedMutateVerifyImagesCount:   1,
+			expectedMutatePoliciesCount:       1,
+			expectedValidateVerifyImagesCount: 1,
+			expectedValidatePoliciesCount:     1,
 		},
-		URLParams: "/mixed-policy",
-	}
+		{
+			name: "Namespaced Policy with verifyImages and image checks",
+			setupHandlers: func(ctx context.Context) (*resourceHandlers, handlers.AdmissionRequest) {
+				policyCache := policycache.NewCache()
+				resourceHandlers := NewFakeHandlers(ctx, policyCache)
+				var cpol kyverno.ClusterPolicy
+				err := json.Unmarshal([]byte(policyVerifySignature), &cpol)
+				assert.NilError(t, err)
 
-	// Validating path: policies slice must have exactly 1 policy (no duplicate)
-	policies, _, _, verifyImagesPolicies, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
-	assert.NilError(t, err)
-	assert.Equal(t, len(policies), 1, "policies slice must not duplicate the policy when it has both validate and verifyImages rules")
-	assert.Equal(t, len(verifyImagesPolicies), 1)
+				namespacedPolicy := kyverno.Policy{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "kyverno.io/v1",
+						Kind:       "Policy",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "ns-check-image",
+						Namespace: "test-ns",
+					},
+					Spec: cpol.Spec,
+				}
+				namespacedPolicy.Spec.Rules[0].VerifyImages[0].Required = true
 
-	// Mutating path: verifyImagesPolicies has the policy, policies slice has validate policy (which is discarded in Mutate())
-	policies, _, _, verifyImagesPolicies, _, err = resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", true)
-	assert.NilError(t, err)
-	assert.Equal(t, len(verifyImagesPolicies), 1)
-	assert.Equal(t, len(policies), 1)
-}
+				polIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+				err = polIndexer.Add(&namespacedPolicy)
+				assert.NilError(t, err)
+				resourceHandlers.polLister = kyvernov1listers.NewPolicyLister(polIndexer)
 
-func Test_FineGrained_VerifyImages_NamespacedPolicy(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	policyCache := policycache.NewCache()
-	resourceHandlers := NewFakeHandlers(ctx, policyCache)
-	logger := log.WithName("Test_FineGrained_VerifyImages_NamespacedPolicy")
-
-	var cpol kyverno.ClusterPolicy
-	err := json.Unmarshal([]byte(policyVerifySignature), &cpol)
-	assert.NilError(t, err)
-
-	namespacedPolicy := kyverno.Policy{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "kyverno.io/v1",
-			Kind:       "Policy",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ns-check-image",
-			Namespace: "test-ns",
-		},
-		Spec: cpol.Spec,
-	}
-	namespacedPolicy.Spec.Rules[0].VerifyImages[0].Required = true
-
-	polIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	err = polIndexer.Add(&namespacedPolicy)
-	assert.NilError(t, err)
-	resourceHandlers.polLister = kyvernov1listers.NewPolicyLister(polIndexer)
-
-	request := handlers.AdmissionRequest{
-		AdmissionRequest: v1.AdmissionRequest{
-			Operation: v1.Create,
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Namespace: "test-ns",
-			Object: apiruntime.RawExtension{
-				Raw: []byte(pod),
+				request := handlers.AdmissionRequest{
+					AdmissionRequest: v1.AdmissionRequest{
+						Operation: v1.Create,
+						Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+						Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+						Namespace: "test-ns",
+						Object: apiruntime.RawExtension{
+							Raw: []byte(pod),
+						},
+						RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+					},
+					URLParams: "/test-ns/ns-check-image",
+				}
+				return resourceHandlers, request
 			},
-			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			expectedPolicyName:                "ns-check-image",
+			expectedPolicyNamespace:           "test-ns",
+			expectedMutateVerifyImagesCount:   1,
+			expectedMutatePoliciesCount:       0,
+			expectedValidateVerifyImagesCount: 1,
+			expectedValidatePoliciesCount:     1,
 		},
-		URLParams: "/test-ns/ns-check-image",
 	}
 
-	// Mutating path: namespaced policy is found and categorized into imageVerifyValidatePolicies
-	policies, mutatePolicies, generatePolicies, verifyImagesPolicies, _, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", true)
-	assert.NilError(t, err)
-	assert.Equal(t, len(verifyImagesPolicies), 1)
-	assert.Equal(t, verifyImagesPolicies[0].GetNamespace(), "test-ns")
-	assert.Equal(t, verifyImagesPolicies[0].GetName(), "ns-check-image")
-	assert.Equal(t, len(policies), 0)
-	assert.Equal(t, len(mutatePolicies), 0)
-	assert.Equal(t, len(generatePolicies), 0)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			resourceHandlers, request := tc.setupHandlers(ctx)
+			logger := log.WithName(tc.name)
 
-	// Validating path: categorized into imageVerifyValidatePolicies and policies
-	policies, _, _, verifyImagesPolicies, _, err = resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
-	assert.NilError(t, err)
-	assert.Equal(t, len(verifyImagesPolicies), 1)
-	assert.Equal(t, len(policies), 1)
-	assert.Equal(t, policies[0].GetNamespace(), "test-ns")
-	assert.Equal(t, policies[0].GetName(), "ns-check-image")
+			// 1. Mutating path
+			policies, mutatePolicies, generatePolicies, verifyImagesPolicies, auditWarnPolicies, err := resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", true)
+			assert.NilError(t, err)
+			assert.Equal(t, len(verifyImagesPolicies), tc.expectedMutateVerifyImagesCount)
+			if tc.expectedMutateVerifyImagesCount > 0 {
+				assert.Equal(t, verifyImagesPolicies[0].GetName(), tc.expectedPolicyName)
+				assert.Equal(t, verifyImagesPolicies[0].GetNamespace(), tc.expectedPolicyNamespace)
+			}
+			assert.Equal(t, len(policies), tc.expectedMutatePoliciesCount)
+			if tc.expectedMutatePoliciesCount > 0 && tc.expectedMutateVerifyImagesCount > 0 {
+				assert.Equal(t, policies[0].GetName(), tc.expectedPolicyName)
+			}
+			assert.Equal(t, len(mutatePolicies), 0)
+			assert.Equal(t, len(generatePolicies), 0)
+			assert.Equal(t, len(auditWarnPolicies), 0)
+
+			// 2. Validating path
+			policies, mutatePolicies, generatePolicies, verifyImagesPolicies, auditWarnPolicies, err = resourceHandlers.retrieveAndCategorizePolicies(ctx, logger, request, "", false)
+			assert.NilError(t, err)
+			assert.Equal(t, len(verifyImagesPolicies), tc.expectedValidateVerifyImagesCount)
+			if tc.expectedValidateVerifyImagesCount > 0 {
+				assert.Equal(t, verifyImagesPolicies[0].GetName(), tc.expectedPolicyName)
+				assert.Equal(t, verifyImagesPolicies[0].GetNamespace(), tc.expectedPolicyNamespace)
+			}
+			assert.Equal(t, len(policies), tc.expectedValidatePoliciesCount)
+			if tc.expectedValidatePoliciesCount > 0 {
+				assert.Equal(t, policies[0].GetName(), tc.expectedPolicyName)
+				assert.Equal(t, policies[0].GetNamespace(), tc.expectedPolicyNamespace)
+			}
+			assert.Equal(t, len(mutatePolicies), 0)
+			assert.Equal(t, len(generatePolicies), 0)
+			assert.Equal(t, len(auditWarnPolicies), 0)
+		})
+	}
 }
 
 func Test_FineGrained_Mutate_ImageVerify_Denied(t *testing.T) {
