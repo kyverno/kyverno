@@ -401,7 +401,7 @@ spec:
 				Resource:           *resList[0],
 				Rc:                 rc,
 				Out:                os.Stdout,
-				Cluster:            true,
+				Cluster:            false,
 				ContextProvider:    contextProvider,
 				VpolProvider:       spy,
 			}
