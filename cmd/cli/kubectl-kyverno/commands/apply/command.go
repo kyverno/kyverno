@@ -639,16 +639,24 @@ func (c *ApplyCommandConfig) applyPolicies(
 					k8sPolicies = append(k8sPolicies, pol)
 				}
 			}
-			if len(k8sPolicies) > 0 {
+			if len(k8sPolicies) > 0 && len(resources) > 0 {
 				vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
 				if err != nil {
-					return &rc, resources, responses, err
+					if !c.ContinueOnFail {
+						return &rc, resources, responses, err
+					}
+					vpolProvider = nil
+					err = nil
 				}
 			}
 			if len(jsonPolicies) > 0 {
 				vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
 				if err != nil {
-					return &rc, resources, responses, err
+					if !c.ContinueOnFail {
+						return &rc, resources, responses, err
+					}
+					vpolJSONProvider = nil
+					err = nil
 				}
 			}
 		}
@@ -657,7 +665,11 @@ func (c *ApplyCommandConfig) applyPolicies(
 			compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
 			mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
 			if err != nil {
-				return &rc, resources, responses, err
+				if !c.ContinueOnFail {
+					return &rc, resources, responses, err
+				}
+				mpolProvider = nil
+				err = nil
 			}
 		}
 	}

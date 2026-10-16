@@ -623,6 +623,81 @@ func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
 	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
 }
 
+func Test_Apply_JsonPayload_UnusedK8sPolicy_SkippedCompilation(t *testing.T) {
+	// A K8s-mode ValidatingPolicy with an invalid CEL expression should NOT be compiled
+	// when evaluating JSON-only payloads, allowing valid JSON policies to succeed.
+	tmpDir := t.TempDir()
+	invalidK8sPolicy := filepath.Join(tmpDir, "invalid-k8s-policy.yaml")
+	err := os.WriteFile(invalidK8sPolicy, []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: invalid-k8s-policy
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  validations:
+  - expression: "this_is_an_invalid_cel_syntax((("
+    message: "syntax error"
+`), 0o600)
+	require.NoError(t, err)
+
+	config := ApplyCommandConfig{
+		PolicyPaths: []string{
+			invalidK8sPolicy,
+			"../../../../../test/cli/test-validating-policy/json-check-dockerfile/policy.yaml",
+		},
+		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-check-dockerfile/payload.json"},
+		PolicyReport: true,
+	}
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "unused invalid k8s policy must not fail JSON-only evaluation")
+	assert.NotEmpty(t, responses, "JSON policy should have evaluated successfully")
+}
+
+func Test_Apply_ContinueOnFail_DefersCompilationFailure(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidK8sPolicy := filepath.Join(tmpDir, "invalid-k8s-policy.yaml")
+	err := os.WriteFile(invalidK8sPolicy, []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: invalid-k8s-policy
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["CREATE"]
+      resources:   ["pods"]
+  validations:
+  - expression: "this_is_an_invalid_cel_syntax((("
+    message: "syntax error"
+`), 0o600)
+	require.NoError(t, err)
+
+	// Without continue-on-fail, applying against a K8s resource should fail immediately.
+	configWithoutCont := ApplyCommandConfig{
+		PolicyPaths:   []string{invalidK8sPolicy},
+		ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
+	}
+	_, _, _, _, err = configWithoutCont.applyCommandHelper(context.TODO(), io.Discard)
+	assert.Error(t, err, "compilation failure should abort when continue-on-fail is disabled")
+
+	// With continue-on-fail, applying should continue across the resources instead of aborting eagerly.
+	configWithCont := ApplyCommandConfig{
+		PolicyPaths:    []string{invalidK8sPolicy},
+		ResourcePaths:  []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
+		ContinueOnFail: true,
+	}
+	_, _, _, _, err = configWithCont.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "compilation failure should be deferred and ignored by continue-on-fail")
+}
+
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
