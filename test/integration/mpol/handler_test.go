@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/breaker"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/logging"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	mpol "github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/test/integration/framework"
@@ -35,21 +36,28 @@ var (
 
 func TestMain(m *testing.M) {
 	var err error
-	testEnv, err = framework.NewTestEnv(
-		"../../../config/crds/policies.kyverno.io",
-		"../../../config/crds/reports",
+	// Controller logs show up in the output of a failing test.
+	if err := logging.Setup(logging.TextFormat, logging.DefaultTime, 2, true); err != nil {
+		panic(err)
+	}
+	// Use exception-enabled engine for all tests. When no PolicyExceptions exist,
+	// behavior is identical to the non-exception engine (ListExceptions returns nil).
+	// The kyverno.io CRDs and the provider delay serve the background tests; a zero
+	// delay leaves the admission tests unaffected.
+	testEnv, err = framework.NewTestEnvWithOptions(
+		framework.WithCRDPaths(
+			"../../../config/crds/policies.kyverno.io",
+			"../../../config/crds/reports",
+			"../../../config/crds/kyverno",
+		),
+		framework.WithPolicyTypes(framework.Mpol),
+		framework.WithExceptionsEnabled(),
+		framework.WithProviderDelay(0),
 	)
 	if err != nil {
 		panic(err)
 	}
-
-	// Use exception-enabled engine for all tests. When no PolicyExceptions exist,
-	// behavior is identical to the non-exception engine (ListExceptions returns nil).
-	engine, provider, err = framework.NewMpolEngineWithExceptions(context.Background(), testEnv.Mgr, testEnv.KubeClient, testEnv.ContextProvider)
-	if err != nil {
-		testEnv.Stop()
-		panic(err)
-	}
+	engine, provider = testEnv.Mpol.Engine, testEnv.Mpol.Provider
 
 	if err := testEnv.Start(); err != nil {
 		testEnv.Stop()
@@ -75,13 +83,19 @@ func waitForPolicyReady(t *testing.T, count int) {
 	}, 5*time.Second, 100*time.Millisecond, "policies not reconciled in time")
 }
 
-// waitForPolicyGone waits until the provider has no compiled policies.
-func waitForPolicyGone(t *testing.T) {
+// waitForPolicyGone waits until the provider no longer holds a compiled policy under key
+// (mpolengine.PolicyKey), so a test that creates several policies can clean them up one by one.
+func waitForPolicyGone(t *testing.T, key string) {
 	t.Helper()
 	ctx := context.Background()
 	require.Eventually(t, func() bool {
-		return len(provider.Fetch(ctx, false)) == 0
-	}, 5*time.Second, 100*time.Millisecond, "policies not cleaned up in time")
+		for _, compiled := range provider.Fetch(ctx, false) {
+			if mpolengine.PolicyKey(compiled.Policy) == key {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "policy %s not cleaned up in time", key)
 }
 
 // createPolicyWithCleanup creates a MutatingPolicy and registers cleanup.
@@ -91,7 +105,7 @@ func createPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.MutatingPolic
 	require.NoError(t, testEnv.Client.Create(ctx, policy))
 	t.Cleanup(func() {
 		testEnv.Client.Delete(context.Background(), policy)
-		waitForPolicyGone(t)
+		waitForPolicyGone(t, mpolengine.PolicyKey(policy))
 	})
 }
 
@@ -102,7 +116,7 @@ func createNamespacedPolicyWithCleanup(t *testing.T, policy *policiesv1beta1.Nam
 	require.NoError(t, testEnv.Client.Create(ctx, policy))
 	t.Cleanup(func() {
 		testEnv.Client.Delete(context.Background(), policy)
-		waitForPolicyGone(t)
+		waitForPolicyGone(t, mpolengine.PolicyKey(policy))
 	})
 }
 

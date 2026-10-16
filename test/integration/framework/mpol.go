@@ -17,7 +17,7 @@ import (
 // This mirrors the production wiring in cmd/kyverno/main.go:
 // compiler → KubeProvider(openapi) → engine(typeConverter, contextProvider).
 func NewMpolEngine(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.Interface, contextProvider libs.Context) (mpolengine.Engine, mpolengine.Provider, error) {
-	return newMpolEngine(ctx, mgr, kubeClient, contextProvider, nil, false)
+	return newMpolEngine(ctx, mgr, kubeClient, contextProvider, nil, false, nil)
 }
 
 // NewMpolEngineWithExceptions creates an mpol engine with PolicyException support enabled.
@@ -26,16 +26,21 @@ func NewMpolEngine(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.
 // cache, avoiding the dual-cache race described in issue #16989.
 func NewMpolEngineWithExceptions(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.Interface, contextProvider libs.Context) (mpolengine.Engine, mpolengine.Provider, error) {
 	polexLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), "")
-	return newMpolEngine(ctx, mgr, kubeClient, contextProvider, polexLister, true)
+	return newMpolEngine(ctx, mgr, kubeClient, contextProvider, polexLister, true, nil)
 }
 
-func newMpolEngine(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.Interface, contextProvider libs.Context, polexLister celengine.PolicyExceptionLister, polexEnabled bool) (mpolengine.Engine, mpolengine.Provider, error) {
+// wrap, when non-nil, replaces the provider the engine reads compiled policies from, e.g. with a
+// DelayedMpolProvider; the returned provider is the wrapped one.
+func newMpolEngine(ctx context.Context, mgr ctrl.Manager, kubeClient kubernetes.Interface, contextProvider libs.Context, polexLister celengine.PolicyExceptionLister, polexEnabled bool, wrap func(mpolengine.Provider) mpolengine.Provider) (mpolengine.Engine, mpolengine.Provider, error) {
 	compiler := mpolcompiler.NewCompiler()
 	openapiClient := kubeClient.Discovery().OpenAPIV3()
 
 	provider, typeConverter, err := mpolengine.NewKubeProvider(ctx, compiler, contextProvider, mgr, openapiClient, polexLister, polexEnabled)
 	if err != nil {
 		return nil, nil, err
+	}
+	if wrap != nil {
+		provider = wrap(provider)
 	}
 
 	nsResolver := func(ns string) *corev1.Namespace { return nil }

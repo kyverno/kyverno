@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"time"
 
+	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
@@ -48,10 +50,12 @@ type VpolSetup struct {
 	Provider vpolengine.Provider
 }
 
-// MpolSetup holds the per-test wiring for MutatingPolicy.
+// MpolSetup holds the per-test wiring for MutatingPolicy. Delayed is non-nil only when
+// WithProviderDelay was passed; it is then also the Provider the engine reads from.
 type MpolSetup struct {
 	Engine   mpolengine.Engine
 	Provider mpolengine.Provider
+	Delayed  *DelayedMpolProvider
 }
 
 // GpolSetup holds the per-test wiring for GeneratingPolicy.
@@ -84,6 +88,8 @@ type setupConfig struct {
 	crdPaths     []string
 	policyTypes  []PolicyType
 	polexEnabled bool
+	// providerDelay is nil unless WithProviderDelay was passed.
+	providerDelay *time.Duration
 }
 
 // WithPolicyTypes selects which policy types to wire into the TestEnv. Calling
@@ -99,6 +105,15 @@ func WithPolicyTypes(types ...PolicyType) SetupOption {
 // exception listers (matching the *Engine non-Exceptions helpers).
 func WithExceptionsEnabled() SetupOption {
 	return func(c *setupConfig) { c.polexEnabled = true }
+}
+
+// WithProviderDelay makes the MutatingPolicy engine see each newly compiled policy version only
+// d after its provider first returns it (see DelayedMpolProvider), so tests can reproduce a
+// background scan that runs before the engine has compiled, or recompiled, the policy. The delay
+// can be changed later through MpolSetup.Delayed; passing zero wires the wrapper without a delay.
+// It applies to MutatingPolicy only.
+func WithProviderDelay(d time.Duration) SetupOption {
+	return func(c *setupConfig) { c.providerDelay = &d }
 }
 
 // WithCRDPaths adds CRD directories for envtest to load. Calls are additive:
@@ -144,7 +159,7 @@ func NewTestEnvWithOptions(opts ...SetupOption) (*TestEnv, error) {
 		if wired[pt] {
 			continue
 		}
-		if err := wirePolicyType(optCtx, env, pt, cfg.polexEnabled); err != nil {
+		if err := wirePolicyType(optCtx, env, pt, cfg); err != nil {
 			optCancel()
 			env.Stop()
 			return nil, fmt.Errorf("wiring %s: %w", pt, err)
@@ -158,7 +173,8 @@ func NewTestEnvWithOptions(opts ...SetupOption) (*TestEnv, error) {
 // wirePolicyType builds and attaches the per-type setup for pt. Each branch
 // delegates to the existing per-type helpers so callers of those helpers see
 // no behavior change.
-func wirePolicyType(ctx context.Context, env *TestEnv, pt PolicyType, polexEnabled bool) error {
+func wirePolicyType(ctx context.Context, env *TestEnv, pt PolicyType, cfg setupConfig) error {
+	polexEnabled := cfg.polexEnabled
 	switch pt {
 	case Vpol:
 		var (
@@ -182,15 +198,26 @@ func wirePolicyType(ctx context.Context, env *TestEnv, pt PolicyType, polexEnabl
 			provider mpolengine.Provider
 			err      error
 		)
+		var (
+			delayed *DelayedMpolProvider
+			wrap    func(mpolengine.Provider) mpolengine.Provider
+		)
+		if cfg.providerDelay != nil {
+			wrap = func(inner mpolengine.Provider) mpolengine.Provider {
+				delayed = NewDelayedMpolProvider(inner, *cfg.providerDelay)
+				return delayed
+			}
+		}
 		if polexEnabled {
-			engine, provider, err = NewMpolEngineWithExceptions(ctx, env.Mgr, env.KubeClient, env.ContextProvider)
+			polexLister := celengine.NewManagerPolicyExceptionLister(env.Mgr.GetClient(), "")
+			engine, provider, err = newMpolEngine(ctx, env.Mgr, env.KubeClient, env.ContextProvider, polexLister, true, wrap)
 		} else {
-			engine, provider, err = NewMpolEngine(ctx, env.Mgr, env.KubeClient, env.ContextProvider)
+			engine, provider, err = newMpolEngine(ctx, env.Mgr, env.KubeClient, env.ContextProvider, nil, false, wrap)
 		}
 		if err != nil {
 			return err
 		}
-		env.Mpol = &MpolSetup{Engine: engine, Provider: provider}
+		env.Mpol = &MpolSetup{Engine: engine, Provider: provider, Delayed: delayed}
 
 	case Gpol:
 		gpolLister, ngpolLister := NewGpolListers(ctx, env.KyvernoClient)
