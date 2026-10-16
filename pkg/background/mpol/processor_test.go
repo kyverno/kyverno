@@ -979,6 +979,33 @@ func TestProcess_CompiledPolicyOlderThanLive_RetriesWithoutEvaluating(t *testing
 	assert.False(t, eng.evaluated, "the previous spec must not be applied")
 }
 
+func TestProcess_CompiledPolicyFromBeforeRecreate_RetriesWithoutEvaluating(t *testing.T) {
+	// the policy was deleted and recreated: its generation restarted below the old copy's
+	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-nmpol-background-scan", Namespace: "test-nmpol-background-scan-ns", UID: "recreated", Generation: 1},
+		Spec:       backgroundScanSpec(),
+	}
+	fakeClient, kyvernoClient, restMapper := newBackgroundScanFixture(t, nmpol)
+	stale := nmpol.DeepCopy()
+	stale.SetUID("deleted")
+	stale.SetGeneration(3)
+	eng := &notCompiledEngine{compiled: stale}
+	sc := &fakeStatusControl{}
+	p := NewProcessor(fakeClient, kyvernoClient, eng, restMapper, &libs.FakeContextProvider{}, sc, event.NewFake(), config.NewDefaultConfiguration(false))
+
+	ur := &kyvernov2.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "ur-policy-event", Namespace: "kyverno"},
+		Spec: kyvernov2.UpdateRequestSpec{
+			Type:   kyvernov2.CELMutate,
+			Policy: "test-nmpol-background-scan-ns/test-nmpol-background-scan",
+		},
+	}
+	assert.Error(t, p.Process(ur))
+	assert.False(t, sc.successCalled, "a scan with the deleted policy's spec must not be marked completed")
+	assert.False(t, sc.failedCalled)
+	assert.False(t, eng.evaluated, "the deleted policy's spec must not be applied")
+}
+
 func TestProcess_CompiledPolicyAtLiveGeneration_Evaluates(t *testing.T) {
 	nmpol := &policiesv1beta1.NamespacedMutatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-nmpol-background-scan", Namespace: "test-nmpol-background-scan-ns", Generation: 2},

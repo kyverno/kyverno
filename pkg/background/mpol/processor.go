@@ -127,11 +127,13 @@ func (p *processor) Process(ur *kyvernov2.UpdateRequest) error {
 	if err != nil || (compiled.Policy != nil && mpolengine.PolicyKey(compiled.Policy) != key) {
 		return fmt.Errorf("mutating policy %s is not compiled yet", key)
 	}
-	// The same holds right after a policy update: until the engine has recompiled it, evaluation would
-	// run the previous spec and complete the request without ever applying the new one. Generation only
-	// moves on spec changes, so a compiled copy at an older generation is stale.
-	if compiled.Policy != nil && compiled.Policy.GetGeneration() < mpol.GetGeneration() {
-		return fmt.Errorf("mutating policy %s is not compiled yet: compiled generation %d is older than %d", key, compiled.Policy.GetGeneration(), mpol.GetGeneration())
+	// The same holds right after a policy update or a delete and recreate under the same key: until the
+	// engine has recompiled it, evaluation would run the previous spec and complete the request without
+	// ever applying the new one. Generation only moves on spec changes and restarts for a recreated
+	// policy, so the compiled copy must be this very object (UID) at this very spec (generation).
+	if compiled.Policy != nil && (compiled.Policy.GetUID() != mpol.GetUID() || compiled.Policy.GetGeneration() != mpol.GetGeneration()) {
+		return fmt.Errorf("mutating policy %s is not compiled yet: compiled uid %s generation %d, live uid %s generation %d",
+			key, compiled.Policy.GetUID(), compiled.Policy.GetGeneration(), mpol.GetUID(), mpol.GetGeneration())
 	}
 
 	targetConstraints := mpol.GetMatchConstraints()
