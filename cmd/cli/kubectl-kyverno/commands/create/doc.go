@@ -4,6 +4,11 @@ var websiteUrl = `https://kyverno.io/docs/kyverno-cli/#create`
 
 var description = []string{
 	`Helps with the creation of various Kyverno resources.`,
+	``,
+	`Note: "kyverno create exception" (which scaffolded a legacy kyverno.io/v2 PolicyException) was removed`,
+	`in 1.20 along with legacy policy execution; there is no scaffolding replacement. See the`,
+	`policies.kyverno.io PolicyException docs at https://kyverno.io/docs/policy-types/policy-exception/`,
+	`for the CEL PolicyException shape.`,
 }
 
 var examples = [][]string{
