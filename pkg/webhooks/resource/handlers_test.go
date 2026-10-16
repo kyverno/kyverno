@@ -1150,3 +1150,40 @@ func Test_FineGrained_VerifyImages_NamespacedPolicy(t *testing.T) {
 	assert.Equal(t, policies[0].GetNamespace(), "test-ns")
 	assert.Equal(t, policies[0].GetName(), "ns-check-image")
 }
+
+func Test_FineGrained_Mutate_ImageVerify_Denied(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	policyCache := policycache.NewCache()
+	resourceHandlers := NewFakeHandlers(ctx, policyCache)
+	logger := log.WithName("Test_FineGrained_Mutate_ImageVerify_Denied")
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal([]byte(policyVerifySignature), &policy)
+	assert.NilError(t, err)
+	policy.Spec.ValidationFailureAction = "Enforce"
+
+	cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	err = cpolIndexer.Add(&policy)
+	assert.NilError(t, err)
+	resourceHandlers.cpolLister = kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
+
+	request := handlers.AdmissionRequest{
+		AdmissionRequest: v1.AdmissionRequest{
+			Operation: v1.Create,
+			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			Object: apiruntime.RawExtension{
+				Raw: []byte(pod),
+			},
+			RequestResource: &metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+		},
+		URLParams: "/check-image",
+	}
+
+	response := resourceHandlers.Mutate(ctx, logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, false, "finegrained mutating route must execute image verification and deny unverified image")
+	assert.Equal(t, len(response.Warnings), 0)
+}
+
