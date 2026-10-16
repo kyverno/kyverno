@@ -121,7 +121,8 @@ func TestImageFunctionsShareCachedVerificationAndPayload(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			const image = "registry.example/app:latest"
+			// Verification cache entries require immutable digest-pinned references.
+			const image = "registry.example/app@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 			const predicate = "https://example.com/attestation"
 			policy := ivpol.DeepCopy()
 			policy.Name = "cached-payload"
@@ -129,11 +130,13 @@ func TestImageFunctionsShareCachedVerificationAndPayload(t *testing.T) {
 			policy.Spec.Attestations = []policiesv1beta1.Attestation{{Name: "sbom", InToto: &policiesv1beta1.InToto{Type: predicate}}}
 			cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 			require.NoError(t, err)
-			signatureRule := attestorCacheRule(signatureCacheRule, "", policy.Spec.Attestors)
+			signatureRule, err := attestorCacheRule(signatureCacheRule, "", policy.Spec.Attestors)
+			require.NoError(t, err)
 			stored, err := cache.Set(context.Background(), policy, signatureRule, image, true)
 			require.NoError(t, err)
 			require.True(t, stored)
-			attestationRule := attestorCacheRule(attestationCacheRule, "sbom", policy.Spec.Attestors)
+			attestationRule, err := attestorCacheRule(attestationCacheRule, "sbom", policy.Spec.Attestors)
+			require.NoError(t, err)
 			stored, err = cache.SetWithPayload(context.Background(), policy, attestationRule, image, true, map[string][]byte{predicate: []byte(`{"verified":"payload"}`)})
 			require.NoError(t, err)
 			require.True(t, stored)
@@ -141,17 +144,18 @@ func TestImageFunctionsShareCachedVerificationAndPayload(t *testing.T) {
 			results := NewImageVerificationResults()
 			env, err := cel.NewEnv(
 				cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
+				cel.Variable("image", cel.StringType),
 				Lib(nil, images, policy, nil, logr.Discard(), cache, results),
 			)
 			require.NoError(t, err)
-			ast, issues := env.Compile(`verifyImageSignatures("registry.example/app:latest", [attestors.cached]) == 1 &&
-				verifyAttestationSignatures("registry.example/app:latest", "sbom", [attestors.cached]) == 1 &&
-				extractPayload("registry.example/app:latest", "sbom").verified == "payload"`)
+			ast, issues := env.Compile(`verifyImageSignatures(image, [attestors.cached]) == 1 &&
+				verifyAttestationSignatures(image, "sbom", [attestors.cached]) == 1 &&
+				extractPayload(image, "sbom").verified == "payload"`)
 			require.Nil(t, issues)
 			program, err := env.Program(ast)
 			require.NoError(t, err)
 			ctx := context.WithValue(context.Background(), requestMarker{}, name)
-			data := map[string]any{"attestors": map[string]policiesv1beta1.Attestor{"cached": policy.Spec.Attestors[0]}}
+			data := map[string]any{"image": image, "attestors": map[string]policiesv1beta1.Attestor{"cached": policy.Spec.Attestors[0]}}
 			if activationContext {
 				data[RequestContextKey] = NewEvaluationContext(ctx)
 			}

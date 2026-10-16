@@ -35,7 +35,7 @@ require (
 	github.com/kyverno/go-jmespath v0.4.1-0.20231124160150-95e59c162877
 	github.com/kyverno/kyverno-authz v0.4.1-0.20260701230957-9101a3ffd44f
 	github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2
-	github.com/kyverno/sdk v0.0.0-20261012132606-c17110bb60ee
+	github.com/kyverno/sdk v0.0.0-20261016025023-e9bcfb4e5bc5
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/notaryproject/notation-core-go v1.3.0
 	github.com/notaryproject/notation-go v1.3.2
@@ -421,6 +421,3 @@ require (
 )
 
 replace k8s.io/pod-security-admission => github.com/kyverno/pod-security-admission v0.0.0-20261015135348-40bb0fb141a9
-
-// Temporary prerequisite from kyverno/sdk#160; use the merged canonical SDK before marking this PR ready.
-replace github.com/kyverno/sdk => github.com/sagark-nirmata/sdk v0.0.0-20261015044205-45eaf15bb825

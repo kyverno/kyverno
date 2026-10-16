@@ -644,6 +644,8 @@ github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2 h1:uLTs
 github.com/kyverno/playground/backend v0.0.0-20251124111549-b7997c02bca2/go.mod h1:EumSDUMvIitgwlZBvVYnlgC285mZ0yCjAfoiu8s3o/g=
 github.com/kyverno/pod-security-admission v0.0.0-20261015135348-40bb0fb141a9 h1:a60yPq4EC9s0l68R/s1tXwxy1QP5sxXD7k0XDXcmWoY=
 github.com/kyverno/pod-security-admission v0.0.0-20261015135348-40bb0fb141a9/go.mod h1:2oJ/wAoh8hld09eMTT1KzlN3dHjKEQn1xJdu1WAZMa0=
+github.com/kyverno/sdk v0.0.0-20261016025023-e9bcfb4e5bc5 h1:ltPzEegvYkrP4D94FdIhEY1I3PZk9gycIu4bCnQRkWE=
+github.com/kyverno/sdk v0.0.0-20261016025023-e9bcfb4e5bc5/go.mod h1:4YUdsQjxroCGInE5dvnlaPcZ0nV+5MQruyO+7PeTruI=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7 h1:k/1ku0yehLCPqERCHkIHMDqDg1R02AcCScRuHbamU3s=
 github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7/go.mod h1:YR/zYthNdWfO8+0IOyHDcIDBBBS2JMnYUIwSsnwmRqU=
 github.com/lestrrat-go/blackmagic v1.0.4 h1:IwQibdnf8l2KoO+qC3uT4OaTWsW7tuRQXy9TRN9QanA=
@@ -802,8 +804,6 @@ github.com/russross/blackfriday/v2 v2.1.0 h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf
 github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
 github.com/ryanuber/go-glob v1.0.0 h1:iQh3xXAumdQ+4Ufa5b25cRpC5TYKlno6hsv6Cb3pkBk=
 github.com/ryanuber/go-glob v1.0.0/go.mod h1:807d1WSdnB0XRJzKNil9Om6lcp/3a0v4qIHxIXzX/Yc=
-github.com/sagark-nirmata/sdk v0.0.0-20261015044205-45eaf15bb825 h1:aVYitP/zC5zZhjdRlfFbHV87rxyTNUxxq859l1istjA=
-github.com/sagark-nirmata/sdk v0.0.0-20261015044205-45eaf15bb825/go.mod h1:4YUdsQjxroCGInE5dvnlaPcZ0nV+5MQruyO+7PeTruI=
 github.com/sagikazarmark/locafero v0.11.0 h1:1iurJgmM9G3PA/I+wWYIOw/5SyBtxapeHDcg+AAIFXc=
 github.com/sagikazarmark/locafero v0.11.0/go.mod h1:nVIGvgyzw595SUSUE6tvCp3YYTeHs15MvlmU87WwIik=
 github.com/sassoftware/relic v7.2.1+incompatible h1:Pwyh1F3I0r4clFJXkSI8bOyJINGqpgjJU3DYAZeI05A=

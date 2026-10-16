@@ -1,8 +1,9 @@
 # CEL registry egress configuration
 
 CEL image lookups and ImageValidatingPolicy verification apply an egress guard before registry requests and credential resolution.
-The guard also covers registry token services, redirect destinations, and the HTTP
-services used for signature verification: Rekor, certificate transparency (CT)
+The guard also covers token services and redirects reached through the registry
+transport, and the HTTP services used for signature verification: Rekor,
+certificate transparency (CT)
 services, TUF mirrors, certificate roots, and public key URLs. These services share
 the registry egress mode and allowlist. Direct connections use the validated IP address, including when the registry is allowlisted,
 so a second DNS lookup cannot replace it with a different destination. DNS
@@ -11,8 +12,15 @@ request deadline when present. IPv4 and IPv6 attempts can race for faster fallba
 The remaining time is also apportioned across addresses within each family, so an
 unreachable first address can fall back to another within the same deadline.
 
-KMS key references retain their provider SDK networking; this registry and Sigstore
-HTTP guard is not a general process-wide network policy.
+Azure Container Registry credential helpers retain their existing SDK/Flux
+behavior in this release. Kyverno checks the initial registry destination before
+invoking the helper, but the provider's internal credential exchange uses its own
+HTTP client. Those internal requests do not receive Kyverno's egress transport,
+DNS pinning, proxy checks, or request cancellation. Custom HTTP-client and context
+support for that exchange is deferred until it is available in Flux and the SDK.
+
+KMS key references also retain their provider SDK networking; this registry and
+Sigstore HTTP guard is not a general process-wide network policy.
 
 ## Release behavior and migration
 
@@ -104,6 +112,9 @@ rotations remain usable offline while their metadata is valid. `SIGSTORE_NO_CACH
 continues to disable local cache reads and writes.
 
 ## HTTP and HTTPS proxies
+
+The following proxy behavior applies to requests using Kyverno's guarded
+transport. It does not cover the Azure provider's internal credential exchange.
 
 An operator-configured `HTTP_PROXY` or `HTTPS_PROXY` may itself use an ordinary
 private address without appearing in the registry allowlist, in either mode.
