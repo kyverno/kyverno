@@ -86,9 +86,21 @@ func testBundleDetectionWithPEMOnlyTrust(t *testing.T) {
 		opts, _, _, err := verifier.buildCheckOptsWithBundleDetection(ctx, attestor, image)
 		require.NoError(t, err)
 		require.True(t, opts.NewBundleFormat)
+		require.False(t, opts.IgnoreSCT, "key verification must work with the default SCT setting")
 		require.True(t, opts.TrustedMaterial == nil)
 		result, err := cosign.VerifyNewBundle(ctx, opts, verify.WithArtifact(bytes.NewReader(artifact)), bundles[0])
 		require.NoError(t, err, "a genuine offline key bundle must remain verifiable without modern TUF material")
 		require.NotNil(t, result)
+
+		result, err = cosign.VerifyNewBundle(ctx, opts, verify.WithArtifact(bytes.NewReader([]byte("tampered payload"))), bundles[0])
+		require.Error(t, err, "offline key verification must still authenticate the artifact")
+		require.Nil(t, result)
+
+		wrongKeyOpts := *opts
+		wrongKeyOpts.SigVerifier, err = decodePEM([]byte(otherPublicKey(t)), signatureAlgorithmMap[""])
+		require.NoError(t, err)
+		result, err = cosign.VerifyNewBundle(ctx, &wrongKeyOpts, verify.WithArtifact(bytes.NewReader(artifact)), bundles[0])
+		require.Error(t, err, "offline key verification must still enforce the configured signing key")
+		require.Nil(t, result)
 	})
 }

@@ -33,6 +33,9 @@ func authenticatedTargetAbsent(client *legacyTUFClient, name string) bool {
 		children := targets.Signed.Delegations.GetRolesForTarget(name)
 		for i, child := range children {
 			if child.Terminating {
+				// TUF termination also excludes pending ancestor siblings,
+				// matching go-tuf's preOrderDepthFirstWalk, even if their
+				// metadata was authenticated by an earlier target lookup.
 				pending = nil
 				children = children[:i+1]
 				break

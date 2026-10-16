@@ -66,6 +66,9 @@ func validateBundleTrust(opts *cosign.CheckOpts) error {
 	// PEM keys and certificates remain sufficient for legacy verification.
 	// Modern bundles need trusted-root material for identity, transparency-log,
 	// or timestamp verification; offline public-key verification does not.
+	// Cosign enables SCT verification only without a SigVerifier; its WithKey
+	// policy rejects certificate bundles. IgnoreSCT therefore adds no trust
+	// requirement to the offline public-key case below.
 	if opts.NewBundleFormat && opts.TrustedMaterial == nil &&
 		(opts.SigVerifier == nil || !opts.IgnoreTlog || opts.UseSignedTimestamps) {
 		return fmt.Errorf("modern Sigstore bundle verification requires trusted root material for identity, transparency log, or timestamp verification")
