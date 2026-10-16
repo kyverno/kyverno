@@ -10,8 +10,8 @@ Fix inconsistencies and deprecated usage of Kyverno resources.
   It can be used to fix Kyverno test files.
   
   Note: "kyverno fix policy" (for legacy kyverno.io ClusterPolicy/Policy resources) was removed in 1.20
-  along with legacy policy execution; there is no replacement, since legacy policies can no longer be
-  authored at all. See https://kyverno.io/docs/guides/migration-to-cel/ for migrating to CEL policies.
+  along with legacy policy execution; there is no replacement, since Kyverno no longer supports legacy
+  policy authoring. See https://kyverno.io/docs/guides/migration-to-cel/ for migrating to CEL policies.
 
   NOTE: This is an experimental command, use `KYVERNO_EXPERIMENTAL=true` to enable it.
 
