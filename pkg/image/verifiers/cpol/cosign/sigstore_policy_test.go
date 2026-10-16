@@ -191,4 +191,7 @@ func TestPolicyBundleVerifyOptions(t *testing.T) {
 	if got := len(buildVerifyOptions(verifiers.Options{IgnoreTlog: true, IgnoreSCT: false, TSACertChain: "configured"})); got != 2 {
 		t.Fatalf("expected independent signed timestamp and observer requirements: %d", got)
 	}
+	if got := len(buildVerifyOptions(verifiers.Options{Key: "k", IgnoreTlog: true, IgnoreSCT: false, TSACertChain: "configured"})); got != 1 {
+		t.Fatalf("key-based attestor must not require a policy TSA signed timestamp: %d", got)
+	}
 }

@@ -200,9 +200,12 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 	if !opts.IgnoreTlog {
 		verifierOptions = append(verifierOptions, verify.WithTransparencyLog(1))
 	}
-	if opts.TSACertChain != "" {
+	if opts.Key == "" && opts.TSACertChain != "" {
 		// A policy-supplied TSA chain explicitly requires at least one verified
-		// RFC3161 signed timestamp.
+		// RFC3161 signed timestamp. This only applies to the keyless policy-trust
+		// path: getBundleTrustedRoot composes the TSA authorities there, whereas
+		// the key-based path (opts.Key set) builds key-only trusted material and
+		// has no TSA trust to satisfy the requirement.
 		verifierOptions = append(verifierOptions, verify.WithSignedTimestamps(1))
 	}
 	if !opts.IgnoreSCT {
