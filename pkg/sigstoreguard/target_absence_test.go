@@ -62,6 +62,47 @@ func TestAuthenticatedTargetAbsenceWithDelegations(t *testing.T) {
 	}
 }
 
+func TestAuthenticatedTargetAbsenceHonorsGlobalTermination(t *testing.T) {
+	t.Parallel()
+	for _, terminating := range []bool{false, true} {
+		t.Run(fmt.Sprintf("terminating=%t", terminating), func(t *testing.T) {
+			t.Parallel()
+			mode := "nonterminating_sibling_target"
+			if terminating {
+				mode = "terminating_sibling_target"
+			}
+			fixture := newVerificationFixture(t)
+			rootBytes, mirror, httpClient, _ := fixture.delegatedRepository(t, mode)
+			opts, err := tufOptions(context.Background(), mirror, rootBytes, false, httpClient, true)
+			require.NoError(t, err)
+			client, err := newUpdaterClient(opts)
+			require.NoError(t, err)
+			// Authenticate the ancestor sibling through a different target
+			// before testing a lookup that matches the terminating branch.
+			_, err = client.GetTarget("sibling.txt")
+			require.NoError(t, err)
+			sibling := client.GetTrustedMetadataSet().Targets["ignored"]
+			require.NotNil(t, sibling)
+			require.Contains(t, sibling.Signed.Targets, "rekor.pub")
+			_, err = client.GetTargetInfo("rekor.pub")
+			if terminating {
+				require.ErrorContains(t, err, "target rekor.pub not found")
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, terminating, authenticatedTargetAbsent(client, "rekor.pub"))
+			data, present, err := client.optionalTarget("rekor.pub")
+			require.NoError(t, err)
+			require.Equal(t, !terminating, present)
+			if terminating {
+				require.Nil(t, data)
+			} else {
+				require.Equal(t, []byte("ancestor sibling target"), data)
+			}
+		})
+	}
+}
+
 func TestVerificationMaterialWithModernDelegatedRepository(t *testing.T) {
 	t.Setenv("SIGSTORE_REKOR_PUBLIC_KEY", "")
 	t.Setenv("SIGSTORE_CT_LOG_PUBLIC_KEY_FILE", "")
@@ -115,10 +156,13 @@ func (f *verificationFixture) delegatedRepository(t *testing.T, mode string) ([]
 			roles[role] = metadata.Targets(expires)
 		}
 		owner = succinct.GetRolesForTarget("trusted_root.json")[0].Name
-	case "terminating":
+	case "terminating", "terminating_sibling_target", "nonterminating_sibling_target":
 		delegate(metadata.TARGETS, "first", false)
 		delegate(metadata.TARGETS, "ignored", false)
-		delegate("first", owner, true)
+		delegate("first", owner, mode != "nonterminating_sibling_target")
+		if mode != "terminating" {
+			roles[metadata.TARGETS].Signed.Delegations.Roles[0].Paths = []string{"rekor.pub", "trusted_root.json"}
+		}
 	case "cycle":
 		delegate(metadata.TARGETS, "first", false)
 		delegate("first", owner, false)
@@ -140,6 +184,15 @@ func (f *verificationFixture) delegatedRepository(t *testing.T, mode string) ([]
 	require.NoError(t, err)
 	roles[owner].Signed.Targets["trusted_root.json"] = target
 	files := map[string][]byte{"/targets/" + hex.EncodeToString(target.Hashes["sha256"]) + ".trusted_root.json": data}
+	if mode == "terminating_sibling_target" || mode == "nonterminating_sibling_target" {
+		for _, name := range []string{"rekor.pub", "sibling.txt"} {
+			data := []byte("ancestor sibling target")
+			target, err := metadata.TargetFile().FromBytes(name, data, "sha256")
+			require.NoError(t, err)
+			roles["ignored"].Signed.Targets[name] = target
+			files["/targets/"+hex.EncodeToString(target.Hashes["sha256"])+"."+name] = data
+		}
+	}
 	snapshot := metadata.Snapshot(expires)
 	for name, role := range roles {
 		_, err := role.Sign(signer)
