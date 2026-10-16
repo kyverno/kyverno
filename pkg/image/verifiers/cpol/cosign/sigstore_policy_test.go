@@ -118,6 +118,8 @@ func TestPolicyBundleTrust(t *testing.T) {
 	}{
 		{"policy chain", signPEM, tsaLeafPEM + tsaPEM, true},
 		{"TSA CA only", signPEM, tsaPEM, true},
+		{"multi-root signing", signPEM + unrelatedPEM, tsaLeafPEM + tsaPEM, true},
+		{"multi-root TSA", signPEM, tsaLeafPEM + tsaPEM + unrelatedPEM, true},
 		{"wrong signing CA", unrelatedPEM, tsaLeafPEM + tsaPEM, false},
 		{"wrong TSA CA", signPEM, unrelatedPEM, false},
 	} {
@@ -160,13 +162,16 @@ func TestPolicyBundleTrust(t *testing.T) {
 	}{
 		{"missing signing roots", verifiers.Options{TSACertChain: tsaPEM}},
 		{"missing TSA chain", verifiers.Options{Roots: signPEM}},
-		{"invalid signing PEM", verifiers.Options{Roots: "invalid", TSACertChain: tsaPEM}},
-		{"invalid TSA PEM", verifiers.Options{Roots: signPEM, TSACertChain: "invalid"}},
-		{"signing leaf as root", verifiers.Options{Roots: leafPEM, TSACertChain: tsaPEM}},
-		{"TSA without root", verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM}},
-		{"multiple TSA leaves", verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM + tsaLeafPEM + tsaPEM}},
-		{"oversized signing roots", verifiers.Options{Roots: strings.Repeat(signPEM, maxIntermediateCerts+2), TSACertChain: tsaPEM}},
-		{"oversized TSA chain", verifiers.Options{Roots: signPEM, TSACertChain: strings.Repeat(tsaPEM, maxIntermediateCerts+3)}},
+		{"missing ignoreTlog", verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM + tsaPEM}},
+		{"invalid signing PEM", verifiers.Options{Roots: "invalid", TSACertChain: tsaPEM, IgnoreTlog: true}},
+		{"invalid TSA PEM", verifiers.Options{Roots: signPEM, TSACertChain: "invalid", IgnoreTlog: true}},
+		{"signing leaf as root", verifiers.Options{Roots: leafPEM, TSACertChain: tsaPEM, IgnoreTlog: true}},
+		{"TSA without root", verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM, IgnoreTlog: true}},
+		{"multiple TSA leaves", verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM + tsaLeafPEM + tsaPEM, IgnoreTlog: true}},
+		{"oversized signing roots", verifiers.Options{Roots: strings.Repeat(signPEM, 2*maxIntermediateCerts+1), TSACertChain: tsaPEM, IgnoreTlog: true}},
+		{"oversized TSA chain", verifiers.Options{Roots: signPEM, TSACertChain: strings.Repeat(tsaPEM, 2*maxIntermediateCerts+2), IgnoreTlog: true}},
+		{"too many signing roots", verifiers.Options{Roots: strings.Repeat(signPEM, maxRootCerts+1), TSACertChain: tsaPEM, IgnoreTlog: true}},
+		{"too many TSA roots", verifiers.Options{Roots: signPEM, TSACertChain: strings.Repeat(tsaPEM, maxRootCerts+1), IgnoreTlog: true}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := getBundleTrustedRoot(ctx, tc.opts); err == nil {
@@ -182,5 +187,8 @@ func TestPolicyBundleVerifyOptions(t *testing.T) {
 	}
 	if got := len(buildVerifyOptions(verifiers.Options{IgnoreTlog: true, IgnoreSCT: true, TSACertChain: "configured"})); got != 1 {
 		t.Fatalf("expected signed timestamp requirement despite ignoreSCT=true: %d", got)
+	}
+	if got := len(buildVerifyOptions(verifiers.Options{IgnoreTlog: true, IgnoreSCT: false, TSACertChain: "configured"})); got != 2 {
+		t.Fatalf("expected independent signed timestamp and observer requirements: %d", got)
 	}
 }

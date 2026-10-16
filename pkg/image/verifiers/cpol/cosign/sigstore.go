@@ -202,9 +202,12 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 	}
 	if opts.TSACertChain != "" {
 		// A policy-supplied TSA chain explicitly requires at least one verified
-		// RFC3161 signed timestamp, even when SCT verification is skipped.
+		// RFC3161 signed timestamp.
 		verifierOptions = append(verifierOptions, verify.WithSignedTimestamps(1))
-	} else if !opts.IgnoreSCT {
+	}
+	if !opts.IgnoreSCT {
+		// Observer timestamps (e.g. Rekor SETs) are required independently of a
+		// configured TSA chain, so a TSA chain must not suppress SCT handling.
 		verifierOptions = append(verifierOptions, verify.WithObserverTimestamps(1))
 	}
 	if len(verifierOptions) == 0 {
@@ -251,17 +254,31 @@ func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.Tru
 	if opts.Roots == "" || opts.TSACertChain == "" {
 		return nil, fmt.Errorf("policy bundle trust requires both roots and tsaCertChain")
 	}
+	// A policy-supplied trusted root carries no Rekor transparency-log keys, so
+	// transparency-log verification can never succeed against it. Require the
+	// policy to opt out of tlog verification explicitly rather than silently
+	// failing every otherwise-valid bundle at verification time.
+	if !opts.IgnoreTlog {
+		return nil, fmt.Errorf("policy bundle trust requires ignoreTlog to be enabled")
+	}
 	// Cheap pre-check on the raw PEM to reject oversized chains before doing
 	// expensive ASN.1 parsing and certificate path building (CVE-2026-32280).
-	if n := countPEMCertBlocks([]byte(opts.Roots)); n > maxIntermediateCerts+1 {
-		return nil, fmt.Errorf("policy signing roots contain too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+1)
+	// Signing roots may contain up to maxRootCerts roots and
+	// maxIntermediateCerts intermediates.
+	if n := countPEMCertBlocks([]byte(opts.Roots)); n > maxRootCerts+maxIntermediateCerts {
+		return nil, fmt.Errorf("policy signing roots contain too many certificates (%d), maximum allowed is %d", n, maxRootCerts+maxIntermediateCerts)
 	}
-	leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.Roots))
+	// Signing roots must not go through the TSA timestamping-EKU normalization,
+	// which would corrupt a code-signing intermediate into a timestamp-only cert.
+	leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.Roots), false)
 	if err != nil {
 		return nil, fmt.Errorf("parsing policy signing roots: %w", err)
 	}
 	if len(leaves) != 0 || len(roots) == 0 {
 		return nil, fmt.Errorf("policy signing roots must contain a root CA and no leaf certificates")
+	}
+	if len(roots) > maxRootCerts {
+		return nil, fmt.Errorf("policy signing roots contain too many root certificates (%d), maximum allowed is %d", len(roots), maxRootCerts)
 	}
 	if len(intermediates) > maxIntermediateCerts {
 		return nil, fmt.Errorf("policy signing roots contain too many intermediate certificates (%d), maximum allowed is %d", len(intermediates), maxIntermediateCerts)
@@ -275,17 +292,20 @@ func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.Tru
 	}
 	// Cheap pre-check on the raw PEM to reject oversized chains before doing
 	// expensive ASN.1 parsing and certificate path building (CVE-2026-32280).
-	// A valid TSA chain has at most one leaf, maxIntermediateCerts
-	// intermediates, plus any number of roots.
-	if n := countPEMCertBlocks([]byte(opts.TSACertChain)); n > maxIntermediateCerts+2 {
-		return nil, fmt.Errorf("policy tsaCertChain contains too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+2)
+	// A valid TSA chain has at most one leaf, up to maxIntermediateCerts
+	// intermediates, and up to maxRootCerts roots.
+	if n := countPEMCertBlocks([]byte(opts.TSACertChain)); n > maxRootCerts+maxIntermediateCerts+1 {
+		return nil, fmt.Errorf("policy tsaCertChain contains too many certificates (%d), maximum allowed is %d", n, maxRootCerts+maxIntermediateCerts+1)
 	}
-	tsaLeaves, tsaIntermediates, tsaRoots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
+	tsaLeaves, tsaIntermediates, tsaRoots, err := splitPEMCertificateChain([]byte(opts.TSACertChain), true)
 	if err != nil {
 		return nil, fmt.Errorf("parsing policy tsaCertChain: %w", err)
 	}
 	if len(tsaLeaves) > 1 || len(tsaRoots) == 0 {
 		return nil, fmt.Errorf("policy tsaCertChain must contain a root CA and at most one TSA leaf")
+	}
+	if len(tsaRoots) > maxRootCerts {
+		return nil, fmt.Errorf("policy tsaCertChain contains too many root certificates (%d), maximum allowed is %d", len(tsaRoots), maxRootCerts)
 	}
 	if len(tsaIntermediates) > maxIntermediateCerts {
 		return nil, fmt.Errorf("policy tsaCertChain contains too many intermediate certificates (%d), maximum allowed is %d", len(tsaIntermediates), maxIntermediateCerts)
