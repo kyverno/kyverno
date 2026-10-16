@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr/funcr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -263,8 +264,9 @@ func Test_SetWithPayload_replacing_an_entry_keeps_the_budget(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, stored)
 
-	_, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true)
+	found, got, err := c.GetWithPayload(context.TODO(), pol, "attestation-rule", testDigestA, true)
 	require.NoError(t, err)
+	assert.False(t, found)
 	assert.Empty(t, got)
 }
 
@@ -288,4 +290,27 @@ func Test_SetWithPayload_replacing_an_entry_with_a_fitting_payload_stores_it(t *
 	require.NoError(t, err)
 	require.True(t, found)
 	assert.Equal(t, payload, got)
+}
+
+// Test_SetWithPayload_logs_an_entry_the_cache_did_not_keep: callers don't act
+// on the result, so without a log an attestation that never fits is verified
+// again on every admission with nothing showing why.
+func Test_SetWithPayload_logs_an_entry_the_cache_did_not_keep(t *testing.T) {
+	var logs []string
+	logger := funcr.New(func(_, args string) { logs = append(logs, args) }, funcr.Options{Verbosity: 3})
+	c, err := New(WithCacheEnableFlag(true), WithMaxSize(100), WithTTLDuration(0), WithLogger(logger))
+	require.NoError(t, err)
+
+	pol := &metav1.ObjectMeta{Name: "log-policy", UID: "log-uid", ResourceVersion: "1"}
+	stored, err := c.Set(context.TODO(), pol, "signature-rule", testDigestA, true)
+	require.NoError(t, err)
+	require.True(t, stored)
+	assert.Empty(t, logs, "an entry the cache kept must not be logged")
+
+	payload := map[string][]byte{"https://slsa.dev/provenance/v1": make([]byte, 500)}
+	stored, err = c.SetWithPayload(context.TODO(), pol, "attestation-rule", testDigestB, true, payload)
+	require.NoError(t, err)
+	require.False(t, stored)
+	require.Len(t, logs, 1)
+	assert.Contains(t, logs[0], testDigestB)
 }

@@ -136,16 +136,23 @@ func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleNa
 		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
+	cost := payloadCost(payloads)
 
 	// ristretto replaces an existing key without checking MaxCost, so drop the
 	// old entry first and let the new one go through the normal admission.
 	c.cache.Del(key)
-	c.cache.SetWithTTL(key, clonePayloads(payloads), payloadCost(payloads), c.ttl)
+	c.cache.SetWithTTL(key, clonePayloads(payloads), cost, c.ttl)
 	c.cache.Wait()
 	// SetWithTTL returning true only means ristretto queued the write. Its
 	// policy can still drop the entry afterwards, for example when the entry
 	// costs more than the whole budget, so report what the cache holds.
 	_, stored := c.cache.GetTTL(key)
+	if !stored {
+		// Callers don't act on the result, so this is the only sign that the
+		// image will be verified again on its next admission.
+		c.logger.V(3).Info("image verify cache did not keep the entry, the cache is full or the entry is larger than --imageVerifyCacheMaxSize",
+			"namespace", policy.GetNamespace(), "policy", policy.GetName(), "image", imageRef, "cost", cost)
+	}
 	return stored, nil
 }
 
