@@ -1465,6 +1465,7 @@ func newImageValidatingPolicyTestController(t *testing.T, ivpol *policiesv1beta1
 		},
 	}
 	return &controller{
+		defaultTimeout:     17,
 		vpolLister:         policiesv1beta1listers.NewValidatingPolicyLister(newIndexer()),
 		nvpolLister:        policiesv1beta1listers.NewNamespacedValidatingPolicyLister(newIndexer()),
 		gpolLister:         policiesv1beta1listers.NewGeneratingPolicyLister(newIndexer()),
@@ -1528,6 +1529,9 @@ func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *t
 		config.ImageValidatingPolicyValidateWebhookName + "-fail",
 		config.NamespacedImageValidatingPolicyValidateWebhookName + "-fail",
 	}, validatingNames)
+	for _, webhook := range validating.Webhooks {
+		assert.Equal(t, ptr.To(int32(17)), webhook.TimeoutSeconds)
+	}
 
 	mutating := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	assert.NoError(t, c.buildForJSONPoliciesMutation(cfg, nil, mutating))
@@ -1539,4 +1543,7 @@ func TestBuildForJSONPolicies_ImageValidatingPolicyWebhookNamesDoNotCollide(t *t
 		config.ImageValidatingPolicyMutateWebhookName + "-fail",
 		config.NamespacedImageValidatingPolicyMutateWebhookName + "-fail",
 	}, mutatingNames)
+	for _, webhook := range mutating.Webhooks {
+		assert.Equal(t, ptr.To(int32(17)), webhook.TimeoutSeconds)
+	}
 }
