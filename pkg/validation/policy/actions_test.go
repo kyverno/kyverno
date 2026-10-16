@@ -2,7 +2,6 @@ package policy
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -16,46 +15,12 @@ import (
 )
 
 func Test_validateActions_NilRule(t *testing.T) {
-	warnings, err := validateActions(0, nil, nil, true, "", "", nil)
+	warnings, err := validateActions(0, nil, nil, true, "", "")
 	assert.Nil(t, err)
 	assert.Nil(t, warnings)
 }
 
-func Test_validateActions_ChecksAuthorSeparatelyFromController(t *testing.T) {
-	client := dclient.NewEmptyFakeClient()
-	kubeClient := client.GetKubeClient().(*kubefake.Clientset)
-	users := []string{}
-	kubeClient.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
-		review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
-		users = append(users, review.Spec.User)
-		allowed := review.Spec.User == "system:serviceaccount:kyverno:background-controller" || review.Spec.ResourceAttributes.Verb == "get"
-		return true, &authorizationv1.SubjectAccessReview{
-			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: allowed, Reason: "test authorization decision"},
-		}, nil
-	})
-	rule := &kyvernov1.Rule{
-		Name: "generate-configmap",
-		Generation: &kyvernov1.Generation{
-			GeneratePattern: kyvernov1.GeneratePattern{
-				ResourceSpec: kyvernov1.ResourceSpec{
-					APIVersion: "v1",
-					Kind:       "ConfigMap",
-					Name:       "generated",
-					Namespace:  "target",
-				},
-			},
-		},
-	}
-	author := &authenticationv1.UserInfo{Username: "alice", Groups: []string{"policy-authors"}}
-	warnings, err := validateActions(0, rule, client, false, "system:serviceaccount:kyverno:background-controller", "", author)
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), `policy author "alice" is not authorized`)
-	assert.Empty(t, warnings)
-	assert.True(t, strings.Contains(strings.Join(users, ","), "system:serviceaccount:kyverno:background-controller"))
-	assert.True(t, strings.Contains(strings.Join(users, ","), "alice"))
-}
-
-func Test_validateActions_GenerateControllerRequiresPatch(t *testing.T) {
+func TestValidateGenerateControllersRequiresPatch(t *testing.T) {
 	t.Parallel()
 
 	pattern := func(kind string) kyvernov1.GeneratePattern {
@@ -124,7 +89,8 @@ func Test_validateActions_GenerateControllerRequiresPatch(t *testing.T) {
 					generation.Synchronize = synchronize
 					rule := &kyvernov1.Rule{Name: "generate", Generation: generation}
 					author := &authenticationv1.UserInfo{Username: "alice", Groups: []string{"policy-authors"}}
-					_, err := validateActions(0, rule, client, false, backgroundSA, "", author)
+					assert.NoError(t, validateGenerateAuthor(0, rule, client, author))
+					err := validateGenerateControllers(0, rule, client, backgroundSA)
 					if allowControllerPatch {
 						assert.NoError(t, err, "an author without patch permission can still authorize generated content")
 					} else {
@@ -145,7 +111,7 @@ func Test_validateActions_GenerateControllerRequiresPatch(t *testing.T) {
 					for resource := range test.kinds {
 						assert.True(t, controllerPatchKinds[resource], "controller patch permission must be checked for %s", resource)
 					}
-					assert.Equal(t, allowControllerPatch, authorReviewed)
+					assert.True(t, authorReviewed)
 				})
 			}
 		}
@@ -174,7 +140,7 @@ func Test_validateActions_GenerateSameKind(t *testing.T) {
 	}
 	rule.MatchResources.Kinds = []string{"ConfigMap"}
 
-	warnings, err := validateActions(0, rule, nil, true, "", "", nil)
+	warnings, err := validateActions(0, rule, nil, true, "", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "generation kind and match resource kind should not be the same")
 	assert.Nil(t, warnings)
@@ -193,12 +159,12 @@ func Test_validateActions_GenerateMockSuccess(t *testing.T) {
 		},
 	}
 
-	warnings, err := validateActions(0, rule, nil, true, "", "", nil)
+	warnings, err := validateActions(0, rule, nil, true, "", "")
 	assert.NoError(t, err)
 	assert.Empty(t, warnings)
 }
 
-func Test_validateActions_GenerateAuthorIdentity(t *testing.T) {
+func TestValidateGenerateAuthorIdentity(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -213,7 +179,6 @@ func Test_validateActions_GenerateAuthorIdentity(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			const backgroundSA = "system:serviceaccount:kyverno:background-controller"
 			client := dclient.NewEmptyFakeClient()
 			kubeClient := client.GetKubeClient().(*kubefake.Clientset)
 			users := []string{}
@@ -238,15 +203,14 @@ func Test_validateActions_GenerateAuthorIdentity(t *testing.T) {
 				},
 			}
 
-			warnings, err := validateActions(0, rule, client, false, backgroundSA, "", test.author)
+			err := validateGenerateAuthor(0, rule, client, test.author)
 			if test.author == nil {
 				assert.NoError(t, err)
 			} else {
 				assert.ErrorContains(t, err, `policy author "" is not authorized`)
 				assert.ErrorContains(t, err, "no service account provided")
 			}
-			assert.Empty(t, warnings)
-			assert.Equal(t, []string{backgroundSA, backgroundSA, backgroundSA}, users)
+			assert.Empty(t, users)
 		})
 	}
 }

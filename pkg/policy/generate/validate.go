@@ -93,7 +93,7 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 			return nil, "", err
 		}
 	}
-	if w, err := g.validateAuthReports(ctx); err != nil {
+	if w, err := g.ValidateReports(ctx); err != nil {
 		return nil, "", err
 	} else if len(w) > 0 {
 		warnings = append(warnings, w...)
@@ -164,7 +164,10 @@ func parseCloneKind(gvks string) (gvk, sub string) {
 	return k, sub
 }
 
-func (g *Generate) validateAuthReports(ctx context.Context) (warnings []string, err error) {
+// ValidateReports checks report-controller access to the rule's match kinds.
+// Callers can defer this check until those kinds have been resolved, separately
+// from authorization of the generated targets.
+func (g *Generate) ValidateReports(ctx context.Context) (warnings []string, err error) {
 	if g.authCheckerReports == nil {
 		return nil, nil
 	}

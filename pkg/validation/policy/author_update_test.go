@@ -187,8 +187,15 @@ func TestGenerateAuthorChecksBeforeKindWarnings(t *testing.T) {
 					require.NoError(t, err)
 					assert.NotEmpty(t, warnings)
 				}
-				require.Len(t, *reviews, 2, "only the author's get/create checks run before the kind warning")
-				for _, review := range *reviews {
+				if user == "alice" {
+					require.Len(t, *reviews, 2, "author denial precedes controller checks")
+				} else {
+					require.Len(t, *reviews, 5, "author and controller target checks precede the kind warning")
+					for _, review := range (*reviews)[2:] {
+						assert.Equal(t, "background-controller", review.User)
+					}
+				}
+				for _, review := range (*reviews)[:2] {
 					assert.Equal(t, user, review.User)
 				}
 			})

@@ -27,7 +27,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string, author *authenticationv1.UserInfo) (warnings []string, err error) {
+func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) (warnings []string, err error) {
 	if rule == nil {
 		return nil, nil
 	}
@@ -79,31 +79,15 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 			} else if w != nil {
 				warnings = append(warnings, w...)
 			}
-		} else {
-			if rule.Generation.Synchronize {
-				admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
-				checker = generate.NewGenerateFactory(client, rule, admissionSA, reportsSA, logging.GlobalLogger())
-				if w, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
-					return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
-				} else if w != nil {
-					warnings = append(warnings, w...)
-				}
-			}
-			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
-			// The controller patches provenance onto the persisted target even
-			// when synchronization is disabled. Keep this permission separate
-			// from the policy author's permissions for the generated content.
-			verbs := []string{"get", "create", "patch"}
-			if rule.Generation.Synchronize {
-				verbs = append(verbs, "update", "delete")
-			}
-			if w, path, err := checker.Validate(context.TODO(), verbs); err != nil {
-				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
-			} else if w != nil {
+		} else if reportsSA != "" {
+			// Target authorization has already run before warning-only returns.
+			// Defer reports checks until match kinds resolve, preserving warnings
+			// for policies that refer to CRDs installed later.
+			checker := generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
+			if w, err := checker.ValidateReports(context.TODO()); err != nil {
+				return nil, fmt.Errorf("path: spec.rules[%d].generate..: %v", idx, err)
+			} else {
 				warnings = append(warnings, w...)
-			}
-			if err := validateGenerateAuthor(idx, rule, client, author); err != nil {
-				return nil, err
 			}
 		}
 
@@ -113,6 +97,30 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	}
 
 	return warnings, nil
+}
+
+func validateGenerateControllers(idx int, rule *kyvernov1.Rule, client dclient.Interface, backgroundSA string) error {
+	if rule == nil || !rule.HasGenerate() {
+		return nil
+	}
+	if rule.Generation.Synchronize {
+		admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
+		checker := generate.NewGenerateFactory(client, rule, admissionSA, "", logging.GlobalLogger())
+		if _, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
+			return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+		}
+	}
+	// The controller patches provenance onto the persisted target even when
+	// synchronization is disabled. Authors only need generated-content access.
+	verbs := []string{"get", "create", "patch"}
+	if rule.Generation.Synchronize {
+		verbs = append(verbs, "update", "delete")
+	}
+	checker := generate.NewGenerateFactory(client, rule, backgroundSA, "", logging.GlobalLogger())
+	if _, path, err := checker.Validate(context.TODO(), verbs); err != nil {
+		return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
+	}
+	return nil
 }
 
 func validateGenerateAuthor(idx int, rule *kyvernov1.Rule, client dclient.Interface, author *authenticationv1.UserInfo) error {

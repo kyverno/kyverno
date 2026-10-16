@@ -241,11 +241,17 @@ func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.
 		}
 	}
 
-	// Authorize every generate rule before the warning-only returns below.
-	// Those returns preserve admission of policies for CRDs installed later.
+	// Authorize every generate rule and its controllers before the warning-only
+	// returns below. Check all authors first so a warning or controller failure
+	// cannot bypass author authorization of a later rule.
 	if !mock {
 		for i := range spec.Rules {
 			if err := validateGenerateAuthor(i, &spec.Rules[i], client, author); err != nil {
+				return warnings, err
+			}
+		}
+		for i := range spec.Rules {
+			if err := validateGenerateControllers(i, &spec.Rules[i], client, backgroundSA); err != nil {
 				return warnings, err
 			}
 		}
@@ -370,7 +376,7 @@ func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.
 			}
 		}
 
-		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA, nil)
+		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
 		if err != nil {
 			return warnings, err
 		} else if len(w) > 0 {
