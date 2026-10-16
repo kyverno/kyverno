@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	sgbundle "github.com/sigstore/sigstore-go/pkg/bundle"
@@ -330,5 +331,37 @@ func Test_V3Bundle_MultipleAttestors_PreservesNewestAcrossEvaluationOrder(t *tes
 		pred, ok := payloadMap["predicate"].(map[string]any)
 		require.True(t, ok)
 		assert.Equal(t, "new", pred["version"], "newest attestation should not be overwritten when old is evaluated after new")
+	}
+
+	// Case 3: Request-scoped candidate store preserves newest attestation across attestors
+	// even when many other images are evaluated in the same request (no arbitrary eviction).
+	{
+		ctx := WithCandidateStore(context.Background())
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+
+		require.NoError(t, v.VerifyAttestationSignature(ctx, img, attestation, attestorNew))
+
+		// Simulate evaluating 600 other images in the same request context
+		store := CandidateStoreFromContext(ctx)
+		require.NotNil(t, store)
+		for i := 0; i < 600; i++ {
+			fakeImg := &imagedataloader.ImageData{}
+			store.Set(fakeImg, pType, verifiedCandidate{
+				payload:       []byte(`{"version":"fake"}`),
+				predicateType: pType,
+			})
+		}
+
+		// Revisit img with old attestor: must not overwrite new because candidate was not evicted.
+		require.NoError(t, v.VerifyAttestationSignature(ctx, img, attestation, attestorOld))
+
+		payload, err := img.GetPayload(*attestation)
+		require.NoError(t, err)
+		payloadMap, ok := payload.(map[string]any)
+		require.True(t, ok)
+		pred, ok := payloadMap["predicate"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "new", pred["version"], "newest attestation should remain selected even after >512 images are evaluated")
 	}
 }

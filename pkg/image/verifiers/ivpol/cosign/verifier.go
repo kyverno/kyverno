@@ -30,19 +30,113 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+type candidateStoreKey struct{}
+
+// CandidateStore stores verified attestation candidates keyed by ImageData and predicate type.
+type CandidateStore struct {
+	mu         sync.Mutex
+	candidates map[*imagedataloader.ImageData]map[string]verifiedCandidate
+}
+
+func NewCandidateStore() *CandidateStore {
+	return &CandidateStore{
+		candidates: make(map[*imagedataloader.ImageData]map[string]verifiedCandidate),
+	}
+}
+
+func (s *CandidateStore) Get(image *imagedataloader.ImageData, predicateType string) (verifiedCandidate, bool) {
+	if s == nil || image == nil {
+		return verifiedCandidate{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.candidates == nil {
+		return verifiedCandidate{}, false
+	}
+	if preds, ok := s.candidates[image]; ok {
+		c, ok := preds[predicateType]
+		return c, ok
+	}
+	return verifiedCandidate{}, false
+}
+
+func (s *CandidateStore) Set(image *imagedataloader.ImageData, predicateType string, candidate verifiedCandidate) {
+	if s == nil || image == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.candidates == nil {
+		s.candidates = make(map[*imagedataloader.ImageData]map[string]verifiedCandidate)
+	}
+	if s.candidates[image] == nil {
+		s.candidates[image] = make(map[string]verifiedCandidate)
+	}
+	s.candidates[image][predicateType] = candidate
+}
+
+func (s *CandidateStore) Delete(image *imagedataloader.ImageData) {
+	if s == nil || image == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.candidates, image)
+}
+
+// WithCandidateStore injects a CandidateStore into the context to scope candidate
+// state to the request lifecycle.
+func WithCandidateStore(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if CandidateStoreFromContext(ctx) != nil {
+		return ctx
+	}
+	return context.WithValue(ctx, candidateStoreKey{}, NewCandidateStore())
+}
+
+// CandidateStoreFromContext extracts the CandidateStore from ctx, if present.
+func CandidateStoreFromContext(ctx context.Context) *CandidateStore {
+	if ctx == nil {
+		return nil
+	}
+	store, _ := ctx.Value(candidateStoreKey{}).(*CandidateStore)
+	return store
+}
+
 type Verifier struct {
-	secretLister corev1listers.SecretLister
-	log          logr.Logger
-	mu           sync.Mutex
-	candidates   map[*imagedataloader.ImageData]map[string]verifiedCandidate
+	secretLister  corev1listers.SecretLister
+	log           logr.Logger
+	mu            sync.Mutex
+	fallbackStore *CandidateStore
 }
 
 func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *Verifier {
 	return &Verifier{
-		log:          logging.WithName("Cosign"),
-		secretLister: secretLister,
-		candidates:   make(map[*imagedataloader.ImageData]map[string]verifiedCandidate),
+		log:           logging.WithName("Cosign"),
+		secretLister:  secretLister,
+		fallbackStore: NewCandidateStore(),
 	}
+}
+
+func (v *Verifier) candidateStore(ctx context.Context, image *imagedataloader.ImageData) *CandidateStore {
+	if store := CandidateStoreFromContext(ctx); store != nil {
+		return store
+	}
+	v.mu.Lock()
+	if v.fallbackStore == nil {
+		v.fallbackStore = NewCandidateStore()
+	}
+	store := v.fallbackStore
+	v.mu.Unlock()
+
+	if ctx != nil && ctx.Done() != nil {
+		context.AfterFunc(ctx, func() {
+			store.Delete(image)
+		})
+	}
+	return store
 }
 
 // buildCheckOptsWithBundleDetection builds CheckOpts and loads any cosign v3 bundle
@@ -398,29 +492,16 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 			return err
 		}
 
-		v.mu.Lock()
-		if v.candidates == nil {
-			v.candidates = make(map[*imagedataloader.ImageData]map[string]verifiedCandidate)
-		}
-		if len(v.candidates) > 512 {
-			for k := range v.candidates {
-				delete(v.candidates, k)
-				if len(v.candidates) <= 256 {
-					break
-				}
-			}
-		}
-		if prev, ok := v.candidates[image][pType]; ok {
+		store := v.candidateStore(ctx, image)
+		if prev, ok := store.Get(image, pType); ok {
 			merged, err := selectNewestAttestation([]verifiedCandidate{prev, chosen}, pType)
-			if err == nil {
-				chosen = merged
+			if err != nil {
+				logger.Error(err, "image verification failed to merge newest attestation across attestors")
+				return err
 			}
+			chosen = merged
 		}
-		if v.candidates[image] == nil {
-			v.candidates[image] = make(map[string]verifiedCandidate)
-		}
-		v.candidates[image][pType] = chosen
-		v.mu.Unlock()
+		store.Set(image, pType, chosen)
 
 		image.AddVerifiedIntotoPayloads(chosen.predicateType, chosen.payload)
 	}

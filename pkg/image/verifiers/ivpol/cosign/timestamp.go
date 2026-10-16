@@ -134,22 +134,25 @@ func selectNewestAttestation(candidates []verifiedCandidate, predicateType strin
 		}
 	}
 
-	if allHaveStatement {
-		sort.SliceStable(candidates, func(i, j int) bool {
-			if candidates[i].statementTS.Equal(candidates[j].statementTS) {
-				return bytes.Compare(candidates[i].payload, candidates[j].payload) > 0
-			}
-			return candidates[i].statementTS.After(candidates[j].statementTS)
-		})
-		return candidates[0], nil
-	}
-
+	// When all candidates have verified bundle timestamps (Rekor integrated time or
+	// RFC 3161 timestamps), prefer the bundle timestamps over self-reported signed
+	// statement timestamps.
 	if allHaveBundle {
 		sort.SliceStable(candidates, func(i, j int) bool {
 			if candidates[i].bundleTS.Equal(candidates[j].bundleTS) {
 				return bytes.Compare(candidates[i].payload, candidates[j].payload) > 0
 			}
 			return candidates[i].bundleTS.After(candidates[j].bundleTS)
+		})
+		return candidates[0], nil
+	}
+
+	if allHaveStatement {
+		sort.SliceStable(candidates, func(i, j int) bool {
+			if candidates[i].statementTS.Equal(candidates[j].statementTS) {
+				return bytes.Compare(candidates[i].payload, candidates[j].payload) > 0
+			}
+			return candidates[i].statementTS.After(candidates[j].statementTS)
 		})
 		return candidates[0], nil
 	}

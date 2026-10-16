@@ -218,6 +218,33 @@ func TestSelectNewestAttestation(t *testing.T) {
 		assert.Equal(t, newCand.payload, chosenRev.payload)
 	})
 
+	t.Run("bundle timestamp takes precedence when candidates have both timestamp types", func(t *testing.T) {
+		candA := verifiedCandidate{
+			payload:       []byte(`{"which":"candA-newerStatement-olderBundle"}`),
+			predicateType: "custom",
+			statementTS:   tNew,
+			hasStatement:  true,
+			bundleTS:      tOld,
+			hasBundle:     true,
+		}
+		candB := verifiedCandidate{
+			payload:       []byte(`{"which":"candB-olderStatement-newerBundle"}`),
+			predicateType: "custom",
+			statementTS:   tOld,
+			hasStatement:  true,
+			bundleTS:      tNew,
+			hasBundle:     true,
+		}
+
+		chosen, err := selectNewestAttestation([]verifiedCandidate{candA, candB}, "custom")
+		require.NoError(t, err)
+		assert.Equal(t, candB.payload, chosen.payload, "candB must be selected because its bundle timestamp is newer")
+
+		chosenRev, err := selectNewestAttestation([]verifiedCandidate{candB, candA}, "custom")
+		require.NoError(t, err)
+		assert.Equal(t, candB.payload, chosenRev.payload, "candB must be selected regardless of input slice order")
+	})
+
 	t.Run("mixed timestamps: one statement and one bundle timestamp fails closed", func(t *testing.T) {
 		cand1 := verifiedCandidate{
 			payload:       []byte(`{"name":"statement-older"}`),
