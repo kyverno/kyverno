@@ -292,3 +292,60 @@ func TestWorkerPool_SubmitTaskAfterCloseIsNotQueued(t *testing.T) {
 	}
 	assert.Empty(t, wp.taskQueue, "no task should be queued after Close")
 }
+
+func TestWorkerPool_SubmitTaskUnblocksWhileQueueFull(t *testing.T) {
+	tests := []struct {
+		name    string
+		release func(wp *WorkerPool, cancelSubmit context.CancelFunc)
+	}{
+		{
+			name: "submit context cancelled",
+			release: func(_ *WorkerPool, cancelSubmit context.CancelFunc) {
+				cancelSubmit()
+			},
+		},
+		{
+			name: "pool closed",
+			release: func(wp *WorkerPool, _ context.CancelFunc) {
+				_, cancel := context.WithCancel(context.Background())
+				wp.Close(cancel)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// No workers, so nothing ever drains the queue.
+			wp := NewWorkerPool(context.Background(), WorkerPoolConfig{
+				Workers:   0,
+				QueueSize: 1,
+				Logger:    logrus.New(),
+			})
+			submitCtx, cancelSubmit := context.WithCancel(context.Background())
+			t.Cleanup(cancelSubmit)
+
+			wp.SubmitTask(submitCtx, LoadTask{ID: "fills-queue"})
+			assert.Len(t, wp.taskQueue, 1)
+
+			returned := make(chan struct{})
+			go func() {
+				defer close(returned)
+				wp.SubmitTask(submitCtx, LoadTask{ID: "blocked"})
+			}()
+
+			select {
+			case <-returned:
+				t.Fatal("SubmitTask returned while the queue was full")
+			case <-time.After(100 * time.Millisecond):
+			}
+
+			tt.release(wp, cancelSubmit)
+
+			select {
+			case <-returned:
+			case <-time.After(5 * time.Second):
+				t.Fatal("SubmitTask stayed blocked after release")
+			}
+			assert.Len(t, wp.taskQueue, 1, "blocked task must not be queued")
+		})
+	}
+}
