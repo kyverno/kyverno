@@ -233,12 +233,20 @@ func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.Tru
 	if opts.Roots == "" || opts.TSACertChain == "" {
 		return nil, fmt.Errorf("policy bundle trust requires both roots and tsaCertChain")
 	}
+	// Cheap pre-check on the raw PEM to reject oversized chains before doing
+	// expensive ASN.1 parsing and certificate path building (CVE-2026-32280).
+	if n := countPEMCertBlocks([]byte(opts.Roots)); n > maxIntermediateCerts+1 {
+		return nil, fmt.Errorf("policy signing roots contain too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+1)
+	}
 	leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.Roots))
 	if err != nil {
 		return nil, fmt.Errorf("parsing policy signing roots: %w", err)
 	}
 	if len(leaves) != 0 || len(roots) == 0 {
 		return nil, fmt.Errorf("policy signing roots must contain a root CA and no leaf certificates")
+	}
+	if len(intermediates) > maxIntermediateCerts {
+		return nil, fmt.Errorf("policy signing roots contain too many intermediate certificates (%d), maximum allowed is %d", len(intermediates), maxIntermediateCerts)
 	}
 	authorities := make([]root.CertificateAuthority, 0, len(roots))
 	for _, cert := range roots {
@@ -247,12 +255,22 @@ func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.Tru
 			ValidityPeriodStart: cert.NotBefore, ValidityPeriodEnd: cert.NotAfter,
 		})
 	}
+	// Cheap pre-check on the raw PEM to reject oversized chains before doing
+	// expensive ASN.1 parsing and certificate path building (CVE-2026-32280).
+	// A valid TSA chain has at most one leaf, maxIntermediateCerts
+	// intermediates, plus any number of roots.
+	if n := countPEMCertBlocks([]byte(opts.TSACertChain)); n > maxIntermediateCerts+2 {
+		return nil, fmt.Errorf("policy tsaCertChain contains too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+2)
+	}
 	tsaLeaves, tsaIntermediates, tsaRoots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
 	if err != nil {
 		return nil, fmt.Errorf("parsing policy tsaCertChain: %w", err)
 	}
 	if len(tsaLeaves) > 1 || len(tsaRoots) == 0 {
 		return nil, fmt.Errorf("policy tsaCertChain must contain a root CA and at most one TSA leaf")
+	}
+	if len(tsaIntermediates) > maxIntermediateCerts {
+		return nil, fmt.Errorf("policy tsaCertChain contains too many intermediate certificates (%d), maximum allowed is %d", len(tsaIntermediates), maxIntermediateCerts)
 	}
 	timestampAuthorities := make([]root.TimestampingAuthority, 0, len(tsaRoots))
 	for _, cert := range tsaRoots {

@@ -12,6 +12,7 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,6 +165,8 @@ func TestPolicyBundleTrust(t *testing.T) {
 		{"signing leaf as root", verifiers.Options{Roots: leafPEM, TSACertChain: tsaPEM}},
 		{"TSA without root", verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM}},
 		{"multiple TSA leaves", verifiers.Options{Roots: signPEM, TSACertChain: tsaLeafPEM + tsaLeafPEM + tsaPEM}},
+		{"oversized signing roots", verifiers.Options{Roots: strings.Repeat(signPEM, maxIntermediateCerts+2), TSACertChain: tsaPEM}},
+		{"oversized TSA chain", verifiers.Options{Roots: signPEM, TSACertChain: strings.Repeat(tsaPEM, maxIntermediateCerts+3)}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := getBundleTrustedRoot(ctx, tc.opts); err == nil {
