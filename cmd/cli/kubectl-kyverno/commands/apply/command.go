@@ -15,6 +15,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	git "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -42,6 +43,10 @@ import (
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
+	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -592,6 +597,53 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for i, p := range parameterResources {
 		params[i] = p
 	}
+
+	restMapper, err := utils.GetRESTMapper(dClient)
+	if err != nil {
+		return &rc, resources, responses, err
+	}
+	contextProvider, err := processor.NewContextProvider(dClient, restMapper, nil, c.ContextPath, true, !c.Cluster, nil, store.GetHTTPMockIndex())
+	if err != nil {
+		return &rc, resources, responses, err
+	}
+
+	var vpolProvider vpolengine.Provider
+	var vpolJSONProvider vpolengine.Provider
+	if len(vpols) != 0 {
+		compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
+		var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
+		var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
+		for i := range vpols {
+			pol := vpols[i]
+			if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+				jsonPolicies = append(jsonPolicies, pol)
+			} else {
+				k8sPolicies = append(k8sPolicies, pol)
+			}
+		}
+		if len(k8sPolicies) > 0 {
+			vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+			if err != nil {
+				return &rc, resources, responses, err
+			}
+		}
+		if len(jsonPolicies) > 0 {
+			vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+			if err != nil {
+				return &rc, resources, responses, err
+			}
+		}
+	}
+
+	var mpolProvider mpolengine.Provider
+	if len(mpols) != 0 {
+		compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
+		mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
+		if err != nil {
+			return &rc, resources, responses, err
+		}
+	}
+
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
@@ -625,6 +677,11 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
+			RESTMapper:                        restMapper,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolJSONProvider:                  vpolJSONProvider,
+			MpolProvider:                      mpolProvider,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -667,6 +724,11 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
 			NamespaceCache:                    namespaceCache,
+			RESTMapper:                        restMapper,
+			ContextProvider:                   contextProvider,
+			VpolProvider:                      vpolProvider,
+			VpolJSONProvider:                  vpolJSONProvider,
+			MpolProvider:                      mpolProvider,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {

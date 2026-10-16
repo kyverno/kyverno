@@ -1,12 +1,16 @@
 package processor
 
 import (
+	"context"
 	"os"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	"github.com/kyverno/kyverno/pkg/cel/libs"
+	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
+	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -295,4 +299,112 @@ func Test_resolveResource_generatingPolicyFallsThrough(t *testing.T) {
 	got, err := p.resolveResource("Deployment")
 	assert.NilError(t, err)
 	assert.Equal(t, "deployments", got)
+}
+
+type spyVpolProvider struct {
+	inner      vpolengine.Provider
+	fetchCount int
+}
+
+func (s *spyVpolProvider) Fetch(ctx context.Context) ([]vpolengine.Policy, error) {
+	s.fetchCount++
+	return s.inner.Fetch(ctx)
+}
+
+func Test_ApplyPoliciesOnResource_ReusesPrebuiltProviders(t *testing.T) {
+	vpolYAML := []byte(`
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: check-app-label
+spec:
+  validationActions: [Audit]
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: [CREATE, UPDATE]
+      resources: ["pods"]
+  validations:
+  - expression: "has(object.metadata.labels) && 'app' in object.metadata.labels"
+    message: "app label is required"
+`)
+	res1YAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-1
+  namespace: default
+  labels:
+    app: demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+	res2YAML := []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-2
+  namespace: default
+  labels:
+    app: demo
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+`)
+
+	_, _, _, vpols, _, _, _, err := yamlutils.GetPolicy(vpolYAML)
+	assert.NilError(t, err)
+	assert.Assert(t, len(vpols) > 0)
+
+	compiler := vpolcompiler.NewCompilerWithTrace(false)
+	vpolLikes := []policiesv1beta1.ValidatingPolicyLike{&vpols[0]}
+	provider, err := vpolengine.NewProvider(compiler, vpolLikes, nil)
+	assert.NilError(t, err)
+
+	spy := &spyVpolProvider{inner: provider}
+	contextProvider := libs.NewFakeContextProvider()
+
+	res1List, err := resource.GetUnstructuredResources(res1YAML)
+	assert.NilError(t, err)
+	res2List, err := resource.GetUnstructuredResources(res2YAML)
+	assert.NilError(t, err)
+
+	rc := &ResultCounts{}
+
+	// Evaluate on resource 1
+	p1 := PolicyProcessor{
+		Store:              &store.Store{},
+		ValidatingPolicies: vpolLikes,
+		Resource:           *res1List[0],
+		Rc:                 rc,
+		Out:                os.Stdout,
+		ContextProvider:    contextProvider,
+		VpolProvider:       spy,
+	}
+	resp1, err := p1.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Assert(t, len(resp1) > 0)
+
+	// Evaluate on resource 2
+	p2 := PolicyProcessor{
+		Store:              &store.Store{},
+		ValidatingPolicies: vpolLikes,
+		Resource:           *res2List[0],
+		Rc:                 rc,
+		Out:                os.Stdout,
+		ContextProvider:    contextProvider,
+		VpolProvider:       spy,
+	}
+	resp2, err := p2.ApplyPoliciesOnResource()
+	assert.NilError(t, err)
+	assert.Assert(t, len(resp2) > 0)
+
+	// Verify that the prebuilt provider was reused across both evaluations
+	assert.Equal(t, spy.fetchCount, 2)
+	assert.Equal(t, rc.Pass, 2)
+	assert.Equal(t, rc.Fail, 0)
 }
