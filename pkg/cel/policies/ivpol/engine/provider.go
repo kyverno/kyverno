@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/autogen"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	ivpolautogen "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/autogen"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -96,50 +98,7 @@ func NewKubeProvider(
 		For(&policiesv1beta1.NamespacedImageValidatingPolicy{})
 
 	if polexEnabled {
-		exceptionHandlerFuncs := &handler.Funcs{
-			CreateFunc: func(
-				ctx context.Context,
-				tce event.TypedCreateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tce.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-			UpdateFunc: func(
-				ctx context.Context,
-				tue event.TypedUpdateEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tue.ObjectNew.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-			DeleteFunc: func(
-				ctx context.Context,
-				tde event.TypedDeleteEvent[client.Object],
-				trli workqueue.TypedRateLimitingInterface[reconcile.Request],
-			) {
-				polex := tde.Object.(*policiesv1beta1.PolicyException)
-				for _, ref := range polex.Spec.PolicyRefs {
-					trli.Add(reconcile.Request{
-						NamespacedName: client.ObjectKey{
-							Name: ref.Name,
-						},
-					})
-				}
-			},
-		}
+		exceptionHandlerFuncs := newPolicyExceptionHandler(mgr.GetClient())
 		ivpolBuilder = ivpolBuilder.Watches(&policiesv1beta1.PolicyException{}, exceptionHandlerFuncs)
 		nivpolBuilder = nivpolBuilder.Watches(&policiesv1beta1.PolicyException{}, exceptionHandlerFuncs)
 	}
@@ -151,4 +110,47 @@ func NewKubeProvider(
 		return nil, fmt.Errorf("failed to construct namespacedimagevalidatingpolicy manager: %w", err)
 	}
 	return reconciler, nil
+}
+
+type policyExceptionQueue = workqueue.TypedRateLimitingInterface[reconcile.Request]
+
+// newPolicyExceptionHandler requeues the policies a PolicyException refers to.
+// Policy refs carry no namespace, so a ref to a namespaced policy requeues every
+// NamespacedImageValidatingPolicy with that name.
+func newPolicyExceptionHandler(c client.Client) *handler.Funcs {
+	enqueue := func(ctx context.Context, obj client.Object, q policyExceptionQueue) {
+		polex, ok := obj.(*policiesv1beta1.PolicyException)
+		if !ok {
+			return
+		}
+		for _, ref := range polex.Spec.PolicyRefs {
+			switch ref.Kind {
+			case policieskyvernoio.ImageValidatingPolicyKind:
+				q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Name: ref.Name}})
+			case policieskyvernoio.NamespacedImageValidatingPolicyKind:
+				var policies policiesv1beta1.NamespacedImageValidatingPolicyList
+				if err := c.List(ctx, &policies); err != nil {
+					logging.Error(err, "failed to list namespaced image validating policies", "policy", ref.Name)
+					continue
+				}
+				for _, policy := range policies.Items {
+					if policy.Name == ref.Name {
+						q.Add(reconcile.Request{NamespacedName: client.ObjectKey{Namespace: policy.Namespace, Name: policy.Name}})
+					}
+				}
+			}
+		}
+	}
+	return &handler.Funcs{
+		CreateFunc: func(ctx context.Context, e event.TypedCreateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+		UpdateFunc: func(ctx context.Context, e event.TypedUpdateEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.ObjectNew, q)
+			enqueue(ctx, e.ObjectOld, q)
+		},
+		DeleteFunc: func(ctx context.Context, e event.TypedDeleteEvent[client.Object], q policyExceptionQueue) {
+			enqueue(ctx, e.Object, q)
+		},
+	}
 }

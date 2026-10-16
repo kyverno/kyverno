@@ -1,0 +1,7 @@
+apiVersion: example.com/v1
+kind: Widget
+metadata:
+  name: good-widget
+  namespace: default
+  labels:
+    app: my-app

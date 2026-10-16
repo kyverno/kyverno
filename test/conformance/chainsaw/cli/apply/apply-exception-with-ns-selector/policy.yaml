@@ -1,30 +1,30 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
 metadata:
   name: require-run-as-non-root-user
 spec:
-  background: true
-  rules:
-    - name: run-as-non-root-user
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-      validate:
-        failureAction: Enforce
-        message: >-
-          Running the container as root user is not allowed.
-        pattern:
-          spec:
-            =(securityContext):
-              =(runAsUser): ">0"
-            =(ephemeralContainers):
-              - =(securityContext):
-                  =(runAsUser): ">0"
-            =(initContainers):
-              - =(securityContext):
-                  =(runAsUser): ">0"
-            containers:
-              - =(securityContext):
-                  =(runAsUser): ">0"
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [pods]
+  validations:
+    - expression: >-
+        (!has(object.spec.securityContext) ||
+         !has(object.spec.securityContext.runAsUser) ||
+         object.spec.securityContext.runAsUser != 0) &&
+        (!has(object.spec.containers) || object.spec.containers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
+          c.securityContext.runAsUser != 0)) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
+          c.securityContext.runAsUser != 0)) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
+          c.securityContext.runAsUser != 0))
+      message: >-
+        Running the container as root user is not allowed.

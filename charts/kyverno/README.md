@@ -290,6 +290,19 @@ $ helm delete -n kyverno kyverno
 
 The command removes all the Kubernetes components associated with the chart and deletes the release.
 
+**Note on legacy policy CRDs:** The legacy `kyverno.io` policy CRDs (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, and the legacy `PolicyException`) carry the `helm.sh/resource-policy: keep` annotation. Helm therefore does **not** delete them on uninstall, so existing legacy policy resources are preserved rather than garbage-collected. After migrating to the CEL-based `policies.kyverno.io` APIs, delete these CRDs explicitly once you have verified the migration (note: deleting a CRD also deletes any remaining legacy policy resources of that kind, so back up and confirm your migration first), for example:
+
+```console
+$ kubectl delete crd \
+    clusterpolicies.kyverno.io \
+    policies.kyverno.io \
+    cleanuppolicies.kyverno.io \
+    clustercleanuppolicies.kyverno.io \
+    policyexceptions.kyverno.io
+```
+
+See the [migration guide](https://kyverno.io/docs/guides/migration-to-cel/) for details.
+
 ## Values
 
 The chart values are organised per component.
@@ -360,6 +373,8 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | config.maxContextSize | string | 2Mi | Maximum cumulative size of context data during policy evaluation. Supports Kubernetes quantity format (e.g., 100Mi, 2Gi) or plain bytes (e.g., 2097152). Limits memory used by context variables to prevent unbounded growth. Increase if policies legitimately need large context data (e.g., processing large ConfigMaps). Set to 0 to disable the limit (not recommended for production). |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.updateRequestThreshold | int | `1000` | Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies. |
+| config.enableUpdateRequestCleanup | bool | `false` | Enable cleanup of UpdateRequests. |
+| config.updateRequestCleanupTTL | string | `""` | Defines the TTL for UpdateRequests if cleanup is enabled. Format is a duration string (e.g. 1h, 24h, 168h). |
 | config.webhooks | object | `{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kube-system"]}]}}` | Defines the `namespaceSelector`/`objectSelector` in the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
 | config.webhookAnnotations | object | `{"admissions.enforcer/disabled":"true"}` | Defines annotations to set on webhook configurations. |
 | config.webhookLabels | object | `{}` | Defines labels to set on webhook configurations. |
@@ -1058,7 +1073,7 @@ Kubernetes: `>=1.25.0-0`
 |------------|------|---------|
 |  | crds | v0.0.0 |
 |  | grafana | v0.0.0 |
-| https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.2 |
+| https://kyverno.github.io/api | kyverno-api | 0.0.1-alpha.5 |
 | https://kyverno.github.io/reports-server/ | reports-server | 0.1.7 |
 | https://openreports.github.io/reports-api | openreports | 0.1.0 |
 

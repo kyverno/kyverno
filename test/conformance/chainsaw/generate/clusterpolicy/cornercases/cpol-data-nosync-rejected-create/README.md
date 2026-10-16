@@ -15,7 +15,8 @@ request.
 - The live namespace (layer=operational) is NOT matched by the policy
   (which matches layer=business)
 - The UpdateRequest has a phantom UID that doesn't match any live namespace
-- The background controller marks the UR as Failed
+- The background controller fails the UR on every retry and deletes it once
+  it runs out of retries
 - No downstream ConfigMap is created
 
 ## Reference Issue(s)

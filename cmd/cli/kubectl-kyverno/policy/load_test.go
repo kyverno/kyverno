@@ -498,3 +498,100 @@ func TestLoadHTTPTimeout(t *testing.T) {
 		t.Fatalf("expected timeout error, got: %v", err)
 	}
 }
+
+func TestLoad_CELExceptionVersions(t *testing.T) {
+	manifests := []struct {
+		version string
+		content string
+	}{
+		{
+			version: "v1alpha1",
+			content: `
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: test-exception-v1alpha1
+spec:
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`,
+		},
+		{
+			version: "v1beta1",
+			content: `
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: test-exception-v1beta1
+spec:
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`,
+		},
+		{
+			version: "v1",
+			content: `
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: test-exception-v1
+spec:
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`,
+		},
+	}
+
+	for _, m := range manifests {
+		t.Run(m.version, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "exception.yaml")
+			require.NoError(t, os.WriteFile(path, []byte(m.content), 0o600))
+
+			res, err := Load(nil, "", false, path)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+			require.Len(t, res.PolicyCelExceptions, 1)
+			assert.Equal(t, "test-exception-"+m.version, res.PolicyCelExceptions[0].GetName())
+		})
+	}
+}
+
+func TestLoad_CELExceptionUnknownField(t *testing.T) {
+	manifest := `
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: test-exception-unknown-field
+spec:
+  unknownField: invalid
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "exception.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(manifest), 0o600))
+
+	res, err := Load(nil, "", false, path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid value: value provided for unknown field")
+	if res != nil {
+		assert.Empty(t, res.PolicyCelExceptions)
+	}
+}

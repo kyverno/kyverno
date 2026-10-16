@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
@@ -214,22 +215,25 @@ func Test_SelectFrom(t *testing.T) {
 	resources := toUnstructured(t,
 		&corev1.ConfigMap{TypeMeta: v1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"}},
 		&kyvernov2.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: exceptionV2.Kind, APIVersion: exceptionV2.GroupVersion().String()},
+			Kind: ExceptionV2.Kind, APIVersion: ExceptionV2.GroupVersion().String()},
 		},
 		&kyvernov2beta1.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: exceptionV2beta1.Kind, APIVersion: exceptionV2beta1.GroupVersion().String()},
+			Kind: ExceptionV2beta1.Kind, APIVersion: ExceptionV2beta1.GroupVersion().String()},
+		},
+		&policiesv1alpha1.PolicyException{TypeMeta: v1.TypeMeta{
+			Kind: CELExceptionV1alpha1.Kind, APIVersion: CELExceptionV1alpha1.GroupVersion().String()},
 		},
 		&policiesv1beta1.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: celExceptionV1beta1.Kind, APIVersion: celExceptionV1beta1.GroupVersion().String()},
+			Kind: CELExceptionV1beta1.Kind, APIVersion: CELExceptionV1beta1.GroupVersion().String()},
 		},
 		&policiesv1.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: celExceptionV1.Kind, APIVersion: celExceptionV1.GroupVersion().String()},
+			Kind: CELExceptionV1.Kind, APIVersion: CELExceptionV1.GroupVersion().String()},
 		},
 	)
 	results, err := SelectFrom(resources, true)
 	require.NoError(t, err)
 	require.Len(t, results.Exceptions, 2)
-	require.Len(t, results.CELExceptions, 2)
+	require.Len(t, results.CELExceptions, 3)
 }
 
 func Test_SelectFrom_MalformedExceptionSurfacesError(t *testing.T) {
@@ -237,8 +241,8 @@ func Test_SelectFrom_MalformedExceptionSurfacesError(t *testing.T) {
 	// dropped -- it should be surfaced as an error, without preventing a later, valid exception in
 	// the same --resource batch from still being picked up.
 	malformed := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": exceptionV2.GroupVersion().String(),
-		"kind":       exceptionV2.Kind,
+		"apiVersion": ExceptionV2.GroupVersion().String(),
+		"kind":       ExceptionV2.Kind,
 		"metadata": map[string]interface{}{
 			"name": "malformed",
 		},
@@ -247,7 +251,7 @@ func Test_SelectFrom_MalformedExceptionSurfacesError(t *testing.T) {
 		},
 	}}
 	valid := toUnstructured(t, &kyvernov2beta1.PolicyException{TypeMeta: v1.TypeMeta{
-		Kind: exceptionV2beta1.Kind, APIVersion: exceptionV2beta1.GroupVersion().String()},
+		Kind: ExceptionV2beta1.Kind, APIVersion: ExceptionV2beta1.GroupVersion().String()},
 	})
 	resources := append([]*unstructured.Unstructured{malformed}, valid...)
 
@@ -261,8 +265,8 @@ func Test_SelectFrom_MalformedCELExceptionSurfacesError(t *testing.T) {
 	// branch: a malformed CEL exception must not be silently dropped, and a later, valid CEL
 	// exception in the same --resource batch must still be picked up.
 	malformed := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": celExceptionV1.GroupVersion().String(),
-		"kind":       celExceptionV1.Kind,
+		"apiVersion": CELExceptionV1.GroupVersion().String(),
+		"kind":       CELExceptionV1.Kind,
 		"metadata": map[string]interface{}{
 			"name": "malformed",
 		},
@@ -271,7 +275,7 @@ func Test_SelectFrom_MalformedCELExceptionSurfacesError(t *testing.T) {
 		},
 	}}
 	valid := toUnstructured(t, &policiesv1beta1.PolicyException{TypeMeta: v1.TypeMeta{
-		Kind: celExceptionV1beta1.Kind, APIVersion: celExceptionV1beta1.GroupVersion().String()},
+		Kind: CELExceptionV1beta1.Kind, APIVersion: CELExceptionV1beta1.GroupVersion().String()},
 	})
 	resources := append([]*unstructured.Unstructured{malformed}, valid...)
 
@@ -283,7 +287,7 @@ func Test_SelectFrom_MalformedCELExceptionSurfacesError(t *testing.T) {
 func Test_SelectFrom_BlocksLegacyException(t *testing.T) {
 	resources := toUnstructured(t,
 		&kyvernov2.PolicyException{TypeMeta: v1.TypeMeta{
-			Kind: exceptionV2.Kind, APIVersion: exceptionV2.GroupVersion().String()},
+			Kind: ExceptionV2.Kind, APIVersion: ExceptionV2.GroupVersion().String()},
 		},
 	)
 

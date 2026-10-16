@@ -96,7 +96,8 @@ func getPolicyExceptionEnvSet() (*environment.EnvSet, error) {
 			cel.Types(RequestType.CelType()),
 		)
 		envOptions = append(envOptions, declOptions...)
-		policyExceptionEnvSet, errPolicyExceptionEnvSet = base.Extend(environment.VersionedOptions{
+		// BaseEnvSet, not base.Extend: registers CostLib last (see env.go).
+		policyExceptionEnvSet, errPolicyExceptionEnvSet = BaseEnvSet(environment.DefaultCompatibilityVersion(), environment.VersionedOptions{
 			IntroducedVersion: version.MajorMinor(1, 0),
 			EnvOptions:        envOptions,
 		})

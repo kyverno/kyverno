@@ -7,7 +7,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
-	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/sdk/extensions/cel/utils"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
@@ -144,7 +143,7 @@ func TestEvaluate_RequestMapBuiltOnceRegardlessOfExceptions(t *testing.T) {
 	require.NoError(t, err)
 
 	requestMapFn, calls := countingRequestMapFn(request)
-	result, err := compiled.Evaluate(context.Background(), &imageverify.Runtime{ImageContext: ictx}, attr, request, nil, true, requestMapFn, nil)
+	result, err := compiled.Evaluate(context.Background(), ictx, nil, nil, attr, request, nil, true, requestMapFn, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	assert.Equal(t, 1, *calls, "Evaluate must call requestMapFn exactly once per invocation, regardless of matchConditions/exception count")
@@ -161,7 +160,7 @@ func TestMutateDigest_RequestMapBuiltOnceRegardlessOfExceptions(t *testing.T) {
 	require.NoError(t, err)
 
 	requestMapFn, calls := countingRequestMapFn(request)
-	_, err = compiled.MutateDigest(context.Background(), &imageverify.Runtime{ImageContext: ictx}, attr, request, nil, pod, requestMapFn, config.NewDefaultConfiguration(false), nil)
+	_, err = compiled.MutateDigest(context.Background(), ictx, nil, nil, attr, request, nil, pod, requestMapFn, config.NewDefaultConfiguration(false), nil)
 	require.NoError(t, err)
 	assert.Equal(t, 1, *calls, "MutateDigest must call requestMapFn exactly once per invocation, regardless of matchConditions/exception count")
 }
@@ -270,7 +269,7 @@ func TestEvaluate_MatchConditionsExceptionsAndValidationShareOneHoistedMap(t *te
 	require.NoError(t, err)
 
 	requestMapFn, calls := sentinelRequestMapFn(request)
-	result, err := compiled.Evaluate(context.Background(), &imageverify.Runtime{ImageContext: ictx}, attr, request, nil, true, requestMapFn, nil)
+	result, err := compiled.Evaluate(context.Background(), ictx, nil, nil, attr, request, nil, true, requestMapFn, nil)
 	require.NoError(t, err)
 	require.NotNil(t, result, "matchCondition must have read the hoisted (sentinel) map, or Evaluate would have short-circuited as non-matching")
 	assert.Empty(t, result.Exceptions, "every exception's matchCondition must have read the hoisted (sentinel) map, or a rebuilt map would satisfy 'operation != CONNECT' and grant a full exemption")

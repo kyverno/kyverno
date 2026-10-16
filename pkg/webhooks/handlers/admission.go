@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -58,7 +59,11 @@ func (inner AdmissionHandler) withAdmission(logger logr.Logger) HttpHandler {
 			AdmissionRequest: *admissionReview.Request,
 			URLParams:        params.ByName("policy"),
 		}
-		admissionResponse := inner(request.Context(), logger, admissionRequest, startTime)
+		// One CEL cost budget shared by every policy this admission request evaluates
+		// (Handle for every CEL family reads it via program.go's ContextEval wrapper,
+		// pkg/cel/requestbudget); ctx propagates it down through request.Context().
+		ctx, _ := requestbudget.Ensure(request.Context())
+		admissionResponse := inner(ctx, logger, admissionRequest, startTime)
 		admissionReview.Response = &admissionResponse
 		responseJSON, err := json.Marshal(admissionReview)
 		if err != nil {

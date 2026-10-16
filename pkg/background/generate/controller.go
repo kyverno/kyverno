@@ -112,7 +112,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
 		if err != nil {
 			if strings.Contains(err.Error(), doesNotApply) {
-				logger.V(3).Info(fmt.Sprintf("skipping rule %s: %v", rule.Rule, err.Error()))
+				logger.V(3).Info("skipping rule", "rule", rule.Rule, "reason", err.Error())
 			}
 
 			// Track the error so UpdateRequest is marked as Failed
