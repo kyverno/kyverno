@@ -351,7 +351,7 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	}
 
 	checkedTypes := []string{}
-	found := false
+	candidatesByPredicate := make(map[string][]verifiedCandidate)
 	for _, s := range sigs {
 		payload, gotType, err := policy.AttestationToPayloadJSON(ctx, attestation.InToto.Type, s)
 		if err != nil {
@@ -363,14 +363,30 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 			continue
 		}
 
-		found = true
-		image.AddVerifiedIntotoPayloads(gotType, payload)
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(s, payload, cOpts, bundles)
+		candidatesByPredicate[gotType] = append(candidatesByPredicate[gotType], verifiedCandidate{
+			payload:       payload,
+			predicateType: gotType,
+			statementTS:   sTS,
+			hasStatement:  hasS,
+			bundleTS:      bTS,
+			hasBundle:     hasB,
+		})
 	}
 
-	if !found {
+	if len(candidatesByPredicate) == 0 {
 		err := fmt.Errorf("required predicate type %s not found, found %v", attestation.InToto.Type, checkedTypes)
 		logger.Error(err, "image verification failed")
 		return err
+	}
+
+	for pType, candidates := range candidatesByPredicate {
+		chosen, err := selectNewestAttestation(candidates, pType)
+		if err != nil {
+			logger.Error(err, "image verification failed to select newest attestation")
+			return err
+		}
+		image.AddVerifiedIntotoPayloads(chosen.predicateType, chosen.payload)
 	}
 
 	return nil
