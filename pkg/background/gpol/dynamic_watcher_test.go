@@ -1327,6 +1327,7 @@ type fullMockClient struct {
 	MockClient
 	listResult     *unstructured.UnstructuredList
 	deleteErr      error
+	updateErr      error
 	updatedObjects []*unstructured.Unstructured
 }
 
@@ -1342,7 +1343,7 @@ func (f *fullMockClient) UpdateResource(_ context.Context, _, _, _ string, obj i
 	if resource, ok := obj.(*unstructured.Unstructured); ok {
 		f.updatedObjects = append(f.updatedObjects, resource.DeepCopy())
 	}
-	return nil, nil
+	return nil, f.updateErr
 }
 
 func TestHandleAdd(t *testing.T) {
@@ -1409,51 +1410,74 @@ func TestHandleUpdate(t *testing.T) {
 		wm.handleUpdate(src, gvr)
 	})
 
-	t.Run("source labels replace stale downstream labels while preserving tracking labels", func(t *testing.T) {
-		downstreamLabels := map[string]string{
-			"copy":                         "old",
-			"removed":                      "stale",
-			common.GenerateSourceUIDLabel:  "src-uid",
-			common.GeneratePolicyLabel:     "clone-policy",
-			common.GenerateTriggerUIDLabel: "trigger-uid",
-			kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+	for _, updateErr := range []error{nil, errors.New("downstream update failed")} {
+		name := "source labels replace stale downstream labels while preserving tracking labels"
+		if updateErr != nil {
+			name = "failed downstream update preserves cached metadata"
 		}
-		downstream := makeObj("down-uid", "down-pod", "default", downstreamLabels)
-		client := &fullMockClient{
-			listResult: &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*downstream}},
-		}
-		wm := &WatchManager{
-			client: client,
-			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
-				gvr: {metadataCache: map[types.UID]Resource{
-					downstream.GetUID(): {
-						Name:      downstream.GetName(),
-						Namespace: downstream.GetNamespace(),
-						Labels:    downstream.GetLabels(),
-						Data:      downstream,
-					},
-				}},
-			},
-		}
+		t.Run(name, func(t *testing.T) {
+			downstreamLabels := map[string]string{
+				"copy":                         "old",
+				"removed":                      "stale",
+				common.GenerateSourceUIDLabel:  "src-uid",
+				common.GeneratePolicyLabel:     "clone-policy",
+				common.GenerateTriggerUIDLabel: "trigger-uid",
+				kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+			}
+			downstream := makeObj("down-uid", "down-pod", "default", downstreamLabels)
+			downstream.Object["data"] = map[string]any{"value": "old"}
+			original := Resource{
+				Name:      downstream.GetName(),
+				Namespace: downstream.GetNamespace(),
+				Labels:    downstream.GetLabels(),
+				Hash:      reportutils.CalculateResourceHash(*downstream),
+				Data:      downstream.DeepCopy(),
+			}
+			client := &fullMockClient{
+				listResult: &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*downstream}},
+				updateErr:  updateErr,
+			}
+			wm := &WatchManager{
+				client: client,
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {metadataCache: map[types.UID]Resource{
+						downstream.GetUID(): {
+							Name:      original.Name,
+							Namespace: original.Namespace,
+							Labels:    downstream.GetLabels(),
+							Hash:      original.Hash,
+							Data:      downstream.DeepCopy(),
+						},
+					}},
+				},
+			}
 
-		source := makeObj("src-uid", "src-pod", "default", map[string]string{
-			"copy":  "new",
-			"added": "from-source",
+			source := makeObj("src-uid", "src-pod", "default", map[string]string{
+				"copy":  "new",
+				"added": "from-source",
+			})
+			source.Object["data"] = map[string]any{"value": "new"}
+			wm.handleUpdate(source, gvr)
+
+			require.Len(t, client.updatedObjects, 1)
+			assert.Equal(t, map[string]string{
+				"copy":                         "new",
+				"added":                        "from-source",
+				common.GenerateSourceUIDLabel:  "src-uid",
+				common.GeneratePolicyLabel:     "clone-policy",
+				common.GenerateTriggerUIDLabel: "trigger-uid",
+				kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+			}, client.updatedObjects[0].GetLabels())
+			cached := wm.dynamicWatchers[gvr].metadataCache[downstream.GetUID()]
+			if updateErr != nil {
+				assert.Equal(t, original.Labels, cached.Labels)
+				assert.Equal(t, original.Hash, cached.Hash)
+				assert.Equal(t, original.Data, cached.Data)
+			} else {
+				assert.Equal(t, client.updatedObjects[0].GetLabels(), cached.Labels)
+			}
 		})
-		wm.handleUpdate(source, gvr)
-
-		require.Len(t, client.updatedObjects, 1)
-		assert.Equal(t, map[string]string{
-			"copy":                         "new",
-			"added":                        "from-source",
-			common.GenerateSourceUIDLabel:  "src-uid",
-			common.GeneratePolicyLabel:     "clone-policy",
-			common.GenerateTriggerUIDLabel: "trigger-uid",
-			kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		}, client.updatedObjects[0].GetLabels())
-		assert.Equal(t, client.updatedObjects[0].GetLabels(),
-			wm.dynamicWatchers[gvr].metadataCache[downstream.GetUID()].Labels)
-	})
+	}
 
 	t.Run("downstream changed by user gets reverted", func(t *testing.T) {
 		mockClient := &MockClient{}
