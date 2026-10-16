@@ -3,7 +3,9 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -121,16 +123,126 @@ func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) jsonpatch.J
 	}
 }
 
-func getRawResp(statements []map[string]any) ([]byte, error) {
-	for _, statement := range statements {
-		predicate, ok := statement["predicate"].(map[string]any)
-		if ok {
-			rawResp, err := json.Marshal(predicate)
-			if err != nil {
-				return nil, err
+var timestampKeys = []string{
+	"scanFinishedOn",
+	"scanTime",
+	"scanStartedOn",
+	"buildFinishedOn",
+	"buildStartedOn",
+	"finishedOn",
+	"startedOn",
+	"timestamp",
+	"Timestamp",
+	"CreatedAt",
+	"created",
+	"time",
+}
+
+// extractStatementTimestamp extracts a trusted timestamp from signed in-toto statement fields.
+// Unsigned OCI manifest annotations are intentionally excluded to prevent mutable registry metadata
+// from manipulating attestation evaluation order.
+func extractStatementTimestamp(statement map[string]any) (time.Time, bool) {
+	if predicate, ok := statement["predicate"].(map[string]any); ok {
+		if meta, ok := predicate["metadata"].(map[string]any); ok {
+			for _, k := range timestampKeys {
+				if t, ok := parseTimeValue(meta[k]); ok {
+					return t, true
+				}
 			}
-			return rawResp, nil
+		}
+		if runDetails, ok := predicate["runDetails"].(map[string]any); ok {
+			if meta, ok := runDetails["metadata"].(map[string]any); ok {
+				for _, k := range timestampKeys {
+					if t, ok := parseTimeValue(meta[k]); ok {
+						return t, true
+					}
+				}
+			}
+		}
+		if creationInfo, ok := predicate["creationInfo"].(map[string]any); ok {
+			if t, ok := parseTimeValue(creationInfo["created"]); ok {
+				return t, true
+			}
+		}
+		for _, k := range timestampKeys {
+			if t, ok := parseTimeValue(predicate[k]); ok {
+				return t, true
+			}
 		}
 	}
-	return nil, fmt.Errorf("predicate not found in any statement")
+
+	for _, k := range []string{"created", "timestamp", "Timestamp", "time"} {
+		if t, ok := parseTimeValue(statement[k]); ok {
+			return t, true
+		}
+	}
+
+	return time.Time{}, false
+}
+
+func parseTimeValue(val any) (time.Time, bool) {
+	s, ok := val.(string)
+	if !ok || s == "" {
+		return time.Time{}, false
+	}
+	layouts := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05Z",
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+	}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+func sortStatementsByTimestamp(statements []map[string]any) {
+	sort.SliceStable(statements, func(i, j int) bool {
+		ti, oki := extractStatementTimestamp(statements[i])
+		tj, okj := extractStatementTimestamp(statements[j])
+		if oki && okj {
+			return ti.After(tj)
+		}
+		if oki {
+			return true
+		}
+		return false
+	})
+}
+
+func allStatementsHaveTimestamps(statements []map[string]any) bool {
+	if len(statements) <= 1 {
+		return false
+	}
+	for _, s := range statements {
+		if _, ok := extractStatementTimestamp(s); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func getRawResp(statements []map[string]any, attestationType string) ([]byte, error) {
+	matching := make([]map[string]any, 0, len(statements))
+	for _, s := range statements {
+		t, _ := s["type"].(string)
+		if attestationType == "" || t == attestationType {
+			if _, ok := s["predicate"].(map[string]any); ok {
+				matching = append(matching, s)
+			}
+		}
+	}
+	if len(matching) == 0 {
+		return nil, fmt.Errorf("predicate not found in any statement")
+	}
+
+	if allStatementsHaveTimestamps(matching) {
+		sortStatementsByTimestamp(matching)
+	}
+	predicate := matching[0]["predicate"].(map[string]any)
+	return json.Marshal(predicate)
 }

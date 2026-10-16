@@ -63,6 +63,22 @@ jobs:
         run: |
           set -e
           make verify-legacy-crd-retention
+      - name: Verify background controller RBAC
+        # Asserts the background controller holds every permission the chart
+        # aggregates into admin/edit/view, so generate rules can still bind
+        # those roles after a chart RBAC change. PyYAML comes from the
+        # chart-testing virtualenv activated above (yamllint depends on it).
+        run: |
+          set -e
+          make verify-background-controller-rbac
+      - name: Verify scale-to-zero release scope
+        run: bash scripts/verify-scale-to-zero-hook.sh
+      - name: Verify restrict-sysctls allow-list
+        # Renders restrict-sysctls at each Kubernetes version gate and checks
+        # the allow-list against the PSA list for that version.
+        run: |
+          set -e
+          make verify-policies-sysctls
 
   sync-issue:
     if: always() && github.event_name == 'push'

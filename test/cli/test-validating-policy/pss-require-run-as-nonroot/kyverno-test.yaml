@@ -5,12 +5,19 @@ metadata:
 policies:
 - policy.yaml
 resources:
+- pods.yaml
 - resources.yaml
 results:
 - isValidatingPolicy: true
   kind: Pod
   policy: require-run-as-nonroot
   resources:
+  - pod-false-containers-true
+  - pod-false-containers-unset
+  - pod-unset-containers-unset
+  - pod-true-container-false
+  - pod-true-init-container-false
+  - pod-unset-ephemeral-unset
   - nonroot-unset-host-users-absent
   - nonroot-unset-host-users-true
   - nonroot-container-false-host-users-absent
@@ -19,6 +26,9 @@ results:
   kind: Pod
   policy: require-run-as-nonroot
   resources:
+  - pod-unset-containers-true
+  - pod-true-containers-unset
+  - pod-true-all-scopes-unset
   - nonroot-unset-host-users-false
   - nonroot-container-false-host-users-false
   - nonroot-pod-true

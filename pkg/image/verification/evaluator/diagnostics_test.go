@@ -51,7 +51,7 @@ func TestEvaluationVerificationDiagnostics(t *testing.T) {
 			compiled, errs := NewCompiler(nil).Compile(p, nil)
 			require.Empty(t, errs)
 			req, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
-			result, err := compiled.Evaluate(context.Background(), &imageverify.Runtime{ImageContext: mutationImages{}}, attr, req, nil, true, nil, nil)
+			result, err := compiled.Evaluate(context.Background(), mutationImages{}, nil, nil, attr, req, nil, true, nil, nil)
 			require.NoError(t, err)
 			require.False(t, result.Result)
 			require.Nil(t, result.Error)
@@ -73,7 +73,7 @@ func TestEvaluationVerificationDiagnosticsCachedVariable(t *testing.T) {
 	compiled, errs := NewCompiler(nil).Compile(p, nil)
 	require.Empty(t, errs)
 	req, attr, _ := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
-	result, err := compiled.Evaluate(context.Background(), &imageverify.Runtime{ImageContext: mutationImages{}}, attr, req, nil, true, nil, nil)
+	result, err := compiled.Evaluate(context.Background(), mutationImages{}, nil, nil, attr, req, nil, true, nil, nil)
 	require.NoError(t, err)
 	require.False(t, result.Result)
 	require.Equal(t, "cached failure", result.Message, "cached variables must not be re-evaluated to regenerate diagnostics")
@@ -92,16 +92,16 @@ func TestEvaluationVerificationDiagnosticsIsolation(t *testing.T) {
 	for i := range 32 {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			t.Parallel()
-			rt := &imageverify.Runtime{ImageContext: mutationImages{}, Results: imageverify.NewImageVerificationResults()}
+			results := imageverify.NewImageVerificationResults()
 			req, attr, pod := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
 			if i%2 == 0 {
 				pod.SetName("skip")
 			}
 			for range 2 {
-				result, err := compiled.Evaluate(context.Background(), rt, attr, req, nil, true, nil, nil)
+				result, err := compiled.Evaluate(context.Background(), mutationImages{}, nil, results, attr, req, nil, true, nil, nil)
 				require.NoError(t, err)
 				require.Equal(t, i%2 != 0, strings.Contains(result.Message, "verification details"))
-				result, err = second.Evaluate(context.Background(), rt, attr, req, nil, true, nil, nil)
+				result, err = second.Evaluate(context.Background(), mutationImages{}, nil, results, attr, req, nil, true, nil, nil)
 				require.NoError(t, err)
 				require.Equal(t, "unrelated", result.Message)
 			}
