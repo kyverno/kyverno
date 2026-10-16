@@ -16,6 +16,7 @@ background_service_account=$(kubectl get deployments -n "$controller_namespace" 
     end')
 background_username="system:serviceaccount:${controller_namespace}:${background_service_account}"
 
+# Copy labels from the generated targets already asserted by targets.yaml.
 for rule in direct foreach; do
   kubectl get configmap "${rule}-source" -n clone-kind-cleanup-target -o json \
     | jq --arg name "unsigned-${rule}" '{

@@ -54,7 +54,7 @@ func TestGenerateCloneListKindResolution(t *testing.T) {
 				client = dclient.NewFakeClientWithDisco(client.GetDynamicInterface(), client.GetKubeClient(), discovery)
 				pattern := kyvernov1.GeneratePattern{
 					ResourceSpec: kyvernov1.ResourceSpec{Namespace: "target"},
-					CloneList:    kyvernov1.CloneList{Kinds: []string{test.kind}},
+					CloneList:    kyvernov1.CloneList{Namespace: "sources", Kinds: []string{test.kind}},
 				}
 				generation := kyvernov1.Generation{GeneratePattern: pattern}
 				if foreach {
@@ -74,13 +74,21 @@ func TestGenerateCloneListKindResolution(t *testing.T) {
 					assert.Equal(t, len(*reviews), 0, "unresolved clone kinds must not reach authorization")
 					return
 				}
-				assert.Equal(t, len(*reviews), 2)
+				wantVerbs := []string{"get", "create"}
+				if !test.denied {
+					wantVerbs = append(wantVerbs, "list")
+				}
+				assert.Equal(t, len(*reviews), len(wantVerbs))
 				for i, review := range *reviews {
 					assert.Equal(t, review.User, "alice")
 					assert.DeepEqual(t, review.Groups, groups)
+					namespace := "target"
+					if wantVerbs[i] == "list" {
+						namespace = "sources"
+					}
 					assert.DeepEqual(t, review.ResourceAttributes, &authorizationv1.ResourceAttributes{
-						Namespace: "target",
-						Verb:      []string{"get", "create"}[i],
+						Namespace: namespace,
+						Verb:      wantVerbs[i],
 						Group:     test.want.Group,
 						Version:   test.want.Version,
 						Resource:  test.want.Resource,

@@ -85,7 +85,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 			// for policies that refer to CRDs installed later.
 			checker := generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
 			if w, err := checker.ValidateReports(context.TODO()); err != nil {
-				return nil, fmt.Errorf("path: spec.rules[%d].generate..: %v", idx, err)
+				return nil, fmt.Errorf("path: spec.rules[%d].generate: %v", idx, err)
 			} else {
 				warnings = append(warnings, w...)
 			}
@@ -106,7 +106,7 @@ func validateGenerateControllers(idx int, rule *kyvernov1.Rule, client dclient.I
 	if rule.Generation.Synchronize {
 		admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
 		checker := generate.NewGenerateFactory(client, rule, admissionSA, "", logging.GlobalLogger())
-		if _, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
+		if _, path, err := checker.ValidateTargets(context.TODO(), []string{"list", "get"}); err != nil {
 			return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 		}
 	}

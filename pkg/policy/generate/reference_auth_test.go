@@ -109,7 +109,11 @@ func TestGenerateReferenceNamespaceRequiresClusterWideAuthorization(t *testing.T
 					} else {
 						assert.ErrorContains(t, err, "requires permissions")
 					}
-					assert.Equal(t, len(*reviews), 2)
+					wantReviews := 2
+					if mode == "cloneList" && clusterWide {
+						wantReviews++ // Source list authorization follows target checks.
+					}
+					assert.Equal(t, len(*reviews), wantReviews)
 					for _, review := range *reviews {
 						assert.Equal(t, review.ResourceAttributes.Namespace, "")
 					}
