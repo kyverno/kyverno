@@ -329,11 +329,11 @@ spec:
   - expression: "has(object.metadata.labels) && 'app' in object.metadata.labels"
     message: "app label is required"
 `)
-	res1YAML := []byte(`
+	passingPodYAML := []byte(`
 apiVersion: v1
 kind: Pod
 metadata:
-  name: pod-1
+  name: passing-pod
   namespace: default
   labels:
     app: demo
@@ -342,14 +342,12 @@ spec:
   - name: nginx
     image: nginx
 `)
-	res2YAML := []byte(`
+	failingPodYAML := []byte(`
 apiVersion: v1
 kind: Pod
 metadata:
-  name: pod-2
+  name: failing-pod
   namespace: default
-  labels:
-    app: demo
 spec:
   containers:
   - name: nginx
@@ -368,43 +366,58 @@ spec:
 	spy := &spyVpolProvider{inner: provider}
 	contextProvider := libs.NewFakeContextProvider()
 
-	res1List, err := resource.GetUnstructuredResources(res1YAML)
-	assert.NilError(t, err)
-	res2List, err := resource.GetUnstructuredResources(res2YAML)
-	assert.NilError(t, err)
-
-	rc := &ResultCounts{}
-
-	// Evaluate on resource 1
-	p1 := PolicyProcessor{
-		Store:              &store.Store{},
-		ValidatingPolicies: vpolLikes,
-		Resource:           *res1List[0],
-		Rc:                 rc,
-		Out:                os.Stdout,
-		ContextProvider:    contextProvider,
-		VpolProvider:       spy,
+	testcases := []struct {
+		name         string
+		resourceYAML []byte
+		expectedPass int
+		expectedFail int
+	}{
+		{
+			name:         "pod with app label passes",
+			resourceYAML: passingPodYAML,
+			expectedPass: 1,
+			expectedFail: 0,
+		},
+		{
+			name:         "pod without app label fails",
+			resourceYAML: failingPodYAML,
+			expectedPass: 0,
+			expectedFail: 1,
+		},
 	}
-	resp1, err := p1.ApplyPoliciesOnResource()
-	assert.NilError(t, err)
-	assert.Assert(t, len(resp1) > 0)
 
-	// Evaluate on resource 2
-	p2 := PolicyProcessor{
-		Store:              &store.Store{},
-		ValidatingPolicies: vpolLikes,
-		Resource:           *res2List[0],
-		Rc:                 rc,
-		Out:                os.Stdout,
-		ContextProvider:    contextProvider,
-		VpolProvider:       spy,
+	totalPass := 0
+	totalFail := 0
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			resList, err := resource.GetUnstructuredResources(tc.resourceYAML)
+			assert.NilError(t, err)
+
+			rc := &ResultCounts{}
+			p := PolicyProcessor{
+				Store:              &store.Store{},
+				ValidatingPolicies: vpolLikes,
+				Resource:           *resList[0],
+				Rc:                 rc,
+				Out:                os.Stdout,
+				ContextProvider:    contextProvider,
+				VpolProvider:       spy,
+			}
+			resp, err := p.ApplyPoliciesOnResource()
+			assert.NilError(t, err)
+			assert.Assert(t, len(resp) > 0)
+
+			assert.Equal(t, rc.Pass, tc.expectedPass)
+			assert.Equal(t, rc.Fail, tc.expectedFail)
+
+			totalPass += rc.Pass
+			totalFail += rc.Fail
+		})
 	}
-	resp2, err := p2.ApplyPoliciesOnResource()
-	assert.NilError(t, err)
-	assert.Assert(t, len(resp2) > 0)
 
 	// Verify that the prebuilt provider was reused across both evaluations
-	assert.Equal(t, spy.fetchCount, 2)
-	assert.Equal(t, rc.Pass, 2)
-	assert.Equal(t, rc.Fail, 0)
+	assert.Equal(t, spy.fetchCount, len(testcases))
+	assert.Equal(t, totalPass, 1)
+	assert.Equal(t, totalFail, 1)
 }
