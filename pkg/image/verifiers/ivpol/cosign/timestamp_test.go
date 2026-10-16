@@ -479,4 +479,115 @@ func TestExtractAttestationTimestamps(t *testing.T) {
 		assert.True(t, hasS, "signed statement timestamp must still be extracted")
 		assert.True(t, tStatement.Equal(sTS))
 	})
+
+	t.Run("bundle does not match signature", func(t *testing.T) {
+		tlogBody := map[string]any{
+			"kind":       "hashedrekord",
+			"apiVersion": "0.0.1",
+			"spec": map[string]any{
+				"signature": map[string]any{
+					"content": "MEQCIFrwIdVX8n5RM+Fy9fgCmaBc20jmksfL0XL08y1zx3XpAiB95HkXz37kTUzdykwuNStwCc5B9NKHtioD+3GYMuWU/w==",
+					"publicKey": map[string]any{
+						"content": "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFNHlQQ080MStjeGxE\ndENBUndTNDNvQU1YVWs3NApyWGZ5eGhKSldJZ05KbTUyTlppZllHaDNnYzNaakJVOVJhRXJLb0NidGVxdW1IWU9CSnN6RmNIUGFBPT0KLS0tLS1FTkQgUFV\nCTElDIEtFWS0tLS0tCg==",
+					},
+				},
+				"data": map[string]any{
+					"hash": map[string]any{
+						"algorithm": "sha256",
+						"value":     "0c0f699f002f4de2ab43b04a0c930ceb57be35d2c81b31648d88b021713e9477",
+					},
+				},
+			},
+		}
+		canonicalTlogBody, err := json.Marshal(tlogBody)
+		require.NoError(t, err)
+
+		mismatchedBundle := &protobundle.Bundle{
+			MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+			Content: &protobundle.Bundle_DsseEnvelope{
+				DsseEnvelope: &protodsse.Envelope{
+					PayloadType: "application/vnd.in-toto+json",
+					Payload:     []byte("unrelated-payload"),
+				},
+			},
+			VerificationMaterial: &protobundle.VerificationMaterial{
+				Content: &protobundle.VerificationMaterial_PublicKey{
+					PublicKey: &protocommon.PublicKeyIdentifier{
+						Hint: "test",
+					},
+				},
+				TlogEntries: []*protorekor.TransparencyLogEntry{
+					{
+						LogIndex: 42,
+						LogId: &protocommon.LogId{
+							KeyId: []byte("deadbeef"),
+						},
+						KindVersion: &protorekor.KindVersion{
+							Kind:    "hashedrekord",
+							Version: "0.0.1",
+						},
+						IntegratedTime:    tRekor.Unix(),
+						CanonicalizedBody: canonicalTlogBody,
+						InclusionPromise: &protorekor.InclusionPromise{
+							SignedEntryTimestamp: []byte("set"),
+						},
+						InclusionProof: &protorekor.InclusionProof{
+							LogIndex:   42,
+							RootHash:   []byte("b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"),
+							Checkpoint: &protorekor.Checkpoint{Envelope: "checkpoint"},
+						},
+					},
+				},
+			},
+		}
+
+		sgb, err := sgbundle.NewBundle(mismatchedBundle)
+		require.NoError(t, err)
+
+		cOpts := &cosign.CheckOpts{
+			NewBundleFormat: true,
+		}
+
+		bTS, hasB, _, _ := extractAttestationTimestamps(sig, nil, cOpts, []*sgbundle.Bundle{sgb})
+		assert.False(t, hasB, "hasBundle must be false when bundle does not match signature")
+		assert.True(t, bTS.IsZero())
+	})
+
+	t.Run("malformed DSSE payload extracts no statement timestamp", func(t *testing.T) {
+		malformedSig, err := static.NewAttestation([]byte("{invalid-json"))
+		require.NoError(t, err)
+
+		_, hasB, sTS, hasS := extractAttestationTimestamps(malformedSig, nil, nil, nil)
+		assert.False(t, hasS, "hasStatement must be false for malformed DSSE envelope")
+		assert.False(t, hasB)
+		assert.True(t, sTS.IsZero())
+	})
+
+	t.Run("valid payload with no timestamps reports neither timestamp", func(t *testing.T) {
+		noTimeStmt := map[string]any{
+			"_type":         "https://in-toto.io/Statement/v0.1",
+			"predicateType": "custom",
+			"predicate": map[string]any{
+				"key": "value-without-timestamp",
+			},
+		}
+		noTimeBytes, err := json.Marshal(noTimeStmt)
+		require.NoError(t, err)
+
+		noTimeDsse := map[string]any{
+			"payloadType": "application/vnd.in-toto+json",
+			"payload":     base64.StdEncoding.EncodeToString(noTimeBytes),
+		}
+		noTimeDsseBytes, err := json.Marshal(noTimeDsse)
+		require.NoError(t, err)
+
+		sigNoTime, err := static.NewAttestation(noTimeDsseBytes)
+		require.NoError(t, err)
+
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(sigNoTime, noTimeBytes, nil, nil)
+		assert.False(t, hasS, "hasStatement must be false when payload has no timestamps")
+		assert.False(t, hasB, "hasBundle must be false when no bundle is provided")
+		assert.True(t, sTS.IsZero())
+		assert.True(t, bTS.IsZero())
+	})
 }
