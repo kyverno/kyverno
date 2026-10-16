@@ -403,4 +403,80 @@ func TestExtractAttestationTimestamps(t *testing.T) {
 		assert.True(t, hasB)
 		assert.True(t, tRekor.Equal(bTS))
 	})
+
+	t.Run("ignore bundle Rekor integrated time when IgnoreTlog is true", func(t *testing.T) {
+		tlogBody := map[string]any{
+			"kind":       "hashedrekord",
+			"apiVersion": "0.0.1",
+			"spec": map[string]any{
+				"signature": map[string]any{
+					"content": "MEQCIFrwIdVX8n5RM+Fy9fgCmaBc20jmksfL0XL08y1zx3XpAiB95HkXz37kTUzdykwuNStwCc5B9NKHtioD+3GYMuWU/w==",
+					"publicKey": map[string]any{
+						"content": "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFNHlQQ080MStjeGxE\ndENBUndTNDNvQU1YVWs3NApyWGZ5eGhKSldJZ05KbTUyTlppZllHaDNnYzNaakJVOVJhRXJLb0NidGVxdW1IWU9CSnN6RmNIUGFBPT0KLS0tLS1FTkQgUFV\nCTElDIEtFWS0tLS0tCg==",
+					},
+				},
+				"data": map[string]any{
+					"hash": map[string]any{
+						"algorithm": "sha256",
+						"value":     "0c0f699f002f4de2ab43b04a0c930ceb57be35d2c81b31648d88b021713e9477",
+					},
+				},
+			},
+		}
+		canonicalTlogBody, err := json.Marshal(tlogBody)
+		require.NoError(t, err)
+
+		pbBundle := &protobundle.Bundle{
+			MediaType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+			Content: &protobundle.Bundle_DsseEnvelope{
+				DsseEnvelope: &protodsse.Envelope{
+					PayloadType: "application/vnd.in-toto+json",
+					Payload:     stmtBytes,
+				},
+			},
+			VerificationMaterial: &protobundle.VerificationMaterial{
+				Content: &protobundle.VerificationMaterial_PublicKey{
+					PublicKey: &protocommon.PublicKeyIdentifier{
+						Hint: "test",
+					},
+				},
+				TlogEntries: []*protorekor.TransparencyLogEntry{
+					{
+						LogIndex: 42,
+						LogId: &protocommon.LogId{
+							KeyId: []byte("deadbeef"),
+						},
+						KindVersion: &protorekor.KindVersion{
+							Kind:    "hashedrekord",
+							Version: "0.0.1",
+						},
+						IntegratedTime:    tRekor.Unix(),
+						CanonicalizedBody: canonicalTlogBody,
+						InclusionPromise: &protorekor.InclusionPromise{
+							SignedEntryTimestamp: []byte("set"),
+						},
+						InclusionProof: &protorekor.InclusionProof{
+							LogIndex:   42,
+							RootHash:   []byte("b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c"),
+							Checkpoint: &protorekor.Checkpoint{Envelope: "checkpoint"},
+						},
+					},
+				},
+			},
+		}
+
+		sgb, err := sgbundle.NewBundle(pbBundle)
+		require.NoError(t, err)
+
+		cOpts := &cosign.CheckOpts{
+			NewBundleFormat: true,
+			IgnoreTlog:      true,
+		}
+
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(sig, stmtBytes, cOpts, []*sgbundle.Bundle{sgb})
+		assert.False(t, hasB, "bundle timestamp must not be trusted when IgnoreTlog is true")
+		assert.True(t, bTS.IsZero())
+		assert.True(t, hasS, "signed statement timestamp must still be extracted")
+		assert.True(t, tStatement.Equal(sTS))
+	})
 }

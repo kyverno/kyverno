@@ -193,12 +193,14 @@ func extractAttestationTimestamps(
 	// 1. Try bundle timestamp from cosign v3 bundle format
 	if cOpts != nil && cOpts.NewBundleFormat && len(newBundles) > 0 {
 		if b := findMatchingBundle(s, newBundles); b != nil {
-			// Rekor log integrated time
-			if entries, err := b.TlogEntries(); err == nil && len(entries) > 0 {
-				t := entries[0].IntegratedTime()
-				if !t.IsZero() {
-					bundleTS = t
-					hasBundleTS = true
+			// Rekor log integrated time (only when transparency log was verified, not ignored)
+			if !cOpts.IgnoreTlog {
+				if entries, err := b.TlogEntries(); err == nil && len(entries) > 0 {
+					t := entries[0].IntegratedTime()
+					if !t.IsZero() {
+						bundleTS = t
+						hasBundleTS = true
+					}
 				}
 			}
 			// RFC 3161 timestamp if no integrated time
@@ -213,13 +215,18 @@ func extractAttestationTimestamps(
 
 	// Traditional non-bundle signature format
 	if !hasBundleTS && s != nil {
-		if rb, err := s.Bundle(); err == nil && rb != nil && rb.Payload.IntegratedTime > 0 {
-			bundleTS = time.Unix(rb.Payload.IntegratedTime, 0)
-			hasBundleTS = true
-		} else if rfc, err := s.RFC3161Timestamp(); err == nil && rfc != nil {
-			if ts, err := cosign.VerifyRFC3161Timestamp(s, cOpts); err == nil && ts != nil && !ts.Time.IsZero() {
-				bundleTS = ts.Time
+		if cOpts != nil && !cOpts.IgnoreTlog {
+			if rb, err := s.Bundle(); err == nil && rb != nil && rb.Payload.IntegratedTime > 0 {
+				bundleTS = time.Unix(rb.Payload.IntegratedTime, 0)
 				hasBundleTS = true
+			}
+		}
+		if !hasBundleTS {
+			if rfc, err := s.RFC3161Timestamp(); err == nil && rfc != nil {
+				if ts, err := cosign.VerifyRFC3161Timestamp(s, cOpts); err == nil && ts != nil && !ts.Time.IsZero() {
+					bundleTS = ts.Time
+					hasBundleTS = true
+				}
 			}
 		}
 	}
