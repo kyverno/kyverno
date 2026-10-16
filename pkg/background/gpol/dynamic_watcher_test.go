@@ -1417,12 +1417,13 @@ func TestHandleUpdate(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			downstreamLabels := map[string]string{
-				"copy":                         "old",
-				"removed":                      "stale",
-				common.GenerateSourceUIDLabel:  "src-uid",
-				common.GeneratePolicyLabel:     "clone-policy",
-				common.GenerateTriggerUIDLabel: "trigger-uid",
-				kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+				common.GenerateTypeCloneSourceLabel: "stale",
+				"copy":                              "old",
+				"removed":                           "stale",
+				common.GenerateSourceUIDLabel:       "src-uid",
+				common.GeneratePolicyLabel:          "clone-policy",
+				common.GenerateTriggerUIDLabel:      "trigger-uid",
+				kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
 			}
 			downstream := makeObj("down-uid", "down-pod", "default", downstreamLabels)
 			downstream.Object["data"] = map[string]any{"value": "old"}
@@ -2186,14 +2187,14 @@ func TestHandleUpdate_SourcePropagation_ServerSideApply(t *testing.T) {
 			gvr := schema.GroupVersionResource{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}
 			src := makeUnstructured("500", "scheduling.run.ai", "v2", "Queue", "source-queue", "", "src-uid", nil)
 			src.SetAnnotations(map[string]string{"tier": "free"})
-			src.SetLabels(map[string]string{"added": "from-source", "copy": "new"})
+			src.SetLabels(map[string]string{"added": "from-source", "copy": "new", common.GenerateTypeCloneSourceLabel: "restored"})
 			ds := makeUnstructured("305", "scheduling.run.ai", "v2", "Queue", "alice", "", "ds-uid",
 				map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
 			// an owner reference Kyverno applied to the downstream, and a finalizer another controller added
 			owner := metav1.OwnerReference{APIVersion: "v1", Kind: "Namespace", Name: "alice", UID: "ns-uid"}
 			ds.SetOwnerReferences([]metav1.OwnerReference{owner})
 			ds.SetFinalizers([]string{"example.com/other-controller"})
-			ds.SetLabels(map[string]string{common.GenerateSourceUIDLabel: "src-uid", "team": "payments", "copy": "old", "removed": "stale"})
+			ds.SetLabels(map[string]string{common.GenerateSourceUIDLabel: "src-uid", common.GenerateTypeCloneSourceLabel: "old", "team": "payments", "copy": "old", "removed": "stale"})
 			ds.SetManagedFields([]metav1.ManagedFieldsEntry{
 				managedFieldsEntry("kyverno-generate", metav1.ManagedFieldsOperationApply,
 					`{"f:metadata":{"f:labels":{"f:generate.kyverno.io/source-uid":{},"f:copy":{},"f:removed":{}},"f:ownerReferences":{"k:{\"uid\":\"ns-uid\"}":{}}}}`),
@@ -2206,7 +2207,7 @@ func TestHandleUpdate_SourcePropagation_ServerSideApply(t *testing.T) {
 			// what the server returns: the propagated content, with another controller's annotation kept
 			returned := ds.DeepCopy()
 			returned.SetAnnotations(map[string]string{"tier": "free", "example.com/other": "x"})
-			returnedLabels := map[string]string{common.GenerateSourceUIDLabel: "src-uid", "team": "payments", "copy": "new", "added": "from-source"}
+			returnedLabels := map[string]string{common.GenerateSourceUIDLabel: "src-uid", common.GenerateTypeCloneSourceLabel: "restored", "team": "payments", "copy": "new", "added": "from-source"}
 			if !hasApplyRecord {
 				// Without prior ownership, omitting this label cannot remove it from the server.
 				returnedLabels["removed"] = "stale"
@@ -2241,7 +2242,7 @@ func TestHandleUpdate_SourcePropagation_ServerSideApply(t *testing.T) {
 				assert.Empty(t, applied.GetOwnerReferences())
 			}
 			assert.Empty(t, applied.GetFinalizers(), "another controller's finalizer is not taken over")
-			expectedLabels := map[string]string{common.GenerateSourceUIDLabel: "src-uid", "copy": "new", "added": "from-source"}
+			expectedLabels := map[string]string{common.GenerateSourceUIDLabel: "src-uid", common.GenerateTypeCloneSourceLabel: "restored", "copy": "new", "added": "from-source"}
 			assert.Equal(t, expectedLabels, applied.GetLabels(), "source label changes are applied without taking over another controller's labels")
 			entry := wm.dynamicWatchers[gvr].metadataCache["ds-uid"]
 			assert.Equal(t, expectedLabels, entry.Labels)

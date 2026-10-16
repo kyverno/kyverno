@@ -592,7 +592,8 @@ func syncCloneLabels(source, downstream map[string]string) map[string]string {
 		labels[key] = value
 	}
 	for key, value := range downstream {
-		if key == kyverno.LabelAppManagedBy || strings.HasPrefix(key, "generate.kyverno.io/") {
+		// The editable clone-source marker follows the source, unlike downstream routing labels.
+		if key == kyverno.LabelAppManagedBy || (strings.HasPrefix(key, "generate.kyverno.io/") && key != common.GenerateTypeCloneSourceLabel) {
 			labels[key] = value
 		}
 	}
