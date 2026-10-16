@@ -248,8 +248,87 @@ func Test_V3Bundle_DecoyBeforeGenuine_DoesNotChangeOptions(t *testing.T) {
 
 	hash := subject.Digest
 
-	_, verified, err := verifyBundles(context.TODO(), cOpts, []*sgbundle.Bundle{decoy, genuine}, &hash)
+	sigs, verifiedBundles, verified, err := verifyBundles(context.TODO(), cOpts, []*sgbundle.Bundle{decoy, genuine}, &hash)
 	assert.NoError(t, err, "the genuine bundle must still verify after a decoy ahead of it fails")
 	assert.True(t, verified)
 	assert.False(t, cOpts.UseSignedTimestamps, "a decoy verified earlier in the loop must not change options used for a later bundle")
+	assert.Len(t, sigs, 1)
+	assert.Len(t, verifiedBundles, 1)
+	assert.Equal(t, genuine, verifiedBundles[0], "only genuine bundle must be returned as verified")
+}
+
+func signV3BundleWithPredicate(t *testing.T, subjectDigestHex, predicateType, predicateJSON string) ([]byte, string) {
+	t.Helper()
+	kp, err := sign.NewEphemeralKeypair(nil)
+	require.NoError(t, err)
+
+	statement := fmt.Sprintf(
+		`{"_type":"https://in-toto.io/Statement/v1","predicateType":%q,"subject":[{"name":"subject","digest":{"sha256":%q}}],"predicate":%s}`,
+		predicateType, subjectDigestHex, predicateJSON,
+	)
+	pb, err := sign.Bundle(&sign.DSSEData{Data: []byte(statement), PayloadType: "application/vnd.in-toto+json"}, kp, sign.BundleOptions{})
+	require.NoError(t, err)
+
+	raw, err := protojson.Marshal(pb)
+	require.NoError(t, err)
+
+	pubPEM, err := kp.GetPublicKeyPem()
+	require.NoError(t, err)
+
+	return raw, pubPEM
+}
+
+func Test_V3Bundle_MultipleAttestors_PreservesNewestAcrossEvaluationOrder(t *testing.T) {
+	repo, _ := newBundleRegistry(t)
+	subject := pushSubject(t, repo, "subject")
+
+	pType := "https://example.com/multi-attestor"
+	oldBundleJSON, pubOld := signV3BundleWithPredicate(t, subject.Digest.Hex, pType, `{"metadata":{"scanFinishedOn":"2026-01-01T00:00:00Z"},"version":"old"}`)
+	newBundleJSON, pubNew := signV3BundleWithPredicate(t, subject.Digest.Hex, pType, `{"metadata":{"scanFinishedOn":"2026-02-01T00:00:00Z"},"version":"new"}`)
+
+	pushReferrer(t, repo, subject, oldBundleJSON, testBundleMediaType, testBundleMediaType)
+	pushReferrer(t, repo, subject, newBundleJSON, testBundleMediaType, testBundleMediaType)
+
+	attestorOld := &v1beta1.Attestor{Name: "old-key", Cosign: keyAttestorFor(pubOld)}
+	attestorNew := &v1beta1.Attestor{Name: "new-key", Cosign: keyAttestorFor(pubNew)}
+	attestation := &v1beta1.Attestation{
+		Name: "test-attestation",
+		InToto: &v1beta1.InToto{
+			Type: pType,
+		},
+	}
+
+	// Case 1: Evaluate old attestor first, then new attestor.
+	{
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+
+		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorOld))
+		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorNew))
+
+		payload, err := img.GetPayload(*attestation)
+		require.NoError(t, err)
+		payloadMap, ok := payload.(map[string]any)
+		require.True(t, ok)
+		pred, ok := payloadMap["predicate"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "new", pred["version"], "newest attestation should be selected when old is evaluated before new")
+	}
+
+	// Case 2: Evaluate new attestor first, then old attestor.
+	{
+		img := fetchTestImage(t, repo.Tag("subject").String())
+		v := NewVerifier(nil, logr.Discard())
+
+		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorNew))
+		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorOld))
+
+		payload, err := img.GetPayload(*attestation)
+		require.NoError(t, err)
+		payloadMap, ok := payload.(map[string]any)
+		require.True(t, ok)
+		pred, ok := payloadMap["predicate"].(map[string]any)
+		require.True(t, ok)
+		assert.Equal(t, "new", pred["version"], "newest attestation should not be overwritten when old is evaluated after new")
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sigstore/cosign/v3/pkg/cosign"
+	cosignbundle "github.com/sigstore/cosign/v3/pkg/cosign/bundle"
 	"github.com/sigstore/cosign/v3/pkg/oci/static"
 	protobundle "github.com/sigstore/protobuf-specs/gen/pb-go/bundle/v1"
 	protocommon "github.com/sigstore/protobuf-specs/gen/pb-go/common/v1"
@@ -217,7 +218,7 @@ func TestSelectNewestAttestation(t *testing.T) {
 		assert.Equal(t, newCand.payload, chosenRev.payload)
 	})
 
-	t.Run("mixed timestamps: one statement and one bundle timestamp", func(t *testing.T) {
+	t.Run("mixed timestamps: one statement and one bundle timestamp fails closed", func(t *testing.T) {
 		cand1 := verifiedCandidate{
 			payload:       []byte(`{"name":"statement-older"}`),
 			predicateType: "custom",
@@ -231,9 +232,9 @@ func TestSelectNewestAttestation(t *testing.T) {
 			hasBundle:     true,
 		}
 
-		chosen, err := selectNewestAttestation([]verifiedCandidate{cand1, cand2}, "custom")
-		require.NoError(t, err)
-		assert.Equal(t, cand2.payload, chosen.payload)
+		_, err := selectNewestAttestation([]verifiedCandidate{cand1, cand2}, "custom")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "no common timestamp source across candidates")
 	})
 
 	t.Run("identical timestamps: deterministic tie-breaking", func(t *testing.T) {
@@ -270,7 +271,7 @@ func TestSelectNewestAttestation(t *testing.T) {
 
 		_, err := selectNewestAttestation([]verifiedCandidate{cand1, cand2}, "custom")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "missing or incomplete timestamps")
+		assert.Contains(t, err.Error(), "no common timestamp source across candidates")
 	})
 
 	t.Run("multiple candidates where one lacks timestamps fails closed", func(t *testing.T) {
@@ -287,7 +288,7 @@ func TestSelectNewestAttestation(t *testing.T) {
 
 		_, err := selectNewestAttestation([]verifiedCandidate{cand1, cand2}, "custom")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "missing or incomplete timestamps")
+		assert.Contains(t, err.Error(), "no common timestamp source across candidates")
 	})
 }
 
@@ -397,7 +398,7 @@ func TestExtractAttestationTimestamps(t *testing.T) {
 			NewBundleFormat: true,
 		}
 
-		bTS, hasB, sTS, hasS := extractAttestationTimestamps(sig, stmtBytes, cOpts, []*sgbundle.Bundle{sgb})
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(sig, stmtBytes, cOpts, sgb)
 		assert.True(t, hasS)
 		assert.True(t, tStatement.Equal(sTS))
 		assert.True(t, hasB)
@@ -473,10 +474,50 @@ func TestExtractAttestationTimestamps(t *testing.T) {
 			IgnoreTlog:      true,
 		}
 
-		bTS, hasB, sTS, hasS := extractAttestationTimestamps(sig, stmtBytes, cOpts, []*sgbundle.Bundle{sgb})
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(sig, stmtBytes, cOpts, sgb)
 		assert.False(t, hasB, "bundle timestamp must not be trusted when IgnoreTlog is true")
 		assert.True(t, bTS.IsZero())
 		assert.True(t, hasS, "signed statement timestamp must still be extracted")
+		assert.True(t, tStatement.Equal(sTS))
+	})
+
+	t.Run("ignore traditional Rekor integrated time when IgnoreTlog is true", func(t *testing.T) {
+		tradSig, err := static.NewSignature(dsseBytes, "b64sig", static.WithBundle(&cosignbundle.RekorBundle{
+			Payload: cosignbundle.RekorPayload{
+				IntegratedTime: tRekor.Unix(),
+			},
+		}))
+		require.NoError(t, err)
+
+		cOpts := &cosign.CheckOpts{
+			NewBundleFormat: false,
+			IgnoreTlog:      true,
+		}
+
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(tradSig, stmtBytes, cOpts, nil)
+		assert.False(t, hasB, "traditional bundle timestamp must not be trusted when IgnoreTlog is true")
+		assert.True(t, bTS.IsZero())
+		assert.True(t, hasS, "signed statement timestamp must still be extracted")
+		assert.True(t, tStatement.Equal(sTS))
+	})
+
+	t.Run("extract from traditional Rekor integrated time when IgnoreTlog is false", func(t *testing.T) {
+		tradSig, err := static.NewSignature(dsseBytes, "b64sig", static.WithBundle(&cosignbundle.RekorBundle{
+			Payload: cosignbundle.RekorPayload{
+				IntegratedTime: tRekor.Unix(),
+			},
+		}))
+		require.NoError(t, err)
+
+		cOpts := &cosign.CheckOpts{
+			NewBundleFormat: false,
+			IgnoreTlog:      false,
+		}
+
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(tradSig, stmtBytes, cOpts, nil)
+		assert.True(t, hasB)
+		assert.True(t, tRekor.Equal(bTS))
+		assert.True(t, hasS)
 		assert.True(t, tStatement.Equal(sTS))
 	})
 
@@ -548,7 +589,7 @@ func TestExtractAttestationTimestamps(t *testing.T) {
 			NewBundleFormat: true,
 		}
 
-		bTS, hasB, _, _ := extractAttestationTimestamps(sig, nil, cOpts, []*sgbundle.Bundle{sgb})
+		bTS, hasB, _, _ := extractAttestationTimestamps(sig, nil, cOpts, sgb)
 		assert.False(t, hasB, "hasBundle must be false when bundle does not match signature")
 		assert.True(t, bTS.IsZero())
 	})

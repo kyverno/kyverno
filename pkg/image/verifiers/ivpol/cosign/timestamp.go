@@ -154,32 +154,7 @@ func selectNewestAttestation(candidates []verifiedCandidate, predicateType strin
 		return candidates[0], nil
 	}
 
-	allHaveAny := true
-	for _, c := range candidates {
-		if !c.hasStatement && !c.hasBundle {
-			allHaveAny = false
-			break
-		}
-	}
-	if !allHaveAny {
-		return verifiedCandidate{}, fmt.Errorf("multiple attestations found for predicate type %s but unable to determine newest: missing or incomplete timestamps", predicateType)
-	}
-
-	sort.SliceStable(candidates, func(i, j int) bool {
-		ti := candidates[i].statementTS
-		if !candidates[i].hasStatement {
-			ti = candidates[i].bundleTS
-		}
-		tj := candidates[j].statementTS
-		if !candidates[j].hasStatement {
-			tj = candidates[j].bundleTS
-		}
-		if ti.Equal(tj) {
-			return bytes.Compare(candidates[i].payload, candidates[j].payload) > 0
-		}
-		return ti.After(tj)
-	})
-	return candidates[0], nil
+	return verifiedCandidate{}, fmt.Errorf("multiple attestations found for predicate type %s but unable to determine newest: no common timestamp source across candidates", predicateType)
 }
 
 // extractAttestationTimestamps extracts both the bundle-verified timestamp (Rekor integrated time or
@@ -188,14 +163,14 @@ func extractAttestationTimestamps(
 	s oci.Signature,
 	payload []byte,
 	cOpts *cosign.CheckOpts,
-	newBundles []*sgbundle.Bundle,
+	bundle *sgbundle.Bundle,
 ) (bundleTS time.Time, hasBundleTS bool, statementTS time.Time, hasStatementTS bool) {
 	// 1. Try bundle timestamp from cosign v3 bundle format
-	if cOpts != nil && cOpts.NewBundleFormat && len(newBundles) > 0 {
-		if b := findMatchingBundle(s, newBundles); b != nil {
+	if cOpts != nil && cOpts.NewBundleFormat && bundle != nil {
+		if bundleMatchesSignature(s, bundle) {
 			// Rekor log integrated time (only when transparency log was verified, not ignored)
 			if !cOpts.IgnoreTlog {
-				if entries, err := b.TlogEntries(); err == nil && len(entries) > 0 {
+				if entries, err := bundle.TlogEntries(); err == nil && len(entries) > 0 {
 					t := entries[0].IntegratedTime()
 					if !t.IsZero() {
 						bundleTS = t
@@ -205,7 +180,7 @@ func extractAttestationTimestamps(
 			}
 			// RFC 3161 timestamp if no integrated time
 			if !hasBundleTS && cOpts.TrustedMaterial != nil {
-				if vts, _, err := verify.VerifySignedTimestamp(b, cOpts.TrustedMaterial); err == nil && len(vts) > 0 && !vts[0].Time.IsZero() {
+				if vts, _, err := verify.VerifySignedTimestamp(bundle, cOpts.TrustedMaterial); err == nil && len(vts) > 0 && !vts[0].Time.IsZero() {
 					bundleTS = vts[0].Time
 					hasBundleTS = true
 				}
@@ -257,13 +232,13 @@ func extractAttestationTimestamps(
 	return bundleTS, hasBundleTS, statementTS, hasStatementTS
 }
 
-func findMatchingBundle(s oci.Signature, bundles []*sgbundle.Bundle) *sgbundle.Bundle {
-	if s == nil {
-		return nil
+func bundleMatchesSignature(s oci.Signature, b *sgbundle.Bundle) bool {
+	if s == nil || b == nil {
+		return false
 	}
 	sPayload, err := s.Payload()
 	if err != nil || len(sPayload) == 0 {
-		return nil
+		return false
 	}
 	var sEnv struct {
 		Payload string `json:"payload"`
@@ -273,19 +248,14 @@ func findMatchingBundle(s oci.Signature, bundles []*sgbundle.Bundle) *sgbundle.B
 		sDecoded, _ = base64.StdEncoding.DecodeString(sEnv.Payload)
 	}
 
-	for _, b := range bundles {
-		if b == nil {
-			continue
+	if dsse, ok := b.Content.(*protobundle.Bundle_DsseEnvelope); ok && dsse.DsseEnvelope != nil {
+		dsseBytes, err := json.Marshal(dsse.DsseEnvelope)
+		if err == nil && bytes.Equal(sPayload, dsseBytes) {
+			return true
 		}
-		if dsse, ok := b.Content.(*protobundle.Bundle_DsseEnvelope); ok && dsse.DsseEnvelope != nil {
-			dsseBytes, err := json.Marshal(dsse.DsseEnvelope)
-			if err == nil && bytes.Equal(sPayload, dsseBytes) {
-				return b
-			}
-			if len(sDecoded) > 0 && bytes.Equal(sDecoded, dsse.DsseEnvelope.Payload) {
-				return b
-			}
+		if len(sDecoded) > 0 && bytes.Equal(sDecoded, dsse.DsseEnvelope.Payload) {
+			return true
 		}
 	}
-	return nil
+	return false
 }
