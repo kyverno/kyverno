@@ -11,10 +11,11 @@ workflow.
   (`registry.invalid/...`). It runs on every PR in the `Framework tests (ivpol)` leg of `check-framework.yaml`.
 - **`registry_test.go`** is `//go:build integration && registry`. It pulls real images from ghcr.io (and Rekor for
   keyless) and runs real cosign and notary verification. It runs only in `check-framework-registry.yaml`: nightly,
-  on manual dispatch, and on PRs that touch this directory, `test/integration/framework/ivpol.go` or the workflow.
+  on manual dispatch, and on PRs that touch this directory, `test/integration/framework/` or the workflow.
 
-The registry tests compile together with `handler_test.go`, so a change to the shared helpers can break them. That
-is why the registry workflow watches the whole directory, not just `registry_test.go`.
+The registry tests compile together with `handler_test.go` and call the shared framework helpers
+(`helpers.go`, `setup.go`), so a change to either can break them. That is why the registry workflow watches this
+whole directory and the whole framework package, not just `registry_test.go` and `framework/ivpol.go`.
 
 Run the registry tier locally with `go test -count=1 -tags="integration registry" ./test/integration/ivpol/...`.
 
