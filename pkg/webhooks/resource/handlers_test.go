@@ -1186,4 +1186,3 @@ func Test_FineGrained_Mutate_ImageVerify_Denied(t *testing.T) {
 	assert.Equal(t, response.Allowed, false, "finegrained mutating route must execute image verification and deny unverified image")
 	assert.Equal(t, len(response.Warnings), 0)
 }
-
