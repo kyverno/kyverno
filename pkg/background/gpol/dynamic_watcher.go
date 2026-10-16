@@ -736,22 +736,18 @@ func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *u
 	}
 }
 
-// propagateToDownstream writes a changed source's content to one of its downstreams. A policy
-// using server-side apply applies it. The labels are the live downstream's, so the apply keeps
-// only the ones Kyverno applied, along with the owner references and finalizers Kyverno applied
-// before, since leaving those out of the apply would remove them. Otherwise the downstream is
-// replaced with an update.
+// propagateToDownstream writes a changed source's content to one of its downstreams. Its labels
+// already combine the source labels and downstream tracking labels. Server-side apply also keeps
+// the owner references and finalizers Kyverno applied before, since omitting those would remove
+// them. Otherwise the downstream is replaced with an update.
 func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	if !serverSideApply {
 		return wm.client.UpdateResource(context.TODO(), newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
 	}
 	cfg := applyConfiguration(newResource)
 	if applied, ok := appliedByGenerate(downstream); ok {
-		cfg.SetLabels(onlyKeys(cfg.GetLabels(), applied.labels))
 		cfg.SetOwnerReferences(applied.ownerReferencesOf(downstream))
 		cfg.SetFinalizers(applied.finalizersOf(downstream))
-	} else {
-		cfg.SetLabels(generateLabels(cfg.GetLabels()))
 	}
 	return wm.applyDownstream(cfg)
 }
