@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -318,6 +319,67 @@ func TestGetTrigger_DeleteOperation_TransientLookupError(t *testing.T) {
 	assert.Error(t, err, "a transient lookup failure must not be treated as a persisted deletion")
 	assert.ErrorContains(t, err, "failed to verify deletion")
 	assert.Nil(t, result)
+}
+
+// TestGetTrigger_DeleteOperation_ForbiddenLookup verifies that delete-triggered
+// generation does not require read access to the trigger kind: when the deletion
+// cannot be verified because the lookup is forbidden, the oldObject drives
+// generation and the missing permission is logged.
+// See https://github.com/kyverno/kyverno/issues/17822.
+func TestGetTrigger_DeleteOperation_ForbiddenLookup(t *testing.T) {
+	client := &fakeListClient{
+		Interface:      dclient.NewEmptyFakeClient(),
+		getResourceErr: apierrors.NewForbidden(schema.GroupResource{Resource: "secrets"}, "secret-tbd", fmt.Errorf("RBAC: access denied")),
+	}
+	spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Secret", Namespace: "test-ns", Name: "secret-tbd", UID: "secret-uid-111"}
+	urSpec := deleteURSpec(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"secret-tbd","namespace":"test-ns","uid":"secret-uid-111","labels":{"app":"demo"}}}`, spec)
+	var logs []string
+	logger := funcr.New(func(prefix, args string) { logs = append(logs, args) }, funcr.Options{Verbosity: 2})
+
+	result, err := GetTrigger(client, urSpec, 0, logger)
+
+	assert.NoError(t, err, "a forbidden lookup must not block delete-triggered generation")
+	assert.NotNil(t, result)
+	assert.Equal(t, "secret-tbd", result.GetName())
+	assert.Equal(t, types.UID("secret-uid-111"), result.GetUID())
+	assert.Equal(t, "demo", result.GetLabels()["app"], "the oldObject must remain the trigger payload")
+	assert.Len(t, logs, 1)
+	assert.Contains(t, logs[0], "insufficient permissions to verify the deletion of the trigger resource")
+	assert.Contains(t, logs[0], "forbidden")
+}
+
+// TestGetTrigger_DeleteOperation_APIErrorsStillRetried verifies that only
+// Forbidden skips the deletion check: other API errors may be transient and must
+// not make a rejected deletion appear persisted.
+func TestGetTrigger_DeleteOperation_APIErrorsStillRetried(t *testing.T) {
+	gr := schema.GroupResource{Resource: "secrets"}
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "unauthorized", err: apierrors.NewUnauthorized("token expired")},
+		{name: "service unavailable", err: apierrors.NewServiceUnavailable("etcd unavailable")},
+		{name: "timeout", err: apierrors.NewTimeoutError("request timed out", 1)},
+		{name: "internal error", err: apierrors.NewInternalError(fmt.Errorf("boom"))},
+		{name: "too many requests", err: apierrors.NewTooManyRequests("throttled", 1)},
+		{name: "conflict", err: apierrors.NewConflict(gr, "secret-tbd", fmt.Errorf("conflict"))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeListClient{
+				Interface:      dclient.NewEmptyFakeClient(),
+				getResourceErr: tt.err,
+			}
+			spec := kyvernov1.ResourceSpec{APIVersion: "v1", Kind: "Secret", Namespace: "test-ns", Name: "secret-tbd", UID: "secret-uid-111"}
+			urSpec := deleteURSpec(`{"apiVersion":"v1","kind":"Secret","metadata":{"name":"secret-tbd","namespace":"test-ns","uid":"secret-uid-111"}}`, spec)
+
+			result, err := GetTrigger(client, urSpec, 0, logr.Discard())
+
+			assert.ErrorContains(t, err, "failed to verify deletion")
+			assert.ErrorIs(t, err, tt.err, "the underlying API error must be preserved")
+			assert.Nil(t, result)
+		})
+	}
 }
 
 // TestGetTrigger_DeleteOperation_Terminating verifies that an object with a

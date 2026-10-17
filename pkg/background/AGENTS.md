@@ -44,7 +44,10 @@ it refuses to fall back to the UR's recorded admission-request payload and error
 (see https://github.com/kyverno/kyverno/issues/16566): a rejected or superseded admission request must not drive
 policy evaluation. Delete-operation triggers are verified similarly — the controller re-queries the live cluster to
 confirm the deletion actually persisted (and wasn't itself rejected by another webhook) before treating the
-resource as gone.
+resource as gone. That check is best-effort: if the live lookup returns `Forbidden` (the background controller has
+no read access to the trigger kind, which delete-triggered generation never required), it is skipped with a V(2)
+warning and the `oldObject` is used; every other lookup error is retried
+(see https://github.com/kyverno/kyverno/issues/17822).
 
 That said, two real fallbacks to the admission payload exist, and neither is a bug:
 - `GetResource`'s final branch (after the UID and name lookups both fall through) decodes
