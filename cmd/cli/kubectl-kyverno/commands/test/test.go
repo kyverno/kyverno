@@ -953,10 +953,11 @@ func applyImageValidatingPolicies(
 }
 
 // applyDeletingPolicies evaluates the given DeletingPolicies against the test resources and
-// returns the aggregated engine responses. A policy that selects a resource yields a pass,
-// one whose CEL condition is false yields a fail, and resources excluded by the policy's
-// matchConstraints emit no result, aligning with the other CEL policy types. Evaluation
-// errors are recorded as error rule responses.
+// returns the aggregated engine responses. Resources excluded by a policy's matchConstraints
+// emit no result, aligning with the other CEL policy types (vpol/mpol). Among the resources
+// selected by a policy, those whose compiled CEL delete condition evaluates to true yield a
+// pass; those whose condition evaluates to false yield a fail. Evaluation errors are
+// recorded as error rule responses.
 func applyDeletingPolicies(
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
@@ -1090,9 +1091,9 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 }
 
 // buildHTTPMockIndex indexes the test's mocked API call responses by their resolved URL, or
-// "<METHOD>:<url>" when a method is specified, so apiCall lookups during CEL evaluation can
-// replay the configured body and status code. It returns an error if a mock response body
-// cannot be decoded into an object.
+// "<METHOD>:<url>" when a method is specified, so CEL http.Get/http.Post calls can replay
+// the configured body and status code. It returns an error if a mock response body is not
+// valid JSON.
 func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
@@ -1116,7 +1117,7 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 }
 
 // wrapHTTPResponse packages a mocked response body and status code into the
-// {body, statusCode} shape expected by CEL apiCall expressions, defaulting a zero status
+// {body, statusCode} shape expected by CEL http expressions, defaulting a zero status
 // code to 200.
 func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 	if statusCode == 0 {
