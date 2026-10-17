@@ -19,15 +19,23 @@ release branch implement it. Implementation is tracked in
    versions have different numbering schemes. For example:
 
    ```bash
+   kube_version=$(sed -n 's/^kubeVersion: //p' charts/kyverno/Chart.yaml)
+   test -n "$kube_version" || { echo "Missing chart kubeVersion" >&2; exit 1; }
    APP_CHART_VERSION=v1.19.2-rc.3 \
      KYVERNO_CHART_VERSION=3.9.2-rc.3 \
      POLICIES_CHART_VERSION=3.9.2-rc.3 \
+     KUBE_CHART_VERSION="$kube_version" \
      make codegen-helm-update-versions
    ```
 
-   Preserve the release branch's Kubernetes compatibility constraint when using
-   this target, which also updates `kubeVersion`. Check both parent charts,
-   bundled subcharts, and their dependency version references.
+   This preserves the existing YAML quotes around the Kubernetes compatibility
+   constraint. The target applies one constraint to all four charts; first
+   verify that both parent charts and the bundled charts share that constraint.
+   If they differ intentionally, preserve their individual constraints instead
+   of applying this command unchanged. Check their dependency version references.
+   For RCs, set `artifacthub.io/prerelease` to `"true"` in both parent charts;
+   for stable releases, set it to `"false"`. The version-update target does not
+   update this annotation.
 3. Run `make codegen-helm-all` to generate chart documentation and CRDs.
 4. Review and commit the changes, then merge a PR into the upstream release branch.
 5. Verify the intended commit and required test results before tagging. The
@@ -36,6 +44,9 @@ release branch implement it. Implementation is tracked in
 ### Publish the application
 
 Push an application tag such as `v1.19.2-rc.3` for the merged release commit.
+Push with a maintainer credential authorized by repository rules, not a
+workflow's `GITHUB_TOKEN`: tags pushed using that token do not trigger push
+workflows. The same restriction applies to the chart tags below.
 [`release.yaml`](../../../.github/workflows/release.yaml) runs on `v*` tag pushes
 and publishes images, CLI release assets, signatures/provenance, and install
 manifests through separate jobs. Stable tags also trigger the Krew update job;
