@@ -1,0 +1,26 @@
+# AGENTS.md — cmd/cli/kubectl-kyverno/commands/apply
+
+`kyverno apply` loads policies leniently and reports what it could not load instead of dropping it. The loader side
+of this contract is described in `cmd/cli/kubectl-kyverno/policy/AGENTS.md`; this file covers the apply side.
+
+## Loading policies
+
+- `loadPolicies` calls `policy.LoadSkippingInvalidFiles` for every policy path: once per local, OCI or stdin path,
+  and once per YAML file returned by `gitutils.ListYamls` for git sources. Keep `kyverno test`, `oci push` and
+  `fix policy` on the strict `policy.Load`; a broken policy must keep failing those.
+- `LoadSkippingInvalidFiles` only returns an error for fatal problems (a blocked legacy policy,
+  `policy.ErrValidatorSetup`), so `loadPolicies` stops on any error it returns. Everything else arrives in
+  `NonFatalErrors` and is recorded with `recordPolicyLoadErrors` into `ApplyCommandConfig.policyLoadErrors`,
+  which `applyCommandHelper` resets on every run and hands back through `SkippedInvalidPolicies.loadErrors`.
+  If the loader ever returns a new kind of error, apply fails loudly rather than skipping a policy silently.
+
+## Printing what was not loaded
+
+- `printPolicyLoadErrors` prints the "Policies Not Loaded" section, one `path: reason` line per entry. When a
+  later step of apply fails, `Command` still prints it, on stderr, before returning that error.
+- `Command` sends that section to stdout normally, but to stderr when stdout is meant for another program
+  (`--policy-report`, `--generate-exceptions`, `--stdin`), so the report, the generated exceptions or the mutated
+  resource on stdout stay parseable. Add any new machine readable output mode to that condition.
+- Recorded load errors do not change the exit code and are not counted by `--warnings-as-errors`, which only
+  covers deprecation warnings recorded by `recordPolicyWarnings`. The fatal ones (a blocked legacy policy,
+  `policy.ErrValidatorSetup`) are returned as errors and fail the command.

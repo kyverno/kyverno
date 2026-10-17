@@ -46,7 +46,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/factories"
@@ -75,8 +74,9 @@ import (
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []PolicyDiagnostic
-	invalid []PolicyDiagnostic
+	skipped    []PolicyDiagnostic
+	invalid    []PolicyDiagnostic
+	loadErrors []PolicyDiagnostic
 }
 
 type PolicyDiagnostic struct {
@@ -127,6 +127,7 @@ type ApplyCommandConfig struct {
 	ShowPerformance           bool
 	CrdPaths                  []string
 	deprecationWarnings       []string
+	policyLoadErrors          []PolicyDiagnostic
 	// Cloner is an optional function for cloning git repositories.
 	// If nil, defaults to gitutils.Clone. Tests can inject a fake
 	// to avoid real network calls while still exercising the git-URL
@@ -145,6 +146,7 @@ func (c *ApplyCommandConfig) cloneRepo(repoURL string, fs billy.Filesystem, bran
 	return cloneFn(repoURL, fs, branch, auth)
 }
 
+// Command returns the kyverno apply command.
 func Command() *cobra.Command {
 	var removeColor, detailedResults, table bool
 	applyCommandConfig := &ApplyCommandConfig{}
@@ -160,9 +162,17 @@ func Command() *cobra.Command {
 			applyCommandConfig.PolicyPaths = args
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
+				// a later step failed, still say which policies were skipped before returning that error
+				printPolicyLoadErrors(cmd.ErrOrStderr(), skipInvalidPolicies.loadErrors)
 				return err
 			}
 			cmd.SilenceErrors = true
+			loadErrorsOut := out
+			if applyCommandConfig.Stdin || applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions {
+				// stdout is meant to be parsed by another program in these modes, keep it clean
+				loadErrorsOut = cmd.ErrOrStderr()
+			}
+			printPolicyLoadErrors(loadErrorsOut, skipInvalidPolicies.loadErrors)
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				printReports(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat)
@@ -272,9 +282,13 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+// applyCommandHelper loads the policies, resources and exceptions and applies them, returning the
+// result counts, the processed resources, the skipped, invalid and not loaded policies, and the
+// engine responses.
 func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
+	c.policyLoadErrors = nil
 	err := c.checkArguments()
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
@@ -311,6 +325,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
+	skippedInvalidPolicies.loadErrors = c.policyLoadErrors
 	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -1110,6 +1125,9 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
+// loadPolicies loads policies from every policy path (local, OCI or git). Files and documents that
+// cannot be loaded are recorded in policyLoadErrors and skipped. The loader only returns an error for
+// fatal problems (a blocked legacy policy, policy.ErrValidatorSetup), and those stop the command.
 func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
@@ -1182,18 +1200,12 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				loaderResults, err := policy.Load(fs, "", false, policyYaml)
-				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-					for _, err := range loaderResults.NonFatalErrors {
-						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
-					}
-				}
+				loaderResults, err := policy.LoadSkippingInvalidFiles(fs, "", false, policyYaml)
 				if err != nil {
-					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
-						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
-					}
-					continue
+					// only fatal problems come back as an error, everything else is in NonFatalErrors
+					return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 				}
+				c.recordPolicyLoadErrors(loaderResults.NonFatalErrors)
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
 				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
@@ -1212,35 +1224,28 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		} else {
-			loaderResults, err := policy.Load(nil, "", false, path)
-			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
-				for _, err := range loaderResults.NonFatalErrors {
-					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
-				}
-			}
-			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
+			loaderResults, err := policy.LoadSkippingInvalidFiles(nil, "", false, path)
+			if err != nil {
+				// only fatal problems come back as an error, everything else is in NonFatalErrors
 				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
-			if err != nil {
-				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
-			} else {
-				c.recordPolicyWarnings(out, loaderResults.Warnings)
-				policies = append(policies, loaderResults.Policies...)
-				vaps = append(vaps, loaderResults.VAPs...)
-				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
-				vps = append(vps, loaderResults.ValidatingPolicies...)
-				maps = append(maps, loaderResults.MAPs...)
-				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
-				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				exceptions = append(exceptions, loaderResults.PolicyExceptions...)
-				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
-				gps = append(gps, loaderResults.GeneratingPolicies...)
-				dps = append(dps, loaderResults.DeletingPolicies...)
-				cps = append(cps, loaderResults.CleanupPolicies...)
-				mps = append(mps, loaderResults.MutatingPolicies...)
-				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
-				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
-			}
+			c.recordPolicyLoadErrors(loaderResults.NonFatalErrors)
+			c.recordPolicyWarnings(out, loaderResults.Warnings)
+			policies = append(policies, loaderResults.Policies...)
+			vaps = append(vaps, loaderResults.VAPs...)
+			vapBindings = append(vapBindings, loaderResults.VAPBindings...)
+			vps = append(vps, loaderResults.ValidatingPolicies...)
+			maps = append(maps, loaderResults.MAPs...)
+			mapBindings = append(mapBindings, loaderResults.MAPBindings...)
+			ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
+			exceptions = append(exceptions, loaderResults.PolicyExceptions...)
+			celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
+			gps = append(gps, loaderResults.GeneratingPolicies...)
+			dps = append(dps, loaderResults.DeletingPolicies...)
+			cps = append(cps, loaderResults.CleanupPolicies...)
+			mps = append(mps, loaderResults.MutatingPolicies...)
+			envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
+			httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 		}
 		for _, policy := range policies {
 			if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
@@ -1251,12 +1256,28 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
 }
 
+// recordPolicyWarnings prints deprecation warnings raised while loading policies and keeps them for
+// --warnings-as-errors.
 func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {
 	for _, warning := range warnings {
 		msg := fmt.Sprintf("Warning: %s: %s", warning.Path, warning.Warning)
 		fmt.Fprintln(out, msg)
 		c.deprecationWarnings = append(c.deprecationWarnings, msg)
 	}
+}
+
+// recordPolicyLoadErrors keeps track of policy files and documents that were skipped because they
+// could not be loaded, so they can be reported to the user instead of silently disappearing.
+func (c *ApplyCommandConfig) recordPolicyLoadErrors(loadErrors []policy.LoaderError) {
+	for _, loadErr := range loadErrors {
+		c.recordPolicyLoadError(loadErr.Path, loadErr.Error)
+	}
+}
+
+// recordPolicyLoadError records a single policy file or document that could not be loaded.
+func (c *ApplyCommandConfig) recordPolicyLoadError(path string, err error) {
+	log.Log.V(3).Info("skipping policy that could not be loaded", "path", path, "error", err)
+	c.policyLoadErrors = append(c.policyLoadErrors, PolicyDiagnostic{name: path, reason: err.Error()})
 }
 
 func (c *ApplyCommandConfig) failOnDeprecationWarnings() error {
