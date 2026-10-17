@@ -245,7 +245,15 @@ func buildKeyTrustedMaterial(ctx context.Context, key, algorithm string) (root.T
 	if strings.Contains(key, "PUBLIC KEY") {
 		verifier, err = decodePEM([]byte(key), hashAlgorithm)
 	} else {
-		verifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, key, hashAlgorithm)
+		// Cache KMS verifiers by key reference (see kmsVerifierCache in cosign.go)
+		if v, ok := kmsVerifierCache.Load(key); ok {
+			verifier = v.(signature.Verifier)
+		} else {
+			verifier, err = sigs.PublicKeyFromKeyRefWithHashAlgo(ctx, key, hashAlgorithm)
+			if err == nil {
+				kmsVerifierCache.Store(key, verifier)
+			}
+		}
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to load public key: %w", err)
