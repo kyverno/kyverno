@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"slices"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -28,6 +29,7 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 	if resource.Object == nil {
 		resource = policyContext.OldResource()
 	}
+	operation := policyContext.Operation()
 	nsLabels := policyContext.NamespaceLabels()
 	// Namespace labels are only consumed by namespaceSelector evaluation, so only
 	// fetch them when at least one exception actually defines a namespaceSelector.
@@ -50,6 +52,7 @@ func MatchesException(client engineapi.Client, polexs []*kyvernov2.PolicyExcepti
 			policyContext.AdmissionInfo(),
 			gvk,
 			subresource,
+			operation,
 		)
 		if match {
 			if polex.Spec.Conditions != nil {
@@ -94,17 +97,18 @@ func checkMatchesResources(
 	admissionInfo kyvernov2.RequestInfo,
 	gvk schema.GroupVersionKind,
 	subresource string,
+	operation kyvernov1.AdmissionOperation,
 ) bool {
 	if len(statement.Any) > 0 {
 		for _, rmr := range statement.Any {
-			if checkResourceFilter(rmr, resource, namespaceLabels, admissionInfo, gvk, subresource) {
+			if checkResourceFilter(rmr, resource, namespaceLabels, admissionInfo, gvk, subresource, operation) {
 				return true
 			}
 		}
 		return false
 	} else if len(statement.All) > 0 {
 		for _, rmr := range statement.All {
-			if !checkResourceFilter(rmr, resource, namespaceLabels, admissionInfo, gvk, subresource) {
+			if !checkResourceFilter(rmr, resource, namespaceLabels, admissionInfo, gvk, subresource, operation) {
 				return false
 			}
 		}
@@ -120,11 +124,12 @@ func checkResourceFilter(
 	admissionInfo kyvernov2.RequestInfo,
 	gvk schema.GroupVersionKind,
 	subresource string,
+	operation kyvernov1.AdmissionOperation,
 ) bool {
 	if statement.IsEmpty() {
 		return false
 	}
-	return checkResourceDescription(statement.ResourceDescription, resource, namespaceLabels, gvk, subresource) &&
+	return checkResourceDescription(statement.ResourceDescription, resource, namespaceLabels, gvk, subresource, operation) &&
 		checkUserInfo(statement.UserInfo, admissionInfo)
 }
 
@@ -134,7 +139,15 @@ func checkResourceDescription(
 	namespaceLabels map[string]string,
 	gvk schema.GroupVersionKind,
 	subresource string,
+	operation kyvernov1.AdmissionOperation,
 ) bool {
+	// an exception that scopes itself to a set of operations must not apply to
+	// any other operation, mirroring rule matching in doesResourceMatchConditionBlock.
+	if len(conditionBlock.Operations) > 0 {
+		if !slices.Contains(conditionBlock.Operations, operation) {
+			return false
+		}
+	}
 	if len(conditionBlock.Kinds) > 0 {
 		if !matched.CheckKind(conditionBlock.Kinds, gvk, subresource, true) {
 			return false
