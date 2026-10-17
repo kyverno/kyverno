@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -108,6 +109,9 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		return updateStatus(c.statusControl, *ur, nil, nil)
 	}
 
+	// All generating rule contexts share one key, including foreach elements.
+	// Resolve it lazily so cleanup and removed rules retain their existing path.
+	batchProvenance := sync.OnceValues(c.snapshotProvenance)
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		rule := ur.Spec.RuleContext[i]
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
@@ -117,7 +121,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			continue
 		}
 
-		genResources, err = c.applyGenerate(*trigger, *ur, policy, i)
+		genResources, err = c.applyGenerate(*trigger, *ur, policy, i, batchProvenance)
 		if err == nil {
 			err = c.checkPendingProvenance(context.TODO(), *trigger, ur, policy, rule)
 		}
@@ -146,7 +150,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, i int) ([]kyvernov1.ResourceSpec, error) {
+func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur kyvernov2.UpdateRequest, policy kyvernov1.PolicyInterface, i int, snapshot func() (*provenance.Store, error)) ([]kyvernov1.ResourceSpec, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.GetPolicyKey())
 	logger.V(3).Info("applying generate policy")
 
@@ -203,7 +207,11 @@ func (c *GenerateController) applyGenerate(trigger unstructured.Unstructured, ur
 			name:     ur.Name, uid: ur.UID, policyUID: policy.GetUID(),
 		}
 	}
-	genResourcesMap, err := c.applyGeneratePolicy(logger, policyContext, applicableRules, pending)
+	batchProvenance, err := snapshot()
+	if err != nil {
+		return nil, err
+	}
+	genResourcesMap, err := c.applyGeneratePolicy(logger, policyContext, applicableRules, pending, batchProvenance)
 	if err != nil {
 		return nil, err
 	}
@@ -262,18 +270,25 @@ func (c *GenerateController) getPolicyObject(ur kyvernov2.UpdateRequest) (kyvern
 }
 
 func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string) (map[string][]kyvernov1.ResourceSpec, error) {
-	return c.applyGeneratePolicy(log, policyContext, applicableRules, nil)
+	batchProvenance, err := c.snapshotProvenance()
+	if err != nil {
+		return nil, err
+	}
+	return c.applyGeneratePolicy(log, policyContext, applicableRules, nil, batchProvenance)
 }
 
-func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string, pending *generationRetry) (map[string][]kyvernov1.ResourceSpec, error) {
-	batchProvenance := c.provenance
-	if batchProvenance != nil {
-		var err error
-		batchProvenance, err = batchProvenance.Snapshot(context.TODO())
-		if err != nil {
-			return nil, fmt.Errorf("%w: sign generated resource provenance: %w", errGeneratedProvenance, err)
-		}
+func (c *GenerateController) snapshotProvenance() (*provenance.Store, error) {
+	if c.provenance == nil {
+		return nil, nil
 	}
+	snapshot, err := c.provenance.Snapshot(context.TODO())
+	if err != nil {
+		return nil, fmt.Errorf("%w: sign generated resource provenance: %w", errGeneratedProvenance, err)
+	}
+	return snapshot, nil
+}
+
+func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, applicableRules []string, pending *generationRetry, batchProvenance *provenance.Store) (map[string][]kyvernov1.ResourceSpec, error) {
 	genResources := make(map[string][]kyvernov1.ResourceSpec)
 	policy := policyContext.Policy()
 	resource := policyContext.NewResource()
