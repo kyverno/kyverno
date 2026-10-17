@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"slices"
 	"testing"
 
@@ -41,6 +42,7 @@ func TestBuildWebhookRulesFineGrainedNamespacedImagePolicyAutogen(t *testing.T) 
 	cache.AddPolicyExpressions(policy.GetMatchConditions())
 
 	webhooks := buildWebhookRules(
+		context.Background(),
 		config.NewDefaultConfiguration(false),
 		"",
 		config.NamespacedImageValidatingPolicyValidateWebhookName,
