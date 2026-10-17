@@ -291,4 +291,6 @@ const (
 	NamespacedMutatingPolicyType        = "NamespacedMutatingPolicy"
 	GeneratingPolicyType                = "GeneratingPolicy"
 	NamespacedGeneratingPolicyType      = "NamespacedGeneratingPolicy"
+	DeletingPolicyType                  = "DeletingPolicy"
+	NamespacedDeletingPolicyType        = "NamespacedDeletingPolicy"
 )
