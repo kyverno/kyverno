@@ -176,6 +176,9 @@ jobs:
   complete:
     needs: [verify, krew]
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-completion-${{ github.repository }}
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:

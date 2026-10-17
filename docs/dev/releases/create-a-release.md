@@ -195,6 +195,13 @@ Only successful validation unlocks publication:
    and never update Krew. An older stable patch does not replace a newer stable
    release as latest.
 
+Finalization is serialized across tags. Latest selection scans all published
+stable-version tags, ignoring drafts, prereleases and misclassified RC tags,
+so concurrent supported-branch patches cannot win a race over a newer stable
+release. GitHub concurrency queues can cancel a superseded pending job when
+several runs contend; a cancelled mandatory job leaves the release incomplete
+and must be rerun in its original run using the retained candidate.
+
 The Krew manifest is generated from staged archive hashes, so this step does not
 need public downloads of draft assets. The external Krew PR may run checks
 before the final GitHub undraft; acceptance by Krew maintainers is not automated.

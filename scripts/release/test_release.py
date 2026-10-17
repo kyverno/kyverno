@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shlex
 import shutil
 import subprocess
 import tarfile
@@ -15,6 +16,7 @@ import yaml
 
 import assets
 import artifacts
+import build
 import krew
 import release
 import retained
@@ -388,6 +390,59 @@ class LocalArtifacts(unittest.TestCase):
                 expected.insert(0, "dependency build ./charts/kyverno")
             self.assertEqual(commands.read_text().splitlines(), expected)
 
+    def test_make_image_overrides_match_the_native_aliases_retained_by_the_builder(self):
+        metadata = release.plan("v1.20.2-rc.3", SHA, MAPPING)
+        helm = self.path / "helm"
+        helm.touch()
+        process = subprocess.run(
+            ["make", "-n", "-f", str(ROOT / "Makefile"), "kind-install-kyverno",
+             f"HELM={helm}", "BUILD_WITH=ko", f"GIT_SHA={SHA}", "RELEASE_MODE=true"],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        words = shlex.split(process.stdout)
+        values = dict(word.split("=", 1) for word in words if "=" in word)
+        native = build.native_images(metadata)
+        references = {}
+        for key, name in release.IMAGE_VALUES.items():
+            if f"{key}.tag" in values:
+                reference = (f"{values[key + '.registry']}/{values[key + '.repository']}:"
+                             f"{values[key + '.tag']}")
+                self.assertEqual(reference, native[name])
+                references[key] = reference
+        self.assertEqual(len(references), 8)
+        self.assertEqual(set(references.values()), set(native.values()))
+
+    def test_k6_policies_use_the_retained_package_without_repository_fallback(self):
+        steps = release.read(ROOT / ".github/workflows/tests-k6.yaml")["jobs"]["k6"]["steps"]
+        script = next(step["run"] for step in steps if step.get("name") == "Deploy policies")
+        helm = self.path / "helm"
+        helm.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> helm-commands\n')
+        helm.chmod(0o755)
+        package = Path(".release/packages/kyverno-policies-3.10.2-rc.3.tgz")
+        package.parent.mkdir(parents=True)
+        package.touch()
+        for candidate in ("true", "false"):
+            commands = self.path / "helm-commands"
+            commands.unlink(missing_ok=True)
+            process = subprocess.run(
+                ["bash", "-e", "-c", script], capture_output=True, text=True, timeout=30,
+                env={**os.environ, "PATH": f"{self.path}:{os.environ['PATH']}",
+                     "RELEASE_CANDIDATE": candidate},
+            )
+            self.assertEqual(process.returncode, 0, process.stderr)
+            command = commands.read_text()
+            if candidate == "true":
+                self.assertNotIn("--repo", command)
+                self.assertIn(str(package), command)
+            else:
+                self.assertIn("--repo https://kyverno.github.io/kyverno/", command)
+        package.unlink()
+        with patch.dict(os.environ, PATH=f"{self.path}:{os.environ['PATH']}",
+                        RELEASE_CANDIDATE="true"):
+            process = subprocess.run(["bash", "-e", "-c", script], capture_output=True, timeout=30)
+        self.assertNotEqual(process.returncode, 0)
+
     def test_packaged_background_hook_and_dependency_references(self):
         metadata = release.plan("v1.20.2", SHA, MAPPING)
         for key in release.IMAGE_VALUES:
@@ -642,12 +697,26 @@ class RetryAndGates(unittest.TestCase):
         jobs = self.workflow("release-publish.yaml")["jobs"]
         self.assertEqual(set(jobs["verify"]["needs"]), {"images", "provenance", "charts", "assets"})
         self.assertEqual(set(jobs["complete"]["needs"]), {"verify", "krew"})
+        self.assertEqual(jobs["complete"]["concurrency"]["cancel-in-progress"], "false")
+        self.assertNotIn("tag", jobs["complete"]["concurrency"]["group"])
         self.assertEqual(jobs["krew"]["needs"], "verify")
         submission = next(step for step in jobs["krew"]["steps"]
                           if step.get("uses", "").startswith("rajatjindal/krew-release-bot@"))
         self.assertEqual(submission["with"]["krew_template_file"], ".release-publication/krew.yaml")
         self.assertEqual(jobs["provenance"]["strategy"]["fail-fast"], "false")
         self.assertEqual(set(jobs["provenance"]["strategy"]["matrix"]["image"]), set(release.IMAGES))
+
+    def test_slsa_verifier_uses_the_generator_identity_not_the_application_workflow_sha(self):
+        workflow = self.workflow("release-publish.yaml")["jobs"]["provenance"]["uses"]
+        repository, version = workflow.split("@")
+        expected = f"https://github.com/{repository}@refs/tags/{version}"
+        subject = "ghcr.io/kyverno/kyverno@sha256:" + "a" * 64
+        with patch.object(release, "run") as run:
+            release.verify_provenance(subject)
+        args = run.call_args.args
+        self.assertEqual(args[args.index("--certificate-identity") + 1], expected)
+        self.assertNotIn("--certificate-github-workflow-sha", args)
+        self.assertEqual(args[-1], subject)
 
     def test_release_checkout_code_is_explicitly_pinned_to_validated_sha(self):
         for name in ("prepare-release.yaml", "release-validate.yaml",
@@ -699,6 +768,22 @@ class RetryAndGates(unittest.TestCase):
             assets.complete(metadata)
             self.assertIn("--latest=false", mock.call_args.args)
             self.assertIn("--prerelease=true", mock.call_args.args)
+
+    def test_latest_stable_uses_all_stable_tags_not_a_misclassified_rc_latest(self):
+        pages = [[
+            {"tag_name": "v1.19.2-rc.2", "draft": False, "prerelease": False},
+            {"tag_name": "v1.20.0-rc.1", "draft": False, "prerelease": True},
+            {"tag_name": "v1.21.0", "draft": True, "prerelease": False},
+        ], [
+            {"tag_name": "v1.19.1", "draft": False, "prerelease": False},
+            {"tag_name": "v1.18.5", "draft": False, "prerelease": False},
+        ]]
+        with patch.dict(os.environ, {"GH_REPO": "kyverno/kyverno"}), \
+                patch.object(assets.subprocess, "check_output", return_value=json.dumps(pages)):
+            for tag_name, expected in (("v1.18.6", False), ("v1.19.1", True), ("v1.19.2", True)):
+                self.assertEqual(assets.should_be_latest({
+                    "tag": tag_name, "prerelease": False,
+                }), expected, tag_name)
 
 
 if __name__ == "__main__":

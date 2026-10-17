@@ -51,6 +51,13 @@ def stage_manifest(metadata):
         "manifest.tar.gz:application/vnd.cncf.flux.content.v1.tar+gzip", cwd=".release")
 
 
+def native_images(metadata):
+    return {
+        name: f"ko.local/github.com/kyverno/kyverno/{path}:{metadata['sha']}"
+        for name, path in IMAGES.items()
+    }
+
+
 def main():
     metadata = json.loads(Path(".release/plan.json").read_text())
     if output("git", "rev-parse", "HEAD") != metadata["sha"]:
@@ -95,7 +102,7 @@ def main():
             env={**os.environ, "KO_DOCKER_REPO": f"ghcr.io/{metadata['owner']}/{name}",
                  "LD_FLAGS": f"-s -w -X github.com/kyverno/kyverno/pkg/version.BuildVersion={metadata['tag']}"})
         # Tests receive the exact linux/amd64 member of the staged multiarch index, not a rebuild.
-        local = f"ko.local/github.com/kyverno/kyverno/{main_path}:{metadata['sha']}"
+        local = native_images(metadata)[name]
         archive = Path(f".release/docker/{name}.tar")
         archive.parent.mkdir(parents=True, exist_ok=True)
         run("skopeo", "copy", "--override-os", "linux", "--override-arch", "amd64",
@@ -105,10 +112,7 @@ def main():
         for keys, reference in metadata["chart_images"].items():
             if IMAGE_VALUES[keys] == name and reference != metadata["images"][name]:
                 run("docker", "tag", local, reference)
-    local_images = [
-        f"ko.local/github.com/kyverno/kyverno/{path}:{metadata['sha']}"
-        for path in IMAGES.values()
-    ]
+    local_images = list(native_images(metadata).values())
     version = output("docker", "run", "--rm", metadata["images"]["kyverno-cli"], "version")
     if not re.search(rf"(?<![\w.-]){re.escape(metadata['tag'])}(?![\w.-])", version):
         raise ValueError(f"Staged CLI image has the wrong application version: {version}")

@@ -60,14 +60,17 @@ jobs:
           # Kyverno's policy webhook can still refuse connections right after the install,
           # so retry the policies install a couple of times.
           for i in 1 2 3; do
+            repository=()
             if [[ "$RELEASE_CANDIDATE" == "true" ]]; then
               chart=$(find .release/packages -name 'kyverno-policies-*.tgz')
+              test -f "$chart"
             else
               chart=kyverno-policies
+              repository=(--repo https://kyverno.github.io/kyverno/)
             fi
             helm upgrade --install --wait --timeout 15m \
               --namespace kyverno --create-namespace \
-              --repo https://kyverno.github.io/kyverno/ \
+              "${repository[@]}" \
               kyverno-policies "$chart" && exit 0
             helm uninstall kyverno-policies --namespace kyverno --ignore-not-found || true
             sleep 15

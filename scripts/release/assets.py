@@ -115,6 +115,24 @@ def verify(metadata):
                    sha256(".release/manifest.tar.gz"), "manifest content")
 
 
+def should_be_latest(metadata):
+    if metadata["prerelease"]:
+        return False
+    pages = json.loads(subprocess.check_output([
+        "gh", "api", "--paginate", "--slurp",
+        f"repos/{os.environ['GH_REPO']}/releases?per_page=100",
+    ], text=True))
+    candidate = tuple(map(int, metadata["tag"][1:].split(".")))
+    versions = [
+        tuple(map(int, match.groups()))
+        for page in pages for release in page
+        if not release["draft"] and not release["prerelease"]
+        for match in [re.fullmatch(r"v([0-9]+)\.([0-9]+)\.([0-9]+)", release["tag_name"])]
+        if match
+    ]
+    return candidate >= max(versions, default=candidate)
+
+
 def complete(metadata):
     release = existing_release(metadata["tag"])
     if release is None:
@@ -134,22 +152,7 @@ def complete(metadata):
     path = Path(".release-publication/release-notes.txt")
     path.parent.mkdir(exist_ok=True)
     path.write_text(notes)
-    latest = False
-    if not metadata["prerelease"]:
-        current = subprocess.run(
-            ["gh", "api", f"repos/{os.environ['GH_REPO']}/releases/latest"],
-            capture_output=True, text=True,
-        )
-        if current.returncode == 0:
-            previous = json.loads(current.stdout)["tag_name"]
-            stable = re.fullmatch(r"v([0-9]+)\.([0-9]+)\.([0-9]+)", previous)
-            latest = not stable or tuple(map(int, metadata["tag"][1:].split("."))) >= tuple(
-                map(int, stable.groups())
-            )
-        elif "(HTTP 404)" in current.stderr:
-            latest = True
-        else:
-            raise ValueError(f"Cannot determine latest stable release: {current.stderr}")
+    latest = should_be_latest(metadata)
     if release["isDraft"]:
         verify_tag(metadata)
         run("gh", "release", "edit", metadata["tag"], "--draft=false",

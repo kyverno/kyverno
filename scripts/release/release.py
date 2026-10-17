@@ -512,6 +512,15 @@ def verify_signature(subject, metadata):
         env={**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{metadata['owner']}/signatures"})
 
 
+def verify_provenance(subject):
+    run("cosign", "verify-attestation", "--type", "slsaprovenance",
+        "--certificate-identity",
+        "https://github.com/slsa-framework/slsa-github-generator/"
+        ".github/workflows/generator_container_slsa3.yml@refs/tags/v2.1.0",
+        "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
+        subject)
+
+
 def verify_index_entry(name, entry, metadata):
     package = Path(f".release/packages/{name}-{metadata['charts'][name]}.tgz")
     with tarfile.open(package) as archive:
@@ -639,12 +648,7 @@ def verify_remote(metadata):
                     raise ValueError(f"Chart registry mirror digest mismatch: {reference}")
         subject = metadata["images"][name].rsplit(":", 1)[0] + "@" + expected
         verify_signature(subject, metadata)
-        run("cosign", "verify-attestation", "--type", "slsaprovenance",
-            "--certificate-identity-regexp",
-            r"^https://github\.com/slsa-framework/slsa-github-generator/"
-            r"\.github/workflows/generator_container_slsa3\.yml@refs/tags/v.*$",
-            "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
-            subject)
+        verify_provenance(subject)
         downloaded = subprocess.check_output(
             ["cosign", "download", "sbom", subject],
             env={**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{metadata['owner']}/sbom"})
