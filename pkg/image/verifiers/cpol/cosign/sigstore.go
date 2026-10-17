@@ -37,7 +37,7 @@ type verificationResult struct {
 
 type verificationBundle struct {
 	ProtoBundle   *bundle.Bundle
-	DSSE_Envelope *in_toto.Statement //nolint:staticcheck
+	DSSE_Envelope *in_toto.Statement
 }
 
 func verifyBundleAndFetchAttestations(ctx context.Context, opts verifiers.Options) ([]*verificationResult, error) {
@@ -153,7 +153,7 @@ func fetchBundles(ref name.Reference, limit int, predicateType string, remoteOpt
 				if dsseEnvelope.PayloadType != "application/vnd.in-toto+json" {
 					continue
 				}
-				var intotoStatement in_toto.Statement //nolint:staticcheck
+				var intotoStatement in_toto.Statement
 				if err := json.Unmarshal(dsseEnvelope.Payload, &intotoStatement); err != nil {
 					continue
 				}
@@ -266,7 +266,7 @@ func decodeStatementsFromBundles(bundles []*verificationResult) ([]map[string]an
 	}
 	var err error
 	var statement map[string]any
-	var intotostatement in_toto.Statement //nolint:staticcheck
+	var intotostatement in_toto.Statement
 	decodedStatements := make([]map[string]any, len(bundles))
 	for i, b := range bundles {
 		intotostatement = *b.Bundle.DSSE_Envelope

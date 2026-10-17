@@ -220,8 +220,8 @@ func TestStringToJSONMap(t *testing.T) {
 
 func TestDecodePayload(t *testing.T) {
 	// Create a valid in-toto statement with a SLSA predicate type
-	statement := in_toto.Statement{ //nolint:staticcheck
-		StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+	statement := in_toto.Statement{
+		StatementHeader: in_toto.StatementHeader{
 			Type:          in_toto.StatementInTotoV01,
 			PredicateType: "https://slsa.dev/provenance/v0.2",
 			Subject: []in_toto.Subject{
@@ -280,12 +280,12 @@ func TestDecodePayload(t *testing.T) {
 func TestDecodeCosignCustomProvenanceV01(t *testing.T) {
 	tests := []struct {
 		name    string
-		stmt    in_toto.Statement //nolint:staticcheck
+		stmt    in_toto.Statement
 		wantErr bool
 	}{{
 		name: "valid custom provenance with JSON data",
-		stmt: in_toto.Statement{ //nolint:staticcheck
-			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+		stmt: in_toto.Statement{
+			StatementHeader: in_toto.StatementHeader{
 				Type:          attestation.CosignCustomProvenanceV01,
 				PredicateType: attestation.CosignCustomProvenanceV01,
 				Subject: []in_toto.Subject{
@@ -303,8 +303,8 @@ func TestDecodeCosignCustomProvenanceV01(t *testing.T) {
 		wantErr: false,
 	}, {
 		name: "valid custom provenance with non-JSON data",
-		stmt: in_toto.Statement{ //nolint:staticcheck
-			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+		stmt: in_toto.Statement{
+			StatementHeader: in_toto.StatementHeader{
 				Type:          attestation.CosignCustomProvenanceV01,
 				PredicateType: attestation.CosignCustomProvenanceV01,
 				Subject: []in_toto.Subject{
@@ -322,8 +322,8 @@ func TestDecodeCosignCustomProvenanceV01(t *testing.T) {
 		wantErr: false,
 	}, {
 		name: "wrong predicate type",
-		stmt: in_toto.Statement{ //nolint:staticcheck
-			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+		stmt: in_toto.Statement{
+			StatementHeader: in_toto.StatementHeader{
 				Type:          in_toto.StatementInTotoV01,
 				PredicateType: "https://slsa.dev/provenance/v0.2",
 			},
@@ -332,8 +332,8 @@ func TestDecodeCosignCustomProvenanceV01(t *testing.T) {
 		wantErr: true,
 	}, {
 		name: "non-map predicate",
-		stmt: in_toto.Statement{ //nolint:staticcheck
-			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+		stmt: in_toto.Statement{
+			StatementHeader: in_toto.StatementHeader{
 				Type:          attestation.CosignCustomProvenanceV01,
 				PredicateType: attestation.CosignCustomProvenanceV01,
 			},
@@ -342,8 +342,8 @@ func TestDecodeCosignCustomProvenanceV01(t *testing.T) {
 		wantErr: true,
 	}, {
 		name: "missing Data field in predicate",
-		stmt: in_toto.Statement{ //nolint:staticcheck
-			StatementHeader: in_toto.StatementHeader{ //nolint:staticcheck
+		stmt: in_toto.Statement{
+			StatementHeader: in_toto.StatementHeader{
 				Type:          attestation.CosignCustomProvenanceV01,
 				PredicateType: attestation.CosignCustomProvenanceV01,
 				Subject: []in_toto.Subject{
