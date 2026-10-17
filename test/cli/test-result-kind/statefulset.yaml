@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: good-pinned-tag
+spec:
+  serviceName: good-pinned-tag
+  selector:
+    matchLabels:
+      app: good-pinned-tag
+  template:
+    metadata:
+      labels:
+        app: good-pinned-tag
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
