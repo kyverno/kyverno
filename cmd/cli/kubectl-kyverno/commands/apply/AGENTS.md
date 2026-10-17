@@ -14,11 +14,11 @@ This package implements the `kubectl-kyverno apply` CLI command, which applies K
    - `PolicyProcessor.CrdPreloaded` is set to `true` so `ApplyPoliciesOnResource` skips redundant per-resource disk I/O and re-registration, while preserving `CrdPaths` for components that need schema access (such as OpenAPI type conversion in mutating policies).
 
 3. **Conditional CEL Context and Provider Pre-Initialization**:
-   - `utils.GetRESTMapper`, `processor.NewContextProvider`, and compiled CEL policy providers (`VpolProvider`, `VpolJSONProvider`, `MpolProvider`) are initialized once prior to resource evaluation loops only when CEL policies (`vpols`, `gpols`, `mpols`) are present.
+   - `utils.GetRESTMapper`, `processor.NewContextProvider`, and compiled CEL policy providers (`VpolProvider`, `VpolJSONProvider`, `MpolProvider`) are initialized once prior to resource evaluation loops only when CEL policies (`vpols`, `gpols`, `mpols`) are present and at least one Kubernetes resource or JSON payload is provided (`len(resources) > 0 || len(jsonPayloads) > 0`). HTTP/Envoy-only runs skip this setup entirely, avoiding eager compilation of unused policies.
    - Runs with classic policies only leave these fields `nil`, preserving zero setup overhead and preventing irrelevant `--context-file` errors.
    - Kubernetes-mode validating policies (`VpolProvider`) are compiled only when Kubernetes resources are being evaluated (`len(resources) > 0`), avoiding unnecessary compilation and errors for JSON-only evaluations.
    - When `--continue-on-fail` is enabled, provider compilation failures are deferred to per-resource evaluation by memoizing the error, preserving continue-on-fail semantics without repeated recompilation.
-   - If offline CRD preloading or eager context initialization encounters an error under `--continue-on-fail`, the error is deferred to per-resource evaluation, allowing subsequent stages (such as CleanupPolicy evaluation) to proceed.
+   - If offline CRD preloading or eager context initialization encounters an error under `--continue-on-fail`, the error is deferred to per-resource evaluation, allowing subsequent stages (such as CleanupPolicy evaluation) to proceed. If context initialization fails during image validation or deletion policy stages under `--continue-on-fail`, that stage is logged and skipped rather than evaluated with an invalid context.
 
 4. **Resource Evaluation Loops**:
    - Evaluates input resources and JSON payloads by passing pre-initialized shared components into `processor.PolicyProcessor`.

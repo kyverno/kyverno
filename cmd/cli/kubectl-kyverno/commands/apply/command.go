@@ -627,7 +627,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var mpolProvider mpolengine.Provider
 	var mpolProviderErr error
 
-	if !crdPreloadFailed && (len(vpols) != 0 || len(gpols) != 0 || len(mpols) != 0) {
+	if !crdPreloadFailed && (len(resources) > 0 || len(jsonPayloads) > 0) && (len(vpols) != 0 || len(gpols) != 0 || len(mpols) != 0) {
 		var err error
 		restMapper, err = utils.GetRESTMapper(dClient)
 		if err != nil {
@@ -662,7 +662,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 							}
 							vpolProvider = nil
 							vpolProviderErr = err
-							err = nil
 						}
 					}
 					if len(jsonPolicies) > 0 {
@@ -673,7 +672,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 							}
 							vpolJSONProvider = nil
 							vpolJSONProviderErr = err
-							err = nil
 						}
 					}
 				}
@@ -687,7 +685,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 						}
 						mpolProvider = nil
 						mpolProviderErr = err
-						err = nil
 					}
 				}
 			}
@@ -843,7 +840,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 	}
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
 	if err != nil {
-		return nil, err
+		if !c.ContinueOnFail {
+			return nil, err
+		}
+		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for image validating policies: %v", err))
+		return nil, nil
 	}
 
 	// Compilation captures the CLI library defaults, so initialize them first.
@@ -986,6 +987,8 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		if !c.ContinueOnFail {
 			return nil, err
 		}
+		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for deleting policies: %v", err))
+		return nil, nil
 	}
 
 	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())

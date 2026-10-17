@@ -740,6 +740,27 @@ spec:
 			expectErr: false,
 		},
 		{
+			name: "deleting policy context failure without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "deleting policy context failure with continue-on-fail skips deletion and continues",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: true,
+			},
+			expectErr: false,
+		},
+		{
 			name: "missing CRD path without continue-on-fail fails fast",
 			config: ApplyCommandConfig{
 				PolicyPaths:    []string{validK8sPolicy},
@@ -759,6 +780,19 @@ spec:
 				ContinueOnFail: true,
 			},
 			expectErr: false,
+		},
+		{
+			name: "unused invalid CEL policy does not block HTTP-only evaluation",
+			config: ApplyCommandConfig{
+				PolicyPaths: []string{
+					invalidK8sPolicy,
+					"../../../../../test/cli/test-validating-policy/http-allow/policy.yaml",
+				},
+				HTTPPayloadPaths: []string{"../../../../../test/cli/test-validating-policy/http-allow/request.json"},
+				ContinueOnFail:   false,
+			},
+			expectErr:       false,
+			expectResponses: true,
 		},
 	}
 

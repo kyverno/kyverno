@@ -2,10 +2,10 @@ package processor
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
-	"errors"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
