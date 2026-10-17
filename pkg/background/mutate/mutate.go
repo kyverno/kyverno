@@ -3,6 +3,7 @@ package mutate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -21,10 +22,12 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 )
 
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
@@ -165,64 +168,148 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 			policyContext = policyContext.WithResourceKind(gvk, admissionRequest.SubResource)
 		}
 
-		er := c.engine.Mutate(context.TODO(), policyContext)
+		er, reports, applyErrs, conflictErr := c.mutateWithRetry(logger, rule.Name, policyContext)
+
 		if c.needsReports(trigger) && reportutils.IsPolicyReportable(policy) {
 			if err := c.createReports(context.TODO(), policyContext.NewResource(), er); err != nil {
 				c.log.Error(err, "failed to create report")
 			}
 		}
-		for _, r := range er.PolicyResponse.Rules {
-			patched, parentGVR, patchedSubresource := r.PatchedTarget()
-			switch r.Status() {
-			case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
-				err := fmt.Errorf("failed to mutate existing resource, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.Error(err, "")
-				errs = append(errs, err)
-				c.report(err, policy, rule.Name, patched)
 
-			case engineapi.RuleStatusSkip:
-				err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
-				logger.V(4).Info(err.Error())
-
-			case engineapi.RuleStatusPass:
-				patchedNew := patched
-				if patchedNew == nil {
-					logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
-					errs = append(errs, ErrEmptyPatch)
-					continue
-				}
-
-				patchedNew.SetResourceVersion(patched.GetResourceVersion())
-				var updateErr error
-				if patchedSubresource == "status" {
-					_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-				} else if patchedSubresource != "" {
-					parentResourceGVR := parentGVR
-					parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
-					parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
-					if err != nil {
-						logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR.String())
-						errs = append(errs, err)
-						continue
-					}
-					_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
-				} else {
-					_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-				}
-				if updateErr != nil {
-					errs = append(errs, updateErr)
-					logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-				} else {
-					logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-				}
-
-				c.report(updateErr, policy, rule.Name, patched)
-			}
+		if conflictErr != nil {
+			logger.WithName(rule.Name).Error(conflictErr, "failed to update target resource after retrying")
+		}
+		errs = append(errs, applyErrs...)
+		for _, r := range reports {
+			c.report(r.err, policy, rule.Name, r.target)
 		}
 	}
 
 	err = multierr.Combine(errs...)
 	return updateURStatus(c.statusControl, *ur, err)
+}
+
+// mutateWithRetry recomputes the mutation on conflict and re-applies it only to the targets that conflicted, so no target is patched twice.
+func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName string, policyContext engineapi.PolicyContext) (er engineapi.EngineResponse, reports []targetMutation, errs []error, conflictErr error) {
+	var pending map[string]struct{}
+	var conflicted []targetMutation
+	conflictErr = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		er = c.engine.Mutate(context.TODO(), policyContext)
+		settled, settledErrs, toRetry, err := c.applyMutations(logger, ruleName, er, pending)
+		reports = append(reports, settled...)
+		errs = append(errs, settledErrs...)
+		// A conflicted target missing from the recomputed response would otherwise vanish; keep its conflict as terminal.
+		seen := targetKeys(append(settled[:len(settled):len(settled)], toRetry...))
+		for _, m := range conflicted {
+			if _, ok := seen[targetKey(m.target, m.subresource)]; !ok {
+				reports = append(reports, m)
+				errs = append(errs, m.err)
+			}
+		}
+		conflicted, pending = toRetry, targetKeys(toRetry)
+		return err
+	})
+	// Conflicts that outlived the retries are terminal failures, reported like any other.
+	for _, m := range conflicted {
+		reports = append(reports, m)
+		errs = append(errs, m.err)
+	}
+	return er, reports, errs, conflictErr
+}
+
+// targetMutation is one target's outcome, held until the retry settles so a retried attempt does not emit duplicate events.
+type targetMutation struct {
+	err         error
+	target      *unstructured.Unstructured
+	subresource string
+}
+
+// applyMutations applies er to its targets, skipping those outside only when set, and returns conflicting targets separately for a retry.
+func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName string, er engineapi.EngineResponse, only map[string]struct{}) (reports []targetMutation, errs []error, conflicted []targetMutation, conflict error) {
+	for _, r := range er.PolicyResponse.Rules {
+		patched, parentGVR, patchedSubresource := r.PatchedTarget()
+		if only != nil {
+			if patched == nil {
+				// A retry that fails to load a conflicted target has no patched target; it is still a terminal failure.
+				if s := r.Status(); s != engineapi.RuleStatusFail && s != engineapi.RuleStatusError && s != engineapi.RuleStatusWarn {
+					continue
+				}
+			} else if _, ok := only[targetKey(patched, patchedSubresource)]; !ok {
+				continue
+			}
+		}
+		switch r.Status() {
+		case engineapi.RuleStatusFail, engineapi.RuleStatusError, engineapi.RuleStatusWarn:
+			err := fmt.Errorf("failed to mutate existing resource, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
+			logger.Error(err, "")
+			errs = append(errs, err)
+			reports = append(reports, targetMutation{err: err, target: patched, subresource: patchedSubresource})
+
+		case engineapi.RuleStatusSkip:
+			err := fmt.Errorf("mutate existing rule skipped, rule %s, response %v: %s", r.Name(), r.Status(), r.Message())
+			logger.V(4).Info(err.Error())
+
+		case engineapi.RuleStatusPass:
+			patchedNew := patched
+			if patchedNew == nil {
+				logger.Error(ErrEmptyPatch, "", "rule", r.Name(), "message", r.Message())
+				errs = append(errs, ErrEmptyPatch)
+				continue
+			}
+
+			patchedNew.SetResourceVersion(patched.GetResourceVersion())
+			var updateErr error
+			if patchedSubresource == "status" {
+				_, updateErr = c.client.UpdateStatusResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+			} else if patchedSubresource != "" {
+				parentResourceGVR := parentGVR
+				parentResourceGV := schema.GroupVersion{Group: parentResourceGVR.Group, Version: parentResourceGVR.Version}
+				parentResourceGVK, err := c.client.Discovery().GetGVKFromGVR(parentResourceGV.WithResource(parentResourceGVR.Resource))
+				if err != nil {
+					logger.Error(err, "failed to get GVK from GVR", "GVR", parentResourceGVR.String())
+					errs = append(errs, err)
+					continue
+				}
+				_, updateErr = c.client.UpdateResource(context.TODO(), parentResourceGV.String(), parentResourceGVK.Kind, patchedNew.GetNamespace(), patchedNew.Object, false, patchedSubresource)
+			} else {
+				_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+			}
+
+			if apierrors.IsConflict(updateErr) {
+				logger.WithName(ruleName).V(3).Info("conflict updating target resource, recomputing the mutation and retrying",
+					"namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+				conflicted = append(conflicted, targetMutation{err: updateErr, target: patched, subresource: patchedSubresource})
+				if conflict == nil {
+					conflict = updateErr
+				}
+				continue
+			}
+
+			if updateErr != nil {
+				errs = append(errs, updateErr)
+				logger.WithName(ruleName).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+			} else {
+				logger.WithName(ruleName).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
+			}
+			reports = append(reports, targetMutation{err: updateErr, target: patched, subresource: patchedSubresource})
+		}
+	}
+	return reports, errs, conflicted, conflict
+}
+
+// targetKey identifies a target resource across attempts.
+func targetKey(target *unstructured.Unstructured, subresource string) string {
+	return strings.Join([]string{target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), subresource}, "/")
+}
+
+func targetKeys(mutations []targetMutation) map[string]struct{} {
+	keys := make(map[string]struct{}, len(mutations))
+	for _, m := range mutations {
+		if m.target != nil {
+			keys[targetKey(m.target, m.subresource)] = struct{}{}
+		}
+	}
+	return keys
 }
 
 func (c *mutateExistingController) getPolicy(ur *kyvernov2.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {

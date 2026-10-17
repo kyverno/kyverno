@@ -1,0 +1,199 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t01
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t01"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t02
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t02"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t03
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t03"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t04
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t04"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t05
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t05"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t06
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t06"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t07
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t07"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t08
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t08"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t09
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t09"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t10
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t10"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t11
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t11"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t12
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t12"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t13
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t13"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t14
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t14"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t15
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t15"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t16
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t16"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t17
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t17"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t18
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t18"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t19
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t19"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t20
+  namespace: shared-target-ns
+  labels:
+    register: "true"
+data:
+  placeholder: "t20"
