@@ -1519,6 +1519,8 @@ func Test_Apply_Explain(t *testing.T) {
 		name   string
 		config ApplyCommandConfig
 		want   []string
+		// wantCounts, when set, is what both runs must count
+		wantCounts *processor.ResultCounts
 	}{{
 		name: "validating policy on a resource file",
 		config: ApplyCommandConfig{
@@ -1572,6 +1574,44 @@ func Test_Apply_Explain(t *testing.T) {
 			JSONPaths:   []string{base + "test-deleting-policy/deleting-json/payload.json"},
 		},
 		want: []string{"(DeletingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		name: "generating policy with a generate expression",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/data/generate-cm/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/data/generate-cm/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (expression): generator.apply(variables.nsName, variables.configmap)  ->  true",
+			"generated ConfigMap test-ns/zk-kafka-address",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		name: "generating policy with a template",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/template/generate-cm-interpolated/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/template/generate-cm-interpolated/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (template)",
+			"generated ConfigMap test-ns/test-ns-config",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		// the generate expression reads a label the namespace does not have
+		name: "generating policy whose generate expression fails",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/explain-generate-error/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/explain-generate-error/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE   ERROR    generate[0] (expression): no such key: labels",
+			"object.metadata.labels  ->  ERROR: no such key: labels",
+			"VERDICT    ERROR    no such key: labels",
+		},
+		wantCounts: &processor.ResultCounts{Error: 1},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1598,6 +1638,9 @@ func Test_Apply_Explain(t *testing.T) {
 			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
 			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
 			assert.Equal(t, plainCounts, explainedCounts, "--explain must not change the results")
+			if tt.wantCounts != nil {
+				assert.Equal(t, tt.wantCounts, plainCounts)
+			}
 		})
 	}
 }

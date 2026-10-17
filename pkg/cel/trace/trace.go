@@ -220,6 +220,22 @@ type Decision struct {
 	// "decides" the outcome -- every mutation that runs contributes to the result, so this is a
 	// list rather than a single ExpressionTrace. Empty for policy kinds with no mutations (vpol).
 	Mutations []MutationTrace
+	// Generations holds one entry per generate item of a GeneratingPolicy that ran, in order,
+	// for the same reason Mutations is a list. Empty for other policy kinds.
+	Generations []GenerationTrace
+}
+
+// GenerationTrace is the trace of one generate item that ran. Name identifies it, e.g.
+// "generate[0] (expression)". For an expression item the embedded ExpressionTrace holds its CEL
+// trace; a template item has no single expression, so it is left empty. Generated lists what
+// the item produced, as "Kind namespace/name" (or "Kind name" when cluster-scoped), because an
+// expression's own result is only the boolean returned by generator.Apply.
+type GenerationTrace struct {
+	Name string
+	ExpressionTrace
+	Generated []string
+	// Error is set when this item failed outright, as MutationTrace.Error is.
+	Error string
 }
 
 // MutationTrace is the trace of one mutation expression that ran. Name identifies it, e.g.

@@ -840,6 +840,20 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 		wantTrace:  trace.VerdictFail,
 		wantMatch:  "true",
 		wantImage:  "bash:latest",
+	}, {
+		name:       "a failing template wins over an earlier passing one",
+		images:     []string{"bash:1.0", "bash:latest"},
+		wantStatus: engineapi.RuleStatusFail,
+		wantTrace:  trace.VerdictFail,
+		wantMatch:  "true",
+		wantImage:  "bash:latest",
+	}, {
+		name:       "a failing template is not overridden by a later passing one",
+		images:     []string{"bash:latest", "bash:1.0"},
+		wantStatus: engineapi.RuleStatusFail,
+		wantTrace:  trace.VerdictFail,
+		wantMatch:  "true",
+		wantImage:  "bash:latest",
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
