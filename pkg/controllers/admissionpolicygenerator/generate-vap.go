@@ -19,14 +19,12 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 	// check if the controller has the required permissions to generate ValidatingAdmissionPolicies.
 	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
-		c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
-		return nil
+		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicies")
 	}
 	// check if the controller has the required permissions to generate ValidatingAdmissionPolicyBindings.
 	if !admissionpolicy.HasValidatingAdmissionPolicyBindingPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-		c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
-		return nil
+		return c.updatePolicyStatus(ctx, policy, false, "insufficient permissions to generate ValidatingAdmissionPolicyBindings")
 	}
 
 	var vapName string
@@ -68,8 +66,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 			if msg == "" {
 				msg = "skip generating ValidatingAdmissionPolicy: a policy exception is configured."
 			}
-			c.updatePolicyStatus(ctx, policy, false, msg)
-			return nil
+			return c.updatePolicyStatus(ctx, policy, false, msg)
 		}
 		for _, exception := range exceptions {
 			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
@@ -117,8 +114,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 					return err
 				}
 			}
-			c.updatePolicyStatus(ctx, policy, false, reason)
-			return nil
+			return c.updatePolicyStatus(ctx, policy, false, reason)
 		}
 		for _, exception := range celexceptions {
 			genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
@@ -190,7 +186,9 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		}
 	}
 
-	c.updatePolicyStatus(ctx, policy, true, "")
+	if err := c.updatePolicyStatus(ctx, policy, true, ""); err != nil {
+		return err
+	}
 	c.eventGen.Add(event.NewValidatingAdmissionPolicyEvent(policy, observedVAP.Name, observedVAPbinding.Name)...)
 
 	return nil

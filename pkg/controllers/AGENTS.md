@@ -46,6 +46,13 @@ leader-elected = created before/outside that block, so it runs on every replica.
 | `generic/logging` | Generic CRD-change logger, reused for cleanup policy kinds | No (no queue at all) |
 | `generic/webhook` | Generic webhook-configuration reconciler, reused for cleanup/ttl webhook configs outside `cmd/kyverno` | Yes (from within leader callbacks) |
 
+## Admission-policy generation status
+
+Generation and policy-status controllers both update CEL policy status. The admission-policy generator must
+return status-write errors through reconciliation so the workqueue retries resource-version conflicts using a
+fresh informer object. Logging and swallowing a conflict can leave `status.generated` false indefinitely even
+after the native admission policy and binding were created.
+
 ## Two confirmed-stale rows in `docs/dev/controllers/README.md`
 
 That table lists `admission-report-controller` and `update-request-controller` as if they were `pkg/controllers/*`

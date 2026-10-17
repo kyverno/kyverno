@@ -167,7 +167,11 @@ No reduced/scheduled test run is substituted for release validation.
 The release-only custom Sigstore setup retains upstream Scaffolding's topology
 but extends its checksum-pinned setup script's fixed Kubernetes version map.
 `scripts/release/scaffolding.py` pins Kind v0.33.0 and the exact node-image digest
-for each supported matrix version, then installs Scaffolding v0.7.39 on that cluster.
+for each supported matrix version. The topology script comes from Scaffolding
+v0.7.39; the Sigstore services and isolated-registry signing smoke tests retain
+the same pinned v0.7.33 setup as routine custom Sigstore CI. The v0.7.39 smoke
+test targets public GHCR without the isolated signature repository configuration,
+so it is not used to qualify a release.
 Update these pins together with the supported matrix; an unknown version or
 changed upstream script fails closed. This does not downgrade a newer matrix
 entry to a Kubernetes version that the upstream version map already recognizes.

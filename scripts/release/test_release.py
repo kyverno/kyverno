@@ -524,7 +524,10 @@ class LocalArtifacts(unittest.TestCase):
                 ])
         setup = next(step for step in jobs["custom-sigstore"]["steps"]
                      if step.get("name") == "Install pinned Sigstore on the full-matrix cluster")
-        self.assertIn(scaffolding.COMMIT, setup["uses"])
+        routine = next(step for step in jobs["custom-sigstore"]["steps"]
+                       if step.get("name") == "Create kind cluster and setup Sigstore Scaffolding")
+        self.assertEqual(setup["uses"], routine["uses"])
+        self.assertEqual(setup["with"]["version"], routine["with"]["version"])
         self.assertTrue(setup["with"]["sigstore-only"])
         kind = next(step for step in jobs["custom-sigstore"]["steps"]
                     if step.get("name") == "Install pinned full-matrix Kind")
