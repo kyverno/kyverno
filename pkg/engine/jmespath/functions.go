@@ -1017,7 +1017,10 @@ func jpSemverCompare(arguments []any) (any, error) {
 		return nil, err
 	}
 
-	version, _ := semver.Parse(v.String())
+	version, err := semver.Parse(v.String())
+	if err != nil {
+		return nil, err
+	}
 	expectedRange, err := semver.ParseRange(r.String())
 	if err != nil {
 		return nil, err
