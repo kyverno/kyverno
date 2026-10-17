@@ -16,6 +16,7 @@ var (
 	specRe                = regexp.MustCompile(`\b(object|oldObject|Object)\.spec`)
 	metadataLabelsRe      = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.labels`)
 	metadataAnnotationsRe = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.annotations`)
+	metadataTypeRe        = regexp.MustCompile(`\bObject\.metadata\b`)
 )
 
 // ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
@@ -123,6 +124,7 @@ func convertPodToTemplateExpression(expression string, config string) string {
 	expression = specRe.ReplaceAllString(expression, "${1}."+specReplacement)
 	expression = metadataLabelsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".labels")
 	expression = metadataAnnotationsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".annotations")
+	expression = metadataTypeRe.ReplaceAllString(expression, "Object."+metadataReplacement)
 
 	// Detect the root "Object{...}" constructor, tolerating optional whitespace
 	// between "Object" and "{" (e.g. "Object {"), which is valid CEL.
