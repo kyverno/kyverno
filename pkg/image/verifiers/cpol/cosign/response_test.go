@@ -18,7 +18,7 @@ func TestAttestationsResponse(t *testing.T) {
 	assert.ErrorContains(t, err, "no in-toto attestations found")
 	assert.Assert(t, resp == nil)
 
-	statement := &in_toto.Statement{} //nolint:staticcheck
+	statement := &in_toto.Statement{}
 	statement.PredicateType = "https://slsa.dev/provenance/v1"
 	resp, err = attestationsResponse([]*verificationResult{
 		{Bundle: &verificationBundle{}, Desc: desc},
