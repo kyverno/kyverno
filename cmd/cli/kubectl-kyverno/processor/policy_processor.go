@@ -147,7 +147,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 		rclient = registryclient.New()
 	}
 	isCluster := false
-	if !p.CrdPreloaded && p.RESTMapper == nil && len(p.CrdPaths) > 0 {
+	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}

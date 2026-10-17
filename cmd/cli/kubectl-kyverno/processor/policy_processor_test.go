@@ -671,18 +671,72 @@ metadata:
 	assert.NilError(t, err)
 
 	expectedErr := errors.New("precompilation failed")
-	vpol := &policiesv1beta1.ValidatingPolicy{}
-	vpol.SetName("dummy")
 
-	p := PolicyProcessor{
-		Store:              &store.Store{},
-		ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vpol},
-		Resource:           *podList[0],
-		Rc:                 &ResultCounts{},
-		Out:                os.Stdout,
-		Cluster:            false,
-		VpolProviderErr:    expectedErr,
+	vpol := &policiesv1beta1.ValidatingPolicy{}
+	vpol.SetName("dummy-vpol")
+
+	vpolJSONYAML := []byte(`
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-json-message
+spec:
+  evaluation:
+    mode: JSON
+`)
+	_, _, _, jsonVpols, _, _, _, err := yamlutils.GetPolicy(vpolJSONYAML)
+	assert.NilError(t, err)
+	assert.Assert(t, len(jsonVpols) > 0)
+
+	mpol := &policiesv1beta1.MutatingPolicy{}
+	mpol.SetName("dummy-mpol")
+
+	testCases := []struct {
+		name      string
+		processor PolicyProcessor
+	}{
+		{
+			name: "vpol provider error",
+			processor: PolicyProcessor{
+				Store:              &store.Store{},
+				ValidatingPolicies: []policiesv1beta1.ValidatingPolicyLike{vpol},
+				Resource:           *podList[0],
+				Rc:                 &ResultCounts{},
+				Out:                os.Stdout,
+				Cluster:            false,
+				VpolProviderErr:    expectedErr,
+			},
+		},
+		{
+			name: "vpol json provider error",
+			processor: PolicyProcessor{
+				Store:               &store.Store{},
+				ValidatingPolicies:  []policiesv1beta1.ValidatingPolicyLike{&jsonVpols[0]},
+				JsonPayload:         *podList[0],
+				Rc:                  &ResultCounts{},
+				Out:                 os.Stdout,
+				Cluster:             false,
+				VpolJSONProviderErr: expectedErr,
+			},
+		},
+		{
+			name: "mpol provider error",
+			processor: PolicyProcessor{
+				Store:            &store.Store{},
+				MutatingPolicies: []policiesv1beta1.MutatingPolicyLike{mpol},
+				Resource:         *podList[0],
+				Rc:               &ResultCounts{},
+				Out:              os.Stdout,
+				Cluster:          false,
+				MpolProviderErr:  expectedErr,
+			},
+		},
 	}
-	_, err = p.ApplyPoliciesOnResource()
-	assert.Equal(t, err, expectedErr)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := tc.processor.ApplyPoliciesOnResource()
+			assert.Equal(t, err, expectedErr)
+		})
+	}
 }

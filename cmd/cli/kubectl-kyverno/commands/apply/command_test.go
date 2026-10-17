@@ -693,10 +693,11 @@ spec:
 	missingCRDPath := filepath.Join(tmpDir, "nonexistent-crd.yaml")
 
 	testCases := []struct {
-		name            string
-		config          ApplyCommandConfig
-		expectErr       bool
-		expectResponses bool
+		name              string
+		config            ApplyCommandConfig
+		expectErr         bool
+		expectResponses   bool
+		expectNoResponses bool
 	}{
 		{
 			name: "policy compilation failure without continue-on-fail fails fast",
@@ -779,7 +780,8 @@ spec:
 				CrdPaths:       []string{missingCRDPath},
 				ContinueOnFail: true,
 			},
-			expectErr: false,
+			expectErr:         false,
+			expectNoResponses: true,
 		},
 		{
 			name: "unused invalid CEL policy does not block HTTP-only evaluation",
@@ -806,6 +808,9 @@ spec:
 			}
 			if tc.expectResponses {
 				assert.NotEmpty(t, responses, "expected responses from later valid evaluation")
+			}
+			if tc.expectNoResponses {
+				assert.Empty(t, responses, "missing CRD should prevent resource evaluation")
 			}
 		})
 	}

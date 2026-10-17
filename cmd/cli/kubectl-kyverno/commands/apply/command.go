@@ -634,6 +634,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			if !c.ContinueOnFail {
 				return &rc, resources, responses, err
 			}
+			rc.IncrementError(1)
 		} else {
 			contextProvider, err = processor.NewContextProvider(dClient, restMapper, nil, c.ContextPath, true, !c.Cluster, nil, store.GetHTTPMockIndex())
 			if err != nil {
