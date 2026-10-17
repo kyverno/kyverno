@@ -9,7 +9,10 @@ metadata:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-upgrade
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    # Keep RBAC available until the next hook run. Hook controllers such as Argo CD
+    # consider passive resources successful immediately and would otherwise delete
+    # them before the migration Job has finished using them.
+    helm.sh/hook-delete-policy: before-hook-creation
     helm.sh/hook-weight: "100"
 rules:
   - apiGroups:
@@ -49,7 +52,10 @@ metadata:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-upgrade
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    # Keep RBAC available until the next hook run. Hook controllers such as Argo CD
+    # consider passive resources successful immediately and would otherwise delete
+    # them before the migration Job has finished using them.
+    helm.sh/hook-delete-policy: before-hook-creation
     helm.sh/hook-weight: "100"
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -69,7 +75,10 @@ metadata:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
   annotations:
     helm.sh/hook: post-upgrade
-    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    # Keep the ServiceAccount available until the next hook run. Hook controllers
+    # such as Argo CD consider it successful immediately and would otherwise delete
+    # it before the migration Job has finished using it.
+    helm.sh/hook-delete-policy: before-hook-creation
     helm.sh/hook-weight: "100"
 automountServiceAccountToken: false
 ---
