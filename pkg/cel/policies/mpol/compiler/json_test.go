@@ -46,7 +46,7 @@ func jsonPatchEvalData() map[string]any {
 func evalPatchValue(t *testing.T, expression string) (string, error) {
 	t.Helper()
 	patcher := compileJSONPatcher(t, expression)
-	patch, _, err := patcher.evaluatePatchExpression(context.Background(), 10000000, jsonPatchEvalData())
+	patch, _, _, err := patcher.evaluatePatchExpression(context.Background(), 10000000, jsonPatchEvalData())
 	if err != nil {
 		return "", err
 	}
@@ -195,7 +195,7 @@ func TestEvaluatePatchExpressionNonStringMapKey(t *testing.T) {
 // An operation without a value must not gain one, and "from" is carried through.
 func TestEvaluatePatchExpressionOperationMembers(t *testing.T) {
 	patcher := compileJSONPatcher(t, `[JSONPatch{op: "move", from: "/spec/a", path: "/spec/b"}]`)
-	patch, _, err := patcher.evaluatePatchExpression(context.Background(), 10000000, jsonPatchEvalData())
+	patch, _, _, err := patcher.evaluatePatchExpression(context.Background(), 10000000, jsonPatchEvalData())
 	require.NoError(t, err)
 	require.Len(t, patch, 1)
 	assert.JSONEq(t, `"move"`, string(*patch[0]["op"]))
