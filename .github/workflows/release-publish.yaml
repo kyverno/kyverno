@@ -93,7 +93,7 @@ jobs:
       sha: ${{ inputs.sha }}
 
   assets:
-    needs: draft
+    needs: [images, charts]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -114,7 +114,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
-      - name: Publish and sign exact staged CLI archives and manifests
+      - name: Publish and sign every exact staged GitHub release asset and manifest
         run: python3 scripts/release/assets.py publish
 
   verify:
@@ -144,7 +144,7 @@ jobs:
           password: ${{ github.token }}
       - name: Verify remote chart/index bytes, metadata, images, signatures and provenance
         run: python3 scripts/release/release.py verify-remote
-      - name: Verify every remote CLI/manifest asset and signature
+      - name: Verify every remote GitHub release asset and signature
         run: python3 scripts/release/assets.py verify
 
   krew:
