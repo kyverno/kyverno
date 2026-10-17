@@ -29,7 +29,7 @@ metadata:
     {{- include "kyverno.cleanup-controller.labels" . | nindent 4 }}
 spec:
   isCA: true
-  commonName: {{ include "kyverno.fullname" . }}-cleanup-controller-ca
+  commonName: {{ .Values.cleanupController.certManager.ca.commonName | default (printf "%s-cleanup-controller-ca" (include "kyverno.fullname" .)) | quote }}
   # Use the exact secret name Kyverno expects for cleanup controller CA
   secretName: {{ $fullSvcName }}.kyverno-tls-ca
   duration: {{ .Values.cleanupController.certManager.ca.duration | default "87600h" }}
