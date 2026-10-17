@@ -585,6 +585,21 @@ func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.Gro
 	wm.log.Info("Resource added", "name", obj.GetName())
 }
 
+// syncCloneLabels replaces source-owned labels while retaining downstream tracking identity.
+func syncCloneLabels(source, downstream map[string]string) map[string]string {
+	labels := make(map[string]string, len(source)+len(downstream))
+	for key, value := range source {
+		labels[key] = value
+	}
+	for key, value := range downstream {
+		// The editable clone-source marker follows the source, unlike downstream routing labels.
+		if key == kyverno.LabelAppManagedBy || (strings.HasPrefix(key, "generate.kyverno.io/") && key != common.GenerateTypeCloneSourceLabel) {
+			labels[key] = value
+		}
+	}
+	return labels
+}
+
 func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
@@ -628,7 +643,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetNamespace(downstream.GetNamespace())
 				newResource.SetKind(downstream.GetKind())
 				newResource.SetAPIVersion(downstream.GetAPIVersion())
-				newResource.SetLabels(downstream.GetLabels())
+				newResource.SetLabels(syncCloneLabels(source.GetLabels(), downstream.GetLabels()))
 				// The content comes from the source, whose resourceVersion means nothing for the
 				// downstream, so carry the downstream's own. Custom resources reject an update that
 				// has no resourceVersion, which used to leave every CRD downstream unsynced.
@@ -648,7 +663,7 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 					watcher.metadataCache[downstream.GetUID()] = Resource{
 						Name:            downstream.GetName(),
 						Namespace:       downstream.GetNamespace(),
-						Labels:          downstream.GetLabels(),
+						Labels:          newResource.GetLabels(),
 						Hash:            hash,
 						Data:            newResource,
 						ServerSideApply: cached.ServerSideApply,
@@ -722,22 +737,18 @@ func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *u
 	}
 }
 
-// propagateToDownstream writes a changed source's content to one of its downstreams. A policy
-// using server-side apply applies it. The labels are the live downstream's, so the apply keeps
-// only the ones Kyverno applied, along with the owner references and finalizers Kyverno applied
-// before, since leaving those out of the apply would remove them. Otherwise the downstream is
-// replaced with an update.
+// propagateToDownstream writes a changed source's content to one of its downstreams. Its labels
+// already combine the source labels and downstream tracking labels. Server-side apply also keeps
+// the owner references and finalizers Kyverno applied before, since omitting those would remove
+// them. Otherwise the downstream is replaced with an update.
 func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	if !serverSideApply {
 		return wm.client.UpdateResource(context.TODO(), newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
 	}
 	cfg := applyConfiguration(newResource)
 	if applied, ok := appliedByGenerate(downstream); ok {
-		cfg.SetLabels(onlyKeys(cfg.GetLabels(), applied.labels))
 		cfg.SetOwnerReferences(applied.ownerReferencesOf(downstream))
 		cfg.SetFinalizers(applied.finalizersOf(downstream))
-	} else {
-		cfg.SetLabels(generateLabels(cfg.GetLabels()))
 	}
 	return wm.applyDownstream(cfg)
 }
