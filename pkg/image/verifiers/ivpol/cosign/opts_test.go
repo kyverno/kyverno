@@ -18,6 +18,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/sigstoreguard"
+	"github.com/kyverno/kyverno/pkg/utils/egress"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/sigstore-go/pkg/root"
 	"github.com/sigstore/sigstore/pkg/tuf"
@@ -92,36 +94,18 @@ func baseOpts() ([]remote.Option, []name.Option) {
 
 func stubTufWithFixture(t *testing.T) {
 	t.Helper()
-	origTufInit := tufInitializeFn
-	origRoot := getTrustedRootFromTUFFn
-	origRekor := getRekorPubsFn
-	origCTLog := getCTLogPubsFn
-	origFulcioRoots := getFulcioRootsFn
-	origFulcioIntermed := getFulcioIntermedFn
-	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error { return nil }
-	getTrustedRootFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*root.TrustedRoot, error) {
-		return newTestTrustedRoot(t), nil
+	original := getVerificationMaterialFromTUFFn
+	getVerificationMaterialFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*sigstoreguard.VerificationMaterial, error) {
+		tr := newTestTrustedRoot(t)
+		rekor, err := rekorPubsFromTrustedRoot(tr)
+		require.NoError(t, err)
+		ctlog, err := ctLogPubsFromTrustedRoot(tr)
+		require.NoError(t, err)
+		roots, intermediates, err := fulcioRootsFromTrustedRoot(tr)
+		require.NoError(t, err)
+		return &sigstoreguard.VerificationMaterial{TrustedRoot: tr, RekorPublicKeys: rekor, CTLogPublicKeys: ctlog, FulcioRoots: roots, FulcioIntermediates: intermediates}, nil
 	}
-	getRekorPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
-		return nil, fmt.Errorf("stubbed Rekor TUF lookup")
-	}
-	getCTLogPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
-		return nil, fmt.Errorf("stubbed CTLog TUF lookup")
-	}
-	getFulcioRootsFn = func() (*x509.CertPool, error) {
-		return nil, fmt.Errorf("stubbed Fulcio roots TUF lookup")
-	}
-	getFulcioIntermedFn = func() (*x509.CertPool, error) {
-		return nil, fmt.Errorf("stubbed Fulcio intermediates TUF lookup")
-	}
-	t.Cleanup(func() {
-		tufInitializeFn = origTufInit
-		getTrustedRootFromTUFFn = origRoot
-		getRekorPubsFn = origRekor
-		getCTLogPubsFn = origCTLog
-		getFulcioRootsFn = origFulcioRoots
-		getFulcioIntermedFn = origFulcioIntermed
-	})
+	t.Cleanup(func() { getVerificationMaterialFromTUFFn = original })
 }
 
 func newTestTrustedRoot(t *testing.T) *root.TrustedRoot {
@@ -365,6 +349,7 @@ func TestCheckOptions_RekorOfflineMode(t *testing.T) {
 }
 
 func TestInitTUFAndFetch_Default(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	trust, err := initTUFAndFetch(ctx, nil)
 	require.NoError(t, err)
@@ -377,18 +362,17 @@ func TestInitTUFAndFetch_Default(t *testing.T) {
 }
 
 func TestInitTUFAndFetch_WithCustomMirror(t *testing.T) {
-	ctx := context.TODO()
-	tufCfg := &v1beta1.TUF{
-		Mirror: "https://custom-tuf.example.com",
-	}
-
-	_, err := initTUFAndFetch(ctx, tufCfg)
-	if err != nil {
-		t.Logf("Custom TUF mirror test (expected to fail in test env): %v", err)
-	}
+	t.Setenv("TUF_ROOT", t.TempDir())
+	_, err := initTUFAndFetch(context.Background(), &v1beta1.TUF{Mirror: "http://127.0.0.1:1"})
+	require.ErrorIs(t, err, egress.ErrAddressBlocked)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = initTUFAndFetch(ctx, &v1beta1.TUF{Mirror: "https://policy.example"})
+	require.ErrorIs(t, err, context.Canceled)
 }
 
 func TestGetRekor_WithURL(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	ctlog := &v1beta1.CTLog{
 		URL: "https://rekor.sigstore.dev",
@@ -406,6 +390,7 @@ func TestGetRekor_WithURL(t *testing.T) {
 }
 
 func TestGetRekor_NilCTLog(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 
 	// When ctlog is nil, getRekor returns the pre-fetched defaults unchanged.
@@ -460,6 +445,7 @@ func TestFulcioRootsFromTrustedRoot(t *testing.T) {
 // insecureIgnoreTlog: true without providing a Rekor URL: getRekor must not
 // require a Rekor client/URL in that case.
 func TestGetRekor_InsecureIgnoreTlog_NoURL(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	ctlog := &v1beta1.CTLog{
 		InsecureIgnoreTlog: true,
@@ -494,6 +480,7 @@ func TestFulcioRootsFromTrustedRoot_Nil(t *testing.T) {
 // are not fetched when insecureIgnoreSCT is set, mirroring the
 // insecureIgnoreTlog behavior for Rekor.
 func TestGetRekor_InsecureIgnoreSCT_SkipsCTLogPubKeys(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 	ctlog := &v1beta1.CTLog{
 		URL:               "https://rekor.sigstore.dev",
@@ -511,6 +498,7 @@ func TestGetRekor_InsecureIgnoreSCT_SkipsCTLogPubKeys(t *testing.T) {
 }
 
 func TestInitTUFAndFetch_FulcioRoots(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 
 	trust, err := initTUFAndFetch(ctx, nil)
@@ -520,6 +508,7 @@ func TestInitTUFAndFetch_FulcioRoots(t *testing.T) {
 }
 
 func TestInitTUFAndFetch_TrustedRoot(t *testing.T) {
+	stubTufWithFixture(t)
 	ctx := context.TODO()
 
 	trust, err := initTUFAndFetch(ctx, nil)
@@ -527,42 +516,9 @@ func TestInitTUFAndFetch_TrustedRoot(t *testing.T) {
 	assert.NotNil(t, trust.trustedRoot)
 }
 
-// TestInitTUFAndFetch_FallbackToTrustedRoot verifies that when individual
-// TUF targets are missing, initTUFAndFetch falls back to trusted_root.json
-// for Rekor/CTLog/Fulcio material.
-func TestInitTUFAndFetch_FallbackToTrustedRoot(t *testing.T) {
-	origTufInit := tufInitializeFn
-	origRoot := getTrustedRootFromTUFFn
-	origRekor := getRekorPubsFn
-	origCTLog := getCTLogPubsFn
-	origFulcioRoots := getFulcioRootsFn
-	origFulcioIntermed := getFulcioIntermedFn
-	t.Cleanup(func() {
-		tufInitializeFn = origTufInit
-		getTrustedRootFromTUFFn = origRoot
-		getRekorPubsFn = origRekor
-		getCTLogPubsFn = origCTLog
-		getFulcioRootsFn = origFulcioRoots
-		getFulcioIntermedFn = origFulcioIntermed
-	})
-
-	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error { return nil }
-	getTrustedRootFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*root.TrustedRoot, error) {
-		return newTestTrustedRoot(t), nil
-	}
-	getRekorPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
-		return nil, fmt.Errorf("simulated TUF target missing: rekor.pub")
-	}
-	getCTLogPubsFn = func(_ context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
-		return nil, fmt.Errorf("simulated TUF target missing: ctfe.pub")
-	}
-	getFulcioRootsFn = func() (*x509.CertPool, error) {
-		return nil, fmt.Errorf("simulated TUF target missing: fulcio_v1.crt.pem")
-	}
-	getFulcioIntermedFn = func() (*x509.CertPool, error) {
-		return nil, fmt.Errorf("simulated TUF target missing: fulcio_v1.crt.pem")
-	}
-
+// All trust material must come from the same per-policy TUF repository.
+func TestInitTUFAndFetch_UsesTrustedRoot(t *testing.T) {
+	stubTufWithFixture(t)
 	trust, err := initTUFAndFetch(context.TODO(), nil)
 	require.NoError(t, err)
 	assert.NotNil(t, trust.rekorPubKeys)
@@ -574,46 +530,14 @@ func TestInitTUFAndFetch_FallbackToTrustedRoot(t *testing.T) {
 	assert.NotNil(t, trust.trustedRoot)
 }
 
-// TestInitTUFAndFetch_PartialFulcioFallback verifies that when only Fulcio
-// roots or intermediates fail individually, the fallback still succeeds.
-func TestInitTUFAndFetch_PartialFulcioFallback(t *testing.T) {
-	origTufInit := tufInitializeFn
-	origRoot := getTrustedRootFromTUFFn
-	origRekor := getRekorPubsFn
-	origCTLog := getCTLogPubsFn
-	origFulcioRoots := getFulcioRootsFn
-	origFulcioIntermed := getFulcioIntermedFn
-	t.Cleanup(func() {
-		tufInitializeFn = origTufInit
-		getTrustedRootFromTUFFn = origRoot
-		getRekorPubsFn = origRekor
-		getCTLogPubsFn = origCTLog
-		getFulcioRootsFn = origFulcioRoots
-		getFulcioIntermedFn = origFulcioIntermed
-	})
-
-	tufInitializeFn = func(_ context.Context, _ string, _ []byte) error { return nil }
-	getTrustedRootFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*root.TrustedRoot, error) {
-		return newTestTrustedRoot(t), nil
+func TestInitTUFAndFetch_MissingTrustMaterial(t *testing.T) {
+	original := getVerificationMaterialFromTUFFn
+	getVerificationMaterialFromTUFFn = func(_ context.Context, _ *v1beta1.TUF) (*sigstoreguard.VerificationMaterial, error) {
+		return nil, fmt.Errorf("trusted root not available")
 	}
-	getRekorPubsFn = func(ctx context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
-		return cosign.GetRekorPubs(ctx)
-	}
-	getCTLogPubsFn = func(ctx context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
-		return cosign.GetCTLogPubs(ctx)
-	}
-	// Only intermediates fail; roots succeed
-	getFulcioRootsFn = func() (*x509.CertPool, error) {
-		return x509.NewCertPool(), nil
-	}
-	getFulcioIntermedFn = func() (*x509.CertPool, error) {
-		return nil, fmt.Errorf("simulated error fetching intermediates")
-	}
-
-	trust, err := initTUFAndFetch(context.TODO(), nil)
-	require.NoError(t, err)
-	assert.NotNil(t, trust.fulcioRoots)
-	assert.NotNil(t, trust.fulcioIntermediates)
+	t.Cleanup(func() { getVerificationMaterialFromTUFFn = original })
+	_, err := initTUFAndFetch(context.Background(), nil)
+	require.ErrorContains(t, err, "trusted root not available")
 }
 
 func TestPublicKeyToPEM(t *testing.T) {
@@ -657,6 +581,7 @@ func TestLogKeyStatus(t *testing.T) {
 // inline JSON value (att.TrustedRoot.Value), falling back to the
 // already-fetched TUF trusted root when unset.
 func TestResolveTrustedMaterial(t *testing.T) {
+	stubTufWithFixture(t)
 	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
 	require.NoError(t, err)
 
@@ -676,6 +601,26 @@ func TestResolveTrustedMaterial(t *testing.T) {
 		_, err := resolveTrustedMaterial(att, nil)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "parsing inline trustedRoot JSON")
+	})
+
+	t.Run("PEM-only repository leaves the bundle trust interface nil", func(t *testing.T) {
+		tm, err := resolveTrustedMaterial(&v1beta1.Cosign{}, nil)
+		require.NoError(t, err)
+		// A typed nil *TrustedRoot would bypass cosign's missing-trust check.
+		require.True(t, tm == nil, "missing modern trust must remain a nil interface")
+	})
+
+	t.Run("keyless bundles reject absent modern trust before evaluating the bundle", func(t *testing.T) {
+		tm, err := resolveTrustedMaterial(&v1beta1.Cosign{}, nil)
+		require.NoError(t, err)
+		opts := &cosign.CheckOpts{TrustedMaterial: tm, IgnoreTlog: true}
+		require.NotPanics(t, func() {
+			// No bundle is needed: identity verification must reject missing
+			// modern trust before inspecting any bundle contents.
+			result, err := cosign.VerifyNewBundle(context.Background(), opts, nil, nil)
+			require.ErrorContains(t, err, "a trusted root is required for identity-based verification")
+			require.Nil(t, result)
+		})
 	})
 
 	t.Run("nil TrustedRoot falls back to the pre-fetched default", func(t *testing.T) {
@@ -1093,4 +1038,30 @@ func TestApplyAdditionalExtensions_Aliases(t *testing.T) {
 			require.ErrorContains(t, err, "conflicting values")
 		}
 	})
+}
+
+func TestInitTUFAndFetchPreservesLegacyMaterial(t *testing.T) {
+	tr := newTestTrustedRoot(t)
+	keys := cosign.NewTrustedTransparencyLogPubKeys()
+	require.NoError(t, keys.AddTransparencyLogPubKey([]byte(testPublicKey), tuf.Expired))
+	provided := &sigstoreguard.VerificationMaterial{
+		TrustedRoot: tr, RekorPublicKeys: &keys, CTLogPublicKeys: &keys,
+		FulcioRoots: x509.NewCertPool(), FulcioIntermediates: x509.NewCertPool(),
+	}
+	original := getVerificationMaterialFromTUFFn
+	policyTUF := &v1beta1.TUF{Mirror: "https://policy-tuf.example"}
+	getVerificationMaterialFromTUFFn = func(_ context.Context, cfg *v1beta1.TUF) (*sigstoreguard.VerificationMaterial, error) {
+		require.Same(t, policyTUF, cfg)
+		return provided, nil
+	}
+	t.Cleanup(func() { getVerificationMaterialFromTUFFn = original })
+	material, err := initTUFAndFetch(context.Background(), policyTUF)
+	require.NoError(t, err)
+	// Keys and CA pools selected from overrides or legacy targets must not be
+	// replaced by material extracted again from the modern trusted root.
+	require.Same(t, provided.TrustedRoot, material.trustedRoot)
+	require.Same(t, provided.RekorPublicKeys, material.rekorPubKeys)
+	require.Same(t, provided.CTLogPublicKeys, material.ctlogPubKeys)
+	require.Same(t, provided.FulcioRoots, material.fulcioRoots)
+	require.Same(t, provided.FulcioIntermediates, material.fulcioIntermediates)
 }

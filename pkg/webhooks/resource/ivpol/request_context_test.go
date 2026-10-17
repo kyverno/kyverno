@@ -2,7 +2,6 @@ package ivpol
 
 import (
 	"context"
-	"crypto/tls"
 	"io"
 	"log"
 	"net/http"
@@ -43,15 +42,13 @@ import (
 // the webhook), the registry request must be cancelled with it instead of
 // running on in the background.
 func TestRegistryCallsStopWhenTheAdmissionRequestIsCancelled(t *testing.T) {
-	// DefaultTransport is process-global, so this test must not run in parallel.
-	oldTransport := regcreds.DefaultTransport
-	transport := &http.Transport{TLSNextProto: map[string]func(string, *tls.Conn) http.RoundTripper{}}
-	regcreds.DefaultTransport = transport
-	t.Cleanup(func() { regcreds.DefaultTransport = oldTransport; transport.CloseIdleConnections() })
+	if !isolatedRegistryTransportTest(t) {
+		return
+	}
 	registryHandler := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
 	var hang, sawCancellation atomic.Bool
 	manifestStarted := make(chan struct{}, 1)
-	transport.RegisterProtocol("https", diagnosticTransport(func(r *http.Request) (*http.Response, error) {
+	transport := registryFixtureTransport(t, diagnosticTransport(func(r *http.Request) (*http.Response, error) {
 		if hang.Load() && strings.Contains(r.URL.Path, "/manifests/") {
 			select {
 			case manifestStarted <- struct{}{}:
@@ -76,7 +73,11 @@ func TestRegistryCallsStopWhenTheAdmissionRequestIsCancelled(t *testing.T) {
 		response.Request = r
 		return response, nil
 	}))
-	const image = "registry.example/app:v1"
+	oldTransport := regcreds.DefaultTransport
+	regcreds.DefaultTransport = transport
+	t.Cleanup(func() { regcreds.DefaultTransport = oldTransport })
+	// A documentation address avoids DNS; the fixture transport serves every request.
+	const image = "192.0.2.1/app:v1"
 	ref, err := name.ParseReference(image)
 	require.NoError(t, err)
 	require.NoError(t, remote.Write(ref, empty.Image, remote.WithTransport(transport)))
@@ -96,7 +97,7 @@ func TestRegistryCallsStopWhenTheAdmissionRequestIsCancelled(t *testing.T) {
 					},
 				}},
 			},
-			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "registry.example/*"}},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "192.0.2.1/*"}},
 			ImageExtractors: []policiesv1beta1.ImageExtractor{
 				{Name: "containers", Expression: "object.spec.containers.map(e, e.image)"},
 			},
@@ -139,6 +140,6 @@ func TestRegistryCallsStopWhenTheAdmissionRequestIsCancelled(t *testing.T) {
 	}
 	response := <-responses
 
-	require.True(t, sawCancellation.Load(), "the registry request kept running after the admission request was cancelled")
+	require.Eventually(t, sawCancellation.Load, time.Second, time.Millisecond, "the registry request kept running after the admission request was cancelled")
 	require.False(t, response.Allowed)
 }

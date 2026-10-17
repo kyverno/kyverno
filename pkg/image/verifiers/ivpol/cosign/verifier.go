@@ -52,6 +52,9 @@ func (v *Verifier) buildCheckOptsWithBundleDetection(ctx context.Context, attest
 
 	bundles, hash := v.loadBundles(image.NameRef(), cOpts.RegistryClientOpts)
 	cOpts.NewBundleFormat = len(bundles) > 0
+	if err := validateBundleTrust(cOpts); err != nil {
+		return nil, nil, nil, err
+	}
 	if cOpts.NewBundleFormat && shouldUseSignedTimestamps(cOpts.IgnoreTlog, cOpts.UseSignedTimestamps, cOpts.TrustedMaterial) {
 		cOpts.UseSignedTimestamps = true
 	}
@@ -220,6 +223,20 @@ func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbu
 	}
 
 	return checkedAttestations, atLeastOneVerified, nil
+}
+
+func validateBundleTrust(opts *cosign.CheckOpts) error {
+	// PEM keys and certificates remain sufficient for legacy verification.
+	// Modern bundles need trusted-root material for identity, transparency-log,
+	// or timestamp verification; offline public-key verification does not.
+	// Cosign enables SCT verification only without a SigVerifier; its WithKey
+	// policy rejects certificate bundles. IgnoreSCT therefore adds no trust
+	// requirement to the offline public-key case below.
+	if opts.NewBundleFormat && opts.TrustedMaterial == nil &&
+		(opts.SigVerifier == nil || !opts.IgnoreTlog || opts.UseSignedTimestamps) {
+		return fmt.Errorf("modern Sigstore bundle verification requires trusted root material for identity, transparency log, or timestamp verification")
+	}
+	return nil
 }
 
 // shouldUseSignedTimestamps reports whether a detected Sigstore bundle (format

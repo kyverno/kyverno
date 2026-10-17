@@ -126,6 +126,7 @@ func (p *Policy) Evaluate(
 		compiler.ObjectKey:          data.Object,
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
+		compiler.ImageDataKey:       libs.ImageDataContext(ctx, data.Context),
 		compiler.ResourceKey:        resource.Context{ContextInterface: data.Context},
 	}
 	// the *Traces slices are only appended to when p.trace is set, and decision() returns nil

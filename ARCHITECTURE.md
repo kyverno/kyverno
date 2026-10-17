@@ -48,6 +48,10 @@ a raw `pkg/client`/`k8s.io/client-go` client directly in new controller/webhook 
 packages' *interface* types as a function parameter is fine and common — the generated wrappers embed those same
 interfaces — the rule is about what constructs the concrete client, not what type a function signature names).
 
+`pkg/registryclient` supplies Kyverno's policy settings, egress transport, and credential guard to the SDK
+registry client. The SDK owns reference parsing, credential composition/refresh, request options, and registry
+operations; see [docs/dev/registry-client.md](docs/dev/registry-client.md) for the ownership boundary.
+
 **Policy engine core:** `pkg/engine` is the legacy (`kyverno.io`) rule-evaluation engine — JMESPath variable
 substitution, pattern/anchor matching, mutate patch generation, external API/context calls. `pkg/cel` is the newer,
 parallel CEL-based engine stack for `policies.kyverno.io` types, split by policy kind: `vpol`
@@ -58,7 +62,8 @@ and [pkg/cel/AGENTS.md](pkg/cel/AGENTS.md). `pkg/admissionpolicy` bridges CEL po
 `ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy`. `pkg/autogen` (and `pkg/cel/autogen`) compute autogen rules
 for Pod-controller kinds. `pkg/image` holds all image signature/attestation verification — cosign and notary
 verifiers live under `pkg/image/verifiers/{cpol,ivpol}/{cosign,notary}` (not `pkg/cosign`/`pkg/notary`, which no
-longer exist); `pkg/sigstoretuf` handles TUF trust-root management for the cosign verifiers. See
+longer exist); `pkg/sigstoreguard` supplies guarded Sigstore HTTP clients and sigstore-go TUF trust/cache
+management. `pkg/sigstoretuf` preserves the existing shared trust-helper API by delegating to it. See
 [pkg/image/AGENTS.md](pkg/image/AGENTS.md).
 
 **Policy lifecycle / admission:** `pkg/policy`, `pkg/validation`, `pkg/exceptions` (`PolicyException` matching),
@@ -117,7 +122,10 @@ See also [api/AGENTS.md](api/AGENTS.md).
   for implementation gotchas.
 - **User-facing outcomes:** `pkg/event`, not ad hoc logging (see above).
 - **Outbound HTTP:** `pkg/tracing`'s OTel-instrumented `http.RoundTripper`, used by `pkg/engine/apicall` for
-  external context calls. There is no separate generic HTTP client package beyond this.
+  external context calls. Registry and CEL Sigstore HTTP paths use `pkg/utils/egress` through
+  `pkg/registryclient` and `pkg/sigstoreguard`; shared TUF helpers use the same guard. These are scoped
+  integrations, not a process-wide network policy. Azure provider-internal credential exchange and KMS
+  networking retain their provider clients; see [docs/user/registry-egress.md](docs/user/registry-egress.md).
 
 ## Generated / no-edit zones
 

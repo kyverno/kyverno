@@ -133,7 +133,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 		} else {
 			// if key, cert, and roots are not provided, default to Fulcio roots
 			if cosignOpts.RootCerts == nil {
-				roots, _, err := sigstoretuf.FulcioRoots()
+				roots, _, err := sigstoretuf.FulcioRootsWithContext(ctx)
 				if err != nil {
 					return nil, fmt.Errorf("failed to get roots from fulcio: %w", err)
 				}

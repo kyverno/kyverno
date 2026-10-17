@@ -46,7 +46,9 @@ pkg/                  # Core library code
   autogen/            #   Auto-generation of rules for Pod controllers
   image/              #   Image signature/attestation verification (cosign + notary verifiers live under
                       #   image/verifiers/{cpol,ivpol}/{cosign,notary}; pkg/cosign and pkg/notary no longer exist)
-  sigstoretuf/        #   TUF root/trust management for sigstore, used by pkg/image's cosign verifiers
+  registryclient/     #   Kyverno policy/egress adapter around the SDK registry client
+  sigstoreguard/      #   Guarded Sigstore HTTP and sigstore-go TUF/cache integration
+  sigstoretuf/        #   Compatibility trust helpers delegating to sigstoreguard
   utils/              #   Shared utilities
 ext/                  # Small standalone utility packages
 charts/               # Helm charts

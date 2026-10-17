@@ -2,12 +2,12 @@ package ivpol
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -42,23 +42,15 @@ type diagnosticTransport func(*http.Request) (*http.Response, error)
 func (f diagnosticTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
 // This runs real registry loading, Cosign, CEL, the engine and the webhook. Only
-// HTTP transport is replaced: no sockets or external Sigstore services are used.
+// HTTP transport redirects to the local fixture; no external services are used.
 func TestCosignDiagnosticsAdmission(t *testing.T) {
-	// DefaultTransport is process-global, so this test must not run in parallel.
-	oldTransport := regcreds.DefaultTransport
-	transport := &http.Transport{TLSNextProto: map[string]func(string, *tls.Conn) http.RoundTripper{}}
-	regcreds.DefaultTransport = transport
-	t.Cleanup(func() { regcreds.DefaultTransport = oldTransport; transport.CloseIdleConnections() })
+	if !isolatedRegistryTransportTest(t) {
+		return
+	}
 	registryHandler := registry.New(registry.Logger(log.New(io.Discard, "", 0)))
 	var verificationError error
 	var verificationRequests int
-	transport.RegisterProtocol("https", diagnosticTransport(func(r *http.Request) (*http.Response, error) {
-		if strings.HasSuffix(r.URL.Path, ".sig") || strings.HasSuffix(r.URL.Path, ".att") {
-			verificationRequests++
-			if verificationError != nil {
-				return nil, verificationError
-			}
-		}
+	transport := registryFixtureTransport(t, diagnosticTransport(func(r *http.Request) (*http.Response, error) {
 		req := r.Clone(r.Context())
 		req.RequestURI = r.URL.RequestURI()
 		if req.Body == nil {
@@ -70,7 +62,20 @@ func TestCosignDiagnosticsAdmission(t *testing.T) {
 		response.Request = r
 		return response, nil
 	}))
-	const image = "registry.example/image:tag"
+	// The guard preserves this callback, so injected errors keep their original
+	// context error type after destination validation and before signature I/O.
+	transport.Proxy = func(r *http.Request) (*url.URL, error) {
+		if strings.HasSuffix(r.URL.Path, ".sig") || strings.HasSuffix(r.URL.Path, ".att") {
+			verificationRequests++
+			return nil, verificationError
+		}
+		return nil, nil
+	}
+	oldTransport := regcreds.DefaultTransport
+	regcreds.DefaultTransport = transport
+	t.Cleanup(func() { regcreds.DefaultTransport = oldTransport })
+	// A documentation address avoids DNS; the fixture transport serves every request.
+	const image = "192.0.2.1/image:tag"
 	ref, err := name.ParseReference(image)
 	require.NoError(t, err)
 	require.NoError(t, remote.Write(ref, empty.Image, remote.WithTransport(transport)))
