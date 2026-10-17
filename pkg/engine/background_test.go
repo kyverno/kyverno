@@ -15,6 +15,8 @@ import (
 )
 
 func TestApplyBackgroundChecks_ContextPropagation(t *testing.T) {
+	type contextKey struct{}
+	key := contextKey{}
 	var got context.Context
 	cfg := config.NewDefaultConfiguration(false)
 	e := NewEngine(cfg, jmespath.New(cfg), nil, nil, imageverifycache.DisabledImageVerifyCache(),
@@ -22,7 +24,7 @@ func TestApplyBackgroundChecks_ContextPropagation(t *testing.T) {
 			return loaderFunc(func(ctx context.Context) error { got = ctx; return nil })
 		}, nil, nil)
 
-	ctx := context.WithValue(context.Background(), "k", "v")
+	ctx := context.WithValue(context.Background(), key, "v")
 	policy := &kyverno.ClusterPolicy{Spec: kyverno.Spec{Rules: []kyverno.Rule{{
 		Name:           "r",
 		MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"ConfigMap"}}},
@@ -38,7 +40,7 @@ func TestApplyBackgroundChecks_ContextPropagation(t *testing.T) {
 
 	e.ApplyBackgroundChecks(ctx, pCtx.WithPolicy(policy))
 
-	assert.Equal(t, "v", got.Value("k"))
+	assert.Equal(t, "v", got.Value(key))
 }
 
 type loaderFunc func(context.Context) error
