@@ -9,21 +9,22 @@ spec:
     try:
     - apply:
         file: setup.yaml
-  - name: reject-invalid-source-namespaces
+  - name: reject-foreign-source-namespace
     try:
-    - script:
-        content: |
-          set -eu
-          for file in reject-*.yaml; do
-            if output=$(kubectl create --dry-run=server -f "$file" 2>&1); then
-              echo "Unexpectedly accepted $file"
-              exit 1
-            fi
-            case "$output" in
-              *"cannot clone resources from other namespace"*) ;;
-              *) echo "$output"; exit 1 ;;
-            esac
-          done
+    - apply:
+        file: reject-clone-foreign.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'cannot clone resources from other namespaces')): true
+  - name: reject-dynamic-target-kind
+    try:
+    - apply:
+        file: reject-dynamic-kind.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target kind for namespaced Policy')): true
   - name: allow-same-namespace-source
     try:
     - apply:

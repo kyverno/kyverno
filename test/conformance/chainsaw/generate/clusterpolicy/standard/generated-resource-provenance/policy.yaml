@@ -19,6 +19,7 @@ spec:
       name: synchronized
       namespace: "{{ request.object.metadata.name }}"
       synchronize: true
+      orphanDownstreamOnPolicyDelete: false
       clone:
         namespace: generated-resource-provenance-source
         name: source

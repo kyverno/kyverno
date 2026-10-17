@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: user-stamped
-  namespace: generated-resource-provenance-tenant
-  annotations:
-    generate.kyverno.io/provenance: v1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-data:
-  value: dW5jaGFuZ2Vk

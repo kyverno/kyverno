@@ -2,91 +2,62 @@
 
 Run this test in isolation with `protectManagedResources=false` (the default),
 before another generate policy watches Secrets. It needs `kubectl`, `jq`, and
-`timeout` on the runner. The test grants the controllers Secret access and uses
-only its own namespaces, policy, and RBAC resource.
+`timeout` and grants the controllers Secret access.
 
-Before installing the policy, the test plants Secrets at the exact intended
-output names with real trigger and source UIDs and forged generation labels.
-This administrative setup simulates objects whose metadata predates the guard.
-The runner must be allowed to impersonate the background controller: only
-`prepare-existing-targets.sh` uses that identity for the setup label and invalid
-annotation writes. The script discovers exactly one background-controller
-Deployment and its configured service account in `${KYVERNO_NAMESPACE:-kyverno}`,
-so custom installation namespaces and account names are supported. It waits
-briefly for the fixture's aggregated Secret permissions before those writes.
-All subsequent negative operations retain their original untrusted caller.
+Before installing the policy, the test plants two Secrets at the intended output
+names with real trigger and source UIDs and downstream routing labels. One is
+unsigned; the other carries a forged provenance annotation. This administrative
+setup models persisted metadata. Only `prepare-existing-targets.sh` impersonates
+the background controller, discovering its configured service account from the
+single background-controller Deployment in `${KYVERNO_NAMESPACE:-kyverno}`.
+All subsequent operations use the runner's ordinary identity.
 
-After the policy is ready, it verifies that unchanged-label updates, deletes,
-and clone-source traversal cannot enqueue an UpdateRequest. It also attempts to
-copy a MAC from a genuine downstream onto a planted object and verifies that
-admission rejects the provenance change. Each negative operation watches from
-the preceding list resourceVersion for ten seconds, including short lived
-UpdateRequests. It also checks that planted objects retain their data or remain
-deleted.
+The test verifies that an unchanged-label update, forged downstream deletion,
+and clone-source data change cannot enqueue generation for the planted targets.
+Each operation watches UpdateRequests from the preceding list resourceVersion
+for ten seconds, including short lived requests. The unsigned target retains its
+data and the deleted target stays absent. A new trigger then proves that genuine
+generation still works, ordinary edits synchronize, and deleted targets are
+recreated. Finally, policy deletion removes the authenticated target while
+preserving the unsigned one.
 
-CREATE and UPDATE checks submit user-provided provenance annotations and require
-an admission error. User-owned clone sources can be restored with their
-clone-source label or replaced without it. A standalone `app.kubernetes.io/managed-by: kyverno`
-label remains usable while managed-resource protection is disabled.
-
-A newly created trigger is the positive control: its genuine generated Secret
-must be restored after an ordinary edit and recreated after deletion.
+Go regression tests cover the remaining permutations without extra live fixtures:
+`pkg/webhooks/handlers/protect_provenance_test.go` covers annotation write guards;
+`pkg/webhooks/resource/generation/provenance_test.go` covers copied and mismatched
+identities and per-target clone-source verification;
+`pkg/policy/generate_cleanup_discovery_test.go` covers kind-only and versioned
+cleanup for data, clone, cloneList, and foreach rules; and
+`pkg/background/generate/cleanup_provenance_test.go` covers authenticated deletion
+and concurrent replacements. The provenance package and generation tests cover
+key lifecycle, signing failures, and retry recovery.
 
 ## Compatibility and key lifecycle
 
-The admission controller creates the immutable `kyverno-generate-provenance`
-Secret in the Kyverno installation namespace before serving resource admissions.
-The background controller reads that shared key when signing generated targets.
-Preserve this Secret across controller restarts and upgrades; replacing or
-removing the key invalidates the provenance on existing generated resources.
+Preserve the immutable `kyverno-generate-provenance` Secret in the Kyverno
+installation namespace across restarts and upgrades. Admission creates it and
+background reads it; missing, invalid, or replaced keys invalidate existing
+provenance. Custom RBAC must allow admission to create/read this key, background
+to read it, and background to `patch` every generated target kind, including
+cloneList and foreach targets. Policy authors do not need `patch` solely for this
+annotation. The default chart already grants these permissions for its supported
+kinds.
 
-Unsigned downstreams from an earlier release fail closed for non-trigger edits,
-deletes, clone-source traversal, and cleanup. For rules with `synchronize: true`,
-a trusted trigger event or an explicit `generateExisting` re-evaluation can
-process the target under the rule and establish authenticated provenance.
-Existing targets skipped by `synchronize: false` retain that behavior and are
-not retroactively signed by a replay. Policy-update scans of labels cannot
-bootstrap trust: a resource carrying preplanted labels is indistinguishable
-from an unsigned old downstream. Pending legacy cleanup requests without the
-original policy UID are also ignored. Ordinary source restores and replacements
-remain permitted.
+Unsigned older downstreams are ignored by non-trigger events, clone-source
+traversal, and cleanup. An authorized synchronized trigger evaluation or explicit
+`generateExisting` evaluation can establish provenance; policy-update label scans
+cannot. Targets skipped by `synchronize: false` remain unsigned. Pending cleanup
+without the original policy UID is ignored. Ordinary source restores, unrelated
+annotations, and data edits remain supported; full-object downstream replacements
+must preserve the controller-owned provenance annotation.
 
-The provenance annotation is controller-owned: full-object replacements of a
-generated downstream must preserve it. Ordinary data and unrelated annotation
-changes remain supported. A missing or invalid signing key fails closed; operators using custom RBAC must
-allow admission to create/read the key and background to read it. The default
-chart already grants these namespace-scoped permissions.
-
-Custom background-controller RBAC must also grant `patch` on every generated
-target kind, including every cloneList kind and foreach target. The controller
-adds provenance after creation using the API server's assigned identity, even
-when `synchronize` is false. Policy validation checks this permission separately
-from the author's existing generated-content permissions; policy authors do not
-need `patch` solely for the controller-owned annotation. Grant this permission
-before upgrading an installation that uses custom target-resource roles. The
-default chart already includes `patch` for its supported generated kinds.
-
-The background controller validates a key snapshot before a generation batch
-writes targets. If a target write succeeds but its provenance patch fails, an
-authenticated receipt preserves that exact server-assigned identity on the
-UpdateRequest. A later attempt can finish the annotation, including when
-`synchronize: false`, without rewriting the generated data. Recovery rejects a
-same-name replacement or changed routing metadata. Successful generation adds
-no receipt writes, and a completed patch with a lost response is handled
-idempotently. If a clone source disappears or a cloneList/foreach becomes empty
-while a receipt is pending, the request remains failed within the normal retry
-limit; an empty result does not silently complete and discard the receipt.
-Restoring the selected source or list before retries expire allows recovery.
-
-Target creation and receipt persistence are separate API writes. If the
-controller stops before a failed patch's receipt is saved, the unsigned target
-cannot be recovered from labels or status alone. It retains the existing
-unsigned-target behavior described above; a synchronized rule can establish
-provenance through a new authorized evaluation.
-
-Signing and verification failures use the existing bounded UpdateRequest retry
-path. Restoring the installation's original key allows eligible synchronized
-generation and authenticated cleanup requests to retry; it does not replay work
-whose retries have already been exhausted. After that point, generation needs a
-new trusted trigger event or an explicit `generateExisting` re-evaluation, and
-any outstanding cleanup must be reconciled separately.
+A key snapshot precedes target writes. If a target write succeeds but its
+provenance patch fails, a receipt on the UpdateRequest can recover that exact
+server-assigned identity without rewriting data, including for unsynchronized
+rules. Changed routing or replacement identities are rejected. Pending receipts
+remain failed when clone sources disappear or cloneList/foreach results become
+empty; restoring sources can allow recovery within the normal retry limit.
+Creation and receipt persistence are separate API writes: a crash before saving
+the receipt leaves the target unsigned. Restoring the original key does not
+replay exhausted retries; generation then requires a new trusted trigger or an
+explicit `generateExisting` evaluation, and cleanup requires separate
+reconciliation.

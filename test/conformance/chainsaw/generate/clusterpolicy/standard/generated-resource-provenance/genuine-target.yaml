@@ -6,4 +6,4 @@ metadata:
   annotations:
     (starts_with("generate.kyverno.io/provenance" || '', 'v1:')): true
 data:
-  value: c291cmNl
+  value: Y2hhbmdlZA==

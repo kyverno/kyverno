@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: clone-kind-cleanup-target
-  labels:
-    test.kyverno.io/clone-kind-cleanup: target

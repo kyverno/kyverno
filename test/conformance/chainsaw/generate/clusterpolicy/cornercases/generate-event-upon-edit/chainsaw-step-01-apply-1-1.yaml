@@ -17,4 +17,3 @@ rules:
   - get
   - update
   - delete
-  - patch

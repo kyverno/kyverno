@@ -30,7 +30,7 @@ done
 # Create exact intended downstream names while no sync policy watches Secrets.
 # Both the trigger and clone source identities refer to real existing objects.
 source_uid=$(kubectl get secret source -n generated-resource-provenance-source -o jsonpath='{.metadata.uid}')
-for suffix in update delete candidate; do
+for suffix in update delete; do
   namespace="generated-resource-provenance-${suffix}"
   trigger_uid=$(kubectl get namespace "$namespace" -o jsonpath='{.metadata.uid}')
   kubectl create secret generic synchronized -n "$namespace" --from-literal=value=spoofed

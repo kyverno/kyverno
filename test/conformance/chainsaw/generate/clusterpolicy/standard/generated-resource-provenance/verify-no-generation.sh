@@ -7,13 +7,12 @@ trap 'rm -rf "$work_dir"' EXIT
 selector=generate.kyverno.io/policy-name=generated-resource-provenance
 update_uid=$(kubectl get namespace generated-resource-provenance-update -o jsonpath='{.metadata.uid}')
 delete_uid=$(kubectl get namespace generated-resource-provenance-delete -o jsonpath='{.metadata.uid}')
-candidate_uid=$(kubectl get namespace generated-resource-provenance-candidate -o jsonpath='{.metadata.uid}')
 
 # Watch from the list resourceVersion, so even a short lived request created
 # during the operation is observed. The genuine control has a different UID.
-forged_trigger_filter='select(any(.spec.ruleContext[]?; .trigger.uid == $update_uid or .trigger.uid == $delete_uid or .trigger.uid == $candidate_uid))'
+forged_trigger_filter='select(any(.spec.ruleContext[]?; .trigger.uid == $update_uid or .trigger.uid == $delete_uid))'
 kubectl get updaterequests -A -l "$selector" -o json > "$work_dir/before.json"
-jq --arg update_uid "$update_uid" --arg delete_uid "$delete_uid" --arg candidate_uid "$candidate_uid" \
+jq --arg update_uid "$update_uid" --arg delete_uid "$delete_uid" \
   ".items[] | $forged_trigger_filter" "$work_dir/before.json" > "$work_dir/matches.json"
 test ! -s "$work_dir/matches.json"
 resource_version=$(jq -er '.metadata.resourceVersion' "$work_dir/before.json")
@@ -28,31 +27,6 @@ case "$mode" in
     ;;
   source)
     kubectl patch secret source -n generated-resource-provenance-source --type=merge -p '{"data":{"value":"Y2hhbmdlZA=="}}'
-    ;;
-  restore-source)
-    # User owned sources are replaceable without retaining the controller label.
-    kubectl get secret source -n generated-resource-provenance-source -o json | \
-      jq 'del(.metadata.labels["generate.kyverno.io/clone-source"])' | kubectl replace -f -
-    # Restoring the marker is allowed too; delete then traverses clone sources.
-    kubectl label secret source -n generated-resource-provenance-source generate.kyverno.io/clone-source= --overwrite
-    # Backup restores are also allowed to carry the clone-source marker.
-    kubectl delete secret source -n generated-resource-provenance-source
-    kubectl create -f source-restored.yaml
-    ;;
-  copied-provenance)
-    provenance=$(kubectl get secret synchronized -n generated-resource-provenance-genuine \
-      -o go-template='{{index .metadata.annotations "generate.kyverno.io/provenance"}}')
-    test -n "$provenance"
-    test "$provenance" != '<no value>'
-    if kubectl annotate secret synchronized -n generated-resource-provenance-update \
-      "generate.kyverno.io/provenance=$provenance" --overwrite > "$work_dir/annotate.stdout" 2> "$work_dir/annotate.stderr"; then
-      echo "A user was allowed to copy Kyverno provenance onto another object" >&2
-      exit 1
-    fi
-    if ! grep -Fq 'Kyverno generate provenance can only be set by Kyverno' "$work_dir/annotate.stderr"; then
-      cat "$work_dir/annotate.stderr" >&2
-      exit 1
-    fi
     ;;
   *)
     echo "Unknown operation: $mode" >&2
@@ -81,7 +55,7 @@ if [ -s "$work_dir/watch-errors.json" ]; then
   cat "$work_dir/watch-errors.json" >&2
   exit 1
 fi
-jq --arg update_uid "$update_uid" --arg delete_uid "$delete_uid" --arg candidate_uid "$candidate_uid" \
+jq --arg update_uid "$update_uid" --arg delete_uid "$delete_uid" \
   ".object | $forged_trigger_filter" "$work_dir/events.json" > "$work_dir/matches.json"
 if [ -s "$work_dir/matches.json" ]; then
   cat "$work_dir/matches.json" >&2

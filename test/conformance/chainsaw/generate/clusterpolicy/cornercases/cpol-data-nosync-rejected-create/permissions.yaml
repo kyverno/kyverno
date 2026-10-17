@@ -18,4 +18,3 @@ rules:
   - update
   - delete
   - deletecollection
-  - patch

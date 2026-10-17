@@ -1,21 +1,18 @@
 apiVersion: kyverno.io/v1
 kind: Policy
 metadata:
-  name: clone-source-clonelist-empty
+  name: generate-reference-kind
   namespace: clone-source-tenant
 spec:
   rules:
-  - name: copy
+  - name: generate-resource
     match:
       any:
       - resources:
           kinds:
           - ConfigMap
-          names:
-          - clone-trigger
     generate:
+      apiVersion: v1
+      kind: $(./../name)
+      name: '{{request.object.metadata.labels.target}}'
       namespace: clone-source-tenant
-      cloneList:
-        namespace: ''
-        kinds:
-        - v1/ConfigMap
