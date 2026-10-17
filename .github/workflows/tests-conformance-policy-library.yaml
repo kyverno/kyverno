@@ -94,6 +94,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          mkdir -p policy-library-results
           cd policies
           chainsaw test . \
             --report-format JSON --report-path ../policy-library-results --report-name results \

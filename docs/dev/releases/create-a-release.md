@@ -164,6 +164,15 @@ Release conformance does not apply the routine workflow's quarantine list.
 Failures, cancellations, and skipped mandatory jobs cannot qualify a release.
 No reduced/scheduled test run is substituted for release validation.
 
+The release-only custom Sigstore setup retains upstream Scaffolding's topology
+but extends its checksum-pinned setup script's fixed Kubernetes version map.
+`scripts/release/scaffolding.py` pins the exact node-image digest for each
+supported matrix version and installs Scaffolding v0.7.39 on that cluster.
+Update these pins together with the supported matrix; an unknown version or
+changed upstream script fails closed. This does not downgrade a newer matrix
+entry to a Kubernetes version that the upstream version map already recognizes.
+Routine non-release Scaffolding setup remains unchanged.
+
 PR checks include an unprivileged rehearsal through the same validation
 workflow. It stages a fixture prerelease, but cannot create tags, GitHub
 releases, or registry artifacts. Offline regression tests exercise stable/RC

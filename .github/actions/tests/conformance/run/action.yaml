@@ -171,6 +171,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -e
+        mkdir -p "$GITHUB_WORKSPACE/conformance-results"
         cd ./test/conformance/chainsaw/${{ inputs.tests-path }}
         chainsaw test \
           --report-format JSON --report-path "$GITHUB_WORKSPACE/conformance-results" --report-name results \
