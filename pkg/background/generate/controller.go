@@ -105,6 +105,13 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	}
 
 	if expectedUID := ur.GetAnnotations()[provenance.PolicyUIDAnnotation]; expectedUID != "" && policy != nil && string(policy.GetUID()) != expectedUID {
+		if ur.GetAnnotations()[provenance.CleanupPolicyUIDAnnotation] == expectedUID {
+			// Cleanup belongs to the original policy, whose authenticated target
+			// records remain valid after recreation. Never evaluate the replacement
+			// policy or require the original trigger to still exist.
+			err := c.deleteDownstream(nil, kyvernov2.RuleContext{}, ur)
+			return updateStatus(c.statusControl, *ur, err, nil)
+		}
 		logger.V(2).Info("discarding update request for a replaced policy", "expectedUID", expectedUID, "actualUID", policy.GetUID())
 		return updateStatus(c.statusControl, *ur, nil, nil)
 	}
