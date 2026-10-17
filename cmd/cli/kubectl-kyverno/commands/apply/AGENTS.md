@@ -17,7 +17,8 @@ This package implements the `kubectl-kyverno apply` CLI command, which applies K
    - `utils.GetRESTMapper`, `processor.NewContextProvider`, and compiled CEL policy providers (`VpolProvider`, `VpolJSONProvider`, `MpolProvider`) are initialized once prior to resource evaluation loops only when CEL policies (`vpols`, `gpols`, `mpols`) are present.
    - Runs with classic policies only leave these fields `nil`, preserving zero setup overhead and preventing irrelevant `--context-file` errors.
    - Kubernetes-mode validating policies (`VpolProvider`) are compiled only when Kubernetes resources are being evaluated (`len(resources) > 0`), avoiding unnecessary compilation and errors for JSON-only evaluations.
-   - When `--continue-on-fail` is enabled, provider compilation failures are deferred to per-resource evaluation by leaving the provider field `nil`, preserving continue-on-fail semantics.
+   - When `--continue-on-fail` is enabled, provider compilation failures are deferred to per-resource evaluation by memoizing the error, preserving continue-on-fail semantics without repeated recompilation.
+   - If offline CRD preloading or eager context initialization encounters an error under `--continue-on-fail`, the error is deferred to per-resource evaluation, allowing subsequent stages (such as CleanupPolicy evaluation) to proceed.
 
 4. **Resource Evaluation Loops**:
    - Evaluates input resources and JSON payloads by passing pre-initialized shared components into `processor.PolicyProcessor`.

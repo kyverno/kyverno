@@ -116,8 +116,11 @@ type PolicyProcessor struct {
 	RESTMapper                meta.RESTMapper
 	ContextProvider           libs.Context
 	VpolProvider              vpolengine.Provider
+	VpolProviderErr           error
 	VpolJSONProvider          vpolengine.Provider
+	VpolJSONProviderErr       error
 	MpolProvider              mpolengine.Provider
+	MpolProviderErr           error
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).
@@ -329,8 +332,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			libs.LibraryContext = contextProvider
 		}
 
+		if p.MpolProviderErr != nil {
+			return nil, p.MpolProviderErr
+		}
 		provider := p.MpolProvider
 		if provider == nil {
 			var err error
@@ -556,10 +564,15 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			libs.LibraryContext = contextProvider
 		}
 		if resource.Object != nil {
 			// Evaluate Kubernetes-mode policies via the admission path
 			if len(k8sPolicies) > 0 {
+				if p.VpolProviderErr != nil {
+					return nil, p.VpolProviderErr
+				}
 				provider := p.VpolProvider
 				if provider == nil {
 					var err error
@@ -633,6 +646,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			// Also evaluate JSON-mode policies against the K8s resource as raw JSON
 			if len(jsonPolicies) > 0 {
+				if p.VpolJSONProviderErr != nil {
+					return nil, p.VpolJSONProviderErr
+				}
 				provider := p.VpolJSONProvider
 				if provider == nil {
 					var err error
@@ -670,6 +686,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					"skippedPolicies", len(k8sPolicies))
 			}
 			if len(jsonPolicies) > 0 {
+				if p.VpolJSONProviderErr != nil {
+					return nil, p.VpolJSONProviderErr
+				}
 				provider := p.VpolJSONProvider
 				if provider == nil {
 					var err error
@@ -709,6 +728,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if err != nil {
 				return nil, err
 			}
+		} else {
+			libs.LibraryContext = contextProvider
 		}
 
 		compiler := gpolcompiler.NewCompiler()

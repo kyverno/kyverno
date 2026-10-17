@@ -659,7 +659,7 @@ spec:
 	assert.NotEmpty(t, responses, "JSON policy should have evaluated successfully")
 }
 
-func Test_Apply_ContinueOnFail_DefersCompilationFailure(t *testing.T) {
+func Test_Apply_ContinueOnFail_DefersFailures(t *testing.T) {
 	tmpDir := t.TempDir()
 	invalidK8sPolicy := filepath.Join(tmpDir, "invalid-k8s-policy.yaml")
 	err := os.WriteFile(invalidK8sPolicy, []byte(`
@@ -680,22 +680,101 @@ spec:
 `), 0o600)
 	require.NoError(t, err)
 
-	// Without continue-on-fail, applying against a K8s resource should fail immediately.
-	configWithoutCont := ApplyCommandConfig{
-		PolicyPaths:   []string{invalidK8sPolicy},
-		ResourcePaths: []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
-	}
-	_, _, _, _, err = configWithoutCont.applyCommandHelper(context.TODO(), io.Discard)
-	assert.Error(t, err, "compilation failure should abort when continue-on-fail is disabled")
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err = os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
 
-	// With continue-on-fail, applying should continue across the resources instead of aborting eagerly.
-	configWithCont := ApplyCommandConfig{
-		PolicyPaths:    []string{invalidK8sPolicy},
-		ResourcePaths:  []string{"../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"},
-		ContinueOnFail: true,
+	validDeletingPolicy := "../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"
+	validDeletingResource := "../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"
+
+	validK8sPolicy := "../../../../../test/cli/test-validating-policy/disallow-host-path/policy.yaml"
+	validPod := "../../../../../test/cli/test-validating-admission-policy/disallow-host-path/pod1.yaml"
+
+	missingCRDPath := filepath.Join(tmpDir, "nonexistent-crd.yaml")
+
+	testCases := []struct {
+		name            string
+		config          ApplyCommandConfig
+		expectErr       bool
+		expectResponses bool
+	}{
+		{
+			name: "policy compilation failure without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{invalidK8sPolicy, validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "policy compilation failure with continue-on-fail evaluates subsequent resources",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{invalidK8sPolicy, validDeletingPolicy},
+				ResourcePaths:  []string{validDeletingResource},
+				ContinueOnFail: true,
+			},
+			expectErr:       false,
+			expectResponses: true,
+		},
+		{
+			name: "context file failure without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "context file failure with continue-on-fail defers and continues",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				ContextPath:    invalidContextFile,
+				ContinueOnFail: true,
+			},
+			expectErr: false,
+		},
+		{
+			name: "missing CRD path without continue-on-fail fails fast",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				CrdPaths:       []string{missingCRDPath},
+				ContinueOnFail: false,
+			},
+			expectErr:       true,
+			expectResponses: false,
+		},
+		{
+			name: "missing CRD path with continue-on-fail defers and continues",
+			config: ApplyCommandConfig{
+				PolicyPaths:    []string{validK8sPolicy},
+				ResourcePaths:  []string{validPod},
+				CrdPaths:       []string{missingCRDPath},
+				ContinueOnFail: true,
+			},
+			expectErr: false,
+		},
 	}
-	_, _, _, _, err = configWithCont.applyCommandHelper(context.TODO(), io.Discard)
-	assert.NoError(t, err, "compilation failure should be deferred and ignored by continue-on-fail")
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), io.Discard)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			if tc.expectResponses {
+				assert.NotEmpty(t, responses, "expected responses from later valid evaluation")
+			}
+		})
+	}
 }
 
 func Test_Apply_ImageVerificationPolicies(t *testing.T) {

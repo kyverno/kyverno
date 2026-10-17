@@ -14,6 +14,8 @@ This package implements `PolicyProcessor`, which evaluates Kyverno policies (cla
 
 2. **Standalone Fallback Behavior**:
    - If any provider (`RESTMapper`, `ContextProvider`, `VpolProvider`, `VpolJSONProvider`, `MpolProvider`) is `nil`, `PolicyProcessor.ApplyPoliciesOnResource()` falls back to constructing it on-demand for that invocation.
+   - When `ContextProvider` is supplied but compiled providers are `nil`, `PolicyProcessor` registers `libs.LibraryContext = contextProvider` before fallback compilation so CEL compilers resolve global references and HTTP mocks against the supplied context.
+   - When a provider compilation error is memoized (`VpolProviderErr`, `VpolJSONProviderErr`, `MpolProviderErr`), `PolicyProcessor` returns the error immediately without repeatedly recompiling policies across resources.
    - This ensures standalone callers (e.g., `kubectl-kyverno test` or isolated unit tests) continue working without requiring prebuilt dependencies.
 
 3. **CRD Lifecycle and Preloading**:

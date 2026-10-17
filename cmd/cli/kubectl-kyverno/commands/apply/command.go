@@ -599,13 +599,21 @@ func (c *ApplyCommandConfig) applyPolicies(
 		params[i] = p
 	}
 
+	crdPreloaded := false
+	crdPreloadFailed := false
 	if len(c.CrdPaths) > 0 {
+		crdPreloaded = true
 		for _, crdPath := range c.CrdPaths {
 			if strings.TrimSpace(crdPath) == "" {
 				continue
 			}
 			if err := common.LoadCrdsFromPath(crdPath); err != nil {
-				return &rc, resources, responses, err
+				if !c.ContinueOnFail {
+					return &rc, resources, responses, err
+				}
+				crdPreloaded = false
+				crdPreloadFailed = true
+				break
 			}
 		}
 	}
@@ -613,63 +621,75 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var restMapper meta.RESTMapper
 	var contextProvider libs.Context
 	var vpolProvider vpolengine.Provider
+	var vpolProviderErr error
 	var vpolJSONProvider vpolengine.Provider
+	var vpolJSONProviderErr error
 	var mpolProvider mpolengine.Provider
+	var mpolProviderErr error
 
-	if len(vpols) != 0 || len(gpols) != 0 || len(mpols) != 0 {
+	if !crdPreloadFailed && (len(vpols) != 0 || len(gpols) != 0 || len(mpols) != 0) {
 		var err error
 		restMapper, err = utils.GetRESTMapper(dClient)
 		if err != nil {
-			return &rc, resources, responses, err
-		}
-		contextProvider, err = processor.NewContextProvider(dClient, restMapper, nil, c.ContextPath, true, !c.Cluster, nil, store.GetHTTPMockIndex())
-		if err != nil {
-			return &rc, resources, responses, err
-		}
-
-		if len(vpols) != 0 {
-			compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
-			var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
-			var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
-			for i := range vpols {
-				pol := vpols[i]
-				if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
-					jsonPolicies = append(jsonPolicies, pol)
-				} else {
-					k8sPolicies = append(k8sPolicies, pol)
-				}
+			if !c.ContinueOnFail {
+				return &rc, resources, responses, err
 			}
-			if len(k8sPolicies) > 0 && len(resources) > 0 {
-				vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
-				if err != nil {
-					if !c.ContinueOnFail {
-						return &rc, resources, responses, err
-					}
-					vpolProvider = nil
-					err = nil
-				}
-			}
-			if len(jsonPolicies) > 0 {
-				vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
-				if err != nil {
-					if !c.ContinueOnFail {
-						return &rc, resources, responses, err
-					}
-					vpolJSONProvider = nil
-					err = nil
-				}
-			}
-		}
-
-		if len(mpols) != 0 {
-			compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
-			mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
+		} else {
+			contextProvider, err = processor.NewContextProvider(dClient, restMapper, nil, c.ContextPath, true, !c.Cluster, nil, store.GetHTTPMockIndex())
 			if err != nil {
 				if !c.ContinueOnFail {
 					return &rc, resources, responses, err
 				}
-				mpolProvider = nil
-				err = nil
+				contextProvider = nil
+			} else {
+				if len(vpols) != 0 {
+					compiler := vpolcompiler.NewCompilerWithTrace(c.Explain)
+					var jsonPolicies []policiesv1beta1.ValidatingPolicyLike
+					var k8sPolicies []policiesv1beta1.ValidatingPolicyLike
+					for i := range vpols {
+						pol := vpols[i]
+						if pol.GetValidatingPolicySpec().EvaluationMode() == policieskyvernoio.EvaluationModeJSON {
+							jsonPolicies = append(jsonPolicies, pol)
+						} else {
+							k8sPolicies = append(k8sPolicies, pol)
+						}
+					}
+					if len(k8sPolicies) > 0 && len(resources) > 0 {
+						vpolProvider, err = vpolengine.NewProvider(compiler, k8sPolicies, celExceptions)
+						if err != nil {
+							if !c.ContinueOnFail {
+								return &rc, resources, responses, err
+							}
+							vpolProvider = nil
+							vpolProviderErr = err
+							err = nil
+						}
+					}
+					if len(jsonPolicies) > 0 {
+						vpolJSONProvider, err = vpolengine.NewProvider(compiler, jsonPolicies, celExceptions)
+						if err != nil {
+							if !c.ContinueOnFail {
+								return &rc, resources, responses, err
+							}
+							vpolJSONProvider = nil
+							vpolJSONProviderErr = err
+							err = nil
+						}
+					}
+				}
+
+				if len(mpols) != 0 {
+					compiler := mpolcompiler.NewCompilerWithTrace(c.Explain)
+					mpolProvider, err = mpolengine.NewProvider(compiler, mpols, celExceptions, contextProvider)
+					if err != nil {
+						if !c.ContinueOnFail {
+							return &rc, resources, responses, err
+						}
+						mpolProvider = nil
+						mpolProviderErr = err
+						err = nil
+					}
+				}
 			}
 		}
 	}
@@ -706,13 +726,16 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
-			CrdPreloaded:                      len(c.CrdPaths) > 0,
+			CrdPreloaded:                      crdPreloaded,
 			NamespaceCache:                    namespaceCache,
 			RESTMapper:                        restMapper,
 			ContextProvider:                   contextProvider,
 			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
 			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
 			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -754,13 +777,16 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
-			CrdPreloaded:                      len(c.CrdPaths) > 0,
+			CrdPreloaded:                      crdPreloaded,
 			NamespaceCache:                    namespaceCache,
 			RESTMapper:                        restMapper,
 			ContextProvider:                   contextProvider,
 			VpolProvider:                      vpolProvider,
+			VpolProviderErr:                   vpolProviderErr,
 			VpolJSONProvider:                  vpolJSONProvider,
+			VpolJSONProviderErr:               vpolJSONProviderErr,
 			MpolProvider:                      mpolProvider,
+			MpolProviderErr:                   mpolProviderErr,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -941,6 +967,10 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	dclient dclient.Interface,
 	payloadType string,
 ) ([]engineapi.EngineResponse, error) {
+	if len(dps) == 0 || len(resources) == 0 {
+		return nil, nil
+	}
+
 	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
 	if err != nil {
 		return nil, err
@@ -953,7 +983,9 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 
 	contextProvider, err := processor.NewContextProvider(dclient, restMapper, nil, c.ContextPath, c.RegistryAccess, !c.Cluster, nil, nil)
 	if err != nil {
-		return nil, err
+		if !c.ContinueOnFail {
+			return nil, err
+		}
 	}
 
 	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())
