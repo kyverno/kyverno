@@ -245,6 +245,12 @@ spec:
           - containerPort: {{ .Values.admissionController.metering.port }}
             name: metrics-port
             protocol: TCP
+          {{- $features := mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride }}
+          {{- if and $features.controllerRuntimeMetrics $features.controllerRuntimeMetrics.bindAddress (ne ($features.controllerRuntimeMetrics.bindAddress | toString) "0") (gt (last (splitList ":" ($features.controllerRuntimeMetrics.bindAddress | toString)) | int) 0) }}
+          - containerPort: {{ last (splitList ":" ($features.controllerRuntimeMetrics.bindAddress | toString)) | int }}
+            name: cr-metrics
+            protocol: TCP
+          {{- end }}
           {{ if .Values.admissionController.profiling.enabled }}
           - containerPort: {{ .Values.admissionController.profiling.port }}
             name: profiling-port
