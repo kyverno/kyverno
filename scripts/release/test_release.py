@@ -549,7 +549,10 @@ class LocalArtifacts(unittest.TestCase):
         self.addCleanup(environment.stop)
         metadata = release.plan("v1.20.2-rc.3", SHA, MAPPING)
         for name in (".release/assets/cli.tar.gz", ".release/install.yaml",
-                     "config/crds/kyverno.io_policies.yaml", ".release/SHA256SUMS"):
+                     "config/crds/kyverno.io_policies.yaml", ".release/SHA256SUMS",
+                     *[f".release/packages/{name}-{version}.tgz"
+                       for name, version in metadata["charts"].items()],
+                     *[f".release/sboms/{name}-bom.cdx.json" for name in release.IMAGES]):
             path = Path(name)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(f"retained {name}".encode())
@@ -616,6 +619,22 @@ class LocalArtifacts(unittest.TestCase):
                 with self.assertRaises(error):
                     assets.verify(metadata)
                 manifest.assert_not_called()
+
+    def test_final_asset_verification_requires_every_chart_and_sbom_copy(self):
+        metadata, original = self.stage_assets()
+        expected = [
+            *[f"{name}-{version}.tgz" for name, version in metadata["charts"].items()],
+            *[f"{name}-bom.cdx.json" for name in release.IMAGES],
+        ]
+        self.assertTrue(set(expected).issubset({path.name for path in assets.all_assets()}))
+        for name in expected:
+            for value in (None, b"conflicting remote copy"):
+                remote = {**original, name: value}
+                with self.subTest(name=name, value=value), \
+                        patch.object(assets, "asset_bytes", side_effect=lambda tag, asset: remote.get(asset)), \
+                        patch.object(assets, "run", side_effect=self.asset_commands(metadata, [])):
+                    with self.assertRaisesRegex(ValueError, "Missing or conflicting remote asset"):
+                        assets.verify(metadata)
 
     def test_remote_manifest_verification_rejects_digest_and_content_mismatches(self):
         metadata, remote = self.stage_assets()
@@ -1021,6 +1040,9 @@ class RetryAndGates(unittest.TestCase):
                 f"{prefix}release-publish.yaml@{'b' * 40}",
                 f"{prefix}arbitrary.yaml@{SHA}",
                 f"{prefix}release-publish.yaml@refs/heads/untrusted-feature",
+                f"{prefix}release-publish.yaml@refs/heads/release-candidate",
+                f"{prefix}release-publish.yaml@refs/heads/release-1x20",
+                f"{prefix}release-publish.yaml@refs/heads/release-1.20-fix",
                 f"https://github.com/other/repo/.github/workflows/release-publish.yaml@{SHA}",
             ):
                 self.assertIsNone(re.fullmatch(identity, url))
@@ -1072,7 +1094,7 @@ class RetryAndGates(unittest.TestCase):
 
     def test_finalize_prerelease_is_not_latest(self):
         metadata = release.plan("v1.20.2-rc3", SHA, MAPPING)
-        responses = [{"isDraft": True}, {"isDraft": False, "isPrerelease": True}]
+        responses = [{"isDraft": True}, {"isDraft": True}, {"isDraft": False, "isPrerelease": True}]
         with patch.object(assets, "existing_release", side_effect=responses), \
                 patch.object(assets, "verify_tag"), \
                 patch.object(assets.Path, "read_text", return_value=""), \
@@ -1082,6 +1104,21 @@ class RetryAndGates(unittest.TestCase):
             assets.complete(metadata)
             self.assertIn("--latest=false", mock.call_args.args)
             self.assertIn("--prerelease=true", mock.call_args.args)
+
+    def test_finalize_rechecks_draft_after_latest_selection_and_tag_verification(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        for current in (None, {"isDraft": False}):
+            with self.subTest(current=current), \
+                    patch.object(assets, "existing_release", side_effect=[{"isDraft": True}, current]), \
+                    patch.object(assets, "verify_tag"), \
+                    patch.object(assets, "should_be_latest", return_value=True), \
+                    patch.object(assets.Path, "read_text", return_value=""), \
+                    patch.object(assets.Path, "mkdir"), patch.object(assets.Path, "write_text"), \
+                    patch.object(assets, "run") as mutate, \
+                    patch.dict(os.environ, {"GH_REPO": "kyverno/kyverno", "GITHUB_RUN_ID": "1"}):
+                with self.assertRaisesRegex(ValueError, "no longer a draft"):
+                    assets.complete(metadata)
+                mutate.assert_not_called()
 
     def test_latest_stable_uses_all_stable_tags_not_a_misclassified_rc_latest(self):
         pages = [[

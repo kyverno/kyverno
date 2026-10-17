@@ -40,6 +40,8 @@ def verify_blob(path, bundle, metadata):
 def all_assets():
     return [
         *sorted(Path(".release/assets").iterdir()),
+        *sorted(Path(".release/packages").glob("*.tgz")),
+        *sorted(Path(".release/sboms").glob("*-bom.cdx.json")),
         Path(".release/install.yaml"),
         *sorted(Path("config/crds").rglob("*.yaml")),
         Path(".release/plan.json"), Path(".release/SHA256SUMS"),
@@ -152,6 +154,9 @@ def complete(metadata):
     latest = should_be_latest(metadata)
     if release["isDraft"]:
         verify_tag(metadata)
+        current = existing_release(metadata["tag"])
+        if current is None or not current["isDraft"]:
+            raise ValueError("Release is no longer a draft; refusing to mutate public content")
         run("gh", "release", "edit", metadata["tag"], "--draft=false",
             f"--prerelease={str(metadata['prerelease']).lower()}",
             f"--latest={str(latest).lower()}", "--notes-file", path)
