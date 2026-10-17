@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
@@ -79,6 +81,11 @@ func NewEngine(
 }
 
 func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, error) {
+	// A shared CEL cost budget for every policy this call evaluates. Ensure is a no-op if
+	// an outer scope already set one, so this only matters for an entry point that does
+	// not go through the webhook handler or the reports scanner. Every other family does
+	// this in its own engine; without it ivpol was the one asymmetric family.
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -162,6 +169,11 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 // (pkg/engine/internal/imageverifier.go). Failing open here would silently admit
 // unpinned images, which is the very problem this handler exists to fix.
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
+	// A shared CEL cost budget for every policy this call evaluates. Ensure is a no-op if
+	// an outer scope already set one, so this only matters for an entry point that does
+	// not go through the webhook handler or the reports scanner. Every other family does
+	// this in its own engine; without it ivpol was the one asymmetric family.
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response eval.ImageVerifyEngineResponse
 	// load objects
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
@@ -236,7 +248,6 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	rt := &imageverify.Runtime{ImageContext: ictx, Cache: imageverifycache.DisabledImageVerifyCache()}
 
 	// Built at most once for the whole loop, lazily: matching happens per policy
 	// inside the loop below (matchPolicy), before MutateDigest is ever called, so
@@ -288,7 +299,7 @@ func (e *engineImpl) handleMutation(
 			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, rt, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -330,7 +341,9 @@ func (e *engineImpl) handleMutation(
 func (e *engineImpl) evaluateExtractedIv(
 	ctx context.Context,
 	compiled eval.CompiledPolicy,
-	rt *imageverify.Runtime,
+	imgCtx imagedataloader.ImageContext,
+	cache imageverifycache.Client,
+	results *imageverify.ImageVerificationResults,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
@@ -390,7 +403,7 @@ func (e *engineImpl) evaluateExtractedIv(
 		// is still exactly one build per template -- Evaluate calls prepareK8sData
 		// once per call -- not one per (matchConditions + exceptions) as it would
 		// be if match still assembled its own data.
-		result, err := compiled.Evaluate(ctx, rt, synthAttr, synthRequest, namespace, true, nil, libctx)
+		result, err := compiled.Evaluate(ctx, imgCtx, cache, results, synthAttr, synthRequest, namespace, true, nil, libctx)
 		if err != nil {
 			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
 		}
@@ -507,48 +520,112 @@ func (e *engineImpl) evaluatePolicies(
 	libctx libs.Context,
 	responses map[string]eval.ImageVerifyPolicyResponse,
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
-	// leave remote and name options blank, each compiled policy will provide
-	// its own credentials or the default global ones.
-	ictx, err := e.newImageContext()
-	if err != nil {
-		return nil, err
-	}
-	// Built at most once for the whole loop, lazily: the thunk is only
-	// invoked when a policy's Evaluate reaches prepareK8sData, and memoized
-	// so every policy after the first reuses the same map. Never passed to
-	// extraction-mode policies (evaluateExtractedIv builds per template) --
-	// their synthesized requests embed a different object/oldObject than the
-	// outer request.
+	// Built at most once for the whole evaluation: the thunk is only invoked
+	// when a policy's Evaluate reaches prepareK8sData, and memoized so every
+	// policy after the first reuses the same map.
 	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
 		return celcompiler.BuildRawRequestMap(request)
 	})
 	// Shared by every policy evaluated below, so required sees cross-policy evidence.
 	verifications := imageverify.NewImageVerificationResults()
-	rt := &imageverify.Runtime{ImageContext: ictx, Cache: e.ivCache, Results: verifications}
-	// resolved after the loop: evidence may come from a policy evaluated later
-	var pendingRequired []pendingRequiredCheck
-	for _, ivpol := range policies {
-		response := eval.ImageVerifyPolicyResponse{
-			Policy:     ivpol.Policy,
-			Actions:    ivpol.Actions,
-			Exceptions: ivpol.Exceptions,
-		}
-		startTime := time.Now()
-		compiled := ivpol.CompiledPolicy
-		var result *eval.EvaluationResult
-		if compiled == nil {
-			err = fmt.Errorf("compiled policy is missing")
-		} else if ivpol.ExtractionMode {
-			result, err = e.evaluateExtractedIv(ctx, compiled, rt, attr, request, namespace, libctx)
-		} else {
-			result, err = compiled.Evaluate(ctx, rt, attr, request, namespace, true, requestMapFn, libctx)
-		}
+
+	type evaluation struct {
+		response  eval.ImageVerifyPolicyResponse
+		compiled  eval.CompiledPolicy
+		result    *eval.EvaluationResult
+		err       error
+		startTime time.Time
+	}
+
+	results := make([]evaluation, len(policies))
+
+	// Each policy gets its own image context. The context caches the fetched
+	// image data and the verifiers mutate that data in place (for example
+	// ImageData.AddVerifiedIntotoPayloads), so sharing one context across the
+	// goroutines below would race on, and corrupt, the cached data when several
+	// policies verify the same image. The contexts are built here, before
+	// evaluation starts, so a construction failure is still returned as a
+	// request-level error, which rejects the request, rather than being
+	// downgraded to a per-policy result that a Warn or Audit policy would admit.
+	// Credentials and name options are left blank; each compiled policy supplies
+	// its own or the default global ones.
+	imageContexts := make([]imagedataloader.ImageContext, len(policies))
+	for i := range policies {
+		ictx, err := e.newImageContext()
 		if err != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
+			return nil, err
+		}
+		imageContexts[i] = ictx
+	}
+
+	// Evaluate all already-compiled policies concurrently.
+	//
+	// Each policy gets its own result slot. Responses and pendingRequired are
+	// processed sequentially below to preserve deterministic ordering and map
+	// writes.
+	var wg sync.WaitGroup
+
+	for i, ivpol := range policies {
+		results[i] = evaluation{
+			response: eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+			},
+			compiled:  ivpol.CompiledPolicy,
+			startTime: time.Now(),
+		}
+
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			ivpol := policies[i]
+			evaluation := &results[i]
+
+			// An unrecovered panic in this goroutine would terminate the whole
+			// process, not just this request. Record it as this policy's
+			// evaluation error instead, so it is reported like any other failure
+			// to evaluate the policy and the other policies keep their results.
+			defer func() {
+				if r := recover(); r != nil {
+					evaluation.err = fmt.Errorf("panic while evaluating policy: %v", r)
+					logging.WithName("ivpol/evaluatePolicies").Error(evaluation.err, "recovered from a panic", "policy", ivpol.Policy.GetName(), "stack", string(debug.Stack()))
+				}
+			}()
+
+			if evaluation.compiled == nil {
+				evaluation.err = fmt.Errorf("compiled policy is missing")
+				return
+			}
+
+			ictx := imageContexts[i]
+
+			if ivpol.ExtractionMode {
+				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
+			} else {
+				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, requestMapFn, libctx)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Process results sequentially so response ordering and map writes remain
+	// deterministic, and required enforcement happens only after every policy
+	// has contributed its verification evidence.
+	var pendingRequired []pendingRequiredCheck
+	for i, ivpol := range policies {
+		evaluation := results[i]
+		response := evaluation.response
+		startTime := evaluation.startTime
+
+		if evaluation.err != nil {
+			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", evaluation.err, nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 			responses[ivpol.Policy.GetName()] = response
 			continue
 		}
+		result := evaluation.result
 		if result == nil {
 			continue
 		}
@@ -575,7 +652,7 @@ func (e *engineImpl) evaluatePolicies(
 				response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
 				pendingRequired = append(pendingRequired, pendingRequiredCheck{
 					name:             ivpol.Policy.GetName(),
-					compiled:         compiled,
+					compiled:         evaluation.compiled,
 					images:           result.MatchedImages,
 					auditAnnotations: result.AuditAnnotations,
 					startTime:        startTime,

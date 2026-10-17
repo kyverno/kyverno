@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Cherry-pick workflow tests
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+    paths:
+      - .github/actions/git/cherry-pick/**
+      - .github/workflows/comment-cherry-pick.yaml
+      - .github/workflows/cherry-pick-on-merge.yaml
+      - .github/workflows/check-cherry-pick-workflows.yaml
+      - scripts/test-cherry-pick-workflows.py
+  push:
+    branches:
+      - main
+      - release-*
+    paths:
+      - .github/actions/git/cherry-pick/**
+      - .github/workflows/comment-cherry-pick.yaml
+      - .github/workflows/cherry-pick-on-merge.yaml
+      - .github/workflows/check-cherry-pick-workflows.yaml
+      - scripts/test-cherry-pick-workflows.py
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Cherry-pick workflow regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run regression suite
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cherry-pick-tests"
+          "$RUNNER_TEMP/cherry-pick-tests/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
+          "$RUNNER_TEMP/cherry-pick-tests/bin/python" scripts/test-cherry-pick-workflows.py
