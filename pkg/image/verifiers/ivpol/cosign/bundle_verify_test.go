@@ -249,7 +249,7 @@ func Test_V3Bundle_DecoyBeforeGenuine_DoesNotChangeOptions(t *testing.T) {
 
 	hash := subject.Digest
 
-	sigs, verifiedBundles, verified, err := verifyBundles(context.TODO(), cOpts, []*sgbundle.Bundle{decoy, genuine}, &hash)
+	sigs, verifiedBundles, _, verified, err := verifyBundles(context.TODO(), cOpts, []*sgbundle.Bundle{decoy, genuine}, &hash)
 	assert.NoError(t, err, "the genuine bundle must still verify after a decoy ahead of it fails")
 	assert.True(t, verified)
 	assert.False(t, cOpts.UseSignedTimestamps, "a decoy verified earlier in the loop must not change options used for a later bundle")
@@ -301,11 +301,12 @@ func Test_V3Bundle_MultipleAttestors_PreservesNewestAcrossEvaluationOrder(t *tes
 
 	// Case 1: Evaluate old attestor first, then new attestor.
 	{
+		ctx := WithCandidateStore(context.Background())
 		img := fetchTestImage(t, repo.Tag("subject").String())
 		v := NewVerifier(nil, logr.Discard())
 
-		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorOld))
-		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorNew))
+		require.NoError(t, v.VerifyAttestationSignature(ctx, img, attestation, attestorOld))
+		require.NoError(t, v.VerifyAttestationSignature(ctx, img, attestation, attestorNew))
 
 		payload, err := img.GetPayload(*attestation)
 		require.NoError(t, err)
@@ -318,11 +319,12 @@ func Test_V3Bundle_MultipleAttestors_PreservesNewestAcrossEvaluationOrder(t *tes
 
 	// Case 2: Evaluate new attestor first, then old attestor.
 	{
+		ctx := WithCandidateStore(context.Background())
 		img := fetchTestImage(t, repo.Tag("subject").String())
 		v := NewVerifier(nil, logr.Discard())
 
-		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorNew))
-		require.NoError(t, v.VerifyAttestationSignature(context.TODO(), img, attestation, attestorOld))
+		require.NoError(t, v.VerifyAttestationSignature(ctx, img, attestation, attestorNew))
+		require.NoError(t, v.VerifyAttestationSignature(ctx, img, attestation, attestorOld))
 
 		payload, err := img.GetPayload(*attestation)
 		require.NoError(t, err)

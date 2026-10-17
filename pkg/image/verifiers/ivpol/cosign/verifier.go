@@ -1,6 +1,7 @@
 package cosign
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -106,17 +107,14 @@ func CandidateStoreFromContext(ctx context.Context) *CandidateStore {
 }
 
 type Verifier struct {
-	secretLister  corev1listers.SecretLister
-	log           logr.Logger
-	mu            sync.Mutex
-	fallbackStore *CandidateStore
+	secretLister corev1listers.SecretLister
+	log          logr.Logger
 }
 
 func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *Verifier {
 	return &Verifier{
-		log:           logging.WithName("Cosign"),
-		secretLister:  secretLister,
-		fallbackStore: NewCandidateStore(),
+		log:          logging.WithName("Cosign"),
+		secretLister: secretLister,
 	}
 }
 
@@ -124,19 +122,7 @@ func (v *Verifier) candidateStore(ctx context.Context, image *imagedataloader.Im
 	if store := CandidateStoreFromContext(ctx); store != nil {
 		return store
 	}
-	v.mu.Lock()
-	if v.fallbackStore == nil {
-		v.fallbackStore = NewCandidateStore()
-	}
-	store := v.fallbackStore
-	v.mu.Unlock()
-
-	if ctx != nil && ctx.Done() != nil {
-		context.AfterFunc(ctx, func() {
-			store.Delete(image)
-		})
-	}
-	return store
+	return NewCandidateStore()
 }
 
 // buildCheckOptsWithBundleDetection builds CheckOpts and loads any cosign v3 bundle
@@ -264,20 +250,21 @@ func parseBundleLayer(layer v1.Layer) (*sgbundle.Bundle, error) {
 // cosign.VerifyNewBundle, but sequentially rather than through cosign's worker
 // pool: require, build and claim-verify a DSSE attestation for each bundle that
 // passes verification, and skip any that does not.
-func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbundle.Bundle, hash *v1.Hash) ([]oci.Signature, []*sgbundle.Bundle, bool, error) {
+func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbundle.Bundle, hash *v1.Hash) ([]oci.Signature, []*sgbundle.Bundle, []*verify.VerificationResult, bool, error) {
 	// Enforce this up front, matching cosign.VerifyImageAttestations.
 	if cOpts.RootCerts == nil && cOpts.SigVerifier == nil && cOpts.TrustedMaterial == nil {
-		return nil, nil, false, stderrors.New("one of verifier, root certs, or TrustedMaterial is required")
+		return nil, nil, nil, false, stderrors.New("one of verifier, root certs, or TrustedMaterial is required")
 	}
 
 	digestBytes, err := hex.DecodeString(hash.Hex)
 	if err != nil {
-		return nil, nil, false, err
+		return nil, nil, nil, false, err
 	}
 	artifactPolicyOption := verify.WithArtifactDigest(hash.Algorithm, digestBytes)
 
 	var checkedAttestations []oci.Signature
 	var verifiedBundles []*sgbundle.Bundle
+	var verifiedResults []*verify.VerificationResult
 	var atLeastOneVerified bool
 	var errs []error
 	for _, bundle := range bundles {
@@ -285,7 +272,8 @@ func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbu
 		// UseSignedTimestamps on the CheckOpts it is given; a shared pointer would
 		// let one bundle's write affect how the next bundle in this loop is verified.
 		coCopy := *cOpts
-		if _, err := cosign.VerifyNewBundle(ctx, &coCopy, artifactPolicyOption, bundle); err != nil {
+		res, err := cosign.VerifyNewBundle(ctx, &coCopy, artifactPolicyOption, bundle)
+		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
@@ -312,14 +300,15 @@ func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbu
 		}
 		checkedAttestations = append(checkedAttestations, att)
 		verifiedBundles = append(verifiedBundles, bundle)
+		verifiedResults = append(verifiedResults, res)
 		atLeastOneVerified = true
 	}
 
 	if len(checkedAttestations) == 0 {
-		return nil, nil, false, fmt.Errorf("no matching attestations: %w", stderrors.Join(errs...))
+		return nil, nil, nil, false, fmt.Errorf("no matching attestations: %w", stderrors.Join(errs...))
 	}
 
-	return checkedAttestations, verifiedBundles, atLeastOneVerified, nil
+	return checkedAttestations, verifiedBundles, verifiedResults, atLeastOneVerified, nil
 }
 
 // shouldUseSignedTimestamps reports whether a detected Sigstore bundle (format
@@ -372,7 +361,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	var verified bool
 
 	if len(bundles) > 0 {
-		sigs, _, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
+		sigs, _, _, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
 	} else {
 		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
 	}
@@ -435,9 +424,10 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 	var sigs []oci.Signature
 	var verifiedBundles []*sgbundle.Bundle
+	var verifiedResults []*verify.VerificationResult
 	var verified bool
 	if len(bundles) > 0 {
-		sigs, verifiedBundles, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
+		sigs, verifiedBundles, verifiedResults, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
 	} else {
 		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
 	}
@@ -465,10 +455,14 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 		}
 
 		var associatedBundle *sgbundle.Bundle
+		var associatedResult *verify.VerificationResult
 		if i < len(verifiedBundles) {
 			associatedBundle = verifiedBundles[i]
 		}
-		bTS, hasB, sTS, hasS := extractAttestationTimestamps(s, payload, cOpts, associatedBundle)
+		if i < len(verifiedResults) {
+			associatedResult = verifiedResults[i]
+		}
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(s, payload, cOpts, associatedBundle, associatedResult)
 		candidatesByPredicate[gotType] = append(candidatesByPredicate[gotType], verifiedCandidate{
 			payload:       payload,
 			predicateType: gotType,
@@ -494,6 +488,15 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 
 		store := v.candidateStore(ctx, image)
 		if prev, ok := store.Get(image, pType); ok {
+			if bytes.Equal(prev.payload, chosen.payload) {
+				// Byte-identical payload already stored across attestors/evaluations;
+				// preserve whichever candidate has verified timestamps.
+				if (!prev.hasBundle && chosen.hasBundle) || (!prev.hasStatement && chosen.hasStatement) {
+					store.Set(image, pType, chosen)
+				}
+				image.AddVerifiedIntotoPayloads(chosen.predicateType, chosen.payload)
+				continue
+			}
 			merged, err := selectNewestAttestation([]verifiedCandidate{prev, chosen}, pType)
 			if err != nil {
 				logger.Error(err, "image verification failed to merge newest attestation across attestors")

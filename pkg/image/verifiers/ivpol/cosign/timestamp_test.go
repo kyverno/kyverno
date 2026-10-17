@@ -14,6 +14,7 @@ import (
 	protodsse "github.com/sigstore/protobuf-specs/gen/pb-go/dsse"
 	protorekor "github.com/sigstore/protobuf-specs/gen/pb-go/rekor/v1"
 	sgbundle "github.com/sigstore/sigstore-go/pkg/bundle"
+	"github.com/sigstore/sigstore-go/pkg/verify"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -284,6 +285,40 @@ func TestSelectNewestAttestation(t *testing.T) {
 		chosen2, err := selectNewestAttestation([]verifiedCandidate{candB, candA}, "custom")
 		require.NoError(t, err)
 		assert.Equal(t, chosen1.payload, chosen2.payload)
+	})
+
+	t.Run("duplicate identical candidates without timestamps succeeds without error", func(t *testing.T) {
+		cand1 := verifiedCandidate{
+			payload:       []byte(`{"which":"same"}`),
+			predicateType: "custom",
+		}
+		cand2 := verifiedCandidate{
+			payload:       []byte(`{"which":"same"}`),
+			predicateType: "custom",
+		}
+
+		chosen, err := selectNewestAttestation([]verifiedCandidate{cand1, cand2}, "custom")
+		require.NoError(t, err)
+		assert.Equal(t, cand1.payload, chosen.payload)
+	})
+
+	t.Run("duplicate identical candidates where one has timestamp preserves timestamp", func(t *testing.T) {
+		cand1 := verifiedCandidate{
+			payload:       []byte(`{"which":"same"}`),
+			predicateType: "custom",
+		}
+		cand2 := verifiedCandidate{
+			payload:       []byte(`{"which":"same"}`),
+			predicateType: "custom",
+			statementTS:   tNew,
+			hasStatement:  true,
+		}
+
+		chosen, err := selectNewestAttestation([]verifiedCandidate{cand1, cand2}, "custom")
+		require.NoError(t, err)
+		assert.Equal(t, cand1.payload, chosen.payload)
+		assert.True(t, chosen.hasStatement)
+		assert.True(t, tNew.Equal(chosen.statementTS))
 	})
 
 	t.Run("multiple candidates without any timestamps fails closed", func(t *testing.T) {
@@ -657,5 +692,21 @@ func TestExtractAttestationTimestamps(t *testing.T) {
 		assert.False(t, hasB, "hasBundle must be false when no bundle is provided")
 		assert.True(t, sTS.IsZero())
 		assert.True(t, bTS.IsZero())
+	})
+
+	t.Run("extract from verification result verified timestamps", func(t *testing.T) {
+		tVerified := time.Date(2026, 3, 3, 15, 30, 0, 0, time.UTC)
+		vRes := &verify.VerificationResult{
+			VerifiedTimestamps: []verify.TimestampVerificationResult{
+				{
+					Type:      "Tlog",
+					Timestamp: tVerified,
+				},
+			},
+		}
+
+		bTS, hasB, _, _ := extractAttestationTimestamps(nil, nil, nil, nil, vRes)
+		assert.True(t, hasB)
+		assert.True(t, tVerified.Equal(bTS))
 	})
 }

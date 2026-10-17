@@ -115,10 +115,47 @@ type verifiedCandidate struct {
 // selectNewestAttestation orders multiple verified attestations chronologically and selects
 // the newest one. If timestamps are missing or incomplete across multiple candidates,
 // it returns an error to fail closed.
+func deduplicateCandidates(candidates []verifiedCandidate) []verifiedCandidate {
+	if len(candidates) <= 1 {
+		return candidates
+	}
+	deduped := make([]verifiedCandidate, 0, len(candidates))
+	seen := make(map[string]int)
+	for _, c := range candidates {
+		key := string(c.payload)
+		idx, exists := seen[key]
+		if !exists {
+			seen[key] = len(deduped)
+			deduped = append(deduped, c)
+			continue
+		}
+		existing := deduped[idx]
+		if !existing.hasBundle && c.hasBundle {
+			existing.hasBundle = true
+			existing.bundleTS = c.bundleTS
+		} else if existing.hasBundle && c.hasBundle {
+			if c.bundleTS.After(existing.bundleTS) {
+				existing.bundleTS = c.bundleTS
+			}
+		}
+		if !existing.hasStatement && c.hasStatement {
+			existing.hasStatement = true
+			existing.statementTS = c.statementTS
+		} else if existing.hasStatement && c.hasStatement {
+			if c.statementTS.After(existing.statementTS) {
+				existing.statementTS = c.statementTS
+			}
+		}
+		deduped[idx] = existing
+	}
+	return deduped
+}
+
 func selectNewestAttestation(candidates []verifiedCandidate, predicateType string) (verifiedCandidate, error) {
 	if len(candidates) == 0 {
 		return verifiedCandidate{}, fmt.Errorf("no candidates to select from")
 	}
+	candidates = deduplicateCandidates(candidates)
 	if len(candidates) == 1 {
 		return candidates[0], nil
 	}
@@ -167,17 +204,38 @@ func extractAttestationTimestamps(
 	payload []byte,
 	cOpts *cosign.CheckOpts,
 	bundle *sgbundle.Bundle,
+	vResult ...*verify.VerificationResult,
 ) (bundleTS time.Time, hasBundleTS bool, statementTS time.Time, hasStatementTS bool) {
+	// 0. Use verified timestamps from sigstore-go verification result if available
+	if len(vResult) > 0 && vResult[0] != nil && len(vResult[0].VerifiedTimestamps) > 0 {
+		for _, vt := range vResult[0].VerifiedTimestamps {
+			if !vt.Timestamp.IsZero() {
+				if bundleTS.IsZero() || vt.Timestamp.Before(bundleTS) {
+					bundleTS = vt.Timestamp
+					hasBundleTS = true
+				}
+			}
+		}
+	}
+
 	// 1. Try bundle timestamp from cosign v3 bundle format
-	if cOpts != nil && cOpts.NewBundleFormat && bundle != nil {
+	if !hasBundleTS && cOpts != nil && cOpts.NewBundleFormat && bundle != nil {
 		if bundleMatchesSignature(s, bundle) {
 			// Rekor log integrated time (only when transparency log was verified, not ignored)
 			if !cOpts.IgnoreTlog {
-				if entries, err := bundle.TlogEntries(); err == nil && len(entries) > 0 {
-					t := entries[0].IntegratedTime()
-					if !t.IsZero() {
-						bundleTS = t
+				if cOpts.TrustedMaterial != nil {
+					if vts, err := verify.VerifyTlogEntry(bundle, cOpts.TrustedMaterial, 1, true); err == nil && len(vts) > 0 && !vts[0].Time.IsZero() {
+						bundleTS = vts[0].Time
 						hasBundleTS = true
+					}
+				}
+				if !hasBundleTS {
+					if entries, err := bundle.TlogEntries(); err == nil && len(entries) > 0 {
+						t := entries[0].IntegratedTime()
+						if !t.IsZero() {
+							bundleTS = t
+							hasBundleTS = true
+						}
 					}
 				}
 			}
