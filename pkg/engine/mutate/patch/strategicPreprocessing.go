@@ -520,7 +520,10 @@ func deleteAnchorsInList(node *yaml.RNode, traverseMappingNodes bool) (bool, err
 	}
 
 	wasEmpty := len(elements) == 0
-	for i, element := range elements {
+	// iterate in reverse so that deleting element i does not shift the
+	// indices of the elements we have not visited yet
+	for i := len(elements) - 1; i >= 0; i-- {
+		element := elements[i]
 		if hasAnchors(element, hasAnchor) {
 			shouldDelete := true
 			if traverseMappingNodes && isMappingNode(element) {
