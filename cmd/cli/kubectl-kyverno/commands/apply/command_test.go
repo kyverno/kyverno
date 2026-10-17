@@ -1154,6 +1154,23 @@ func Test_Apply_PoliciesWithCRD(t *testing.T) {
 	}
 }
 
+func Test_Apply_ClusterScopedCRDResourceHasNoNamespace(t *testing.T) {
+	config := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mutate-cluster-scoped-crd/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mutate-cluster-scoped-crd/gadget.yaml"},
+		CrdPaths:      []string{"../../../../../test/cli/test-mutating-policy/mutate-cluster-scoped-crd/crds/gadget-crd.yaml"},
+		PolicyReport:  true,
+	}
+	_, resources, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
+	assert.NoError(t, err)
+	assert.Len(t, resources, 1)
+	assert.Equal(t, "", resources[0].GetNamespace())
+	assert.NotEmpty(t, responses)
+	for _, response := range responses {
+		assert.Equal(t, "", response.Resource.GetNamespace())
+	}
+}
+
 func Test_Apply_ValidatingPoliciesWithMultipleCRDS(t *testing.T) {
 	testcases := []*TestCase{
 		{

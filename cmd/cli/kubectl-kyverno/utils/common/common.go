@@ -246,27 +246,42 @@ func LoadYAML[T any](f billy.Filesystem, filepath string, newInstance func() T) 
 }
 
 func LoadCrdsFromPath(path string) error {
-	absPath, err := getCrdFilePath(path)
-	if err != nil {
-		return err
-	}
-	crds, err := readCRDsFromFile(absPath)
-	if err != nil {
-		return err
-	}
+	return LoadCrdsFromPaths([]string{path})
+}
 
-	if len(crds) > 0 {
-		apiGroupResources := []*restmapper.APIGroupResources{}
-		for _, crd := range crds {
-			apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
+// LoadCrdsFromPaths reads the CRDs from all the given files and registers them
+// together, so that a later file does not replace the groups of an earlier one.
+func LoadCrdsFromPaths(paths []string) error {
+	var crds []*apiv1.CustomResourceDefinition
+	for _, path := range paths {
+		if strings.TrimSpace(path) == "" {
+			continue
 		}
-
-		if err = addResourceGroups(apiGroupResources); err != nil {
+		absPath, err := getCrdFilePath(path)
+		if err != nil {
 			return err
 		}
+		fileCrds, err := readCRDsFromFile(absPath)
+		if err != nil {
+			return err
+		}
+		crds = append(crds, fileCrds...)
 	}
+	return RegisterCRDs(crds)
+}
 
-	return nil
+// RegisterCRDs makes the kinds and scopes of the given CRDs known to the CLI.
+// Resources must be loaded after this, otherwise objects of a cluster-scoped
+// custom kind are put in the default namespace.
+func RegisterCRDs(crds []*apiv1.CustomResourceDefinition) error {
+	if len(crds) == 0 {
+		return nil
+	}
+	apiGroupResources := make([]*restmapper.APIGroupResources, 0, len(crds))
+	for _, crd := range crds {
+		apiGroupResources = append(apiGroupResources, apiGroupResourcesFromCRD(crd))
+	}
+	return addResourceGroups(apiGroupResources)
 }
 
 func getCrdFilePath(path string) (string, error) {
