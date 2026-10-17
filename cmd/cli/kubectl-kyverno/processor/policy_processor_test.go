@@ -635,6 +635,8 @@ spec:
 	assert.NilError(t, err)
 
 	// Set a stale global LibraryContext to verify fallback compilation binds the supplied one instead
+	prevLibraryContext := libs.LibraryContext
+	t.Cleanup(func() { libs.LibraryContext = prevLibraryContext })
 	staleCtx := libs.NewFakeContextProvider()
 	staleCtx.AddGlobalReference("env-config", map[string]interface{}{"tier": "stale-env"})
 	libs.LibraryContext = staleCtx
