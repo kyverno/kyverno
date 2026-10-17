@@ -531,6 +531,8 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{"pipeline": "staging"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
+	assert.ErrorContains(t, err, "annotations mismatch: ci does not match expected value staging for key pipeline")
+	assert.ErrorContains(t, err, "annotations mismatch: cd does not match expected value staging for key pipeline")
 
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{})
@@ -543,6 +545,7 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
 		map[string]string{"pipeline": "cd"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
+	assert.ErrorContains(t, err, "annotations mismatch: ci does not match expected value cd for key pipeline")
 
 	payloadMulti := payload.SimpleContainerImage{
 		Optional: map[string]interface{}{"pipeline": "ci", "env": "prod"},
