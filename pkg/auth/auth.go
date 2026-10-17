@@ -81,6 +81,9 @@ func (o *canIOptions) RunAccessCheck(ctx context.Context) (bool, string, error) 
 	}
 	if !result.Allowed {
 		logger.V(3).Info("disallowed operation", "reason", result.Reason, "evaluationError", result.EvaluationError)
+		if result.EvaluationError != "" {
+			return false, result.Reason, fmt.Errorf("failed to evaluate permissions: %s", result.EvaluationError)
+		}
 	}
 	return result.Allowed, result.Reason, nil
 }

@@ -71,11 +71,16 @@ type Auth struct {
 	cache  *Cache
 }
 
-// NewAuth returns a new instance of Auth for operations. The cache is optional
+// NewAuth returns a new instance of Auth for operations without memoization.
+func NewAuth(client dclient.Interface, user string, log logr.Logger) *Auth {
+	return NewAuthWithCache(client, user, log, nil)
+}
+
+// NewAuthWithCache returns a new instance of Auth for operations. The cache is optional
 // (a nil cache disables memoization) and, when provided, should be shared by
 // every Auth checking permissions on behalf of the same policy validation so
 // that repeated checks across rules are only sent to the API server once.
-func NewAuth(client dclient.Interface, user string, log logr.Logger, cache *Cache) *Auth {
+func NewAuthWithCache(client dclient.Interface, user string, log logr.Logger, cache *Cache) *Auth {
 	a := Auth{
 		client: client,
 		user:   user,

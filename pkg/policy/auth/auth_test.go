@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 
@@ -46,7 +47,7 @@ func TestAuth_CanI_CacheDedupesAccessReviews(t *testing.T) {
 	// same resource kind - each rule gets its own Auth instance, but they
 	// share the Cache the way validateActions does across a policy's rules.
 	for i := 0; i < 5; i++ {
-		a := NewAuth(client, "system:serviceaccount:kyverno:reports-controller", logr.Discard(), cache)
+		a := NewAuthWithCache(client, "system:serviceaccount:kyverno:reports-controller", logr.Discard(), cache)
 		ok, msg, err := a.CanI(context.Background(), []string{"get", "list", "watch"}, "Pod", "", "", "")
 		assert.NoError(t, err)
 		assert.True(t, ok)
@@ -61,7 +62,7 @@ func TestAuth_CanI_NoCacheRepeatsAccessReviews(t *testing.T) {
 	client, calls := newCountingFakeClient(t)
 
 	for i := 0; i < 5; i++ {
-		a := NewAuth(client, "system:serviceaccount:kyverno:reports-controller", logr.Discard(), nil)
+		a := NewAuth(client, "system:serviceaccount:kyverno:reports-controller", logr.Discard())
 		ok, _, err := a.CanI(context.Background(), []string{"get", "list", "watch"}, "Pod", "", "", "")
 		assert.NoError(t, err)
 		assert.True(t, ok)
@@ -69,6 +70,73 @@ func TestAuth_CanI_NoCacheRepeatsAccessReviews(t *testing.T) {
 
 	// without a cache, every rule repeats all 3 verb checks
 	assert.Equal(t, int64(15), calls.Load())
+}
+
+func TestAuth_CanI_CacheRetriesErrors(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status authorizationv1.SubjectAccessReviewStatus
+		err    error
+	}{
+		{name: "API error", err: errors.New("API server unavailable")},
+		{name: "evaluation error", status: authorizationv1.SubjectAccessReviewStatus{EvaluationError: "authorization webhook timeout"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client, _ := newCountingFakeClient(t)
+			calls := 0
+			client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+				calls++
+				if calls == 1 {
+					return true, &authorizationv1.SubjectAccessReview{Status: tt.status}, tt.err
+				}
+				return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
+			})
+			cache := NewCache()
+			a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+			ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+			assert.Error(t, err)
+			assert.False(t, ok)
+			assert.Empty(t, cache.results)
+
+			for i := 0; i < 2; i++ {
+				a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+				ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+				assert.NoError(t, err)
+				assert.True(t, ok)
+			}
+			assert.Equal(t, 2, calls)
+		})
+	}
+}
+
+func TestAuth_CanI_CacheDecisions(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		status authorizationv1.SubjectAccessReviewStatus
+	}{
+		{name: "denied", status: authorizationv1.SubjectAccessReviewStatus{Denied: true}},
+		{name: "allowed despite evaluation error", status: authorizationv1.SubjectAccessReviewStatus{Allowed: true, EvaluationError: "another authorizer failed"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client, _ := newCountingFakeClient(t)
+			calls := 0
+			client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+				calls++
+				return true, &authorizationv1.SubjectAccessReview{Status: tt.status}, nil
+			})
+			cache := NewCache()
+			for i := 0; i < 2; i++ {
+				a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+				ok, msg, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+				assert.NoError(t, err)
+				assert.Equal(t, tt.status.Allowed, ok)
+				if !ok {
+					assert.Contains(t, msg, "test-user requires permissions get for resource Pod")
+				}
+			}
+			assert.Equal(t, 1, calls)
+		})
+	}
 }
 
 func TestNewAuth_DifferentUsers(t *testing.T) {
@@ -104,7 +172,7 @@ func TestNewAuth_DifferentUsers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			auth := NewAuth(nil, tt.user, logr.Discard(), nil)
+			auth := NewAuth(nil, tt.user, logr.Discard())
 
 			assert.NotNil(t, auth)
 			assert.Equal(t, tt.user, auth.user)
