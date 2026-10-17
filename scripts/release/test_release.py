@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import subprocess
 import tarfile
 import unittest
 from unittest.mock import patch
@@ -254,11 +255,14 @@ class LocalArtifacts(unittest.TestCase):
         directory.mkdir(parents=True)
         for os_name, arch, suffix in (("linux", "x86_64", "tar.gz"), ("darwin", "x86_64", "tar.gz"),
                                       ("darwin", "arm64", "tar.gz"), ("windows", "x86_64", "zip")):
-            (directory / f"kyverno-cli_v1.20.2_{os_name}_{arch}.{suffix}").write_bytes(b"retained archive")
+            (directory / f"kyverno-cli_v1.20.2_{os_name}_{arch}.{suffix}").write_bytes(
+                f"retained {os_name}/{arch} archive".encode()
+            )
         expected = krew.manifest(metadata)
         self.assertEqual(expected["spec"]["version"], metadata["tag"])
         for platform in expected["spec"]["platforms"]:
-            self.assertEqual(platform["sha256"], release.sha256(next(directory.iterdir())))
+            archive = directory / platform["uri"].rsplit("/", 1)[1]
+            self.assertEqual(platform["sha256"], release.sha256(archive))
 
     def test_diagnostic_download_refuses_path_traversal(self):
         stream = io.BytesIO()
@@ -372,10 +376,16 @@ class RetryAndGates(unittest.TestCase):
             upload.assert_not_called()
 
     def test_all_failure_states_block_the_validation_gate(self):
-        for state in ("failure", "cancelled", "skipped"):
-            results = {name: {"result": "success"} for name in ("unit", "charts", "artifacthub")}
-            results["charts"]["result"] = state
-            self.assertFalse(all(job["result"] == "success" for job in results.values()))
+        for name in ("release-validate.yaml", "release-publish.yaml"):
+            job = self.workflow(name)["jobs"]["gate" if name == "release-validate.yaml" else "report"]
+            for state in ("success", "failure", "cancelled", "skipped"):
+                results = {dependency: {"result": "success"} for dependency in job["needs"]}
+                results[job["needs"][0]]["result"] = state
+                process = subprocess.run(
+                    ["bash", "-e", "-c", job["steps"][-1]["run"]],
+                    env={**os.environ, "RESULTS": json.dumps(results)}, capture_output=True,
+                )
+                self.assertEqual(process.returncode == 0, state == "success", (name, state))
 
     def test_tag_retry_never_moves_existing_tag(self):
         env = {"RELEASE_TAG": "v1.20.1", "RELEASE_SHA": SHA,
@@ -445,6 +455,7 @@ class RetryAndGates(unittest.TestCase):
                 for step in job.get("steps", []):
                     if step.get("uses", "").startswith("actions/checkout@"):
                         self.assertEqual(step["with"]["ref"], "${{ inputs.sha }}", name)
+                        self.assertEqual(step["with"]["persist-credentials"], "false", name)
 
     def test_special_conformance_suites_retain_per_test_reports(self):
         for name in ("custom-sigstore", "check-tests"):

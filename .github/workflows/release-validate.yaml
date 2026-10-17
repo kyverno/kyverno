@@ -31,7 +31,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/go/setup
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
       - name: Verify exact event identity and release mapping
         env:
           EVENT_SHA: ${{ github.sha }}
@@ -63,6 +67,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/go/setup
       - run: make test-unit
       - if: always()
@@ -85,6 +90,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
           fetch-depth: 0
       - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
@@ -96,6 +102,9 @@ jobs:
           swap-storage: false
           tool-cache: false
       - uses: ./.github/actions/go/setup
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
       - uses: ./.github/actions/tools/install
         with:
           helm: true
@@ -225,6 +234,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/go/setup
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -248,6 +258,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/release/restore
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -263,12 +274,13 @@ jobs:
     needs: candidate
     runs-on: ubuntu-latest
     container:
-      image: artifacthub/ah
+      image: artifacthub/ah:v1.23.0@sha256:e5d2a2cdef85aac4928e8176ffaad24746c5fe961d64ff6856f7222957095356
       options: --user root
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/release/restore
       - run: cd charts && ah lint
 
@@ -303,6 +315,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/go/setup
       - run: make check-perf
 
@@ -318,6 +331,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/release/restore
       - uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
@@ -348,6 +362,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
       - uses: ./.github/actions/release/restore
         if: needs.candidate.result == 'success'
       - run: python3 -m pip install -r scripts/release/requirements.txt
