@@ -640,6 +640,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 				if !c.ContinueOnFail {
 					return &rc, resources, responses, err
 				}
+				rc.IncrementError(1)
 				contextProvider = nil
 			} else {
 				if len(vpols) != 0 {

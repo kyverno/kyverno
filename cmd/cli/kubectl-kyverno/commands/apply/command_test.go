@@ -949,6 +949,26 @@ func Test_Apply_Deleting_InvalidContext_ErrorCountAndExit(t *testing.T) {
 	assert.Error(t, exitErr, "exit should return error when rc.Error > 0")
 }
 
+func Test_Apply_ValidatingPolicy_InvalidContext_ErrorCountAndExit(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err := os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
+
+	cfg := ApplyCommandConfig{
+		PolicyPaths:    []string{"../../../../../test/conformance/chainsaw/validating-policies/validation-rules/accept/policy.yaml"},
+		ResourcePaths:  []string{"../../../../../test/conformance/chainsaw/validating-policies/validation-rules/accept/deployment.yaml"},
+		ContextPath:    invalidContextFile,
+		ContinueOnFail: true,
+	}
+	rc, _, _, _, err := cfg.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "helper should not return error under continue-on-fail")
+	assert.Greater(t, rc.Error, 0, "rc.Error should be incremented when validating policy context initialization fails")
+
+	exitErr := exit(io.Discard, rc, 0, false)
+	assert.Error(t, exitErr, "exit should return error when rc.Error > 0")
+}
+
 func Test_Apply_DeletingPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
