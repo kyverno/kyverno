@@ -122,6 +122,15 @@ exact versions are retained while local dependency versions and the lock digest
 are updated in the isolated workspace. The candidate records downloaded
 dependency checksums and the policy-library commit.
 
+External archive SHA-256 pins are committed in `config/releases.yaml`.
+Preparation verifies the first download against these pins, rejects byte changes
+when updating local dependency references, and retains the original archives.
+Package verification checks the prepared lock digest, retained archive checksums,
+and every expanded dependency file. Helm's lock digest describes dependency
+metadata, not archive bytes; it is not used as a substitute for those checksums.
+When deliberately updating an external dependency, review and update its pin
+together with `Chart.lock`; a missing or stale pin fails closed.
+
 The charts retain their existing registry defaults, including the
 `reg.kyverno.io` mirror, and global registry override behavior. Tests load both
 canonical and chart-reference aliases of the same staged images; remote

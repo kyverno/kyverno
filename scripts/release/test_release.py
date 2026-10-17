@@ -1,4 +1,5 @@
 import io
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -23,10 +24,24 @@ import tag
 
 ROOT = Path(__file__).resolve().parents[2]
 SHA = "a" * 40
-MAPPING = {"lines": {"1.20": {"kyverno": "3.10", "kyverno-policies": "4.2"}}}
+MAPPING = {
+    "lines": {"1.20": {"kyverno": "3.10", "kyverno-policies": "4.2"}},
+    "dependencies": {
+        f"{item['name']}-{item['version']}.tgz": hashlib.sha256(b"locked archive").hexdigest()
+        for item in release.external_dependencies(release.read(ROOT / "charts/kyverno/Chart.lock"))
+    },
+}
 
 
 class Versions(unittest.TestCase):
+    def test_committed_dependency_pins_match_the_source_lock(self):
+        pins = release.read(ROOT / "config/releases.yaml")["dependencies"]
+        expected = {f"{item['name']}-{item['version']}.tgz"
+                    for item in release.external_dependencies(release.read(ROOT / "charts/kyverno/Chart.lock"))}
+        self.assertEqual(set(pins), expected)
+        for digest in pins.values():
+            self.assertRegex(digest, r"^[a-f0-9]{64}$")
+
     def test_stable_and_independent_minor_lines(self):
         result = release.plan("v1.20.2", SHA, MAPPING)
         self.assertEqual(result["charts"], {"kyverno": "3.10.2", "kyverno-policies": "4.2.2"})
@@ -122,6 +137,12 @@ class LocalArtifacts(unittest.TestCase):
         os.chdir(self.previous)
         shutil.rmtree(self.path)
 
+    def stage_dependencies(self, *args, **kwargs):
+        if args[:3] == ("helm", "dependency", "build"):
+            for dependency in release.external_dependencies(release.read("charts/kyverno/Chart.lock")):
+                (Path("charts/kyverno/charts") /
+                 f"{dependency['name']}-{dependency['version']}.tgz").write_bytes(b"locked archive")
+
     def test_seal_rejects_changed_missing_and_additional_artifacts(self):
         root = Path("candidate")
         root.mkdir()
@@ -166,7 +187,8 @@ class LocalArtifacts(unittest.TestCase):
         rendered = yaml.safe_dump({"spec": {"containers": [
             {"image": image} for image in metadata["images"].values()
         ]}})
-        with patch.object(release, "run"), patch.object(release, "output", return_value=rendered):
+        with patch.object(release, "run", side_effect=self.stage_dependencies), \
+                patch.object(release, "output", return_value=rendered):
             release.prepare(metadata)
         for path, expected in compatibility.items():
             self.assertEqual(release.read(path).get("kubeVersion"), expected)
@@ -185,6 +207,27 @@ class LocalArtifacts(unittest.TestCase):
                 self.assertEqual(item["version"], parent["version"])
         self.assertEqual(release.external_dependencies(parent),
                          release.external_dependencies(release.read("charts/kyverno/Chart.lock")))
+
+    def test_preparation_rejects_changed_bytes_for_the_same_external_version(self):
+        shutil.copytree(ROOT / "charts", "charts")
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+
+        def run(*args, **kwargs):
+            self.stage_dependencies(*args, **kwargs)
+            if args[:3] == ("helm", "dependency", "update"):
+                next(Path("charts/kyverno/charts").glob("*.tgz")).write_bytes(b"replaced archive")
+
+        with patch.object(release, "run", side_effect=run):
+            with self.assertRaisesRegex(ValueError, "changed external dependency bytes"):
+                release.prepare(metadata)
+
+    def test_preparation_rejects_first_download_that_disagrees_with_committed_pins(self):
+        shutil.copytree(ROOT / "charts", "charts")
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        metadata["locked_dependencies"] = dict.fromkeys(MAPPING["dependencies"], "0" * 64)
+        with patch.object(release, "run", side_effect=self.stage_dependencies):
+            with self.assertRaisesRegex(ValueError, "committed checksum pin"):
+                release.prepare(metadata)
 
     def package(self, metadata, stale=None):
         directory = Path("packages")
@@ -227,6 +270,45 @@ class LocalArtifacts(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "Stale chart metadata"):
             release.verify_packages(metadata, self.package(metadata, stale))
+
+    def test_packaged_external_dependency_lock_archive_and_expanded_files_are_verified(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        dependency = {"name": "external", "version": "1.0.0", "repository": "https://example.test"}
+        metadata.update(external_dependencies=[dependency], lock_digest="sha256:locked")
+        header = {"apiVersion": "v2", "name": "external", "version": "1.0.0"}
+        values = {"locked": "unchanged"}
+        retained = Path(".release/dependencies/external-1.0.0.tgz")
+        retained.parent.mkdir(parents=True)
+        with tarfile.open(retained, "w:gz") as archive:
+            for name, value in (("Chart.yaml", header), ("values.yaml", values)):
+                data = yaml.safe_dump(value).encode()
+                info = tarfile.TarInfo(f"external/{name}")
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+        original = retained.read_bytes()
+        metadata["dependency_checksums"] = {retained.name: release.sha256(retained)}
+        metadata["locked_dependencies"] = dict(metadata["dependency_checksums"])
+
+        def dependencies(name, files, mismatch=None):
+            if name != "kyverno":
+                return
+            files["kyverno/Chart.yaml"]["dependencies"].append(dependency)
+            files["kyverno/Chart.lock"] = {
+                "dependencies": [dependency],
+                "digest": "sha256:wrong" if mismatch == "lock" else metadata["lock_digest"],
+            }
+            files["kyverno/charts/external/Chart.yaml"] = header
+            files["kyverno/charts/external/values.yaml"] = (
+                {"locked": "changed"} if mismatch == "content" else values
+            )
+
+        release.verify_packages(metadata, self.package(metadata, dependencies))
+        for mismatch in ("lock", "archive", "content"):
+            retained.write_bytes(b"replaced" if mismatch == "archive" else original)
+            with self.subTest(mismatch=mismatch), self.assertRaisesRegex(ValueError, "Changed .* dependency"):
+                release.verify_packages(metadata, self.package(
+                    metadata, lambda name, files: dependencies(name, files, mismatch)
+                ))
 
     def test_packaged_background_hook_and_dependency_references(self):
         metadata = release.plan("v1.20.2", SHA, MAPPING)
@@ -333,6 +415,16 @@ class RetryAndGates(unittest.TestCase):
                 ]) as read:
             release.verify_tag(metadata)
             self.assertIn("git/tags/", read.call_args.args[-1])
+
+    def test_annotated_remote_tag_target_mismatch_is_rejected(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        with patch.dict(os.environ, {"GH_REPO": "kyverno/kyverno"}), \
+                patch.object(release, "gh", side_effect=[
+                    json.dumps({"object": {"type": "tag", "sha": "c" * 40}}),
+                    json.dumps({"object": {"type": "commit", "sha": "b" * 40}}),
+                ]):
+            with self.assertRaisesRegex(ValueError, "no longer points"):
+                release.verify_tag(metadata)
 
     def test_public_release_cannot_reenter_mutating_publication(self):
         metadata = release.plan("v1.20.2", SHA, MAPPING)

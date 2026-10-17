@@ -100,6 +100,7 @@ def plan(tag, sha, mapping, owner="kyverno"):
         "prerelease": bool(pre),
         "charts": charts,
         "owner": owner,
+        "locked_dependencies": mapping.get("dependencies", {}),
         "images": {name: f"ghcr.io/{owner}/{name}:{tag}" for name in IMAGES},
     }
 
@@ -163,9 +164,22 @@ def prepare(metadata):
     original_external = external_dependencies(read(parent / "Chart.lock"))
     if original_external != external_dependencies(read(parent / "Chart.yaml")):
         raise ValueError("External chart dependencies differ from Chart.lock")
+    expected_names = {f"{item['name']}-{item['version']}.tgz" for item in original_external}
+    if set(metadata["locked_dependencies"]) != expected_names:
+        raise ValueError("External dependency checksum pins do not match Chart.lock")
     # Resolve the original lock before changing the bundled chart versions.
     add_repositories()
     run("helm", "dependency", "build", parent)
+    retained = Path(".release/dependencies")
+    retained.mkdir(parents=True, exist_ok=True)
+    dependency_checksums = {}
+    for dependency in original_external:
+        name = f"{dependency['name']}-{dependency['version']}.tgz"
+        source = parent / "charts" / name
+        dependency_checksums[name] = sha256(source)
+        if dependency_checksums[name] != metadata["locked_dependencies"][name]:
+            raise ValueError(f"External dependency does not match its committed checksum pin: {name}")
+        shutil.copyfile(source, retained / name)
     chart_paths = [
         (charts / name, version) for name, version in metadata["charts"].items()
     ]
@@ -198,6 +212,9 @@ def prepare(metadata):
     run("helm", "dependency", "update", "--skip-refresh", parent)
     if external_dependencies(read(parent / "Chart.lock")) != original_external:
         raise ValueError("Release preparation changed locked external dependencies")
+    for name, expected in dependency_checksums.items():
+        if sha256(parent / "charts" / name) != expected:
+            raise ValueError(f"Release preparation changed external dependency bytes: {name}")
     for path, _ in chart_paths:
         if read(path / "Chart.yaml").get("kubeVersion") != compatibility[str(path)]:
             raise ValueError(f"Changed Kubernetes compatibility constraint in {path}")
@@ -217,9 +234,8 @@ def prepare(metadata):
     Path(".release/install.yaml").write_text(rendered + "\n")
     metadata["compatibility"] = compatibility
     metadata["external_dependencies"] = original_external
-    metadata["dependency_checksums"] = {
-        path.name: sha256(path) for path in sorted((parent / "charts").glob("*.tgz"))
-    }
+    metadata["dependency_checksums"] = dependency_checksums
+    metadata["lock_digest"] = read(parent / "Chart.lock")["digest"]
     write_json(".release/plan.json", metadata)
 
 
@@ -266,6 +282,13 @@ def verify_images(rendered, metadata):
     return found
 
 
+def dependency_files(archive, prefix):
+    return {
+        member.name.removeprefix(prefix): hashlib.sha256(archive.extractfile(member).read()).hexdigest()
+        for member in archive.getmembers() if member.isfile() and member.name.startswith(prefix)
+    }
+
+
 def verify_packages(metadata, directory):
     for name, version in metadata["charts"].items():
         package = Path(directory) / f"{name}-{version}.tgz"
@@ -302,7 +325,11 @@ def verify_packages(metadata, directory):
                     if not dependency.get("repository") and dependency["version"] != version:
                         raise ValueError(f"Stale dependency reference: {dependency['name']}")
                 if "external_dependencies" in metadata:
+                    if metadata["dependency_checksums"] != metadata["locked_dependencies"]:
+                        raise ValueError("Changed retained dependency checksum pins")
                     locked = yaml.safe_load(archive.extractfile("kyverno/Chart.lock"))
+                    if locked["digest"] != metadata["lock_digest"]:
+                        raise ValueError("Changed packaged dependency lock digest")
                     if external_dependencies(chart) != metadata["external_dependencies"] or external_dependencies(locked) != metadata["external_dependencies"]:
                         raise ValueError("Packaged external dependencies differ from release lock")
                     for dependency in metadata["external_dependencies"]:
@@ -311,6 +338,16 @@ def verify_packages(metadata, directory):
                         ))
                         if external["version"] != dependency["version"]:
                             raise ValueError(f"Stale external dependency: {dependency['name']}")
+                        name = f"{dependency['name']}-{dependency['version']}.tgz"
+                        retained = Path(".release/dependencies") / name
+                        if sha256(retained) != metadata["dependency_checksums"][name]:
+                            raise ValueError(f"Changed retained dependency archive: {name}")
+                        with tarfile.open(retained) as original:
+                            expected = dependency_files(original, f"{dependency['name']}/")
+                        if not expected or dependency_files(
+                            archive, f"kyverno/charts/{dependency['name']}/"
+                        ) != expected:
+                            raise ValueError(f"Changed packaged dependency content: {name}")
 
 
 def seal(root):
