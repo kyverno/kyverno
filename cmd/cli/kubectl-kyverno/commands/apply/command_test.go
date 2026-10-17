@@ -909,6 +909,46 @@ func Test_Apply_ImageVerificationPolicies(t *testing.T) {
 	}
 }
 
+func Test_Apply_ImageVerification_InvalidContext_ErrorCountAndExit(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err := os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
+
+	cfg := ApplyCommandConfig{
+		PolicyPaths:    []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/policy.yaml"},
+		ResourcePaths:  []string{"../../../../../test/conformance/chainsaw/image-validating-policies/match-conditions/good-pod.yaml"},
+		ContextPath:    invalidContextFile,
+		ContinueOnFail: true,
+	}
+	rc, _, _, _, err := cfg.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "helper should not return error under continue-on-fail")
+	assert.Greater(t, rc.Error, 0, "rc.Error should be incremented when image policy context initialization fails")
+
+	exitErr := exit(io.Discard, rc, 0, false)
+	assert.Error(t, exitErr, "exit should return error when rc.Error > 0")
+}
+
+func Test_Apply_Deleting_InvalidContext_ErrorCountAndExit(t *testing.T) {
+	tmpDir := t.TempDir()
+	invalidContextFile := filepath.Join(tmpDir, "invalid-context.yaml")
+	err := os.WriteFile(invalidContextFile, []byte(`: invalid: yaml: [`), 0o600)
+	require.NoError(t, err)
+
+	cfg := ApplyCommandConfig{
+		PolicyPaths:    []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+		ResourcePaths:  []string{"../../../../../test/cli/test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+		ContextPath:    invalidContextFile,
+		ContinueOnFail: true,
+	}
+	rc, _, _, _, err := cfg.applyCommandHelper(context.TODO(), io.Discard)
+	assert.NoError(t, err, "helper should not return error under continue-on-fail")
+	assert.Greater(t, rc.Error, 0, "rc.Error should be incremented when deleting policy context initialization fails")
+
+	exitErr := exit(io.Discard, rc, 0, false)
+	assert.Error(t, exitErr, "exit should return error when rc.Error > 0")
+}
+
 func Test_Apply_DeletingPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{

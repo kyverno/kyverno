@@ -844,6 +844,9 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 			return nil, err
 		}
 		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for image validating policies: %v", err))
+		if rc != nil {
+			rc.IncrementError(1)
+		}
 		return nil, nil
 	}
 
@@ -988,6 +991,9 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			return nil, err
 		}
 		log.Log.V(2).Info(fmt.Sprintf("failed to initialize context for deleting policies: %v", err))
+		if rc != nil {
+			rc.IncrementError(1)
+		}
 		return nil, nil
 	}
 
