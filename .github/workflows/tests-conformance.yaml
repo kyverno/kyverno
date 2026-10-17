@@ -152,9 +152,9 @@ jobs:
           knative-version: "1.10.0"
       - name: Install pinned Sigstore on the full-matrix cluster
         if: inputs.release-candidate
-        uses: sigstore/scaffolding/actions/setup@9cbe5a1e1b01b29a875ddb7cdc77027d20a0a2d9 # v0.7.39
+        uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
         with:
-          version: v0.7.39
+          version: v0.7.33
           sigstore-only: true
       - name: Create TUF values config map
         run: |
@@ -204,6 +204,22 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/release-reports"
           cd ./test/conformance/chainsaw/custom-sigstore
           chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name custom-sigstore
+      - name: Diagnose Sigstore topology failures
+        if: failure() && inputs.release-candidate
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          mkdir -p release-reports
+          {
+            kubectl --request-timeout=15s get pods,services,jobs,ksvc -A -o wide || true
+            kubectl --request-timeout=15s get events -A --sort-by=.lastTimestamp || true
+            for namespace in default ctlog-system fulcio-system knative-serving rekor-system tuf-system tsa-system; do
+              kubectl --request-timeout=15s -n "$namespace" describe pods || true
+              for pod in $(kubectl --request-timeout=15s -n "$namespace" get pods -o name); do
+                kubectl --request-timeout=15s -n "$namespace" logs "$pod" --all-containers=true --prefix=true --tail=200 || true
+              done
+            done
+          } 2>&1 | tee release-reports/sigstore-topology.log
       - name: Retain custom Sigstore test results
         if: always() && inputs.release-candidate
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
