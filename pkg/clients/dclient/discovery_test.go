@@ -224,3 +224,34 @@ func TestServerResources_RESTMapper(t *testing.T) {
 	fakeDisco := &fakeDiscoveryClient{}
 	assert.Nil(t, fakeDisco.RESTMapper())
 }
+
+// TestFakeDiscoveryClient_GetGVRFromGVK_Pluralization verifies that GetGVRFromGVK
+// uses proper pluralization (via meta.UnsafeGuessKindToResource) instead of simple +s,
+// fixing the bug where kinds ending in 'y' or 's' (e.g. NetworkPolicy -> networkpolicies)
+// would mismatch between registration and lookup.
+func TestFakeDiscoveryClient_GetGVRFromGVK_Pluralization(t *testing.T) {
+	type testCase struct {
+		kind     string
+		group    string
+		version  string
+		resource string
+	}
+	cases := []testCase{
+		{"NetworkPolicy", "networking.k8s.io", "v1", "networkpolicies"},
+		{"Ingress", "networking.k8s.io", "v1", "ingresses"},
+		{"Pod", "", "v1", "pods"},
+		{"CronJob", "batch", "v1", "cronjobs"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.kind, func(t *testing.T) {
+			gvr := schema.GroupVersionResource{Group: tc.group, Version: tc.version, Resource: tc.resource}
+			c := &fakeDiscoveryClient{
+				registeredResources: []schema.GroupVersionResource{gvr},
+				gvrToGVK:            nil,
+			}
+			got, err := c.GetGVRFromGVK(schema.GroupVersionKind{Group: tc.group, Version: tc.version, Kind: tc.kind})
+			assert.NoError(t, err)
+			assert.Equal(t, tc.resource, got.Resource)
+		})
+	}
+}
