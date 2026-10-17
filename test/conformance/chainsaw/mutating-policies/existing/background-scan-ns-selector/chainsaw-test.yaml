@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: background-scan-ns-selector
+spec:
+  # Regression test for https://github.com/kyverno/kyverno/issues/16953.
+  #
+  # Before the fix the background controller was wired with a nil matcher, which
+  # caused handlePolicy() to skip the matchConstraints block entirely — including
+  # namespaceSelector evaluation. Policies scoped to specific namespaces (via
+  # namespaceSelector) would apply to ALL namespaces instead.
+  #
+  # This test creates two ConfigMaps with the same name in two different
+  # namespaces, applies a MutatingPolicy that targets only namespaces labelled
+  # env=production, and verifies:
+  #   1. The ConfigMap in the labelled namespace IS mutated (label added).
+  #   2. The ConfigMap in the unlabelled namespace is NOT mutated.
+  concurrent: false
+  steps:
+  - name: create namespaces and configmaps
+    try:
+    - create:
+        file: namespace-matching.yaml
+    - assert:
+        file: namespace-matching.yaml
+    - create:
+        file: namespace-excluded.yaml
+    - assert:
+        file: namespace-excluded.yaml
+    - create:
+        file: configmap-matching.yaml
+    - assert:
+        file: configmap-matching.yaml
+    - create:
+        file: configmap-excluded.yaml
+    - assert:
+        file: configmap-excluded.yaml
+
+  - name: create policy
+    use:
+      template: ..//../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+
+  - name: wait-mutating-policy-ready
+    description: >
+      Wait for the admission-disabled policy to become ready.
+      Only RBACPermissionsGranted is set (no WebhookConfigured condition).
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: test-mpol-bgns-selector
+          status:
+            conditionStatus:
+              ready: true
+
+  - name: assert-matching-namespace-mutated
+    description: >
+      The ConfigMap in test-mpol-bgns-selector-ns (env=production) must receive
+      the scanned=yes label from the background scan.
+    try:
+    - assert:
+        file: configmap-matching-assert.yaml
+        timeout: 3m
+
+  - name: assert-excluded-namespace-not-mutated
+    description: >
+      The ConfigMap in test-mpol-bgns-excluded-ns (no env label) must NOT be
+      mutated. We check immediately after the previous assert passes — if
+      namespaceSelector filtering is broken the label would already be there.
+    try:
+    - error:
+        timeout: 5s
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: test-mpol-bgns-cm
+            namespace: test-mpol-bgns-excluded-ns
+            labels:
+              scanned: "yes"

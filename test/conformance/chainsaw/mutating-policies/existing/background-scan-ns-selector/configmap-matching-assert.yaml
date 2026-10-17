@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-mpol-bgns-cm
+  namespace: test-mpol-bgns-selector-ns
+  labels:
+    scanned: "yes"
