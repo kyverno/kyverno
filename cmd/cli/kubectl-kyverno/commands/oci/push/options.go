@@ -62,15 +62,8 @@ func appendCELLayer(img v1.Image, obj internal.Object) (v1.Image, error) {
 }
 
 func buildImage(results *policy.LoaderResults) (v1.Image, error) {
-	if len(results.Policies) > 0 {
-		return nil, fmt.Errorf("push rejected: directory contains %d legacy kyverno.io policy resource(s); only policies.kyverno.io/v1beta1 CEL kinds are supported in OCI bundles", len(results.Policies))
-	}
-	if len(results.CleanupPolicies) > 0 {
-		return nil, fmt.Errorf("push rejected: directory contains %d cleanup policy resource(s); only policies.kyverno.io/v1beta1 CEL kinds are supported in OCI bundles", len(results.CleanupPolicies))
-	}
-	if len(results.PolicyExceptions) > 0 {
-		return nil, fmt.Errorf("push rejected: directory contains %d legacy kyverno.io PolicyException resource(s); use policies.kyverno.io/v1beta1 PolicyException instead", len(results.PolicyExceptions))
-	}
+	// Legacy kyverno.io policy/cleanup-policy/exception kinds are already rejected by policy.Load
+	// itself (migration-hint error) before results are ever returned, so no further check is needed here.
 	if len(results.VAPs) > 0 || len(results.VAPBindings) > 0 || len(results.MAPs) > 0 || len(results.MAPBindings) > 0 {
 		return nil, fmt.Errorf("push rejected: directory contains native Kubernetes admission policy resources; only policies.kyverno.io/v1beta1 CEL kinds are supported in OCI bundles")
 	}
@@ -224,7 +217,7 @@ func buildImage(results *policy.LoaderResults) (v1.Image, error) {
 }
 
 func (o options) execute(ctx context.Context, dir string, keychain authn.Keychain) error {
-	results, err := policy.Load(nil, "", false, dir)
+	results, err := policy.Load(nil, "", dir)
 	if err != nil {
 		return fmt.Errorf("loading policies from %s: %w", dir, err)
 	}

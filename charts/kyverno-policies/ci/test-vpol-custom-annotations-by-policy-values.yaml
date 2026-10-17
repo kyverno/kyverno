@@ -1,4 +1,3 @@
-policyType: ValidatingPolicy
 
 # use restricted to test with all templates
 podSecurityStandard: restricted
