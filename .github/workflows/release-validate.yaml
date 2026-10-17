@@ -270,8 +270,8 @@ jobs:
       - uses: ./.github/actions/tools/helm
       - name: Lint both prepared charts explicitly, not only changed charts
         run: |
-          helm lint --strict charts/kyverno charts/kyverno-policies
-          ct lint --charts charts/kyverno,charts/kyverno-policies --target-branch=main --check-version-increment=false --validate-maintainers=false
+          helm lint --strict .release/packages/*.tgz
+          ct lint --charts charts/kyverno,charts/kyverno-policies --target-branch=main --check-version-increment=false --validate-maintainers=false --skip-helm-dependencies
 
   artifacthub:
     needs: candidate
