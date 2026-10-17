@@ -10,8 +10,8 @@ import subprocess
 import sys
 
 from release import (
-    check_seal, existing_release, run, same_or_absent, sha256, sign,
-    upload_asset, verify_signature,
+    check_seal, existing_release, require_draft, run, same_or_absent, sha256, sign,
+    upload_asset, verify_signature, verify_tag,
 )
 
 
@@ -151,6 +151,7 @@ def complete(metadata):
         else:
             raise ValueError(f"Cannot determine latest stable release: {current.stderr}")
     if release["isDraft"]:
+        verify_tag(metadata)
         run("gh", "release", "edit", metadata["tag"], "--draft=false",
             f"--prerelease={str(metadata['prerelease']).lower()}",
             f"--latest={str(latest).lower()}", "--notes-file", path)
@@ -162,6 +163,9 @@ def complete(metadata):
 def main():
     check_seal(".release")
     metadata = json.loads(Path(".release/plan.json").read_text())
+    verify_tag(metadata)
+    if sys.argv[1] == "publish":
+        require_draft(metadata)
     {"publish": publish, "verify": verify, "complete": complete}[sys.argv[1]](metadata)
 
 

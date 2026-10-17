@@ -10,6 +10,16 @@ import artifacts
 from release import output, write_json
 
 
+def latest_jobs(pages):
+    jobs = {}
+    for page in pages:
+        for job in page["jobs"]:
+            previous = jobs.get(job["name"])
+            if previous is None or job["id"] > previous["id"]:
+                jobs[job["name"]] = job
+    return sorted(jobs.values(), key=lambda job: job["id"])
+
+
 def test_reports(root):
     rows = []
     links = []
@@ -45,7 +55,7 @@ def test_reports(root):
     first = json.dumps(failed[0], indent=2) if failed else "No failed per-test report was recorded."
     return [
         "", "## Per-test reports (all retained attempts)", f"{len(rows)} test results in `per-test.json`.",
-        "Earlier failed attempts remain diagnostic history; the job matrix above is the current attempt.",
+        "Earlier failed attempts remain diagnostic history; the matrix shows each job's latest outcome.",
         "", "### First recorded test failure", "```json", first, "```", "", *links,
     ]
 
@@ -56,9 +66,9 @@ def main():
     attempt = os.environ["GITHUB_RUN_ATTEMPT"]
     pages = json.loads(output(
         "gh", "api", "--paginate", "--slurp",
-        f"repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100",
+        f"repos/{repo}/actions/runs/{run_id}/jobs?filter=all&per_page=100",
     ))
-    jobs = [job for page in pages for job in page["jobs"]]
+    jobs = latest_jobs(pages)
     root = Path("release-report")
     root.mkdir(exist_ok=True)
     metadata = json.loads(Path(".release/plan.json").read_text()) if Path(".release/plan.json").exists() else {
@@ -74,14 +84,17 @@ def main():
         "## Full matrix", "| Job / Kubernetes / shard | Result | First failed step | Logs |",
         "| --- | --- | --- | --- |",
     ]
+    log_flags = ["--allow-escape-sequences"] if "--allow-escape-sequences" in output(
+        "gh", "api", "--help"
+    ) else []
     for job in jobs:
         failed = next((step["name"] for step in job.get("steps", [])
                        if step.get("conclusion") == "failure"), "")
         lines.append(f"| {job['name']} | {job.get('conclusion') or job['status']} | "
                      f"{failed} | [logs]({job['html_url']}) |")
-        if job["status"] == "completed":
+        if job["status"] == "completed" and job.get("conclusion") not in ("success", "skipped"):
             result = subprocess.run(
-                ["gh", "api", f"repos/{repo}/actions/jobs/{job['id']}/logs"],
+                ["gh", "api", *log_flags, f"repos/{repo}/actions/jobs/{job['id']}/logs"],
                 capture_output=True,
             )
             (root / f"job-{job['id']}.log").write_bytes(

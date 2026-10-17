@@ -199,8 +199,8 @@ publication/remote-verification job succeeds and the GitHub release is non-draft
 The validation and publication summaries include the exact SHA, application and
 chart versions, image digests, policy-library commit, every job/Kubernetes/shard
 result, first failed step, log links, and reproduction/retry commands. Retained
-reports include per-test JSON for the shared conformance runner and policy
-library, and completed-job logs for special suites and publication jobs. K6
+reports include per-test JSON for the shared conformance runner, custom Sigstore,
+CLI conformance and policy library, and failed-job logs for special suites and publication jobs. K6
 reports remain available as their existing report artifacts.
 
 ## Recovery and conflict handling
@@ -220,6 +220,12 @@ skip identical existing versions, fill missing pieces, and reject mismatched
 bytes/digests. Index updates are serialized; a successful retry does not churn
 an unchanged index. Partial publication keeps the GitHub release draft and the
 overall run failed, with explicit partial-publication diagnostics.
+
+Publication rechecks the remote tag target, and every publisher checks out the
+validated SHA explicitly. A tag that has moved fails closed. An existing public
+release cannot re-enter mutating publication: do not rerun a completed release,
+and investigate any manual undraft before attempting recovery. Read-only remote
+verification remains available.
 
 Do not use a new workflow run to rebuild an already partially published release.
 Do not use `--clobber`, move/delete tags, force-push `gh-pages`, or regenerate

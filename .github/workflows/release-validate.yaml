@@ -29,6 +29,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/go/setup
       - name: Verify exact event identity and release mapping
         env:
@@ -59,6 +61,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/go/setup
       - run: make test-unit
       - if: always()
@@ -80,6 +84,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.sha }}
           fetch-depth: 0
       - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
         with:
@@ -120,7 +125,7 @@ jobs:
           ignore-unfixed: true
           cache: false
         env:
-          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+          TRIVY_DB_REPOSITORY: mirror.gcr.io/aquasec/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db:2
       - name: Build once without publishing
         if: steps.retained.outputs.artifact-0 != 'true'
         run: python3 scripts/release/build.py
@@ -218,6 +223,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/go/setup
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -239,6 +246,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/restore
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -258,6 +267,8 @@ jobs:
       options: --user root
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/restore
       - run: cd charts && ah lint
 
@@ -290,6 +301,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/go/setup
       - run: make check-perf
 
@@ -303,6 +316,8 @@ jobs:
         k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/restore
       - uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
@@ -331,9 +346,12 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/restore
         if: needs.candidate.result == 'success'
       - run: python3 -m pip install -r scripts/release/requirements.txt
+        if: always()
       - name: Detailed full-matrix report, including failed/skipped jobs
         if: always()
         run: python3 scripts/release/report.py

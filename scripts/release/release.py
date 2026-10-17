@@ -366,6 +366,25 @@ def existing_release(tag):
     return None
 
 
+def verify_tag(metadata):
+    reference = json.loads(gh(
+        "api", f"repos/{os.environ['GH_REPO']}/git/ref/tags/{metadata['tag']}"
+    ))["object"]
+    while reference["type"] == "tag":
+        reference = json.loads(gh(
+            "api", f"repos/{os.environ['GH_REPO']}/git/tags/{reference['sha']}"
+        ))["object"]
+    if reference["type"] != "commit" or reference["sha"] != metadata["sha"]:
+        raise ValueError("Public tag no longer points at the validated SHA; never move or delete it")
+
+
+def require_draft(metadata):
+    release = existing_release(metadata["tag"])
+    if release is None or not release["isDraft"]:
+        raise ValueError("Release is not a draft; refusing to mutate or re-sign public content")
+    return release
+
+
 def ensure_draft(metadata):
     release = existing_release(metadata["tag"])
     if release is None:
@@ -375,6 +394,8 @@ def ensure_draft(metadata):
             *(["--prerelease"] if metadata["prerelease"] else []))
     elif release["isPrerelease"] != metadata["prerelease"]:
         raise ValueError("Existing release prerelease status does not match the tag")
+    elif not release["isDraft"]:
+        raise ValueError("Existing release is public; refusing to mutate or re-sign it")
     return release
 
 
@@ -591,6 +612,8 @@ def main():
         if args.command == "event":
             validate_event(metadata, os.environ["GITHUB_EVENT_NAME"], os.environ["GITHUB_REF"],
                            os.environ["GITHUB_SHA"], os.environ.get("RELEASE_REHEARSAL") == "true")
+            if os.environ["GITHUB_EVENT_NAME"] == "push":
+                verify_tag(metadata)
         write_json(".release/plan.json", metadata)
         if args.command == "prepare":
             prepare(metadata)
@@ -606,6 +629,10 @@ def main():
         raise ValueError("Retained candidate does not match the requested tag/SHA")
     if args.command == "check-seal":
         return
+    if args.command in ("draft", "publish-images", "publish-charts", "verify-remote", "upload-assets"):
+        verify_tag(metadata)
+    if args.command in ("publish-images", "publish-charts", "upload-assets"):
+        require_draft(metadata)
     if args.command == "verify-packages":
         verify_packages(metadata, ".release/packages")
     elif args.command == "draft":

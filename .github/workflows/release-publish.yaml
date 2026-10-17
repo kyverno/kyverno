@@ -25,6 +25,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/candidate
       - run: python3 scripts/release/release.py draft
 
@@ -39,6 +41,8 @@ jobs:
       digests: ${{ steps.images.outputs.digests }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/candidate
       - uses: ./.github/actions/release/signing
       - run: |
@@ -93,6 +97,8 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/candidate
       - uses: ./.github/actions/tools/install
         with:
@@ -114,6 +120,8 @@ jobs:
       packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/candidate
       - uses: ./.github/actions/tools/install
         with:
@@ -140,6 +148,8 @@ jobs:
       contents: write # The bot must inspect the still-unpublished draft release.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/candidate
       - name: Prepare checksummed Krew manifest without downloading draft assets
         id: krew
@@ -162,6 +172,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/candidate
       - name: Undraft only after mandatory publication and remote verification
         run: python3 scripts/release/assets.py complete
@@ -175,8 +187,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/restore
       - run: python3 -m pip install -r scripts/release/requirements.txt
+        if: always()
       - name: Detailed completion or partial-publication report
         if: always()
         run: python3 scripts/release/report.py
