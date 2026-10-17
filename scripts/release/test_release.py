@@ -455,6 +455,28 @@ class RetryAndGates(unittest.TestCase):
                 retained.main()
             mock.assert_not_called()
 
+    def test_orphaned_derived_artifacts_never_mix_with_a_rebuilt_candidate(self):
+        for name in retained.NAMES[1:]:
+            pages = [{"artifacts": [{"name": name, "expired": False}]}]
+            with self.subTest(name=name), patch.object(retained, "output", return_value=json.dumps(pages)), \
+                    patch.dict(os.environ, {"GITHUB_REPOSITORY": "kyverno/kyverno", "GITHUB_RUN_ID": "1"}), \
+                    patch.object(retained.subprocess, "run") as rebuild:
+                with self.assertRaisesRegex(ValueError, "without their sealed candidate"):
+                    retained.main()
+                rebuild.assert_not_called()
+
+    def test_missing_candidate_after_successful_retention_never_rebuilds(self):
+        history = [{"jobs": [{"steps": [{
+            "name": "Retain immutable release candidate", "conclusion": "success",
+        }]}]}]
+        with patch.object(retained, "output", side_effect=[json.dumps([{"artifacts": []}]), json.dumps(history)]), \
+                patch.dict(os.environ, {"GITHUB_REPOSITORY": "kyverno/kyverno",
+                                        "GITHUB_RUN_ID": "1", "GITHUB_RUN_ATTEMPT": "2"}), \
+                patch.object(retained.subprocess, "run") as rebuild:
+            with self.assertRaisesRegex(ValueError, "candidate disappeared"):
+                retained.main()
+            rebuild.assert_not_called()
+
     def test_existing_asset_compares_api_download_not_graphql_id_and_never_clobbers(self):
         data = b"immutable archive"
         asset = {"name": "test.tar.gz", "id": "RA_graphql_id",
@@ -512,6 +534,9 @@ class RetryAndGates(unittest.TestCase):
             self.assertEqual(workflow["concurrency"]["cancel-in-progress"], "false")
             self.assertIn("validate", workflow["jobs"]["publish"]["needs"])
         self.assertIn("validate", dispatch["jobs"]["tag"]["needs"])
+        self.assertEqual(dispatch["jobs"]["validate"]["needs"], "identity")
+        self.assertIn('test "$RELEASE_SHA" = "$GITHUB_SHA"',
+                      dispatch["jobs"]["identity"]["steps"][0]["run"])
         self.assertNotIn("workflow_dispatch", push["on"])
         self.assertEqual(list(self.workflow("helm-release.yaml")["on"]), ["workflow_call"])
 
@@ -528,6 +553,7 @@ class RetryAndGates(unittest.TestCase):
                       jobs["charts"]["steps"][-1]["run"])
         for job in ("conformance", "policy-library", "k6"):
             self.assertEqual(jobs[job]["with"]["release-candidate"], "true")
+            self.assertEqual(jobs[job]["with"]["release-sha"], "${{ inputs.sha }}")
         scan = next(step for step in jobs["candidate"]["steps"]
                     if step.get("uses", "").startswith("aquasecurity/trivy-action@"))
         self.assertGreater(len(scan["env"]["TRIVY_DB_REPOSITORY"].split(",")), 1)
@@ -537,6 +563,9 @@ class RetryAndGates(unittest.TestCase):
         self.assertEqual(set(jobs["verify"]["needs"]), {"images", "provenance", "charts", "assets"})
         self.assertEqual(set(jobs["complete"]["needs"]), {"verify", "krew"})
         self.assertEqual(jobs["krew"]["needs"], "verify")
+        submission = next(step for step in jobs["krew"]["steps"]
+                          if step.get("uses", "").startswith("rajatjindal/krew-release-bot@"))
+        self.assertEqual(submission["with"]["krew_template_file"], ".release-publication/krew.yaml")
         self.assertEqual(jobs["provenance"]["strategy"]["fail-fast"], "false")
         self.assertEqual(set(jobs["provenance"]["strategy"]["matrix"]["image"]), set(release.IMAGES))
 
@@ -548,6 +577,11 @@ class RetryAndGates(unittest.TestCase):
                     if step.get("uses", "").startswith("actions/checkout@"):
                         self.assertEqual(step["with"]["ref"], "${{ inputs.sha }}", name)
                         self.assertEqual(step["with"]["persist-credentials"], "false", name)
+        for filename, job in (("release-validate.yaml", "codegen"),
+                              ("release-publish.yaml", "draft"),
+                              ("helm-release.yaml", "publish")):
+            self.assertEqual(self.workflow(filename)["jobs"][job]["steps"][0]["run"],
+                             'test "$RELEASE_SHA" = "$GITHUB_SHA"')
 
     def test_special_conformance_suites_retain_per_test_reports(self):
         for name in ("custom-sigstore", "check-tests"):
@@ -556,6 +590,15 @@ class RetryAndGates(unittest.TestCase):
             self.assertTrue(any(step.get("with", {}).get("name", "").startswith(
                 "release-conformance-") for step in steps))
 
+    def test_reusable_suites_pin_kyverno_code_and_keep_nonrelease_event_sha_default(self):
+        for name in ("tests-conformance.yaml", "tests-conformance-policy-library.yaml", "tests-k6.yaml"):
+            workflow = self.workflow(name)
+            self.assertEqual(workflow["on"]["workflow_call"]["inputs"]["release-sha"]["default"], "")
+            for job in workflow["jobs"].values():
+                for step in job.get("steps", []):
+                    if step.get("uses", "").startswith("actions/checkout@") and \
+                            step.get("with", {}).get("repository", "") != "kyverno/policies":
+                        self.assertEqual(step["with"]["ref"], "${{ inputs.release-sha || github.sha }}", name)
     def test_prerelease_never_submits_krew(self):
         metadata = release.plan("v1.20.2-rc.3", SHA, MAPPING)
         with patch.object(krew, "check_seal"), patch.object(krew.Path, "read_text",

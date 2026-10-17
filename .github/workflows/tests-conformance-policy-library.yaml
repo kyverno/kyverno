@@ -10,6 +10,9 @@ on:
       release-candidate:
         type: boolean
         default: false
+      release-sha:
+        type: string
+        default: ""
       policy-library-sha:
         type: string
         default: ""
@@ -35,12 +38,16 @@ jobs:
     steps:
       - name: Checkout kyverno/kyverno
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Checkout kyverno/policies
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: kyverno/policies
           path: policies
           ref: ${{ inputs.policy-library-sha }}
+          persist-credentials: false
       # install tools
       - name: Install tools
         uses: ./.github/actions/tools/install

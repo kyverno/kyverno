@@ -28,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
+      - name: Reject event mismatch before loading input-selected code
+        run: test "$RELEASE_SHA" = "$GITHUB_SHA"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
@@ -185,7 +187,8 @@ jobs:
         run: |
           python3 scripts/release/release.py seal
           tar -cf release-candidate.tar .release
-      - if: steps.retained.outputs.artifact-0 != 'true'
+      - name: Retain immutable release candidate
+        if: steps.retained.outputs.artifact-0 != 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-candidate
@@ -291,12 +294,14 @@ jobs:
     uses: ./.github/workflows/tests-conformance.yaml
     with:
       release-candidate: true
+      release-sha: ${{ inputs.sha }}
 
   policy-library:
     needs: candidate
     uses: ./.github/workflows/tests-conformance-policy-library.yaml
     with:
       release-candidate: true
+      release-sha: ${{ inputs.sha }}
       policy-library-sha: ${{ needs.candidate.outputs.policy-library-sha }}
 
   k6:
@@ -307,6 +312,7 @@ jobs:
     uses: ./.github/workflows/tests-k6.yaml
     with:
       release-candidate: true
+      release-sha: ${{ inputs.sha }}
 
   performance:
     runs-on: ubuntu-latest
