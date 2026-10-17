@@ -75,8 +75,9 @@ import (
 )
 
 type SkippedInvalidPolicies struct {
-	skipped []PolicyDiagnostic
-	invalid []PolicyDiagnostic
+	skipped  []PolicyDiagnostic
+	invalid  []PolicyDiagnostic
+	warnings []PolicyDiagnostic
 }
 
 type PolicyDiagnostic struct {
@@ -572,7 +573,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for _, pol := range policies {
 		// TODO we should return this info to the caller
 		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		warnings, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
@@ -582,6 +583,13 @@ func (c *ApplyCommandConfig) applyPolicies(
 				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
 			}
 			continue
+		}
+
+		for _, w := range warnings {
+			skipInvalidPolicies.warnings = append(skipInvalidPolicies.warnings, PolicyDiagnostic{
+				name:   pol.GetName(),
+				reason: w,
+			})
 		}
 		validPolicies = append(validPolicies, pol)
 	}
