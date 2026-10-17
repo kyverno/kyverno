@@ -1556,8 +1556,8 @@ func validateWildcard(kinds []string, background bool, rule kyvernov1.Rule) erro
 				switch typedConditions := rule.Validation.Deny.GetAnyAllConditions().(type) {
 				case []kyvernov1.Condition: // backwards compatibility
 					for _, condition := range typedConditions {
-						key := condition.GetKey()
-						if !strings.Contains(key.(string), "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key.(string)) || strings.Contains(key.(string), "request.object.spec")) {
+						key, ok := condition.GetKey().(string)
+						if !ok || (!strings.Contains(key, "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key) || strings.Contains(key, "request.object.spec"))) {
 							return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 								" the rule does not match any kind")
 						}
