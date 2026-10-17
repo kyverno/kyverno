@@ -311,6 +311,45 @@ class RetryAndGates(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Refusing to overwrite"):
             release.same_or_absent("old", "new", "chart")
 
+    def test_remote_tag_must_still_target_the_validated_commit(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        with patch.dict(os.environ, {"GH_REPO": "kyverno/kyverno"}), \
+                patch.object(release, "gh", return_value=json.dumps({
+                    "object": {"type": "commit", "sha": "b" * 40},
+                })):
+            with self.assertRaisesRegex(ValueError, "no longer points"):
+                release.verify_tag(metadata)
+
+    def test_annotated_remote_tag_is_peeled_to_the_validated_commit(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        with patch.dict(os.environ, {"GH_REPO": "kyverno/kyverno"}), \
+                patch.object(release, "gh", side_effect=[
+                    json.dumps({"object": {"type": "tag", "sha": "c" * 40}}),
+                    json.dumps({"object": {"type": "commit", "sha": SHA}}),
+                ]) as read:
+            release.verify_tag(metadata)
+            self.assertIn("git/tags/", read.call_args.args[-1])
+
+    def test_public_release_cannot_reenter_mutating_publication(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        with patch.object(release, "existing_release", return_value={
+            "isDraft": False, "isPrerelease": False,
+        }), patch.object(release, "run") as mutate:
+            with self.assertRaisesRegex(ValueError, "release is public"):
+                release.ensure_draft(metadata)
+            with self.assertRaisesRegex(ValueError, "not a draft"):
+                release.require_draft(metadata)
+            mutate.assert_not_called()
+
+    def test_retry_report_keeps_prior_success_and_latest_retried_outcome(self):
+        pages = [{"jobs": [
+            {"id": 1, "name": "unit", "conclusion": "success"},
+            {"id": 2, "name": "charts", "conclusion": "failure"},
+        ]}, {"jobs": [
+            {"id": 3, "name": "charts", "conclusion": "success"},
+        ]}]
+        self.assertEqual(report.latest_jobs(pages), [pages[0]["jobs"][0], pages[1]["jobs"][0]])
+
     def test_expired_retained_artifact_never_rebuilds(self):
         pages = [{"artifacts": [{"name": "release-candidate", "expired": True}]}]
         with patch.object(retained, "output", return_value=json.dumps(pages)), \
@@ -387,6 +426,9 @@ class RetryAndGates(unittest.TestCase):
                       jobs["charts"]["steps"][-1]["run"])
         for job in ("conformance", "policy-library", "k6"):
             self.assertEqual(jobs[job]["with"]["release-candidate"], "true")
+        scan = next(step for step in jobs["candidate"]["steps"]
+                    if step.get("uses", "").startswith("aquasecurity/trivy-action@"))
+        self.assertGreater(len(scan["env"]["TRIVY_DB_REPOSITORY"].split(",")), 1)
 
     def test_draft_until_publication_provenance_remote_verification_and_krew(self):
         jobs = self.workflow("release-publish.yaml")["jobs"]
@@ -395,6 +437,21 @@ class RetryAndGates(unittest.TestCase):
         self.assertEqual(jobs["krew"]["needs"], "verify")
         self.assertEqual(jobs["provenance"]["strategy"]["fail-fast"], "false")
         self.assertEqual(set(jobs["provenance"]["strategy"]["matrix"]["image"]), set(release.IMAGES))
+
+    def test_release_checkout_code_is_explicitly_pinned_to_validated_sha(self):
+        for name in ("prepare-release.yaml", "release-validate.yaml",
+                     "release-publish.yaml", "helm-release.yaml"):
+            for job in self.workflow(name)["jobs"].values():
+                for step in job.get("steps", []):
+                    if step.get("uses", "").startswith("actions/checkout@"):
+                        self.assertEqual(step["with"]["ref"], "${{ inputs.sha }}", name)
+
+    def test_special_conformance_suites_retain_per_test_reports(self):
+        for name in ("custom-sigstore", "check-tests"):
+            steps = self.workflow("tests-conformance.yaml")["jobs"][name]["steps"]
+            self.assertTrue(any("--report-format JSON" in step.get("run", "") for step in steps))
+            self.assertTrue(any(step.get("with", {}).get("name", "").startswith(
+                "release-conformance-") for step in steps))
 
     def test_prerelease_never_submits_krew(self):
         metadata = release.plan("v1.20.2-rc.3", SHA, MAPPING)
@@ -408,6 +465,7 @@ class RetryAndGates(unittest.TestCase):
         metadata = release.plan("v1.20.2-rc3", SHA, MAPPING)
         responses = [{"isDraft": True}, {"isDraft": False, "isPrerelease": True}]
         with patch.object(assets, "existing_release", side_effect=responses), \
+                patch.object(assets, "verify_tag"), \
                 patch.object(assets.Path, "read_text", return_value=""), \
                 patch.object(assets.Path, "mkdir"), patch.object(assets.Path, "write_text"), \
                 patch.object(assets, "run") as mock, \

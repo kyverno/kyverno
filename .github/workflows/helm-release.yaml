@@ -30,6 +30,8 @@ jobs:
       GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
       - uses: ./.github/actions/release/candidate
       - uses: ./.github/actions/tools/install
         with:

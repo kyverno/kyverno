@@ -162,7 +162,15 @@ jobs:
           TEST_IMAGE_URL: ${{ env.TEST_IMAGE_URL }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw/custom-sigstore && chainsaw test --config .chainsaw.yaml
+          cd ./test/conformance/chainsaw/custom-sigstore
+          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name custom-sigstore
+      - name: Retain custom Sigstore test results
+        if: always() && inputs.release-candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-conformance-custom-sigstore-${{ matrix.k8s-version }}-${{ github.run_attempt }}
+          path: release-reports
+          retention-days: 90
       - name: Debug failure
         if: failure()
         uses: ./.github/actions/kyverno/logs
@@ -953,7 +961,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          cd ./test/conformance/chainsaw/cli && chainsaw test --config .chainsaw.yaml
+          cd ./test/conformance/chainsaw/cli
+          chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name cli
+      - name: Retain CLI conformance test results
+        if: always() && inputs.release-candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-conformance-cli-${{ matrix.k8s-version }}-${{ github.run_attempt }}
+          path: release-reports
+          retention-days: 90
 
   helm-tests:
     runs-on: ubuntu-latest
