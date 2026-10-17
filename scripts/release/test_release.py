@@ -310,6 +310,84 @@ class LocalArtifacts(unittest.TestCase):
                     metadata, lambda name, files: dependencies(name, files, mismatch)
                 ))
 
+    def index(self, metadata):
+        directory = self.package(metadata)
+        destination = Path(".release/packages")
+        destination.mkdir(parents=True)
+        index = {"entries": {}}
+        for name, version in metadata["charts"].items():
+            source = directory / f"{name}-{version}.tgz"
+            shutil.copyfile(source, destination / source.name)
+            with tarfile.open(source) as archive:
+                entry = yaml.safe_load(archive.extractfile(f"{name}/Chart.yaml"))
+            entry.update(digest=release.sha256(source), urls=[source.name], created="now")
+            index["entries"][name] = [entry]
+        return index
+
+    def test_index_checks_client_urls_digest_and_exact_packaged_metadata(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        index = self.index(metadata)
+        entry = index["entries"]["kyverno"][0]
+        self.assertEqual(release.verify_index_entry("kyverno", entry, metadata),
+                         "https://kyverno.github.io/kyverno/kyverno-3.10.2.tgz")
+        for mutation in ({"urls": []}, {"urls": ["https://example.test/wrong.tgz"]},
+                         {"urls": [None]}, {"digest": None},
+                         {"appVersion": "v1.19.0"}, {"deprecated": True}):
+            changed = {**entry, **mutation}
+            with self.subTest(mutation=mutation), self.assertRaisesRegex(ValueError, "Conflicting Helm index"):
+                release.verify_index_entry("kyverno", changed, metadata)
+
+    def test_transient_oci_chart_read_failure_uses_bounded_retry(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        index = yaml.safe_dump(self.index(metadata)).encode()
+        parent = Path(".release/packages/kyverno-3.10.2.tgz").read_bytes()
+        policies = Path(".release/packages/kyverno-policies-4.2.2.tgz").read_bytes()
+        responses = [io.BytesIO(data) for data in (index, parent, index, parent, policies)]
+        calls = []
+
+        def pull(*args):
+            calls.append(args)
+            if len(calls) == 1:
+                raise subprocess.CalledProcessError(1, args)
+            name = args[2].rsplit("/", 1)[-1]
+            package = f"{name}-{metadata['charts'][name]}.tgz"
+            shutil.copyfile(Path(".release/packages") / package, Path(args[-1]) / package)
+
+        with patch.object(release.urllib.request, "urlopen", side_effect=responses), \
+                patch.object(release, "run", side_effect=pull), \
+                patch.object(release, "inspect_digest", return_value="sha256:remote"), \
+                patch.object(release, "verify_signature"), patch.object(release.time, "sleep") as wait:
+            release.verify_remote_charts(metadata)
+            self.assertEqual(len(calls), 3)
+            wait.assert_called_once_with(20)
+
+    def test_remote_chart_retry_exhaustion_fails_closed(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        self.index(metadata)
+        with patch.object(release.urllib.request, "urlopen",
+                          side_effect=release.urllib.error.URLError("unavailable")) as fetch, \
+                patch.object(release.time, "sleep"):
+            with self.assertRaisesRegex(ValueError, "Remote chart verification failed"):
+                release.verify_remote_charts(metadata)
+            self.assertEqual(fetch.call_count, 12)
+
+    def test_helm_test_does_not_resolve_dependencies_in_release_mode(self):
+        helm = self.path / "helm"
+        helm.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> helm-commands\n')
+        helm.chmod(0o755)
+        for mode in ("true", ""):
+            commands = self.path / "helm-commands"
+            commands.unlink(missing_ok=True)
+            process = subprocess.run(
+                ["make", "-f", str(ROOT / "Makefile"), "helm-test",
+                 f"HELM={helm}", f"RELEASE_MODE={mode}"], capture_output=True, text=True, timeout=30,
+            )
+            self.assertEqual(process.returncode, 0, process.stderr)
+            expected = ["test --namespace kyverno kyverno"]
+            if not mode:
+                expected.insert(0, "dependency build ./charts/kyverno")
+            self.assertEqual(commands.read_text().splitlines(), expected)
+
     def test_packaged_background_hook_and_dependency_references(self):
         metadata = release.plan("v1.20.2", SHA, MAPPING)
         for key in release.IMAGE_VALUES:
@@ -551,6 +629,8 @@ class RetryAndGates(unittest.TestCase):
             self.assertNotIn("continue-on-error", jobs[job])
         self.assertIn("--charts charts/kyverno,charts/kyverno-policies",
                       jobs["charts"]["steps"][-1]["run"])
+        self.assertIn("--skip-helm-dependencies", jobs["charts"]["steps"][-1]["run"])
+        self.assertIn("helm lint --strict .release/packages/*.tgz", jobs["charts"]["steps"][-1]["run"])
         for job in ("conformance", "policy-library", "k6"):
             self.assertEqual(jobs[job]["with"]["release-candidate"], "true")
             self.assertEqual(jobs[job]["with"]["release-sha"], "${{ inputs.sha }}")

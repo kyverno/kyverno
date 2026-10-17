@@ -971,7 +971,7 @@ test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 .PHONY: helm-test
 helm-test: $(HELM) ## Run helm test
 	@echo Running helm test... >&2
-	@$(HELM) dependency build ./charts/kyverno
+	@if [ "$(RELEASE_MODE)" != "true" ]; then $(HELM) dependency build ./charts/kyverno; fi
 	@$(HELM) test --namespace kyverno kyverno
 
 .PHONY: verify-legacy-crd-retention

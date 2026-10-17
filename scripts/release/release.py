@@ -13,6 +13,7 @@ import sys
 import tarfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 import yaml
@@ -511,6 +512,22 @@ def verify_signature(subject, metadata):
         env={**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{metadata['owner']}/signatures"})
 
 
+def verify_index_entry(name, entry, metadata):
+    package = Path(f".release/packages/{name}-{metadata['charts'][name]}.tgz")
+    with tarfile.open(package) as archive:
+        chart = yaml.safe_load(archive.extractfile(f"{name}/Chart.yaml"))
+    actual = {key: value for key, value in entry.items() if key not in ("created", "digest", "urls")}
+    if actual != chart or entry.get("digest") != sha256(package):
+        raise ValueError(f"Conflicting Helm index metadata or digest: {name}")
+    urls = entry.get("urls", [])
+    expected = f"https://kyverno.github.io/kyverno/{package.name}"
+    if not urls or any(not isinstance(url, str) or urllib.parse.urljoin(
+        "https://kyverno.github.io/kyverno/index.yaml", url
+    ) != expected for url in urls):
+        raise ValueError(f"Conflicting Helm index package URLs: {name}")
+    return expected
+
+
 def publish_charts(metadata):
     verify_packages(metadata, ".release/packages")
     pages = Path(".release-pages")
@@ -547,8 +564,7 @@ def publish_charts(metadata):
         entry = next((item for item in index["entries"].get(name, [])
                       if item["version"] == version), None)
         if entry:
-            same_or_absent(entry["digest"],
-                           sha256(f".release/packages/{name}-{version}.tgz"), f"{name} index")
+            verify_index_entry(name, entry, metadata)
         else:
             missing = True
     if missing:
@@ -564,7 +580,7 @@ def publish_charts(metadata):
         run("git", "-C", pages, "push", "origin", "HEAD:gh-pages")
 
 
-def verify_remote(metadata):
+def verify_remote_charts(metadata):
     verify_packages(metadata, ".release/packages")
     # Pages/CDN propagation is asynchronous. Retry reads only, never rebuild/re-publish.
     last_error = None
@@ -577,8 +593,7 @@ def verify_remote(metadata):
             for name, version in metadata["charts"].items():
                 package = Path(f".release/packages/{name}-{version}.tgz")
                 entry = next(item for item in index["entries"][name] if item["version"] == version)
-                same_or_absent(entry["digest"], sha256(package), f"{name} remote index")
-                url = f"https://kyverno.github.io/kyverno/{package.name}"
+                url = verify_index_entry(name, entry, metadata)
                 with urllib.request.urlopen(url, timeout=30) as response:
                     digest = hashlib.sha256(response.read()).hexdigest()
                 same_or_absent(digest, sha256(package), url)
@@ -591,12 +606,17 @@ def verify_remote(metadata):
                 verify_signature(ref.rsplit(":", 1)[0] + "@" + inspect_digest(ref), metadata)
             last_error = None
             break
-        except (urllib.error.URLError, KeyError, StopIteration, ValueError) as error:
+        except (urllib.error.URLError, KeyError, StopIteration, ValueError, TimeoutError,
+                yaml.YAMLError, subprocess.CalledProcessError) as error:
             last_error = error
             print(f"Remote verification attempt {attempt + 1}: {error}", file=sys.stderr)
             time.sleep(20)
     if last_error:
         raise ValueError(f"Remote chart verification failed: {last_error}")
+
+
+def verify_remote(metadata):
+    verify_remote_charts(metadata)
     verify_images(output(
         "helm", "template", "kyverno",
         f".release-verification/kyverno-{metadata['charts']['kyverno']}.tgz",
