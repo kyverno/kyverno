@@ -1027,7 +1027,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		mpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.defaultTimeout)
 
 	nmpols, err := c.getNamespacedMutatingPolicies()
 	if err != nil {
@@ -1041,7 +1042,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		nmpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.defaultTimeout)...)
 	// Only the (namespaced) MutatingPolicy webhooks are reinvoked; the image
 	// verification webhooks below keep the API default.
 	mutatingPolicyWebhooks := len(validate)
@@ -1058,7 +1060,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		ivpolsNeedingMutation(ivpols),
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.defaultTimeout)...)
 
 	nivpols, err := c.getNamespacedImageValidatingPolicies()
 	if err != nil {
@@ -1072,7 +1075,8 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.servicePort,
 		caBundle,
 		ivpolsNeedingMutation(nivpols),
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.defaultTimeout)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
 	for i, w := range validate {
@@ -1288,7 +1292,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		pols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.defaultTimeout)
 
 	for i := range vpolWebhooks {
 		vpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(vpolWebhooks[i].Rules))
@@ -1306,7 +1311,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		nvpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.defaultTimeout)
 
 	for i := range nvpolWebhooks {
 		nvpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(nvpolWebhooks[i].Rules))
@@ -1324,7 +1330,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		gpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.defaultTimeout)
 
 	for i := range gpolWebhooks {
 		gpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(gpolWebhooks[i].Rules))
@@ -1342,7 +1349,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		ngpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.defaultTimeout)
 
 	for i := range ngpolWebhooks {
 		ngpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(ngpolWebhooks[i].Rules))
@@ -1360,7 +1368,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		ivpols,
-		c.celExpressionCache)
+		c.celExpressionCache,
+		c.defaultTimeout)
 
 	for i := range ivpolWebhooks {
 		ivpolWebhooks[i].Rules = sortedRules(deDuplicatedRules(ivpolWebhooks[i].Rules))
@@ -1378,7 +1387,8 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 		c.servicePort,
 		caBundle,
 		nivpols,
-		c.celExpressionCache)...)
+		c.celExpressionCache,
+		c.defaultTimeout)...)
 
 	policies := append(pols, nvpols...)
 	policies = append(policies, gpols...)
