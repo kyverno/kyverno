@@ -1,0 +1,9 @@
+# Read from the release commit, not from the default branch.
+# Chart patches and prereleases belong exclusively to the application sequence.
+lines:
+  "1.19":
+    kyverno: "3.9"
+    kyverno-policies: "3.9"
+  "1.20":
+    kyverno: "3.10"
+    kyverno-policies: "3.10"

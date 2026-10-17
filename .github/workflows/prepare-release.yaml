@@ -1,0 +1,59 @@
+name: prepare-release
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Application tag to create only after validation (v1.20.0-rc.1)
+        type: string
+        required: true
+      sha:
+        description: Full commit SHA; must equal the dispatch branch HEAD resolved by GitHub
+        type: string
+        required: true
+
+# Same lock as a tag push. The GITHUB_TOKEN-created tag does not trigger another run.
+concurrency:
+  group: release-${{ github.repository }}-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    if: github.repository == 'kyverno/kyverno'
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    uses: ./.github/workflows/release-validate.yaml
+    with:
+      tag: ${{ inputs.tag }}
+      sha: ${{ inputs.sha }}
+
+  tag:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      RELEASE_SHA: ${{ inputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create tag or accept an identical interrupted retry
+        run: python3 scripts/release/tag.py
+
+  publish:
+    needs: [validate, tag]
+    permissions:
+      contents: write
+      actions: read
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/release-publish.yaml
+    with:
+      tag: ${{ inputs.tag }}
+      sha: ${{ inputs.sha }}

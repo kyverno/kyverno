@@ -1,0 +1,193 @@
+name: Publish and remotely verify tested release
+
+permissions: {}
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
+
+env:
+  RELEASE_TAG: ${{ inputs.tag }}
+  RELEASE_SHA: ${{ inputs.sha }}
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/release/candidate
+      - run: python3 scripts/release/release.py draft
+
+  images:
+    needs: draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    outputs:
+      digests: ${{ steps.images.outputs.digests }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/release/candidate
+      - uses: ./.github/actions/release/signing
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y skopeo
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Promote and sign staged images without rebuilding
+        id: images
+        run: |
+          python3 scripts/release/release.py publish-images
+          echo "digests=$(jq -c . .release-publication/images.json)" >> "$GITHUB_OUTPUT"
+
+  provenance:
+    needs: images
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [kyverno, kyvernopre, background-controller, cleanup-controller, reports-controller, kyverno-cli, readiness-checker]
+    permissions:
+      id-token: write
+      packages: write
+      actions: read
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+      digest: ${{ fromJSON(needs.images.outputs.digests)[matrix.image] }}
+      registry-username: ${{ github.actor }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  charts:
+    needs: draft
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/helm-release.yaml
+    with:
+      tag: ${{ inputs.tag }}
+      sha: ${{ inputs.sha }}
+
+  assets:
+    needs: draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/release/candidate
+      - uses: ./.github/actions/tools/install
+        with:
+          oras: true
+      - uses: ./.github/actions/release/signing
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Publish and sign exact staged CLI archives and manifests
+        run: python3 scripts/release/assets.py publish
+
+  verify:
+    needs: [images, provenance, charts, assets]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Authenticated access to unpublished draft release assets.
+      packages: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/release/candidate
+      - uses: ./.github/actions/tools/install
+        with:
+          helm: true
+          oras: true
+      - uses: ./.github/actions/release/signing
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y skopeo
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Verify remote chart/index bytes, metadata, images, signatures and provenance
+        run: python3 scripts/release/release.py verify-remote
+      - name: Verify every remote CLI/manifest asset and signature
+        run: python3 scripts/release/assets.py verify
+
+  krew:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # The bot must inspect the still-unpublished draft release.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/release/candidate
+      - name: Prepare checksummed Krew manifest without downloading draft assets
+        id: krew
+        run: python3 scripts/release/krew.py prepare
+      - name: Submit stable release to Krew before completing the release
+        if: steps.krew.outputs.submit == 'true'
+        uses: rajatjindal/krew-release-bot@c970b8a8f6dbc2f2285a26e3ae160903b87002c3 # v0.0.51
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          krew_template_file: .release-publication/krew.yaml
+          krew_plugin_release_tag: ${{ inputs.tag }}
+      - name: Verify Krew submission or existing identical release
+        run: python3 scripts/release/krew.py verify
+
+  complete:
+    needs: [verify, krew]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/release/candidate
+      - name: Undraft only after mandatory publication and remote verification
+        run: python3 scripts/release/assets.py complete
+
+  report:
+    if: always()
+    needs: [draft, images, provenance, charts, assets, verify, krew, complete]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/release/restore
+      - run: python3 -m pip install -r scripts/release/requirements.txt
+      - name: Detailed completion or partial-publication report
+        if: always()
+        run: python3 scripts/release/report.py
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-publication-${{ github.run_attempt }}
+          path: release-report
+          retention-days: 90
+      - name: Fail on any incomplete mandatory publication
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -c 'import json,os; results=json.loads(os.environ["RESULTS"]); assert all(j["result"]=="success" for j in results.values()), results'
