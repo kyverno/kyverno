@@ -230,6 +230,10 @@ bytes/digests. Index updates are serialized; a successful retry does not churn
 an unchanged index. Partial publication keeps the GitHub release draft and the
 overall run failed, with explicit partial-publication diagnostics.
 
+Derived test views cannot survive independently of their sealed candidate.
+If an earlier attempt successfully retained the candidate but it has since
+disappeared, reruns fail closed even if every derived artifact was also deleted.
+
 Publication rechecks the remote tag target, and every publisher checks out the
 validated SHA explicitly. A tag that has moved fails closed. An existing public
 release cannot re-enter mutating publication: do not rerun a completed release,

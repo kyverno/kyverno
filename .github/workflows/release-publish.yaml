@@ -24,6 +24,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Reject event mismatch before loading publication code
+        run: test "$RELEASE_SHA" = "$GITHUB_SHA"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha }}
@@ -161,6 +163,7 @@ jobs:
         run: python3 scripts/release/krew.py prepare
       - name: Submit stable release to Krew before completing the release
         if: steps.krew.outputs.submit == 'true'
+        # Static URIs/hashes avoid draft-asset downloads; the authenticated lookup can read drafts.
         uses: rajatjindal/krew-release-bot@c970b8a8f6dbc2f2285a26e3ae160903b87002c3 # v0.0.51
         env:
           GITHUB_TOKEN: ${{ github.token }}

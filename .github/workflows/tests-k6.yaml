@@ -10,6 +10,9 @@ on:
       release-candidate:
         type: boolean
         default: false
+      release-sha:
+        type: string
+        default: ""
 
 env:
   RELEASE_CANDIDATE: ${{ inputs.release-candidate }}
@@ -25,6 +28,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Install helm
@@ -118,6 +124,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release-sha || github.sha }}
+          persist-credentials: false
       - name: Restore latest successful scenario reports across interrupted attempts
         run: python3 scripts/release/artifacts.py k6
       - name: Aggregate and compare results

@@ -20,7 +20,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  identity:
+    if: github.repository == 'kyverno/kyverno'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Bind dispatch identity before checking out input-selected code
+        env:
+          RELEASE_SHA: ${{ inputs.sha }}
+        run: |
+          test "$RELEASE_SHA" = "$GITHUB_SHA"
+          [[ "$GITHUB_REF" == refs/heads/main || "$GITHUB_REF" =~ ^refs/heads/release-[0-9]+\.[0-9]+$ ]]
+
   validate:
+    needs: identity
     if: github.repository == 'kyverno/kyverno'
     permissions:
       contents: read
