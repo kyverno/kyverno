@@ -1,5 +1,9 @@
 # Read from the release commit, not from the default branch.
 # Chart patches and prereleases belong exclusively to the application sequence.
+dependencies:
+  kyverno-api-0.0.1-alpha.5.tgz: 83b6db6576b0365dcb53aaf73300b666bae910099e1499267fce44fc3fd02901
+  openreports-0.1.0.tgz: 3ad112726e16cb29253c9e2fabcd8f3e7113580d98e0b712a1e67f25d03ba2dd
+  reports-server-0.1.7.tgz: 78308b53370f15ef0fa269dfa5bc2587c6224cee866ca917ff04bf4b5a49987e
 lines:
   "1.19":
     kyverno: "3.9"

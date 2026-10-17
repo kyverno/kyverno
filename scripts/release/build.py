@@ -131,6 +131,7 @@ def main():
         archive.add("config/crds", arcname="config/crds")
         archive.add(".release/plan.json", arcname=".release/plan.json")
         archive.add(".release/packages", arcname=".release/packages")
+        archive.add(".release/dependencies", arcname=".release/dependencies")
         archive.add(".release/install.yaml", arcname=".release/install.yaml")
     # Candidate-wide checksums also cover every CLI, OCI layer, manifest and dependency package.
     Path(".release/assets/checksums.txt").write_text(
