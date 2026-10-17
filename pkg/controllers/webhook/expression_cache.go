@@ -36,18 +36,28 @@ func NewExpressionCache() *expressionCache {
 func (c *expressionCache) GetOrCompile(condition admissionregistrationv1.MatchCondition) *compiledExpression {
 	hash := c.hashMatchCondition(condition)
 
+	// Fast path: cache hit — read lock only.
 	c.mu.RLock()
 	if cached, exists := c.cache[hash]; exists {
 		c.mu.RUnlock()
 		return cached
 	}
-	c.mu.RUnlock()
-
-	c.mu.RLock()
+	// Take a defensive snapshot of preexistingExpressions so we can release
+	// the read lock before the (potentially slow) CEL compilation step.
+	// Passing the live map to CompileMatchConditionsWithKubernetesEnv without a
+	// lock would race with concurrent AddExpression writers.
+	snapshot := make(map[string]bool, len(c.preexistingExpressions))
+	for k, v := range c.preexistingExpressions {
+		snapshot[k] = v
+	}
 	isPreexisting := c.preexistingExpressions[condition.Expression]
 	c.mu.RUnlock()
 
-	errors := compiler.CompileMatchConditionsWithKubernetesEnv([]admissionregistrationv1.MatchCondition{condition}, c.preexistingExpressions)
+	// Compile against the snapshot — no lock needed here; snapshot is thread-local.
+	errors := compiler.CompileMatchConditionsWithKubernetesEnv(
+		[]admissionregistrationv1.MatchCondition{condition},
+		snapshot,
+	)
 
 	compiled := &compiledExpression{
 		expression: condition.Expression,
@@ -59,6 +69,12 @@ func (c *expressionCache) GetOrCompile(condition admissionregistrationv1.MatchCo
 	}
 
 	c.mu.Lock()
+	// Another goroutine may have compiled and stored the same expression while
+	// we were working; prefer the already-stored entry to avoid redundant writes.
+	if existing, exists := c.cache[hash]; exists {
+		c.mu.Unlock()
+		return existing
+	}
 	c.cache[hash] = compiled
 	c.preexistingExpressions[condition.Expression] = true
 	c.mu.Unlock()
