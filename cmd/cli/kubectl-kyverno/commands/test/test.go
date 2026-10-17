@@ -73,6 +73,9 @@ type TestResponse struct {
 	DeletingPolicies   map[string]struct{}
 }
 
+// deletingPolicyKey returns the lookup key used to record DeletingPolicy results in a test
+// response. Namespaced policies are keyed as "<namespace>/<name>"; cluster-scoped policies
+// (empty namespace) are keyed by name alone.
 func deletingPolicyKey(namespace, name string) string {
 	if namespace == "" {
 		return name
@@ -744,6 +747,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	return &testResponse, nil
 }
 
+// responseTargetsResource reports whether an engine response is associated with the given
+// target resource. It first looks for a patched target extracted from the response, then
+// falls back to GVK/name/namespace matching for mutating policy-like responses that either
+// carry the kyverno.io/target provenance property on a rule or declare target match
+// constraints without producing rule results.
 func responseTargetsResource(targetResource *unstructured.Unstructured, response engineapi.EngineResponse) bool {
 	if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), response); r != nil {
 		return true
@@ -779,6 +787,12 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 	return false
 }
 
+// applyImageValidatingPolicies evaluates the given ImageValidatingPolicies against the test
+// inputs and returns the aggregated engine responses. Resources are shaped into admission
+// requests and run through the CEL-based engine, while raw JSON payloads are evaluated
+// directly via eval.Evaluate. Each produced response is counted in rc. When continueOnFail
+// is set, evaluation errors on a single resource or payload are reported and skipped
+// instead of aborting the whole run.
 func applyImageValidatingPolicies(
 	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
@@ -938,6 +952,12 @@ func applyImageValidatingPolicies(
 	return responses, nil
 }
 
+// applyDeletingPolicies evaluates the given DeletingPolicies against the test resources and
+// returns the aggregated engine responses. Resources excluded by a policy's matchConstraints
+// emit no result, aligning with the other CEL policy types (vpol/mpol). Among the resources
+// selected by a policy, those whose compiled CEL delete condition evaluates to true yield a
+// pass; those whose condition evaluates to false yield a fail. Evaluation errors are
+// recorded as error rule responses.
 func applyDeletingPolicies(
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
@@ -1026,6 +1046,8 @@ func applyDeletingPolicies(
 	return responses, nil
 }
 
+// generateResourceKey builds the identity key used to correlate engine responses with test
+// resources, formatted as "<apiVersion>,<kind>,<namespace>,<name>".
 func generateResourceKey(resource *unstructured.Unstructured) string {
 	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
@@ -1068,6 +1090,10 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 	return resources
 }
 
+// buildHTTPMockIndex indexes the test's mocked API call responses by their resolved URL, or
+// "<METHOD>:<url>" when a method is specified, so CEL http.Get/http.Post calls can replay
+// the configured body and status code. It returns an error if a mock response body is not
+// valid JSON.
 func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
@@ -1090,6 +1116,9 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 	return index, nil
 }
 
+// wrapHTTPResponse packages a mocked response body and status code into the
+// {body, statusCode} shape expected by CEL http expressions, defaulting a zero status
+// code to 200.
 func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 	if statusCode == 0 {
 		statusCode = 200
