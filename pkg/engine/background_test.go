@@ -20,7 +20,7 @@ func TestApplyBackgroundChecks_ContextPropagation(t *testing.T) {
 	e := NewEngine(cfg, jmespath.New(cfg), nil, nil, imageverifycache.DisabledImageVerifyCache(),
 		func(kyverno.PolicyInterface, kyverno.Rule) engineapi.ContextLoader {
 			return loaderFunc(func(ctx context.Context) error { got = ctx; return nil })
-		}, nil, nil)
+		}, nil, nil, nil)
 
 	ctx := context.WithValue(context.Background(), "k", "v")
 	policy := &kyverno.ClusterPolicy{Spec: kyverno.Spec{Rules: []kyverno.Rule{{
