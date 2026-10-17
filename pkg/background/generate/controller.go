@@ -104,14 +104,15 @@ func (c *GenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		return fmt.Errorf("error in fetching policy: %v", err)
 	}
 
-	if expectedUID := ur.GetAnnotations()[provenance.PolicyUIDAnnotation]; expectedUID != "" && policy != nil && string(policy.GetUID()) != expectedUID {
-		if ur.GetAnnotations()[provenance.CleanupPolicyUIDAnnotation] == expectedUID {
-			// Cleanup belongs to the original policy, whose authenticated target
-			// records remain valid after recreation. Never evaluate the replacement
-			// policy or require the original trigger to still exist.
-			err := c.deleteDownstream(nil, kyvernov2.RuleContext{}, ur)
-			return updateStatus(c.statusControl, *ur, err, nil)
-		}
+	expectedUID := ur.GetAnnotations()[provenance.PolicyUIDAnnotation]
+	if cleanupUID := ur.GetAnnotations()[provenance.CleanupPolicyUIDAnnotation]; cleanupUID != "" && cleanupUID == expectedUID {
+		// Policy and rule deletion cleanup uses authenticated status records,
+		// independently of the current policy or trigger. Verify the original
+		// policy identity without evaluating any remaining or replacement rules.
+		err := c.deleteDownstream(nil, kyvernov2.RuleContext{}, ur)
+		return updateStatus(c.statusControl, *ur, err, nil)
+	}
+	if expectedUID != "" && policy != nil && string(policy.GetUID()) != expectedUID {
 		logger.V(2).Info("discarding update request for a replaced policy", "expectedUID", expectedUID, "actualUID", policy.GetUID())
 		return updateStatus(c.statusControl, *ur, nil, nil)
 	}

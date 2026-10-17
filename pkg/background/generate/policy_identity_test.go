@@ -61,11 +61,19 @@ func TestProcessURDoesNotExecuteRecreatedPolicy(t *testing.T) {
 	}
 }
 
-func TestProcessURCleansUpOriginalPolicyAfterRecreation(t *testing.T) {
+func TestProcessURCleansUpOriginalPolicyWithoutTrigger(t *testing.T) {
 	t.Parallel()
-	for _, namespaced := range []bool{false, true} {
+	for _, subject := range []struct {
+		namespaced bool
+		state      string
+	}{
+		{false, "recreated"}, {true, "recreated"},
+		{false, "deleted"}, {true, "deleted"},
+		{false, "rule removed"}, {true, "rule removed"},
+	} {
+		namespaced := subject.namespaced
 		for _, mode := range []string{"authenticated", "missing cleanup identity", "mismatched cleanup identity", "missing target records", "delete conflict"} {
-			t.Run(fmt.Sprintf("namespaced=%t/%s", namespaced, mode), func(t *testing.T) {
+			t.Run(fmt.Sprintf("namespaced=%t/%s/%s", namespaced, subject.state, mode), func(t *testing.T) {
 				t.Parallel()
 				gen, base := newProvenanceStampGenerator(t)
 				original := gen.policy
@@ -77,7 +85,14 @@ func TestProcessURCleansUpOriginalPolicyAfterRecreation(t *testing.T) {
 				replacement := original.CreateDeepCopy()
 				replacement.SetUID("replacement-policy-uid")
 				indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-				require.NoError(t, indexer.Add(replacement))
+				switch subject.state {
+				case "recreated":
+					require.NoError(t, indexer.Add(replacement))
+				case "rule removed":
+					remaining := original.CreateDeepCopy()
+					remaining.GetSpec().Rules = nil
+					require.NoError(t, indexer.Add(remaining))
+				}
 				policyKey := original.GetName()
 				if namespaced {
 					policyKey = original.GetNamespace() + "/" + policyKey
@@ -135,11 +150,15 @@ func TestProcessURCleansUpOriginalPolicyAfterRecreation(t *testing.T) {
 					npolicyLister: kyvernov1listers.NewPolicyLister(indexer),
 					log:           logr.Discard(),
 					// No engine or live trigger: cleanup must use only the old policy's
-					// authenticated status records, never replacement policy evaluation.
+					// authenticated status records, never live policy evaluation.
 				}
 				require.NoError(t, controller.ProcessUR(ur))
-				require.Equal(t, mode == "delete conflict", status.failedCalled)
-				require.Equal(t, mode != "delete conflict", status.successCalled)
+				// Incomplete cleanup identities retain the ordinary dispatch path:
+				// discard stale replacement work, otherwise require the live trigger.
+				invalidIdentity := mode == "missing cleanup identity" || mode == "mismatched cleanup identity"
+				wantFailure := mode == "delete conflict" || (subject.state != "recreated" && invalidIdentity)
+				require.Equal(t, wantFailure, status.failedCalled)
+				require.Equal(t, !wantFailure, status.successCalled)
 				if mode == "authenticated" {
 					require.Equal(t, []string{"original"}, client.deleted)
 				} else {
