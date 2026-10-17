@@ -215,9 +215,21 @@ func (c controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
+// watchdog forwards webhook state notifications to the queue until ctx is
+// cancelled. Nothing ever closes the notify channel, so ranging over it would
+// never return, and controllerutils.Run waits on this routine in its outermost
+// defer: the whole leader controller set would stay up after leadership loss.
 func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
-	for key := range c.polStateRecorder.NotifyChannel() {
-		c.queue.Add(key)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case key, ok := <-c.polStateRecorder.NotifyChannel():
+			if !ok {
+				return
+			}
+			c.queue.Add(key)
+		}
 	}
 }
 
