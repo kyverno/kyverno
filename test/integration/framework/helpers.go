@@ -2,8 +2,12 @@ package framework
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/uuid"
@@ -191,6 +195,33 @@ func CreateNamespace(t *testing.T, kubeClient kubernetes.Interface, name string)
 	t.Cleanup(func() {
 		_ = kubeClient.CoreV1().Namespaces().Delete(context.Background(), name, metav1.DeleteOptions{})
 	})
+}
+
+var uniqueNameCounter atomic.Uint64
+
+// UniqueName returns a name of the form <prefix>-<short hash of t.Name()>-<counter> that no other
+// call in this process returns, so a test can run with -count=N or after another test without
+// colliding with leftovers: envtest has no namespace controller, so a deleted namespace stays
+// Terminating and its name cannot be reused. The result is a valid DNS-1123 label as long as
+// prefix is one.
+func UniqueName(t *testing.T, prefix string) string {
+	t.Helper()
+	sum := sha256.Sum256([]byte(t.Name()))
+	suffix := fmt.Sprintf("-%s-%d", hex.EncodeToString(sum[:4]), uniqueNameCounter.Add(1))
+	if maxPrefix := 63 - len(suffix); len(prefix) > maxPrefix {
+		prefix = strings.TrimRight(prefix[:maxPrefix], "-.")
+	}
+	return prefix + suffix
+}
+
+// CreateUniqueNamespace creates a namespace named UniqueName(t, prefix), registers its cleanup like
+// CreateNamespace, and returns its name. Unlike CreateNamespace it never reuses a namespace, so
+// tests using it are safe under -count.
+func CreateUniqueNamespace(t *testing.T, kubeClient kubernetes.Interface, prefix string) string {
+	t.Helper()
+	name := UniqueName(t, prefix)
+	CreateNamespace(t, kubeClient, name)
+	return name
 }
 
 // PodAdmissionRequestDryRun builds a handlers.AdmissionRequest for a Pod CREATE with DryRun set to true.
