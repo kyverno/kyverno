@@ -148,7 +148,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		isSync := policy.Policy.GetSpec().SynchronizationEnabled()
 		// Covers engine.Handle's write and the SyncWatchers call below that
 		// catches the watcher cache up; keyed like the labels the engine stamps.
-		endGenerate := c.watchManager.BeginGenerate(policy.Policy.GetName(), trigger.GetUID())
+		endGenerate := c.watchManager.BeginGenerate(ur.Spec.GetPolicyKey(), trigger.GetUID())
 		gpolResponse, err := c.engine.Handle(ctx, request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
 			endGenerate()
