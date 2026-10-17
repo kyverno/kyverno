@@ -25,14 +25,18 @@ own mutex around every touch point (`Initialize`, `TrustedRoot`, `RekorPublicKey
 must never call another `sigstoretuf` exported function inside it** — the mutex is not re-entrant; ivpol's
 `initTUFAndFetch` documents this explicitly and calls `tuf`/`cosign` functions directly inside the closure instead.
 
-## Verification fails closed, deliberately, with one narrow exception
+## Verification fails closed, deliberately; TUF is skipped in exactly two cases
 
 If TUF initialization or trusted-root fetch fails, verification errors out — there is no "skip verification and
 allow" fallback anywhere in this path. Rekor/CTLog pubkey and Fulcio-root fetch failures fall back only to
 already-fetched trusted-root data, never to skipping verification; if that also fails, the whole verification
-errors. The **only** exception is `skipSigstoreInfra`: a key/certificate attestor with `CTLog.InsecureIgnoreTlog`
-set explicitly skips TUF by the policy author's own declared config — not an error-handling fallback. Keep this
-fail-closed property if you touch this code; it's a deliberate security posture, not an oversight.
+errors. TUF is not contacted in two cases, both declared by the policy author rather than error-handling fallbacks.
+The first is `skipSigstoreInfra`: a key/certificate attestor with `CTLog.InsecureIgnoreTlog` skips all Sigstore
+infrastructure and ignores any inline `trustedRoot`. The second is an ivpol attestor with an inline
+`trustedRoot.value`: that root replaces the TUF-distributed one (and any `tuf` block) and becomes `TrustedMaterial`,
+so verification still runs and fails closed against it, and a malformed root, or a keyless attestor that requires a
+tlog or SCT the root does not carry, is a configuration error. Keep this fail-closed property if you touch this
+code; it's a deliberate security posture, not an oversight.
 
 ## Image-verify cache is TTL + resourceVersion keyed, not explicitly invalidated
 
