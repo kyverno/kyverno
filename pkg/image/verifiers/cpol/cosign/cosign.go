@@ -35,6 +35,11 @@ import (
 // unbounded work in crypto/x509 certificate chain building).
 const maxIntermediateCerts = 10
 
+// maxRootCerts limits the number of root (trust-anchor) certificates accepted
+// from user-provided certificate chains, bounding certificate path-building
+// fan-out (CVE-2026-32280) while still allowing multi-root policy trust.
+const maxRootCerts = 10
+
 // pemCertBlockHeader is the PEM block header used to count certificate blocks
 // cheaply before full ASN.1 parsing.
 var pemCertBlockHeader = []byte("-----BEGIN CERTIFICATE-----")
@@ -183,7 +188,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 		if n := countPEMCertBlocks([]byte(opts.TSACertChain)); n > maxIntermediateCerts+2 {
 			return nil, fmt.Errorf("TSA certificate chain contains too many certificates (%d), maximum allowed is %d", n, maxIntermediateCerts+2)
 		}
-		leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.TSACertChain))
+		leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.TSACertChain), true)
 		if err != nil {
 			return nil, fmt.Errorf("error splitting tsa certificates: %w", err)
 		}
@@ -586,7 +591,7 @@ func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTrans
 	return &publicKeys, nil
 }
 
-func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.Certificate, err error) {
+func splitPEMCertificateChain(pem []byte, normalizeTimestampingEKU bool) (leaves, intermediates, roots []*x509.Certificate, err error) {
 	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(pem)
 	if err != nil {
 		return nil, nil, nil, err
@@ -601,8 +606,10 @@ func splitPEMCertificateChain(pem []byte) (leaves, intermediates, roots []*x509.
 				roots = append(roots, cert)
 			} else {
 				// Intermediate certificates having empty ExtendedKeyUsage (EKU) are rejected by cosign
-				// We relax this check by adding TimeStamping EKU to such certificates
-				if len(cert.ExtKeyUsage) == 0 {
+				// We relax this check by adding TimeStamping EKU to such certificates. This normalization
+				// is only correct for TSA chains; applying it to code-signing chains would corrupt a
+				// signing intermediate into a timestamp-only certificate.
+				if normalizeTimestampingEKU && len(cert.ExtKeyUsage) == 0 {
 					cert.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageTimeStamping}
 				}
 				intermediates = append(intermediates, cert)
