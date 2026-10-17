@@ -11,7 +11,7 @@ import sys
 
 from release import (
     check_seal, existing_release, require_draft, run, same_or_absent, sha256, sign,
-    upload_asset, verify_signature, verify_tag,
+    upload_asset, verify_signature, verify_tag, workflow_identity,
 )
 
 
@@ -26,16 +26,13 @@ def asset_bytes(tag, name):
     ])
 
 
-def blob_identity():
-    return (
-        rf"^https://github\.com/{re.escape(os.environ['GH_REPO'])}/\.github/workflows/"
-        r"(release|prepare-release|release-publish)\.yaml@refs/(tags/v.*|heads/(main|release-[^/]+))$"
-    )
+def blob_identity(metadata):
+    return workflow_identity(metadata, ("release", "prepare-release", "release-publish"))
 
 
 def verify_blob(path, bundle, metadata):
     run("cosign", "verify-blob", "--bundle", bundle, path,
-        "--certificate-identity-regexp", blob_identity(),
+        "--certificate-identity-regexp", blob_identity(metadata),
         "--certificate-github-workflow-sha", metadata["sha"],
         "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com")
 

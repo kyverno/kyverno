@@ -137,7 +137,7 @@ jobs:
         uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         with:
           install_only: true
-          version: v0.31.0
+          version: v0.33.0
       - name: Prepare pinned full-matrix Sigstore cluster
         if: inputs.release-candidate
         env:

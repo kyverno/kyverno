@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import shutil
 import subprocess
@@ -506,8 +507,8 @@ class LocalArtifacts(unittest.TestCase):
         jobs = release.read(ROOT / ".github/workflows/tests-conformance.yaml")["jobs"]
         self.assertEqual(set(scaffolding.NODE_IMAGES), set(jobs["deferred"]["strategy"]["matrix"]["k8s-version"]))
         source = (
-            b'#!/bin/bash\ncase ${K8S_VERSION} in\n*) exit 9;;\nesac\n'
-            b'printf "%s\\n%s\\n%s\\n" "$K8S_VERSION" "$KIND_IMAGE" "$KNATIVE_VERSION"\n'
+            b'#!/bin/bash\nKIND_VERSION="v0.31.0"\ncase ${K8S_VERSION} in\n*) exit 9;;\nesac\n'
+            b'printf "%s\\n%s\\n%s\\n%s\\n" "$K8S_VERSION" "$KIND_IMAGE" "$KNATIVE_VERSION" "$KIND_VERSION"\n'
         )
         with patch.object(scaffolding, "CHECKSUM", hashlib.sha256(source).hexdigest()):
             for version, digest in scaffolding.NODE_IMAGES.items():
@@ -519,12 +520,15 @@ class LocalArtifacts(unittest.TestCase):
                 )
                 self.assertEqual(process.returncode, 0, process.stderr)
                 self.assertEqual(process.stdout.splitlines(), [
-                    version[1:], f"kindest/node:{version}@{digest}", "1.19.0",
+                    version[1:], f"kindest/node:{version}@{digest}", "1.19.0", scaffolding.KIND_VERSION,
                 ])
         setup = next(step for step in jobs["custom-sigstore"]["steps"]
                      if step.get("name") == "Install pinned Sigstore on the full-matrix cluster")
         self.assertIn(scaffolding.COMMIT, setup["uses"])
         self.assertTrue(setup["with"]["sigstore-only"])
+        kind = next(step for step in jobs["custom-sigstore"]["steps"]
+                    if step.get("name") == "Install pinned full-matrix Kind")
+        self.assertEqual(kind["with"]["version"], scaffolding.KIND_VERSION)
 
     def test_sigstore_adapter_rejects_source_drift_unknown_nodes_and_changed_structure(self):
         with self.assertRaisesRegex(ValueError, "committed checksum"):
@@ -535,6 +539,169 @@ class LocalArtifacts(unittest.TestCase):
         with patch.object(scaffolding, "CHECKSUM", hashlib.sha256(source).hexdigest()):
             with self.assertRaisesRegex(ValueError, "Unexpected"):
                 scaffolding.prepare_script(source, "v1.36.1")
+
+    def stage_assets(self):
+        environment = patch.dict(os.environ, GH_REPO="kyverno/kyverno")
+        environment.start()
+        self.addCleanup(environment.stop)
+        metadata = release.plan("v1.20.2-rc.3", SHA, MAPPING)
+        for name in (".release/assets/cli.tar.gz", ".release/install.yaml",
+                     "config/crds/kyverno.io_policies.yaml", ".release/SHA256SUMS"):
+            path = Path(name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(f"retained {name}".encode())
+        release.write_json(".release/plan.json", metadata)
+        release.write_json(".release/manifests/index.json", {"manifests": [{
+            "digest": "sha256:" + "c" * 64,
+            "annotations": {"org.opencontainers.image.ref.name": metadata["tag"]},
+        }]})
+        Path(".release/manifest.tar.gz").write_bytes(b"retained manifest content")
+        remote = {}
+        for path in assets.all_assets():
+            remote[path.name] = path.read_bytes()
+            remote[f"{path.name}.sigstore.json"] = b"valid retained bundle"
+        return metadata, remote
+
+    def asset_commands(self, metadata, digest, content=b"retained manifest content"):
+        def execute(*args, **kwargs):
+            if args[:2] == ("cosign", "sign-blob"):
+                Path(args[args.index("--bundle") + 1]).write_bytes(b"valid retained bundle")
+            elif args[:2] == ("cosign", "verify-blob"):
+                if Path(args[args.index("--bundle") + 1]).read_bytes() == b"invalid bundle":
+                    raise subprocess.CalledProcessError(1, args)
+            elif args[:2] == ("oras", "pull"):
+                target = Path(args[args.index("--output") + 1])
+                target.mkdir(parents=True)
+                (target / "manifest.tar.gz").write_bytes(content)
+            elif args[:2] == ("oras", "cp"):
+                digest[0] = assets.manifest_digest(metadata)
+            else:
+                self.fail(f"Unexpected publication command (must not rebuild): {args}")
+        return execute
+
+    def test_remote_assets_verify_bytes_bundles_manifest_digest_and_content(self):
+        metadata, remote = self.stage_assets()
+        digest = [assets.manifest_digest(metadata)]
+        with patch.object(assets, "asset_bytes", side_effect=lambda tag, name: remote.get(name)), \
+                patch.object(assets, "remote_manifest", side_effect=lambda ref: digest[0]), \
+                patch.object(assets, "verify_signature") as signature, \
+                patch.object(assets, "run", side_effect=self.asset_commands(metadata, digest)) as commands:
+            assets.verify(metadata)
+        signature.assert_called_once_with(
+            f"ghcr.io/kyverno/manifests/kyverno@{digest[0]}", metadata,
+        )
+        bundles = [call.args for call in commands.call_args_list
+                   if call.args[:2] == ("cosign", "verify-blob")]
+        self.assertEqual(len(bundles), len(assets.all_assets()))
+        self.assertTrue(all(args[args.index("--certificate-github-workflow-sha") + 1] == SHA
+                            for args in bundles))
+
+    def test_remote_assets_fail_for_missing_conflicting_or_unverifiable_assets(self):
+        metadata, original = self.stage_assets()
+        first = assets.all_assets()[0].name
+        for name, value, error in (
+            (first, None, ValueError),
+            (first, b"conflicting bytes", ValueError),
+            (f"{first}.sigstore.json", None, ValueError),
+            (f"{first}.sigstore.json", b"invalid bundle", subprocess.CalledProcessError),
+        ):
+            remote = {**original, name: value}
+            with self.subTest(name=name, value=value), \
+                    patch.object(assets, "asset_bytes", side_effect=lambda tag, name: remote.get(name)), \
+                    patch.object(assets, "remote_manifest") as manifest, \
+                    patch.object(assets, "run", side_effect=self.asset_commands(metadata, [])):
+                with self.assertRaises(error):
+                    assets.verify(metadata)
+                manifest.assert_not_called()
+
+    def test_remote_manifest_verification_rejects_digest_and_content_mismatches(self):
+        metadata, remote = self.stage_assets()
+        expected = assets.manifest_digest(metadata)
+        for digest, content in (
+            (None, b"retained manifest content"),
+            ("sha256:" + "d" * 64, b"retained manifest content"),
+            (expected, b"different manifest content"),
+        ):
+            with self.subTest(digest=digest, content=content), \
+                    patch.object(assets, "asset_bytes", side_effect=lambda tag, name: remote.get(name)), \
+                    patch.object(assets, "remote_manifest", return_value=digest), \
+                    patch.object(assets, "verify_signature"), \
+                    patch.object(assets, "run", side_effect=self.asset_commands(metadata, [], content)):
+                with self.assertRaises(ValueError):
+                    assets.verify(metadata)
+
+    def test_interrupted_asset_publication_reuses_remote_bytes_bundles_and_oci_object(self):
+        metadata, remote = self.stage_assets()
+        remote.clear()
+        digest = [None]
+        uploaded = []
+        interrupt = [True]
+
+        def upload(tag, path):
+            uploaded.append(path.name)
+            if interrupt[0] and len(uploaded) == 3:
+                raise ConnectionError("interrupted after retaining the first signed asset")
+            data = path.read_bytes()
+            existing = remote.get(path.name)
+            release.same_or_absent(
+                hashlib.sha256(existing).hexdigest() if existing is not None else None,
+                hashlib.sha256(data).hexdigest(), path.name,
+            )
+            remote[path.name] = data
+
+        with patch.object(assets, "upload_asset", side_effect=upload), \
+                patch.object(assets, "asset_bytes", side_effect=lambda tag, name: remote.get(name)), \
+                patch.object(assets, "remote_manifest", side_effect=lambda ref: digest[0]), \
+                patch.object(assets, "sign") as sign, \
+                patch.object(assets, "run", side_effect=self.asset_commands(metadata, digest)) as commands:
+            with self.assertRaises(ConnectionError):
+                assets.publish(metadata)
+            retained = dict(remote)
+            interrupt[0] = False
+            assets.publish(metadata)
+            self.assertTrue(all(remote[name] == data for name, data in retained.items()))
+            count = len(commands.call_args_list)
+            snapshot = dict(remote)
+            assets.publish(metadata)
+            self.assertEqual(remote, snapshot)
+            self.assertTrue(all(call.args[:2] == ("cosign", "verify-blob")
+                                for call in commands.call_args_list[count:]))
+            self.assertEqual(sign.call_count, 2)
+
+    def test_publication_rejects_existing_conflicting_asset_and_invalid_signature_bundle(self):
+        metadata, remote = self.stage_assets()
+        first = assets.all_assets()[0]
+
+        def upload(tag, path):
+            if remote.get(path.name) != path.read_bytes():
+                raise ValueError("Refusing to overwrite conflicting published content")
+
+        remote[first.name] = b"conflicting bytes"
+        with patch.object(assets, "upload_asset", side_effect=upload), \
+                patch.object(assets, "run") as commands:
+            with self.assertRaisesRegex(ValueError, "conflicting"):
+                assets.publish(metadata)
+            commands.assert_not_called()
+        remote[first.name] = first.read_bytes()
+        remote[f"{first.name}.sigstore.json"] = b"invalid bundle"
+        with patch.object(assets, "upload_asset", side_effect=upload), \
+                patch.object(assets, "asset_bytes", side_effect=lambda tag, name: remote.get(name)), \
+                patch.object(assets, "run", side_effect=self.asset_commands(metadata, [])) as commands:
+            with self.assertRaises(subprocess.CalledProcessError):
+                assets.publish(metadata)
+            self.assertFalse(any(call.args[:2] == ("cosign", "sign-blob")
+                                 for call in commands.call_args_list))
+            self.assertEqual(remote[f"{first.name}.sigstore.json"], b"invalid bundle")
+        remote[f"{first.name}.sigstore.json"] = b"valid retained bundle"
+        with patch.object(assets, "upload_asset", side_effect=upload), \
+                patch.object(assets, "asset_bytes", side_effect=lambda tag, name: remote.get(name)), \
+                patch.object(assets, "remote_manifest", return_value="sha256:" + "e" * 64), \
+                patch.object(assets, "sign") as sign, \
+                patch.object(assets, "run", side_effect=self.asset_commands(metadata, [])) as commands:
+            with self.assertRaisesRegex(ValueError, "conflicting"):
+                assets.publish(metadata)
+            sign.assert_not_called()
+            self.assertFalse(any(call.args[:2] == ("oras", "cp") for call in commands.call_args_list))
 
     def test_packaged_background_hook_and_dependency_references(self):
         metadata = release.plan("v1.20.2", SHA, MAPPING)
@@ -744,11 +911,15 @@ class RetryAndGates(unittest.TestCase):
             for state in ("success", "failure", "cancelled", "skipped"):
                 results = {dependency: {"result": "success"} for dependency in job["needs"]}
                 results[job["needs"][0]]["result"] = state
-                process = subprocess.run(
-                    ["bash", "-e", "-c", job["steps"][-1]["run"]],
-                    env={**os.environ, "RESULTS": json.dumps(results)}, capture_output=True,
-                )
-                self.assertEqual(process.returncode == 0, state == "success", (name, state))
+                for optimized in ("", "1"):
+                    process = subprocess.run(
+                        ["bash", "-e", "-c", job["steps"][-1]["run"]],
+                        env={**os.environ, "RESULTS": json.dumps(results),
+                             "PYTHONOPTIMIZE": optimized, "PYTHONDONTWRITEBYTECODE": "1"},
+                        capture_output=True,
+                    )
+                    self.assertEqual(process.returncode == 0, state == "success",
+                                     (name, state, optimized))
 
     def test_tag_retry_never_moves_existing_tag(self):
         env = {"RELEASE_TAG": "v1.20.1", "RELEASE_SHA": SHA,
@@ -833,6 +1004,30 @@ class RetryAndGates(unittest.TestCase):
         self.assertEqual(args[args.index("--certificate-identity") + 1], expected)
         self.assertNotIn("--certificate-github-workflow-sha", args)
         self.assertEqual(args[-1], subject)
+
+    def test_signature_identity_accepts_only_source_bound_local_reusable_workflow_shas(self):
+        metadata = release.plan("v1.20.2-rc.3", SHA, MAPPING)
+        prefix = "https://github.com/kyverno/kyverno/.github/workflows/"
+        with patch.dict(os.environ, GH_REPO="kyverno/kyverno"):
+            identity = release.workflow_identity(metadata)
+            blob = assets.blob_identity(metadata)
+            for ref in (SHA, "refs/tags/v1.20.2-rc.3", "refs/heads/main", "refs/heads/release-1.20"):
+                self.assertRegex(f"{prefix}release-publish.yaml@{ref}", identity)
+                self.assertRegex(f"{prefix}release-publish.yaml@{ref}", blob)
+            for url in (
+                f"{prefix}release-publish.yaml@{'b' * 40}",
+                f"{prefix}arbitrary.yaml@{SHA}",
+                f"{prefix}release-publish.yaml@refs/heads/untrusted-feature",
+                f"https://github.com/other/repo/.github/workflows/release-publish.yaml@{SHA}",
+            ):
+                self.assertIsNone(re.fullmatch(identity, url))
+                self.assertIsNone(re.fullmatch(blob, url))
+            self.assertRegex(f"{prefix}helm-release.yaml@{SHA}", identity)
+            self.assertIsNone(re.fullmatch(blob, f"{prefix}helm-release.yaml@{SHA}"))
+            with patch.object(release, "run") as run:
+                release.verify_signature("image@sha256:digest", metadata)
+            args = run.call_args.args
+            self.assertEqual(args[args.index("--certificate-github-workflow-sha") + 1], SHA)
 
     def test_release_checkout_code_is_explicitly_pinned_to_validated_sha(self):
         for name in ("prepare-release.yaml", "release-validate.yaml",

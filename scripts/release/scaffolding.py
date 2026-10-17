@@ -10,6 +10,7 @@ import urllib.request
 
 COMMIT = "9cbe5a1e1b01b29a875ddb7cdc77027d20a0a2d9"
 CHECKSUM = "e1333aa6446cb2023667d3a574ceb314c903b598c2705732e24f33a96943e1d2"
+KIND_VERSION = "v0.33.0"
 NODE_IMAGES = {
     "v1.33.7": "sha256:d26ef333bdb2cbe9862a0f7c3803ecc7b4303d8cea8e814b481b09949d353040",
     "v1.34.3": "sha256:08497ee19eace7b4b5348db5c6a1591d7752b164530a36f855cb0f2bdcbadd48",
@@ -27,6 +28,7 @@ def prepare_script(source, version):
     script = source.decode()
     if script.count(MARKER) != 1:
         raise ValueError("Unexpected Sigstore setup script version map")
+    script = script.replace('KIND_VERSION="v0.31.0"', f'KIND_VERSION="{KIND_VERSION}"', 1)
     # Upstream's fixed version map stops at 1.35. Keep its topology setup but
     # explicitly select the same immutable node as the full release matrix.
     entry = (
