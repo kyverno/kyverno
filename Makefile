@@ -927,6 +927,7 @@ test-cli-local-gpols: $(CLI_BIN) ## Run local CLI GPOL tests
 	@$(CLI_BIN) test ./test/cli/test-generating-policy
 	@$(CLI_BIN) test ./test/cli/test-context-configmap-gpol
 	@$(CLI_BIN) test ./test/cli/test-context-apicall-gpol
+	@$(CLI_BIN) test ./test/cli/test-context-configmap-ngpol
 
 .PHONY: test-cli-local-mpols
 test-cli-local-mpols: $(CLI_BIN) ## Run local CLI MPOL tests
