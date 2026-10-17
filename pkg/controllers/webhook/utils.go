@@ -246,7 +246,14 @@ func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admission
 		if x := less(a.Operations, b.Operations); x != 0 {
 			return x
 		}
-		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
+		var scopeA, scopeB string
+		if a.Scope != nil {
+			scopeA = string(*a.Scope)
+		}
+		if b.Scope != nil {
+			scopeB = string(*b.Scope)
+		}
+		if x := strings.Compare(scopeA, scopeB); x != 0 {
 			return x
 		}
 		return 0
