@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: source
+  namespace: tenant
+data:
+  value: tenant

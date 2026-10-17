@@ -93,32 +93,32 @@ func newFixture(t *testing.T) *fixture {
 func TestCRUDResource(t *testing.T) {
 	f := newFixture(t)
 	// Get Resource
-	_, err := f.client.GetResource(context.TODO(), "", "thekind", "ns-foo", "name-foo")
+	_, err := f.client.GetResource(context.TODO(), "group/version", "thekind", "ns-foo", "name-foo")
 	if err != nil {
 		t.Errorf("GetResource not working: %s", err)
 	}
 	// List Resources
-	_, err = f.client.ListResource(context.TODO(), "", "thekind", "ns-foo", nil)
+	_, err = f.client.ListResource(context.TODO(), "group/version", "thekind", "ns-foo", nil)
 	if err != nil {
 		t.Errorf("ListResource not working: %s", err)
 	}
 	// DeleteResouce
-	err = f.client.DeleteResource(context.TODO(), "", "thekind", "ns-foo", "name-bar", false, metav1.DeleteOptions{})
+	err = f.client.DeleteResource(context.TODO(), "group/version", "thekind", "ns-foo", "name-bar", false, metav1.DeleteOptions{})
 	if err != nil {
 		t.Errorf("DeleteResouce not working: %s", err)
 	}
 	// CreateResource
-	_, err = f.client.CreateResource(context.TODO(), "", "thekind", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
+	_, err = f.client.CreateResource(context.TODO(), "group/version", "thekind", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
 	//	UpdateResource
-	_, err = f.client.UpdateResource(context.TODO(), "", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
+	_, err = f.client.UpdateResource(context.TODO(), "group/version", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
 	if err != nil {
 		t.Errorf("UpdateResource not working: %s", err)
 	}
 	// UpdateStatusResource
-	_, err = f.client.UpdateStatusResource(context.TODO(), "", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
+	_, err = f.client.UpdateStatusResource(context.TODO(), "group/version", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
 	if err != nil {
 		t.Errorf("UpdateStatusResource not working: %s", err)
 	}

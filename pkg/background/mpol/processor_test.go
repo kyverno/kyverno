@@ -1156,10 +1156,15 @@ func TestProcess_ResourceRulesConfinesNamespacedPolicyToItsOwnNamespace(t *testi
 			unstructuredObj("v1", "ConfigMap", "ns1", "mine"),
 			unstructuredObj("v1", "ConfigMap", "victim-ns", "victim-cm"),
 			unstructuredObj("foo.example.com/v1", "Namespace", "ns1", "crd-instance"),
+			unstructuredObj("foo.example.com/v1", "Namespace", "victim-ns", "victim-crd"),
 			unstructuredObj("rbac.authorization.k8s.io/v1", "ClusterRole", "", "cluster-admin"),
 		)
 		assert.NoError(t, err)
-		fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+		// Discovery must resolve the custom Namespace separately from the core Namespace.
+		fakeClient.SetDiscovery(dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{
+			crdGV.WithResource("namespaces"),
+			rbacGV.WithResource("clusterroles"),
+		}))
 		tc := &targetTrackingClient{Interface: fakeClient}
 
 		m := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Version: "v1"}, crdGV, rbacGV})
@@ -1191,9 +1196,11 @@ func TestProcess_ResourceRulesConfinesNamespacedPolicyToItsOwnNamespace(t *testi
 			assert.True(t, strings.HasSuffix(l, "|ns1"),
 				"every target list must be confined to the policy namespace, got %q (all: %v)", l, tc.lists)
 		}
+		assert.Contains(t, tc.writes, "ConfigMap|ns1/mine", "the ordinary namespaced target must be mutated")
+		assert.Contains(t, tc.writes, "Namespace|ns1/crd-instance", "the namespaced CRD must also be mutated")
 		for _, w := range tc.writes {
-			assert.True(t, strings.HasPrefix(w, "ConfigMap|ns1/"),
-				"namespaced policy wrote outside its namespace: %q (all: %v)", w, tc.writes)
+			assert.Contains(t, []string{"ConfigMap|ns1/mine", "Namespace|ns1/crd-instance"}, w,
+				"namespaced policy wrote to an unexpected target: %q (all: %v)", w, tc.writes)
 		}
 	}
 }

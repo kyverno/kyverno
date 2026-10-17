@@ -402,6 +402,7 @@ func TestServerProtectionRoutes(t *testing.T) {
 	tests := []struct {
 		name, username, object, oldObject string
 		generationAllowed, managedAllowed bool
+		invalidResource                   bool
 	}{
 		{name: "association is checked only on dedicated route", username: tenant, object: association, managedAllowed: true},
 		{name: "managed resource protection remains optional", username: tenant, object: managed},
@@ -411,7 +412,7 @@ func TestServerProtectionRoutes(t *testing.T) {
 		{name: "installation namespace compatibility", username: config.KyvernoUserName("existing-account"), object: managed, managedAllowed: true},
 		{name: "ordinary downstream update", username: tenant, object: managed, oldObject: managed, generationAllowed: true},
 		{name: "association removal", username: tenant, object: `{"apiVersion":"v1","kind":"Secret","metadata":{"name":"target"}}`, oldObject: managed},
-		{name: "invalid resource is decoded only when protection applies", username: tenant, object: `[]`},
+		{name: "invalid resource is rejected by metadata protection", username: tenant, object: `[]`, invalidResource: true},
 	}
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprintf("managed-protection=%t", enabled), func(t *testing.T) {
@@ -444,10 +445,10 @@ func TestServerProtectionRoutes(t *testing.T) {
 						require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
 						require.NotNil(t, review.Response)
 						assert.Equal(t, request.UID, review.Response.UID)
-						allowed := !enabled || test.managedAllowed
+						allowed := (!enabled || test.managedAllowed) && !test.invalidResource
 						if route == config.GenerationLabelProtectionWebhookServicePath {
 							allowed = test.generationAllowed
-							if !allowed && test.object != `[]` {
+							if !allowed && !test.invalidResource {
 								require.NotNil(t, review.Response.Result)
 								assert.Contains(t, review.Response.Result.Message, "generate labels can only be set by Kyverno")
 							}

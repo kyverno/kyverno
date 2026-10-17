@@ -1,0 +1,60 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generate-clone-source-namespace
+spec:
+  concurrent: false
+  steps:
+  - name: prepare
+    try:
+    - apply:
+        file: setup.yaml
+  - name: reject-foreign-source-namespace
+    try:
+    - apply:
+        file: reject-clone-foreign.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'cannot clone resources from other namespaces')): true
+  - name: reject-dynamic-target-kind
+    try:
+    - apply:
+        file: reject-dynamic-kind.yaml
+        expect:
+        - check:
+            ($error != null): true
+            (contains($error, 'variables and references are not allowed in generate target kind for namespaced Policy')): true
+  - name: allow-same-namespace-source
+    try:
+    - apply:
+        file: policy.yaml
+    - assert:
+        resource:
+          apiVersion: kyverno.io/v1
+          kind: Policy
+          metadata:
+            name: clone-source-same
+            namespace: clone-source-tenant
+          status:
+            conditions:
+            - type: Ready
+              status: "True"
+    - sleep:
+        duration: 1s
+    - apply:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: clone-trigger
+            namespace: clone-source-tenant
+    - assert:
+        resource:
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: copy
+            namespace: clone-source-tenant
+          data:
+            value: tenant

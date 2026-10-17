@@ -1,0 +1,20 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: author-static-target
+spec:
+  rules:
+  - name: generate-configmap
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    generate:
+      apiVersion: v1
+      kind: ConfigMap
+      name: author-static-target
+      namespace: generate-author-authorization
+      data:
+        data:
+          authorized: "true"

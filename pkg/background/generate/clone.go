@@ -13,6 +13,48 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// validateCloneSources runs after substitution, including for each foreach
+// element. Check all source kinds before allowing any reads or source updates.
+func (g *generator) validateCloneSources(pattern *kyvernov1.GeneratePattern) error {
+	if !g.policy.IsNamespaced() {
+		return nil
+	}
+	var sourceNamespace string
+	var kinds []kyvernov1.ResourceSpec
+	var path string
+	if pattern.Clone.Name != "" {
+		sourceNamespace = pattern.Clone.Namespace
+		kinds = []kyvernov1.ResourceSpec{pattern.ResourceSpec}
+		path = "generate.clone"
+	} else if len(pattern.CloneList.Kinds) != 0 {
+		sourceNamespace = pattern.CloneList.Namespace
+		path = "generate.cloneList"
+		kinds = make([]kyvernov1.ResourceSpec, 0, len(pattern.CloneList.Kinds))
+		for _, kind := range pattern.CloneList.Kinds {
+			apiVersion, kind := kubeutils.GetKindFromGVK(kind)
+			kinds = append(kinds, kyvernov1.ResourceSpec{APIVersion: apiVersion, Kind: kind})
+		}
+	} else {
+		return nil
+	}
+
+	policyNamespace := g.policy.GetNamespace()
+	if policyNamespace == "" {
+		return fmt.Errorf("%s requires a policy namespace", path)
+	}
+	if sourceNamespace != policyNamespace {
+		// This also rejects an empty namespace, which would list across namespaces.
+		return fmt.Errorf("%s.namespace %q must equal policy namespace %q", path, sourceNamespace, policyNamespace)
+	}
+
+	for _, source := range kinds {
+		if err := g.validateNamespacedKind(path, "source", source); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func manageClone(log logr.Logger, target, sourceSpec kyvernov1.ResourceSpec, severSideApply bool, pattern kyvernov1.GeneratePattern, client dclient.Interface) generateResponse {
 	source := sourceSpec
 	if pattern.Clone.Name != "" {

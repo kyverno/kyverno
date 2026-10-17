@@ -10,6 +10,7 @@ import (
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	generateutils "github.com/kyverno/kyverno/pkg/background/generate"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2"
@@ -23,6 +24,9 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
@@ -45,7 +49,12 @@ func NewGenerationHandler(
 	backgroundServiceAccountName string,
 	reportsServiceAccountName string,
 ) GenerationHandler {
+	var provenanceStore *provenance.Store
+	if client != nil {
+		provenanceStore = provenance.NewStore(client.GetKubeClient())
+	}
 	return &generationHandler{
+		provenance:                   provenanceStore,
 		log:                          log,
 		engine:                       engine,
 		client:                       client,
@@ -63,6 +72,7 @@ func NewGenerationHandler(
 }
 
 type generationHandler struct {
+	provenance                   *provenance.Store
 	log                          logr.Logger
 	engine                       engineapi.Engine
 	client                       dclient.Interface
@@ -181,7 +191,7 @@ func (h *generationHandler) applyGeneration(
 	h.log.V(4).Info("creating the UR to generate downstream on trigger's operation", "operation", request.Operation, "policy", pKey)
 	urSpec := buildURSpecNew(kyvernov2.Generate, pKey, rules, triggerSpec, false)
 	urSpec.Context = buildURContext(request, policyContext)
-	if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
+	if err := h.urGenerator.Apply(webhookgenerate.WithPolicyUID(ctx, policy.GetUID()), urSpec); err != nil {
 		h.log.Error(err, "failed to create the UR to create downstream on trigger's operation", "operation", request.Operation, "policy", pKey)
 		e := event.NewFailedEvent(err, pKey, "", event.GeneratePolicyController,
 			kyvernov1.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
@@ -236,7 +246,7 @@ func (h *generationHandler) syncTriggerAction(
 		}
 	}
 
-	if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
+	if err := h.urGenerator.Apply(webhookgenerate.WithPolicyUID(ctx, policy.GetUID()), urSpec); err != nil {
 		h.log.Error(err, "failed to create the UR on trigger's event", "operation", request.Operation, "policy", pKey)
 		e := event.NewFailedEvent(err, pKey, "", event.GeneratePolicyController,
 			kyvernov1.ResourceSpec{Kind: policy.GetKind(), Namespace: policy.GetNamespace(), Name: policy.GetName()})
@@ -247,13 +257,13 @@ func (h *generationHandler) syncTriggerAction(
 // processRequest determine if it needs to re-apply the generate rule to the source or the target changes
 func (h *generationHandler) processRequest(ctx context.Context, policyContext *engine.PolicyContext) (err error) {
 	var policy kyvernov1.PolicyInterface
-	var labelsList []map[string]string
+	var targetsToVerify []unstructured.Unstructured
 	var deleteDownstream bool
 
 	new := policyContext.NewResource()
 	old := policyContext.OldResource()
 	labels := old.GetLabels()
-	managedBy := labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp
+	managedBy := labels[kyverno.LabelAppManagedBy] == kyverno.ValueKyvernoApp && labels[common.GeneratePolicyLabel] != ""
 
 	// clone source changes
 	if !managedBy {
@@ -274,10 +284,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}
 
-		for i := range targets.Items {
-			l := targets.Items[i].GetLabels()
-			labelsList = append(labelsList, l)
-		}
+		targetsToVerify = append(targetsToVerify, targets.Items...)
 
 		// fetch targets that have the source UID label
 		targetSelector = map[string]string{
@@ -292,15 +299,24 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			return fmt.Errorf("failed to list targets resources: %v", err)
 		}
 
-		for i := range targets.Items {
-			l := targets.Items[i].GetLabels()
-			labelsList = append(labelsList, l)
-		}
+		targetsToVerify = append(targetsToVerify, targets.Items...)
 	} else {
-		labelsList = append(labelsList, labels)
+		targetsToVerify = append(targetsToVerify, old)
 	}
 
-	for _, labels := range labelsList {
+	verified := make(map[types.UID]bool)
+	for _, target := range targetsToVerify {
+		// Labels are only routing hints. Only the background controller can issue
+		// a signature for this target UID, policy UID, rule and trigger. Checking
+		// the actual candidate also protects clone-source fan-out from forged
+		// objects returned by either label selector.
+		if target.GetUID() == "" || verified[target.GetUID()] || target.GetAnnotations()[provenance.Annotation] == "" {
+			continue
+		}
+		labels := target.GetLabels()
+		if labels[kyverno.LabelAppManagedBy] != kyverno.ValueKyvernoApp || labels[common.GeneratePolicyLabel] == "" || labels[common.GenerateRuleLabel] == "" {
+			continue
+		}
 		pName := labels[common.GeneratePolicyLabel]
 		pNamespace := labels[common.GeneratePolicyNamespaceLabel]
 		pRuleName := labels[common.GenerateRuleLabel]
@@ -311,9 +327,29 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 			policy, err = h.cpolLister.Get(pName)
 		}
 
+		if apierrors.IsNotFound(err) {
+			continue
+		}
 		if err != nil {
 			return err
 		}
+		if h.provenance == nil {
+			return fmt.Errorf("generated resource provenance verifier is unavailable")
+		}
+		valid, err := h.provenance.Verify(ctx, policy, &target)
+		if err != nil {
+			return fmt.Errorf("failed to verify generated resource provenance: %w", err)
+		}
+		if !valid {
+			h.log.V(4).Info("skip synchronization for unverified resource", "kind", target.GetKind(), "namespace", target.GetNamespace(), "name", target.GetName())
+			continue
+		}
+		if !managedBy && (old.GetUID() == "" || labels[common.GenerateSourceUIDLabel] != string(old.GetUID())) {
+			// The legacy name selector must not let a replacement clone source
+			// act on targets authenticated for a different source UID.
+			continue
+		}
+		verified[target.GetUID()] = true
 
 		pKey := common.PolicyKey(pNamespace, pName)
 		urSpec := kyvernov2.UpdateRequestSpec{
@@ -323,7 +359,7 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 		}
 
 		for _, rule := range policy.GetSpec().Rules {
-			if rule.Name == pRuleName && rule.Generation.Synchronize {
+			if rule.Name == pRuleName && rule.HasGenerate() && rule.Generation.Synchronize {
 				gvk, subresource := policyContext.ResourceKind()
 				if err := engineutils.MatchesResourceDescription(
 					old,
@@ -343,7 +379,10 @@ func (h *generationHandler) processRequest(ctx context.Context, policyContext *e
 				urSpec.RuleContext = append(urSpec.RuleContext, ruleCtx)
 			}
 		}
-		if err := h.urGenerator.Apply(ctx, urSpec); err != nil {
+		if len(urSpec.RuleContext) == 0 {
+			continue
+		}
+		if err := h.urGenerator.Apply(webhookgenerate.WithPolicyUID(ctx, policy.GetUID()), urSpec); err != nil {
 			e := event.NewBackgroundFailedEvent(err, engineapi.NewKyvernoPolicy(policy), "", event.GeneratePolicyController,
 				kyvernov1.ResourceSpec{Kind: new.GetKind(), Namespace: new.GetNamespace(), Name: new.GetName()})
 			h.eventGen.Add(e...)
