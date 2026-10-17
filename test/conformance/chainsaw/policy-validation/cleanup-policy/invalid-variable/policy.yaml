@@ -1,0 +1,16 @@
+apiVersion: kyverno.io/v2
+kind: ClusterCleanupPolicy
+metadata:
+  name: cleanup-invalid-variable
+spec:
+  match:
+    any:
+      - resources:
+          kinds:
+            - Pod
+  conditions:
+    all:
+      - key: "{{ mytarget.metadata.name }}"
+        operator: Equals
+        value: example
+  schedule: "*/1 * * * *"

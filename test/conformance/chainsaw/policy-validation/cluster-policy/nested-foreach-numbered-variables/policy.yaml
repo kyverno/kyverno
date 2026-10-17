@@ -1,0 +1,22 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: nested-foreach-numbered-variables
+spec:
+  background: true
+  rules:
+    - name: remove-all-env-vars
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            foreach:
+              - list: element0.env
+                order: Descending
+                patchesJson6902: |-
+                  - path: /spec/containers/{{elementIndex0}}/env/{{elementIndex1}}
+                    op: remove
