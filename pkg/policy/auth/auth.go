@@ -23,14 +23,22 @@ type AuthChecks interface {
 type Auth struct {
 	client dclient.Interface
 	user   string
+	groups []string
 	log    logr.Logger
 }
 
 // NewAuth returns a new instance of Auth for operations
 func NewAuth(client dclient.Interface, user string, log logr.Logger) *Auth {
+	return NewAuthWithGroups(client, user, nil, log)
+}
+
+// NewAuthWithGroups returns a new instance of Auth for the user and groups from
+// an admission request.
+func NewAuthWithGroups(client dclient.Interface, user string, groups []string, log logr.Logger) *Auth {
 	a := Auth{
 		client: client,
 		user:   user,
+		groups: groups,
 		log:    log,
 	}
 	return &a
@@ -65,7 +73,7 @@ func (a *Auth) CanICreate(ctx context.Context, gvk, namespace, name, subresource
 
 func (a *Auth) check(ctx context.Context, verb, gvk, namespace, name, subresource string) (bool, error) {
 	subjectReview := a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews()
-	canI := auth.NewCanI(a.client.Discovery(), subjectReview, gvk, namespace, name, verb, subresource, a.user)
+	canI := auth.NewCanIWithGroups(a.client.Discovery(), subjectReview, gvk, namespace, name, verb, subresource, a.user, a.groups)
 	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err

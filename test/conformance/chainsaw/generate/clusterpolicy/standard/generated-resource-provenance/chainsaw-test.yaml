@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generated-resource-provenance
+spec:
+  concurrent: false
+  timeouts:
+    exec: 30s
+    assert: 1m
+    error: 1m
+  steps:
+  - name: plant generated metadata before installing the sync policy
+    try:
+    - apply:
+        file: permissions.yaml
+    - apply:
+        file: setup.yaml
+    - script:
+        content: bash prepare-existing-targets.sh
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait policy ready
+    use:
+      template: ../../../../_step-templates/cluster-policy-ready.yaml
+      with:
+        bindings:
+        - name: name
+          value: generated-resource-provenance
+  - name: ignore unchanged labels on a planted downstream update
+    try:
+    - script:
+        content: bash verify-no-generation.sh update
+    - assert:
+        file: planted-update-assert.yaml
+  - name: ignore deletion of a downstream with forged provenance
+    try:
+    - script:
+        content: bash verify-no-generation.sh delete
+    - error:
+        file: planted-delete.yaml
+  - name: ignore the unsigned downstream when its clone source changes
+    try:
+    - script:
+        content: bash verify-no-generation.sh source
+    - assert:
+        file: planted-update-assert.yaml
+  - name: generate an authenticated downstream for a new trigger
+    try:
+    - apply:
+        file: genuine-trigger.yaml
+    - assert:
+        file: genuine-target.yaml
+  - name: synchronize an ordinary edit of a genuine downstream
+    try:
+    - command:
+        entrypoint: kubectl
+        args:
+        - patch
+        - secret
+        - synchronized
+        - -n
+        - generated-resource-provenance-genuine
+        - --type=merge
+        - '-p={"data":{"value":"ZWRpdGVk"}}'
+    - assert:
+        file: genuine-target.yaml
+  - name: recreate a deleted genuine downstream
+    try:
+    - delete:
+        file: genuine-target.yaml
+    - assert:
+        file: genuine-target.yaml
+  - name: policy deletion removes only the authenticated downstream
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: generated-resource-provenance
+    - error:
+        resource:
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: synchronized
+            namespace: generated-resource-provenance-genuine
+    - assert:
+        file: planted-update-assert.yaml

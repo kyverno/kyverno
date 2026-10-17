@@ -8,9 +8,13 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
+	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/generate/provenance"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +29,18 @@ import (
 type failingDeleteClient struct {
 	dclient.Interface
 	deleteErr error
+	target    *unstructured.Unstructured
+}
+
+func (f *failingDeleteClient) ListResource(_ context.Context, _, kind, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
+	if kind == "Namespace" {
+		return &unstructured.UnstructuredList{Items: []unstructured.Unstructured{{Object: map[string]interface{}{"apiVersion": "v1", "kind": "Namespace", "metadata": map[string]interface{}{"name": "test-ns", "uid": "trigger-uid"}}}}}, nil
+	}
+	return &unstructured.UnstructuredList{}, nil
+}
+
+func (f *failingDeleteClient) GetResource(_ context.Context, _, _, _, _ string, _ ...string) (*unstructured.Unstructured, error) {
+	return f.target.DeepCopy(), nil
 }
 
 func (f *failingDeleteClient) DeleteResource(_ context.Context, _, _, _, _ string, _ bool, _ metav1.DeleteOptions) error {
@@ -65,11 +81,12 @@ func TestDeleteDownstream_DeletionFails_ReturnsError(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-ur"},
 		Status: kyvernov2.UpdateRequestStatus{
 			GeneratedResources: []kyvernov1.ResourceSpec{
-				{APIVersion: "v1", Kind: "ConfigMap", Namespace: "default", Name: "generated-cm"},
+				{APIVersion: "v1", Kind: "ConfigMap", Namespace: "default", Name: "generated-cm", UID: "generated-uid"},
 			},
 		},
 	}
 
+	authenticateCleanupRecord(t, controller, ur)
 	err := controller.deleteDownstream(nil, kyvernov2.RuleContext{}, ur)
 
 	assert.Error(t, err)
@@ -92,11 +109,12 @@ func TestDeleteDownstream_NotFoundErrors_ReturnsNil(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-ur"},
 		Status: kyvernov2.UpdateRequestStatus{
 			GeneratedResources: []kyvernov1.ResourceSpec{
-				{APIVersion: "v1", Kind: "ConfigMap", Namespace: "default", Name: "already-gone"},
+				{APIVersion: "v1", Kind: "ConfigMap", Namespace: "default", Name: "already-gone", UID: "deleted-uid"},
 			},
 		},
 	}
 
+	authenticateCleanupRecord(t, controller, ur)
 	assert.NoError(t, controller.deleteDownstream(nil, kyvernov2.RuleContext{}, ur))
 }
 
@@ -137,7 +155,7 @@ func TestHandleNonPolicyChanges_DeletionFails_ReturnsError(t *testing.T) {
 	}
 
 	policy := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", UID: "policy-uid"},
 		Spec: kyvernov1.Spec{
 			Rules: []kyvernov1.Rule{
 				{
@@ -161,6 +179,7 @@ func TestHandleNonPolicyChanges_DeletionFails_ReturnsError(t *testing.T) {
 			APIVersion: "v1",
 			Kind:       "Namespace",
 			Name:       "test-ns",
+			UID:        "trigger-uid",
 		},
 	}
 
@@ -168,7 +187,23 @@ func TestHandleNonPolicyChanges_DeletionFails_ReturnsError(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-ur"},
 	}
 
-	err := controller.handleNonPolicyChanges(policy, ruleContext, ur)
+	trigger := unstructured.Unstructured{}
+	trigger.SetAPIVersion("v1")
+	trigger.SetKind("Namespace")
+	trigger.SetName(ruleContext.Trigger.Name)
+	trigger.SetUID(ruleContext.Trigger.UID)
+	downstream.SetUID("downstream-uid")
+	downstream.SetResourceVersion("1")
+	common.ManageLabels(&downstream, trigger, policy, ruleContext.Rule)
+	kube := controller.client.GetKubeClient()
+	require.NoError(t, provenance.EnsureKey(t.Context(), kube.CoreV1().Secrets(config.KyvernoNamespace())))
+	controller.provenance = provenance.NewStore(kube)
+	stamp, err := controller.provenance.Sign(t.Context(), policy, &downstream)
+	require.NoError(t, err)
+	downstream.SetAnnotations(map[string]string{provenance.Annotation: stamp})
+	controller.client.(*fakeListDeleteClient).listItems = []unstructured.Unstructured{downstream}
+
+	err = controller.handleNonPolicyChanges(policy, ruleContext, ur)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to clean up downstream resources on source deletion")
@@ -191,8 +226,8 @@ func TestProcessUR_DeleteDownstreamFailure_MarksURFailed(t *testing.T) {
 		),
 	}
 
-	// Supply the trigger via an Update AdmissionRequest so GetTrigger extracts
-	// it from the raw object without making any cluster call.
+	// Keep the admission context, while the fake client supplies the matching
+	// persisted trigger UID used by the hardened UpdateRequest controller.
 	triggerJSON := []byte(`{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"test-ns"}}`)
 
 	controller := &GenerateController{
@@ -218,6 +253,7 @@ func TestProcessUR_DeleteDownstreamFailure_MarksURFailed(t *testing.T) {
 						APIVersion: "v1",
 						Kind:       "Namespace",
 						Name:       "test-ns",
+						UID:        "trigger-uid",
 					},
 				},
 			},
@@ -233,15 +269,46 @@ func TestProcessUR_DeleteDownstreamFailure_MarksURFailed(t *testing.T) {
 		},
 		Status: kyvernov2.UpdateRequestStatus{
 			GeneratedResources: []kyvernov1.ResourceSpec{
-				{APIVersion: "v1", Kind: "ConfigMap", Namespace: "default", Name: "leaked-cm"},
+				{APIVersion: "v1", Kind: "ConfigMap", Namespace: "default", Name: "leaked-cm", UID: "generated-uid"},
 			},
 		},
 	}
 
+	authenticateCleanupRecord(t, controller, ur)
 	_ = controller.ProcessUR(ur)
 
 	assert.True(t, statusControl.failedCalled,
 		"statusControl.Failed() must be called when downstream deletion fails")
 	assert.False(t, statusControl.successCalled,
 		"statusControl.Success() must NOT be called when downstream deletion fails — this is the core regression")
+}
+
+// A policy-deletion UR is trusted only after the policy controller has verified
+// the downstream and recorded the original policy UID, before removing it.
+func authenticateCleanupRecord(t *testing.T, controller *GenerateController, ur *kyvernov2.UpdateRequest) {
+	t.Helper()
+	ur.Spec.Policy = "deleted-policy"
+	policy := &kyvernov1.ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Name: ur.Spec.Policy, UID: "deleted-policy-uid"}}
+	ur.SetAnnotations(map[string]string{provenance.CleanupPolicyUIDAnnotation: string(policy.UID)})
+	kube := controller.client.GetKubeClient()
+	require.NoError(t, provenance.EnsureKey(t.Context(), kube.CoreV1().Secrets(config.KyvernoNamespace())))
+	controller.provenance = provenance.NewStore(kube)
+	spec := ur.Status.GeneratedResources[0]
+	target := &unstructured.Unstructured{}
+	target.SetAPIVersion(spec.APIVersion)
+	target.SetKind(spec.Kind)
+	target.SetNamespace(spec.Namespace)
+	target.SetName(spec.Name)
+	target.SetUID(spec.UID)
+	target.SetResourceVersion("1")
+	trigger := unstructured.Unstructured{}
+	trigger.SetAPIVersion("v1")
+	trigger.SetKind("Namespace")
+	trigger.SetName("trigger")
+	trigger.SetUID("trigger-uid")
+	common.ManageLabels(target, trigger, policy, "generate-rule")
+	stamp, err := controller.provenance.Sign(t.Context(), policy, target)
+	require.NoError(t, err)
+	target.SetAnnotations(map[string]string{provenance.Annotation: stamp})
+	controller.client.(*failingDeleteClient).target = target
 }

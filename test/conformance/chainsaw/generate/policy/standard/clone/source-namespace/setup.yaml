@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clone-source-tenant
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: source
+  namespace: clone-source-tenant
+data:
+  value: tenant

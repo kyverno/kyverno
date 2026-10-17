@@ -39,6 +39,12 @@ type canIOptions struct {
 
 // NewCanI returns a new instance of operation access controller evaluator
 func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, gvk, namespace, name, verb, subresource string, user string) CanIOptions {
+	return NewCanIWithGroups(discovery, sarClient, gvk, namespace, name, verb, subresource, user, nil)
+}
+
+// NewCanIWithGroups returns a new instance of operation access controller evaluator
+// for a user and the groups carried by their admission request.
+func NewCanIWithGroups(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, gvk, namespace, name, verb, subresource string, user string, groups []string) CanIOptions {
 	return &canIOptions{
 		name:        name,
 		namespace:   namespace,
@@ -47,7 +53,7 @@ func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessR
 		subresource: subresource,
 		user:        user,
 		discovery:   discovery,
-		checker:     checker.NewSubjectChecker(sarClient, user, nil),
+		checker:     checker.NewSubjectChecker(sarClient, user, groups),
 	}
 }
 

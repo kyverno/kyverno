@@ -16,6 +16,7 @@ type FakeGenerate struct {
 // fake/mock implementation for operation access(always returns true)
 func NewFakeGenerate(rule kyvernov1.Generation) *FakeGenerate {
 	g := FakeGenerate{}
+	g.offline = true
 	g.rule = &kyvernov1.Rule{Generation: &rule}
 	g.authChecker = fake.NewFakeAuth()
 	g.authCheckerReports = fake.NewFakeAuth()

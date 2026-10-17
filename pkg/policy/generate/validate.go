@@ -23,10 +23,17 @@ type Generate struct {
 	authChecker        auth.AuthChecks
 	authCheckerReports auth.AuthChecks
 	log                logr.Logger
+	offline            bool
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
 func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger) *Generate {
+	return NewGenerateFactoryWithGroups(client, rule, user, nil, reportsSA, log)
+}
+
+// NewGenerateFactoryWithGroups returns a Generate validation checker for the
+// user and groups carried by an admission request.
+func NewGenerateFactoryWithGroups(client dclient.Interface, rule *kyvernov1.Rule, user string, groups []string, reportsSA string, log logr.Logger) *Generate {
 	var authCheckerReports auth.AuthChecks
 	if reportsSA != "" {
 		authCheckerReports = auth.NewAuth(client, reportsSA, log)
@@ -35,7 +42,7 @@ func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, re
 	g := Generate{
 		user:               user,
 		rule:               rule,
-		authChecker:        auth.NewAuth(client, user, log),
+		authChecker:        auth.NewAuthWithGroups(client, user, groups, log),
 		authCheckerReports: authCheckerReports,
 		log:                log,
 	}
@@ -45,6 +52,17 @@ func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, re
 
 // Validate validates the 'generate' rule
 func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []string, path string, err error) {
+	return g.validate(ctx, verbs, true)
+}
+
+// ValidateTargets validates generated targets without requiring clone-source
+// reads. The admission controller receives source objects in admission requests
+// and only reads downstream targets when reconciling synchronized resources.
+func (g *Generate) ValidateTargets(ctx context.Context, verbs []string) (warnings []string, path string, err error) {
+	return g.validate(ctx, verbs, false)
+}
+
+func (g *Generate) validate(ctx context.Context, verbs []string, sources bool) (warnings []string, path string, err error) {
 	rule := g.rule
 	if rule.Generation.CloneList.Selector != nil {
 		if wildcard.ContainsWildcard(rule.Generation.CloneList.Selector.String()) {
@@ -63,23 +81,40 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 		}
 	}
 
-	// Kyverno generate-controller create/update/deletes the resources specified in generate rule of policy
-	// kyverno uses SA 'kyverno' and has default ClusterRoles and ClusterRoleBindings
-	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
-	// - operations required: create/update/delete/get
-	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
+	// Offline validation preserves structural checks without requiring target
+	// kinds to be resolved for admission authorization.
+	if g.offline {
+		return nil, "", nil
+	}
+
+	// The caller supplies controller permissions, including patch for persisted
+	// generated metadata. Nil verbs check the generated-content permissions used
+	// for policy authors, without requiring controller-owned metadata writes.
+	// Target kinds must be resolved during admission so authorization can be
+	// checked. A variable namespace is checked as cluster-wide access because it
+	// can resolve to any namespace at runtime.
 	if rule.Generation.ForEachGeneration != nil {
 		for _, forEach := range rule.Generation.ForEachGeneration {
 			if err := g.validateAuth(ctx, verbs, forEach.GeneratePattern); err != nil {
 				return nil, "foreach", err
+			}
+			if sources {
+				if err := g.validateSourceAuth(ctx, verbs, forEach.GeneratePattern); err != nil {
+					return nil, "foreach", err
+				}
 			}
 		}
 	} else {
 		if err := g.validateAuth(ctx, verbs, rule.Generation.GeneratePattern); err != nil {
 			return nil, "", err
 		}
+		if sources {
+			if err := g.validateSourceAuth(ctx, verbs, rule.Generation.GeneratePattern); err != nil {
+				return nil, "", err
+			}
+		}
 	}
-	if w, err := g.validateAuthReports(ctx); err != nil {
+	if w, err := g.ValidateReports(ctx); err != nil {
 		return nil, "", err
 	} else if len(w) > 0 {
 		warnings = append(warnings, w...)
@@ -90,30 +125,78 @@ func (g *Generate) Validate(ctx context.Context, verbs []string) (warnings []str
 func (g *Generate) validateAuth(ctx context.Context, verbs []string, generate kyvernov1.GeneratePattern) error {
 	if len(generate.CloneList.Kinds) != 0 {
 		for _, kind := range generate.CloneList.Kinds {
+			if regex.IsVariable(kind) || regex.IsReference(kind) {
+				return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
+			}
 			gvk, sub := parseCloneKind(kind)
-			return g.canIGenerate(ctx, verbs, gvk, generate.Namespace, sub)
+			if err := g.canIGenerate(ctx, verbs, gvk, generate.Namespace, sub); err != nil {
+				return err
+			}
 		}
+		return nil
 	} else {
+		// Check the raw fields before splitting subresources so a dynamic
+		// suffix cannot be separated from the kind being authorized.
+		if regex.IsVariable(generate.Kind) || regex.IsReference(generate.Kind) ||
+			regex.IsVariable(generate.APIVersion) || regex.IsReference(generate.APIVersion) {
+			return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
+		}
 		k, sub := kubeutils.SplitSubresource(generate.Kind)
 		return g.canIGenerate(ctx, verbs, strings.Join([]string{generate.APIVersion, k}, "/"), generate.Namespace, sub)
 	}
-	return nil
 }
 
 func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namespace, subresource string) error {
-	if regex.IsVariable(gvk) {
-		g.log.V(2).Info("resource Kind uses variables; skipping authorization checks.")
-		return nil
-	}
-
 	if verbs == nil {
 		verbs = []string{"get", "create"}
 		if g.rule.Generation.Synchronize {
 			verbs = []string{"get", "create", "update", "delete"}
 		}
 	}
+	return g.canI(ctx, verbs, gvk, namespace, "", subresource)
+}
 
-	ok, msg, err := g.authChecker.CanI(ctx, verbs, gvk, namespace, "", subresource)
+func (g *Generate) validateSourceAuth(ctx context.Context, targetVerbs []string, generate kyvernov1.GeneratePattern) error {
+	if generate.Clone.Name != "" {
+		kind, sub := kubeutils.SplitSubresource(generate.Kind)
+		gvk := strings.Join([]string{generate.APIVersion, kind}, "/")
+		if err := g.canI(ctx, []string{"get"}, gvk, generate.Clone.Namespace, generate.Clone.Name, sub); err != nil {
+			return fmt.Errorf("clone source: %w", err)
+		}
+	} else if len(generate.CloneList.Kinds) != 0 {
+		// Listing exposes all selected source content, which is sufficient for
+		// authors. The background controller also gets each listed object again.
+		verbs := []string{"list"}
+		if targetVerbs != nil {
+			verbs = append(verbs, "get")
+		}
+		for _, kind := range generate.CloneList.Kinds {
+			gvk, sub := parseCloneKind(kind)
+			if err := g.canI(ctx, verbs, gvk, generate.CloneList.Namespace, "", sub); err != nil {
+				return fmt.Errorf("cloneList source: %w", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (g *Generate) canI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) error {
+	if regex.IsVariable(gvk) || regex.IsReference(gvk) {
+		return fmt.Errorf("generated resource apiVersion and kind must be static so authorization can be verified")
+	}
+	if regex.IsVariable(namespace) || regex.IsReference(namespace) {
+		// An unresolved namespace can select any namespace at runtime. Checking an
+		// empty namespace requires permissions which are not limited by a RoleBinding
+		// in one namespace.
+		namespace = ""
+	}
+
+	if regex.IsVariable(name) || regex.IsReference(name) {
+		// A dynamic source name must not be authorized against one literal name.
+		name = ""
+	}
+
+	ok, msg, err := g.authChecker.CanI(ctx, verbs, gvk, namespace, name, subresource)
 	if err != nil {
 		return err
 	}
@@ -128,13 +211,16 @@ func (g *Generate) canIGenerate(ctx context.Context, verbs []string, gvk, namesp
 func parseCloneKind(gvks string) (gvk, sub string) {
 	gv, ks := kubeutils.GetKindFromGVK(gvks)
 	k, sub := kubeutils.SplitSubresource(ks)
-	if !strings.Contains(gv, "*") {
+	if gv != "" && !strings.Contains(gv, "*") {
 		k = strings.Join([]string{gv, k}, "/")
 	}
 	return k, sub
 }
 
-func (g *Generate) validateAuthReports(ctx context.Context) (warnings []string, err error) {
+// ValidateReports checks report-controller access to the rule's match kinds.
+// Callers can defer this check until those kinds have been resolved, separately
+// from authorization of the generated targets.
+func (g *Generate) ValidateReports(ctx context.Context) (warnings []string, err error) {
 	if g.authCheckerReports == nil {
 		return nil, nil
 	}

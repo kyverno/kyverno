@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: generated-config
+  namespace: offline-author-check
+data:
+  authorized: "true"
