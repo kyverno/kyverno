@@ -17,9 +17,11 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.uber.org/multierr"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/util/retry"
 )
 
 // generateBatchSize is the maximum number of RuleContext entries per UpdateRequest.
@@ -278,12 +280,25 @@ func (pc *policyController) unlabelDownstream(selector updatedResource) {
 			}
 
 			for _, obj := range updated.Items {
-				labels := obj.GetLabels()
-				delete(labels, common.GeneratePolicyLabel)
-				delete(labels, common.GeneratePolicyNamespaceLabel)
-				delete(labels, common.GenerateRuleLabel)
-				obj.SetLabels(labels)
-				_, err = pc.client.UpdateResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), &obj, false)
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					target, err := pc.client.GetResource(context.TODO(), obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName())
+					if err != nil {
+						if apierrors.IsNotFound(err) {
+							return nil
+						}
+						return err
+					}
+					labels := target.GetLabels()
+					if labels == nil {
+						return nil
+					}
+					delete(labels, common.GeneratePolicyLabel)
+					delete(labels, common.GeneratePolicyNamespaceLabel)
+					delete(labels, common.GenerateRuleLabel)
+					target.SetLabels(labels)
+					_, err = pc.client.UpdateResource(context.TODO(), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target, false)
+					return err
+				})
 				if err != nil {
 					utilruntime.HandleError(fmt.Errorf("failed to un-label old targets %s/%s/%s/%s: %v", obj.GetAPIVersion(), obj.GetKind(), obj.GetNamespace(), obj.GetName(), err))
 					continue
