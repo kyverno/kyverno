@@ -1498,8 +1498,9 @@ func TestHandleUpdate(t *testing.T) {
 	// the mismatch is not reverted as a user edit.
 	newWM := func(policyName string, triggerUID types.UID) (*WatchManager, *MockClient, *unstructured.Unstructured) {
 		labels := map[string]string{
-			common.GeneratePolicyLabel:     policyName,
-			common.GenerateTriggerUIDLabel: string(triggerUID),
+			common.GeneratePolicyLabel:          policyName,
+			common.GeneratePolicyNamespaceLabel: "",
+			common.GenerateTriggerUIDLabel:      string(triggerUID),
 		}
 		cached := makeObj("down-uid", "down-pod", "default", labels)
 		client := &MockClient{}
@@ -2668,4 +2669,78 @@ func TestHandleUpdate_SourcePropagationErrorKeepsCache(t *testing.T) {
 
 	require.Len(t, mc.applied, 1)
 	assert.Equal(t, entry, wm.dynamicWatchers[gvr].metadataCache["ds-uid"])
+}
+
+func TestBeginGenerate_PolicyNamespaceIsolation(t *testing.T) {
+	for _, policyNamespace := range []string{"", "tenant", "other"} {
+		for _, policyKey := range []string{"pol", "tenant/pol", "other/pol"} {
+			t.Run(policyNamespace+"/"+policyKey, func(t *testing.T) {
+				labels := map[string]string{
+					common.GeneratePolicyLabel:          "pol",
+					common.GeneratePolicyNamespaceLabel: policyNamespace,
+					common.GenerateTriggerUIDLabel:      "shared-trigger",
+				}
+				cached := makeUnstructured("1", "", "v1", "ConfigMap", "down", "tenant", "down-uid", labels)
+				client := &MockClient{}
+				wm, gvr := newRevertTestWatchManager(cached, client, false)
+				end := wm.BeginGenerate(policyKey, "shared-trigger")
+				wm.handleUpdate(tamperedUsage(cached), gvr)
+				if policyMatches(labels, policyKey) {
+					assert.Empty(t, client.updated, "only this policy's write suppresses its revert")
+				} else {
+					assert.Len(t, client.updated, 1, "another policy's window cannot suppress drift")
+				}
+				end()
+				assert.Len(t, client.updated, 1, "a skipped edit is reverted when its window closes")
+			})
+		}
+	}
+	t.Run("missing namespace label has no established owner", func(t *testing.T) {
+		cached := makeUnstructured("1", "", "v1", "ConfigMap", "down", "tenant", "down-uid", map[string]string{
+			common.GeneratePolicyLabel:     "pol",
+			common.GenerateTriggerUIDLabel: "shared-trigger",
+		})
+		client := &MockClient{}
+		wm, gvr := newRevertTestWatchManager(cached, client, false)
+		end := wm.BeginGenerate("pol", "shared-trigger")
+		defer end()
+		wm.handleUpdate(tamperedUsage(cached), gvr)
+		assert.Len(t, client.updated, 1)
+	})
+}
+
+func TestServerSideApply_PreservesMigratedPolicyNamespace(t *testing.T) {
+	for _, namespace := range []string{"", "tenant"} {
+		for _, operation := range []string{"revert", "propagate", "recreate"} {
+			t.Run(namespace+"/"+operation, func(t *testing.T) {
+				cached := usageDownstream()
+				labels := cached.GetLabels()
+				labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
+				labels[common.GeneratePolicyNamespaceLabel] = namespace
+				labels["team"] = "another-controller"
+				cached.SetLabels(labels)
+				// The namespace label was migrated by UPDATE after the original apply.
+				cached.SetManagedFields([]metav1.ManagedFieldsEntry{
+					managedFieldsEntry("kyverno-generate", metav1.ManagedFieldsOperationApply,
+						`{"f:metadata":{"f:labels":{"f:app.kubernetes.io/managed-by":{},"f:generate.kyverno.io/policy-name":{}}},"f:spec":{"f:reason":{}}}`),
+				})
+				var applied *unstructured.Unstructured
+				client := &MockClient{applyFn: func(_ string, obj interface{}) { applied, _ = obj.(*unstructured.Unstructured) }}
+				wm, gvr := newRevertTestWatchManager(cached, client, true)
+				if operation == "revert" {
+					wm.handleUpdate(tamperedUsage(cached), gvr)
+				} else if operation == "recreate" {
+					wm.handleDelete(cached.DeepCopy(), gvr)
+				} else {
+					_, err := wm.propagateToDownstream(true, cached, cached.DeepCopy())
+					require.NoError(t, err)
+				}
+				require.NotNil(t, applied)
+				appliedLabels := applied.GetLabels()
+				require.Contains(t, appliedLabels, common.GeneratePolicyNamespaceLabel)
+				assert.Equal(t, namespace, appliedLabels[common.GeneratePolicyNamespaceLabel])
+				assert.NotContains(t, appliedLabels, "team", "another controller's label stays unowned")
+			})
+		}
+	}
 }
