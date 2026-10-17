@@ -689,7 +689,9 @@ test:
 
   image:
     # -- (string) Image registry
-    registry: ghcr.io
+    registry: ~
+    # -- (string) Fallback registry used when registry and global.image.registry are unset
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/readiness-checker
     # -- Image tag
@@ -760,7 +762,9 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ghcr.io
+    registry: ~
+    # -- (string) Fallback registry used when registry and global.image.registry are unset
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/readiness-checker
     # -- Image tag
