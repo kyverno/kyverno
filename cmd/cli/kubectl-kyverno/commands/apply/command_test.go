@@ -1711,3 +1711,179 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 		})
 	}
 }
+
+// Test_Apply_MutatingPolicyOutputFile checks what --output writes: only the patched target for a policy
+// with targetMatchConstraints, never its trigger, while an ordinary MutatingPolicy still writes the
+// resources it mutated inline.
+func Test_Apply_MutatingPolicyOutputFile(t *testing.T) {
+	const base = "../../../../../test/cli/test-mutating-policy/"
+	tests := []struct {
+		name            string
+		args            []string
+		wantContains    []string
+		wantNotContains []string
+	}{
+		{
+			name: "target only policy writes the patched target",
+			args: []string{
+				base + "mutate-existing-secret-trigger-deployment-target/policy.yaml",
+				"--resource", base + "mutate-existing-secret-trigger-deployment-target/trigger.yaml",
+				"--target-resource", base + "mutate-existing-secret-trigger-deployment-target/target.yaml",
+			},
+			wantContains:    []string{"kind: Deployment", "name: test-deploy", `mutated: "true"`, "replicas: 3"},
+			wantNotContains: []string{"kind: Secret"},
+		},
+		{
+			name: "ordinary policy writes the mutated resource",
+			args: []string{
+				base + "mutating-label/policy.yaml",
+				"--resource", base + "mutating-label/resource.yaml",
+			},
+			wantContains: []string{"kind: Deployment", "name: dev-deploy-2"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := filepath.Join(t.TempDir(), "mutated.yaml")
+			cmd := Command()
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs(append(tt.args, "--output", output))
+			require.NoError(t, cmd.Execute())
+
+			written, err := os.ReadFile(output)
+			require.NoError(t, err)
+			// no empty document ahead of the first resource, the trigger is not written as a blank entry
+			assert.True(t, strings.HasPrefix(string(written), "apiVersion: "), "unexpected start of output: %q", string(written)[:min(len(written), 40)])
+			for _, want := range tt.wantContains {
+				assert.Contains(t, string(written), want)
+			}
+			for _, unwanted := range tt.wantNotContains {
+				assert.NotContains(t, string(written), unwanted)
+			}
+		})
+	}
+}
+
+// Test_Apply_MutatingPolicyTargetResources checks that a MutatingPolicy with targetMatchConstraints mutates
+// the resources passed with --target-resource and never the trigger itself, and that a target whose
+// mutation fails is reported as an error without patching anything.
+func Test_Apply_MutatingPolicyTargetResources(t *testing.T) {
+	dir := "../../../../../test/cli/test-mutating-policy/mutate-existing-secret-trigger-deployment-target"
+	policy, err := os.ReadFile(dir + "/policy.yaml")
+	require.NoError(t, err)
+	// the same policy, but its mutation fails at evaluation time on every selected target
+	failing := strings.Replace(string(policy), "replicas: 3", "replicas: object.spec.missing.count", 1)
+	require.NotEqual(t, string(policy), failing)
+	failingPolicy := filepath.Join(t.TempDir(), "failing-policy.yaml")
+	require.NoError(t, os.WriteFile(failingPolicy, []byte(failing), 0o600))
+	// the same policy, but its matchConditions reject the trigger, so it must not mutate any target
+	conditioned := strings.Replace(string(policy), "  targetMatchConstraints:", "  matchConditions:\n  - name: other-secret-only\n    expression: \"object.metadata.name == 'other-secret'\"\n  targetMatchConstraints:", 1)
+	require.NotEqual(t, string(policy), conditioned)
+	conditionedPolicy := filepath.Join(t.TempDir(), "conditioned-policy.yaml")
+	require.NoError(t, os.WriteFile(conditionedPolicy, []byte(conditioned), 0o600))
+	// the rejected policy under its own name, to load next to the matching one
+	const notTriggeredName = "not-triggered-by-this-secret"
+	notTriggeredPolicy := filepath.Join(t.TempDir(), "not-triggered-policy.yaml")
+	require.NoError(t, os.WriteFile(notTriggeredPolicy, []byte(strings.Replace(conditioned, "name: mutate-existing-deployment-from-secret", "name: "+notTriggeredName, 1)), 0o600))
+	// a trigger the policy's matchConstraints do not select
+	configMapTrigger := filepath.Join(t.TempDir(), "configmap.yaml")
+	require.NoError(t, os.WriteFile(configMapTrigger, []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test-config\n  namespace: test-ns\ndata:\n  key: value\n"), 0o600))
+
+	tests := []struct {
+		name            string
+		policy          string
+		extraPolicies   []string
+		trigger         string
+		targetResources []string
+		wantPass        int
+		wantError       int
+	}{
+		{
+			name:            "with target resource",
+			policy:          dir + "/policy.yaml",
+			targetResources: []string{dir + "/target.yaml"},
+			wantPass:        1,
+		},
+		{
+			name:   "without target resource",
+			policy: dir + "/policy.yaml",
+		},
+		{
+			name:            "with target resource whose mutation fails",
+			policy:          failingPolicy,
+			targetResources: []string{dir + "/target.yaml"},
+			wantError:       1,
+		},
+		{
+			name:            "with a trigger the policy does not match",
+			policy:          dir + "/policy.yaml",
+			trigger:         configMapTrigger,
+			targetResources: []string{dir + "/target.yaml"},
+		},
+		{
+			name:            "with a trigger rejected by matchConditions",
+			policy:          conditionedPolicy,
+			targetResources: []string{dir + "/target.yaml"},
+		},
+		{
+			name:            "with a second policy the trigger does not match",
+			policy:          dir + "/policy.yaml",
+			extraPolicies:   []string{notTriggeredPolicy},
+			targetResources: []string{dir + "/target.yaml"},
+			wantPass:        1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			trigger := tt.trigger
+			if trigger == "" {
+				trigger = dir + "/trigger.yaml"
+			}
+			config := ApplyCommandConfig{
+				PolicyPaths:         append([]string{tt.policy}, tt.extraPolicies...),
+				ResourcePaths:       []string{trigger},
+				TargetResourcePaths: tt.targetResources,
+			}
+			out := &bytes.Buffer{}
+			rc, _, _, responses, err := config.applyCommandHelper(context.TODO(), out)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantPass, rc.Pass)
+			assert.Equal(t, tt.wantError, rc.Error)
+			assert.Equal(t, 0, rc.Fail)
+
+			var targetMutated, targetErrored bool
+			for _, response := range responses {
+				assert.NotEqual(t, notTriggeredName, response.Policy().GetName(), "a policy whose trigger rules do not match must not mutate targets")
+				if response.Policy().GetName() != "mutate-existing-deployment-from-secret" {
+					continue
+				}
+				if response.PatchedResource.Object != nil {
+					assert.Equal(t, response.Resource.Object, response.PatchedResource.Object, "trigger must not be patched")
+				}
+				for _, rule := range response.PolicyResponse.Rules {
+					assert.Equal(t, "Deployment", response.Resource.GetKind(), "rule %q evaluated against the trigger: %s", rule.Name(), rule.Message())
+					patched, _, _ := rule.PatchedTarget()
+					switch rule.Status() {
+					case engineapi.RuleStatusPass:
+						if assert.NotNil(t, patched) {
+							assert.Equal(t, "Deployment", patched.GetKind())
+							assert.Equal(t, "true", patched.GetLabels()["mutated"])
+							targetMutated = true
+						}
+					case engineapi.RuleStatusError:
+						assert.Nil(t, patched, "a failed mutation must not produce a patched target")
+						assert.Contains(t, rule.Message(), "no such key")
+						targetErrored = true
+					default:
+						t.Errorf("unexpected rule status %s: %s", rule.Status(), rule.Message())
+					}
+				}
+			}
+			assert.Equal(t, tt.wantPass > 0, targetMutated)
+			assert.Equal(t, tt.wantError > 0, targetErrored)
+			assert.Equal(t, tt.wantPass > 0, strings.Contains(out.String(), "patched targets"))
+			assert.NotContains(t, out.String(), "kind: Secret", "trigger must not be printed as mutated")
+		})
+	}
+}
