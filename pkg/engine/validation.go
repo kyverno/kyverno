@@ -56,7 +56,7 @@ func (e *engine) validate(
 			} else if hasVerifyImageChecks {
 				return validation.NewValidateImageHandler(
 					policyContext,
-					policyContext.NewResource(),
+					matchedResource,
 					rule,
 					e.configuration,
 					e.client,
