@@ -10,6 +10,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
     controller-gen.kubebuilder.io/version: v0.20.0
+    helm.sh/resource-policy: keep
   name: cleanuppolicies.kyverno.io
 spec:
   group: kyverno.io

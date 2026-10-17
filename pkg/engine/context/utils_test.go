@@ -168,3 +168,22 @@ func TestClearLeaf(t *testing.T) {
 	_, exists = r["object"]
 	assert.Equal(t, false, exists)
 }
+
+type dummyCustomContext struct {
+	Interface
+}
+
+func TestAddJSONObject(t *testing.T) {
+	ctx := NewContext(nil)
+	data := map[string]interface{}{
+		"foo": "bar",
+	}
+
+	err := AddJSONObject(ctx, data)
+	assert.NoError(t, err)
+
+	unsupportedCtx := &dummyCustomContext{}
+	err = AddJSONObject(unsupportedCtx, data)
+	assert.Error(t, err)
+	assert.Equal(t, "context does not support JSON insertion", err.Error())
+}

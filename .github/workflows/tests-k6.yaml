@@ -41,10 +41,17 @@ jobs:
         name: Deploy policies
         shell: bash
         run: |
-          helm upgrade --install --wait --timeout 15m \
-            --namespace kyverno --create-namespace \
-            --repo https://kyverno.github.io/kyverno/ \
-            kyverno-policies kyverno-policies
+          # Kyverno's policy webhook can still refuse connections right after the install,
+          # so retry the policies install a couple of times.
+          for i in 1 2 3; do
+            helm upgrade --install --wait --timeout 15m \
+              --namespace kyverno --create-namespace \
+              --repo https://kyverno.github.io/kyverno/ \
+              kyverno-policies kyverno-policies && exit 0
+            helm uninstall kyverno-policies --namespace kyverno --ignore-not-found || true
+            sleep 15
+          done
+          exit 1
       - name: Create test namespace
         shell: bash
         run: kubectl create ns testns

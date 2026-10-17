@@ -234,12 +234,14 @@ func (pc *policyController) triggerMatches(
 	excludeRules []admissionregistrationv1.NamedRuleWithOperations,
 	nsSelector *metav1.LabelSelector,
 ) bool {
-	// check if the resource matches the excluded rules
+	// generateExisting is not an admission request, so exclude operations are
+	// not consulted. rules.Matcher returns false when operations is empty,
+	// which would skip excludes that do not set operations.
 	if len(excludeRules) > 0 {
 		for _, rule := range excludeRules {
-			if contains(rule.APIGroups, gvr.Group) &&
-				contains(rule.APIVersions, gvr.Version) &&
-				contains(rule.Resources, gvr.Resource) &&
+			if exactOrWildcard(rule.APIGroups, gvr.Group) &&
+				exactOrWildcard(rule.APIVersions, gvr.Version) &&
+				resourceWildcardMatches(rule.Resources, gvr.Resource) &&
 				(len(rule.ResourceNames) == 0 || contains(rule.ResourceNames, resource.GetName())) {
 				return false
 			}
@@ -281,4 +283,37 @@ func (pc *policyController) triggerMatches(
 		}
 	}
 	return true
+}
+
+// exactOrWildcard reports whether requested is listed, or covered by "*".
+// Admission uses the same check for apiGroups and apiVersions.
+func exactOrWildcard(items []string, requested string) bool {
+	for _, item := range items {
+		if item == "*" || item == requested {
+			return true
+		}
+	}
+	return false
+}
+
+// resourceWildcardMatches follows admission rules.Matcher.
+// "*" matches every resource but not its subresources.
+// "pods/*" matches pods and any pod subresource. rules.Matcher treats
+// "r/*" the same way: the resource itself matches, and so does "r/exec".
+func resourceWildcardMatches(patterns []string, resource string) bool {
+	gotRes, gotSub := splitResource(resource)
+	for _, pattern := range patterns {
+		wantRes, wantSub := splitResource(pattern)
+		resMatch := wantRes == "*" || wantRes == gotRes
+		subMatch := wantSub == "*" || wantSub == gotSub
+		if resMatch && subMatch {
+			return true
+		}
+	}
+	return false
+}
+
+func splitResource(resource string) (string, string) {
+	res, sub, _ := strings.Cut(resource, "/")
+	return res, sub
 }

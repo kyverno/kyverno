@@ -20,6 +20,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/deprecations"
@@ -29,6 +30,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/payload"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
@@ -40,6 +42,7 @@ import (
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	ivpolengine "github.com/kyverno/kyverno/pkg/cel/policies/ivpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/cli/loader"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -96,6 +99,7 @@ type ApplyCommandConfig struct {
 	Stdin                     bool
 	RegistryAccess            bool
 	AuditWarn                 bool
+	Explain                   bool
 	ResourcePaths             []string
 	PolicyPaths               []string
 	TargetResourcePaths       []string
@@ -154,7 +158,7 @@ func Command() *cobra.Command {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
-			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(out)
+			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				return err
 			}
@@ -239,6 +243,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	cmd.Flags().StringVar(&applyCommandConfig.GitUsername, "username", "", "Username for connecting to git repository")
 	cmd.Flags().StringVar(&applyCommandConfig.GitPassword, "password", "", "Password for connecting to git repository")
+	cmd.Flags().BoolVar(&applyCommandConfig.Explain, "explain", false, "Print how each ValidatingPolicy, MutatingPolicy, GeneratingPolicy and DeletingPolicy reached its result: whether it applied, its match conditions, variables, and its validations, the mutations it ran, the generate entries it ran or its delete conditions (other policy types are not traced yet). The trace prints the values the expressions read, including resource fields and variables, so a policy that reads a Secret's data prints that data; treat the output as sensitive")
 	cmd.Flags().BoolVar(&applyCommandConfig.AuditWarn, "audit-warn", false, "If set to true, will flag audit policies as warnings instead of failures")
 	cmd.Flags().IntVar(&applyCommandConfig.warnExitCode, "warn-exit-code", 0, "Set the exit code for warnings; if failures or errors are found, will exit 1")
 	cmd.Flags().BoolVar(&applyCommandConfig.warnNoPassed, "warn-no-pass", false, "Specify if warning exit code should be raised if no objects satisfied a policy; can be used together with --warn-exit-code flag")
@@ -267,7 +272,7 @@ func Command() *cobra.Command {
 	return cmd
 }
 
-func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
+func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writer) (*processor.ResultCounts, []*unstructured.Unstructured, SkippedInvalidPolicies, []engineapi.EngineResponse, error) {
 	var skippedInvalidPolicies SkippedInvalidPolicies
 	c.deprecationWarnings = nil
 	err := c.checkArguments()
@@ -302,7 +307,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(out)
+	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
@@ -490,12 +495,12 @@ func (c *ApplyCommandConfig) applyCommandHelper(out io.Writer) (*processor.Resul
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses5, err := c.applyDeletingPolicies(dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
+	responses5, err := c.applyDeletingPolicies(out, dps, resources1, celExceptions, variables.Namespace, rc, dClient, "resource")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses6, err := c.applyDeletingPolicies(dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
+	responses6, err := c.applyDeletingPolicies(out, dps, jsonPayloads, celExceptions, variables.Namespace, rc, dClient, "json")
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
@@ -615,6 +620,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -656,6 +662,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Cluster:                           c.Cluster,
 			Client:                            dClient,
 			AuditWarn:                         c.AuditWarn,
+			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
@@ -703,10 +710,11 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		// This informer will automatically die at the end of this function and thats ok,
 		// we don't care about it past applying image validating policies anyways
 		defer close(stopCh)
+		secretsInformer := informerFactory.Core().V1().Secrets()
 		informerFactory.Start(stopCh)
 		informerFactory.WaitForCacheSync(stopCh)
 
-		lister = informerFactory.Core().V1().Secrets().Lister()
+		lister = secretsInformer.Lister()
 	}
 
 	restMapper, err := utils.GetRESTMapper(dclient)
@@ -830,6 +838,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 }
 
 func (c *ApplyCommandConfig) applyDeletingPolicies(
+	out io.Writer,
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
 	celExceptions []*policiesv1beta1.PolicyException,
@@ -838,7 +847,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	dclient dclient.Interface,
 	payloadType string,
 ) ([]engineapi.EngineResponse, error) {
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompiler(), dps, celExceptions)
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
 	if err != nil {
 		return nil, err
 	}
@@ -869,6 +878,12 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			}
 			policyName := dpol.Policy.GetName()
 			resp, err := engine.Handle(context.TODO(), dpol, *resource)
+			// before the error and not-matched branches below, so their traces are printed too;
+			// Trace is only ever set when the policy was compiled with --explain
+			if resp.Trace != nil {
+				trace.Render(out, resp.Trace)
+				fmt.Fprintln(out)
+			}
 			if err != nil {
 				response := engineapi.NewEngineResponse(*resource, genericPolicy, nil)
 				response = response.WithPolicyResponse(engineapi.PolicyResponse{Rules: []engineapi.RuleResponse{
@@ -1095,7 +1110,7 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 	return resources, jsonPayloads, nil
 }
 
-func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
+func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	[]kyvernov1.PolicyInterface,
 	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
@@ -1130,6 +1145,14 @@ func (c *ApplyCommandConfig) loadPolicies(out io.Writer) (
 	var envoyPols []*policiesv1beta1.ValidatingPolicy
 	var httpPols []*policiesv1beta1.ValidatingPolicy
 	for _, path := range c.PolicyPaths {
+		if source.IsOCI(path) {
+			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), pull.NewKeychain())
+			if err != nil {
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
+			}
+			defer cleanup()
+			path = tmpDir
+		}
 		isGit := source.IsGit(path)
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
@@ -1312,6 +1335,30 @@ func hasStdinPath(paths []string) bool {
 	return false
 }
 
+// checkExplainCompatible rejects --explain alongside the flags whose stdout is meant for another
+// program (a policy report or generated exceptions to parse, or a mutated resource to pipe into
+// kubectl). The trace is human-readable text written to the same stdout, so mixing the two would
+// leave that output unparseable. These are the same modes that already suppress the
+// "Applying N policy rule(s)" banner.
+func (c *ApplyCommandConfig) checkExplainCompatible() error {
+	if !c.Explain {
+		return nil
+	}
+	for _, f := range []struct {
+		set  bool
+		name string
+	}{
+		{c.PolicyReport, "--policy-report"},
+		{c.GenerateExceptions, "--generate-exceptions"},
+		{c.Stdin, "--stdin"},
+	} {
+		if f.set {
+			return fmt.Errorf("--explain cannot be used with %s: %s output must stay machine-readable, and the trace would be mixed into it", f.name, f.name)
+		}
+	}
+	return nil
+}
+
 func (c *ApplyCommandConfig) checkArguments() error {
 	if c.ValuesFile != "" && c.Variables != nil {
 		return fmt.Errorf("pass the values either using set flag or values_file flag")
@@ -1321,6 +1368,9 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	}
 	if hasStdinPath(c.PolicyPaths) && hasStdinPath(c.ResourcePaths) {
 		return fmt.Errorf("a stdin pipe can be used for either policies or resources, not both")
+	}
+	if err := c.checkExplainCompatible(); err != nil {
+		return err
 	}
 	if len(c.ResourcePaths) != 0 && len(c.JSONPaths) != 0 {
 		return fmt.Errorf("both resource and json files can not be used together, use one or the other")
@@ -1349,11 +1399,21 @@ func (w WarnExitCodeError) Error() string {
 	return fmt.Sprintf("exit as warnExitCode is %d", w.ExitCode)
 }
 
+func flattenResources(resources []*unstructured.Unstructured) ([]*unstructured.Unstructured, error) {
+	return resource.FlattenResources(resources)
+}
+
 func createFakeClientFromResources(resources, targetResources, parameterResources []*unstructured.Unstructured) (dclient.Interface, error) {
 	allResources := make([]*unstructured.Unstructured, 0, len(resources)+len(targetResources)+len(parameterResources))
 	allResources = append(allResources, resources...)
 	allResources = append(allResources, targetResources...)
 	allResources = append(allResources, parameterResources...)
+
+	flatResources, err := flattenResources(allResources)
+	if err != nil {
+		return nil, err
+	}
+	allResources = flatResources
 
 	gvrToListKind := make(map[schema.GroupVersionResource]string)
 	// gvrToGVK holds the authoritative GVR→GVK mapping derived directly from

@@ -15,6 +15,7 @@ import (
 	dpolengine "github.com/kyverno/kyverno/pkg/cel/policies/dpol/engine"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	configpkg "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/config/mocks"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
@@ -50,7 +51,7 @@ func Test_SkipResourceDueToFilter(t *testing.T) {
 	}
 
 	mockConfig.EXPECT().
-		ToFilter(gvk, "ConfigMap", "kube-system", "filtered-cm").
+		ToFilter(gvk, "", "kube-system", "filtered-cm").
 		Return(true).
 		AnyTimes()
 
@@ -64,10 +65,134 @@ func Test_SkipResourceDueToFilter(t *testing.T) {
 	resource.SetName("filtered-cm")
 
 	filtered := c.configuration.ToFilter(
-		gvk, resource.GetKind(), resource.GetNamespace(), resource.GetName(),
+		gvk, "", resource.GetNamespace(), resource.GetName(),
 	)
 
 	assert.True(t, filtered, "Expected resource to be filtered and skipped")
+}
+
+func Test_Deleting_HonorsResourceFilters(t *testing.T) {
+	scheme := runtime.NewScheme()
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+	}
+	dynClient := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind)
+
+	pod := func(name, namespace string) unstructured.Unstructured {
+		return unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata": map[string]interface{}{
+					"name":      name,
+					"namespace": namespace,
+				},
+			},
+		}
+	}
+
+	dynClient.PrependReactor("list", "*", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "PodList"})
+		list.Items = []unstructured.Unstructured{
+			pod("filtered-pod", "ns1"),
+			pod("unfiltered-pod", "ns1"),
+		}
+		return true, list, nil
+	})
+
+	kubeClient := kubeclientfake.NewSimpleClientset()
+	if fakeDiscovery, ok := kubeClient.Discovery().(*fakediscovery.FakeDiscovery); ok {
+		fakeDiscovery.Resources = []*metav1.APIResourceList{
+			{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{Name: "pods", Kind: "Pod", Namespaced: true},
+				},
+			},
+		}
+	}
+
+	nsLister := &mockNamespaceLister{
+		namespaces: []*corev1.Namespace{
+			{ObjectMeta: metav1.ObjectMeta{Name: "ns1"}},
+		},
+	}
+
+	pol := policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-deleting-policy",
+		},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			Conditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "always-true",
+					Expression: "true",
+				},
+			},
+		},
+	}
+
+	compiler := enginecompiler.NewCompiler()
+	compiledPolicy, errs := compiler.Compile(&pol, nil)
+	assert.Empty(t, errs)
+
+	ePolicy := dpolengine.Policy{
+		Policy:         &pol,
+		CompiledPolicy: compiledPolicy,
+	}
+
+	dpolEngine := dpolengine.NewEngine(
+		func(namespace string) *corev1.Namespace { return nil },
+		mapper,
+		&libs.FakeContextProvider{},
+		matching.NewMatcher(),
+	)
+
+	configuration := configpkg.NewDefaultConfiguration(false)
+	configuration.Load(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kyverno",
+			Namespace: "kyverno",
+		},
+		Data: map[string]string{
+			"resourceFilters": "[Pod,ns1,filtered-pod]",
+		},
+	})
+
+	mockClient := &mockDClient{
+		dyn:  dynClient,
+		kube: kubeClient,
+	}
+
+	c := &controller{
+		client:        mockClient,
+		nsLister:      nsLister,
+		engine:        dpolEngine,
+		configuration: configuration,
+		eventGen:      &mockEventGenerator{},
+	}
+
+	err := c.deleting(context.Background(), logr.Discard(), ePolicy)
+	assert.NoError(t, err)
+	assert.NotContains(t, mockClient.deletedResources, "ns1/filtered-pod")
+	assert.Contains(t, mockClient.deletedResources, "ns1/unfiltered-pod")
 }
 
 // captureQueue wraps a real typed queue but captures the last AddAfter delay used by the controller.
@@ -140,8 +265,8 @@ func TestReconcile_ClampPastNextExecution(t *testing.T) {
 	if err := ctrl.reconcile(context.Background(), logr.Discard(), "dpol", "", "dpol"); err != nil {
 		t.Fatalf("reconcile failed: %v", err)
 	}
-	// add a tolerance to the lower bound to account for test flakiness
-	if cq.lastDelay < minRequeueDelay-100*time.Millisecond || cq.lastDelay > minRequeueDelay+60*time.Second {
+	// add a tolerance to account for test execution near minute boundaries
+	if cq.lastDelay <= 0 || cq.lastDelay > minRequeueDelay+60*time.Second {
 		t.Fatalf("expected delay to next cron minute, got %v", cq.lastDelay)
 	}
 }

@@ -111,6 +111,46 @@ func TestBuildKindWarningIgnoresNonKyvernoGroup(t *testing.T) {
 	}
 }
 
+// TestReplacementsKeySet pins the exact key set of the replacements map.
+// It's what catches a newly ADDED kind going unnoticed. If you add or
+// remove a legacy kind here, also update the e2e fixtures in
+// scripts/verify-legacy-policy-migration.sh.
+func TestReplacementsKeySet(t *testing.T) {
+	t.Parallel()
+	want := map[string]struct{}{
+		"ClusterPolicy":        {},
+		"Policy":               {},
+		"ClusterCleanupPolicy": {},
+		"CleanupPolicy":        {},
+		"PolicyException":      {},
+	}
+	got := make(map[string]struct{}, len(replacements))
+	for kind := range replacements {
+		got[kind] = struct{}{}
+	}
+	if len(got) != len(want) {
+		t.Fatalf("replacements has %d keys, want %d (got=%v, want=%v); see this test's doc comment for what to update if this is a deliberate kind addition/removal", len(got), len(want), keys(got), keys(want))
+	}
+	for kind := range want {
+		if _, ok := got[kind]; !ok {
+			t.Errorf("replacements is missing expected legacy kind %q; see this test's doc comment for what to update if this is a deliberate removal", kind)
+		}
+	}
+	for kind := range got {
+		if _, ok := want[kind]; !ok {
+			t.Errorf("replacements has unexpected legacy kind %q not in this test's expected set; see this test's doc comment for what to update if this is a deliberate addition", kind)
+		}
+	}
+}
+
+func keys(m map[string]struct{}) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	return out
+}
+
 func TestIsLegacyPolicyKind(t *testing.T) {
 	t.Parallel()
 	for kind := range replacements {

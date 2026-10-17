@@ -253,3 +253,28 @@ auditAnnotations:
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/* CEL clause that relaxes a check for user namespace pods.
+     Kubernetes Pod Security Admission relaxes only procMount (Baseline),
+     runAsNonRoot and runAsUser (Restricted) when spec.hostUsers is explicitly
+     false. An absent or true hostUsers must never relax, so the clause tests
+     for an explicit false. Emits nothing unless podSecurityUserNamespaces is
+     enabled, so call sites guard it with `with` and indent it themselves.
+     Do not use it in any other policy. */}}
+{{- define "kyverno-policies.userNamespaceRelaxation" -}}
+{{- if .Values.podSecurityUserNamespaces -}}
+{{- "object.spec.?hostUsers.orValue(true) == false ||" -}}
+{{- end -}}
+{{- end -}}
+
+{{/* Safe sysctls allowed by PSA for the cluster version. Never fewer than the v1.29 list. */}}
+{{- define "kyverno-policies.allowedSysctls" -}}
+{{- $sysctls := list "kernel.shm_rmid_forced" "net.ipv4.ip_local_port_range" "net.ipv4.tcp_syncookies" "net.ipv4.ping_group_range" "net.ipv4.ip_unprivileged_port_start" "net.ipv4.ip_local_reserved_ports" "net.ipv4.tcp_keepalive_time" "net.ipv4.tcp_fin_timeout" "net.ipv4.tcp_keepalive_intvl" "net.ipv4.tcp_keepalive_probes" -}}
+{{- if semverCompare ">=1.32.0-0" .Capabilities.KubeVersion.Version -}}
+{{- $sysctls = concat $sysctls (list "net.ipv4.tcp_rmem" "net.ipv4.tcp_wmem") -}}
+{{- end -}}
+{{- if semverCompare ">=1.37.0-0" .Capabilities.KubeVersion.Version -}}
+{{- $sysctls = concat $sysctls (list "net.ipv4.tcp_slow_start_after_idle" "net.ipv4.tcp_notsent_lowat") -}}
+{{- end -}}
+{{- range $i, $s := $sysctls }}{{ if $i }}, {{ end }}'{{ $s }}'{{ end -}}
+{{- end -}}

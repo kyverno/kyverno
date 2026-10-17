@@ -240,7 +240,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 		path := fmt.Sprintf(".attestations[%d]", i)
 
-		iv.logger.V(2).Info(fmt.Sprintf("attestation %+v", attestation))
+		iv.logger.V(2).Info("verifying attestation", "attestation", attestation)
 		if attestation.Type == "" && attestation.PredicateType == "" {
 			return engineapi.RuleFail(iv.rule.Name, engineapi.ImageVerify, path+": missing type", iv.rule.ReportProperties), ""
 		}
@@ -272,7 +272,7 @@ func (iv *imageVerifier) verifyAttestations(
 
 				name := imageVerify.Attestations[i].Name
 
-				rawResp, err := getRawResp(cosignResp.Statements)
+				rawResp, err := getRawResp(cosignResp.Statements, attestation.Type)
 				if err != nil {
 					iv.logger.Error(err, "Error while finding report in statement")
 					errorList = append(errorList, err)
@@ -569,6 +569,21 @@ func (iv *imageVerifier) verifyAttestation(statements []map[string]any, attestat
 		iv.logger.V(2).Info("no attestations found for predicate", "type", attestation.Type, "predicates", types, "image", imageInfo.String())
 		return fmt.Errorf("attestions not found for predicate type %s", attestation.Type)
 	}
+
+	if allStatementsHaveTimestamps(statements) {
+		sortStatementsByTimestamp(statements)
+		s := statements[0]
+		iv.logger.V(3).Info("checking newest attestation", "type", attestation.Type, "image", imageInfo.String())
+		val, msg, err := iv.checkAttestations(attestation, s)
+		if err != nil {
+			return fmt.Errorf("failed to check attestations: %w", err)
+		}
+		if !val {
+			return fmt.Errorf("attestation checks failed for %s and predicate %s: %s", imageInfo.String(), attestation.Type, msg)
+		}
+		return nil
+	}
+
 	for _, s := range statements {
 		iv.logger.V(3).Info("checking attestation", "predicates", types, "image", imageInfo.String())
 		val, msg, err := iv.checkAttestations(attestation, s)

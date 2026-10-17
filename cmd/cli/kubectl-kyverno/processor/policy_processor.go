@@ -34,6 +34,8 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -110,6 +112,10 @@ type PolicyProcessor struct {
 	NamespaceCache            map[string]*unstructured.Unstructured
 	ConfigMapResolver         engineapi.ConfigmapResolver
 	RESTMapper                meta.RESTMapper
+	// Explain compiles validating and mutating policies with tracing on and prints, for each
+	// policy, how it arrived at its result (scope, match conditions, variables, the validations
+	// or mutations it ran, and verdict).
+	Explain bool
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
@@ -309,7 +315,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	}
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
-		compiler := mpolcompiler.NewCompiler()
+		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
 		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
 		if err != nil {
 			return nil, err
@@ -367,6 +373,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
+			p.explainMutations(reps.Policies)
 			for _, r := range reps.Policies {
 				if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 					continue
@@ -439,6 +446,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}
+					p.explainMutations(evalResponse.Policies)
 					for _, r := range evalResponse.Policies {
 						if len(r.Rules) == 0 {
 							continue
@@ -449,14 +457,26 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						}
 						rules := make([]engineapi.RuleResponse, 0, len(r.Rules))
 						for _, rule := range r.Rules {
-							if rule.Status() == engineapi.RuleStatusPass {
-								rules = append(rules, *rule.WithPatchedTarget(&patched, metav1.GroupVersionResource(targetGVR), ""))
+							props := rule.Properties()
+							if props == nil {
+								props = make(map[string]string)
 							} else {
-								rules = append(rules, rule)
+								newProps := make(map[string]string, len(props)+1)
+								for k, v := range props {
+									newProps[k] = v
+								}
+								props = newProps
+							}
+							props["kyverno.io/target"] = "true"
+							rWithProp := rule.WithProperties(props)
+							if rule.Status() == engineapi.RuleStatusPass {
+								rules = append(rules, *rWithProp.WithPatchedTarget(&patched, metav1.GroupVersionResource(targetGVR), ""))
+							} else {
+								rules = append(rules, *rWithProp)
 							}
 						}
 						resp := engineapi.EngineResponse{
-							Resource: resource,
+							Resource: *target,
 							PolicyResponse: engineapi.PolicyResponse{
 								Rules: rules,
 							},
@@ -499,7 +519,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// validating policies
 	if len(p.ValidatingPolicies) != 0 {
 		ctx := context.TODO()
-		compiler := vpolcompiler.NewCompiler()
+		compiler := vpolcompiler.NewCompilerWithTrace(p.Explain)
 		// Separate policies by evaluation mode to route them correctly.
 		// JSON-mode policies evaluate against raw JSON and must not go through the
 		// Kubernetes admission path (which requires GVK/GVR and admission attributes).
@@ -573,6 +593,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, fmt.Errorf("failed to apply validating policies on resource %s (%w)", resource.GetName(), err)
 				}
+				p.explain(reps.Policies)
 				for _, r := range reps.Policies {
 					if len(r.Rules) == 0 && hasSelector(r.Policy.GetSpec().MatchConstraints) {
 						continue
@@ -600,6 +621,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, fmt.Errorf("failed to apply JSON-mode validating policies on resource %s (%w)", resource.GetName(), err)
 				}
+				p.explain(reps.Policies)
 				for _, r := range reps.Policies {
 					if len(r.Rules) == 0 {
 						continue
@@ -632,6 +654,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				if err != nil {
 					return nil, err
 				}
+				p.explain(reps.Policies)
 				for _, r := range reps.Policies {
 					response := engineapi.EngineResponse{
 						Resource: *reps.Resource,
@@ -654,7 +677,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		compiler := gpolcompiler.NewCompiler()
+		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
 			compiled, errs := compiler.Compile(pol, p.CELExceptions)
@@ -710,12 +733,25 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				nil,
 			)
 			for _, policy := range compiledPolicies {
-				engineResponse, err := engine.Handle(request, policy, false)
+				engineResponse, err := engine.Handle(context.TODO(), request, policy, false)
 				if err != nil {
 					return nil, err
 				}
 				for _, res := range engineResponse.Policies {
+					// before the no-result branch below, so a skipped policy's trace is printed too
+					if p.Explain && res.Trace != nil {
+						// the generate output of the previous resource ends without a newline
+						fmt.Fprintln(p.Out)
+						trace.Render(p.Out, res.Trace)
+						fmt.Fprintln(p.Out)
+					}
 					if res.Result == nil {
+						generateResponse := engineapi.EngineResponse{
+							Resource: *engineResponse.Trigger,
+						}
+						generateResponse = generateResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
+						p.Rc.addGenerateResponse(generateResponse)
+						responses = append(responses, generateResponse)
 						continue
 					}
 					generateResponse := engineapi.EngineResponse{
@@ -1173,7 +1209,12 @@ func discoverCELTargets(
 	resource *unstructured.Unstructured,
 ) (map[string]map[string]bool, error) {
 	result := make(map[string]map[string]bool)
-	pols := provider.Fetch(context.TODO(), true)
+	// One shared cost budget for every target expression this call evaluates, so the CLI
+	// accounts for them the way a controller does. Without it the programs below are built
+	// through NewProgram but evaluated on a budgetless context, which charges nothing.
+	ctx, releaseBudget := requestbudget.EnsureBackground(context.TODO())
+	defer releaseBudget()
+	pols := provider.Fetch(ctx, true)
 	for _, pol := range pols {
 		tc := pol.Policy.GetTargetMatchConstraints()
 		if tc.Expression == "" {
@@ -1188,7 +1229,7 @@ func discoverCELTargets(
 		data[compiler.VariablesKey] = vars
 		for name, variable := range compiledVars {
 			vars.Append(name, func(*lazy.MapValue) ref.Val {
-				out, _, err := variable.ContextEval(context.TODO(), data)
+				out, _, err := variable.ContextEval(ctx, data)
 				if out != nil {
 					return out
 				}
@@ -1211,11 +1252,11 @@ func discoverCELTargets(
 		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
 			return nil, fmt.Errorf("output type of the target selector expression must be a map for policy %s", pol.Policy.GetName())
 		}
-		prog, err := env.Program(ast)
+		prog, err := compiler.NewProgram(env, ast)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create CEL program for policy %s: %w", pol.Policy.GetName(), err)
 		}
-		out, _, err := prog.ContextEval(context.TODO(), data)
+		out, _, err := prog.ContextEval(ctx, data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate CEL expression for policy %s: %w", pol.Policy.GetName(), err)
 		}
@@ -1300,4 +1341,91 @@ func getAbsPath(path string) string {
 		absPath = filepath.Dir(absPath)
 	}
 	return absPath
+}
+
+// explain prints the decision trace of each policy that produced one. It prints nothing unless
+// Explain is set, so it is safe to call unconditionally.
+func (p *PolicyProcessor) explain(policies []celengine.ValidatingPolicyResponse) {
+	if !p.Explain {
+		return
+	}
+	for _, d := range selectTraces(policies) {
+		// start on a fresh line: the mutate output printed before a trace ends without one
+		fmt.Fprintln(p.Out)
+		trace.Render(p.Out, d)
+		fmt.Fprintln(p.Out)
+	}
+}
+
+// selectTraces picks one trace per policy. A policy's autogenerated variants (Deployment,
+// CronJob, ...) come back as separate responses under the same name, and printing all of them
+// buries the answer under skipped copies. Per policy it keeps the first trace that applied to the
+// resource, or the first one (the policy itself) when none did, in the order policies appeared.
+func selectTraces(policies []celengine.ValidatingPolicyResponse) []*trace.Decision {
+	var order []string
+	chosen := map[string]*trace.Decision{}
+	for _, r := range policies {
+		if r.Trace == nil {
+			continue
+		}
+		key := r.Policy.GetNamespace() + "/" + r.Policy.GetName()
+		current, seen := chosen[key]
+		if !seen {
+			order = append(order, key)
+			chosen[key] = r.Trace
+			continue
+		}
+		if !current.Scope.Applied && r.Trace.Scope.Applied {
+			chosen[key] = r.Trace
+		}
+	}
+	selected := make([]*trace.Decision, 0, len(order))
+	for _, key := range order {
+		selected = append(selected, chosen[key])
+	}
+	return selected
+}
+
+// explainMutations is explain's counterpart for MutatingPolicy: same job, different response
+// type, since mpolengine.MutatingPolicyResponse and celengine.ValidatingPolicyResponse aren't
+// related types. Called once for the normal admission-triggered evaluation and once per
+// mutate-existing target, so it prints incrementally as each is evaluated rather than only once
+// mutation has finished across every policy and target.
+func (p *PolicyProcessor) explainMutations(policies []mpolengine.MutatingPolicyResponse) {
+	if !p.Explain {
+		return
+	}
+	for _, d := range selectTracesMutations(policies) {
+		// start on a fresh line: the mutate output printed before a trace ends without one
+		fmt.Fprintln(p.Out)
+		trace.Render(p.Out, d)
+		fmt.Fprintln(p.Out)
+	}
+}
+
+// selectTracesMutations is selectTraces' counterpart for MutatingPolicy -- see selectTraces for
+// why one trace per policy, not one per autogenerated variant.
+func selectTracesMutations(policies []mpolengine.MutatingPolicyResponse) []*trace.Decision {
+	var order []string
+	chosen := map[string]*trace.Decision{}
+	for _, r := range policies {
+		if r.Trace == nil {
+			continue
+		}
+		key := r.Policy.GetNamespace() + "/" + r.Policy.GetName()
+		current, seen := chosen[key]
+		if !seen {
+			order = append(order, key)
+			chosen[key] = r.Trace
+			continue
+		}
+		if !current.Scope.Applied && r.Trace.Scope.Applied {
+			chosen[key] = r.Trace
+		}
+	}
+	selected := make([]*trace.Decision, 0, len(order))
+	for _, key := range order {
+		selected = append(selected, chosen[key])
+	}
+	return selected
 }

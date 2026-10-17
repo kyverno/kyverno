@@ -88,12 +88,12 @@ Shared files (CLI `apply`/`test`, webhook controller, report controllers) contai
 
 | Signal in added/removed lines | Count | Effect |
 |---|---|---|
-| Legacy identifiers only (`kyvernov1.`, `ClusterPolicy`, `CleanupPolicy`, `UpdateRequest`, `engineapi.`, `jmespath`, `autogen.`, `policycache.`, `kyverno.io/v1`, `cpol`) | 19 | → **LEGACY_ONLY (content)** |
+| Legacy identifiers only (`kyvernov1.`, `ClusterPolicy`, `CleanupPolicy`, `UpdateRequest`, `engineapi.`, `jmespath`, `autogen.`, `policycache.`, `kyverno.io/v1`, `cpol`) | 19 | Shared-path PR → **MIXED** for manual review; never retarget on content alone |
 | CEL identifiers only (`policiesv1alpha1.`, `(Namespaced)?{Validating,Mutating,Generating,Deleting,ImageValidating}Policy`, `vpol|mpol|gpol|dpol|ivpol`, `policies.kyverno.io`) | 8 | → CEL_ONLY |
 | Both | 19 | → MIXED (manual) |
 | Neither | 87 | → SHARED_ONLY, keep on `main` |
 
-Rule: **path tier decides first; content tier only refines PRs the path tier calls SHARED_ONLY.** A path-LEGACY_ONLY PR is never "rescued" by content.
+Rule: **path tier decides first; content tier refines SHARED_ONLY and LEGACY_ONLY rows.** A SHARED_ONLY row with CEL-only content becomes CEL_ONLY; legacy or mixed content becomes MIXED. A LEGACY_ONLY row with CEL or mixed content becomes MIXED. Content signals never create LEGACY_ONLY.
 
 ### 1.5 Known false-positive class: 1.20 migration-grace work
 
@@ -115,12 +115,12 @@ python3 pr-branch-triage.py --pr 17565 --repo kyverno/kyverno     # single-PR cl
 ```
 
 Pipeline per PR:
-1. Metadata: `number,title,author,isDraft,isCrossRepository,maintainerCanModify,mergeable,labels,headRepositoryOwner,headRefName`.
+1. Metadata: `number,title,body,author,isDraft,isCrossRepository,maintainerCanModify,mergeable,labels,headRepositoryOwner,headRefName,headRefOid,baseRefName,updatedAt`.
 2. File list (paginated).
 3. Tier 1 path classification (first-match-wins over SHARED-override → CEL → LEGACY → default SHARED).
-4. Tier 2 diff-content scan **only if** Tier 1 = SHARED_ONLY or LEGACY_ONLY.
+4. Tier 2 diff-content scan **only if** Tier 1 = SHARED_ONLY or LEGACY_ONLY. Legacy identifiers in a shared-path PR route to MIXED, not LEGACY_ONLY; CEL or mixed content in a LEGACY_ONLY PR also routes to MIXED.
 5. Migration-work heuristic (§1.5) → `REVIEW-MIGRATION` flag.
-6. Optional `--probe-rebase`: in a throwaway `git worktree`, `git fetch upstream +pull/N/head:refs/triage/N`; `git rebase --onto release-1.19 $(git merge-base main HEAD)`; record OK/CONFLICT + conflicting files; `git rebase --abort`; remove worktree. Purely local — nothing pushed.
+6. Optional `--probe-rebase`: compare the fetched PR head SHA to the report's `headRefOid`; only then use a unique temporary worktree and per-run refs to attempt `git rebase --onto release-1.19 $(git merge-base main HEAD)`. Record OK/CONFLICT + conflicting files, abort, and clean up only the worktree and refs created by this probe. Purely local — nothing pushed.
 
 > Use `git rebase --onto`, **not** `cherry-pick A..B`: 40 % of PR branches contain `Merge branch 'main'` commits which cherry-pick refuses; rebase linearizes them. (Probe: cherry-pick 13/25 clean → rebase 38/40 clean.)
 
@@ -128,14 +128,14 @@ Pipeline per PR:
 
 | Category | Rule | Proposed action |
 |---|---|---|
-| **LEGACY_ONLY** | ≥1 LEGACY file (path), 0 CEL files (path or content) | Retarget → `release-1.19` (rebase) |
-| **CEL_ONLY** | ≥1 CEL file (path), 0 LEGACY (path or content) — includes SHARED_ONLY promoted by a clean CEL-only content signal | Keep on `main` |
-| **MIXED** | ≥1 LEGACY **and** ≥1 CEL (path or content) — includes SHARED_ONLY demoted by a legacy-touching content signal | Manual: split or keep on `main` |
+| **LEGACY_ONLY** | ≥1 LEGACY file (path), 0 CEL files (path); no CEL or mixed content signal on scanned rows | Retarget → `release-1.19` (rebase) |
+| **CEL_ONLY** | ≥1 CEL file (path), 0 LEGACY files (path); or SHARED_ONLY promoted by CEL-only content | Keep on `main` |
+| **MIXED** | Both LEGACY and CEL paths, or a scanned SHARED_ONLY/LEGACY_ONLY row routed to manual review by its content signal | Manual: split or keep on `main` |
 | **SHARED_ONLY** | 0 LEGACY, 0 CEL, neutral content | Keep on `main`; re-check after removal PR lands |
 | **REVIEW-MIGRATION** (flag) | §1.5 heuristic | Keep on `main`; human confirms |
 | **STALE** (flag) | `updatedAt` > 90 d **or** `CONFLICTING` + no author activity 60 d | Comment + `needs-rebase`; close after 30 d |
 
-**Content-tier safety invariant:** the Tier-2 diff-content scan (§2.1 step 4) only ever runs on Tier-1 `SHARED_ONLY` rows, and can only move a row in two directions: promote it to `CEL_ONLY` (safe — same "keep on main" action as before) or demote it to `MIXED` (forces manual review). Content signals alone can **never** produce an auto-eligible `LEGACY_ONLY` — only Tier-1 path matches (or an explicit human `override: RETARGET`) can make a PR eligible for the automated retarget gate in §2.4. This is what makes the mitigation in §5 ("never auto-move on content alone without path support") true by construction, not just by convention.
+**Content-tier safety invariant:** Tier-2 scans only Tier-1 `SHARED_ONLY` and `LEGACY_ONLY` rows. For `SHARED_ONLY`, CEL-only content promotes to `CEL_ONLY`; legacy or mixed content demotes to `MIXED`. For `LEGACY_ONLY`, CEL or mixed content demotes to `MIXED`; legacy-only or neutral content leaves the path classification unchanged. Content signals alone can **never** produce an auto-eligible `LEGACY_ONLY` — only Tier-1 path matches (or an explicit human `override: RETARGET`) can make a PR eligible for the automated retarget gate in §2.4.
 
 ### 2.3 Report format
 
@@ -149,13 +149,14 @@ Header summary, then one table per category (already produced in `pr-triage-repo
 - `Files (L/C/S)` = counts of legacy / CEL / shared files — lets a reviewer eyeball borderline cases.
 - `Proposed label` = the `type_*` category label described in §2.5, computed by `classify_pr()` but **not yet applied to any PR**.
 - MIXED section includes a `<details>` block listing the legacy vs CEL file sets per PR (splitting guide input).
-- Machine-readable JSON sidecar drives the execution phase, so **execution uses exactly the approved list**, not a re-classification.
+- The JSON sidecar records each PR's captured `base_ref`, `head_sha`, and `updated_at`. Before applying a label, the script checks that the PR is still open and that all three values still match; regenerate and re-approve the report if the PR changed, including title/body-only edits that can affect migration classification.
+- Machine-readable JSON sidecar drives the execution phase, so **execution uses exactly the approved classification** and refuses stale or older reports without captured PR identity.
 
 ### 2.4 Dry-run approval gate
 
 1. Commit `pr-triage-report.md` to a tracking issue ("Legacy PR retargeting — batch 1").
-2. Maintainers annotate overrides directly in the JSON (`"override": "KEEP_MAIN" | "RETARGET" | "SPLIT"`), e.g. confirming the 5 REVIEW-MIGRATION PRs → `KEEP_MAIN`. If a maintainer sets `"override": "RETARGET"` on a `MIXED` or `REVIEW-MIGRATION` PR, re-running `--probe-rebase` will evaluate that PR and allow it to proceed through the gate.
-3. Only PRs with `(category=LEGACY_ONLY || override=RETARGET) && override!=KEEP_MAIN && probe=OK` proceed to automated execution; everything else is manual.
+2. Maintainers annotate overrides directly in the JSON (`"override": "KEEP_MAIN" | "RETARGET" | "SPLIT"`), e.g. confirming the 5 REVIEW-MIGRATION PRs → `KEEP_MAIN`. Overrides are preserved during reclassification. An explicit `"override": "RETARGET"` on a `MIXED` or `REVIEW-MIGRATION` PR is a human decision to bypass that category's default routing; re-running `--probe-rebase` probes the captured PR head before it can pass the gate.
+3. Only PRs with `(category=LEGACY_ONLY || override=RETARGET) && override!=KEEP_MAIN && probe=OK` and an unchanged captured head/base proceed to automated execution; everything else is manual.
 
 ### 2.5 Category labels — `type_legacy` / `type_cel` / `type_mixed` / `type_shared`
 
@@ -187,6 +188,7 @@ As part of the dry run, every classified PR is now tagged in the report/JSON wit
 
 Behavior:
 - Reads `proposed_label` per PR from the triage JSON (never re-derives it — keeps labeling consistent with whatever report was approved).
+- Before labeling, requires the live PR to remain open and match the captured base, head SHA, and `updatedAt`; metadata-only changes also invalidate the snapshot. Stale reports and pre-identity snapshots are skipped and must be regenerated.
 - Skips PRs that already carry the correct `type_*` label (idempotent — safe to re-run).
 - If a PR carries a *different* stale `type_*` label (e.g. reclassified after a push), removes it and adds the new one so exactly one `type_*` label is present at a time.
 - **Default mode performs zero writes** — `--execute` is required to call `gh pr edit`. This satisfies the "dry run first, no changes yet" requirement: the labeling step itself is reviewed the same way as the retargeting step (§2.4).
