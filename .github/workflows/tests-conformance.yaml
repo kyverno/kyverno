@@ -113,7 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: ${{ fromJSON(inputs.release-candidate && '["v1.33.x","v1.34.x","v1.35.x","v1.36.x"]' || '["v1.33.x","v1.34.x"]') }}
+        k8s-version: ${{ fromJSON(inputs.release-candidate && '["v1.33.7","v1.34.3","v1.35.1","v1.36.1"]' || '["v1.33.x","v1.34.x"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -132,12 +132,30 @@ jobs:
       - name: Install chainsaw
         uses: ./.github/actions/tools/chainsaw
       # create cluster
+      - name: Install pinned full-matrix Kind
+        if: inputs.release-candidate
+        uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+        with:
+          install_only: true
+          version: v0.31.0
+      - name: Prepare pinned full-matrix Sigstore cluster
+        if: inputs.release-candidate
+        env:
+          K8S_VERSION: ${{ matrix.k8s-version }}
+        run: python3 scripts/release/scaffolding.py "$K8S_VERSION"
       - name: Create kind cluster and setup Sigstore Scaffolding
+        if: '!inputs.release-candidate'
         uses: sigstore/scaffolding/actions/setup@8bd68672d418e5bd1b0ee1f2e2981874c3a30967 # v0.7.33
         with:
           version: v0.7.33
           k8s-version: ${{ matrix.k8s-version }}
           knative-version: "1.10.0"
+      - name: Install pinned Sigstore on the full-matrix cluster
+        if: inputs.release-candidate
+        uses: sigstore/scaffolding/actions/setup@9cbe5a1e1b01b29a875ddb7cdc77027d20a0a2d9 # v0.7.39
+        with:
+          version: v0.7.39
+          sigstore-only: true
       - name: Create TUF values config map
         run: |
           set -e
@@ -183,6 +201,7 @@ jobs:
           TEST_IMAGE_URL: ${{ env.TEST_IMAGE_URL }}
         run: |
           set -e
+          mkdir -p "$GITHUB_WORKSPACE/release-reports"
           cd ./test/conformance/chainsaw/custom-sigstore
           chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name custom-sigstore
       - name: Retain custom Sigstore test results
@@ -1117,6 +1136,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          mkdir -p "$GITHUB_WORKSPACE/release-reports"
           cd ./test/conformance/chainsaw/cli
           chainsaw test --config .chainsaw.yaml --report-format JSON --report-path "$GITHUB_WORKSPACE/release-reports" --report-name cli
       - name: Retain CLI conformance test results

@@ -40,7 +40,8 @@ def test_reports(root):
             for test in document.get("tests", []):
                 failures = [
                     {"step": step.get("name"), "operation": operation.get("name"),
-                     "failure": operation["failure"], "time": operation.get("startTime", "")}
+                     "failure": operation["failure"],
+                     "time": operation.get("endTime") or operation.get("startTime", "")}
                     for step in test.get("steps", []) for operation in step.get("operations", [])
                     if operation.get("failure")
                 ]
@@ -51,7 +52,11 @@ def test_reports(root):
                     "failures": failures,
                 })
     write_json(root / "per-test.json", rows)
-    failed = sorted((row for row in rows if row["result"] == "failure"), key=lambda row: row["start"])
+    failed = sorted(
+        (row for row in rows if row["result"] == "failure"),
+        key=lambda row: min((failure["time"] for failure in row["failures"] if failure["time"]),
+                            default=row["start"]),
+    )
     first = json.dumps(failed[0], indent=2) if failed else "No failed per-test report was recorded."
     return [
         "", "## Per-test reports (all retained attempts)", f"{len(rows)} test results in `per-test.json`.",

@@ -21,6 +21,7 @@ import krew
 import release
 import retained
 import report
+import scaffolding
 import tag
 
 
@@ -443,6 +444,98 @@ class LocalArtifacts(unittest.TestCase):
             process = subprocess.run(["bash", "-e", "-c", script], capture_output=True, timeout=30)
         self.assertNotEqual(process.returncode, 0)
 
+    def test_workspace_restore_is_posix_and_uses_busybox_checksum_flags(self):
+        restore = release.read(ROOT / ".github/actions/release/restore/action.yaml")["runs"]["steps"][-1]
+        self.assertEqual(restore["shell"], "sh")
+        checksum = self.path / "sha256sum"
+        checksum.write_text('#!/bin/sh\n[ "$1" = "-c" ]\n')
+        checksum.chmod(0o755)
+        with tarfile.open("workspace.tar", "w") as archive:
+            archive.addfile(tarfile.TarInfo(".release/packages/kyverno-3.10.2-rc.3.tgz"))
+        Path("release-workspace.sha256").write_text(
+            f"{release.sha256('workspace.tar')}  workspace.tar\n"
+        )
+        environment = self.path / "environment"
+        process = subprocess.run(
+            ["sh", "-eu", "-c", restore["run"]], capture_output=True, text=True, timeout=30,
+            env={**os.environ, "PATH": f"{self.path}:{os.environ['PATH']}",
+                 "GITHUB_ENV": str(environment)},
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertIn("KYVERNO_TEST_CHART=.release/packages/kyverno-3.10.2-rc.3.tgz",
+                      environment.read_text())
+
+    def test_all_chainsaw_entrypoints_create_their_json_report_directory(self):
+        generic = release.read(ROOT / ".github/actions/tests/conformance/run/action.yaml")
+        conformance = release.read(ROOT / ".github/workflows/tests-conformance.yaml")["jobs"]
+        policies = release.read(ROOT / ".github/workflows/tests-conformance-policy-library.yaml")["jobs"]
+        entries = [
+            (generic["runs"]["steps"], "conformance-results"),
+            (conformance["custom-sigstore"]["steps"], "release-reports"),
+            (conformance["check-tests"]["steps"], "release-reports"),
+            (policies["policy-library"]["steps"], "policy-library-results"),
+        ]
+        chainsaw = self.path / "chainsaw"
+        chainsaw.write_text(
+            '#!/usr/bin/env python3\nimport sys\nfrom pathlib import Path\n'
+            'directory=Path(sys.argv[sys.argv.index("--report-path")+1])\n'
+            'if not directory.is_dir(): sys.exit(37)\n'
+            '(directory/"results.json").write_text("{}")\n'
+        )
+        chainsaw.chmod(0o755)
+        for path in ("test/conformance/chainsaw/reports-proof",
+                     "test/conformance/chainsaw/custom-sigstore",
+                     "test/conformance/chainsaw/cli", "policies"):
+            Path(path).mkdir(parents=True)
+        for steps, directory in entries:
+            shutil.rmtree(directory, ignore_errors=True)
+            script = next(step["run"] for step in steps if step.get("name") == "Test with Chainsaw")
+            for key, value in {"tests-path": "reports-proof", "chainsaw-tests": "",
+                               "shard-index": "0", "shard-count": "0"}.items():
+                script = script.replace("${{ inputs." + key + " }}", value)
+            script = script.replace("${{ matrix.shard-index }}", "0")
+            process = subprocess.run(
+                ["bash", "-e", "-c", script], capture_output=True, text=True, timeout=30,
+                env={**os.environ, "PATH": f"{self.path}:{os.environ['PATH']}",
+                     "GITHUB_WORKSPACE": str(self.path)},
+            )
+            self.assertEqual(process.returncode, 0, process.stderr)
+            self.assertTrue((Path(directory) / "results.json").is_file())
+
+    def test_pinned_sigstore_adapter_covers_the_actual_supported_node_matrix(self):
+        jobs = release.read(ROOT / ".github/workflows/tests-conformance.yaml")["jobs"]
+        self.assertEqual(set(scaffolding.NODE_IMAGES), set(jobs["deferred"]["strategy"]["matrix"]["k8s-version"]))
+        source = (
+            b'#!/bin/bash\ncase ${K8S_VERSION} in\n*) exit 9;;\nesac\n'
+            b'printf "%s\\n%s\\n%s\\n" "$K8S_VERSION" "$KIND_IMAGE" "$KNATIVE_VERSION"\n'
+        )
+        with patch.object(scaffolding, "CHECKSUM", hashlib.sha256(source).hexdigest()):
+            for version, digest in scaffolding.NODE_IMAGES.items():
+                self.assertIn(version, jobs["custom-sigstore"]["strategy"]["matrix"]["k8s-version"])
+                script = scaffolding.prepare_script(source, version)
+                process = subprocess.run(
+                    ["bash", "-e", "-c", script], capture_output=True, text=True, timeout=30,
+                    env={**os.environ, "K8S_VERSION": version},
+                )
+                self.assertEqual(process.returncode, 0, process.stderr)
+                self.assertEqual(process.stdout.splitlines(), [
+                    version[1:], f"kindest/node:{version}@{digest}", "1.19.0",
+                ])
+        setup = next(step for step in jobs["custom-sigstore"]["steps"]
+                     if step.get("name") == "Install pinned Sigstore on the full-matrix cluster")
+        self.assertIn(scaffolding.COMMIT, setup["uses"])
+        self.assertTrue(setup["with"]["sigstore-only"])
+
+    def test_sigstore_adapter_rejects_source_drift_unknown_nodes_and_changed_structure(self):
+        with self.assertRaisesRegex(ValueError, "committed checksum"):
+            scaffolding.prepare_script(b"changed upstream source", "v1.36.1")
+        with self.assertRaisesRegex(ValueError, "Missing pinned"):
+            scaffolding.prepare_script(b"anything", "v1.37.0")
+        source = b"no expected version map"
+        with patch.object(scaffolding, "CHECKSUM", hashlib.sha256(source).hexdigest()):
+            with self.assertRaisesRegex(ValueError, "Unexpected"):
+                scaffolding.prepare_script(source, "v1.36.1")
+
     def test_packaged_background_hook_and_dependency_references(self):
         metadata = release.plan("v1.20.2", SHA, MAPPING)
         for key in release.IMAGE_VALUES:
@@ -509,6 +602,29 @@ class LocalArtifacts(unittest.TestCase):
         self.assertEqual([row["result"] for row in results], ["failure", "success", "skipped"])
         self.assertIn("failed-case", "\n".join(lines))
         self.assertIn("denied", "\n".join(lines))
+
+    def test_first_failure_uses_completion_time_not_parallel_test_start_order(self):
+        artifact = {"name": "release-conformance-parallel-v1.36.1-0-1", "id": 1}
+        root = Path("release-report")
+        directory = root / "test-reports" / artifact["name"]
+        directory.mkdir(parents=True)
+        tests = [
+            {"name": name, "startTime": start, "steps": [{"operations": [
+                {"name": "assert", "startTime": start, "endTime": end,
+                 "failure": {"error": name}},
+            ]}]}
+            for name, start, end in (
+                ("early-start-late-failure", "2026-01-01T00:00:00Z", "2026-01-01T00:03:00Z"),
+                ("late-start-early-failure", "2026-01-01T00:01:00Z", "2026-01-01T00:02:00Z"),
+            )
+        ]
+        release.write_json(directory / "results.json", {"tests": tests})
+        with patch.object(artifacts, "available", return_value=[artifact]), \
+                patch.object(artifacts, "download"), \
+                patch.dict(os.environ, {"GITHUB_REPOSITORY": "kyverno/kyverno", "GITHUB_RUN_ID": "1"}):
+            summary = "\n".join(report.test_reports(root))
+        self.assertIn("late-start-early-failure", summary)
+        self.assertNotIn("early-start-late-failure", summary)
 
 
 class RetryAndGates(unittest.TestCase):
