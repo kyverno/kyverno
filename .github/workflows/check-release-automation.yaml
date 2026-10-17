@@ -1,0 +1,76 @@
+name: Release automation
+
+permissions: {}
+
+on:
+  pull_request:
+    branches: [main, release-*]
+    paths:
+      - .github/workflows/*release*.yaml
+      - .github/workflows/tests-conformance*.yaml
+      - .github/workflows/tests-k6.yaml
+      - .github/actions/release/**
+      - .github/actions/tools/helm/**
+      - .github/actions/tests/conformance/**
+      - scripts/release/**
+      - config/releases.yaml
+      - .goreleaser.yml
+      - .ko.yaml
+      - .krew.yaml
+      - Makefile
+  push:
+    branches: [main, release-*]
+    paths:
+      - .github/workflows/*release*.yaml
+      - .github/actions/release/**
+      - scripts/release/**
+      - config/releases.yaml
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  rehearsal:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      actions: read
+      packages: read
+    uses: ./.github/workflows/release-validate.yaml
+    with:
+      tag: v1.20.0-rc.0
+      sha: ${{ github.sha }}
+      rehearsal: true
+
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: python3 -m pip install -r scripts/release/requirements.txt
+      - name: Version, artifact, workflow gate and interrupted-retry regressions
+        run: python3 -m unittest discover -s scripts/release -p 'test_*.py' -v
+      - uses: ./.github/actions/go/setup
+      - name: Validate workflow syntax and cross-workflow contracts
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= -pyflakes=
+
+  prepare-charts:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: [v1.20.2, v1.20.2-rc3, v1.20.2-rc.3]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/go/setup
+      - uses: ./.github/actions/tools/helm
+      - run: python3 -m pip install -r scripts/release/requirements.txt
+      - name: Prepare and verify real chart packages without a tag or publication
+        env:
+          RELEASE_TAG: ${{ matrix.tag }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: |
+          python3 scripts/release/release.py prepare
+          python3 scripts/release/release.py seal
+          python3 scripts/release/release.py verify-packages
+          helm lint --strict .release/packages/*.tgz
