@@ -32,7 +32,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    - jsonPath: .spec.failurePolicy
+    - jsonPath: .spec.webhookConfiguration.failurePolicy
       name: FAILURE POLICY
       priority: 1
       type: string
@@ -5153,6 +5153,7 @@ spec:
                   for Kubernetes admission webhookconfiguration.
                 properties:
                   failurePolicy:
+                    default: Fail
                     description: |-
                       FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
                       Rules within the same policy share the same failure behavior.
@@ -15188,6 +15189,7 @@ spec:
                   for Kubernetes admission webhookconfiguration.
                 properties:
                   failurePolicy:
+                    default: Fail
                     description: |-
                       FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
                       Rules within the same policy share the same failure behavior.
