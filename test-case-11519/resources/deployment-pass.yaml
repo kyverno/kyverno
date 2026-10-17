@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deploy-pass
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-deploy-pass
+  template:
+    metadata:
+      labels:
+        app: test-deploy-pass
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: false
+      restartPolicy: Always
+      securityContext: {}

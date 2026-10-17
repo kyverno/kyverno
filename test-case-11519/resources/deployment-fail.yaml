@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deploy-fail
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: test-deploy-fail
+  template:
+    metadata:
+      labels:
+        app: test-deploy-fail
+    spec:
+      containers:
+      - name: test-container
+        image: nginx:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+      restartPolicy: Always
+      securityContext: {}
