@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -72,41 +73,31 @@ func TestAuth_CanI_NoCacheRepeatsAccessReviews(t *testing.T) {
 	assert.Equal(t, int64(15), calls.Load())
 }
 
-func TestAuth_CanI_CacheRetriesErrors(t *testing.T) {
-	for _, tt := range []struct {
-		name   string
-		status authorizationv1.SubjectAccessReviewStatus
-		err    error
-	}{
-		{name: "API error", err: errors.New("API server unavailable")},
-		{name: "evaluation error", status: authorizationv1.SubjectAccessReviewStatus{EvaluationError: "authorization webhook timeout"}},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			client, _ := newCountingFakeClient(t)
-			calls := 0
-			client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
-				calls++
-				if calls == 1 {
-					return true, &authorizationv1.SubjectAccessReview{Status: tt.status}, tt.err
-				}
-				return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
-			})
-			cache := NewCache()
-			a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
-			ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
-			assert.Error(t, err)
-			assert.False(t, ok)
-			assert.Empty(t, cache.results)
+func TestAuth_CanI_CacheRetriesAPIErrors(t *testing.T) {
+	client, _ := newCountingFakeClient(t)
+	calls := 0
+	apiError := errors.New("API server unavailable")
+	client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+		calls++
+		if calls == 1 {
+			return true, nil, apiError
+		}
+		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
+	})
+	cache := NewCache()
+	a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+	ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+	require.ErrorIs(t, err, apiError)
+	assert.False(t, ok)
+	assert.Empty(t, cache.results)
 
-			for i := 0; i < 2; i++ {
-				a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
-				ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
-				assert.NoError(t, err)
-				assert.True(t, ok)
-			}
-			assert.Equal(t, 2, calls)
-		})
+	for i := 0; i < 2; i++ {
+		a := NewAuthWithCache(client, "test-user", logr.Discard(), cache)
+		ok, _, err := a.CanI(context.Background(), []string{"get"}, "Pod", "", "", "")
+		require.NoError(t, err)
+		assert.True(t, ok)
 	}
+	assert.Equal(t, 2, calls)
 }
 
 func TestAuth_CanI_CacheDecisions(t *testing.T) {
@@ -115,6 +106,8 @@ func TestAuth_CanI_CacheDecisions(t *testing.T) {
 		status authorizationv1.SubjectAccessReviewStatus
 	}{
 		{name: "denied", status: authorizationv1.SubjectAccessReviewStatus{Denied: true}},
+		{name: "denied with diagnostic evaluation error", status: authorizationv1.SubjectAccessReviewStatus{Denied: true, EvaluationError: "authorization webhook timeout"}},
+		{name: "no opinion with diagnostic evaluation error", status: authorizationv1.SubjectAccessReviewStatus{EvaluationError: "authorization webhook timeout"}},
 		{name: "allowed despite evaluation error", status: authorizationv1.SubjectAccessReviewStatus{Allowed: true, EvaluationError: "another authorizer failed"}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -135,6 +128,52 @@ func TestAuth_CanI_CacheDecisions(t *testing.T) {
 				}
 			}
 			assert.Equal(t, 1, calls)
+		})
+	}
+}
+
+func TestAuth_CanI_CacheKeyIsolation(t *testing.T) {
+	type request struct {
+		user, verb, kind, namespace, name, subresource string
+	}
+	baseline := request{user: "alice", verb: "get", kind: "Pod", namespace: "ns-a", name: "pod-a"}
+	for _, tt := range []struct {
+		name   string
+		change func(*request)
+	}{
+		{name: "user", change: func(r *request) { r.user = "bob" }},
+		{name: "verb", change: func(r *request) { r.verb = "update" }},
+		{name: "kind", change: func(r *request) { r.kind = "ConfigMap" }},
+		{name: "namespace", change: func(r *request) { r.namespace = "ns-b" }},
+		{name: "name", change: func(r *request) { r.name = "pod-b" }},
+		{name: "subresource", change: func(r *request) { r.subresource = "status" }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client, _ := newCountingFakeClient(t)
+			calls := 0
+			client.GetKubeClient().(*kubefake.Clientset).PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				calls++
+				review := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+				attrs := review.Spec.ResourceAttributes
+				require.NotNil(t, attrs)
+				allowed := review.Spec.User == baseline.user && attrs.Verb == baseline.verb &&
+					attrs.Resource == "pods" && attrs.Namespace == baseline.namespace &&
+					attrs.Name == baseline.name && attrs.Subresource == baseline.subresource
+				return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: allowed, Denied: !allowed}}, nil
+			})
+			changed := baseline
+			tt.change(&changed)
+			cache := NewCache()
+			for _, r := range []request{baseline, changed, baseline, changed} {
+				a := NewAuthWithCache(client, r.user, logr.Discard(), cache)
+				ok, msg, err := a.CanI(context.Background(), []string{r.verb}, r.kind, r.namespace, r.name, r.subresource)
+				require.NoError(t, err)
+				assert.Equal(t, r == baseline, ok)
+				if !ok {
+					assert.NotEmpty(t, msg)
+				}
+			}
+			assert.Equal(t, 2, calls, "each distinct key should be checked once, including denials")
 		})
 	}
 }
