@@ -166,8 +166,8 @@ No reduced/scheduled test run is substituted for release validation.
 
 The release-only custom Sigstore setup retains upstream Scaffolding's topology
 but extends its checksum-pinned setup script's fixed Kubernetes version map.
-`scripts/release/scaffolding.py` pins the exact node-image digest for each
-supported matrix version and installs Scaffolding v0.7.39 on that cluster.
+`scripts/release/scaffolding.py` pins Kind v0.33.0 and the exact node-image digest
+for each supported matrix version, then installs Scaffolding v0.7.39 on that cluster.
 Update these pins together with the supported matrix; an unknown version or
 changed upstream script fails closed. This does not downgrade a newer matrix
 entry to a Kubernetes version that the upstream version map already recognizes.
@@ -203,6 +203,11 @@ Only successful validation unlocks publication:
 7. Only then undraft the GitHub release. Prereleases are explicitly not latest
    and never update Krew. An older stable patch does not replace a newer stable
    release as latest.
+
+Signature verification binds the certificate to the exact source SHA and
+approved workflow files. It accepts both branch/tag workflow identities and
+the exact commit-SHA identity used by local reusable workflow references.
+SLSA verification separately requires the pinned generator workflow identity.
 
 Finalization is serialized across tags. Latest selection scans all published
 stable-version tags, ignoring drafts, prereleases and misclassified RC tags,

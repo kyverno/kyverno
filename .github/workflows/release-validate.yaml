@@ -389,4 +389,4 @@ jobs:
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          python3 -c 'import json,os; results=json.loads(os.environ["RESULTS"]); assert all(j["result"]=="success" for j in results.values()), results'
+          python3 -c 'import json,os; results=json.loads(os.environ["RESULTS"]); raise SystemExit(0 if all(j["result"]=="success" for j in results.values()) else results)'

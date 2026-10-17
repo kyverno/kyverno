@@ -500,12 +500,17 @@ def sign(subject, kind, metadata):
         env={**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{metadata['owner']}/signatures"})
 
 
+def workflow_identity(metadata, workflows=("release", "prepare-release", "release-publish", "helm-release")):
+    return (
+        rf"^https://github\.com/{re.escape(os.environ['GH_REPO'])}/\.github/workflows/"
+        rf"({'|'.join(workflows)})\.yaml@"
+        rf"(refs/(tags/v.*|heads/(main|release-[^/]+))|{re.escape(metadata['sha'])})$"
+    )
+
+
 def verify_signature(subject, metadata):
     run("cosign", "verify", subject,
-        "--certificate-identity-regexp",
-        rf"^https://github\.com/{re.escape(os.environ['GH_REPO'])}/\.github/workflows/"
-        r"(release|prepare-release|release-publish|helm-release)\.yaml@refs/"
-        r"(tags/v.*|heads/(main|release-[^/]+))$",
+        "--certificate-identity-regexp", workflow_identity(metadata),
         "--certificate-oidc-issuer", "https://token.actions.githubusercontent.com",
         "--certificate-github-workflow-sha", metadata["sha"],
         "-a", f"ref={metadata['sha']}",
