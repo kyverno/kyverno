@@ -46,4 +46,9 @@ func Test_JoinPatches(t *testing.T) {
 	if !jsonpatch.Equal([]byte(p1p2p3), patches) {
 		assert.Assert(t, false, "patches are not equal %+v %+v", p1p2p3, string(patches))
 	}
+
+	// Test joining an empty brackets patch with a valid patch
+	patches = JoinPatches([]byte("[]"), []byte(p1))
+	_, err = jsonpatch.DecodePatch(patches)
+	assert.NilError(t, err, "failed to decode patch %s", string(patches))
 }
