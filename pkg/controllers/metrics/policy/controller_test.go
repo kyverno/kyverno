@@ -2,7 +2,7 @@ package policy
 
 import (
 	"context"
-	"fmt"
+	"sync"
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -24,15 +24,22 @@ type mockObserver struct {
 
 type mockPolicyRuleMetrics struct {
 	err      error
-	recorded []kyvernov1.PolicyInterface
+	built    []string
+	replayed []metrics.PolicyRuleObservation
 }
 
-func (m *mockPolicyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy kyvernov1.PolicyInterface, observer metric.Observer) error {
+func (m *mockPolicyRuleMetrics) BuildPolicyRuleObservations(policy kyvernov1.PolicyInterface) (metrics.PolicyRuleObservation, error) {
 	if m.err != nil {
-		return m.err
+		return nil, m.err
 	}
-	m.recorded = append(m.recorded, policy)
-	return nil
+	m.built = append(m.built, policy.GetName())
+	// each build returns an observation of a different length, so a test can
+	// tell whether a later build actually replaced the stored one
+	return make(metrics.PolicyRuleObservation, len(m.built)), nil
+}
+
+func (m *mockPolicyRuleMetrics) RecordPolicyRuleObservations(obs metrics.PolicyRuleObservation, observer metric.Observer) {
+	m.replayed = append(m.replayed, obs)
 }
 
 func (m *mockPolicyRuleMetrics) RegisterCallback(f metric.Callback) (metric.Registration, error) {
@@ -41,10 +48,13 @@ func (m *mockPolicyRuleMetrics) RegisterCallback(f metric.Callback) (metric.Regi
 
 type observableMetricsManager struct {
 	metrics.MetricsConfigManager
+	mux           sync.Mutex
 	recordedCalls int
 }
 
 func (m *observableMetricsManager) RecordPolicyChanges(ctx context.Context, policyValidationMode metrics.PolicyValidationMode, policyType metrics.PolicyType, policyBackgroundMode metrics.PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string) {
+	m.mux.Lock()
+	defer m.mux.Unlock()
 	m.recordedCalls++
 }
 
@@ -56,94 +66,84 @@ func Test_report_NilRuleInfo(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_report_ErrorPropagation(t *testing.T) {
-	expectedErr := fmt.Errorf("mock error")
+func Test_report_ReplaysSnapshotObservations(t *testing.T) {
+	mockManager := &observableMetricsManager{MetricsConfigManager: metrics.NewFakeMetricsConfig()}
+	metrics.SetManager(mockManager)
+	defer metrics.SetManager(metrics.NewFakeMetricsConfig())
+
+	mockRuleInfo := &mockPolicyRuleMetrics{}
+	wg := &wait.Group{}
 	c := &controller{
-		ruleInfo: &mockPolicyRuleMetrics{err: expectedErr},
-		snapshot: newPolicySnapshot(),
+		ruleInfo:  mockRuleInfo,
+		snapshot:  newPolicySnapshot(),
+		waitGroup: wg,
 	}
-	c.snapshot.upsert(&kyvernov1.Policy{
+	c.addPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
+	})
+	c.addNsPolicy(&kyvernov1.Policy{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
 	})
-
-	err := c.report(context.TODO(), &mockObserver{})
-	assert.ErrorIs(t, err, expectedErr)
-}
-
-func Test_report_RecordsSnapshotPolicies(t *testing.T) {
-	nsPolicy := &kyvernov1.Policy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
-	}
-	clusterPolicy := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
-	}
-	mockRuleInfo := &mockPolicyRuleMetrics{}
-	c := &controller{
-		ruleInfo: mockRuleInfo,
-		snapshot: newPolicySnapshot(),
-	}
-	c.snapshot.upsert(clusterPolicy)
-	c.snapshot.upsert(nsPolicy)
+	wg.Wait()
 
 	err := c.report(context.TODO(), &mockObserver{})
 	assert.NoError(t, err)
-	assert.ElementsMatch(t, []kyvernov1.PolicyInterface{nsPolicy, clusterPolicy}, mockRuleInfo.recorded)
+	assert.Equal(t, []string{"test-cluster-policy", "test-policy"}, mockRuleInfo.built)
+	assert.Len(t, mockRuleInfo.replayed, 2)
 }
 
-func Test_report_ExcludesDeletedPolicies(t *testing.T) {
-	nsPolicy := &kyvernov1.Policy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
-	}
-	clusterPolicy := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
-	}
-	mockRuleInfo := &mockPolicyRuleMetrics{}
-	c := &controller{
-		ruleInfo: mockRuleInfo,
-		snapshot: newPolicySnapshot(),
-	}
-	c.snapshot.upsert(clusterPolicy)
-	c.snapshot.upsert(nsPolicy)
-	c.snapshot.remove(cache.DeletedFinalStateUnknown{
-		Key: "default/test-policy",
-		Obj: nsPolicy,
-	})
+func Test_report_SkipsFailedObservationBuilds(t *testing.T) {
+	mockManager := &observableMetricsManager{MetricsConfigManager: metrics.NewFakeMetricsConfig()}
+	metrics.SetManager(mockManager)
+	defer metrics.SetManager(metrics.NewFakeMetricsConfig())
 
+	mockRuleInfo := &mockPolicyRuleMetrics{err: assert.AnError}
+	wg := &wait.Group{}
+	c := &controller{
+		ruleInfo:  mockRuleInfo,
+		snapshot:  newPolicySnapshot(),
+		waitGroup: wg,
+	}
+	c.addPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
+	})
+	wg.Wait()
+
+	// the failed build is not kept in the snapshot, so the scrape replays nothing
 	err := c.report(context.TODO(), &mockObserver{})
 	assert.NoError(t, err)
-	assert.Equal(t, []kyvernov1.PolicyInterface{clusterPolicy}, mockRuleInfo.recorded)
+	assert.Empty(t, mockRuleInfo.replayed)
 }
 
-func Test_snapshot_UpsertReplacesPreviousVersion(t *testing.T) {
-	s := newPolicySnapshot()
-	oldPolicy := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
-	}
-	newPolicy := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
-	}
-
-	s.upsert(oldPolicy)
-	s.upsert(newPolicy)
-
-	cpols, pols := s.list()
-	assert.Equal(t, []kyvernov1.PolicyInterface{newPolicy}, cpols)
-	assert.Empty(t, pols)
-}
-
-func Test_snapshot_RemoveByTombstoneWithoutObject(t *testing.T) {
-	s := newPolicySnapshot()
-	s.upsert(&kyvernov1.Policy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+func Test_BuildPolicyRuleObservations(t *testing.T) {
+	ruleInfo := metrics.GetPolicyInfoMetrics()
+	obs, err := ruleInfo.BuildPolicyRuleObservations(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
+		Spec: kyvernov1.Spec{
+			Rules: []kyvernov1.Rule{{
+				Name: "test-rule",
+				MatchResources: kyvernov1.MatchResources{
+					Any: []kyvernov1.ResourceFilter{{
+						ResourceDescription: kyvernov1.ResourceDescription{
+							Kinds: []string{"ConfigMap"},
+						},
+					}},
+				},
+				Validation: &kyvernov1.Validation{
+					Message: "test",
+				},
+			}},
+		},
 	})
-
-	s.remove(cache.DeletedFinalStateUnknown{Key: "default/test-policy"})
-
-	_, pols := s.list()
-	assert.Empty(t, pols)
+	assert.NoError(t, err)
+	assert.Len(t, obs, 1)
 }
 
 func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
+	mockManager := &observableMetricsManager{MetricsConfigManager: metrics.NewFakeMetricsConfig()}
+	metrics.SetManager(mockManager)
+	defer metrics.SetManager(metrics.NewFakeMetricsConfig())
+
 	wg := &wait.Group{}
 	c := &controller{
 		ruleInfo:  &mockPolicyRuleMetrics{},
@@ -158,12 +158,13 @@ func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
 	}
 
-	// add then update keeps a single entry with the latest version
+	// add then update keeps a single entry, rebuilt for the latest version
 	c.addPolicy(p1)
 	c.updatePolicy(p1, p2)
 	wg.Wait()
 	cpols, pols := c.snapshot.list()
-	assert.Equal(t, []kyvernov1.PolicyInterface{p2}, cpols)
+	assert.Len(t, cpols, 1)
+	assert.Len(t, cpols[0], 2, "expected the update to replace the stored observation")
 	assert.Empty(t, pols)
 
 	// delete drops the entry, tombstone or not
@@ -173,8 +174,9 @@ func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
 	assert.Empty(t, cpols)
 	assert.Empty(t, pols)
 
+	// a tombstone without the object still identifies the policy by its key
 	c.addPolicy(p1)
-	c.deletePolicy(cache.DeletedFinalStateUnknown{Key: "test-policy", Obj: p1})
+	c.deletePolicy(cache.DeletedFinalStateUnknown{Key: "test-policy"})
 	wg.Wait()
 	cpols, pols = c.snapshot.list()
 	assert.Empty(t, cpols)
@@ -182,6 +184,10 @@ func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
 }
 
 func Test_addUpdateDeleteNsPolicy_SnapshotTransitions(t *testing.T) {
+	mockManager := &observableMetricsManager{MetricsConfigManager: metrics.NewFakeMetricsConfig()}
+	metrics.SetManager(mockManager)
+	defer metrics.SetManager(metrics.NewFakeMetricsConfig())
+
 	wg := &wait.Group{}
 	c := &controller{
 		ruleInfo:  &mockPolicyRuleMetrics{},
@@ -196,13 +202,14 @@ func Test_addUpdateDeleteNsPolicy_SnapshotTransitions(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
 	}
 
-	// add then update keeps a single entry with the latest version
+	// add then update keeps a single entry, rebuilt for the latest version
 	c.addNsPolicy(p1)
 	c.updateNsPolicy(p1, p2)
 	wg.Wait()
 	cpols, pols := c.snapshot.list()
 	assert.Empty(t, cpols)
-	assert.Equal(t, []kyvernov1.PolicyInterface{p2}, pols)
+	assert.Len(t, pols, 1)
+	assert.Len(t, pols[0], 2, "expected the update to replace the stored observation")
 
 	// delete drops the entry, tombstone or not
 	c.deleteNsPolicy(p2)
@@ -211,8 +218,9 @@ func Test_addUpdateDeleteNsPolicy_SnapshotTransitions(t *testing.T) {
 	assert.Empty(t, cpols)
 	assert.Empty(t, pols)
 
+	// a tombstone without the object still identifies the policy by its key
 	c.addNsPolicy(p1)
-	c.deleteNsPolicy(cache.DeletedFinalStateUnknown{Key: "default/test-policy", Obj: p1})
+	c.deleteNsPolicy(cache.DeletedFinalStateUnknown{Key: "default/test-policy"})
 	wg.Wait()
 	cpols, pols = c.snapshot.list()
 	assert.Empty(t, cpols)
