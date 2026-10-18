@@ -1,10 +1,10 @@
 {{- if .Values.webhooksCleanup.enabled -}}
 {{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
-{{/* kyverno.fullname is already capped at 63 chars, so cap the suffixed names too: a long release
-     name would otherwise push the Job name over 63 chars and its job-name Pod label would be invalid. */}}
-{{- $saName := printf "%s-scale-to-zero" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" | trimSuffix ":" -}}
-{{- $roleName := printf "%s:scale-to-zero" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" | trimSuffix ":" -}}
+{{/* kyverno.fullname is already capped at 63 chars, so truncate the base name before appending
+     the suffix to keep the Job name within 63 chars without losing the distinguishing suffix. */}}
+{{- $saName := printf "%s-scale-to-zero" (include "kyverno.fullname" . | trunc 49 | trimSuffix "-" | trimSuffix ":") -}}
+{{- $roleName := printf "%s:scale-to-zero" (include "kyverno.fullname" . | trunc 49 | trimSuffix "-" | trimSuffix ":") -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
