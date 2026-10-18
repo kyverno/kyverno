@@ -76,10 +76,9 @@ func main() {
 				wg.Add(1)
 				go func(num string, wg *sync.WaitGroup) {
 					pod := newPod(num)
-					_, err = client.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+					_, err := client.CoreV1().Pods(namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
 					if err != nil {
 						fmt.Println("failed to create the pod: ", err)
-						// os.Exit(1)
 					}
 					wg.Done()
 				}(num, &wg)

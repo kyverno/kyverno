@@ -2,8 +2,10 @@ package gpol
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -12,13 +14,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
 )
@@ -29,6 +31,9 @@ type Resource struct {
 	Hash      string
 	Labels    map[string]string
 	Data      *unstructured.Unstructured
+	// ServerSideApply records that the generating policy uses server-side apply, so sync
+	// writes to this downstream apply what the policy generated instead of replacing it.
+	ServerSideApply bool
 }
 
 type WatchManager struct {
@@ -44,6 +49,9 @@ type WatchManager struct {
 	policyRefs map[string][]schema.GroupVersionResource
 	// refCount tracks the number of policies that generates the same resource.
 	refCount map[schema.GroupVersionResource]int
+	// pendingGenerates tracks, per policy/trigger, generate writes that are being
+	// applied but are not yet reflected in the metadata cache. See BeginGenerate.
+	pendingGenerates map[string]*pendingGenerate
 
 	log  logr.Logger
 	lock sync.Mutex
@@ -55,19 +63,92 @@ type watcher struct {
 }
 
 func NewWatchManager(log logr.Logger, client dclient.Interface) *WatchManager {
-	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
-	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	restMapper, err := restmapperutils.GetRESTMapper(client)
+	if err != nil || restMapper == nil {
+		log.Error(err, "failed to get RESTMapper, falling back to default mapper")
+		restMapper = meta.NewDefaultRESTMapper(nil)
+	}
 	return &WatchManager{
-		log:             log,
-		client:          client,
-		restMapper:      restMapper,
-		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
-		policyRefs:      map[string][]schema.GroupVersionResource{},
-		refCount:        map[schema.GroupVersionResource]int{},
+		log:              log,
+		client:           client,
+		restMapper:       restMapper,
+		dynamicWatchers:  map[schema.GroupVersionResource]*watcher{},
+		policyRefs:       map[string][]schema.GroupVersionResource{},
+		refCount:         map[schema.GroupVersionResource]int{},
+		pendingGenerates: map[string]*pendingGenerate{},
 	}
 }
 
-func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*unstructured.Unstructured) error {
+// pendingGenerate is an open generate window for one policy/trigger pair.
+type pendingGenerate struct {
+	count int
+	// skipped holds the latest event handleUpdate ignored per downstream while
+	// the window was open, so it can be re-checked when the window closes.
+	skipped map[types.UID]skippedUpdate
+}
+
+type skippedUpdate struct {
+	gvr schema.GroupVersionResource
+	obj *unstructured.Unstructured
+}
+
+// generateKey identifies a policy/trigger pair. It uses the bare policy name and
+// trigger UID, the values the engine stamps on the downstream's
+// GeneratePolicyLabel and GenerateTriggerUIDLabel.
+func generateKey(policyName string, triggerUID types.UID) string {
+	return policyName + "/" + string(triggerUID)
+}
+
+// BeginGenerate marks a generate write for the given policy name and trigger UID
+// as in flight, so handleUpdate does not revert a hash mismatch on that
+// trigger's downstream while the watcher cache is catching up. The returned
+// function closes the window and reverts any edit skipped inside it. It is
+// ref-counted and safe to call more than once.
+func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) func() {
+	key := generateKey(policyName, triggerUID)
+	wm.lock.Lock()
+	if wm.pendingGenerates == nil {
+		wm.pendingGenerates = map[string]*pendingGenerate{}
+	}
+	pending := wm.pendingGenerates[key]
+	if pending == nil {
+		pending = &pendingGenerate{skipped: map[types.UID]skippedUpdate{}}
+		wm.pendingGenerates[key] = pending
+	}
+	pending.count++
+	wm.lock.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			wm.lock.Lock()
+			defer wm.lock.Unlock()
+			pending.count--
+			if pending.count > 0 {
+				return
+			}
+			if wm.pendingGenerates[key] == pending {
+				delete(wm.pendingGenerates, key)
+			}
+			for uid, s := range pending.skipped {
+				watcher, ok := wm.dynamicWatchers[s.gvr]
+				if !ok {
+					continue
+				}
+				if cached, ok := watcher.metadataCache[uid]; ok && cached.Hash != "" && cached.Hash != reportutils.CalculateResourceHash(*s.obj) {
+					wm.revertDownstream(watcher, uid, s.obj)
+				}
+			}
+		})
+	}
+}
+
+// SyncWatchers reconciles the watchers and the metadata cache with the resources
+// generated by the given policy for the given trigger. It is invoked on a
+// per-trigger evaluation, so stale downstream deletion is scoped to that trigger:
+// resources generated by the same policy for other triggers are left untouched.
+// A nil trigger matches all resources of the policy. useServerSideApply is the policy's
+// setting, recorded on each downstream for the writes sync makes to it later.
+func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyvernov1.ResourceSpec, generatedResources []*unstructured.Unstructured, useServerSideApply bool) error {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
@@ -88,11 +169,12 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 		// if an entry for this GVR exists, update cache and ensure the watcher is running
 		if existing := wm.dynamicWatchers[gvr]; existing != nil {
 			existing.metadataCache[resource.GetUID()] = Resource{
-				Name:      resource.GetName(),
-				Namespace: resource.GetNamespace(),
-				Labels:    resource.GetLabels(),
-				Hash:      reportutils.CalculateResourceHash(*resource),
-				Data:      resource,
+				Name:            resource.GetName(),
+				Namespace:       resource.GetNamespace(),
+				Labels:          resource.GetLabels(),
+				Hash:            reportutils.CalculateResourceHash(*resource),
+				Data:            resource,
+				ServerSideApply: useServerSideApply,
 			}
 			if existing.watcher != nil {
 				logger.V(2).Info("watcher already exists for GVR", "gvr", gvr)
@@ -115,11 +197,12 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 		wm.dynamicWatchers[gvr] = w
 		// add the resource to the metadata cache
 		wm.dynamicWatchers[gvr].metadataCache[resource.GetUID()] = Resource{
-			Name:      resource.GetName(),
-			Namespace: resource.GetNamespace(),
-			Labels:    resource.GetLabels(),
-			Hash:      reportutils.CalculateResourceHash(*resource),
-			Data:      resource,
+			Name:            resource.GetName(),
+			Namespace:       resource.GetNamespace(),
+			Labels:          resource.GetLabels(),
+			Hash:            reportutils.CalculateResourceHash(*resource),
+			Data:            resource,
+			ServerSideApply: useServerSideApply,
 		}
 	}
 
@@ -137,21 +220,22 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 			wm.refCount[gvr]++
 		}
 	}
-	// stop old watchers that are not in the new gvr list.
-	// it means that the policy no longer generates those resources.
+	// process old watchers that are not in the new gvr list.
+	// it means that this trigger's evaluation no longer generates those resources.
 	for _, oldGVR := range oldGVRs {
 		if _, found := newGVRs[oldGVR]; !found {
-			if _, counted := wm.refCount[oldGVR]; counted {
-				wm.refCount[oldGVR]--
-			}
-			// delete the old resources generated by this policy
+			// delete the old resources generated by this policy for this trigger
 			if oldWatcher, exists := wm.dynamicWatchers[oldGVR]; exists {
 				var uidsToDelete []types.UID
 				for uid, resource := range oldWatcher.metadataCache {
-					// identify resources managed by this specific policy via a label
-					if resource.Labels[common.GeneratePolicyLabel] == policyName {
-						uidsToDelete = append(uidsToDelete, uid)
+					// identify resources managed by this specific policy and trigger via labels
+					if resource.Labels[common.GeneratePolicyLabel] != policyName {
+						continue
 					}
+					if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
+						continue
+					}
+					uidsToDelete = append(uidsToDelete, uid)
 				}
 
 				for _, uid := range uidsToDelete {
@@ -167,15 +251,31 @@ func (wm *WatchManager) SyncWatchers(policyName string, generatedResources []*un
 					}
 				}
 
-				// stop the watcher if no other policy is using it
-				if wm.refCount[oldGVR] <= 0 {
+				// other triggers of this policy may still own resources of this GVR:
+				// keep the watcher, the ref count and the policy reference in that case
+				stillReferenced := false
+				for _, resource := range oldWatcher.metadataCache {
+					if resource.Labels[common.GeneratePolicyLabel] == policyName {
+						stillReferenced = true
+						break
+					}
+				}
+				if stillReferenced {
+					newGVRs[oldGVR] = true
+					continue
+				}
+			}
+			if _, counted := wm.refCount[oldGVR]; counted {
+				wm.refCount[oldGVR]--
+			}
+			// stop the watcher if no other policy is using it
+			if wm.refCount[oldGVR] <= 0 {
+				if oldWatcher, exists := wm.dynamicWatchers[oldGVR]; exists {
 					if oldWatcher.watcher != nil {
 						oldWatcher.watcher.Stop()
 					}
 					delete(wm.dynamicWatchers, oldGVR)
 				}
-			}
-			if wm.refCount[oldGVR] <= 0 {
 				delete(wm.refCount, oldGVR)
 			}
 		}
@@ -220,9 +320,7 @@ func (wm *WatchManager) GetDownstreams(policyName string) []*unstructured.Unstru
 	return downstreams
 }
 
-// DeleteDownstreams deletes all downstream resources generated by a policy in the following cases:
-// 1. When the trigger resource is deleted.
-// 2. When the policy is updated to generate different resources.
+// DeleteDownstreams deletes all downstream resources generated by a policy when the trigger resource is deleted.
 // It will not stop the watchers, but will delete the generated resources and remove them from the metadata cache.
 func (wm *WatchManager) DeleteDownstreams(policyName string, trigger *kyvernov1.ResourceSpec) {
 	wm.lock.Lock()
@@ -231,38 +329,113 @@ func (wm *WatchManager) DeleteDownstreams(policyName string, trigger *kyvernov1.
 	logger := wm.log.WithValues("policyName", policyName)
 	logger.V(2).Info("deleting downstream resources for policy")
 
+	wm.walkDownstreams(policyName, trigger, func(watcher *watcher, uid types.UID, res Resource) {
+		logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
+		err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+		if err != nil {
+			logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
+		} else {
+			logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
+			// remove the resource from the metadata cache upon successful deletion
+			delete(watcher.metadataCache, uid)
+		}
+	})
+}
+
+// InvalidateDownstreams invalidates all downstream resources generated by a policy from the metadata cache without
+// deleting the actual resources. Invalidated resources are not restored after an update or a deletion.
+// This is used when the policy is updated to generate different resources to avoid
+// restoring stale resources from the cache.
+func (wm *WatchManager) InvalidateDownstreams(policyName string, trigger *kyvernov1.ResourceSpec) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+
+	logger := wm.log.WithValues("policyName", policyName)
+	logger.V(2).Info("invalidating downstream resources for policy from metadata cache")
+
+	wm.walkDownstreams(policyName, trigger, func(watcher *watcher, uid types.UID, res Resource) {
+		logger.V(4).Info("invalidating downstream resource from metadata cache", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
+		// Setting the hash to an empty string indicates that the resource is no longer valid and should not be restored from the cache.
+		// We keep it in the cache so that we can delete it later if it is no longer part of the policy's downstream resources.
+		res.Hash = ""
+		watcher.metadataCache[uid] = res
+	})
+}
+
+func (wm *WatchManager) walkDownstreams(policyName string, trigger *kyvernov1.ResourceSpec, walkFunc func(watcher *watcher, uid types.UID, res Resource)) {
 	if gvrList, exists := wm.policyRefs[policyName]; exists {
 		for _, gvr := range gvrList {
-			logger := logger.WithValues("gvr", gvr)
 			watcher, watcherExists := wm.dynamicWatchers[gvr]
 			if !watcherExists {
 				continue
 			}
 
-			var uidsToDelete []types.UID
+			var uids []types.UID
 			for uid, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
 				if resource.Labels[common.GeneratePolicyLabel] == policyName {
 					if trigger == nil || resource.Labels[common.GenerateTriggerUIDLabel] == string(trigger.UID) {
-						uidsToDelete = append(uidsToDelete, uid)
+						uids = append(uids, uid)
 					}
 				}
 			}
 
-			for _, uid := range uidsToDelete {
-				res := watcher.metadataCache[uid]
-				logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-				err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
-				if err != nil {
-					logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
-				} else {
-					logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
-					// remove the resource from the metadata cache upon successful deletion
-					delete(watcher.metadataCache, uid)
-				}
+			for _, uid := range uids {
+				walkFunc(watcher, uid, watcher.metadataCache[uid])
 			}
 		}
 	}
+}
+
+// CleanupStaleDownstreams deletes downstream resources that were previously
+// generated by the given policy for the given trigger but are no longer part
+// of the desired set of generated resources. It is used on trigger updates
+// with synchronization enabled, so that resources removed from the desired
+// set are cleaned up without deleting and recreating the ones still desired.
+func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyvernov1.ResourceSpec, desired []*unstructured.Unstructured) {
+	wm.lock.Lock()
+	defer wm.lock.Unlock()
+
+	logger := wm.log.WithValues("policyName", policyName)
+	desiredKeys := make(map[string]struct{}, len(desired))
+	for _, res := range desired {
+		desiredKeys[downstreamKey(res.GroupVersionKind(), res.GetNamespace(), res.GetName())] = struct{}{}
+	}
+	for _, gvr := range wm.policyRefs[policyName] {
+		watcher, exists := wm.dynamicWatchers[gvr]
+		if !exists {
+			continue
+		}
+		var uidsToDelete []types.UID
+		for uid, resource := range watcher.metadataCache {
+			// identify resources managed by this specific policy and trigger via labels
+			if resource.Labels[common.GeneratePolicyLabel] != policyName {
+				continue
+			}
+			if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
+				continue
+			}
+			if _, ok := desiredKeys[downstreamKey(resource.Data.GroupVersionKind(), resource.Namespace, resource.Name)]; !ok {
+				uidsToDelete = append(uidsToDelete, uid)
+			}
+		}
+		for _, uid := range uidsToDelete {
+			res := watcher.metadataCache[uid]
+			logger.V(4).Info("deleting stale downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
+			err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+			if err != nil {
+				logger.Error(err, "failed to delete stale downstream resource", "name", res.Name, "namespace", res.Namespace)
+			} else {
+				logger.V(4).Info("stale downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
+				// remove the resource from the metadata cache upon successful deletion
+				delete(watcher.metadataCache, uid)
+			}
+		}
+	}
+}
+
+func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
+	return gvk.String() + "/" + namespace + "/" + name
 }
 
 // RemoveWatchersForPolicy removes all downstream resources and watchers for a given policy name.
@@ -359,6 +532,8 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 		Labels:    resource.GetLabels(),
 		Hash:      reportutils.CalculateResourceHash(*resource),
 		Data:      resource,
+		// keep the setting SyncWatchers recorded when it restarts a watcher with this cache
+		ServerSideApply: metadataCache[resource.GetUID()].ServerSideApply,
 	}
 	resourceVersion := resource.GetResourceVersion()
 	logger := wm.log.WithValues("resourceVersion", resourceVersion)
@@ -442,7 +617,8 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			}
 			for _, downstream := range downstreams.Items {
 				// if the downstream doesn't exist in the metadata cache, it means sync is disabled.
-				if _, exists := watcher.metadataCache[downstream.GetUID()]; !exists {
+				cached, exists := watcher.metadataCache[downstream.GetUID()]
+				if !exists {
 					continue
 				}
 				// update the downstream resources with the source information.
@@ -453,47 +629,285 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 				newResource.SetKind(downstream.GetKind())
 				newResource.SetAPIVersion(downstream.GetAPIVersion())
 				newResource.SetLabels(downstream.GetLabels())
-				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), newResource, false)
+				// The content comes from the source, whose resourceVersion means nothing for the
+				// downstream, so carry the downstream's own. Custom resources reject an update that
+				// has no resourceVersion, which used to leave every CRD downstream unsynced.
+				newResource.SetResourceVersion(downstream.GetResourceVersion())
+				written, err := wm.propagateToDownstream(cached.ServerSideApply, &downstream, newResource)
 				if err != nil {
 					wm.log.Error(err, "failed to update downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
 				} else {
 					wm.log.V(4).Info("downstream resource updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
 					hash := reportutils.CalculateResourceHash(*newResource)
+					if cached.ServerSideApply && written != nil {
+						// the apply keeps what other managers own on the downstream, so track the
+						// object it returned rather than the source content alone
+						hash = reportutils.CalculateResourceHash(*written)
+					}
 					// update the metadata cache for the downstream resource
 					watcher.metadataCache[downstream.GetUID()] = Resource{
-						Name:      downstream.GetName(),
-						Namespace: downstream.GetNamespace(),
-						Labels:    downstream.GetLabels(),
-						Hash:      hash,
-						Data:      newResource,
+						Name:            downstream.GetName(),
+						Namespace:       downstream.GetNamespace(),
+						Labels:          downstream.GetLabels(),
+						Hash:            hash,
+						Data:            newResource,
+						ServerSideApply: cached.ServerSideApply,
 					}
 					wm.log.V(4).Info("resource metadata updated", "name", downstream.GetName(), "namespace", downstream.GetNamespace(), "hash", hash)
 				}
 			}
 		} else {
 			// if the resource is already in the cache, then it is the downstream resource that has been updated and it is sync enabled.
-			hash := reportutils.CalculateResourceHash(*obj)
-			// if the hash of the resource is different from the one in the cache
+			hash := watcher.metadataCache[uid].Hash
+			// if the cached resource has not been invalidated and is different from the hash of the resource,
 			// then we need to revert the downstream resource as it means that it has been updated by the user.
-			if hash != watcher.metadataCache[uid].Hash {
-				wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
-				// create a copy of the resource to avoid modifying the cache
-				downstream := watcher.metadataCache[uid].Data.DeepCopy()
-				// clean up parameters that shouldn't be copied
-				downstream.SetUID("")
-				downstream.SetSelfLink("")
-				downstream.SetCreationTimestamp(metav1.Time{})
-				downstream.SetManagedFields(nil)
-				downstream.SetResourceVersion("")
-				_, err := wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
-				if err != nil {
-					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
-				} else {
-					wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+			if hash != "" && hash != reportutils.CalculateResourceHash(*obj) {
+				cachedLabels := watcher.metadataCache[uid].Labels
+				key := generateKey(cachedLabels[common.GeneratePolicyLabel], types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+				if pending := wm.pendingGenerates[key]; pending != nil {
+					// Likely Kyverno's own write racing the cache refresh (see
+					// BeginGenerate); re-checked when the window closes.
+					pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
+					wm.log.V(4).Info("downstream resource changed while its own generate write is in flight, skipping revert", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					return
 				}
+				wm.revertDownstream(watcher, uid, obj)
 			}
 		}
 	}
+}
+
+// revertDownstream restores the cached desired state of a downstream. The caller
+// must hold wm.lock.
+func (wm *WatchManager) revertDownstream(watcher *watcher, uid types.UID, obj *unstructured.Unstructured) {
+	wm.log.V(4).Info("downstream resource updated by user, reverting changes", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	cached := watcher.metadataCache[uid]
+	var err error
+	if cached.ServerSideApply {
+		// Apply what the generate field manager applied before. Server-side apply leaves
+		// what other managers own on the object alone, and an apply that changes nothing
+		// is not written, so sync does not fight a controller that keeps its own metadata
+		// on the downstream, like the annotation Crossplane keeps on a Usage.
+		var applied *unstructured.Unstructured
+		if applied, err = wm.applyDownstream(appliedConfiguration(cached.Data, obj)); err == nil && applied != nil {
+			// Track the object as the apply left it, with what other managers own still on it,
+			// so their next update is not taken for drift again. The desired content stays as
+			// the policy generated it.
+			cached.Hash = reportutils.CalculateResourceHash(*applied)
+			watcher.metadataCache[uid] = cached
+		}
+	} else {
+		// create a copy of the resource to avoid modifying the cache
+		downstream := cached.Data.DeepCopy()
+		// clean up parameters that shouldn't be copied
+		downstream.SetUID("")
+		downstream.SetSelfLink("")
+		downstream.SetCreationTimestamp(metav1.Time{})
+		downstream.SetManagedFields(nil)
+		// Carry the resourceVersion of the object we just observed. The cached copy holds the
+		// resourceVersion from when it was generated, which is stale by now, and an empty one
+		// is accepted only by some built-in kinds: custom resources, and built-ins such as
+		// PodDisruptionBudget, reject an update without one, which left them unsynced.
+		downstream.SetResourceVersion(obj.GetResourceVersion())
+		// Finalizers and owner references are not part of the drift check and belong to whoever
+		// set them, such as the finalizer Crossplane adds to a Usage, so keep the live ones.
+		downstream.SetFinalizers(obj.GetFinalizers())
+		downstream.SetOwnerReferences(obj.GetOwnerReferences())
+		_, err = wm.client.UpdateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+	}
+	if err != nil {
+		wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	} else {
+		wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+	}
+}
+
+// propagateToDownstream writes a changed source's content to one of its downstreams. A policy
+// using server-side apply applies it. The labels are the live downstream's, so the apply keeps
+// only the ones Kyverno applied, along with the owner references and finalizers Kyverno applied
+// before, since leaving those out of the apply would remove them. Otherwise the downstream is
+// replaced with an update.
+func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, newResource *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	if !serverSideApply {
+		return wm.client.UpdateResource(context.TODO(), newResource.GetAPIVersion(), newResource.GetKind(), newResource.GetNamespace(), newResource, false)
+	}
+	cfg := applyConfiguration(newResource)
+	if applied, ok := appliedByGenerate(downstream); ok {
+		cfg.SetLabels(onlyKeys(cfg.GetLabels(), applied.labels))
+		cfg.SetOwnerReferences(applied.ownerReferencesOf(downstream))
+		cfg.SetFinalizers(applied.finalizersOf(downstream))
+	} else {
+		cfg.SetLabels(generateLabels(cfg.GetLabels()))
+	}
+	return wm.applyDownstream(cfg)
+}
+
+// applyDownstream server-side applies cfg as the field manager generate uses.
+func (wm *WatchManager) applyDownstream(cfg *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	return wm.client.ApplyResource(context.TODO(), cfg.GetAPIVersion(), cfg.GetKind(), cfg.GetNamespace(), cfg.GetName(), cfg, false, "generate")
+}
+
+// applyConfiguration returns the content of a generated object to apply: its name, namespace,
+// labels, annotations and every field outside metadata and status. Server-set metadata,
+// finalizers and owner references are left out.
+func applyConfiguration(obj *unstructured.Unstructured) *unstructured.Unstructured {
+	src := obj.DeepCopy()
+	out := &unstructured.Unstructured{Object: map[string]interface{}{}}
+	for field, value := range src.Object {
+		if field != "metadata" && field != "status" {
+			out.Object[field] = value
+		}
+	}
+	out.SetName(src.GetName())
+	out.SetNamespace(src.GetNamespace())
+	out.SetLabels(src.GetLabels())
+	out.SetAnnotations(src.GetAnnotations())
+	return out
+}
+
+// appliedConfiguration returns the configuration to revert a downstream to: the content of
+// desired (the cached copy) with only the labels, annotations, owner references and finalizers
+// the generate field manager applied. The cached copy can hold metadata other managers own, since
+// it is refreshed from the server, so this leaves that out instead of taking it over. What Kyverno
+// applied is read from the cached copy's managedFields, or from the live object's when the cached
+// copy has none, as after a source change was propagated to it. Without a record of an earlier
+// apply Kyverno owns nothing on the object, so the apply keeps only the labels Kyverno puts on
+// every generated resource and leaves the rest of the metadata out, which removes nothing.
+func appliedConfiguration(desired, live *unstructured.Unstructured) *unstructured.Unstructured {
+	cfg := applyConfiguration(desired)
+	record := desired
+	applied, ok := appliedByGenerate(desired)
+	if !ok {
+		record = live
+		applied, ok = appliedByGenerate(live)
+	}
+	if ok {
+		cfg.SetLabels(onlyKeys(desired.GetLabels(), applied.labels))
+		cfg.SetAnnotations(onlyKeys(desired.GetAnnotations(), applied.annotations))
+		cfg.SetOwnerReferences(applied.ownerReferencesOf(record))
+		cfg.SetFinalizers(applied.finalizersOf(record))
+	} else {
+		cfg.SetLabels(generateLabels(desired.GetLabels()))
+		cfg.SetAnnotations(nil)
+	}
+	return cfg
+}
+
+// generateLabels returns the labels Kyverno puts on every generated resource: the managed-by
+// label and the generate.kyverno.io ones.
+func generateLabels(labels map[string]string) map[string]string {
+	var out map[string]string
+	for k, v := range labels {
+		if k == kyverno.LabelAppManagedBy || strings.HasPrefix(k, "generate.kyverno.io/") {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// generateFieldManager is the field manager generate applies with (dclient prefixes "kyverno-").
+const generateFieldManager = "kyverno-generate"
+
+// appliedMetadata is the metadata the generate field manager owns on an object.
+type appliedMetadata struct {
+	labels      map[string]bool
+	annotations map[string]bool
+	finalizers  map[string]bool
+	ownerUIDs   map[types.UID]bool
+}
+
+// appliedByGenerate reads which labels, annotations, owner references and finalizers the generate
+// field manager applied to obj, from its server-side apply entry in managedFields. It reports
+// false when obj has no such entry, e.g. when it was created without server-side apply.
+func appliedByGenerate(obj *unstructured.Unstructured) (appliedMetadata, bool) {
+	for _, entry := range obj.GetManagedFields() {
+		if entry.Manager != generateFieldManager || entry.Operation != metav1.ManagedFieldsOperationApply || entry.Subresource != "" || entry.FieldsV1 == nil {
+			continue
+		}
+		var fields struct {
+			Metadata struct {
+				Labels          map[string]json.RawMessage `json:"f:labels"`
+				Annotations     map[string]json.RawMessage `json:"f:annotations"`
+				OwnerReferences map[string]json.RawMessage `json:"f:ownerReferences"`
+				Finalizers      map[string]json.RawMessage `json:"f:finalizers"`
+			} `json:"f:metadata"`
+		}
+		if err := json.Unmarshal(entry.FieldsV1.Raw, &fields); err != nil {
+			return appliedMetadata{}, false
+		}
+		applied := appliedMetadata{
+			labels:      fieldNames(fields.Metadata.Labels),
+			annotations: fieldNames(fields.Metadata.Annotations),
+			finalizers:  map[string]bool{},
+			ownerUIDs:   map[types.UID]bool{},
+		}
+		// owner references are keyed by uid, k:{"uid":"..."}
+		for key := range fields.Metadata.OwnerReferences {
+			var ref struct {
+				UID types.UID `json:"uid"`
+			}
+			if value, found := strings.CutPrefix(key, "k:"); found && json.Unmarshal([]byte(value), &ref) == nil {
+				applied.ownerUIDs[ref.UID] = true
+			}
+		}
+		// finalizers are a set of values, v:"..."
+		for key := range fields.Metadata.Finalizers {
+			var name string
+			if value, found := strings.CutPrefix(key, "v:"); found && json.Unmarshal([]byte(value), &name) == nil {
+				applied.finalizers[name] = true
+			}
+		}
+		return applied, true
+	}
+	return appliedMetadata{}, false
+}
+
+func (a appliedMetadata) ownerReferencesOf(obj *unstructured.Unstructured) []metav1.OwnerReference {
+	var refs []metav1.OwnerReference
+	for _, ref := range obj.GetOwnerReferences() {
+		if a.ownerUIDs[ref.UID] {
+			refs = append(refs, ref)
+		}
+	}
+	return refs
+}
+
+func (a appliedMetadata) finalizersOf(obj *unstructured.Unstructured) []string {
+	var finalizers []string
+	for _, finalizer := range obj.GetFinalizers() {
+		if a.finalizers[finalizer] {
+			finalizers = append(finalizers, finalizer)
+		}
+	}
+	return finalizers
+}
+
+// fieldNames returns the names of the f:<name> entries of a managedFields map.
+func fieldNames(fields map[string]json.RawMessage) map[string]bool {
+	names := make(map[string]bool, len(fields))
+	for key := range fields {
+		if name, found := strings.CutPrefix(key, "f:"); found {
+			names[name] = true
+		}
+	}
+	return names
+}
+
+// onlyKeys returns the entries of m whose keys are in keep.
+func onlyKeys(m map[string]string, keep map[string]bool) map[string]string {
+	var out map[string]string
+	for k, v := range m {
+		if keep[k] {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[k] = v
+		}
+	}
+	return out
 }
 
 func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
@@ -534,23 +948,42 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				}
 			}
 		} else {
-			if _, ok := watcher.metadataCache[uid]; ok {
+			if resource, ok := watcher.metadataCache[uid]; ok {
+				// if the resource is already in the cache, then it is the downstream resource that has been deleted by the user or the controller.
 				wm.log.V(4).Info("downstream resource deleted", "name", obj.GetName(), "namespace", obj.GetNamespace())
-				// if the resource is already in the cache, then it is the downstream resource that has been deleted by the user.
-				// we need to revert it back.
-				// create a copy of the resource to avoid modifying the cache
-				downstream := watcher.metadataCache[uid].Data.DeepCopy()
-				// clean up parameters that shouldn't be copied
-				downstream.SetUID("")
-				downstream.SetSelfLink("")
-				downstream.SetCreationTimestamp(metav1.Time{})
-				downstream.SetManagedFields(nil)
-				downstream.SetResourceVersion("")
-				_, err := wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				// we need to revert it back unless it has been invalidated by the policy update.
+				if resource.Hash == "" {
+					delete(watcher.metadataCache, uid)
+					return
+				}
+				var created *unstructured.Unstructured
+				var err error
+				if resource.ServerSideApply {
+					// recreate it the way the policy generates it, so it carries Kyverno's apply record
+					created, err = wm.applyDownstream(appliedConfiguration(resource.Data, resource.Data))
+				} else {
+					// create a copy of the resource to avoid modifying the cache
+					downstream := resource.Data.DeepCopy()
+					// clean up parameters that shouldn't be copied
+					downstream.SetUID("")
+					downstream.SetSelfLink("")
+					downstream.SetCreationTimestamp(metav1.Time{})
+					downstream.SetManagedFields(nil)
+					downstream.SetResourceVersion("")
+					created, err = wm.client.CreateResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream, false)
+				}
 				if err != nil {
 					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
 				} else {
 					wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					// The API server assigns a new UID to the recreated resource. Re-register
+					// the cache entry under the new UID, otherwise the recreated resource is
+					// unknown to the cache and a subsequent deletion is not reverted
+					// (https://github.com/kyverno/kyverno/issues/17265).
+					if created != nil && created.GetUID() != "" && created.GetUID() != uid {
+						watcher.metadataCache[created.GetUID()] = watcher.metadataCache[uid]
+						delete(watcher.metadataCache, uid)
+					}
 				}
 			}
 		}

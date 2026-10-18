@@ -352,19 +352,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - wgpolicyk8s.io
-  resources:
-  - policyreports
-  - clusterpolicyreports
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - reports.kyverno.io
   resources:
   - ephemeralreports
@@ -400,20 +387,6 @@ rules:
   resources:
   - rolebindings
   - roles
-  verbs:
-  - create
-  - delete
-  - deletecollection
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - kyverno.io
-  resources:
-  - cleanuppolicies
-  - clustercleanuppolicies
   verbs:
   - create
   - delete

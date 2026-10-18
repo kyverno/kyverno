@@ -2478,21 +2478,6 @@ Here, all of the conditions need to pass.</p>
     </table>
   
 
-  <H3 id="kyverno-io-v2beta1-AssertionTree">AssertionTree
-    </H3>
-
-  
-    <p>
-      (<em>Appears in:</em>
-        <a href="#kyverno-io-v2beta1-Validation">Validation</a>)
-    </p>
-  
-
-  <p><p>AssertionTree defines a kyverno-json assertion tree.</p>
-</p>
-
-  
-
   <H3 id="kyverno-io-v2beta1-CleanupPolicySpec">CleanupPolicySpec
     </H3>
 
@@ -5088,6 +5073,33 @@ set of CEL conditions. It can only be used with the validate.cel subrule</p>
     
     
       <tr>
+        <td><code>reportProperties</code>
+          
+          </br>
+
+          
+          
+            
+              <span style="font-family: monospace">map[string]string</span>
+            
+          
+        </td>
+        <td>
+          
+
+          <p>ReportProperties are the additional properties from the rule that will be added to the policy report result</p>
+
+
+          
+
+          
+        </td>
+      </tr>
+    
+  
+    
+    
+      <tr>
         <td><code>skipBackgroundRequests</code>
           
           <span style="color:blue;"> *</span>
@@ -5934,8 +5946,8 @@ by specifying exclusions for Pod Security Standards controls.</p>
           
           
             
-              <a href="#kyverno-io-v2beta1-AssertionTree">
-                <span style="font-family: monospace">AssertionTree</span>
+              <a href="#kyverno-io-v1-Any">
+                <span style="font-family: monospace">Any</span>
               </a>
             
           
@@ -5943,7 +5955,8 @@ by specifying exclusions for Pod Security Standards controls.</p>
         <td>
           
 
-          <p>Assert defines a kyverno-json assertion tree.</p>
+          <p>Assert defines a kyverno-json assertion tree.
+Deprecated, kept only for backward compatibility but has no effect since 1.19.</p>
 
 
           

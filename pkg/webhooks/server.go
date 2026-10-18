@@ -62,7 +62,9 @@ func NewServer(
 	discovery dclient.IDiscovery,
 	webhookServerHost string,
 	webhookServerPort int32,
+	backgroundServiceAccountName string,
 ) Server {
+	controllerUsernames := []string{config.KyvernoUserName(config.KyvernoServiceAccountName()), backgroundServiceAccountName}
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
@@ -73,6 +75,19 @@ func NewServer(
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
 	mpolLogger := logger.WithName("mpol")
+	// This endpoint validates metadata only, including targets outside policy trigger scope.
+	metadataHandler := handlers.AdmissionHandler(func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+		return handlers.AdmissionResponse{UID: request.UID, Allowed: true}
+	})
+	mux.HandlerFunc(
+		"POST",
+		config.GenerationLabelProtectionWebhookServicePath,
+		metadataHandler.
+			WithGenerateLabelProtection(controllerUsernames...).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(resourceLogger.WithName("generation-labels")).
+			ToHandlerFunc("GENERATION-LABELS"),
+	)
 	mux.HandlerFunc(
 		"POST",
 		"/mpol/*policies",
@@ -81,7 +96,7 @@ func NewServer(
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("MPOL"),
@@ -94,7 +109,7 @@ func NewServer(
 			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
 			WithDump(debugModeOpts.DumpPayload).
 			WithRoles(rbLister, crbLister).
-			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
 			WithTopLevelGVK(discovery).
 			WithAdmission(mpolLogger.WithName("mutate")).
 			ToHandlerFunc("NMPOL"),
@@ -152,6 +167,36 @@ func NewServer(
 			WithTopLevelGVK(discovery).
 			WithAdmission(resourceLogger.WithName("mutate")).
 			ToHandlerFunc("IVPOL"),
+	)
+	// NamespacedImageValidatingPolicy shares the image-verification handlers with the cluster-scoped
+	// ImageValidatingPolicy; the webhook controller registers them under /nivpol (see controller.go),
+	// so the server must serve those paths too, otherwise the admission call gets a 404.
+	mux.HandlerFunc(
+		"POST",
+		"/nivpol/validate/*policies",
+		handlerFunc("NIVPOL-VALIDATE", resourceHandlers.NamespacedImageVerificationPolicies, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithRoles(rbLister, crbLister).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithTopLevelGVK(discovery).
+			WithAdmission(ivpolLogger.WithName("validate")).
+			ToHandlerFunc("NIVPOL"),
+	)
+	mux.HandlerFunc(
+		"POST",
+		"/nivpol/mutate/*policies",
+		handlerFunc("NIVPOL-MUTATE", resourceHandlers.NamespacedImageVerificationPoliciesMutation, "").
+			WithFilter(configuration).
+			WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
+			WithDump(debugModeOpts.DumpPayload).
+			WithRoles(rbLister, crbLister).
+			WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
+			WithMetrics(resourceLogger, metrics.WebhookMutating).
+			WithTopLevelGVK(discovery).
+			WithAdmission(ivpolLogger.WithName("mutate")).
+			ToHandlerFunc("NIVPOL"),
 	)
 	mux.HandlerFunc(
 		"POST",

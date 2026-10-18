@@ -12,10 +12,13 @@ import (
 	"github.com/kyverno/kyverno/ext/wildcard"
 	metadataclient "github.com/kyverno/kyverno/pkg/clients/metadata"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/discovery/cached/memory"
 	metadatainformer "k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -52,11 +55,11 @@ func (gvrs TopLevelApiDescription) WithSubResource(subresource string) TopLevelA
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
 	FindResources(group, version, kind, subresource string) (map[TopLevelApiDescription]metav1.APIResource, error)
-	// TODO: there's no mapping from GVK to GVR, this is very error prone
 	GetGVRFromGVK(schema.GroupVersionKind) (schema.GroupVersionResource, error)
 	GetGVKFromGVR(schema.GroupVersionResource) (schema.GroupVersionKind, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	CachedDiscoveryInterface() discovery.CachedDiscoveryInterface
+	RESTMapper() meta.RESTMapper
 	OnChanged(callback func())
 }
 
@@ -69,8 +72,45 @@ type apiResourceWithListGV struct {
 // serverResources stores the cachedClient instance for discovery client
 type serverResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
+	mapper       meta.ResettableRESTMapper
 	mux          sync.RWMutex
 	callbacks    []func()
+
+	refetchMux  sync.Mutex
+	lastRefetch time.Time
+}
+
+// NewServerResourcesDiscovery builds an IDiscovery over the given delegate,
+// the same memory-cached wiring NewClient uses for a real connection.
+func NewServerResourcesDiscovery(delegate discovery.DiscoveryInterface) IDiscovery {
+	cachedClient := memory.NewMemCacheClient(delegate)
+	return &serverResources{
+		cachedClient: cachedClient,
+		mapper:       restmapper.NewDeferredDiscoveryRESTMapper(cachedClient),
+	}
+}
+
+// missRefetchInterval spaces the forced discovery refetches of one client.
+const missRefetchInterval = time.Second
+
+// refetchOnMiss reports whether a lookup that just missed should drop the
+// cache and try once more: always when it is stale, else at most once per
+// missRefetchInterval.
+func (c *serverResources) refetchOnMiss() bool {
+	if !c.cachedClient.Fresh() {
+		return true
+	}
+	c.refetchMux.Lock()
+	defer c.refetchMux.Unlock()
+	if !c.lastRefetch.IsZero() && time.Since(c.lastRefetch) < missRefetchInterval {
+		return false
+	}
+	c.lastRefetch = time.Now()
+	return true
+}
+
+func (c *serverResources) RESTMapper() meta.RESTMapper {
+	return c.mapper
 }
 
 func (c *serverResources) OnChanged(callback func()) {
@@ -106,6 +146,9 @@ func (c *serverResources) Poll(ctx context.Context, resync time.Duration) {
 			// set cache as stale
 			logger.V(6).Info("invalidating local client cache for registered resources")
 			c.cachedClient.Invalidate()
+			if c.mapper != nil {
+				c.mapper.Reset()
+			}
 		}
 	}
 }
@@ -127,6 +170,9 @@ func (c *serverResources) CreateCRDWatcher(ctx context.Context, metadataClient m
 			metaObj := obj.(*metav1.PartialObjectMetadata)
 			logger.Info("CRD added", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
+			if c.mapper != nil {
+				c.mapper.Reset()
+			}
 			logger.Info("Discovery cache invalidated after CRD add")
 			c.notify()
 		},
@@ -134,6 +180,9 @@ func (c *serverResources) CreateCRDWatcher(ctx context.Context, metadataClient m
 			metaObj := newObj.(*metav1.PartialObjectMetadata)
 			logger.Info("CRD updated", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
+			if c.mapper != nil {
+				c.mapper.Reset()
+			}
 			logger.Info("Discovery cache invalidated after CRD update")
 			c.notify()
 		},
@@ -144,6 +193,9 @@ func (c *serverResources) CreateCRDWatcher(ctx context.Context, metadataClient m
 			metaObj := obj.(*metav1.PartialObjectMetadata)
 			logger.Info("CRD deleted", "name", metaObj.GetName(), "namespace", metaObj.GetNamespace())
 			c.cachedClient.Invalidate()
+			if c.mapper != nil {
+				c.mapper.Reset()
+			}
 			logger.Info("Discovery cache invalidated after CRD delete")
 			c.notify()
 		},
@@ -164,6 +216,20 @@ func (c *serverResources) OpenAPISchema() (*openapiv2.Document, error) {
 
 // GetGVRFromGVK get the Group Version Resource from APIVersion and kind
 func (c *serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.GroupVersionResource, error) {
+	if c.mapper != nil {
+		mapping, err := c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+		if err == nil {
+			return mapping.Resource, nil
+		}
+		if c.refetchOnMiss() {
+			c.cachedClient.Invalidate()
+			c.mapper.Reset()
+			mapping, err = c.mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+			if err == nil {
+				return mapping.Resource, nil
+			}
+		}
+	}
 	_, _, gvr, err := c.FindResource(gvk.GroupVersion().String(), gvk.Kind)
 	if err != nil {
 		logger.Error(err, "schema not found", "gvk", gvk)
@@ -175,13 +241,30 @@ func (c *serverResources) GetGVRFromGVK(gvk schema.GroupVersionKind) (schema.Gro
 // GetGVKFromGVR returns the Group Version Kind from Group Version Resource. The groupVersion has to be specified properly
 // for example, for corev1.Pod, the groupVersion has to be specified as `v1`, specifying empty groupVersion won't work.
 func (c *serverResources) GetGVKFromGVR(gvr schema.GroupVersionResource) (schema.GroupVersionKind, error) {
+	if c.mapper != nil {
+		gvk, err := c.mapper.KindFor(gvr)
+		if err == nil {
+			return gvk, nil
+		}
+		if c.refetchOnMiss() {
+			c.cachedClient.Invalidate()
+			c.mapper.Reset()
+			gvk, err = c.mapper.KindFor(gvr)
+			if err == nil {
+				return gvk, nil
+			}
+		}
+	}
 	gvk, err := c.findResourceFromResourceName(gvr)
 	if err == nil {
 		return gvk, nil
 	}
 
-	if !c.cachedClient.Fresh() {
+	if c.refetchOnMiss() {
 		c.cachedClient.Invalidate()
+		if c.mapper != nil {
+			c.mapper.Reset()
+		}
 		if gvk, err := c.findResourceFromResourceName(gvr); err == nil {
 			return gvk, nil
 		}
@@ -220,8 +303,11 @@ func (c *serverResources) FindResource(groupVersion string, kind string) (apiRes
 		return r, pr, gvr, nil
 	}
 
-	if !c.cachedClient.Fresh() {
+	if c.refetchOnMiss() {
 		c.cachedClient.Invalidate()
+		if c.mapper != nil {
+			c.mapper.Reset()
+		}
 		if r, pr, gvr, err = c.findResource(groupVersion, kind); err == nil {
 			return r, pr, gvr, nil
 		}
@@ -236,6 +322,9 @@ func (c *serverResources) FindResources(group, version, kind, subresource string
 	if err != nil || len(resources) == 0 {
 		if !c.cachedClient.Fresh() || len(resources) == 0 {
 			c.cachedClient.Invalidate()
+			if c.mapper != nil {
+				c.mapper.Reset()
+			}
 			resources, err := c.findResources(group, version, kind, subresource)
 			if err != nil {
 				return nil, err

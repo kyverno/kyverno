@@ -21,27 +21,84 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
-      contents: write
+      contents: read
     steps:
-      # TODO(lucchmielowski): Fix issue for commands with dash in their name then reactivate for finer-grained controls
-      # - name: Check for Command
-      #    id: command
-      #    uses: xt0rted/slash-command-action@v2
-      #   continue-on-error: true
-      #   with:
-      #     command: cherry-pick
-      #     reaction: "true"
-      #     reaction-type: "+1"
-      #     allow-edits: "false"
-      #     permission-level: write
-      #     repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Authorize and validate command
+        id: command
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const comment = context.payload.comment;
+            const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+              ...context.repo,
+              username: comment.user.login
+            });
+            if (!['write', 'maintain', 'admin'].includes(data.permission)) {
+              throw new Error('Cherry-pick commands require repository write permission');
+            }
+            const match = (comment.body || '').split(/\r?\n/, 1)[0]
+              .match(/^\/cherry-pick[ \t]+([A-Za-z0-9][A-Za-z0-9._/-]*)[ \t]*$/);
+            if (!match) {
+              throw new Error('Expected: /cherry-pick <branch>');
+            }
+            await github.rest.repos.getBranch({
+              ...context.repo,
+              branch: match[1]
+            });
+            core.setOutput('branch', match[1]);
 
-      # NOTE: can be removed if slash-command-action is uncommented
       - name: React to comment
         uses: dkershner6/reaction-action@97ede302a1b145b3739dec3ca84a489a34ef48b5 # v2.2.1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           reaction: "+1"
+
+      - name: Normalize GitHub App private key
+        id: normalize-key
+        shell: bash
+        env:
+          RAW_APP_PRIVATE_KEY: ${{ secrets.PR_UPDATER_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          key="$RAW_APP_PRIVATE_KEY"
+          # Support secrets saved with escaped newlines.
+          key="${key//\\n/$'\n'}"
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            # Support secrets saved as base64-encoded PEM.
+            decoded="$(printf '%s' "$RAW_APP_PRIVATE_KEY" | tr -d '[:space:]' | base64 --decode 2>/dev/null || true)"
+            decoded="${decoded//\\n/$'\n'}"
+            if printf '%s' "$decoded" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+              key="$decoded"
+            fi
+          fi
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            echo "PR_UPDATER_APP_PRIVATE_KEY does not look like a valid PEM private key." >&2
+            exit 1
+          fi
+
+          # ::add-mask:: is line-based, mask each line of the key individually.
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done <<< "$key"
+          {
+            echo "private_key<<EOF"
+            printf '%s\n' "$key"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.PR_UPDATER_APP_CLIENT_ID }}
+          private-key: ${{ steps.normalize-key.outputs.private_key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Check if PR is merged
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
@@ -59,44 +116,21 @@ jobs:
               mergeCommit: pr.data.merge_commit_sha
             };
 
-      - name: Extract target branch
-        if: fromJSON(steps.check-merged.outputs.result).merged == true
-        id: extract-branch
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-        run: |
-          set -euo pipefail
-
-          # Keep only the first line
-          first_line="$(printf '%s' "$COMMENT_BODY" | tr -d '\r' | head -n1)"
-          candidate="$(printf '%s' "$first_line" | awk '{print $2}')"
-
-          if [ -z "${candidate:-}" ]; then
-            echo "No branch in comment (expected: /cherry-pick <branch>)" >&2
-            exit 1
-          fi
-
-          # Validate branch format using git
-          if ! git check-ref-format --branch "$candidate"; then
-            echo "Invalid branch name: $candidate" >&2
-            exit 1
-          fi
-
-          echo "branch=$candidate" >> "$GITHUB_OUTPUT"
-
       - name: Comment PR Unmerged
         if: ${{ fromJSON(steps.check-merged.outputs.result).merged == false && fromJSON(steps.check-merged.outputs.result).state != 'closed' }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
-          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           message: |
             Commits from this PR will automatically be cherry-picked once this PR gets merged.
 
       - name: Checkout repository
         if: fromJSON(steps.check-merged.outputs.result).merged == true
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
       - name: Cherry Pick
         if: fromJSON(steps.check-merged.outputs.result).merged == true
@@ -104,18 +138,24 @@ jobs:
         continue-on-error: true # Send failure comment to PR
         id: cherry-pick
         with:
-          github-token: ${{ secrets.PR_UPDATE_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
           source-pr: ${{ github.event.issue.number }}
           source-pr-title: ${{ github.event.issue.title }}
-          target-branches: ${{ steps.extract-branch.outputs.branch }}
+          target-branches: ${{ steps.command.outputs.branch }}
           merge-commit: ${{ fromJson(steps.check-merged.outputs.result).mergeCommit }}
 
       - name: Comment Cherry-pick Fail
-        if: ${{ steps.cherry-pick.outputs.success == false && fromJSON(steps.check-merged.outputs.result).merged == true }}
+        if: ${{ steps.cherry-pick.outcome == 'failure' || steps.cherry-pick.outputs.success == 'false' }}
         uses: ben-z/actions-comment-on-issue@402eb412a8f396be0d4ac52a823ec7121206cc26 # v1.0.3
         with:
-          GITHUB_TOKEN: ${{ secrets.PR_UPDATE_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           message: |
             :no_entry_sign: Cherry picking merge commit `${{ fromJSON(steps.check-merged.outputs.result).mergeCommit}}` failed. 
 
             Please check workflow logs.
+
+      - name: Fail on unsuccessful cherry-pick
+        if: ${{ steps.cherry-pick.outcome == 'failure' || steps.cherry-pick.outputs.success == 'false' }}
+        run: |
+          echo "::error::Cherry-pick failed; see the workflow logs"
+          exit 1

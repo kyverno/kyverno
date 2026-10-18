@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
 )
 
@@ -68,6 +69,19 @@ func NewLazyCELHTTPContext(namespace string) http.ContextInterface {
 	return &namespacedHTTPContext{inner: sharedHTTPContext}
 }
 
+func ConfineGlobalContext(inner globalcontext.ContextInterface, namespace string) globalcontext.ContextInterface {
+	if namespace == "" {
+		return inner
+	}
+	return namespacedGlobalContext{}
+}
+
+type namespacedGlobalContext struct{}
+
+func (namespacedGlobalContext) GetGlobalReference(_, _ string) (any, error) {
+	return nil, fmt.Errorf("globalContext.* is not allowed in namespaced policies")
+}
+
 // namespacedHTTPContext enforces the AllowHTTPInNamespacedPolicies toggle at call time.
 type namespacedHTTPContext struct {
 	inner http.ContextInterface
@@ -123,6 +137,14 @@ func getParseEnv() *cel.Env {
 // ExpressionsUseHTTP reports whether any expression references the "http" identifier.
 // Expressions are parsed but not type-checked; malformed expressions are skipped.
 func ExpressionsUseHTTP(expressions ...string) bool {
+	return expressionsUseIdent("http", expressions...)
+}
+
+func ExpressionsUseGlobalContext(expressions ...string) bool {
+	return expressionsUseIdent(GlobalContextKey, expressions...)
+}
+
+func expressionsUseIdent(ident string, expressions ...string) bool {
 	env := getParseEnv()
 	if env == nil {
 		return false
@@ -137,7 +159,7 @@ func ExpressionsUseHTTP(expressions ...string) bool {
 		}
 		nav := celast.NavigateAST(ast.NativeRep())
 		matches := celast.MatchDescendants(nav, func(e celast.NavigableExpr) bool {
-			return e.Kind() == celast.IdentKind && e.AsIdent() == "http"
+			return e.Kind() == celast.IdentKind && e.AsIdent() == ident
 		})
 		if len(matches) > 0 {
 			return true

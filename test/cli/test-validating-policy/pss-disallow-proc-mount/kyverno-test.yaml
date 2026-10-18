@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pss-disallow-proc-mount
+policies:
+- policy.yaml
+resources:
+- resources.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-proc-mount
+  resources:
+  - unmasked-host-users-absent
+  - unmasked-host-users-true
+  - unmasked-init-container
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: disallow-proc-mount
+  resources:
+  - unmasked-host-users-false
+  - default-proc-mount
+  - unset-proc-mount
+  result: pass

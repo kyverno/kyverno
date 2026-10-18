@@ -61,6 +61,8 @@ type controller struct {
 	celpolexLister        policiesv1beta1listers.PolicyExceptionLister
 	vapLister             admissionregistrationv1listers.ValidatingAdmissionPolicyLister
 	vapbindingLister      admissionregistrationv1listers.ValidatingAdmissionPolicyBindingLister
+	mapV1Lister           admissionregistrationv1listers.MutatingAdmissionPolicyLister
+	mapbindingV1Lister    admissionregistrationv1listers.MutatingAdmissionPolicyBindingLister
 	mapBetaLister         admissionregistrationv1beta1listers.MutatingAdmissionPolicyLister
 	mapbindingBetaLister  admissionregistrationv1beta1listers.MutatingAdmissionPolicyBindingLister
 	mapAlphaLister        admissionregistrationv1alpha1listers.MutatingAdmissionPolicyLister
@@ -71,6 +73,12 @@ type controller struct {
 
 	eventGen event.Interface
 	checker  checker.AuthChecker
+
+	// polexEnabled and exceptionNamespace mirror the runtime PolicyException gates
+	// (--enablePolicyException / --exceptionNamespace) so generated VAP/MAP resources
+	// only honor exceptions the runtime admission path would also honor.
+	polexEnabled       bool
+	exceptionNamespace string
 }
 
 func NewController(
@@ -86,12 +94,16 @@ func NewController(
 	celpolexInformer policiesv1beta1informers.PolicyExceptionInformer,
 	vapInformer admissionregistrationv1informers.ValidatingAdmissionPolicyInformer,
 	vapbindingInformer admissionregistrationv1informers.ValidatingAdmissionPolicyBindingInformer,
+	mapV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyInformer,
+	mapbindingV1Informer admissionregistrationv1informers.MutatingAdmissionPolicyBindingInformer,
 	mapBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyInformer,
 	mapbindingBetaInformer admissionregistrationv1beta1informers.MutatingAdmissionPolicyBindingInformer,
 	mapAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyInformer,
 	mapbindingAlphaInformer admissionregistrationv1alpha1informers.MutatingAdmissionPolicyBindingInformer,
 	eventGen event.Interface,
 	checker checker.AuthChecker,
+	polexEnabled bool,
+	exceptionNamespace string,
 ) controllers.Controller {
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -111,6 +123,9 @@ func NewController(
 		queue:           queue,
 		eventGen:        eventGen,
 		checker:         checker,
+
+		polexEnabled:       polexEnabled,
+		exceptionNamespace: exceptionNamespace,
 	}
 
 	// Set up an event handler for when Kyverno policies change
@@ -155,6 +170,20 @@ func NewController(
 	if vapbindingInformer != nil {
 		c.vapbindingLister = vapbindingInformer.Lister()
 		if _, err := controllerutils.AddEventHandlersT(vapbindingInformer.Informer(), c.addVAPbinding, c.updateVAPbinding, c.deleteVAPbinding); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+
+	if mapV1Informer != nil {
+		c.mapV1Lister = mapV1Informer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapV1Informer.Informer(), c.addMAPV1, c.updateMAPV1, c.deleteMAPV1); err != nil {
+			logger.Error(err, "failed to register event handlers")
+		}
+	}
+
+	if mapbindingV1Informer != nil {
+		c.mapbindingV1Lister = mapbindingV1Informer.Lister()
+		if _, err := controllerutils.AddEventHandlersT(mapbindingV1Informer.Informer(), c.addMAPbindingV1, c.updateMAPbindingV1, c.deleteMAPbindingV1); err != nil {
 			logger.Error(err, "failed to register event handlers")
 		}
 	}

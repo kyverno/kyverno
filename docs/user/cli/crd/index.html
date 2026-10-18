@@ -107,8 +107,8 @@ ClusterResourceSpec
 <td>
 <code>resources</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.unstructured--">
-[]*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#unstructured-unstructured-v1">
+[]Kubernetes meta/v1/unstructured.Unstructured
 </a>
 </em>
 </td>
@@ -732,7 +732,7 @@ APICallResponse
 <td>
 <code>resource</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno/v1.Any
 </em>
 </td>
 <td>
@@ -743,7 +743,7 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <code>policy</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno/v1.Any
 </em>
 </td>
 <td>
@@ -754,7 +754,7 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <code>rule</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno/v1.Any
 </em>
 </td>
 <td>
@@ -797,7 +797,7 @@ CheckMatch
 <td>
 <code>assert</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno/v1.Any
 </em>
 </td>
 <td>
@@ -808,7 +808,7 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <code>error</code><br/>
 <em>
-github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
+github.com/kyverno/kyverno/api/kyverno/v1.Any
 </em>
 </td>
 <td>
@@ -848,8 +848,8 @@ github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1.Any
 <td>
 <code>resources</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.unstructured--">
-[]*k8s.io/apimachinery/pkg/apis/meta/v1/unstructured.Unstructured
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#unstructured-unstructured-v1">
+[]Kubernetes meta/v1/unstructured.Unstructured
 </a>
 </em>
 </td>
@@ -1671,6 +1671,24 @@ string
 </td>
 <td>
 <p>Kind mentions the kind of the resource on which the policy is to be applied.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>operation</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Operation mentions the admission operation to simulate when applying policies
+on the resources of this test result. Possible values are CREATE, UPDATE and
+DELETE. If unset, the operation defaults to CREATE, or to the operation
+declared via the <code>request.operation</code> global value in the values file.
+For UPDATE, both object and oldObject are set to the resource. For DELETE,
+object is null and oldObject is set to the resource, mirroring the API server.
+It is not supported for deleting policies and JSON payloads.</p>
 </td>
 </tr>
 <tr>

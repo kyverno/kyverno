@@ -1,13 +1,9 @@
 package v2beta1
 
 import (
-	kjson "github.com/kyverno/kyverno-json/pkg/apis/policy/v1alpha1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
-
-// AssertionTree defines a kyverno-json assertion tree.
-type AssertionTree = kjson.Any
 
 // Validation defines checks to be performed on matching resources.
 type Validation struct {
@@ -61,8 +57,11 @@ type Validation struct {
 	CEL *kyvernov1.CEL `json:"cel,omitempty"`
 
 	// Assert defines a kyverno-json assertion tree.
+	// Deprecated, kept only for backward compatibility but has no effect since 1.19.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +kubebuilder:validation:Schemaless
 	// +optional
-	Assert *AssertionTree `json:"assert"`
+	DeprecatedAssert *kyvernov1.Any `json:"assert,omitempty"`
 }
 
 // ConditionOperator is the operation performed on condition key and value.

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -471,4 +472,104 @@ func TestFromAdmissionFunc(t *testing.T) {
 		assert.Equal(t, expectedResponse.UID, response.UID)
 		assert.Equal(t, expectedResponse.Allowed, response.Allowed)
 	})
+}
+
+func TestAdmissionHandler_WithTrace_NilPointerMatrix(t *testing.T) {
+	logger := testr.New(t)
+	innerHandler := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		return AdmissionResponse{
+			UID:     request.UID,
+			Allowed: true,
+		}
+	})
+
+	tracedHandler := innerHandler.WithTrace("NilCheckHandler")
+
+	validGVK := &metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
+	validGVR := &metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
+
+	tests := []struct {
+		name            string
+		requestKind     *metav1.GroupVersionKind
+		requestResource *metav1.GroupVersionResource
+	}{
+		{
+			name:            "RequestKind nil, RequestResource valid",
+			requestKind:     nil,
+			requestResource: validGVR,
+		},
+		{
+			name:            "RequestKind valid, RequestResource nil",
+			requestKind:     validGVK,
+			requestResource: nil,
+		},
+		{
+			name:            "Both RequestKind and RequestResource nil",
+			requestKind:     nil,
+			requestResource: nil,
+		},
+		{
+			name:            "Both RequestKind and RequestResource valid",
+			requestKind:     validGVK,
+			requestResource: validGVR,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			request := AdmissionRequest{
+				AdmissionRequest: admissionv1.AdmissionRequest{
+					UID:             types.UID("test-uid-" + tt.name),
+					Kind:            metav1.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"},
+					Resource:        metav1.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"},
+					Name:            "test-deployment",
+					Namespace:       "default",
+					Operation:       admissionv1.Create,
+					UserInfo:        authenticationv1.UserInfo{Username: "test-user"},
+					RequestKind:     tt.requestKind,
+					RequestResource: tt.requestResource,
+				},
+			}
+
+			response := tracedHandler(context.Background(), logger, request, time.Now())
+			assert.True(t, response.Allowed)
+		})
+	}
+}
+
+func TestAdmissionHandler_WithTrace_JSONUnmarshalNilPointers(t *testing.T) {
+	logger := testr.New(t)
+	// AdmissionReview JSON payload without optional requestKind and requestResource fields
+	jsonPayload := []byte(`{
+		"apiVersion": "admission.k8s.io/v1",
+		"kind": "AdmissionReview",
+		"request": {
+			"uid": "705ab4f5-6393-11e8-b7cc-42010a800002",
+			"kind": {"group": "", "version": "v1", "kind": "Pod"},
+			"resource": {"group": "", "version": "v1", "resource": "pods"},
+			"namespace": "default",
+			"operation": "CREATE",
+			"userInfo": {"username": "admin"}
+		}
+	}`)
+
+	var review admissionv1.AdmissionReview
+	err := json.Unmarshal(jsonPayload, &review)
+	assert.Nil(t, err)
+	assert.NotNil(t, review.Request)
+
+	// Verify that JSON unmarshaling without optional fields produces nil pointers
+	assert.Nil(t, review.Request.RequestKind, "RequestKind should be nil when omitted in JSON")
+	assert.Nil(t, review.Request.RequestResource, "RequestResource should be nil when omitted in JSON")
+
+	innerHandler := AdmissionHandler(func(ctx context.Context, logger logr.Logger, request AdmissionRequest, startTime time.Time) AdmissionResponse {
+		return AdmissionResponse{
+			UID:     request.UID,
+			Allowed: true,
+		}
+	})
+
+	tracedHandler := innerHandler.WithTrace("JSONUnmarshalHandler")
+	response := tracedHandler(context.Background(), logger, AdmissionRequest{AdmissionRequest: *review.Request}, time.Now())
+	assert.True(t, response.Allowed)
 }

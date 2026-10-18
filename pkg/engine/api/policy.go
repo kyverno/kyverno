@@ -287,6 +287,8 @@ func (p *genericPolicy) GetAPIVersion() string {
 		return policiesv1beta1.GroupVersion.String()
 	case p.GeneratingPolicy != nil:
 		return policiesv1beta1.GroupVersion.String()
+	case p.NamespacedGeneratingPolicy != nil:
+		return policiesv1beta1.GroupVersion.String()
 	case p.DeletingPolicy != nil:
 		return policiesv1beta1.GroupVersion.String()
 	case p.CleanupPolicy != nil:
@@ -320,6 +322,8 @@ func (p *genericPolicy) GetKind() string {
 		return p.NamespacedMutatingPolicy.GetKind()
 	case p.GeneratingPolicy != nil:
 		return "GeneratingPolicy"
+	case p.NamespacedGeneratingPolicy != nil:
+		return "NamespacedGeneratingPolicy"
 	case p.DeletingPolicy != nil:
 		return p.DeletingPolicy.GetKind()
 	case p.CleanupPolicy != nil:

@@ -47,6 +47,58 @@ spec:
             description: GeneratingPolicySpec is the specification of the desired
               behavior of the GeneratingPolicy.
             properties:
+              auditAnnotations:
+                description: |-
+                  AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the
+                  API server. auditAnnotations are evaluated after the policy has been evaluated but before the decision is logged.
+                  The results of evaluating the expressions are attached to the audit event as annotations with the key
+                  "<policy name>/<key>".
+                  If the expression evaluates to an empty string or null the annotation will not be included in the audit event.
+                items:
+                  description: AuditAnnotation describes how to produce an audit annotation
+                    for an API request.
+                  properties:
+                    key:
+                      description: |-
+                        key specifies the audit annotation key. The audit annotation keys of
+                        a ValidatingAdmissionPolicy must be unique. The key must be a qualified
+                        name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
+
+                        The key is combined with the resource name of the
+                        ValidatingAdmissionPolicy to construct an audit annotation key:
+                        "{ValidatingAdmissionPolicy name}/{key}".
+
+                        If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
+                        and the same audit annotation key, the annotation key will be identical.
+                        In this case, the first annotation written with the key will be included
+                        in the audit event and all subsequent annotations with the same key
+                        will be discarded.
+
+                        Required.
+                      type: string
+                    valueExpression:
+                      description: |-
+                        valueExpression represents the expression which is evaluated by CEL to
+                        produce an audit annotation value. The expression must evaluate to either
+                        a string or null value. If the expression evaluates to a string, the
+                        audit annotation is included with the string value. If the expression
+                        evaluates to null or empty string the audit annotation will be omitted.
+                        The valueExpression may be no longer than 5kb in length.
+                        If the result of the valueExpression is more than 10kb in length, it
+                        will be truncated to 10kb.
+
+                        If multiple ValidatingAdmissionPolicyBinding resources match an
+                        API request, then the valueExpression will be evaluated for
+                        each binding. All unique values produced by the valueExpressions
+                        will be joined together in a comma-separated list.
+
+                        Required.
+                      type: string
+                  required:
+                  - key
+                  - valueExpression
+                  type: object
+                type: array
               evaluation:
                 description: EvaluationConfiguration defines the configuration for
                   the policy evaluation.
@@ -117,7 +169,36 @@ spec:
                       description: Expression is a CEL expression that takes a list
                         of resources to be generated.
                       type: string
+                    template:
+                      description: |-
+                        Template declares the resources to be generated as a YAML document,
+                        with optional CEL interpolation.
+                      properties:
+                        interpolate:
+                          default: none
+                          description: |-
+                            Interpolate controls placeholder evaluation in Value:
+                            "none" (default) treats Value as plain YAML;
+                            "cel" evaluates `(( ... ))` placeholders as CEL expressions before the YAML is parsed.
+                          enum:
+                          - none
+                          - cel
+                          type: string
+                        value:
+                          description: |-
+                            Value is a YAML string, single or multi-document, defining the resources to generate.
+                            The namespace of each generated resource is taken from its rendered metadata.namespace,
+                            resources without a namespace are treated as cluster-scoped.
+                          minLength: 1
+                          type: string
+                      required:
+                      - value
+                      type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of expression or template must be set
+                    rule: (has(self.expression) && !has(self.template)) || (!has(self.expression)
+                      && has(self.template))
                 minItems: 1
                 type: array
               matchConditions:
@@ -139,7 +220,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -155,7 +236,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -181,7 +262,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -189,7 +270,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -198,7 +279,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -207,7 +288,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -218,7 +299,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -227,7 +308,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -280,7 +361,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -369,7 +450,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -426,7 +507,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -434,7 +515,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -443,7 +524,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -452,7 +533,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -463,7 +544,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -472,7 +553,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -529,12 +610,12 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression is the expression that will be evaluated as the value of the variable.
+                        expression is the expression that will be evaluated as the value of the variable.
                         The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                       type: string
                     name:
                       description: |-
-                        Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                        name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                         The variable can be accessed in other expressions through `variables`
                         For example, if name is "foo", the variable will be available as `variables.foo`
                       type: string
@@ -675,6 +756,58 @@ spec:
             description: GeneratingPolicySpec is the specification of the desired
               behavior of the GeneratingPolicy.
             properties:
+              auditAnnotations:
+                description: |-
+                  AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the
+                  API server. auditAnnotations are evaluated after the policy has been evaluated but before the decision is logged.
+                  The results of evaluating the expressions are attached to the audit event as annotations with the key
+                  "<policy name>/<key>".
+                  If the expression evaluates to an empty string or null the annotation will not be included in the audit event.
+                items:
+                  description: AuditAnnotation describes how to produce an audit annotation
+                    for an API request.
+                  properties:
+                    key:
+                      description: |-
+                        key specifies the audit annotation key. The audit annotation keys of
+                        a ValidatingAdmissionPolicy must be unique. The key must be a qualified
+                        name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
+
+                        The key is combined with the resource name of the
+                        ValidatingAdmissionPolicy to construct an audit annotation key:
+                        "{ValidatingAdmissionPolicy name}/{key}".
+
+                        If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
+                        and the same audit annotation key, the annotation key will be identical.
+                        In this case, the first annotation written with the key will be included
+                        in the audit event and all subsequent annotations with the same key
+                        will be discarded.
+
+                        Required.
+                      type: string
+                    valueExpression:
+                      description: |-
+                        valueExpression represents the expression which is evaluated by CEL to
+                        produce an audit annotation value. The expression must evaluate to either
+                        a string or null value. If the expression evaluates to a string, the
+                        audit annotation is included with the string value. If the expression
+                        evaluates to null or empty string the audit annotation will be omitted.
+                        The valueExpression may be no longer than 5kb in length.
+                        If the result of the valueExpression is more than 10kb in length, it
+                        will be truncated to 10kb.
+
+                        If multiple ValidatingAdmissionPolicyBinding resources match an
+                        API request, then the valueExpression will be evaluated for
+                        each binding. All unique values produced by the valueExpressions
+                        will be joined together in a comma-separated list.
+
+                        Required.
+                      type: string
+                  required:
+                  - key
+                  - valueExpression
+                  type: object
+                type: array
               evaluation:
                 description: EvaluationConfiguration defines the configuration for
                   the policy evaluation.
@@ -745,7 +878,36 @@ spec:
                       description: Expression is a CEL expression that takes a list
                         of resources to be generated.
                       type: string
+                    template:
+                      description: |-
+                        Template declares the resources to be generated as a YAML document,
+                        with optional CEL interpolation.
+                      properties:
+                        interpolate:
+                          default: none
+                          description: |-
+                            Interpolate controls placeholder evaluation in Value:
+                            "none" (default) treats Value as plain YAML;
+                            "cel" evaluates `(( ... ))` placeholders as CEL expressions before the YAML is parsed.
+                          enum:
+                          - none
+                          - cel
+                          type: string
+                        value:
+                          description: |-
+                            Value is a YAML string, single or multi-document, defining the resources to generate.
+                            The namespace of each generated resource is taken from its rendered metadata.namespace,
+                            resources without a namespace are treated as cluster-scoped.
+                          minLength: 1
+                          type: string
+                      required:
+                      - value
+                      type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of expression or template must be set
+                    rule: (has(self.expression) && !has(self.template)) || (!has(self.expression)
+                      && has(self.template))
                 minItems: 1
                 type: array
               matchConditions:
@@ -767,7 +929,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -783,7 +945,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -809,7 +971,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -817,7 +979,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -826,7 +988,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -835,7 +997,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -846,7 +1008,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -855,7 +1017,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -908,7 +1070,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -997,7 +1159,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -1054,7 +1216,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -1062,7 +1224,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -1071,7 +1233,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -1080,7 +1242,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -1091,7 +1253,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -1100,7 +1262,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -1157,12 +1319,12 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression is the expression that will be evaluated as the value of the variable.
+                        expression is the expression that will be evaluated as the value of the variable.
                         The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                       type: string
                     name:
                       description: |-
-                        Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                        name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                         The variable can be accessed in other expressions through `variables`
                         For example, if name is "foo", the variable will be available as `variables.foo`
                       type: string
@@ -1302,6 +1464,58 @@ spec:
             description: GeneratingPolicySpec is the specification of the desired
               behavior of the GeneratingPolicy.
             properties:
+              auditAnnotations:
+                description: |-
+                  AuditAnnotations contains CEL expressions which are used to produce audit annotations for the audit event of the
+                  API server. auditAnnotations are evaluated after the policy has been evaluated but before the decision is logged.
+                  The results of evaluating the expressions are attached to the audit event as annotations with the key
+                  "<policy name>/<key>".
+                  If the expression evaluates to an empty string or null the annotation will not be included in the audit event.
+                items:
+                  description: AuditAnnotation describes how to produce an audit annotation
+                    for an API request.
+                  properties:
+                    key:
+                      description: |-
+                        key specifies the audit annotation key. The audit annotation keys of
+                        a ValidatingAdmissionPolicy must be unique. The key must be a qualified
+                        name ([A-Za-z0-9][-A-Za-z0-9_.]*) no more than 63 bytes in length.
+
+                        The key is combined with the resource name of the
+                        ValidatingAdmissionPolicy to construct an audit annotation key:
+                        "{ValidatingAdmissionPolicy name}/{key}".
+
+                        If an admission webhook uses the same resource name as this ValidatingAdmissionPolicy
+                        and the same audit annotation key, the annotation key will be identical.
+                        In this case, the first annotation written with the key will be included
+                        in the audit event and all subsequent annotations with the same key
+                        will be discarded.
+
+                        Required.
+                      type: string
+                    valueExpression:
+                      description: |-
+                        valueExpression represents the expression which is evaluated by CEL to
+                        produce an audit annotation value. The expression must evaluate to either
+                        a string or null value. If the expression evaluates to a string, the
+                        audit annotation is included with the string value. If the expression
+                        evaluates to null or empty string the audit annotation will be omitted.
+                        The valueExpression may be no longer than 5kb in length.
+                        If the result of the valueExpression is more than 10kb in length, it
+                        will be truncated to 10kb.
+
+                        If multiple ValidatingAdmissionPolicyBinding resources match an
+                        API request, then the valueExpression will be evaluated for
+                        each binding. All unique values produced by the valueExpressions
+                        will be joined together in a comma-separated list.
+
+                        Required.
+                      type: string
+                  required:
+                  - key
+                  - valueExpression
+                  type: object
+                type: array
               evaluation:
                 description: EvaluationConfiguration defines the configuration for
                   the policy evaluation.
@@ -1372,7 +1586,36 @@ spec:
                       description: Expression is a CEL expression that takes a list
                         of resources to be generated.
                       type: string
+                    template:
+                      description: |-
+                        Template declares the resources to be generated as a YAML document,
+                        with optional CEL interpolation.
+                      properties:
+                        interpolate:
+                          default: none
+                          description: |-
+                            Interpolate controls placeholder evaluation in Value:
+                            "none" (default) treats Value as plain YAML;
+                            "cel" evaluates `(( ... ))` placeholders as CEL expressions before the YAML is parsed.
+                          enum:
+                          - none
+                          - cel
+                          type: string
+                        value:
+                          description: |-
+                            Value is a YAML string, single or multi-document, defining the resources to generate.
+                            The namespace of each generated resource is taken from its rendered metadata.namespace,
+                            resources without a namespace are treated as cluster-scoped.
+                          minLength: 1
+                          type: string
+                      required:
+                      - value
+                      type: object
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of expression or template must be set
+                    rule: (has(self.expression) && !has(self.template)) || (!has(self.expression)
+                      && has(self.template))
                 minItems: 1
                 type: array
               matchConditions:
@@ -1394,7 +1637,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -1410,7 +1653,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -1436,7 +1679,7 @@ spec:
                 properties:
                   excludeResourceRules:
                     description: |-
-                      ExcludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
+                      excludeResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy should not care about.
                       The exclude rules take precedence over include rules (if a resource matches both, it is excluded)
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -1444,7 +1687,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -1453,7 +1696,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -1462,7 +1705,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -1473,7 +1716,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -1482,7 +1725,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -1535,7 +1778,7 @@ spec:
                     type: string
                   namespaceSelector:
                     description: |-
-                      NamespaceSelector decides whether to run the admission control policy on an object based
+                      namespaceSelector decides whether to run the admission control policy on an object based
                       on whether the namespace for that object matches the selector. If the
                       object itself is a namespace, the matching is performed on
                       object.metadata.labels. If the object is another cluster scoped resource,
@@ -1624,7 +1867,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   objectSelector:
                     description: |-
-                      ObjectSelector decides whether to run the validation based on if the
+                      objectSelector decides whether to run the validation based on if the
                       object has matching labels. objectSelector is evaluated against both
                       the oldObject and newObject that would be sent to the cel validation, and
                       is considered to match if either object matches the selector. A null
@@ -1681,7 +1924,7 @@ spec:
                     x-kubernetes-map-type: atomic
                   resourceRules:
                     description: |-
-                      ResourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
+                      resourceRules describes what operations on what resources/subresources the ValidatingAdmissionPolicy matches.
                       The policy cares about an operation if it matches _any_ Rule.
                     items:
                       description: NamedRuleWithOperations is a tuple of Operations
@@ -1689,7 +1932,7 @@ spec:
                       properties:
                         apiGroups:
                           description: |-
-                            APIGroups is the API groups the resources belong to. '*' is all groups.
+                            apiGroups is the API groups the resources belong to. '*' is all groups.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -1698,7 +1941,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         apiVersions:
                           description: |-
-                            APIVersions is the API versions the resources belong to. '*' is all versions.
+                            apiVersions is the API versions the resources belong to. '*' is all versions.
                             If '*' is present, the length of the slice must be one.
                             Required.
                           items:
@@ -1707,7 +1950,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         operations:
                           description: |-
-                            Operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
+                            operations is the operations the admission hook cares about - CREATE, UPDATE, DELETE, CONNECT or *
                             for all of those operations and any future admission operations that are added.
                             If '*' is present, the length of the slice must be one.
                             Required.
@@ -1718,7 +1961,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         resourceNames:
-                          description: ResourceNames is an optional white list of
+                          description: resourceNames is an optional white list of
                             names that the rule applies to.  An empty set means that
                             everything is allowed.
                           items:
@@ -1727,7 +1970,7 @@ spec:
                           x-kubernetes-list-type: atomic
                         resources:
                           description: |-
-                            Resources is a list of resources this rule applies to.
+                            resources is a list of resources this rule applies to.
 
                             For example:
                             'pods' means pods.
@@ -1784,12 +2027,12 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        Expression is the expression that will be evaluated as the value of the variable.
+                        expression is the expression that will be evaluated as the value of the variable.
                         The CEL expression has access to the same identifiers as the CEL expressions in Validation.
                       type: string
                     name:
                       description: |-
-                        Name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
+                        name is the name of the variable. The name must be a valid CEL identifier and unique among all variables.
                         The variable can be accessed in other expressions through `variables`
                         For example, if name is "foo", the variable will be available as `variables.foo`
                       type: string

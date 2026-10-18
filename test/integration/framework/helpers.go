@@ -45,18 +45,25 @@ func (m *MockEventGen) GetEvents() []event.Info {
 	return out
 }
 
+// podGVR is the resource an admission request for a Pod carries.
+var podGVR = metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+
 // PodAdmissionRequest builds a handlers.AdmissionRequest for a Pod CREATE operation.
+// RequestResource is set alongside Resource because that is what the API server sends (the two only
+// differ when an equivalent match converted the request), and the image validating policy engine
+// reads it to pick the image extractors for the resource being admitted.
 func PodAdmissionRequest(name, namespace string, raw []byte) handlers.AdmissionRequest {
 	return handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
-			UID:       types.UID(uuid.New().String()),
-			Operation: admissionv1.Create,
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Name:      name,
-			Namespace: namespace,
-			Object:    runtime.RawExtension{Raw: raw},
-			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+			UID:             types.UID(uuid.New().String()),
+			Operation:       admissionv1.Create,
+			Resource:        podGVR,
+			RequestResource: &podGVR,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Name:            name,
+			Namespace:       namespace,
+			Object:          runtime.RawExtension{Raw: raw},
+			UserInfo:        authenticationv1.UserInfo{Username: "test-user"},
 		},
 	}
 }
@@ -207,13 +214,14 @@ func PodAdmissionRequestWithUsername(name, namespace, username string, raw []byt
 func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation, raw []byte) handlers.AdmissionRequest {
 	req := handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
-			UID:       types.UID(uuid.New().String()),
-			Operation: op,
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
-			Name:      name,
-			Namespace: namespace,
-			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+			UID:             types.UID(uuid.New().String()),
+			Operation:       op,
+			Resource:        podGVR,
+			RequestResource: &podGVR,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+			Name:            name,
+			Namespace:       namespace,
+			UserInfo:        authenticationv1.UserInfo{Username: "test-user"},
 		},
 	}
 	if op == admissionv1.Delete {
@@ -227,15 +235,17 @@ func PodAdmissionRequestWithOp(name, namespace string, op admissionv1.Operation,
 // NamespaceAdmissionRequest builds a CREATE admission request for a cluster-scoped Namespace.
 // Mirrors the shape of PodAdmissionRequest for use as a trigger in gpol sync-clone tests.
 func NamespaceAdmissionRequest(name string, raw []byte) handlers.AdmissionRequest {
+	namespaceGVR := metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"}
 	return handlers.AdmissionRequest{
 		AdmissionRequest: admissionv1.AdmissionRequest{
-			UID:       types.UID(uuid.New().String()),
-			Operation: admissionv1.Create,
-			Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
-			Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
-			Name:      name,
-			Object:    runtime.RawExtension{Raw: raw},
-			UserInfo:  authenticationv1.UserInfo{Username: "test-user"},
+			UID:             types.UID(uuid.New().String()),
+			Operation:       admissionv1.Create,
+			Resource:        namespaceGVR,
+			RequestResource: &namespaceGVR,
+			Kind:            metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			Name:            name,
+			Object:          runtime.RawExtension{Raw: raw},
+			UserInfo:        authenticationv1.UserInfo{Username: "test-user"},
 		},
 	}
 }

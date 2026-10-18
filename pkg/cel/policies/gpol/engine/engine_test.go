@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -82,7 +83,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 
-		resp, err := eng.Handle(req, pol, false)
+		resp, err := eng.Handle(context.TODO(), req, pol, false)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -92,7 +93,7 @@ func TestHandle(t *testing.T) {
 			Request: admissionv1.AdmissionRequest{},
 		}
 
-		resp, err := eng.Handle(req, Policy{}, false)
+		resp, err := eng.Handle(context.TODO(), req, Policy{}, false)
 		assert.Nil(t, err)
 		assert.NotNil(t, resp.Policies)
 	})
@@ -135,7 +136,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 
-		resp, err := eng.Handle(req, pol, false)
+		resp, err := eng.Handle(context.TODO(), req, pol, false)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -154,7 +155,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 
-		resp, err := eng.Handle(req, pol, false)
+		resp, err := eng.Handle(context.TODO(), req, pol, false)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -176,7 +177,7 @@ func TestHandle(t *testing.T) {
 			},
 		}
 
-		resp, err := eng.Handle(req, pol, false)
+		resp, err := eng.Handle(context.TODO(), req, pol, false)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -201,7 +202,7 @@ func TestHandle(t *testing.T) {
 			CompiledPolicy: compiledGpol,
 		}
 		eng := NewEngine(nsResolver, nil)
-		resp, err := eng.Handle(req, pol, false)
+		resp, err := eng.Handle(context.TODO(), req, pol, false)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
@@ -285,8 +286,37 @@ func TestHandle(t *testing.T) {
 			CompiledPolicy: compiledGpol,
 		}
 		eng := NewEngine(nsResolver, nil)
-		resp, err := eng.Handle(req, pol, false)
+		resp, err := eng.Handle(context.TODO(), req, pol, false)
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
+	})
+
+	t.Run("should surface audit annotations as rule response properties", func(t *testing.T) {
+		gpol := &v1beta1.GeneratingPolicy{
+			Spec: v1beta1.GeneratingPolicySpec{
+				AuditAnnotations: []admissionregistrationv1.AuditAnnotation{
+					{
+						Key:             "triggeredBy",
+						ValueExpression: "'ns/' + object.metadata.namespace",
+					},
+				},
+			},
+		}
+		comp := compiler.NewCompiler()
+		compiledGpol, errs := comp.Compile(gpol, nil)
+		assert.Nil(t, errs)
+
+		pol := Policy{
+			Policy:         gpol,
+			CompiledPolicy: compiledGpol,
+		}
+		eng := NewEngine(nsResolver, nil)
+		resp, err := eng.Handle(context.TODO(), req, pol, false)
+		assert.NoError(t, err)
+		assert.Len(t, resp.Policies, 1)
+		result := resp.Policies[0].Result
+		assert.NotNil(t, result)
+		// Audit annotations are always surfaced on successful evaluation
+		assert.Equal(t, "ns/default", result.Properties()["triggeredBy"])
 	})
 }

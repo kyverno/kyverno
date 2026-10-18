@@ -16,43 +16,53 @@ var applyConfigObjectType = celtypes.NewObjectType("Object")
 
 type applyConfigPatcher struct {
 	prog cel.Program
+	// useServerSideApply routes the merge through the local guard-free implementation when set,
+	// allowing atomic fields to be mutated. When false the upstream guarded implementation is used.
+	useServerSideApply bool
 }
 
-func newApplyConfigPatcher(prog cel.Program) Patcher {
+func newApplyConfigPatcher(prog cel.Program, useServerSideApply bool) Patcher {
 	return &applyConfigPatcher{
-		prog: prog,
+		prog:               prog,
+		useServerSideApply: useServerSideApply,
 	}
 }
 
-func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, error) {
+func (a *applyConfigPatcher) Patch(ctx context.Context, evalData map[string]any, patchRequest patch.Request, runtimeCELCostBudget int64) (runtime.Object, MutationEval, error) {
 	out, _, err := a.prog.ContextEval(ctx, evalData)
+	eval := MutationEval{Result: out}
 	if err != nil {
-		return nil, err
+		return nil, eval, err
 	}
 
 	// The compiler ensures that the return type is an ObjectVal with type name of "Object".
 	objVal, ok := out.(*dynamic.ObjectVal)
 	if !ok {
 		// Should not happen since the compiler type checks the return type.
-		return nil, fmt.Errorf("unsupported return type from ApplyConfiguration expression: %v", out.Type())
+		return nil, eval, fmt.Errorf("unsupported return type from ApplyConfiguration expression: %v", out.Type())
 	}
 
 	err = objVal.CheckTypeNamesMatchFieldPathNames()
 	if err != nil {
-		return nil, fmt.Errorf("type mismatch: %w", err)
+		return nil, eval, fmt.Errorf("type mismatch: %w", err)
 	}
 
 	value, ok := objVal.Value().(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("invalid return type: %T", out)
+		return nil, eval, fmt.Errorf("invalid return type: %T", out)
 	}
 
 	patchObject := unstructured.Unstructured{Object: value}
 	patchObject.SetGroupVersionKind(patchRequest.VersionedAttributes.VersionedObject.GetObjectKind().GroupVersionKind())
-	patched, err := patch.ApplyStructuredMergeDiff(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
+
+	mergeFn := patch.ApplyStructuredMergeDiff
+	if a.useServerSideApply {
+		mergeFn = applyStructuredMergeDiff
+	}
+	patched, err := mergeFn(patchRequest.TypeConverter, patchRequest.VersionedAttributes.VersionedObject, &patchObject)
 	if err != nil {
-		return nil, fmt.Errorf("error applying patch: %w", err)
+		return nil, eval, fmt.Errorf("error applying patch: %w", err)
 	}
 
-	return patched, nil
+	return patched, eval, nil
 }

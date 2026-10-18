@@ -5,13 +5,16 @@ import (
 	"reflect"
 
 	cel "github.com/google/cel-go/cel"
+	celcommon "github.com/google/cel-go/common"
+	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/ext"
+	"github.com/google/cel-go/parser"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	compiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
@@ -45,10 +48,20 @@ type Compiler interface {
 }
 
 func NewCompiler() Compiler {
-	return &compilerImpl{}
+	return NewCompilerWithTrace(false)
 }
 
-type compilerImpl struct{}
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on, for
+// `kyverno apply --explain`. With trace true, match conditions, target match conditions,
+// variables and mutations also get an explain-only tracking program and keep their AST (see
+// compiler.TracedProgram), so a later evaluation can produce a trace. The webhook admission path
+// must keep using NewCompiler; only offline callers (the CLI) should turn tracing on. Mirrors
+// vpol's NewCompilerWithTrace (pkg/cel/policies/vpol/compiler/compiler.go).
+func NewCompilerWithTrace(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
+}
+
+type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
@@ -61,20 +74,53 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 
 	spec := policy.GetSpec()
 	path := field.NewPath("spec")
+	allErrs = append(allErrs, validateMAPCompatibleMatchConditions(spec)...)
+	if len(allErrs) > 0 {
+		return nil, allErrs
+	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), extendedCompiler, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), extendedCompiler, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, extendedCompiler, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
+	}
+
+	var targetExpression cel.Program
+	if expression := policy.GetTargetMatchConstraints().Expression; expression != "" {
+		ast, issues := extendedCompiler.Compile(expression)
+		if err := issues.Err(); err != nil {
+			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, err.Error()))
+		}
+		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
+			return nil, append(allErrs, field.Invalid(path.Child("targetMatchConstraints").Child("expression"), expression, "output type must be a map"))
+		}
+		targetExpression, err = compiler.NewProgram(extendedCompiler, ast)
+		if err != nil {
+			return nil, append(allErrs, field.InternalError(path.Child("targetMatchConstraints").Child("expression"), err))
+		}
+	}
+
+	targetMatchConditions := make([]cel.Program, 0, len(spec.TargetMatchConditions))
+	var tracedTargetMatchConditions []compiler.TracedProgram
+	{
+		path := path.Child("targetMatchConditions")
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, extendedCompiler, c.trace, spec.TargetMatchConditions...)
+		if errs != nil {
+			return nil, append(allErrs, errs...)
+		}
+		targetMatchConditions = append(targetMatchConditions, programs...)
+		tracedTargetMatchConditions = traced
 	}
 
 	// exceptions' match conditions
@@ -90,34 +136,61 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.MutatingPolicyLike, except
 		})
 	}
 
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), extendedCompiler, spec.AuditAnnotations...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
+	}
+
+	useServerSideApply := false
+	if ec := spec.EvaluationConfiguration; ec != nil {
+		useServerSideApply = ec.UseServerSideApply
+	}
+
 	var patchers []Patcher
+	var tracedMutations []compiler.TracedProgram
 	for i, m := range policy.GetSpec().Mutations {
 		switch m.PatchType {
 		case admissionregistrationv1alpha1.PatchTypeJSONPatch:
 			if m.JSONPatch != nil {
-				prog, errs := compiler.CompileMutation(path.Child("mutations").Index(i).Child("jsonPatch"), extendedCompiler, m.JSONPatch.Expression, cel.ListType(jsonPatchType))
+				traced, errs := compiler.CompileMutationWithTrace(path.Child("mutations").Index(i).Child("jsonPatch"), extendedCompiler, m.JSONPatch.Expression, cel.ListType(jsonPatchType), c.trace)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newJSONPatcher(prog))
+				patchers = append(patchers, newJSONPatcher(traced.Program))
+				if c.trace {
+					traced.Name = fmt.Sprintf("mutations[%d] (jsonPatch)", i)
+					tracedMutations = append(tracedMutations, traced)
+				}
 			}
 		case admissionregistrationv1alpha1.PatchTypeApplyConfiguration:
 			if m.ApplyConfiguration != nil {
-				prog, errs := compiler.CompileMutation(path.Child("mutations").Index(i).Child("applyConfiguration"), extendedCompiler, m.ApplyConfiguration.Expression, applyConfigObjectType)
+				traced, errs := compiler.CompileMutationWithTrace(path.Child("mutations").Index(i).Child("applyConfiguration"), extendedCompiler, m.ApplyConfiguration.Expression, applyConfigObjectType, c.trace)
 				if errs != nil {
 					return nil, append(allErrs, errs...)
 				}
-				patchers = append(patchers, newApplyConfigPatcher(prog))
+				patchers = append(patchers, newApplyConfigPatcher(traced.Program, useServerSideApply))
+				if c.trace {
+					traced.Name = fmt.Sprintf("mutations[%d] (applyConfiguration)", i)
+					tracedMutations = append(tracedMutations, traced)
+				}
 			}
 		}
 	}
 
 	return &Policy{
-		matchConditions:  matchConditions,
-		variables:        variables,
-		exceptions:       compiledExceptions,
-		matchConstraints: policy.GetSpec().MatchConstraints,
-		patchers:         patchers,
+		matchConditions:             matchConditions,
+		targetMatchConditions:       targetMatchConditions,
+		targetExpression:            targetExpression,
+		variables:                   variables,
+		auditAnnotations:            auditAnnotations,
+		exceptions:                  compiledExceptions,
+		matchConstraints:            policy.GetSpec().MatchConstraints,
+		patchers:                    patchers,
+		trace:                       c.trace,
+		tracedMatchConditions:       tracedMatchConditions,
+		tracedTargetMatchConditions: tracedTargetMatchConditions,
+		tracedVariables:             tracedVariables,
+		tracedMutations:             tracedMutations,
 	}, allErrs
 }
 
@@ -156,7 +229,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		environment.UnversionedLib(library.JSONPatch), // the kubernetes jsonpatch library to enable escapeKey
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libCtx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libCtx, namespace)},
 			globalcontext.Latest(),
 		),
 		resource.Lib(
@@ -170,6 +243,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		imagedata.Lib(
 			imagedata.Context{ContextInterface: libCtx},
 			imagedata.Latest(),
+			nil, // this policy doesn't have a way to specify extra registry credentials, only the ivpol does.
 		),
 		hash.Lib(
 			hash.Latest(),
@@ -198,7 +272,7 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 			transform.Latest(),
 		),
 		gzip.Lib(
-			gzip.Latest(),
+			gzip.Latest(), 0,
 		),
 		user.Lib(
 			user.Latest(),
@@ -211,7 +285,9 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := base.Extend(
+	// compiler.BaseEnvSet, not base.Extend: registers CostLib last, in this one Extend
+	// call (see pkg/cel/compiler/env.go).
+	extendedBase, err := compiler.BaseEnvSet(mpolCompilerVersion,
 		environment.VersionedOptions{
 			IntroducedVersion: mpolCompilerVersion,
 			EnvOptions:        baseOpts,
@@ -231,4 +307,43 @@ func (c *compilerImpl) newExtendedEnv(libCtx libs.Context, namespace string) (*c
 		return nil, nil, err
 	}
 	return extendedEnv, variablesProvider, nil
+}
+
+func validateMAPCompatibleMatchConditions(spec *policiesv1beta1.MutatingPolicySpec) field.ErrorList {
+	var errs field.ErrorList
+	if spec == nil || !spec.GenerateMutatingAdmissionPolicyEnabled() || len(spec.MatchConditions) == 0 {
+		return nil
+	}
+
+	for i := range spec.MatchConditions {
+		condition := spec.MatchConditions[i]
+		parsed, parseErrs := parser.Parse(celcommon.NewStringSource(condition.Expression, "matchCondition"))
+		if parseErrs != nil && len(parseErrs.GetErrors()) > 0 {
+			continue
+		}
+		if referencesVariables(parsed.Expr()) {
+			errs = append(errs, field.Forbidden(
+				field.NewPath("spec").Child("matchConditions").Index(i).Child("expression"),
+				"variables cannot be referenced in matchConditions when spec.autogen.mutatingAdmissionPolicy.enabled is true; native MutatingAdmissionPolicy evaluates match conditions before variables, so inline the expression instead",
+			))
+		}
+	}
+	return errs
+}
+
+func referencesVariables(expr celast.Expr) bool {
+	if expr == nil {
+		return false
+	}
+
+	found := false
+	celast.PreOrderVisit(expr, celast.NewExprVisitor(func(node celast.Expr) {
+		if found || node == nil {
+			return
+		}
+		if node.Kind() == celast.IdentKind && node.AsIdent() == "variables" {
+			found = true
+		}
+	}))
+	return found
 }

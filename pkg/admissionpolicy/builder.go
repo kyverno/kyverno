@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -120,23 +121,23 @@ func BuildValidatingAdmissionPolicy(
 					})
 				}
 				if len(celpolex.Spec.Images) > 0 {
-					quotedImages := make([]string, len(celpolex.Spec.Images))
-					for i, img := range celpolex.Spec.Images {
-						quotedImages[i] = fmt.Sprintf("'%s'", img)
+					expression, err := celStringListLiteral(celpolex.Spec.Images)
+					if err != nil {
+						return err
 					}
 					variables = append(variables, admissionregistrationv1.Variable{
 						Name:       "allowedImages",
-						Expression: fmt.Sprintf("[%s]", strings.Join(quotedImages, ", ")),
+						Expression: expression,
 					})
 				}
 				if len(celpolex.Spec.AllowedValues) > 0 {
-					quotedValues := make([]string, len(celpolex.Spec.AllowedValues))
-					for i, val := range celpolex.Spec.AllowedValues {
-						quotedValues[i] = fmt.Sprintf("'%s'", val)
+					expression, err := celStringListLiteral(celpolex.Spec.AllowedValues)
+					if err != nil {
+						return err
 					}
 					variables = append(variables, admissionregistrationv1.Variable{
 						Name:       "allowedValues",
-						Expression: fmt.Sprintf("[%s]", strings.Join(quotedValues, ", ")),
+						Expression: expression,
 					})
 				}
 			}
@@ -320,6 +321,69 @@ func BuildMutatingAdmissionPolicyBinding(
 ) {
 	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
 	mapbinding.Spec = admissionregistrationv1alpha1.MutatingAdmissionPolicyBindingSpec{
+		PolicyName: "mpol-" + mp.GetName(),
+	}
+	controllerutils.SetManagedByKyvernoLabel(mapbinding)
+}
+
+// BuildMutatingAdmissionPolicyV1 is used to build a Kubernetes MutatingAdmissionPolicy (v1) from a MutatingPolicy.
+func BuildMutatingAdmissionPolicyV1(
+	mapol *admissionregistrationv1.MutatingAdmissionPolicy,
+	mp *policiesv1beta1.MutatingPolicy,
+	exceptions []policiesv1beta1.PolicyException,
+) {
+	matchConditions := negateExceptionMatchConditions(exceptions)
+	for _, mc := range mp.Spec.MatchConditions {
+		matchConditions = append(matchConditions, mc)
+	}
+
+	var fpt *admissionregistrationv1.FailurePolicyType
+	if mp.Spec.FailurePolicy != nil {
+		conv := *mp.Spec.FailurePolicy
+		fpt = &conv
+	}
+
+	mapol.OwnerReferences = mutatingPolicyOwnerRef(mp)
+	mapol.Spec = admissionregistrationv1.MutatingAdmissionPolicySpec{
+		MatchConstraints: &admissionregistrationv1.MatchResources{
+			ResourceRules: slicesutils.Map(mp.Spec.MatchConstraints.ResourceRules, func(rule admissionregistrationv1.NamedRuleWithOperations) admissionregistrationv1.NamedRuleWithOperations {
+				return admissionregistrationv1.NamedRuleWithOperations{
+					ResourceNames:      rule.ResourceNames,
+					RuleWithOperations: rule.RuleWithOperations,
+				}
+			}),
+		},
+		MatchConditions: matchConditions,
+		Mutations: slicesutils.Map(mp.Spec.Mutations, func(m admissionregistrationv1alpha1.Mutation) admissionregistrationv1.Mutation {
+			mut := admissionregistrationv1.Mutation{PatchType: admissionregistrationv1.PatchType(m.PatchType)}
+			if m.ApplyConfiguration != nil {
+				mut.ApplyConfiguration = &admissionregistrationv1.ApplyConfiguration{Expression: m.ApplyConfiguration.Expression}
+			}
+			if m.JSONPatch != nil {
+				mut.JSONPatch = &admissionregistrationv1.JSONPatch{Expression: m.JSONPatch.Expression}
+			}
+			return mut
+		}),
+		Variables: slicesutils.Map(mp.Spec.Variables, func(v admissionregistrationv1.Variable) admissionregistrationv1.Variable {
+			return v
+		}),
+		FailurePolicy:      fpt,
+		ReinvocationPolicy: mp.Spec.GetReinvocationPolicy(),
+	}
+	controllerutils.SetManagedByKyvernoLabel(mapol)
+	policyLabels := mp.GetLabels()
+	if _, ok := policyLabels[kyverno.LabelExcludeReporting]; ok {
+		mapol.Labels[kyverno.LabelExcludeReporting] = "true"
+	}
+}
+
+// BuildMutatingAdmissionPolicyBindingV1 is used to build a Kubernetes MutatingAdmissionPolicyBinding (v1) from a MutatingPolicy.
+func BuildMutatingAdmissionPolicyBindingV1(
+	mapbinding *admissionregistrationv1.MutatingAdmissionPolicyBinding,
+	mp *policiesv1beta1.MutatingPolicy,
+) {
+	mapbinding.OwnerReferences = mutatingPolicyOwnerRef(mp)
+	mapbinding.Spec = admissionregistrationv1.MutatingAdmissionPolicyBindingSpec{
 		PolicyName: "mpol-" + mp.GetName(),
 	}
 	controllerutils.SetManagedByKyvernoLabel(mapbinding)
@@ -574,4 +638,17 @@ func translateOperations(operations []string) []admissionregistrationv1.Operatio
 		vapOperations = append(vapOperations, admissionregistrationv1.Delete)
 	}
 	return vapOperations
+}
+
+// celStringListLiteral encodes values as a CEL list-of-strings literal.
+//
+// A JSON array of strings is also a valid CEL list literal, and the JSON encoder
+// escapes quotes and backslashes, so an exception-supplied value stays a string
+// instead of breaking out of the literal and becoming expression code.
+func celStringListLiteral(values []string) (string, error) {
+	encoded, err := json.Marshal(values)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode %v as a CEL list literal: %w", values, err)
+	}
+	return string(encoded), nil
 }

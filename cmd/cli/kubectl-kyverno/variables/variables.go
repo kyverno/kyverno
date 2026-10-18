@@ -70,6 +70,20 @@ func (v Variables) Namespace(name string) *corev1.Namespace {
 	return nil
 }
 
+// GlobalOperation returns the admission operation declared via the
+// `request.operation` global value, or an empty string if unset.
+func (v Variables) GlobalOperation() string {
+	if v.values == nil {
+		return ""
+	}
+	if op, ok := v.values.GlobalValues["request.operation"]; ok {
+		if s, ok := op.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 func (v Variables) ComputeVariables(s *store.Store, policy, resource, kind string, kindMap sets.Set[string], variables ...string) (map[string]interface{}, error) {
 	resourceValues := map[string]interface{}{}
 	// first apply global values

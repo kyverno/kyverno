@@ -8,6 +8,9 @@ import (
 
 // CopyMap creates a full copy of the target map
 func CopyMap(m map[string]interface{}) map[string]interface{} {
+	if m == nil {
+		return nil
+	}
 	mapCopy := make(map[string]interface{})
 	for k, v := range m {
 		mapCopy[k] = v
