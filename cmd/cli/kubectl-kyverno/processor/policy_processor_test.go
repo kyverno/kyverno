@@ -2,9 +2,11 @@ package processor
 
 import (
 	"os"
+	"errors"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -310,12 +312,12 @@ func Test_printOutput_writeToFile(t *testing.T) {
 		MutateLogPath:      logPath,
 		MutateLogPathIsDir: false,
 	}
-	resource := map[string]interface{}{
+	res := map[string]interface{}{
 		"apiVersion": "v1",
 		"kind":       "Pod",
 		"metadata":   map[string]interface{}{"name": "nginx"},
 	}
-	err := p.printOutput(resource, engineapi.EngineResponse{}, "resource-path", false)
+	err := p.printOutput(res, engineapi.EngineResponse{}, "resource-path", false)
 	assert.NilError(t, err)
 
 	got, readErr := os.ReadFile(logPath)
@@ -323,14 +325,13 @@ func Test_printOutput_writeToFile(t *testing.T) {
 	assert.Assert(t, strings.Contains(string(got), "kind: Pod"),
 		"expected YAML content in log file; got: %s", string(got))
 }
-
 func Test_printOutput_openFileError(t *testing.T) {
 	p := &PolicyProcessor{
 		MutateLogPath:      filepath.Join(t.TempDir(), "does-not-exist.yaml"),
 		MutateLogPathIsDir: false,
 	}
-	resource := map[string]interface{}{"kind": "Pod"}
-	err := p.printOutput(resource, engineapi.EngineResponse{}, "resource-path", false)
+	res := map[string]interface{}{"kind": "Pod"}
+	err := p.printOutput(res, engineapi.EngineResponse{}, "resource-path", false)
 	assert.Assert(t, err != nil, "expected error when log file does not exist")
 }
 
@@ -339,20 +340,36 @@ func Test_printOutput_writeError_descriptorClosed(t *testing.T) {
 		t.Skip("/dev/full is Linux-only; skipping on " + runtime.GOOS)
 	}
 
-	before, err := os.ReadDir("/proc/self/fd")
-	assert.NilError(t, err)
+	countFDs := func() int {
+		entries, err := os.ReadDir("/proc/self/fd")
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for _, e := range entries {
+			target, err := os.Readlink(filepath.Join("/proc/self/fd", e.Name()))
+			if err != nil {
+				continue
+			}
+			if target == "/dev/full" {
+				n++
+			}
+		}
+		return n
+	}
+
+	before := countFDs()
 
 	p := &PolicyProcessor{
 		MutateLogPath:      "/dev/full",
 		MutateLogPathIsDir: false,
 	}
-	resource := map[string]interface{}{"kind": "Pod"}
-	writeErr := p.printOutput(resource, engineapi.EngineResponse{}, "resource-path", false)
-	assert.Assert(t, writeErr != nil, "expected ENOSPC error writing to /dev/full")
+	res := map[string]interface{}{"kind": "Pod"}
+	err := p.printOutput(res, engineapi.EngineResponse{}, "resource-path", false)
+	assert.Assert(t, errors.Is(err, syscall.ENOSPC),
+		"expected ENOSPC; got %v", err)
 
-	after, err := os.ReadDir("/proc/self/fd")
-	assert.NilError(t, err)
-	assert.Equal(t, len(before), len(after),
-		"file descriptor leaked after write error (fd count: before=%d after=%d)",
-		len(before), len(after))
+	after := countFDs()
+	assert.Equal(t, before, after,
+		"file descriptor leaked (fds to /dev/full: before=%d after=%d)", before, after)
 }
