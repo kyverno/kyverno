@@ -1,6 +1,7 @@
 package dclient
 
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -163,4 +164,67 @@ func TestDiscoveryMiss_RefetchIsRateLimited(t *testing.T) {
 	// One refetch is allowed per interval, plus the first one.
 	assert.GreaterOrEqual(t, refetches, 1, "a miss against a valid cache must refetch at least once")
 	assert.LessOrEqual(t, refetches, 1+int(time.Since(start)/missRefetchInterval), "800 concurrent misses must not each refetch")
+}
+
+func TestDiscoveryMiss_StaleCacheRefetchIsShared(t *testing.T) {
+	missing := schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumNetworkPolicy"}
+	resource := missing.GroupVersion().WithResource("ciliumnetworkpolicies")
+	lookups := map[string]func(*serverResources) error{
+		"GetGVRFromGVK": func(d *serverResources) error {
+			_, err := d.GetGVRFromGVK(missing)
+			return err
+		},
+		"GetGVKFromGVR": func(d *serverResources) error {
+			_, err := d.GetGVKFromGVR(resource)
+			return err
+		},
+		"FindResource": func(d *serverResources) error {
+			_, _, _, err := d.FindResource(missing.GroupVersion().String(), missing.Kind)
+			return err
+		},
+	}
+	for name, lookup := range lookups {
+		t.Run(name, func(t *testing.T) {
+			for _, recentRefetch := range []bool{true, false} {
+				t.Run(fmt.Sprintf("recentRefetch=%t", recentRefetch), func(t *testing.T) {
+					newClient := func() (*serverResources, *flippingDiscovery) {
+						disco, fake := newStaleCacheDiscovery(t, time.Hour)
+						d := disco.(*serverResources)
+						if recentRefetch {
+							require.Error(t, lookup(d))
+							require.WithinDuration(t, time.Now(), d.lastRefetch, missRefetchInterval)
+						}
+						// Simulate Poll invalidating the discovery cache and mapper.
+						d.cachedClient.Invalidate()
+						d.mapper.Reset()
+						return d, fake
+					}
+					single, singleFake := newClient()
+					filled := singleFake.calls.Load()
+					require.Error(t, lookup(single))
+					want := singleFake.calls.Load() - filled
+					if recentRefetch {
+						require.EqualValues(t, 1, want, "a stale cache must refresh even inside the miss interval")
+					}
+
+					d, fake := newClient()
+					filled = fake.calls.Load()
+					start := make(chan struct{})
+					var wg sync.WaitGroup
+					for range 8 {
+						wg.Go(func() {
+							<-start
+							for range 100 {
+								assert.Error(t, lookup(d))
+							}
+						})
+					}
+					close(start)
+					wg.Wait()
+
+					assert.Equal(t, want, fake.calls.Load()-filled, "concurrent misses must share the stale cache refresh")
+				})
+			}
+		})
+	}
 }
