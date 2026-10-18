@@ -1,0 +1,121 @@
+# Neither the pod nor its containers set a profile: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-unset
+spec:
+  containers:
+  - name: app
+    image: nginx
+---
+# Pod-level profile is Unconfined: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-pod-unconfined
+spec:
+  securityContext:
+    seccompProfile:
+      type: Unconfined
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+---
+# Container-level profile is Unconfined: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-container-unconfined
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      seccompProfile:
+        type: Unconfined
+---
+# Init container inherits nothing from the pod: denied.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-init-unset
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+---
+# spec.os.name is linux, not windows: the exemption must not apply.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-explicit-os-unset
+spec:
+  os:
+    name: linux
+  containers:
+  - name: app
+    image: nginx
+---
+# Every container sets RuntimeDefault: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-container-runtime-default
+spec:
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+---
+# Containers inherit a valid pod-level profile: allowed.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-pod-runtime-default
+spec:
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  initContainers:
+  - name: init
+    image: busybox
+  containers:
+  - name: app
+    image: nginx
+---
+# Localhost is also an allowed type.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: linux-pod-localhost
+spec:
+  securityContext:
+    seccompProfile:
+      type: Localhost
+      localhostProfile: profiles/audit.json
+  containers:
+  - name: app
+    image: nginx
+---
+# Windows pod cannot set a seccomp profile, so PSA admits it unset.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: windows-unset
+spec:
+  os:
+    name: windows
+  containers:
+  - name: app
+    image: mcr.microsoft.com/windows/servercore:ltsc2022

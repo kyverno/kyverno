@@ -1,6 +1,7 @@
 package variables
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestCompiledAttestorConcurrentEvaluation(t *testing.T) {
 			t.Parallel()
 			expected := fmt.Sprint(i)
 			for range 10 {
-				result, err := compiled[0].Evaluate(map[string]any{"value": expected})
+				result, err := compiled[0].Evaluate(context.Background(), map[string]any{"value": expected})
 				require.NoError(t, err)
 				require.Equal(t, expected, result.Notary.Certs.Value)
 				require.Empty(t, definition.Notary.Certs.Value)

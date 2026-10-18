@@ -36,12 +36,15 @@ fail-closed property if you touch this code; it's a deliberate security posture,
 
 ## Image-verify cache is TTL + resourceVersion keyed, not explicitly invalidated
 
-`pkg/image/verification/cache` (ristretto-backed, 1h default TTL, `defaultMaxSize = 1000` as the default `MaxCost`
+`pkg/image/verification/cache` (ristretto-backed, 1h default TTL, `DefaultMaxSize` = 10 MiB as the default `MaxCost`
 byte budget, tunable via `--imageVerifyCacheMaxSize`): the cache key is
 `policy UID + policy resourceVersion + rule name + image ref` — so **any edit to the policy object automatically
 invalidates its cached verification results** without any explicit invalidation logic. Entries cost against that
 budget by size: presence-only entries cost `1`, entries carrying attestation payload bytes cost roughly their real
-size — so the number of entries that actually fit varies with payload size rather than being a fixed 1000.
+size, and ristretto adds its own per-item cost (about 56 bytes) to both, so the number of entries that fit varies
+with payload size. `NumCounters` is sized from an expected ~1 KiB entry, not from the byte budget, because ristretto
+allocates its counters up front. ristretto can drop a write after `SetWithTTL` returned true, so `SetWithPayload`
+reports whether the entry is actually in the cache afterwards.
 The CLI
 (`kubectl-kyverno apply`/`test`) and one IVPOL dry-run path explicitly use a disabled (no-op) cache — don't assume
 CLI-observed caching behavior matches the admission-controller's long-lived cache.
