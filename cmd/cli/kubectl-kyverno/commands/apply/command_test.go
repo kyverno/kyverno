@@ -1519,6 +1519,8 @@ func Test_Apply_Explain(t *testing.T) {
 		name   string
 		config ApplyCommandConfig
 		want   []string
+		// wantCounts, when set, is what both runs must count
+		wantCounts *processor.ResultCounts
 	}{{
 		name: "validating policy on a resource file",
 		config: ApplyCommandConfig{
@@ -1572,6 +1574,44 @@ func Test_Apply_Explain(t *testing.T) {
 			JSONPaths:   []string{base + "test-deleting-policy/deleting-json/payload.json"},
 		},
 		want: []string{"(DeletingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		name: "generating policy with a generate expression",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/data/generate-cm/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/data/generate-cm/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (expression): generator.apply(variables.nsName, variables.configmap)  ->  true",
+			"generated ConfigMap test-ns/zk-kafka-address",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		name: "generating policy with a template",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/template/generate-cm-interpolated/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/template/generate-cm-interpolated/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (template)",
+			"generated ConfigMap test-ns/test-ns-config",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		// the generate expression reads a label the namespace does not have
+		name: "generating policy whose generate expression fails",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/explain-generate-error/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/explain-generate-error/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE   ERROR    generate[0] (expression): no such key: labels",
+			"object.metadata.labels  ->  ERROR: no such key: labels",
+			"VERDICT    ERROR    no such key: labels",
+		},
+		wantCounts: &processor.ResultCounts{Error: 1},
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1598,6 +1638,9 @@ func Test_Apply_Explain(t *testing.T) {
 			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
 			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
 			assert.Equal(t, plainCounts, explainedCounts, "--explain must not change the results")
+			if tt.wantCounts != nil {
+				assert.Equal(t, tt.wantCounts, plainCounts)
+			}
 		})
 	}
 }
@@ -1666,5 +1709,70 @@ func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
 			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
 			assert.Equal(t, plainErr == nil, explainedErr == nil, "--explain must not change whether the command succeeds")
 		})
+	}
+}
+
+// Test_Apply_ExplainImageValidatingPolicy runs an ImageValidatingPolicy with --explain: a pod
+// that passes, one that fails, and one a match condition skips. Its images do not match
+// matchImageReferences, so nothing is fetched or verified. The trace is printed, and the results
+// are exactly the ones without --explain.
+func Test_Apply_ExplainImageValidatingPolicy(t *testing.T) {
+	const dir = "../../../../../test/cli/test-image-validating-policy/explain/"
+	run := func(explain bool) (*processor.ResultCounts, string) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{dir + "policy.yaml"},
+			ResourcePaths: []string{dir + "resources.yaml"},
+			Explain:       explain,
+		}
+		var out bytes.Buffer
+		rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+		require.NoError(t, err)
+		return rc, out.String()
+	}
+	plain, plainOut := run(false)
+	explained, output := run(true)
+
+	assert.Equal(t, 1, plain.Pass)
+	assert.Equal(t, 1, plain.Fail)
+	assert.Equal(t, plain, explained, "--explain must not change the results")
+	assert.NotContains(t, plainOut, "VERDICT ", "no trace without --explain")
+
+	for _, want := range []string{
+		"Policy:   check-images (ImageValidatingPolicy)",
+		"Resource: Pod/with-team (namespace: prod)",
+		"IMAGES     skipped  containers: docker.io/library/nginx:1.27  (not matched by matchImageReferences)",
+		"VARIABLES           team: object.metadata.?labels.?team.orValue('')  ->  payments",
+		"VERDICT    PASS     all 2 validations passed",
+		"VALIDATION FAIL     [1] variables.team != ''  ->  false",
+		`message: "pods need a team label"`,
+		`VERDICT    SKIP     match condition "not-kube-system" did not pass, so the policy was skipped`,
+	} {
+		assert.Contains(t, output, want)
+	}
+}
+
+// Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition is a JSON payload a JSON-mode
+// policy's match condition excludes. Evaluating it returns a nil result, which the apply command
+// used to read and crash on; it must report nothing, and with --explain print the skip.
+func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
+	const dir = "../../../../../test/cli/test-image-validating-policy/explain/"
+	for _, explain := range []bool{false, true} {
+		config := ApplyCommandConfig{
+			PolicyPaths: []string{dir + "json-policy.yaml"},
+			JSONPaths:   []string{dir + "payload.json"},
+			Explain:     explain,
+		}
+		var out bytes.Buffer
+		var rc *processor.ResultCounts
+		require.NotPanics(t, func() {
+			var err error
+			rc, _, _, _, err = config.applyCommandHelper(context.TODO(), &out)
+			require.NoError(t, err)
+		})
+		assert.Equal(t, processor.ResultCounts{}, *rc, "a skipped payload is not counted (explain=%v)", explain)
+		if explain {
+			assert.Contains(t, out.String(), `VERDICT    SKIP     match condition "is-production" did not pass`)
+			assert.Contains(t, out.String(), "evaluated against a JSON payload")
+		}
 	}
 }

@@ -724,6 +724,8 @@ func TestDeduplicateRules(t *testing.T) {
 			admissionregistrationv1.Update,
 		},
 	}
+	rule8_NilScope := *rule1.DeepCopy()
+	rule8_NilScope.Scope = nil
 
 	testCases := []struct {
 		name          string
@@ -731,6 +733,18 @@ func TestDeduplicateRules(t *testing.T) {
 		expectedCount int
 		expectedRules []admissionregistrationv1.RuleWithOperations
 	}{
+		{
+			name:          "Nil and explicit AllScopes are duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule8_NilScope, rule1},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule8_NilScope},
+		},
+		{
+			name:          "Explicit AllScopes and nil are duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule8_NilScope},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1},
+		},
 		{
 			name:          "No duplicates",
 			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
@@ -886,6 +900,80 @@ func TestSortedRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := sortedRules(tc.input)
 			assert.Equal(t, tc.expectedRules, result)
+		})
+	}
+}
+
+func TestSortedRules_NilScope(t *testing.T) {
+	ruleNilScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+	ruleNamespacedScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+	ruleClusterScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+			Scope:       ptr.To(admissionregistrationv1.ClusterScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+
+	t.Run("nil scope does not panic", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			sortedRules([]admissionregistrationv1.RuleWithOperations{ruleNilScope, ruleNamespacedScope})
+		})
+	})
+
+	t.Run("both nil scopes do not panic", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			sortedRules([]admissionregistrationv1.RuleWithOperations{ruleNilScope, ruleNilScope})
+		})
+	})
+
+	t.Run("nil scope treated as AllScopes sorts before Cluster and Namespaced", func(t *testing.T) {
+		result := sortedRules([]admissionregistrationv1.RuleWithOperations{
+			ruleNamespacedScope, ruleNilScope, ruleClusterScope,
+		})
+		assert.Equal(t, string(admissionregistrationv1.AllScopes), scopeString(result[0].Scope))
+		assert.Equal(t, string(admissionregistrationv1.ClusterScope), scopeString(result[1].Scope))
+		assert.Equal(t, string(admissionregistrationv1.NamespacedScope), scopeString(result[2].Scope))
+	})
+}
+
+func TestScopeString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *admissionregistrationv1.ScopeType
+		expected string
+	}{
+		{"nil returns AllScopes", nil, string(admissionregistrationv1.AllScopes)},
+		{"Namespaced", ptr.To(admissionregistrationv1.NamespacedScope), string(admissionregistrationv1.NamespacedScope)},
+		{"Cluster", ptr.To(admissionregistrationv1.ClusterScope), string(admissionregistrationv1.ClusterScope)},
+		{"AllScopes", ptr.To(admissionregistrationv1.AllScopes), string(admissionregistrationv1.AllScopes)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, scopeString(tt.input))
 		})
 	}
 }
