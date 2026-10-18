@@ -157,6 +157,7 @@ def complete(metadata):
         current = existing_release(metadata["tag"])
         if current is None or not current["isDraft"]:
             raise ValueError("Release is no longer a draft; refusing to mutate public content")
+        verify_tag(metadata)
         run("gh", "release", "edit", metadata["tag"], "--draft=false",
             f"--prerelease={str(metadata['prerelease']).lower()}",
             f"--latest={str(latest).lower()}", "--notes-file", path)
