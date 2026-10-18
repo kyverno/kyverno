@@ -3,7 +3,7 @@
 {{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
 {{/* kyverno.fullname is already capped at 63 chars, so cap the suffixed names too: a long release
      name would otherwise push the Job name over 63 chars and its job-name Pod label would be invalid. */}}
-{{- $saName := printf "%s-rm-webhooks" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" | trimSuffix ":" -}}
+{{- $saName := printf "%s-rm-webhooks" (include "kyverno.fullname" . | trunc 51 | trimSuffix "-") -}}
 {{- $roleName := printf "%s:rm-webhooks" (include "kyverno.fullname" .) | trunc 63 | trimSuffix "-" | trimSuffix ":" -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
