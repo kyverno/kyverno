@@ -105,15 +105,15 @@ func TestNewGenerateURNGpolPolicyKey(t *testing.T) {
 }
 
 func TestFilterTriggersByNamespace(t *testing.T) {
-	mk := func(kind, ns, name string) *unstructured.Unstructured {
+	mk := func(kind, ns, name string) gpolTrigger {
 		u := &unstructured.Unstructured{}
 		u.SetKind(kind)
 		u.SetNamespace(ns)
 		u.SetName(name)
-		return u
+		return gpolTrigger{Unstructured: u}
 	}
 
-	triggers := []*unstructured.Unstructured{
+	triggers := []gpolTrigger{
 		mk("Deployment", "team-a", "dep-a"),
 		mk("Deployment", "team-b", "dep-b"),
 		mk("Namespace", "", "team-a"),

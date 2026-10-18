@@ -46,11 +46,6 @@ const (
 	DumpMutatePatchesDescription = "Set the flag to 'true', to dump mutate patches."
 	dumpMutatePatchesEnvVar      = "FLAG_DUMP_PATCHES"
 	defaultDumpMutatePatches     = false
-	// select autogen
-	AutogenV2FlagName    = "autogenV2"
-	AutogenV2Description = "Set the flag to 'true', to enable autogen v2."
-	autogenV2EnvVar      = "FLAG_AUTOGEN_V2"
-	defaultAutogenV2     = false
 	// enable http calls in namespaced policies (CVE-2026-4789)
 	AllowHTTPInNamespacedPoliciesFlagName    = "allowHTTPInNamespacedPolicies"
 	AllowHTTPInNamespacedPoliciesDescription = "Set to 'true' to enable CEL http.Get/Post in namespaced policies. Disabled by default due to SSRF risk (CVE-2026-4789); enable only when combined with restrictive network policies."
@@ -63,6 +58,11 @@ const (
 	HTTPAllowlistFlagName    = "httpAllowlist"
 	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post and apiCall.service calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
 	httpAllowlistEnvVar      = "FLAG_HTTP_ALLOWLIST"
+	// block legacy policy APIs (1.20 grace-window escape hatch, removed in 1.21)
+	BlockLegacyPolicyAPIsFlagName    = "blockLegacyPolicyAPIs"
+	BlockLegacyPolicyAPIsDescription = "Set the flag to 'false' to allow creating/updating legacy kyverno.io policy APIs during the 1.20 migration window. This is a temporary escape hatch and will be removed in 1.21."
+	blockLegacyPolicyAPIsEnvVar      = "FLAG_BLOCK_LEGACY_POLICY_APIS"
+	defaultBlockLegacyPolicyAPIs     = true
 )
 
 var (
@@ -72,10 +72,10 @@ var (
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)
 	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
-	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
 	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
 	HTTPBlocklist                     = newStringSliceFlag(append([]string{}, defaultPolicyHTTPBlocklist...), httpBlocklistEnvVar)
 	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)
+	BlockLegacyPolicyAPIs             = newToggle(defaultBlockLegacyPolicyAPIs, blockLegacyPolicyAPIsEnvVar)
 )
 
 type ToggleFlag interface {

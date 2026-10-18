@@ -3,6 +3,7 @@ package webhook
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -99,7 +99,7 @@ func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.Ad
 			}
 			kinds := value.Kinds
 			if len(kinds) == 0 {
-				kinds = maps.Keys(out)
+				kinds = slices.Collect(maps.Keys(out))
 			}
 			ops := value.Operations
 			if len(ops) == 0 {
@@ -221,6 +221,13 @@ func deDuplicatedRules(rules []admissionregistrationv1.RuleWithOperations) []adm
 	return uniqueRules
 }
 
+func scopeString(s *admissionregistrationv1.ScopeType) string {
+	if s == nil {
+		return string(admissionregistrationv1.AllScopes)
+	}
+	return string(*s)
+}
+
 func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admissionregistrationv1.RuleWithOperations {
 	out := make([]admissionregistrationv1.RuleWithOperations, 0, len(rules))
 	for _, rule := range rules {
@@ -246,7 +253,7 @@ func sortedRules(rules []admissionregistrationv1.RuleWithOperations) []admission
 		if x := less(a.Operations, b.Operations); x != 0 {
 			return x
 		}
-		if x := strings.Compare(string(*a.Scope), string(*b.Scope)); x != 0 {
+		if x := strings.Compare(scopeString(a.Scope), scopeString(b.Scope)); x != 0 {
 			return x
 		}
 		return 0
@@ -276,9 +283,7 @@ func generateRuleKey(rule admissionregistrationv1.RuleWithOperations) string {
 	stringBuilderFn(opsCopy)
 
 	sb.WriteString("s:")
-	if rule.Scope != nil {
-		sb.WriteString(string(*rule.Scope))
-	}
+	sb.WriteString(scopeString(rule.Scope))
 	return sb.String()
 }
 

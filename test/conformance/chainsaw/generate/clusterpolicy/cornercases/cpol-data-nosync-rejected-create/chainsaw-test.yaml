@@ -27,14 +27,18 @@ spec:
     try:
     - apply:
         file: ur.yaml
+    # The background controller only processes Pending update requests; the webhook
+    # sets this status when it creates one, so do the same here.
+    - script:
+        content: >-
+          kubectl patch updaterequest ur-phantom-rejected-create -n kyverno
+          --subresource=status --type=merge -p '{"status":{"state":"Pending"}}'
   - name: step-04
     try:
-    - sleep:
-        duration: 10s
-  - name: step-05
-    try:
-    - assert:
-        file: ur-failed.yaml
+    # Each attempt fails because the trigger UID is not live, and the request is
+    # deleted once it runs out of retries.
+    - error:
+        file: ur-removed.yaml
   - name: step-06
     try:
     - error:

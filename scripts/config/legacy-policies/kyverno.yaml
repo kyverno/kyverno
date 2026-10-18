@@ -1,0 +1,20 @@
+# 1.20 migration-grace overlay for the conformance suite.
+#
+# Most conformance tests create legacy kyverno.io policies (ClusterPolicy,
+# Policy, CleanupPolicy, ClusterCleanupPolicy, legacy PolicyException) to
+# exercise enforcement, mutation, and generation, all of which still ship in
+# 1.20. PR #17535 blocks creates and spec-changing updates of those kinds by
+# default, so those tests can no longer set themselves up.
+#
+# Layer this overlay onto `standard` (USE_CONFIG=standard,legacy-policies) to
+# install Kyverno with the block disabled, matching the supported 1.20
+# migration-grace configuration. Real clusters keep the shipped default
+# (blockLegacyPolicyAPIs=true); the `deprecations` suite deliberately does not
+# use this overlay so the guard rail stays under test.
+#
+# Remove this overlay together with the legacy conformance suites once they are
+# migrated to the CEL-based policies.kyverno.io APIs (target: 1.21, when the
+# legacy CRDs are removed).
+features:
+  blockLegacyPolicyAPIs:
+    enabled: false

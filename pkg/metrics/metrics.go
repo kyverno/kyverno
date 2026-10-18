@@ -50,6 +50,7 @@ type MetricsConfig struct {
 	eventMetrics         *eventMetrics
 	admissionMetrics     *admissionMetrics
 	deprecatedMetrics    *deprecatedAPIRequestMetrics
+	legacyPolicyMetrics  *legacyPolicyMetrics
 	httpMetrics          *httpMetrics
 	vpolMetrics          *validatingMetrics
 	ivpolMetrics         *imageValidatingMetrics
@@ -76,6 +77,7 @@ type MetricsConfigManager interface {
 	EventMetrics() EventMetrics
 	AdmissionMetrics() AdmissionMetrics
 	DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics
+	LegacyPolicyMetrics() LegacyPolicyMetrics
 	HTTPMetrics() HTTPMetrics
 	VPOLMetrics() ValidatingMetrics
 	IVPOLMetrics() ImageValidatingMetrics
@@ -129,6 +131,10 @@ func (m *MetricsConfig) AdmissionMetrics() AdmissionMetrics {
 
 func (m *MetricsConfig) DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics {
 	return m.deprecatedMetrics
+}
+
+func (m *MetricsConfig) LegacyPolicyMetrics() LegacyPolicyMetrics {
+	return m.legacyPolicyMetrics
 }
 
 func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
@@ -187,6 +193,7 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.eventMetrics.init(meter)
 	m.admissionMetrics.init(meter)
 	m.deprecatedMetrics.init(meter)
+	m.legacyPolicyMetrics.init(meter)
 	m.httpMetrics.init(meter)
 	m.vpolMetrics.init(meter)
 	m.ivpolMetrics.init(meter)
@@ -351,6 +358,7 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},
 		admissionMetrics:     &admissionMetrics{logger: logger.WithName("admission")},
 		deprecatedMetrics:    &deprecatedAPIRequestMetrics{logger: logger.WithName("deprecated-api-requests")},
+		legacyPolicyMetrics:  &legacyPolicyMetrics{logger: logger.WithName("legacy-policies")},
 		httpMetrics:          &httpMetrics{logger: logger.WithName("http")},
 		vpolMetrics:          &validatingMetrics{logger: logger.WithName("validating-policy")},
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},
