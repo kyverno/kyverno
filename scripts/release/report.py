@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import time
 
 import artifacts
 from release import output, write_json
@@ -18,6 +19,31 @@ def latest_jobs(pages):
             if previous is None or job["id"] > previous["id"]:
                 jobs[job["name"]] = job
     return sorted(jobs.values(), key=lambda job: job["id"])
+
+
+def job_pages(repo, run_id):
+    pages = []
+    count = 0
+    while True:
+        # Large pages time out at GitHub's gateway once reusable-workflow jobs
+        # span multiple attempts. Retrying one small page preserves earlier reads.
+        url = f"repos/{repo}/actions/runs/{run_id}/jobs?filter=all&per_page=25&page={len(pages) + 1}"
+        for retry in range(3):
+            try:
+                page = json.loads(subprocess.check_output(
+                    ["gh", "api", url], text=True, timeout=60,
+                ))
+                break
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                if retry == 2:
+                    raise
+                time.sleep(2 ** (retry + 1))
+        pages.append(page)
+        count += len(page["jobs"])
+        if count >= page["total_count"]:
+            return pages
+        if not page["jobs"]:
+            raise ValueError("Incomplete release job matrix; refusing to report a partial result")
 
 
 def test_reports(root):
@@ -69,10 +95,7 @@ def main():
     repo = os.environ["GITHUB_REPOSITORY"]
     run_id = os.environ["GITHUB_RUN_ID"]
     attempt = os.environ["GITHUB_RUN_ATTEMPT"]
-    pages = json.loads(output(
-        "gh", "api", "--paginate", "--slurp",
-        f"repos/{repo}/actions/runs/{run_id}/jobs?filter=all&per_page=100",
-    ))
+    pages = job_pages(repo, run_id)
     jobs = latest_jobs(pages)
     root = Path("release-report")
     root.mkdir(exist_ok=True)

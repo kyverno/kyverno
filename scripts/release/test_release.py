@@ -884,6 +884,34 @@ class RetryAndGates(unittest.TestCase):
         ]}]
         self.assertEqual(report.latest_jobs(pages), [pages[0]["jobs"][0], pages[1]["jobs"][0]])
 
+    def test_job_report_retries_only_the_failed_small_page(self):
+        first = {"total_count": 27, "jobs": [{"id": i} for i in range(25)]}
+        second = {"total_count": 27, "jobs": [{"id": 25}, {"id": 26}]}
+        with patch.object(report.subprocess, "check_output", side_effect=[
+            json.dumps(first), subprocess.CalledProcessError(1, ["gh", "api"]),
+            json.dumps(second),
+        ]) as fetch, patch.object(report.time, "sleep") as sleep:
+            self.assertEqual(report.job_pages("kyverno/kyverno", "1"), [first, second])
+        urls = [call.args[0][-1] for call in fetch.call_args_list]
+        self.assertTrue(all("filter=all&per_page=25" in url for url in urls))
+        self.assertTrue(urls[0].endswith("page=1"))
+        self.assertEqual(urls[1], urls[2])
+        self.assertTrue(urls[1].endswith("page=2"))
+        self.assertTrue(all(call.kwargs["timeout"] == 60 for call in fetch.call_args_list))
+        sleep.assert_called_once_with(2)
+
+    def test_job_report_fails_closed_on_exhausted_api_retries_or_incomplete_matrix(self):
+        with patch.object(report.subprocess, "check_output",
+                          side_effect=subprocess.CalledProcessError(1, ["gh", "api"])) as fetch, \
+                patch.object(report.time, "sleep"):
+            with self.assertRaises(subprocess.CalledProcessError):
+                report.job_pages("kyverno/kyverno", "1")
+            self.assertEqual(fetch.call_count, 3)
+        with patch.object(report.subprocess, "check_output",
+                          return_value=json.dumps({"total_count": 2, "jobs": []})):
+            with self.assertRaisesRegex(ValueError, "Incomplete release job matrix"):
+                report.job_pages("kyverno/kyverno", "1")
+
     def test_expired_retained_artifact_never_rebuilds(self):
         pages = [{"artifacts": [{"name": "release-candidate", "expired": True}]}]
         with patch.object(retained, "output", return_value=json.dumps(pages)), \

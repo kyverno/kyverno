@@ -236,6 +236,10 @@ result, first failed step, log links, and reproduction/retry commands. Retained
 reports include per-test JSON for the shared conformance runner, custom Sigstore,
 CLI conformance and policy library, and failed-job logs for special suites and publication jobs. K6
 reports remain available as their existing report artifacts.
+Job enumeration uses small, individually retried API pages because GitHub's
+large-page endpoint can time out on full reusable matrices after a rerun.
+Exhausted retries or an incomplete matrix fail the report rather than presenting
+partial diagnostics as successful completion.
 
 ## Recovery and conflict handling
 
