@@ -104,8 +104,13 @@ func buildPod(tpl Extracted, parent admission.Attributes) *unstructured.Unstruct
 		// scope for this pass - see the deferred multi-template naming work.
 		metadata["name"] = parent.GetName()
 	}
-	if ns, _ := metadata["namespace"].(string); ns == "" {
-		metadata["namespace"] = parent.GetNamespace()
+	// A namespaced parent's controller always creates its pods in the
+	// parent's own namespace, whatever the template says, so the template
+	// must not be able to make the synthesized Pod look like it lives
+	// somewhere else and slip past namespace-based conditions. Only a
+	// cluster-scoped parent falls back to the template's namespace.
+	if ns := parent.GetNamespace(); ns != "" {
+		metadata["namespace"] = ns
 	}
 	pod.Object["metadata"] = metadata
 	if spec, ok := tpl.Template["spec"].(map[string]any); ok {
