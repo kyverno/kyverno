@@ -1038,7 +1038,10 @@ func applyDeletingPolicies(
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		for _, dpol := range policies {
-			if !processor.InNamespaceScope[policiesv1beta1.DeletingPolicyLike](resource.GetNamespace())(dpol.Policy) {
+			// JSON payloads have no namespace and are evaluated without match constraints,
+			// so only Kubernetes resources are scoped to a namespaced policy's namespace.
+			isResource := resource.GetAPIVersion() != "" && resource.GetKind() != ""
+			if isResource && !processor.InNamespaceScope[policiesv1beta1.DeletingPolicyLike](resource.GetNamespace())(dpol.Policy) {
 				continue
 			}
 			genericPolicy := engineapi.NewDeletingPolicyFromLike(dpol.Policy)
