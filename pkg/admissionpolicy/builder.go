@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -112,14 +113,7 @@ func BuildValidatingAdmissionPolicy(
 		// convert celexceptions if exist
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
-				for _, matchCondition := range celpolex.Spec.MatchConditions {
-					// negate the match condition
-					expression := "!(" + matchCondition.Expression + ")"
-					matchConditions = append(matchConditions, admissionregistrationv1.MatchCondition{
-						Name:       matchCondition.Name,
-						Expression: expression,
-					})
-				}
+				matchConditions = append(matchConditions, negateExceptionMatchConditions([]policiesv1beta1.PolicyException{*celpolex})...)
 				if len(celpolex.Spec.Images) > 0 {
 					expression, err := celStringListLiteral(celpolex.Spec.Images)
 					if err != nil {
@@ -252,17 +246,38 @@ func mutatingPolicyOwnerRef(mp *policiesv1beta1.MutatingPolicy) []metav1.OwnerRe
 	}
 }
 
-// negateExceptionMatchConditions returns negated match conditions for each exception,
-// using the v1 MatchCondition type which is structurally identical to the alpha/beta variants.
+// negateExceptionMatchConditions returns one negated predicate per exception. A PolicyException
+// applies only when all its match conditions evaluate to true, so the generated policy must exclude
+// their conjunction as a single condition.
 func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException) []admissionregistrationv1.MatchCondition {
 	var result []admissionregistrationv1.MatchCondition
 	for _, exception := range exceptions {
-		for _, mc := range exception.Spec.MatchConditions {
-			result = append(result, admissionregistrationv1.MatchCondition{
-				Name:       mc.Name,
-				Expression: "!(" + mc.Expression + ")",
-			})
+		conditions := exception.Spec.MatchConditions
+		if len(conditions) == 0 {
+			continue
 		}
+
+		expressions := make([]string, len(conditions))
+		for i, condition := range conditions {
+			expressions[i] = "(" + condition.Expression + ")"
+		}
+		expression := "!(" + strings.Join(expressions, " && ") + ")"
+		if len(conditions) == 1 {
+			// Preserve the generated expression for existing single-condition exceptions.
+			expression = "!(" + conditions[0].Expression + ")"
+		}
+
+		name := conditions[0].Name
+		if len(conditions) > 1 {
+			// Multiple source conditions become one generated condition. Use a stable short
+			// name derived from the exception, rather than dropping names or risking duplicates.
+			sum := sha256.Sum256([]byte(exception.Namespace + "/" + exception.Name))
+			name = fmt.Sprintf("exception-%x", sum[:6])
+		}
+		result = append(result, admissionregistrationv1.MatchCondition{
+			Name:       name,
+			Expression: expression,
+		})
 	}
 	return result
 }
