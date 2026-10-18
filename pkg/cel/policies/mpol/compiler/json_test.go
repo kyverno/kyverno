@@ -149,6 +149,10 @@ func TestEvaluatePatchExpressionTypeNameMismatch(t *testing.T) {
 		value:     `[Object.spec.tolerations{ selector: Object.spec.wrong{ key: "k" } }]`,
 		wantError: true,
 	}, {
+		name:      "mismatch nested in an object inside a map value",
+		value:     `{"t": Object.spec{ tolerations: [Object.spec.wrong{ key: "k" }] }}`,
+		wantError: true,
+	}, {
 		name:      "object at the root of the check cannot mismatch",
 		value:     `Object.spec.wrong{ key: "k" }`,
 		wantError: false,
