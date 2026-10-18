@@ -484,18 +484,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// validation are skipped and their names recorded in skippedPolicyNames so
 	// they can be surfaced in the final test report. This is a soft failure:
 	// the remaining valid policies are still evaluated.
-	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
-	skippedPolicyNames := make(map[string]string)
-	for _, pol := range results.Policies {
-		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
-		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-			skippedPolicyNames[pol.GetName()] = err.Error()
-			continue
-		}
-		validPolicies = append(validPolicies, pol)
+	// Note: in practice, results.Policies is empty here during CLI file tests because
+	// policy.Load blocks legacy kyverno.io kinds (PR #17485). validatePolicies error handling
+	// is verified via unit tests.
+	validPolicies, skippedPolicyNames, err := validatePolicies(out, results.Policies, failOnWarnings)
+	if err != nil {
+		return nil, err
 	}
 	// Initialise the accumulators that will collect engine output across all
 	// evaluation runs. engineResponses is a flat list used for target-resource
@@ -1169,4 +1163,38 @@ func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 		"body":       body,
 		"statusCode": statusCode,
 	}
+}
+
+func validatePolicies(out io.Writer, policies []kyvernov1.PolicyInterface, failOnWarnings bool) ([]kyvernov1.PolicyInterface, map[string]string, error) {
+	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
+	skippedPolicyNames := make(map[string]string)
+	sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
+	var warnCount int
+	for _, pol := range policies {
+		polID := pol.GetName()
+		if pol.GetNamespace() != "" {
+			polID = pol.GetNamespace() + "/" + pol.GetName()
+		}
+		warnings, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		for _, warning := range warnings {
+			if err != nil && warning == err.Error() {
+				continue
+			}
+			fmt.Fprintf(out, "  Warning: policy %s: %s\n", polID, warning)
+			warnCount++
+		}
+		if err != nil {
+			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
+			skippedPolicyNames[pol.GetName()] = err.Error()
+			if polID != pol.GetName() {
+				skippedPolicyNames[polID] = err.Error()
+			}
+			continue
+		}
+		validPolicies = append(validPolicies, pol)
+	}
+	if failOnWarnings && warnCount > 0 {
+		return nil, nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", warnCount)
+	}
+	return validPolicies, skippedPolicyNames, nil
 }

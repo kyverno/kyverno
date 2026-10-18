@@ -42,3 +42,11 @@ This package implements the `kubectl-kyverno test` CLI command, which executes d
   - When a target test result matches no engine response rows (`len(rows) == 0`):
     - If the policy is recorded in `responses.SkippedPolicies`, the result is classified as `Skip` (reason `Invalid Policy`) and increments `rc.Skip`.
     - Otherwise (ordinary missing target or no matching rule), it is classified as `Fail` (reason `Not found`) and increments `rc.Fail`.
+
+## Policy Validation and Warning Output Conventions
+
+- **Pre-evaluation Policy Validation (`validatePolicies`)**:
+  - `validatePolicies` validates policies prior to engine execution.
+  - Captures both warnings and errors returned by `policyvalidation.Validate(pol, nil, nil, true, sa, sa)`.
+  - **Warning Output**: Warnings (such as deprecation notices) are emitted directly to the command output writer `out` indented with two spaces as `Warning: policy [namespace/]<name>: <message>`. When a policy fails validation (`err != nil`), warnings that duplicate the fatal error message are suppressed so errors are not mislabeled as warnings. If `--warnings-as-errors` is enabled, any validation warning causes `validatePolicies` (and `runTest`) to return an error.
+  - **Soft Failure for Invalid Policies**: Policies failing validation are skipped from evaluation and recorded in `responses.SkippedPolicies` with their error reason. Downstream in `output.go`, tests targeting these skipped policies are classified as `Skip` with reason `Invalid Policy`.
