@@ -7,6 +7,7 @@ import (
 	"github.com/google/cel-go/cel"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -381,4 +382,100 @@ func TestCELStringListLiteral_Shapes(t *testing.T) {
 	expression, err = celStringListLiteral(nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "null", expression)
+}
+
+
+func TestNegateExceptionMatchConditions(t *testing.T) {
+	single := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "single"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "single-condition",
+				Expression: "object.metadata.name == 'skip'",
+			}},
+		},
+	}
+	got := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{single})
+	require.Equal(t, []admissionregistrationv1.MatchCondition{{
+		Name:       "single-condition",
+		Expression: "!(object.metadata.name == 'skip')",
+	}}, got)
+
+	multi := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "multi"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "admission-only", Expression: "request.userInfo.username != ''"},
+				{Name: "match-legacy-resources", Expression: `request.resource.resource == "accessentries"`},
+			},
+		},
+	}
+	got = negateExceptionMatchConditions([]policiesv1beta1.PolicyException{multi})
+	require.Len(t, got, 1)
+	assert.Regexp(t, `^exception-[0-9a-f]{12}$`, got[0].Name)
+	assert.Equal(t, `!((request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, got[0].Expression)
+
+	other := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "other"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "other-condition",
+				Expression: "object.metadata.namespace == 'skip'",
+			}},
+		},
+	}
+	got = negateExceptionMatchConditions([]policiesv1beta1.PolicyException{multi, other})
+	require.Len(t, got, 2)
+	assert.Equal(t, `!((request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, got[0].Expression)
+	assert.Equal(t, `!(object.metadata.namespace == 'skip')`, got[1].Expression)
+}
+
+func TestBuildValidatingAdmissionPolicy_MultiConditionCELException(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-standard-labels", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "not-deleting",
+				Expression: "!has(object.metadata.deletionTimestamp)",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "true",
+				Message:    "must pass",
+			}},
+		},
+	}
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "require-standard-labels-temp"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "admission-only",
+					Expression: `has(request.userInfo.username) && request.userInfo.username != ''`,
+				},
+				{
+					Name:       "match-legacy-resources",
+					Expression: `request.resource.resource == "accessentries"`,
+				},
+			},
+		},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "vpol-require-standard-labels"},
+	}
+
+	err := BuildValidatingAdmissionPolicy(
+		nil,
+		vap,
+		engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{engineapi.NewCELPolicyException(exception)},
+	)
+	require.NoError(t, err)
+	require.Len(t, vap.Spec.MatchConditions, 2)
+	assert.Equal(t, "not-deleting", vap.Spec.MatchConditions[0].Name)
+	assert.Equal(t, "!has(object.metadata.deletionTimestamp)", vap.Spec.MatchConditions[0].Expression)
+	assert.Regexp(t, `^exception-[0-9a-f]{12}$`, vap.Spec.MatchConditions[1].Name)
+	assert.Equal(t, `!((has(request.userInfo.username) && request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, vap.Spec.MatchConditions[1].Expression)
+	assert.Len(t, vap.Spec.Validations, 1)
+	assert.Equal(t, "true", vap.Spec.Validations[0].Expression)
 }
