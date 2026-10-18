@@ -10,9 +10,11 @@ the rendered policies to the fixtures at the commit pinned in
 scripts/pss-upstream/upstream.yaml with kubectl-kyverno, and compares the
 results:
 
-- A pass fixture must not fail or error on any policy.
+- A pass fixture must not fail on any policy.
 - A fail fixture must fail the policy mapped to its check ID. When that policy
   isn't rendered, the fixture must fail at least one policy.
+- A policy that errors on any fixture is reported, and an error never counts
+  as a failure.
 - A fail fixture with an unmapped check ID is an error, which is how a new
   upstream check shows up.
 - Differences listed in knownDifferences are reported, not failed. An entry
@@ -200,11 +202,17 @@ def normalize_pod(pod):
     """Applies the API server default for volumes with no source.
 
     SetDefaults_Volume in kubernetes/kubernetes sets emptyDir when every
-    volume source is nil. Returns the number of volumes changed.
+    volume source is nil. A source set to null is nil too. Returns the number
+    of volumes changed.
     """
     changed = 0
     for volume in ((pod or {}).get("spec") or {}).get("volumes") or []:
-        if isinstance(volume, dict) and set(volume) == {"name"}:
+        if not isinstance(volume, dict) or "name" not in volume:
+            continue
+        sources = [key for key in volume if key != "name"]
+        if all(volume[key] is None for key in sources):
+            for key in sources:
+                del volume[key]
             volume["emptyDir"] = {}
             changed += 1
     return changed
@@ -297,10 +305,15 @@ def compare(run, kind, fixtures, results, rendered, checks):
             findings.append(Finding(run, kind, fixture, "has no result in the policy report", error=True))
             continue
         outcome = results[fixture]
-        rejected = sorted(p for p, r in outcome.items() if r in ("fail", "error"))
+        # Only "fail" is a rejection. A policy that errors didn't evaluate the
+        # fixture, so it's reported on its own and never counts as a rejection.
+        failed = sorted(p for p, r in outcome.items() if r == "fail")
+        errored = sorted(p for p, r in outcome.items() if r == "error")
+        if errored:
+            findings.append(Finding(run, kind, fixture, f"errored on {', '.join(errored)}"))
         if kind == "pass":
-            if rejected:
-                findings.append(Finding(run, kind, fixture, f"rejected by {', '.join(rejected)}"))
+            if failed:
+                findings.append(Finding(run, kind, fixture, f"rejected by {', '.join(failed)}"))
             continue
         cid = check_id(fixture)
         want = policy_for.get(cid)
@@ -308,9 +321,9 @@ def compare(run, kind, fixtures, results, rendered, checks):
             findings.append(Finding(run, kind, fixture, f'has unmapped check ID "{cid}"', error=True))
         elif want in rendered:
             if outcome.get(want) != "fail":
-                got = ", ".join(rejected) or "none"
+                got = ", ".join(failed) or "none"
                 findings.append(Finding(run, kind, fixture, f"expected {want} to fail, got {got}"))
-        elif not rejected:
+        elif not failed:
             findings.append(Finding(run, kind, fixture,
                                     f"expected a failure ({want} isn't rendered), got none"))
     return findings

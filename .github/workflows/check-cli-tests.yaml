@@ -58,7 +58,10 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags --depth=1 origin "$BASE_SHA"
-          if git diff --name-only "$BASE_SHA" HEAD | grep -qE '^(charts/kyverno-policies/(templates/(baseline|restricted)/[^/]+\.cel\.yaml|templates/_helpers\.tpl|values\.yaml|Chart\.yaml)|scripts/pss-upstream/|scripts/(test-)?verify-policies-pss-fixtures\.py|\.github/workflows/check-cli-tests\.yaml)'; then
+          # Read the list first: with pipefail, piping into grep -q can fail
+          # with SIGPIPE on a match and skip the check.
+          changed_files=$(git diff --name-only "$BASE_SHA" HEAD)
+          if grep -qE '^(charts/kyverno-policies/(templates/(baseline|restricted)/[^/]+\.cel\.yaml|templates/_helpers\.tpl|values\.yaml|Chart\.yaml)|scripts/pss-upstream/|scripts/(test-)?verify-policies-pss-fixtures\.py|Makefile$|\.github/workflows/check-cli-tests\.yaml)' <<<"$changed_files"; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
       - name: Install helm

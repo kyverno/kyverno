@@ -65,6 +65,12 @@ class NormalizePodTest(unittest.TestCase):
         self.assertEqual(verify.normalize_pod(doc), 0)
         self.assertNotIn("volumes", doc["spec"])
 
+    def test_null_sources_count_as_no_source(self):
+        doc = pod("p", [{"name": "v0", "hostPath": None}, {"name": "v1", "hostPath": {"path": "/"}}])
+        self.assertEqual(verify.normalize_pod(doc), 1)
+        self.assertEqual(doc["spec"]["volumes"][0], {"name": "v0", "emptyDir": {}})
+        self.assertEqual(doc["spec"]["volumes"][1], {"name": "v1", "hostPath": {"path": "/"}})
+
 
 class PrepareFixturesTest(unittest.TestCase):
     def test_writes_normalized_fixtures_and_returns_names(self):
@@ -116,7 +122,8 @@ class CompareTest(unittest.TestCase):
         findings = self.compare("pass", {"sysctls1": {"restrict-sysctls": "fail"},
                                          "base": {"disallow-proc-mount": "error"}})
         self.assertEqual([(f.fixture, f.error) for f in findings], [("base", False), ("sysctls1", False)])
-        self.assertIn("rejected by restrict-sysctls", findings[1].message)
+        self.assertEqual(findings[0].message, "errored on disallow-proc-mount")
+        self.assertEqual(findings[1].message, "rejected by restrict-sysctls")
 
     def test_fail_fixture_caught_by_mapped_policy(self):
         self.assertEqual(self.compare("fail", {"sysctls0": {"restrict-sysctls": "fail"}}), [])
@@ -128,13 +135,24 @@ class CompareTest(unittest.TestCase):
 
     def test_mapped_policy_error_is_not_a_rejection(self):
         findings = self.compare("fail", {"sysctls0": {"restrict-sysctls": "error"}})
-        self.assertEqual(len(findings), 1)
+        self.assertEqual([f.message for f in findings],
+                         ["errored on restrict-sysctls", "expected restrict-sysctls to fail, got none"])
 
     def test_unrendered_mapped_policy_accepts_any_failure(self):
         results = {"procmount_restricted0": {"disallow-proc-mount": "fail"}}
         self.assertEqual(self.compare("fail", results), [])
         results = {"procmount_restricted0": {"disallow-proc-mount": "pass"}}
         self.assertIn("isn't rendered", self.compare("fail", results)[0].message)
+
+    def test_error_never_satisfies_unrendered_fallback(self):
+        findings = self.compare("fail", {"procmount_restricted0": {"disallow-proc-mount": "error"}})
+        self.assertEqual([f.message for f in findings],
+                         ["errored on disallow-proc-mount",
+                          "expected a failure (disallow-proc-mount-strict isn't rendered), got none"])
+
+    def test_error_on_fail_fixture_is_reported(self):
+        findings = self.compare("fail", {"sysctls0": {"restrict-sysctls": "fail", "disallow-proc-mount": "error"}})
+        self.assertEqual([f.message for f in findings], ["errored on disallow-proc-mount"])
 
     def test_unmapped_check_id_is_an_error(self):
         findings = self.compare("fail", {"newcheck0": {"restrict-sysctls": "pass"}})
@@ -217,6 +235,18 @@ class ParseReportTest(unittest.TestCase):
     def test_unparsable_report_is_an_error(self):
         with self.assertRaises(verify.VerifyError):
             verify.parse_report("not json")
+
+    def test_real_cli_report_shape(self):
+        # Captured from kubectl-kyverno apply --policy-report --output-format json.
+        # The OpenReports Go field is Subjects, but its JSON name is "resources".
+        report = """{"kind": "ClusterReport", "apiVersion": "openreports.io/v1alpha1", "results": [
+            {"source": "KyvernoValidatingPolicy", "policy": "restrict-sysctls", "rule": "validation",
+             "category": "Pod Security Standards (Baseline)", "severity": "medium",
+             "timestamp": {"seconds": 1792307753, "nanos": 0}, "result": "fail", "scored": true,
+             "resources": [{"kind": "Pod", "namespace": "default", "name": "sysctls0", "apiVersion": "v1"}],
+             "message": "Sysctls must be restricted to safe values.",
+             "properties": {"cel.validationIndex": "0", "process": "background scan"}}]}"""
+        self.assertEqual(verify.parse_report(report), {"sysctls0": {"restrict-sysctls": "fail"}})
 
 
 class RepositoryDataTest(unittest.TestCase):
