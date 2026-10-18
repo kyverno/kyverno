@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: privileged-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      privileged: true
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: host-network-host-users-false
+spec:
+  hostUsers: false
+  hostNetwork: true
+  containers:
+  - name: app
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: compliant-host-users-false
+spec:
+  hostUsers: false
+  containers:
+  - name: app
+    image: nginx

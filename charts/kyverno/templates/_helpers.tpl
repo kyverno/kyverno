@@ -62,6 +62,9 @@
 {{- with .forceFailurePolicyIgnore -}}
   {{- $flags = append $flags (print "--forceFailurePolicyIgnore=" .enabled) -}}
 {{- end -}}
+{{- with .blockLegacyPolicyAPIs -}}
+  {{- $flags = append $flags (print "--blockLegacyPolicyAPIs=" .enabled) -}}
+{{- end -}}
 {{- with .generateValidatingAdmissionPolicy -}}
   {{- $flags = append $flags (print "--generateValidatingAdmissionPolicy=" .enabled) -}}
 {{- end -}}

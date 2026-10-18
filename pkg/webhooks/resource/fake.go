@@ -53,6 +53,8 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) *resour
 		pCache:        policyCache,
 		nsLister:      informers.Core().V1().Namespaces().Lister(),
 		urLister:      urLister,
+		cpolLister:    kyvernoInformers.Kyverno().V1().ClusterPolicies().Lister(),
+		polLister:     kyvernoInformers.Kyverno().V1().Policies().Lister(),
 		urGenerator:   updaterequest.NewFake(),
 		eventGen:      event.NewFake(),
 		pcBuilder:     webhookutils.NewPolicyContextBuilder(configuration, jp),

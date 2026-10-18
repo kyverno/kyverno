@@ -4,9 +4,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -27,14 +25,8 @@ type ImageVerifyPolicyResponse struct {
 }
 
 func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
-	// We just wanna validate that the policy compiles. No need to supply real authentication options to the context
-	ictx, err := imagedataloader.NewImageContext(lister, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	compiler := NewCompiler(ictx, lister, nil, imageverifycache.DisabledImageVerifyCache())
-	_, errList := compiler.Compile(ivpol, nil, nil)
+	compiler := NewCompiler(lister)
+	_, errList := compiler.Compile(ivpol, nil)
 
 	errs := make(field.ErrorList, 0, len(errList))
 	if len(errList) > 0 {

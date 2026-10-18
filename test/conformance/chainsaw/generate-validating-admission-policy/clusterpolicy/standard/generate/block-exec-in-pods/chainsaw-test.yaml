@@ -44,6 +44,8 @@ spec:
         content: kubectl exec my-pod -n pci -- ls
         check:  
           ($error != null): true
-          # This check ensures the contents of stderr are exactly as shown.  
-          (trim_space($stderr)): |-
-            The pods "my-pod" is invalid: : ValidatingAdmissionPolicy 'cpol-deny-exec-by-namespace-name' with binding 'cpol-deny-exec-by-namespace-name-binding' denied request: Pods in this namespace may not be exec'd into.
+          # kubectl wraps the denial differently depending on the exec transport
+          # ("is invalid:" vs "unable to upgrade connection: ... is forbidden:"),
+          # so only the generated VAP's own denial is checked.
+          (contains($stderr, 'ValidatingAdmissionPolicy \'cpol-deny-exec-by-namespace-name\' with binding \'cpol-deny-exec-by-namespace-name-binding\' denied request')): true
+          (contains($stderr, 'Pods in this namespace may not be exec\'d into.')): true

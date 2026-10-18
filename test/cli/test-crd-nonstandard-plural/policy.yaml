@@ -1,0 +1,37 @@
+apiVersion: policies.kyverno.io/v1
+kind: MutatingPolicy
+metadata:
+  name: stamp-role-count
+  annotations:
+    policies.kyverno.io/description: >-
+      Stamps the number of TeleportRoleV8 resources found via resource.List onto
+      an annotation. The annotation must be "1" (not "0") for the test to pass,
+      proving that resource.List resolves the CRD-declared plural correctly.
+spec:
+  matchConstraints:
+    resourceRules:
+      - apiGroups: ["example.com"]
+        apiVersions: ["v1"]
+        resources: ["widgets"]
+        operations: ["CREATE"]
+  variables:
+    - name: roles
+      expression: |
+        dyn(resource.List("resources.teleport.dev/v1", "teleportrolesv8", "teleport").items)
+    - name: role
+      expression: |
+        resource.Get("resources.teleport.dev/v1", "teleportrolesv8", "teleport", "my-team-dev-role")
+  mutations:
+    - patchType: JSONPatch
+      jsonPatch:
+        expression: |
+          [JSONPatch{
+            op: "add",
+            path: "/metadata/annotations/role-count",
+            value: string(size(variables.roles))
+          },
+          JSONPatch{
+            op: "add",
+            path: "/metadata/annotations/role-name",
+            value: dyn(variables.role).metadata.name
+          }]

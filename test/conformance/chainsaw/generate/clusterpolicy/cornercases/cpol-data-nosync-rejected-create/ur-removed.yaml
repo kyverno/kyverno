@@ -1,0 +1,5 @@
+apiVersion: kyverno.io/v2
+kind: UpdateRequest
+metadata:
+  name: ur-phantom-rejected-create
+  namespace: kyverno
