@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel/metric"
@@ -24,11 +23,16 @@ type mockObserver struct {
 }
 
 type mockPolicyRuleMetrics struct {
-	err error
+	err      error
+	recorded []kyvernov1.PolicyInterface
 }
 
 func (m *mockPolicyRuleMetrics) RecordPolicyRuleInfo(ctx context.Context, policy kyvernov1.PolicyInterface, observer metric.Observer) error {
-	return m.err
+	if m.err != nil {
+		return m.err
+	}
+	m.recorded = append(m.recorded, policy)
+	return nil
 }
 
 func (m *mockPolicyRuleMetrics) RegisterCallback(f metric.Callback) (metric.Registration, error) {
@@ -53,29 +57,172 @@ func Test_report_NilRuleInfo(t *testing.T) {
 }
 
 func Test_report_ErrorPropagation(t *testing.T) {
-	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	indexer.Add(&kyvernov1.Policy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
-	})
-
-	polLister := kyvernov1listers.NewPolicyLister(indexer)
-	cpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	cpolLister := kyvernov1listers.NewClusterPolicyLister(cpolIndexer)
-
 	expectedErr := fmt.Errorf("mock error")
 	c := &controller{
-		ruleInfo:   &mockPolicyRuleMetrics{err: expectedErr},
-		polLister:  polLister,
-		cpolLister: cpolLister,
+		ruleInfo: &mockPolicyRuleMetrics{err: expectedErr},
+		snapshot: newPolicySnapshot(),
 	}
+	c.snapshot.upsert(&kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+	})
 
 	err := c.report(context.TODO(), &mockObserver{})
 	assert.ErrorIs(t, err, expectedErr)
 }
 
+func Test_report_RecordsSnapshotPolicies(t *testing.T) {
+	nsPolicy := &kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+	}
+	clusterPolicy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
+	}
+	mockRuleInfo := &mockPolicyRuleMetrics{}
+	c := &controller{
+		ruleInfo: mockRuleInfo,
+		snapshot: newPolicySnapshot(),
+	}
+	c.snapshot.upsert(clusterPolicy)
+	c.snapshot.upsert(nsPolicy)
+
+	err := c.report(context.TODO(), &mockObserver{})
+	assert.NoError(t, err)
+	assert.ElementsMatch(t, []kyvernov1.PolicyInterface{nsPolicy, clusterPolicy}, mockRuleInfo.recorded)
+}
+
+func Test_report_ExcludesDeletedPolicies(t *testing.T) {
+	nsPolicy := &kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+	}
+	clusterPolicy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
+	}
+	mockRuleInfo := &mockPolicyRuleMetrics{}
+	c := &controller{
+		ruleInfo: mockRuleInfo,
+		snapshot: newPolicySnapshot(),
+	}
+	c.snapshot.upsert(clusterPolicy)
+	c.snapshot.upsert(nsPolicy)
+	c.snapshot.remove(cache.DeletedFinalStateUnknown{
+		Key: "default/test-policy",
+		Obj: nsPolicy,
+	})
+
+	err := c.report(context.TODO(), &mockObserver{})
+	assert.NoError(t, err)
+	assert.Equal(t, []kyvernov1.PolicyInterface{clusterPolicy}, mockRuleInfo.recorded)
+}
+
+func Test_snapshot_UpsertReplacesPreviousVersion(t *testing.T) {
+	s := newPolicySnapshot()
+	oldPolicy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+	}
+	newPolicy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+	}
+
+	s.upsert(oldPolicy)
+	s.upsert(newPolicy)
+
+	cpols, pols := s.list()
+	assert.Equal(t, []kyvernov1.PolicyInterface{newPolicy}, cpols)
+	assert.Empty(t, pols)
+}
+
+func Test_snapshot_RemoveByTombstoneWithoutObject(t *testing.T) {
+	s := newPolicySnapshot()
+	s.upsert(&kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+	})
+
+	s.remove(cache.DeletedFinalStateUnknown{Key: "default/test-policy"})
+
+	_, pols := s.list()
+	assert.Empty(t, pols)
+}
+
+func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
+	wg := &wait.Group{}
+	c := &controller{
+		ruleInfo:  &mockPolicyRuleMetrics{},
+		snapshot:  newPolicySnapshot(),
+		waitGroup: wg,
+	}
+
+	p1 := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+	}
+	p2 := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+	}
+
+	// add then update keeps a single entry with the latest version
+	c.addPolicy(p1)
+	c.updatePolicy(p1, p2)
+	wg.Wait()
+	cpols, pols := c.snapshot.list()
+	assert.Equal(t, []kyvernov1.PolicyInterface{p2}, cpols)
+	assert.Empty(t, pols)
+
+	// delete drops the entry, tombstone or not
+	c.deletePolicy(p2)
+	wg.Wait()
+	cpols, pols = c.snapshot.list()
+	assert.Empty(t, cpols)
+	assert.Empty(t, pols)
+
+	c.addPolicy(p1)
+	c.deletePolicy(cache.DeletedFinalStateUnknown{Key: "test-policy", Obj: p1})
+	wg.Wait()
+	cpols, pols = c.snapshot.list()
+	assert.Empty(t, cpols)
+	assert.Empty(t, pols)
+}
+
+func Test_addUpdateDeleteNsPolicy_SnapshotTransitions(t *testing.T) {
+	wg := &wait.Group{}
+	c := &controller{
+		ruleInfo:  &mockPolicyRuleMetrics{},
+		snapshot:  newPolicySnapshot(),
+		waitGroup: wg,
+	}
+
+	p1 := &kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+	}
+	p2 := &kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+	}
+
+	// add then update keeps a single entry with the latest version
+	c.addNsPolicy(p1)
+	c.updateNsPolicy(p1, p2)
+	wg.Wait()
+	cpols, pols := c.snapshot.list()
+	assert.Empty(t, cpols)
+	assert.Equal(t, []kyvernov1.PolicyInterface{p2}, pols)
+
+	// delete drops the entry, tombstone or not
+	c.deleteNsPolicy(p2)
+	wg.Wait()
+	cpols, pols = c.snapshot.list()
+	assert.Empty(t, cpols)
+	assert.Empty(t, pols)
+
+	c.addNsPolicy(p1)
+	c.deleteNsPolicy(cache.DeletedFinalStateUnknown{Key: "default/test-policy", Obj: p1})
+	wg.Wait()
+	cpols, pols = c.snapshot.list()
+	assert.Empty(t, cpols)
+	assert.Empty(t, pols)
+}
+
 func Test_deletePolicy_Tombstone(t *testing.T) {
 	wg := &wait.Group{}
 	c := &controller{
+		snapshot:  newPolicySnapshot(),
 		waitGroup: wg,
 	}
 
@@ -104,6 +251,7 @@ func Test_deletePolicy_Tombstone(t *testing.T) {
 func Test_deleteNsPolicy_Tombstone(t *testing.T) {
 	wg := &wait.Group{}
 	c := &controller{
+		snapshot:  newPolicySnapshot(),
 		waitGroup: wg,
 	}
 
@@ -133,6 +281,7 @@ func Test_deleteNsPolicy_Tombstone(t *testing.T) {
 func Test_updatePolicy_SameSpec(t *testing.T) {
 	wg := &wait.Group{}
 	c := &controller{
+		snapshot:  newPolicySnapshot(),
 		waitGroup: wg,
 	}
 
@@ -165,6 +314,7 @@ func Test_updatePolicy_SameSpec(t *testing.T) {
 func Test_updateNsPolicy_SameSpec(t *testing.T) {
 	wg := &wait.Group{}
 	c := &controller{
+		snapshot:  newPolicySnapshot(),
 		waitGroup: wg,
 	}
 
