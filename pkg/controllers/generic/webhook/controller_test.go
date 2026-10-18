@@ -31,10 +31,12 @@ func (fakeConfiguration) GetWebhookLabels() map[string]string                   
 func (fakeConfiguration) GetMatchConditions() []admissionregistrationv1.MatchCondition {
 	return []admissionregistrationv1.MatchCondition{{Name: "exempt-principal", Expression: "true"}}
 }
-func (fakeConfiguration) Load(*corev1.ConfigMap)           {}
-func (fakeConfiguration) OnChanged(func())                 {}
-func (fakeConfiguration) GetUpdateRequestThreshold() int64 { return 0 }
-func (fakeConfiguration) GetMaxContextSize() int64         { return config.DefaultMaxContextSize }
+func (fakeConfiguration) Load(*corev1.ConfigMap)              {}
+func (fakeConfiguration) OnChanged(func())                    {}
+func (fakeConfiguration) GetUpdateRequestThreshold() int64    { return 0 }
+func (fakeConfiguration) GetMaxContextSize() int64            { return config.DefaultMaxContextSize }
+func (fakeConfiguration) GetEnableUpdateRequestCleanup() bool { return false }
+func (fakeConfiguration) GetUpdateRequestCleanupTTL() string  { return "" }
 
 func newTestController(labelSelector *metav1.LabelSelector, opts ...Option) *controller {
 	c := &controller{
