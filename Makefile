@@ -60,7 +60,7 @@ KO                                 ?= $(TOOLS_DIR)/ko
 # Newer than v0.18.1: Docker 29+ requires API >= 1.44 when loading images; bump to next ko tag once released.
 KO_VERSION                         ?= v0.18.2-0.20260320010637-757161aaa19e
 GOLANGCI_LINT                      ?= $(TOOLS_DIR)/golangci-lint
-GOLANGCI_LINT_VERSION              ?= v2.11.4
+GOLANGCI_LINT_VERSION              ?= v2.14.0
 API_GROUP_RESOURCES                ?= $(TOOLS_DIR)/api-group-resources
 CLIENT_WRAPPER                     ?= $(TOOLS_DIR)/client-wrapper
 KUBE_VERSION                       ?= v1.25.0
@@ -971,6 +971,11 @@ helm-test: $(HELM) ## Run helm test
 verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five legacy policy CRDs keep their helm.sh/resource-policy annotation (no cluster needed)
 	@echo Verify legacy CRD retention... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
+
+.PHONY: verify-background-controller-rbac
+verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the background controller holds everything the chart aggregates into admin/edit/view (no cluster needed)
+	@echo Verify background controller RBAC... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
 
 .PHONY: verify-policies-sysctls
 verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)

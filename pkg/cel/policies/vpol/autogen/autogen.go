@@ -34,11 +34,15 @@ func Autogen(policy policiesv1beta1.ValidatingPolicyLike) (map[string]policiesv1
 }
 
 // RewriteExceptions rewrites PolicyException match conditions and validations using the same
-// field-path replacements applied to the policy spec for the given autogen
+// spec field-path replacements applied to the policy spec for the given autogen
 // config, so exceptions match against the autogen'd controller's shape
-// instead of the original Pod-shaped policy. Controller metadata paths are preserved.
+// instead of the original Pod-shaped policy. Controller metadata paths are preserved:
+// metadata replacements are not applied, so expressions such as `object.metadata.name`
+// keep referring to the controller itself rather than its pod template.
 func RewriteExceptions(exceptions []*policiesv1beta1.PolicyException, config string) ([]*policiesv1beta1.PolicyException, error) {
-	replacements := autogen.ReplacementsMap[config]
+	replacements := slices.DeleteFunc(slices.Clone(autogen.ReplacementsMap[config]), func(r autogen.Replacement) bool {
+		return r.From == "metadata"
+	})
 	if len(replacements) == 0 || len(exceptions) == 0 {
 		return exceptions, nil
 	}

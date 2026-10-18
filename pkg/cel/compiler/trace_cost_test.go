@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -52,6 +54,18 @@ func TestTracedCompilation_DecidingProgramKeepsCostLimit(t *testing.T) {
 			require.Empty(t, errs)
 			require.NotNil(t, validation.AST)
 			return compiled{validation.Program, validation.Traced}
+		},
+		"mutation": func(t *testing.T) compiled {
+			mutation, errs := CompileMutationWithTrace(field.NewPath("spec"), env, costlyExpression, types.BoolType, true)
+			require.Empty(t, errs)
+			require.NotNil(t, mutation.AST)
+			return compiled{mutation.Program, mutation.Traced}
+		},
+		"generation": func(t *testing.T) compiled {
+			generation, errs := CompileGenerationWithTrace(field.NewPath("spec"), env, policiesv1beta1.Generation{Expression: costlyExpression}, true)
+			require.Empty(t, errs)
+			require.NotNil(t, generation.AST)
+			return compiled{generation.Program, generation.Traced}
 		},
 	}
 	for name, compile := range tests {

@@ -367,6 +367,8 @@ func createrLeaderControllers(
 			mapBindingAlphaInformer,
 			eventGenerator,
 			checker,
+			internal.PolicyExceptionEnabled(),
+			internal.ExceptionNamespace(),
 		)
 		leaderControllers = append(leaderControllers, internal.NewController(admissionpolicygenerator.ControllerName, admissionpolicyController, admissionpolicygenerator.Workers))
 	}
@@ -979,6 +981,7 @@ func main() {
 			setup.KyvernoDynamicClient.Discovery(),
 			webhookServerHost,
 			int32(webhookServerPort), //nolint:gosec
+			backgroundServiceAccountName,
 		)
 		// start informers and wait for cache sync
 		// we need to call start again because we potentially registered new informers
