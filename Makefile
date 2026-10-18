@@ -982,6 +982,13 @@ verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list match
 	@echo Verify restrict-sysctls allow-list... >&2
 	@HELM=$(HELM) ./scripts/verify-policies-sysctls.sh
 
+PYTHON ?= python3
+
+.PHONY: verify-policies-pss-fixtures
+verify-policies-pss-fixtures: $(CLI_BIN) $(HELM) ## Verify the PSS ValidatingPolicies match upstream PSA fixtures at the pinned commit (no cluster needed; needs PyYAML)
+	@echo Verify PSS policies against upstream PSA fixtures... >&2
+	@$(PYTHON) ./scripts/verify-policies-pss-fixtures.py --cli $(CLI_BIN) --helm $(HELM)
+
 .PHONY: verify-legacy-policy-gate
 verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-policy Helm gate blocks and opts out correctly (needs a reachable cluster as the current kube context)
 	@echo Verify legacy policy gate... >&2

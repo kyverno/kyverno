@@ -48,6 +48,30 @@ jobs:
           $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
+      # The PSS fixture check takes minutes, so it runs only on pull requests
+      # to main that change something it depends on.
+      - name: Detect PSS fixture check changes
+        id: pss-fixtures
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          if git diff --name-only "$BASE_SHA" HEAD | grep -qE '^(charts/kyverno-policies/(templates/(baseline|restricted)/[^/]+\.cel\.yaml|templates/_helpers\.tpl|values\.yaml|Chart\.yaml)|scripts/pss-upstream/|scripts/(test-)?verify-policies-pss-fixtures\.py|\.github/workflows/check-cli-tests\.yaml)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install helm
+        if: steps.pss-fixtures.outputs.changed == 'true'
+        uses: ./.github/actions/tools/helm
+      - name: Verify PSS policies against upstream PSA fixtures
+        if: steps.pss-fixtures.outputs.changed == 'true'
+        run: |
+          set -e
+          python3 -m venv "$RUNNER_TEMP/pss-fixtures"
+          "$RUNNER_TEMP/pss-fixtures/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
+          "$RUNNER_TEMP/pss-fixtures/bin/python" scripts/test-verify-policies-pss-fixtures.py
+          make verify-policies-pss-fixtures PYTHON="$RUNNER_TEMP/pss-fixtures/bin/python"
 
   sync-issue:
     if: always() && github.event_name == 'push'

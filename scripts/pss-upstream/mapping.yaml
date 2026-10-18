@@ -1,0 +1,66 @@
+# Maps upstream Pod Security Admission checks to the PSS ValidatingPolicies in
+# charts/kyverno-policies, for scripts/verify-policies-pss-fixtures.py.
+
+# Upstream check ID (policy/check_*.go) to chart policy name. Fixture file
+# names are the lowercased check ID plus a number, for example sysctls0.yaml.
+checks:
+  # Baseline
+  privileged: disallow-privileged-containers
+  hostNamespaces: disallow-host-namespaces
+  hostPathVolumes: disallow-host-path
+  hostPorts: disallow-host-ports
+  hostProbesAndHostLifecycle: disallow-host-probes
+  windowsHostProcess: disallow-host-process
+  capabilities_baseline: disallow-capabilities
+  procMount: disallow-proc-mount
+  appArmorProfile: restrict-apparmor-profiles
+  seLinuxOptions: disallow-selinux
+  seccompProfile_baseline: restrict-seccomp
+  sysctls: restrict-sysctls
+  # Restricted
+  allowPrivilegeEscalation: disallow-privilege-escalation
+  capabilities_restricted: disallow-capabilities-strict
+  procMount_restricted: disallow-proc-mount-strict
+  restrictedVolumes: restrict-volume-types
+  runAsNonRoot: require-run-as-nonroot
+  runAsUser: require-run-as-non-root-user
+  seccompProfile_restricted: restrict-seccomp-strict
+
+# Kubernetes minor versions to render the chart at and test. "latest" is the
+# newest fixture version at the pinned commit.
+versions:
+  - "1.25" # oldest version the chart supports (kubeVersion in Chart.yaml)
+  - "1.31" # before the 1.32 sysctls gate
+  - "1.32"
+  - "1.33" # before the 1.34 host probes gate
+  - "1.34"
+  - "1.35" # upstream user-namespace relaxation starts
+  - "1.36" # before the 1.37 sysctls gate
+  - "1.37"
+  - latest
+
+# Differences from upstream that are intended or accepted. Each entry matches
+# the listed fixtures for one level and kind, within minVersion..maxVersion
+# (both optional and inclusive), and only for the given chart values. Every
+# listed fixture must match at least once, or the check fails as stale.
+knownDifferences:
+  - level: baseline
+    kind: pass
+    fixtures: [procmount1]
+    minVersion: "1.35"
+    values:
+      podSecurityUserNamespaces: false
+    reason: >-
+      User-namespace relaxation is opt-in in the chart through
+      podSecurityUserNamespaces, so an unmasked procMount with hostUsers false
+      is denied by default.
+  - level: baseline
+    kind: fail
+    fixtures: [procmount0, procmount1]
+    maxVersion: "1.34"
+    values:
+      podSecurityUserNamespaces: true
+    reason: >-
+      The chart relaxes procMount for hostUsers false on every Kubernetes
+      version, but upstream relaxes it only from 1.35. Pending a maintainer
+      decision on gating the relaxation.
