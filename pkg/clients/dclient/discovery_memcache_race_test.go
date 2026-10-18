@@ -227,8 +227,8 @@ func TestDiscoveryMiss_StaleCacheRefetchIsShared(t *testing.T) {
 					wg.Wait()
 
 					calls := fake.calls.Load() - filled
-					assert.GreaterOrEqual(t, calls, want, "concurrent misses must share the stale cache refresh")
-					assert.LessOrEqual(t, calls, want+int32(time.Since(refetchStart)/missRefetchInterval), "concurrent misses must share the stale cache refresh")
+					assert.GreaterOrEqual(t, int(calls), int(want), "concurrent misses must share the stale cache refresh")
+					assert.LessOrEqual(t, int(calls), int(want)+int(time.Since(refetchStart)/missRefetchInterval), "concurrent misses must share the stale cache refresh")
 				})
 			}
 		})
