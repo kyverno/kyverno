@@ -188,12 +188,98 @@ func TestExtractPodTemplates(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "pytorchjob with templates under map keys yields them in key order",
+			obj: map[string]any{
+				"apiVersion": "kubeflow.org/v1",
+				"kind":       "PyTorchJob",
+				"spec": map[string]any{
+					"pytorchReplicaSpecs": map[string]any{
+						"Worker": map[string]any{
+							"replicas": int64(2),
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{container("pytorch", "trainer:latest")},
+								},
+							},
+						},
+						"Master": map[string]any{
+							"replicas": int64(1),
+							"template": map[string]any{
+								"spec": map[string]any{
+									"containers": []any{container("pytorch", "trainer:v1")},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []Extracted{
+				{
+					Path: "spec.pytorchReplicaSpecs.Master.template",
+					Template: map[string]any{
+						"spec": map[string]any{
+							"containers": []any{container("pytorch", "trainer:v1")},
+						},
+					},
+				},
+				{
+					Path: "spec.pytorchReplicaSpecs.Worker.template",
+					Template: map[string]any{
+						"spec": map[string]any{
+							"containers": []any{container("pytorch", "trainer:latest")},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ExtractPodTemplates(tt.obj)
-			assert.ElementsMatch(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+// The engines stop at the first failing template, so the order decides which
+// template is reported. It must not depend on map iteration order.
+func TestExtractPodTemplatesOrderIsStable(t *testing.T) {
+	replica := func(image string) map[string]any {
+		return map[string]any{
+			"template": map[string]any{
+				"spec": map[string]any{
+					"containers": []any{container("main", image)},
+				},
+			},
+		}
+	}
+	obj := map[string]any{
+		"spec": map[string]any{
+			"mpiReplicaSpecs": map[string]any{
+				"Launcher":  replica("launcher:v1"),
+				"Worker":    replica("worker:v1"),
+				"Chief":     replica("chief:v1"),
+				"PS":        replica("ps:v1"),
+				"Evaluator": replica("evaluator:v1"),
+			},
+		},
+	}
+	want := []string{
+		"spec.mpiReplicaSpecs.Chief.template",
+		"spec.mpiReplicaSpecs.Evaluator.template",
+		"spec.mpiReplicaSpecs.Launcher.template",
+		"spec.mpiReplicaSpecs.PS.template",
+		"spec.mpiReplicaSpecs.Worker.template",
+	}
+	for i := 0; i < 100; i++ {
+		var got []string
+		for _, e := range ExtractPodTemplates(obj) {
+			got = append(got, e.Path)
+		}
+		if !assert.Equal(t, want, got, "run %d", i) {
+			return
+		}
 	}
 }
 
