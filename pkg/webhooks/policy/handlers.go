@@ -112,7 +112,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 			return admissionutils.Response(request.UID, err)
 		}
 
-		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
+		warnings, err := policyvalidate.Validate(ctx, policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 		if err != nil {
 			logger.Error(err, "policy validation errors")
 		}
