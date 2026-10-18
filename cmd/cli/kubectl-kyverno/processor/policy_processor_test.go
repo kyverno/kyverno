@@ -1,8 +1,8 @@
 package processor
 
 import (
-	"os"
 	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -304,26 +305,42 @@ func Test_resolveResource_generatingPolicyFallsThrough(t *testing.T) {
 }
 
 func Test_printOutput_writeToFile(t *testing.T) {
-	tmpDir := t.TempDir()
-	logPath := filepath.Join(tmpDir, "mutate.yaml")
-	assert.NilError(t, os.WriteFile(logPath, nil, 0o600))
+	respWithPolicy := engineapi.EngineResponse{}.WithPolicy(
+		engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{}),
+	)
 
-	p := &PolicyProcessor{
-		MutateLogPath:      logPath,
-		MutateLogPathIsDir: false,
+	tests := []struct {
+		name       string
+		isGenerate bool
+		response   engineapi.EngineResponse
+	}{
+		{"mutate path (isGenerate=false)", false, engineapi.EngineResponse{}},
+		{"generate path (isGenerate=true)", true, respWithPolicy},
 	}
-	res := map[string]interface{}{
-		"apiVersion": "v1",
-		"kind":       "Pod",
-		"metadata":   map[string]interface{}{"name": "nginx"},
-	}
-	err := p.printOutput(res, engineapi.EngineResponse{}, "resource-path", false)
-	assert.NilError(t, err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			logPath := filepath.Join(tmpDir, "mutate.yaml")
+			assert.NilError(t, os.WriteFile(logPath, nil, 0o600))
 
-	got, readErr := os.ReadFile(logPath)
-	assert.NilError(t, readErr)
-	assert.Assert(t, strings.Contains(string(got), "kind: Pod"),
-		"expected YAML content in log file; got: %s", string(got))
+			p := &PolicyProcessor{
+				MutateLogPath:      logPath,
+				MutateLogPathIsDir: false,
+			}
+			res := map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata":   map[string]interface{}{"name": "nginx"},
+			}
+			err := p.printOutput(res, tc.response, "resource-path", tc.isGenerate)
+			assert.NilError(t, err)
+
+			got, readErr := os.ReadFile(logPath)
+			assert.NilError(t, readErr)
+			assert.Assert(t, strings.Contains(string(got), "kind: Pod"),
+				"expected YAML content in log file; got: %s", string(got))
+		})
+	}
 }
 func Test_printOutput_openFileError(t *testing.T) {
 	p := &PolicyProcessor{
