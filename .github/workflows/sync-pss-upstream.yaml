@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Sync upstream PSS (dry run)
+
+# Detects upstream Pod Security Admission changes since the commit pinned in
+# scripts/pss-upstream/upstream.yaml, runs the PSS fixture check against the
+# candidate commit, and writes a report. Dry run only: there are no secrets
+# and no publish job, so it never pushes or opens a PR.
+# See scripts/sync-pss-upstream.py.
+
+on:
+  schedule:
+    # Weekly, Monday 05:41 UTC.
+    - cron: '41 5 * * 1'
+  workflow_dispatch: {}
+  # Tests the detector itself, and lets a PR that changes the pin run it.
+  pull_request:
+    branches:
+      - main
+    paths:
+      - scripts/sync-pss-upstream.py
+      - scripts/test-sync-pss-upstream.py
+      - scripts/verify-policies-pss-fixtures.py
+      - scripts/pss-upstream/upstream.yaml
+      - .github/workflows/sync-pss-upstream.yaml
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  detect:
+    name: Detect
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        run: |
+          set -e
+          python3 -m venv "$RUNNER_TEMP/pss-sync"
+          "$RUNNER_TEMP/pss-sync/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
+          echo "PSS_PYTHON=$RUNNER_TEMP/pss-sync/bin/python" >> "$GITHUB_ENV"
+      - name: Test the detector
+        run: |
+          set -e
+          "$PSS_PYTHON" scripts/test-sync-pss-upstream.py
+      - name: Detect upstream changes
+        id: detect
+        run: |
+          rc=0
+          "$PSS_PYTHON" scripts/sync-pss-upstream.py --out "$RUNNER_TEMP/pss-sync-out" > "$RUNNER_TEMP/detect.md" || rc=$?
+          case "$rc" in
+            0) echo "changed=false" >> "$GITHUB_OUTPUT"; cat "$RUNNER_TEMP/detect.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            2) echo "changed=true" >> "$GITHUB_OUTPUT" ;;
+            *) cat "$RUNNER_TEMP/detect.md"
+               echo "::error title=PSS sync detector error::The detector failed (exit code $rc). See the log."
+               exit 1 ;;
+          esac
+      # The fixture check needs the CLI, so set it up only when something changed.
+      - name: Setup Go
+        if: steps.detect.outputs.changed == 'true'
+        uses: ./.github/actions/go/setup
+      - name: Build CLI
+        if: steps.detect.outputs.changed == 'true'
+        run: |
+          set -e
+          make build-cli
+      - name: Install helm
+        if: steps.detect.outputs.changed == 'true'
+        uses: ./.github/actions/tools/helm
+      - name: Check the candidate commit
+        if: steps.detect.outputs.changed == 'true'
+        run: |
+          rc=0
+          "$PSS_PYTHON" scripts/sync-pss-upstream.py --out "$RUNNER_TEMP/pss-sync-out" --preview \
+            --cli cmd/cli/kubectl-kyverno/kubectl-kyverno --helm "$HELM" > "$RUNNER_TEMP/preview.md" || rc=$?
+          case "$rc" in
+            2) cat "$RUNNER_TEMP/preview.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            3) cat "$RUNNER_TEMP/preview.md" >> "$GITHUB_STEP_SUMMARY"
+               echo "::error title=Upstream PSA change needs policy updates::The candidate commit fails the PSS fixture check. See the job summary."
+               exit 1 ;;
+            *) cat "$RUNNER_TEMP/preview.md"
+               echo "::error title=PSS sync detector error::The fixture check didn't complete (exit code $rc). See the log."
+               exit 1 ;;
+          esac
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pss-upstream-sync
+          path: ${{ runner.temp }}/pss-sync-out/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  track-failure:
+    name: Track failure
+    if: always() && github.event_name == 'schedule'
+    needs:
+      - detect
+    permissions:
+      issues: write
+    runs-on: ubuntu-slim
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Sync issue
+        uses: ./.github/actions/workflow/failure-issue
+        with:
+          conclusion: ${{ contains(needs.*.result, 'failure') && 'failure' || 'success' }}
+          needs: ${{ toJSON(needs) }}
