@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestWarning(t *testing.T) {
@@ -36,49 +33,6 @@ func TestWarning(t *testing.T) {
 	}
 }
 
-func TestPolicyFieldWarnings(t *testing.T) {
-	t.Parallel()
-	policy := &kyvernov1.ClusterPolicy{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "kyverno.io/v1",
-			Kind:       "ClusterPolicy",
-		},
-		Spec: kyvernov1.Spec{
-			ValidationFailureAction: "enforce",
-			ValidationFailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{
-				{Action: "audit"},
-			},
-			Rules: []kyvernov1.Rule{
-				{
-					Name: "check",
-					Validation: &kyvernov1.Validation{
-						FailureAction: ptr(kyvernov1.ValidationFailureAction("enforce")),
-						FailureActionOverrides: []kyvernov1.ValidationFailureActionOverride{
-							{Action: "audit"},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	warnings := PolicyFieldWarnings(policy)
-	if len(warnings) != 4 {
-		t.Fatalf("expected 4 field warnings, got %d", len(warnings))
-	}
-	for _, warning := range warnings {
-		if warning.Field == "" {
-			t.Fatalf("expected field path in warning: %#v", warning)
-		}
-		if !strings.Contains(warning.Message, "deprecated") {
-			t.Fatalf("expected deprecation message, got %q", warning.Message)
-		}
-	}
-}
-
-// TestWarningLength ensures kind deprecation messages stay within the 256
-// character limit Kubernetes enforces for CRD .spec.versions[].deprecationWarning,
-// so the same wording can be reused in kubebuilder deprecatedversion markers.
 func TestWarningLength(t *testing.T) {
 	t.Parallel()
 	for kind := range replacements {
@@ -191,7 +145,7 @@ func TestBuildKindError(t *testing.T) {
 			t.Fatalf("BuildKindError(%q) returned a nil error", tt.kind)
 		}
 		msg := err.Error()
-		if !strings.Contains(msg, "kyverno.io/v1 "+tt.kind+" is no longer accepted for create, or for an update that changes spec") {
+		if !strings.Contains(msg, "kyverno.io/v1 "+tt.kind+": Kyverno v1.20 removed execution") || !strings.Contains(msg, "remains available for read, list, export, and delete") {
 			t.Errorf("BuildKindError(%q) = %q, expected a rejection notice for the kind", tt.kind, msg)
 		}
 		if !strings.Contains(msg, tt.replacement) {

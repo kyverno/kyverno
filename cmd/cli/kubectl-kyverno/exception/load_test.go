@@ -127,7 +127,7 @@ spec:
 
 			_, err := Load(false, path)
 			require.Error(t, err, "expected the legacy-policy block to fire")
-			assert.Contains(t, err.Error(), "is no longer accepted")
+			assert.Contains(t, err.Error(), "removed execution")
 
 			_, err = Load(true, path)
 			require.NoError(t, err, "expected allowLegacyPolicies to bypass the block")
@@ -180,7 +180,7 @@ spec:
 
 	_, err := load(content, false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 
 	_, err = load(content, true)
 	require.Error(t, err)
@@ -204,7 +204,7 @@ spec:
 
 	_, err := load(malformed, false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 
 	_, err = load(malformed, true)
 	require.Error(t, err)
@@ -293,7 +293,7 @@ func Test_SelectFrom_BlocksLegacyException(t *testing.T) {
 
 	_, err := SelectFrom(resources, false)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 
 	results, err := SelectFrom(resources, true)
 	require.NoError(t, err)

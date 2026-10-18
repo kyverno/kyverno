@@ -26,7 +26,7 @@
 #      resource name, plus the migration guidance
 #   B. no legacy CR exists   -> the Job must SUCCEED, with logs reporting no
 #                                legacy resources found
-#   C. a legacy CR exists, upgrade.allowLegacyPolicies=true (opt-out)
+#   C. a legacy CR exists, upgrade.acknowledgeLegacyPoliciesNotEnforced=true (opt-out)
 #                             -> the hook Job (and its ServiceAccount/RBAC)
 #                                must not be rendered at all, so the install
 #                                proceeds
@@ -490,7 +490,7 @@ assert_kind_logged "ClusterCleanupPolicy" "${CLUSTERCLEANUPPOLICY_NAME}"
 assert_kind_logged "PolicyException" "${FIXTURE_NAMESPACE}/${POLICYEXCEPTION_NAME}"
 echo "${LOGS}" | grep -qi "migrate" \
   || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing migration guidance"; }
-echo "${LOGS}" | grep -q "upgrade.allowLegacyPolicies=true" \
+echo "${LOGS}" | grep -q "upgrade.acknowledgeLegacyPoliciesNotEnforced=true" \
   || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the opt-out hint"; }
 log "PASS: scenario A (Job failed, exit code ${EXIT_CODE}, logs contain count/name/migration guidance for all five kinds)"
 
@@ -538,7 +538,7 @@ metadata:
 spec:
   rules: []
 EOF
-assert_hook_absent "hook-optout" --set upgrade.allowLegacyPolicies=true
+assert_hook_absent "hook-optout" --set upgrade.acknowledgeLegacyPoliciesNotEnforced=true
 log "PASS: scenario C (opt-out set with a legacy CR present -> hook Job not rendered)"
 
 log "scenario D: legacyPolicyCheck.enabled=false, expect hook Job NOT rendered"

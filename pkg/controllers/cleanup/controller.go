@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils/conditions"
@@ -75,6 +74,7 @@ func NewController(
 	eventGen event.Interface,
 	gctxStore loaders.Store,
 ) controllers.Controller {
+	registerLegacyExecutionEscapeHatch()
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
 		workqueue.DefaultTypedControllerRateLimiter[any](),
 		workqueue.TypedRateLimitingQueueConfig[any]{Name: ControllerName},
@@ -364,29 +364,5 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	// add the item back to the queue after the delay
 	c.queue.AddAfter(key, delay)
-	return nil
-}
-
-func (c *controller) updateCleanupPolicyStatus(ctx context.Context, policy kyvernov2.CleanupPolicyInterface, namespace string, time time.Time) error {
-	switch obj := policy.(type) {
-	case *kyvernov2.ClusterCleanupPolicy:
-		latest := obj.DeepCopy()
-		latest.Status.LastExecutionTime = metav1.NewTime(time)
-
-		new, err := c.kyvernoClient.KyvernoV2().ClusterCleanupPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-		logging.V(3).Info("updated cluster cleanup policy status", "name", policy.GetName(), "status", new.Status)
-	case *kyvernov2.CleanupPolicy:
-		latest := obj.DeepCopy()
-		latest.Status.LastExecutionTime = metav1.NewTime(time)
-
-		new, err := c.kyvernoClient.KyvernoV2().CleanupPolicies(namespace).UpdateStatus(ctx, latest, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-		logging.V(3).Info("updated cleanup policy status", "name", policy.GetName(), "namespace", policy.GetNamespace(), "status", new.Status)
-	}
 	return nil
 }

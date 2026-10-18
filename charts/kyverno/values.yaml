@@ -68,10 +68,13 @@ upgrade:
 
   # -- Installing or upgrading is blocked by default when legacy kyverno.io policy resources
   # (`ClusterPolicy`, `Policy`, `CleanupPolicy`, `ClusterCleanupPolicy`, `PolicyException`) are found
-  # on the cluster. Migrate them to the `policies.kyverno.io` policy types
+  # on the cluster. As of 1.20, Kyverno no longer executes these legacy policy types even though
+  # their APIs remain available for read, list, export, and delete: setting this to true does not
+  # restore enforcement, it only acknowledges that legacy policies found on this cluster are not
+  # enforced. Migrate them to the `policies.kyverno.io` policy types
   # (see https://kyverno.io/docs/guides/migration-to-cel/), or set this to true to bypass the check.
   # This disables both the render-time check and the `legacyPolicyCheck` hook Job.
-  allowLegacyPolicies: false
+  acknowledgeLegacyPoliciesNotEnforced: false
 
   legacyPolicyCheck:
 
