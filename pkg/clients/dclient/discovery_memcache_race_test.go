@@ -187,9 +187,10 @@ func TestDiscoveryMiss_StaleCacheRefetchIsShared(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			for _, recentRefetch := range []bool{true, false} {
 				t.Run(fmt.Sprintf("recentRefetch=%t", recentRefetch), func(t *testing.T) {
-					newClient := func() (*serverResources, *flippingDiscovery) {
+					newClient := func() (*serverResources, *flippingDiscovery, time.Time) {
 						disco, fake := newStaleCacheDiscovery(t, time.Hour)
 						d := disco.(*serverResources)
+						refetchStart := time.Now()
 						if recentRefetch {
 							require.Error(t, lookup(d))
 							require.WithinDuration(t, time.Now(), d.lastRefetch, missRefetchInterval)
@@ -197,9 +198,9 @@ func TestDiscoveryMiss_StaleCacheRefetchIsShared(t *testing.T) {
 						// Simulate Poll invalidating the discovery cache and mapper.
 						d.cachedClient.Invalidate()
 						d.mapper.Reset()
-						return d, fake
+						return d, fake, refetchStart
 					}
-					single, singleFake := newClient()
+					single, singleFake, _ := newClient()
 					filled := singleFake.calls.Load()
 					require.Error(t, lookup(single))
 					want := singleFake.calls.Load() - filled
@@ -207,7 +208,7 @@ func TestDiscoveryMiss_StaleCacheRefetchIsShared(t *testing.T) {
 						require.EqualValues(t, 1, want, "a stale cache must refresh even inside the miss interval")
 					}
 
-					d, fake := newClient()
+					d, fake, refetchStart := newClient()
 					filled = fake.calls.Load()
 					start := make(chan struct{})
 					var wg sync.WaitGroup
@@ -219,10 +220,15 @@ func TestDiscoveryMiss_StaleCacheRefetchIsShared(t *testing.T) {
 							}
 						})
 					}
+					if !recentRefetch {
+						refetchStart = time.Now()
+					}
 					close(start)
 					wg.Wait()
 
-					assert.Equal(t, want, fake.calls.Load()-filled, "concurrent misses must share the stale cache refresh")
+					calls := fake.calls.Load() - filled
+					assert.GreaterOrEqual(t, calls, want, "concurrent misses must share the stale cache refresh")
+					assert.LessOrEqual(t, calls, want+int32(time.Since(refetchStart)/missRefetchInterval), "concurrent misses must share the stale cache refresh")
 				})
 			}
 		})
