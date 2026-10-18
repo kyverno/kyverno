@@ -5,6 +5,7 @@ metadata:
     webhook.kyverno.io/managed-by: kyverno
   name: kyverno-resource-validating-webhook-cfg
 webhooks:
+- name: protect-generation-labels.kyverno.svc
 - failurePolicy: Ignore
   matchConditions:
   - expression: '!("system:nodes" in request.userInfo.groups)'

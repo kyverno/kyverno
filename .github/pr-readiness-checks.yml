@@ -14,31 +14,40 @@ dco:
       | select((.name // .context) == "DCO") | (.conclusion // .state)]
     | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
-# Excludes DCO — that gets its own message above, so a DCO failure doesn't also fire this one redundantly.
-# Excludes E2E Gate — that's a base-branch problem, not this PR's; it gets its own non-blocking check below.
+# Excludes DCO (own message above) and the infra checks below.
 ci:
   message: |
     "fix the failing check(s): " + (
       [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-        | select((.name // .context) != "DCO" and (.name // .context) != "E2E Gate")
+        | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status", "Upload coverage to Codecov"] | any(. == $n) | not)
         | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
         | (.name // .context)]
       | join(", ")
     )
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-      | select((.name // .context) != "DCO" and (.name // .context) != "E2E Gate") | (.conclusion // .state)]
+      | select((.name // .context) as $n | ["DCO", "E2E Gate", "Sync E2E Gate status", "Upload coverage to Codecov"] | any(. == $n) | not) | (.conclusion // .state)]
     | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
-# Non-blocking: reported by pr-readiness-check.yaml as an FYI, never as a reason for needs-author-action — the
-# author can't fix a base-branch problem from their own PR. e2e-gate.yaml already turns this green for the PR
-# that fixes it (the e2e-gate-bypass label), so no bypass check is needed here.
-e2e_gate:
-  message: '"the E2E gate is red — a base-branch problem, not this PR; no action needed here by author"'
+# Non-blocking FYI, never needs-author-action: checks that fail outside the PR's diff. Keep the names in sync with
+# the exclusion in `ci` above. The Codecov upload runs after the unit tests pass and only ships coverage.
+infra_checks:
+  message: |
+    "no action needed from you on these red check(s), they are not caused by this PR:\n" + (
+      [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
+        | select((.conclusion // .state) as $c | ["FAILURE","ERROR","TIMED_OUT","ACTION_REQUIRED","CANCELLED","STALE","STARTUP_FAILURE"] | any(. == $c))
+        | (.name // .context) as $n
+        | {"E2E Gate": "base-branch or CI-infrastructure issue",
+           "Sync E2E Gate status": "base-branch or CI-infrastructure issue",
+           "Upload coverage to Codecov": "the unit tests passed; only the upload to Codecov failed, usually a Codecov outage or rejected upload"}[$n]
+        | select(. != null) as $why
+        | "- `" + $n + "`: " + $why]
+      | unique | join("\n")
+    ) + "\nA maintainer can re-run the failed job once the service recovers."
   test: |
     [.commits.nodes[0].commit.statusCheckRollup.contexts.nodes[]?
-      | select((.name // .context) == "E2E Gate") | (.conclusion // .state)]
-    | any(. == "FAILURE" or . == "ERROR")
+      | select((.name // .context) as $n | ["E2E Gate", "Sync E2E Gate status", "Upload coverage to Codecov"] | any(. == $n)) | (.conclusion // .state)]
+    | any(. == "FAILURE" or . == "ERROR" or . == "TIMED_OUT" or . == "ACTION_REQUIRED" or . == "CANCELLED" or . == "STALE" or . == "STARTUP_FAILURE")
 
 conflicts:
   message: '"fix the merge conflicts"'

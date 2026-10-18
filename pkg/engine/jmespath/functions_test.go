@@ -1791,6 +1791,18 @@ func Test_MD5(t *testing.T) {
 	assert.Equal(t, str, "def42e1abd2462df1f9f0a4b3d488221")
 }
 
+func Test_Random(t *testing.T) {
+	jp, err := jmespathInterface.Query("random('[0-9a-z]{8}')")
+	assert.NilError(t, err)
+
+	result, err := jp.Search("")
+	assert.NilError(t, err)
+
+	str, ok := result.(string)
+	assert.Assert(t, ok)
+	assert.Equal(t, len(str), 8)
+}
+
 func Test_CustomFunctions_ValidationErrors(t *testing.T) {
 	t.Run("is_external_url", func(t *testing.T) {
 		_, err := jpIsExternalURL([]any{123})
@@ -1823,5 +1835,9 @@ func Test_CustomFunctions_ValidationErrors(t *testing.T) {
 	t.Run("md5", func(t *testing.T) {
 		_, err := jpMd5([]any{123})
 		assert.ErrorContains(t, err, "JMESPath function 'md5': argument #1 is not of type string")
+	})
+	t.Run("random", func(t *testing.T) {
+		_, err := jpRandom([]any{123})
+		assert.ErrorContains(t, err, "JMESPath function 'random': argument #1 is not of type string")
 	})
 }

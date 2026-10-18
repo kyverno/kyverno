@@ -23,7 +23,7 @@ webhooks:
       values:
       - kyverno
   objectSelector: {}
-  reinvocationPolicy: Never
+  reinvocationPolicy: IfNeeded
   rules:
   - apiGroups:
     - ""

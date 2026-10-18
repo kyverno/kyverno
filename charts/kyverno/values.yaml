@@ -546,6 +546,13 @@ config:
   # -- Sets the threshold for the total number of UpdateRequests generated for mutateExisitng and generate policies.
   updateRequestThreshold: 1000
 
+  # -- Enable cleanup of UpdateRequests.
+  enableUpdateRequestCleanup: false
+
+  # -- Defines the TTL for UpdateRequests if cleanup is enabled.
+  # Format is a duration string (e.g. 1h, 24h, 168h).
+  updateRequestCleanupTTL: ""
+
   # -- Defines the `namespaceSelector`/`objectSelector` in the webhook configurations.
   # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
   webhooks:
@@ -753,7 +760,9 @@ webhooksCleanup:
 
   image:
     # -- (string) Image registry
-    registry: ghcr.io
+    registry: ~
+    # -- (string) Default image registry, used only when neither `registry` nor `global.image.registry` is set
+    defaultRegistry: ghcr.io
     # -- Image repository
     repository: kyverno/readiness-checker
     # -- Image tag
