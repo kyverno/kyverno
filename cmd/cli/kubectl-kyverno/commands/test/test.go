@@ -623,6 +623,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				!(len(testCase.Test.ClusterResources) > 0),
 				restMapper,
 				gceMap,
+				true,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on resource %v (%w)", resource.GetName(), err)
@@ -740,6 +741,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 				true,
 				restMapper,
 				gceMap,
+				false,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply policies on JSON payload %v (%w)", jp.name, err)
@@ -1011,6 +1013,7 @@ func applyDeletingPolicies(
 	isFake bool,
 	restMapper meta.RESTMapper,
 	gceMap map[string]interface{},
+	scopeToNamespace bool,
 ) ([]engineapi.EngineResponse, error) {
 	if restMapper == nil {
 		var mapErr error
@@ -1038,10 +1041,9 @@ func applyDeletingPolicies(
 	responses := make([]engineapi.EngineResponse, 0)
 	for _, resource := range resources {
 		for _, dpol := range policies {
-			// JSON payloads have no namespace and are evaluated without match constraints,
-			// so only Kubernetes resources are scoped to a namespaced policy's namespace.
-			isResource := resource.GetAPIVersion() != "" && resource.GetKind() != ""
-			if isResource && !processor.InNamespaceScope[policiesv1beta1.DeletingPolicyLike](resource.GetNamespace())(dpol.Policy) {
+			// Only the resource pass is scoped to a namespaced policy's namespace;
+			// JSON payloads are evaluated as before.
+			if scopeToNamespace && !processor.InNamespaceScope[policiesv1beta1.DeletingPolicyLike](resource.GetNamespace())(dpol.Policy) {
 				continue
 			}
 			genericPolicy := engineapi.NewDeletingPolicyFromLike(dpol.Policy)
