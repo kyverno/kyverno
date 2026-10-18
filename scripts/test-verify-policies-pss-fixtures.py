@@ -249,6 +249,22 @@ class ParseReportTest(unittest.TestCase):
         self.assertEqual(verify.parse_report(report), {"sysctls0": {"restrict-sysctls": "fail"}})
 
 
+class RunCommandTest(unittest.TestCase):
+    def test_missing_command_is_named(self):
+        with self.assertRaises(verify.VerifyError) as ctx:
+            verify.run_command(["pss-fixtures-no-such-command"])
+        self.assertEqual(str(ctx.exception), "command not found: pss-fixtures-no-such-command")
+
+    def test_command_that_cant_run_is_named(self):
+        # Windows raises OSError (WinError 193) for a binary built for another OS.
+        error = OSError(8, "Exec format error")
+        with mock.patch.object(verify.subprocess, "run", side_effect=error):
+            with self.assertRaises(verify.VerifyError) as ctx:
+                verify.run_command(["/tools/helm", "template"])
+        self.assertTrue(str(ctx.exception).startswith("can't run /tools/helm: "), str(ctx.exception))
+        self.assertIn("Exec format error", str(ctx.exception))
+
+
 class RepositoryDataTest(unittest.TestCase):
     """Checks the real data files against the chart."""
 

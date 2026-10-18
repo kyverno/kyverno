@@ -243,6 +243,10 @@ def run_command(args):
         return subprocess.run(args, capture_output=True, text=True)
     except FileNotFoundError as err:
         raise VerifyError(f"command not found: {args[0]}") from err
+    except OSError as err:
+        # For example, a binary built for another OS or a file without
+        # execute permission.
+        raise VerifyError(f"can't run {args[0]}: {err}") from err
 
 
 def render(helm, chart, run, path):
