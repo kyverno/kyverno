@@ -1148,6 +1148,19 @@ class RetryAndGates(unittest.TestCase):
                     assets.complete(metadata)
                 mutate.assert_not_called()
 
+    def test_finalize_rechecks_tag_after_reading_current_draft(self):
+        metadata = release.plan("v1.20.2", SHA, MAPPING)
+        with patch.object(assets, "existing_release", return_value={"isDraft": True}), \
+                patch.object(assets, "verify_tag", side_effect=[None, ValueError("tag target changed")]), \
+                patch.object(assets, "should_be_latest", return_value=True), \
+                patch.object(assets.Path, "read_text", return_value=""), \
+                patch.object(assets.Path, "mkdir"), patch.object(assets.Path, "write_text"), \
+                patch.object(assets, "run") as mutate, \
+                patch.dict(os.environ, {"GH_REPO": "kyverno/kyverno", "GITHUB_RUN_ID": "1"}):
+            with self.assertRaisesRegex(ValueError, "tag target changed"):
+                assets.complete(metadata)
+            mutate.assert_not_called()
+
     def test_latest_stable_uses_all_stable_tags_not_a_misclassified_rc_latest(self):
         pages = [[
             {"tag_name": "v1.19.2-rc.2", "draft": False, "prerelease": False},
