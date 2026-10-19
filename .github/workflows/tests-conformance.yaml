@@ -206,7 +206,7 @@ jobs:
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
+          kyverno-configs: standard,legacy-denial-probe
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: deprecations
 
@@ -815,6 +815,21 @@ jobs:
           kyverno-configs: standard,legacy-policies
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: verify-manifests
+
+  webhook-bootstrap-exclusion:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/tests/conformance/run
+        with:
+          k8s-version: ${{ matrix.k8s-version }}
+          kyverno-configs: standard
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tests-path: webhook-bootstrap-exclusion
 
   webhook-configurations:
     runs-on: ubuntu-latest

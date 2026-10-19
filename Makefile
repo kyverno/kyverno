@@ -972,6 +972,11 @@ verify-legacy-crd-retention: helm-setup-dependency-charts ## Verify the five leg
 	@echo Verify legacy CRD retention... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-crd-retention.sh
 
+.PHONY: verify-background-controller-rbac
+verify-background-controller-rbac: helm-setup-dependency-charts ## Verify the background controller holds everything the chart aggregates into admin/edit/view (no cluster needed)
+	@echo Verify background controller RBAC... >&2
+	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-background-controller-rbac.sh
+
 .PHONY: verify-policies-sysctls
 verify-policies-sysctls: $(HELM) ## Verify the restrict-sysctls allow-list matches PSA for each Kubernetes version (no cluster needed)
 	@echo Verify restrict-sysctls allow-list... >&2
