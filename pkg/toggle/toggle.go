@@ -46,11 +46,6 @@ const (
 	DumpMutatePatchesDescription = "Set the flag to 'true', to dump mutate patches."
 	dumpMutatePatchesEnvVar      = "FLAG_DUMP_PATCHES"
 	defaultDumpMutatePatches     = false
-	// select autogen
-	AutogenV2FlagName    = "autogenV2"
-	AutogenV2Description = "Set the flag to 'true', to enable autogen v2."
-	autogenV2EnvVar      = "FLAG_AUTOGEN_V2"
-	defaultAutogenV2     = false
 	// enable http calls in namespaced policies (CVE-2026-4789)
 	AllowHTTPInNamespacedPoliciesFlagName    = "allowHTTPInNamespacedPolicies"
 	AllowHTTPInNamespacedPoliciesDescription = "Set to 'true' to enable CEL http.Get/Post in namespaced policies. Disabled by default due to SSRF risk (CVE-2026-4789); enable only when combined with restrictive network policies."
@@ -77,7 +72,6 @@ var (
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)
 	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
-	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
 	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
 	HTTPBlocklist                     = newStringSliceFlag(append([]string{}, defaultPolicyHTTPBlocklist...), httpBlocklistEnvVar)
 	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)

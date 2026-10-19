@@ -2,7 +2,6 @@ package anchor
 
 import (
 	"fmt"
-	"strings"
 )
 
 // anchorError is the const specification of anchor errors
@@ -61,13 +60,24 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 }
 
 // isError checks if error matches the given error type
-func isError(err error, code anchorError, msg string) bool {
-	if err != nil {
-		if t, ok := err.(validateAnchorError); ok {
-			return t.err == code
-		} else {
-			// TODO: we shouldn't need this, error is not properly propagated
-			return strings.Contains(err.Error(), msg)
+func isError(err error, code anchorError) bool {
+	if err == nil {
+		return false
+	}
+	if t, ok := err.(validateAnchorError); ok && t.err == code {
+		return true
+	}
+	if t, ok := err.(*validateAnchorError); ok && t != nil && t.err == code {
+		return true
+	}
+	switch u := err.(type) {
+	case interface{ Unwrap() error }:
+		return isError(u.Unwrap(), code)
+	case interface{ Unwrap() []error }:
+		for _, e := range u.Unwrap() {
+			if isError(e, code) {
+				return true
+			}
 		}
 	}
 	return false
@@ -75,15 +85,15 @@ func isError(err error, code anchorError, msg string) bool {
 
 // IsNegationAnchorError checks if error is a negation anchor error
 func IsNegationAnchorError(err error) bool {
-	return isError(err, negationAnchorErr, negationAnchorErrMsg)
+	return isError(err, negationAnchorErr)
 }
 
 // IsConditionalAnchorError checks if error is a conditional anchor error
 func IsConditionalAnchorError(err error) bool {
-	return isError(err, conditionalAnchorErr, conditionalAnchorErrMsg)
+	return isError(err, conditionalAnchorErr)
 }
 
 // IsGlobalAnchorError checks if error is a global anchor error
 func IsGlobalAnchorError(err error) bool {
-	return isError(err, globalAnchorErr, globalAnchorErrMsg)
+	return isError(err, globalAnchorErr)
 }

@@ -33,7 +33,7 @@ spec:
           spec:
             containers:
             - name: c
-              image: ghcr.io/kyverno/test-verify-image:latest
+              image: ghcr.io/kyverno/test-verify-image:unsigned
         expect:
         - check:
             ($error != null): true

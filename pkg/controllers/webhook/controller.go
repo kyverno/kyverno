@@ -22,10 +22,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"go.uber.org/multierr"
@@ -47,7 +47,6 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 )
@@ -119,12 +118,11 @@ var (
 	// unchanged in 1.20 so admission coverage of legacy writes is not altered;
 	// the engine returns the 1.20 hard error on those writes (see
 	// deprecations.BuildKindError and #17491). The legacy versions are removed
-	// in 1.21.
-	policyRule = admissionregistrationv1.Rule{
-		Resources:   []string{"clusterpolicies", "policies"},
-		APIGroups:   []string{"kyverno.io"},
-		APIVersions: []string{"v1", "v2beta1"},
-	}
+	// in 1.21. Aliased to deprecations.LegacyPolicyRule, the single source of
+	// truth this value is pinned against (see legacy_apiversions_test.go),
+	// deliberately kept byte-identical rather than inlined so that guard keeps
+	// matching without edits.
+	policyRule = deprecations.LegacyPolicyRule
 	verifyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"leases"},
 		APIGroups:   []string{"coordination.k8s.io"},
@@ -581,6 +579,13 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 		return err
 	}
 	if !autoUpdateWebhooks {
+		if desired.Name == config.ValidatingWebhookConfigurationName {
+			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
+				return nil
+			})
+			return err
+		}
 		return nil
 	}
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
@@ -624,135 +629,6 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 		return nil
 	})
 	return err
-}
-
-func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
-	// While webhook health is unknown/unhealthy (startup, leader change, a cluster
-	// resumed after an outage) the recorded webhook state has not been rebuilt from a
-	// confirmed-healthy reconcile. Do not downgrade policies to NotReady in that
-	// window: it evicts them from the policy cache and the handler then admits
-	// requests unmutated/unvalidated, silently skipping failurePolicy: Fail rules
-	// (#11560, #16281). Preserve the last known status; a healthy reconcile updates it.
-	if !c.watchdogCheck() {
-		return nil
-	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	policies, err := c.getAllPolicies()
-	if err != nil {
-		return err
-	}
-	updateStatusFunc := func(policy kyvernov1.PolicyInterface) error {
-		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
-		if err != nil {
-			return err
-		}
-
-		spec := policy.GetSpec()
-		if webhookType == config.MutatingWebhookConfigurationName {
-			if !(spec.HasMutateStandard() || spec.HasVerifyImages()) {
-				return nil
-			}
-		} else if webhookType == config.ValidatingWebhookConfigurationName {
-			if !(spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests()) {
-				return nil
-			}
-		}
-
-		ready, message := true, "Ready"
-		if c.autoUpdateWebhooks {
-			if set, ok := c.policyState[webhookType]; ok {
-				if !set.Has(policyKey) {
-					ready, message = false, "Not Ready"
-				}
-			}
-		}
-		status := policy.GetStatus()
-		status.SetReady(ready, message)
-		status.Autogen.Rules = nil
-		rules := autogen.Default.ComputeRules(policy, "")
-		setRuleCount(rules, status)
-		for _, rule := range rules {
-			if strings.HasPrefix(rule.Name, "autogen-") {
-				status.Autogen.Rules = append(status.Autogen.Rules, rule)
-			}
-		}
-		return nil
-	}
-	for _, policy := range policies {
-		if policy.GetNamespace() == "" {
-			err := controllerutils.UpdateStatus(
-				ctx,
-				policy.(*kyvernov1.ClusterPolicy),
-				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
-				func(policy *kyvernov1.ClusterPolicy) error {
-					return updateStatusFunc(policy)
-				},
-				func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
-					return datautils.DeepEqual(a.Status, b.Status)
-				},
-			)
-			if err != nil {
-				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					objNew, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policy.GetName(), metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					return controllerutils.UpdateStatus(
-						ctx,
-						objNew,
-						c.kyvernoClient.KyvernoV1().ClusterPolicies(),
-						func(policy *kyvernov1.ClusterPolicy) error {
-							return updateStatusFunc(policy)
-						},
-						func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
-							return datautils.DeepEqual(a.Status, b.Status)
-						},
-					)
-				})
-				if retryErr != nil {
-					logger.Error(retryErr, "failed to update clusterpolicy status", "policy", policy.GetName())
-					continue
-				}
-			}
-		} else {
-			err := controllerutils.UpdateStatus(
-				ctx,
-				policy.(*kyvernov1.Policy),
-				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
-				func(policy *kyvernov1.Policy) error {
-					return updateStatusFunc(policy)
-				},
-				func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
-					return datautils.DeepEqual(a.Status, b.Status)
-				},
-			)
-			if err != nil {
-				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					objNew, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					return controllerutils.UpdateStatus(
-						ctx,
-						objNew,
-						c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
-						func(policy *kyvernov1.Policy) error {
-							return updateStatusFunc(policy)
-						},
-						func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
-							return datautils.DeepEqual(a.Status, b.Status)
-						},
-					)
-				})
-				if retryErr != nil {
-					logger.Error(retryErr, "failed to update policy status", "namespace", policy.GetNamespace(), "policy", policy.GetName())
-					continue
-				}
-			}
-		}
-	}
-	return nil
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
@@ -925,6 +801,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
 					},
+				}, {
+					// Legacy ClusterPolicy/Policy status writes (Kyverno's own controllers,
+					// transitionally allowed by deprecations.AllowSubresourceForLegacyStatusWriter)
+					// must reach this same gate; policyRule above only matches the base resource.
+					Rule:       deprecations.LegacyPolicyStatusRule,
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
 				}},
 				FailurePolicy:           &fail,
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -1041,6 +923,9 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		caBundle,
 		nmpols,
 		c.celExpressionCache)...)
+	// Only the (namespaced) MutatingPolicy webhooks are reinvoked; the image
+	// verification webhooks below keep the API default.
+	mutatingPolicyWebhooks := len(validate)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -1071,7 +956,11 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
-	for _, w := range validate {
+	for i, w := range validate {
+		var reinvocationPolicy *admissionregistrationv1.ReinvocationPolicyType
+		if i < mutatingPolicyWebhooks {
+			reinvocationPolicy = &ifNeeded
+		}
 		mutate = append(mutate, admissionregistrationv1.MutatingWebhook{
 			Name:                    w.Name,
 			ClientConfig:            w.ClientConfig,
@@ -1084,7 +973,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			MatchConditions:         w.MatchConditions,
 			MatchPolicy:             w.MatchPolicy,
 			TimeoutSeconds:          w.TimeoutSeconds,
-			ReinvocationPolicy:      &ifNeeded,
+			ReinvocationPolicy:      reinvocationPolicy,
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
@@ -1232,7 +1121,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ contex
 				AdmissionReviewVersions: []string{"v1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}},
+			}, c.buildGenerationLabelProtectionWebhook(caBundle)},
 		},
 		nil
 }
@@ -1252,11 +1141,14 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
+	// Metadata protection is independent of policy selectors and applies the same
+	// configured bootstrap exclusion. Its association selector skips ordinary resources.
+	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
+	webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(caBundle))
+
 	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
 		return strings.Compare(a.Name, b.Name)
 	})
-
-	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
 
 	return webhookConfig, multierr.Combine(errs...)
 }
