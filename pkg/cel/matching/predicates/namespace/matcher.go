@@ -42,9 +42,41 @@ type Matcher struct {
 	Namespace runtime.Object
 }
 
+func isNil(obj any) bool {
+	if obj == nil {
+		return true
+	}
+	val := reflect.ValueOf(obj)
+	switch val.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice, reflect.UnsafePointer:
+		return val.IsNil()
+	default:
+		return false
+	}
+}
+
+func isCoreNamespace(attr admission.Attributes) bool {
+	if attr == nil {
+		return false
+	}
+	gvk := attr.GetKind()
+	gvr := attr.GetResource()
+
+	if gvk.Group != "" || gvr.Group != "" {
+		return false
+	}
+	if gvk.Kind == "Namespace" && (gvk.Version == "v1" || gvk.Version == "") {
+		return true
+	}
+	if gvr.Resource == "namespaces" && (gvr.Version == "v1" || gvr.Version == "") {
+		return gvk.Kind == "" || gvk.Kind == "Namespace"
+	}
+	return false
+}
+
 func (m *Matcher) GetNamespace(name string) (metav1.Object, error) {
 	// Check for both nil interface and nil pointer
-	if m.Namespace == nil || reflect.ValueOf(m.Namespace).IsNil() {
+	if isNil(m.Namespace) {
 		return &minimalNamespace{
 			name: name,
 			labels: map[string]string{
@@ -79,21 +111,37 @@ func (m *Matcher) GetNamespaceLabels(attr admission.Attributes) (map[string]stri
 	// labels from attr.Object, because namespaceLister doesn't have the latest
 	// namespace yet.
 	//
-	// However, if the request is deleting a namespace, then get the label from
-	// the namespace in the namespaceLister, because a delete request is not
-	// going to change the object, and attr.Object will be a DeleteOptions
-	// rather than a namespace object.
-	if attr.GetResource().Resource == "namespaces" &&
-		len(attr.GetSubresource()) == 0 &&
-		(attr.GetOperation() == admission.Create || attr.GetOperation() == admission.Update) {
-		accessor, err := meta.Accessor(attr.GetObject())
-		if err != nil {
-			return nil, err
+	// If the request is deleting a namespace, get the labels from attr.OldObject
+	// when available (such as in AdmissionReview v1 and CLI evaluation), because
+	// attr.Object is nil on DELETE.
+	if isCoreNamespace(attr) && len(attr.GetSubresource()) == 0 {
+		switch attr.GetOperation() {
+		case admission.Create, admission.Update:
+			if !isNil(attr.GetObject()) {
+				accessor, err := meta.Accessor(attr.GetObject())
+				if err != nil {
+					return nil, err
+				}
+				return accessor.GetLabels(), nil
+			}
+		case admission.Delete:
+			if !isNil(attr.GetOldObject()) {
+				accessor, err := meta.Accessor(attr.GetOldObject())
+				if err != nil {
+					return nil, err
+				}
+				if accessor.GetName() != "" {
+					return accessor.GetLabels(), nil
+				}
+			}
 		}
-		return accessor.GetLabels(), nil
 	}
 
-	namespace, err := m.GetNamespace(attr.GetNamespace())
+	namespaceName := attr.GetNamespace()
+	if namespaceName == "" && isCoreNamespace(attr) && len(attr.GetSubresource()) == 0 {
+		namespaceName = attr.GetName()
+	}
+	namespace, err := m.GetNamespace(namespaceName)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +152,7 @@ func (m *Matcher) GetNamespaceLabels(attr admission.Attributes) (map[string]stri
 // namespaceSelctor of the webhook. Only when they match, the webhook is called.
 func (m *Matcher) MatchNamespaceSelector(p NamespaceSelectorProvider, attr admission.Attributes) (bool, *apierrors.StatusError) {
 	namespaceName := attr.GetNamespace()
-	if len(namespaceName) == 0 && attr.GetResource().Resource != "namespaces" {
+	if len(namespaceName) == 0 && !isCoreNamespace(attr) {
 		// If the request is about a cluster scoped resource, and it is not a
 		// namespace, it is never exempted.
 		// TODO: figure out a way selective exempt cluster scoped resources.

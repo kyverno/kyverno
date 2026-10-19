@@ -975,3 +975,207 @@ func TestHandle_ExtractionMode_MultiTemplateTraceSelection(t *testing.T) {
 		})
 	}
 }
+
+func TestHandle_NamespaceDeleteWithNamespaceSelector(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "protect-critical-ns"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+					RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+						Operations: []admissionregistrationv1.OperationType{
+							admissionregistrationv1.Delete,
+							admissionregistrationv1.Create,
+							admissionregistrationv1.Update,
+						},
+						Rule: admissionregistrationv1.Rule{
+							APIGroups:   []string{""},
+							APIVersions: []string{"v1"},
+							Resources:   []string{"namespaces"},
+						},
+					},
+				}},
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"critical": "true",
+					},
+				},
+			},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "false",
+				Message:    "Critical namespaces cannot be deleted.",
+			}},
+		},
+	}
+
+	provider, err := NewProvider(compiler.NewCompiler(), []policiesv1beta1.ValidatingPolicyLike{policy}, nil)
+	require.NoError(t, err)
+
+	noopNsResolver := func(string) *corev1.Namespace { return nil }
+	eng := NewEngine(provider, noopNsResolver, matching.NewMatcher())
+
+	prodNs := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "production",
+			Labels: map[string]string{
+				"critical": "true",
+			},
+		},
+	}
+
+	stagingNs := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "staging",
+			Labels: map[string]string{
+				"critical": "false",
+			},
+		},
+	}
+
+	unlabeledNs := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Namespace"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "unlabeled",
+		},
+	}
+
+	t.Run("DELETE operation with OldObject nonmatching labels should not evaluate policy rule", func(t *testing.T) {
+		testCases := []struct {
+			name string
+			ns   *corev1.Namespace
+		}{
+			{
+				name: "namespace with nonmatching label value",
+				ns:   stagingNs,
+			},
+			{
+				name: "namespace without labels",
+				ns:   unlabeledNs,
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := celengine.Request(
+					nil,
+					schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+					schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+					"",
+					tc.ns.Name,
+					"", // Cluster-scoped resource has empty namespace in request
+					admissionv1.Delete,
+					authenticationv1.UserInfo{},
+					nil,   // Object is nil for DELETE
+					tc.ns, // OldObject is the deleted resource with nonmatching labels
+					false,
+					nil,
+				)
+
+				resp, err := eng.Handle(context.Background(), req, nil)
+				require.NoError(t, err)
+
+				// In the VPOL engine, an unmatched policy produces an EngineResponse containing
+				// the policy but with an empty Rules slice (no evaluations triggered).
+				require.Len(t, resp.Policies, 1, "Engine response should include the policy")
+				assert.Empty(t, resp.Policies[0].Rules, "Policy rule should not be evaluated when namespaceSelector does not match")
+
+				var fired []celengine.ValidatingPolicyResponse
+				for _, p := range resp.Policies {
+					if len(p.Rules) > 0 {
+						fired = append(fired, p)
+					}
+				}
+				assert.Empty(t, fired, "No rules should fire for nonmatching namespace deletion")
+			})
+		}
+	})
+
+	t.Run("DELETE operation with OldObject matching labels should evaluate policy rule", func(t *testing.T) {
+		req := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			"",
+			"production",
+			"", // Cluster-scoped resource has empty namespace in request
+			admissionv1.Delete,
+			authenticationv1.UserInfo{},
+			nil,    // Object is nil for DELETE
+			prodNs, // OldObject is the deleted resource
+			false,
+			nil,
+		)
+
+		resp, err := eng.Handle(context.Background(), req, nil)
+		require.NoError(t, err)
+
+		var fired []celengine.ValidatingPolicyResponse
+		for _, p := range resp.Policies {
+			if len(p.Rules) > 0 {
+				fired = append(fired, p)
+			}
+		}
+
+		require.Len(t, fired, 1, "Policy should match and fire rule for deleted namespace")
+		require.Len(t, fired[0].Rules, 1, "Rule evaluation count should be exactly 1")
+		assert.Equal(t, engineapi.RuleStatusFail, fired[0].Rules[0].Status())
+	})
+
+	t.Run("CREATE and UPDATE operations with Object continue to evaluate policy rule", func(t *testing.T) {
+		reqCreate := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			"",
+			"production",
+			"",
+			admissionv1.Create,
+			authenticationv1.UserInfo{},
+			prodNs,
+			nil,
+			false,
+			nil,
+		)
+
+		respCreate, err := eng.Handle(context.Background(), reqCreate, nil)
+		require.NoError(t, err)
+
+		var firedCreate []celengine.ValidatingPolicyResponse
+		for _, p := range respCreate.Policies {
+			if len(p.Rules) > 0 {
+				firedCreate = append(firedCreate, p)
+			}
+		}
+		require.Len(t, firedCreate, 1, "CREATE should match via Object")
+		require.Len(t, firedCreate[0].Rules, 1)
+
+		reqUpdate := celengine.Request(
+			nil,
+			schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Namespace"},
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			"",
+			"production",
+			"",
+			admissionv1.Update,
+			authenticationv1.UserInfo{},
+			prodNs,
+			prodNs,
+			false,
+			nil,
+		)
+
+		respUpdate, err := eng.Handle(context.Background(), reqUpdate, nil)
+		require.NoError(t, err)
+
+		var firedUpdate []celengine.ValidatingPolicyResponse
+		for _, p := range respUpdate.Policies {
+			if len(p.Rules) > 0 {
+				firedUpdate = append(firedUpdate, p)
+			}
+		}
+		require.Len(t, firedUpdate, 1, "UPDATE should match via Object")
+		require.Len(t, firedUpdate[0].Rules, 1)
+	})
+}

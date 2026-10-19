@@ -1307,6 +1307,79 @@ func Test_OperationDelete(t *testing.T) {
 	})
 }
 
+func Test_OperationDelete_NamespaceWithNamespaceSelector(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err, "Failed to get working directory")
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-delete-namespace")
+
+	testFile := filepath.Join(testDir, "kyverno-test.yaml")
+	testCases := test.LoadTest(nil, testFile)
+	require.Len(t, testCases, 1, "Expected exactly one test case in %s", testFile)
+	testCase := testCases[0]
+
+	// 1. Assert end-to-end CLI execution through the Command runner:
+	// Verify that the command succeeds (exit 0) and the output summary confirms 1 test passed.
+	cmd := Command()
+	cliOut := &bytes.Buffer{}
+	cmd.SetOut(cliOut)
+	cmd.SetErr(cliOut)
+	cmd.SetArgs([]string{testDir})
+	cmdErr := cmd.Execute()
+	require.NoError(t, cmdErr, "CLI command execution should succeed when actual evaluation matches declared result: %s", cliOut.String())
+	assert.Contains(t, cliOut.String(), "1 tests passed and 0 tests failed")
+
+	// 2. Assert policy evaluation outcome through runTest:
+	out := &bytes.Buffer{}
+	testResponse, err := runTest(context.TODO(), out, testCase, false)
+	require.NoError(t, err)
+
+	resourceKey := "v1,Namespace,,production"
+
+	require.Contains(t, testResponse.TriggerByOperation, "DELETE")
+	responses := testResponse.TriggerByOperation["DELETE"][resourceKey]
+	require.NotEmpty(t, responses, "expected responses for production namespace in DELETE run")
+	var found bool
+	for _, response := range responses {
+		if response.Policy().GetName() == "deny-critical-ns-deletion" {
+			for _, rule := range response.PolicyResponse.Rules {
+				if rule.Status() == engineapi.RuleStatusFail {
+					found = true
+				}
+			}
+		}
+	}
+	assert.True(t, found, "expected a failing rule for deny-critical-ns-deletion in the DELETE run")
+
+	// 3. Assert CLI result-comparison logic via printTestResult:
+	// When expected is "fail" and actual evaluated is "fail", printTestResult must record a pass.
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	err = printTestResult(testCase.Test.Results, testResponse, rc, &resultsTable, testCase.Fs, filepath.Dir(testCase.Path), true)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, rc.Pass, "expected 1 test pass when declared result matches evaluated outcome")
+	assert.Equal(t, 0, rc.Fail, "expected 0 test failures when declared result matches evaluated outcome")
+	require.Len(t, resultsTable.RawRows, 1, "expected exactly 1 result row in output table")
+	assert.Equal(t, "Pass", resultsTable.RawRows[0].Result, "CLI result column must report Pass")
+	assert.Equal(t, "Ok", resultsTable.RawRows[0].Reason, "CLI reason column must report Ok")
+
+	// 4. Assert CLI result-comparison detects mismatch:
+	// If the test declared "pass" when the policy evaluated to "fail", printTestResult must record a failure.
+	mismatchedResult := testCase.Test.Results[0]
+	mismatchedResult.Result = openreportsv1alpha1.Result(openreports.StatusPass)
+	mismatchedRC := &resultCounts{}
+	var mismatchedTable table.Table
+	err = printTestResult([]v1alpha1.TestResult{mismatchedResult}, testResponse, mismatchedRC, &mismatchedTable, testCase.Fs, filepath.Dir(testCase.Path), true)
+	require.NoError(t, err)
+
+	assert.Equal(t, 0, mismatchedRC.Pass, "expected 0 passes on result mismatch")
+	assert.Equal(t, 1, mismatchedRC.Fail, "expected 1 failure on result mismatch")
+	require.Len(t, mismatchedTable.RawRows, 1)
+	assert.Equal(t, "Fail", mismatchedTable.RawRows[0].Result, "CLI result column must report Fail on mismatch")
+	assert.Contains(t, mismatchedTable.RawRows[0].Reason, "Want pass, got fail", "CLI reason column must detail expected vs actual mismatch")
+}
+
 func Test_InvalidResultOperation(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
