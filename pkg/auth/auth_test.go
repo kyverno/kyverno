@@ -46,7 +46,7 @@ func TestNewCanI(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewCanI(tt.args.client.Discovery(), checker.NewSubjectChecker(tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "admin", nil), tt.args.kind, tt.args.namespace, tt.args.verb, tt.args.name, "")
+			got := NewCanI(tt.args.client.Discovery(), checker.NewSubjectChecker(tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "admin", nil), tt.args.kind, tt.args.namespace, tt.args.name, tt.args.verb, "")
 			assert.NotNil(t, got)
 		})
 	}
