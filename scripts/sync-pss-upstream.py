@@ -10,8 +10,8 @@ test/testdata/ count as relevant. A relevant change is classified as:
   update the CEL policies. Files that belong to no single check, such as
   policy/helpers.go, are grouped as "shared".
 
-The script writes the candidate pin (upstream.yaml) and a Markdown report
-(report.md) to --out. With --preview, it also runs
+The script writes the candidate pin (upstream.yaml), a Markdown report
+(report.md), and a machine-readable result (result.json) to --out. With --preview, it also runs
 scripts/verify-policies-pss-fixtures.py against the candidate commit and adds
 the result to the report. This is a dry run: it never pushes or opens a PR.
 
@@ -30,6 +30,7 @@ Exit codes:
 
 import argparse
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -262,6 +263,15 @@ def render_report(result, preview):
     return "\n".join(lines) + "\n"
 
 
+def write_result(result, preview, path):
+    """Writes the machine-readable result that scripts/publish-pss-upstream.py reads."""
+    data = {key: result[key] for key in ("repository", "branch", "pin", "head", "classification")}
+    data["groups"] = sorted(result["groups"])
+    data["preview"] = preview[0] if preview else "not-run"
+    data["preview_summary"] = preview[1] if preview else ""
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
 def write_candidate_pin(pin, result, path):
     candidate = dict(pin, repository=result["repository"], branch=result["branch"], commit=result["head"])
     header = ("# Candidate pin written by scripts/sync-pss-upstream.py. Copy it to\n"
@@ -309,6 +319,7 @@ def main(argv=None):
                 preview = run_preview(args, out / "upstream.yaml")
         report = render_report(result, preview)
         (out / "report.md").write_text(report, encoding="utf-8")
+        write_result(result, preview, out / "result.json")
         print(report)
     except (VerifyError, OSError, yaml.YAMLError) as err:
         print(f"ERROR: {err}")

@@ -8,6 +8,7 @@ is used: the verifier preview is faked by replacing run_command.
 
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -249,6 +250,9 @@ class ReportAndMainTest(unittest.TestCase):
         self.assertEqual(self.main("--preview", "--cli", "k", result=self.result("manual"), preview=passing)[0], 2)
         failing = ("fail", "checked: 4 unexpected", "")
         self.assertEqual(self.main("--preview", "--cli", "k", result=self.result("manual"), preview=failing)[0], 3)
+        written = json.loads((self.dir / "out/result.json").read_text())
+        self.assertEqual((written["classification"], written["head"], written["preview"], written["groups"]),
+                         ("manual", "2" * 40, "fail", ["sysctls"]))
 
     def test_errors_exit_1(self):
         code, out = self.main("--repository", "file:///tmp/psa")

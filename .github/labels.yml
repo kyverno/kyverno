@@ -579,3 +579,9 @@ stale:
 no-stale:
   color: C2E0C6
   description: Exempt from the stale-author and idle-review reminders
+
+# ── PSS upstream sync (.github/workflows/sync-pss-upstream.yaml) ─────────────
+# Set by scripts/publish-pss-upstream.py on a bot PR whose upstream change needs CEL changes by hand.
+needs-manual-cel:
+  color: d93f0b
+  description: Upstream PSA change that needs CEL policy changes by hand

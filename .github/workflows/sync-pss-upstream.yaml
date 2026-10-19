@@ -1,12 +1,17 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 
-name: Sync upstream PSS (dry run)
+name: Sync upstream PSS
 
 # Detects upstream Pod Security Admission changes since the commit pinned in
 # scripts/pss-upstream/upstream.yaml, runs the PSS fixture check against the
-# candidate commit, and writes a report. Dry run only: there are no secrets
-# and no publish job, so it never pushes or opens a PR.
-# See scripts/sync-pss-upstream.py.
+# candidate commit, and writes a report. See scripts/sync-pss-upstream.py.
+#
+# The publish job opens or updates one PR that moves the pin
+# (scripts/publish-pss-upstream.py). Publishing is off by default. It runs only
+# on schedule or workflow_dispatch on the default branch, when the repository
+# variable PSS_UPSTREAM_PUBLISH is 'true'. It needs a GitHub App: see
+# docs/dev/pss-upstream-sync/README.md. Every other run is a dry run that
+# prints the planned actions, uses no secrets, and writes nothing.
 
 on:
   schedule:
@@ -20,6 +25,8 @@ on:
     paths:
       - scripts/sync-pss-upstream.py
       - scripts/test-sync-pss-upstream.py
+      - scripts/publish-pss-upstream.py
+      - scripts/test-publish-pss-upstream.py
       - scripts/verify-policies-pss-fixtures.py
       - scripts/pss-upstream/upstream.yaml
       - .github/workflows/sync-pss-upstream.yaml
@@ -37,6 +44,9 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+    outputs:
+      changed: ${{ steps.detect.outputs.changed }}
+      verdict: ${{ steps.check.outputs.verdict }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -48,10 +58,11 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/pss-sync"
           "$RUNNER_TEMP/pss-sync/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
           echo "PSS_PYTHON=$RUNNER_TEMP/pss-sync/bin/python" >> "$GITHUB_ENV"
-      - name: Test the detector
+      - name: Test the detector and the publisher
         run: |
           set -e
           "$PSS_PYTHON" scripts/test-sync-pss-upstream.py
+          "$PSS_PYTHON" scripts/test-publish-pss-upstream.py
       - name: Detect upstream changes
         id: detect
         run: |
@@ -77,14 +88,17 @@ jobs:
         if: steps.detect.outputs.changed == 'true'
         uses: ./.github/actions/tools/helm
       - name: Check the candidate commit
+        id: check
         if: steps.detect.outputs.changed == 'true'
         run: |
           rc=0
           "$PSS_PYTHON" scripts/sync-pss-upstream.py --out "$RUNNER_TEMP/pss-sync-out" --preview \
             --cli cmd/cli/kubectl-kyverno/kubectl-kyverno --helm "$HELM" > "$RUNNER_TEMP/preview.md" || rc=$?
           case "$rc" in
-            2) cat "$RUNNER_TEMP/preview.md" >> "$GITHUB_STEP_SUMMARY" ;;
-            3) cat "$RUNNER_TEMP/preview.md" >> "$GITHUB_STEP_SUMMARY"
+            2) echo "verdict=pass" >> "$GITHUB_OUTPUT"
+               cat "$RUNNER_TEMP/preview.md" >> "$GITHUB_STEP_SUMMARY" ;;
+            3) echo "verdict=fail" >> "$GITHUB_OUTPUT"
+               cat "$RUNNER_TEMP/preview.md" >> "$GITHUB_STEP_SUMMARY"
                echo "::error title=Upstream PSA change needs policy updates::The candidate commit fails the PSS fixture check. See the job summary."
                exit 1 ;;
             *) cat "$RUNNER_TEMP/preview.md"
@@ -100,11 +114,134 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # Runs after a detected change, including a candidate that fails the fixture
+  # check: that's when a draft PR is needed. It publishes only when PUBLISH is
+  # true. Otherwise it runs a dry run with the read-only GITHUB_TOKEN.
+  publish:
+    name: Publish
+    needs:
+      - detect
+    if: always() && needs.detect.outputs.changed == 'true' && needs.detect.outputs.verdict != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      PUBLISH: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref_name == github.event.repository.default_branch && vars.PSS_UPSTREAM_PUBLISH == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        run: |
+          set -e
+          python3 -m venv "$RUNNER_TEMP/pss-sync"
+          "$RUNNER_TEMP/pss-sync/bin/python" -m pip install --disable-pip-version-check PyYAML==6.0.3
+          echo "PSS_PYTHON=$RUNNER_TEMP/pss-sync/bin/python" >> "$GITHUB_ENV"
+      - name: Download report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pss-upstream-sync
+          path: ${{ runner.temp }}/pss-sync-out
+      # Informational only, so it never blocks a run. On a pull request, it plans
+      # against the PR's own branch, because the default branch may not have the
+      # pin yet. It only reads, with the read-only GITHUB_TOKEN.
+      - name: Plan publish (dry run)
+        if: env.PUBLISH != 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BOT_NAME: pss-upstream-sync[bot]
+          BOT_EMAIL: pss-upstream-sync[bot]@users.noreply.github.com
+          PLAN_REPO: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+          PLAN_BASE: ${{ github.head_ref || github.event.repository.default_branch }}
+        run: |
+          rc=0
+          "$PSS_PYTHON" scripts/publish-pss-upstream.py --dry-run --result "$RUNNER_TEMP/pss-sync-out" \
+            --repo "$PLAN_REPO" --base "$PLAN_BASE" > "$RUNNER_TEMP/plan.txt" 2>&1 || rc=$?
+          cat "$RUNNER_TEMP/plan.txt"
+          {
+            echo "### Planned publish (dry run)"
+            echo
+            echo "Publishing is off. It needs a schedule or workflow_dispatch run on the default branch, and PSS_UPSTREAM_PUBLISH=true. Planned against \`$PLAN_REPO\`, base \`$PLAN_BASE\`. Exit code: $rc."
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/plan.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+      - name: Normalize App private key
+        id: normalize-key
+        if: env.PUBLISH == 'true'
+        shell: bash
+        env:
+          RAW_APP_PRIVATE_KEY: ${{ secrets.PSS_UPSTREAM_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+
+          key="$RAW_APP_PRIVATE_KEY"
+          # Support secrets saved with escaped newlines.
+          key="${key//\\n/$'\n'}"
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            # Support secrets saved as base64-encoded PEM.
+            decoded="$(printf '%s' "$RAW_APP_PRIVATE_KEY" | tr -d '[:space:]' | base64 --decode 2>/dev/null || true)"
+            decoded="${decoded//\\n/$'\n'}"
+            if printf '%s' "$decoded" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+              key="$decoded"
+            fi
+          fi
+
+          if ! printf '%s' "$key" | grep -Eq 'BEGIN (RSA |EC |)PRIVATE KEY'; then
+            echo "PSS_UPSTREAM_APP_PRIVATE_KEY does not look like a valid PEM private key." >&2
+            exit 1
+          fi
+
+          # ::add-mask:: is line-based, mask each line of the key individually.
+          while IFS= read -r line; do
+            [ -n "$line" ] && echo "::add-mask::$line"
+          done <<< "$key"
+          {
+            echo "private_key<<EOF"
+            printf '%s\n' "$key"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Create GitHub App token
+        id: app-token
+        if: env.PUBLISH == 'true'
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.PSS_UPSTREAM_APP_CLIENT_ID }}
+          private-key: ${{ steps.normalize-key.outputs.private_key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+      - name: Publish
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: |
+          rc=0
+          "$PSS_PYTHON" scripts/publish-pss-upstream.py --result "$RUNNER_TEMP/pss-sync-out" \
+            --repo "$GITHUB_REPOSITORY" --base "${{ github.event.repository.default_branch }}" || rc=$?
+          case "$rc" in
+            0) ;;
+            3) echo "::warning title=PSS sync paused::The bot branch has commits from someone else, so the bot didn't update it. See the comment on the PR." ;;
+            *) echo "::error title=PSS sync publish error::The publisher failed (exit code $rc). See the log."
+               exit 1 ;;
+          esac
+
   track-failure:
     name: Track failure
     if: always() && github.event_name == 'schedule'
     needs:
       - detect
+      - publish
     permissions:
       issues: write
     runs-on: ubuntu-slim
