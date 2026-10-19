@@ -44,7 +44,6 @@ func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool
 	return true, ""
 }
 
-
 // CanGenerateNativeMutatingPolicy reports whether the CEL exceptions can be represented
 // by a native MutatingAdmissionPolicy. The current MAP builder cannot expose conditional
 // image/value scopes or apply PolicyException compensating validations.
