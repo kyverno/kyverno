@@ -131,6 +131,36 @@ func TestCachedChecker_KeyedBySubjectGroups(t *testing.T) {
 	assert.Equal(t, 0, devsBA.callCount())
 }
 
+// TestCachedChecker_GroupEncodingIsInjective guards the identity-key encoding
+// against collisions for the opaque (arbitrary-byte) group strings a
+// SubjectAccessReview accepts. A plain delimiter would alias, e.g. {"a\x00b"}
+// with {"a","b"}, or [] (no groups) with [""] (one empty group) — reusing one
+// identity's decision for another. Each distinct group set must consult its own
+// inner checker (no cross-reuse in the shared cache).
+func TestCachedChecker_GroupEncodingIsInjective(t *testing.T) {
+	cache := NewResultCache()
+	ctx := context.Background()
+
+	groupSets := [][]string{
+		{"a\x00b"},
+		{"a", "b"},
+		nil,
+		{""},
+		{"ab"},
+	}
+	inners := make([]*countingChecker, len(groupSets))
+	for i, groups := range groupSets {
+		inners[i] = &countingChecker{}
+		c := NewCachedChecker(inners[i], "sa", groups, cache)
+		_, _ = c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	}
+
+	// No two group sets share a key, so every inner checker is consulted once.
+	for i := range groupSets {
+		assert.Equalf(t, 1, inners[i].callCount(), "group set %d (%q) collided", i, groupSets[i])
+	}
+}
+
 // TestNewCachedSelfChecker_NilPassthrough verifies the self wrapper is a no-op
 // when either the inner checker or the cache is nil.
 func TestNewCachedSelfChecker_NilPassthrough(t *testing.T) {

@@ -22,26 +22,9 @@ The memoizing decorator itself lives in **`pkg/auth/checker`** (`cache.go`:
 checker runs, so the cache keys on the resolved GVR — `"ConfigMap"` and `"v1/ConfigMap"` collapse onto
 one entry.
 
-## ResultCache contract — do not loosen these
+## ResultCache contract
 
-1. **Lifetime is one validation pass.** The cache is created in `pkg/validation/policy` `Validate()`
-   and discarded when it returns. **Never** promote it to a controller- or process-scoped cache: RBAC
-   can change between passes, and a stale `allow`/`deny` would be a correctness/security bug.
-
-2. **Keying is per `(self, subject, subjectGroups, resolved-GVR, subresource, namespace, name, verb)`**
-   — one entry per verb, matching the one-review-per-verb fan-out in `Auth.CanI`, so an overlapping verb
-   (`get`, shared by mutate's `{get,update}` and generate's `{get,create}`) is requested once. `subject`
-   plus `subjectGroups` are the full SubjectAccessReview identity (a review is evaluated against the user
-   *and* its groups), so the same username with different groups keys separately. `self` puts
-   `SelfSubjectAccessReview` decisions in a disjoint domain, so a self decision is never reused for a
-   subject even if a service account is literally named like the self value.
-
-3. **Errors are never cached; decisions are.** A transient error must be retried on the next call.
-
-4. **It is NOT a single-flight cache.** Concurrent callers that miss the same key each issue their own
-   access review before the first result is stored — the mutex only guards the map. Fine while
-   validation is sequential; don't assume atomic single-flight if you parallelize.
-
-Nil-safety: `NewCachedChecker` / `NewCachedSelfChecker` return `inner` unchanged when either `inner` or
-`cache` is nil. Callers depend on this — generate leaves its reports checker nil when `reportsSA == ""`,
-and the `mock` path passes a nil cache so wrapping is a no-op.
+The cache and its "do-not-loosen" contract (one-pass lifetime, never process-scoped or it serves stale
+RBAC; identity = subject + groups + self; errors not cached; not single-flight) live with the code in
+[`pkg/auth/checker`](../../auth/checker/AGENTS.md). The one consumer-side invariant to preserve here:
+`NewAuth` must build a fresh cache per validation pass and never retain it on a long-lived struct.

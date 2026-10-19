@@ -180,6 +180,7 @@ working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AG
 [`pkg/background/`](./pkg/background/AGENTS.md), [`pkg/image/`](./pkg/image/AGENTS.md),
 [`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/admissionpolicy/`](./pkg/admissionpolicy/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
 [`pkg/controllers/`](./pkg/controllers/AGENTS.md), [`pkg/config/`](./pkg/config/AGENTS.md), [`pkg/policy/auth/`](./pkg/policy/auth/AGENTS.md),
+[`pkg/auth/checker/`](./pkg/auth/checker/AGENTS.md),
 [`pkg/deprecations/`](./pkg/deprecations/AGENTS.md), [`pkg/utils/admission/`](./pkg/utils/admission/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md). Every claim in them is grounded in code actually read in the

@@ -347,3 +347,51 @@ func Test_validateActions_CachesCELSelfChecks(t *testing.T) {
 	// three rules by the shared cache.
 	assert.Equal(t, 8, selfReviews())
 }
+
+// Test_Validate_DoesNotShareAuthCacheAcrossPasses is the stale-RBAC guard. The
+// cache has no expiry; its only freshness guarantee is that it lives for exactly
+// one Validate() pass and is discarded when that call returns. This runs the
+// same policy through Validate() twice — as two separate admission requests
+// would — and asserts every (subject, resource, verb) tuple is re-requested on
+// the second pass (counts == 2, not 1). If the cache were ever promoted to a
+// longer-lived (struct- or process-scoped) instance, the second pass would be
+// served from the first pass's decisions — a stale-RBAC bug — and the counts
+// would stay at 1, failing here.
+func Test_Validate_DoesNotShareAuthCacheAcrossPasses(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "require-labels"},
+		"spec": {
+			"validationFailureAction": "Audit",
+			"background": false,
+			"rules": [
+				{
+					"name": "configmap-a",
+					"match": {"resources": {"kinds": ["ConfigMap"]}},
+					"validate": {"message": "label app is required", "pattern": {"metadata": {"labels": {"app": "?*"}}}}
+				}
+			]
+		}
+	}`)
+
+	var policy *kyvernov1.ClusterPolicy
+	assert.NoError(t, json.Unmarshal(rawPolicy, &policy))
+
+	client, counts := sarCountingClient(t)
+
+	// Two independent passes, each building and discarding its own cache.
+	for i := 0; i < 2; i++ {
+		_, err := Validate(policy, nil, client, false, "background-sa", "reports-sa")
+		assert.NoErrorf(t, err, "pass %d", i)
+	}
+
+	// Each pass re-queries the API server: one SubjectAccessReview per
+	// (subject, resource, verb) per pass -> 2 across the two passes.
+	expected := map[string]int{
+		"reports-sa|configmaps|get":   2,
+		"reports-sa|configmaps|list":  2,
+		"reports-sa|configmaps|watch": 2,
+	}
+	assert.Equal(t, expected, counts())
+}

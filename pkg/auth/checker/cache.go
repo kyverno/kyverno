@@ -2,6 +2,7 @@ package checker
 
 import (
 	"context"
+	"encoding/binary"
 	"sort"
 	"strings"
 	"sync"
@@ -34,15 +35,24 @@ type cacheKey struct {
 }
 
 // identityGroups canonicalizes a subject's groups into a single map-comparable
-// string (sorted, NUL-separated — NUL cannot appear in a Kubernetes group name,
-// so it is an unambiguous separator).
+// string. Groups are opaque — any bytes are legal — so the encoding is
+// injective by sorting the groups and length-prefixing each with an 8-byte
+// little-endian length. A plain delimiter would not be: a separator byte can
+// occur inside a group name, so e.g. {"a\x00b"} and {"a","b"} would collide.
 func identityGroups(groups []string) string {
 	if len(groups) == 0 {
 		return ""
 	}
 	sorted := append([]string(nil), groups...)
 	sort.Strings(sorted)
-	return strings.Join(sorted, "\x00")
+	var b strings.Builder
+	var length [8]byte
+	for _, group := range sorted {
+		binary.LittleEndian.PutUint64(length[:], uint64(len(group)))
+		b.Write(length[:])
+		b.WriteString(group)
+	}
+	return b.String()
 }
 
 // ResultCache memoizes authorization decisions so a decorated AuthChecker is
