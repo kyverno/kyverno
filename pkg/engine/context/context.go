@@ -131,14 +131,17 @@ func (e ContextSizeLimitExceededError) Error() string {
 
 // Context stores the data resources as JSON
 type context struct {
-	jp                 jmespath.Interface
-	jsonRaw            map[string]interface{}
-	jsonRawCheckpoints []map[string]interface{}
-	images             map[string]map[string]apiutils.ImageInfo
-	operation          kyvernov1.AdmissionOperation
-	deferred           DeferredLoaders
-	contextSize        int64
-	maxContextSize     int64
+	jp                     jmespath.Interface
+	jsonRaw                map[string]interface{}
+	jsonRawCheckpoints     []map[string]interface{}
+	entrySizes             map[string]int64
+	entrySizesCheckpoints  []map[string]int64
+	contextSizeCheckpoints []int64
+	images                 map[string]map[string]apiutils.ImageInfo
+	operation              kyvernov1.AdmissionOperation
+	deferred               DeferredLoaders
+	contextSize            int64
+	maxContextSize         int64
 }
 
 // NewContext returns a new context
@@ -149,22 +152,28 @@ func NewContext(jp jmespath.Interface) Interface {
 // NewContextFromRaw returns a new context initialized with raw data
 func NewContextFromRaw(jp jmespath.Interface, raw map[string]interface{}) Interface {
 	return &context{
-		jp:                 jp,
-		jsonRaw:            raw,
-		jsonRawCheckpoints: make([]map[string]interface{}, 0),
-		deferred:           NewDeferredLoaders(),
-		maxContextSize:     DefaultMaxContextSize,
+		jp:                     jp,
+		jsonRaw:                raw,
+		jsonRawCheckpoints:     make([]map[string]interface{}, 0),
+		entrySizes:             make(map[string]int64),
+		entrySizesCheckpoints:  make([]map[string]int64, 0),
+		contextSizeCheckpoints: make([]int64, 0),
+		deferred:               NewDeferredLoaders(),
+		maxContextSize:         DefaultMaxContextSize,
 	}
 }
 
 // NewContextWithMaxSize returns a new context with a specified maximum context size
 func NewContextWithMaxSize(jp jmespath.Interface, maxSize int64) Interface {
 	return &context{
-		jp:                 jp,
-		jsonRaw:            map[string]interface{}{},
-		jsonRawCheckpoints: make([]map[string]interface{}, 0),
-		deferred:           NewDeferredLoaders(),
-		maxContextSize:     maxSize,
+		jp:                     jp,
+		jsonRaw:                map[string]interface{}{},
+		jsonRawCheckpoints:     make([]map[string]interface{}, 0),
+		entrySizes:             make(map[string]int64),
+		entrySizesCheckpoints:  make([]map[string]int64, 0),
+		contextSizeCheckpoints: make([]int64, 0),
+		deferred:               NewDeferredLoaders(),
+		maxContextSize:         maxSize,
 	}
 }
 
@@ -219,22 +228,100 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 	}
 }
 
-func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
-	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
-		return err
+func (ctx *context) ensureEntrySizes() {
+	if ctx.entrySizes == nil {
+		ctx.entrySizes = make(map[string]int64)
 	}
+}
+
+func (ctx *context) copyEntrySizes(in map[string]int64) map[string]int64 {
+	if in == nil {
+		return make(map[string]int64)
+	}
+	out := make(map[string]int64, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
+	newSize := int64(len(dataRaw))
+	ctx.ensureEntrySizes()
+
 	var data interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
 		return err
 	}
-	ctx.contextSize += int64(len(dataRaw))
-	return addToContext(ctx, data, false, name)
+
+	existing, exists := ctx.jsonRaw[name]
+	if !exists {
+		if err := ctx.checkContextSizeLimit(newSize); err != nil {
+			return err
+		}
+		if err := addToContext(ctx, data, false, name); err != nil {
+			return err
+		}
+		ctx.contextSize += newSize
+		ctx.entrySizes[name] = newSize
+		return nil
+	}
+
+	existingMap, ok1 := existing.(map[string]interface{})
+	_, ok2 := data.(map[string]interface{})
+	if ok1 && ok2 {
+		beforeBytes, err := json.Marshal(existingMap)
+		if err != nil {
+			return err
+		}
+		if err := addToContext(ctx, data, false, name); err != nil {
+			return err
+		}
+		afterBytes, err := json.Marshal(ctx.jsonRaw[name])
+		if err != nil {
+			return err
+		}
+		growth := int64(len(afterBytes)) - int64(len(beforeBytes))
+		if growth < 0 {
+			growth = 0
+		}
+		if growth > 0 {
+			if ctx.maxContextSize > 0 && ctx.contextSize+growth > ctx.maxContextSize {
+				var oldData interface{}
+				_ = json.Unmarshal(beforeBytes, &oldData)
+				_ = addToContext(ctx, nil, false, name)
+				_ = addToContext(ctx, oldData, false, name)
+				return ContextSizeLimitExceededError{Limit: ctx.maxContextSize}
+			}
+			ctx.contextSize += growth
+			ctx.entrySizes[name] += growth
+		}
+		return nil
+	}
+
+	additionalSize := newSize - ctx.entrySizes[name]
+	if additionalSize > 0 {
+		if err := ctx.checkContextSizeLimit(additionalSize); err != nil {
+			return err
+		}
+	}
+	if err := addToContext(ctx, data, false, name); err != nil {
+		return err
+	}
+	ctx.contextSize += additionalSize
+	ctx.entrySizes[name] = newSize
+	return nil
 }
 
 func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
-	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
-		return err
+	newSize := int64(len(dataRaw))
+	ctx.ensureEntrySizes()
+	oldSize := ctx.entrySizes[name]
+	additionalSize := newSize - oldSize
+	if additionalSize > 0 {
+		if err := ctx.checkContextSizeLimit(additionalSize); err != nil {
+			return err
+		}
 	}
 	var data interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
@@ -246,7 +333,8 @@ func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
 		logger.Error(err, "unable to replace context entry", "context entry name", name)
 		return err
 	}
-	ctx.contextSize += int64(len(dataRaw))
+	ctx.contextSize += additionalSize
+	ctx.entrySizes[name] = newSize
 	return addToContext(ctx, data, false, name)
 }
 
@@ -464,6 +552,8 @@ func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := ctx.copyContext(ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
+	ctx.contextSizeCheckpoints = append(ctx.contextSizeCheckpoints, ctx.contextSize)
+	ctx.entrySizesCheckpoints = append(ctx.entrySizesCheckpoints, ctx.copyEntrySizes(ctx.entrySizes))
 }
 
 func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{} {
@@ -494,11 +584,32 @@ func (ctx *context) resetCheckpoint(restore bool) bool {
 	n := len(ctx.jsonRawCheckpoints) - 1
 	jsonRawCheckpoint := ctx.jsonRawCheckpoints[n]
 
+	var contextSizeCheckpoint int64
+	if len(ctx.contextSizeCheckpoints) > n {
+		contextSizeCheckpoint = ctx.contextSizeCheckpoints[n]
+	}
+	var entrySizesCheckpoint map[string]int64
+	if len(ctx.entrySizesCheckpoints) > n {
+		entrySizesCheckpoint = ctx.entrySizesCheckpoints[n]
+	}
+
 	if restore {
 		ctx.jsonRawCheckpoints = ctx.jsonRawCheckpoints[:n]
 		ctx.jsonRaw = jsonRawCheckpoint
+
+		if len(ctx.contextSizeCheckpoints) > n {
+			ctx.contextSizeCheckpoints = ctx.contextSizeCheckpoints[:n]
+		}
+		ctx.contextSize = contextSizeCheckpoint
+
+		if len(ctx.entrySizesCheckpoints) > n {
+			ctx.entrySizesCheckpoints = ctx.entrySizesCheckpoints[:n]
+		}
+		ctx.entrySizes = entrySizesCheckpoint
 	} else {
 		ctx.jsonRaw = ctx.copyContext(jsonRawCheckpoint)
+		ctx.contextSize = contextSizeCheckpoint
+		ctx.entrySizes = ctx.copyEntrySizes(entrySizesCheckpoint)
 	}
 
 	return true

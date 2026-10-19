@@ -461,3 +461,141 @@ func Test_ContextSizeLimitBlocksExponentialAmplification(t *testing.T) {
 	assert.ErrorAs(t, lastErr, &sizeErr)
 	assert.LessOrEqual(t, sizeErr.Limit, int64(testLimit))
 }
+
+func Test_ContextSizeLimitCheckpointRestore(t *testing.T) {
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: 100,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	data1 := []byte(`"01234567"`)
+	err := ctx.AddContextEntry("base", data1)
+	assert.NoError(t, err)
+	initialSize := ctx.contextSize
+	assert.Equal(t, int64(len(data1)), initialSize)
+
+	ctx.Checkpoint()
+
+	data2 := []byte(`"temp_data_bytes"`)
+	err = ctx.AddContextEntry("temp", data2)
+	assert.NoError(t, err)
+	assert.Equal(t, initialSize+int64(len(data2)), ctx.contextSize)
+
+	ctx.Restore()
+	assert.Equal(t, initialSize, ctx.contextSize)
+	assert.Equal(t, int64(0), ctx.entrySizes["temp"])
+	assert.Equal(t, initialSize, ctx.entrySizes["base"])
+}
+
+type mockEntryLoader struct {
+	ctx       Interface
+	name      string
+	data      []byte
+	hasLoaded bool
+}
+
+func (l *mockEntryLoader) Name() string    { return l.name }
+func (l *mockEntryLoader) HasLoaded() bool { return l.hasLoaded }
+func (l *mockEntryLoader) LoadData() error {
+	l.hasLoaded = true
+	return l.ctx.AddContextEntry(l.name, l.data)
+}
+
+func Test_ContextSizeLimitDeferredLoaderReloadIdempotent(t *testing.T) {
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: 100,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	loader := &mockEntryLoader{
+		ctx:  ctx,
+		name: "cm",
+		data: []byte(`"some_data"`),
+	}
+	dl, err := NewDeferredLoader("cm", loader, logger)
+	assert.NoError(t, err)
+	err = ctx.AddDeferredLoader(dl)
+	assert.NoError(t, err)
+
+	val, err := ctx.Query("cm")
+	assert.NoError(t, err)
+	assert.Equal(t, "some_data", val)
+
+	sizeAfterLoad := ctx.contextSize
+	assert.Greater(t, sizeAfterLoad, int64(0))
+
+	for i := 0; i < 5; i++ {
+		ctx.Checkpoint()
+		assert.Equal(t, sizeAfterLoad, ctx.contextSize)
+		ctx.Restore()
+		assert.Equal(t, sizeAfterLoad, ctx.contextSize, "contextSize inflated on iteration %d", i)
+	}
+}
+
+func Test_ContextSizeLimitMergedEntriesAccountGrowth(t *testing.T) {
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: 100,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	// First entry
+	stmt1 := []byte(`{"stmt1": "data1"}`)
+	err := ctx.AddContextEntry("attestations", stmt1)
+	assert.NoError(t, err)
+	size1 := ctx.contextSize
+	assert.Equal(t, int64(len(stmt1)), size1)
+
+	// Second entry merged under the same name: growth must be accounted for
+	stmt2 := []byte(`{"stmt2": "data2"}`)
+	err = ctx.AddContextEntry("attestations", stmt2)
+	assert.NoError(t, err)
+	size2 := ctx.contextSize
+	assert.Greater(t, size2, size1, "contextSize must increase when new keys are merged into entry")
+
+	// Third entry that would exceed maxContextSize (limit 100 bytes)
+	stmtLarge := []byte(`{"stmt3": "this_is_a_very_long_statement_that_will_cause_the_merged_context_entry_to_exceed_the_limit"}`)
+	err = ctx.AddContextEntry("attestations", stmtLarge)
+	assert.Error(t, err)
+	var sizeErr ContextSizeLimitExceededError
+	assert.ErrorAs(t, err, &sizeErr)
+	assert.Equal(t, size2, ctx.contextSize, "contextSize must revert when limit is exceeded")
+}
+
+func Test_ContextSizeLimitMapDeferredLoaderReloadIdempotent(t *testing.T) {
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: 100,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	loader := &mockEntryLoader{
+		ctx:  ctx,
+		name: "cm",
+		data: []byte(`{"key": "value"}`),
+	}
+	dl, err := NewDeferredLoader("cm", loader, logger)
+	assert.NoError(t, err)
+	err = ctx.AddDeferredLoader(dl)
+	assert.NoError(t, err)
+
+	val, err := ctx.Query("cm.key")
+	assert.NoError(t, err)
+	assert.Equal(t, "value", val)
+
+	sizeAfterLoad := ctx.contextSize
+	assert.Greater(t, sizeAfterLoad, int64(0))
+
+	for i := 0; i < 5; i++ {
+		ctx.Checkpoint()
+		assert.Equal(t, sizeAfterLoad, ctx.contextSize)
+		ctx.Restore()
+		assert.Equal(t, sizeAfterLoad, ctx.contextSize, "contextSize inflated on iteration %d", i)
+	}
+}
