@@ -1,6 +1,6 @@
 # The upstream Pod Security Admission commit that the PSS ValidatingPolicies
 # in charts/kyverno-policies are verified against. See
 # scripts/verify-policies-pss-fixtures.py.
-repository: https://github.com/kubernetes/pod-security-admission
+repository: https://github.com/Suhani95/pod-security-admission
 branch: master
 commit: 36a049e80d3ee9f56646153499df3d33083201fb
