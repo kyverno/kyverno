@@ -702,11 +702,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 // responseTargetsResource reports whether an engine response can be correlated with the given
 // target resource. It first looks for a patched target extracted from the response. Otherwise,
 // for a mutating-policy-like response whose resource identity matches, a rule with target
-// provenance qualifies it; a ruleless response qualifies when target match constraints or
-// ordinary match constraints contain an expression or resource rule. This latter check only
-// tests that constraint data is present; it does not evaluate the constraints against
-// targetResource. Raw JSON deleting-policy payloads take a separate path: their delete
-// condition is evaluated directly without applying matchConstraints.
+// provenance qualifies it; a ruleless response qualifies when target match constraints contain
+// an expression or resource rule, or when ordinary match constraints contain resource rules.
+// These checks only test that the constraint data is present; they do not evaluate the
+// constraints against targetResource. Raw JSON deleting-policy payloads take a separate path:
+// their delete condition is evaluated directly without applying matchConstraints.
 func responseTargetsResource(targetResource *unstructured.Unstructured, response engineapi.EngineResponse) bool {
 	if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), response); r != nil {
 		return true
