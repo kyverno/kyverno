@@ -20,7 +20,7 @@ type AuthChecks interface {
 	CanI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error)
 }
 
-// Auth provides implementation to check if caller/self/kyverno has access to perofrm operations
+// Auth provides implementation to check if caller/self/kyverno has access to perform operations
 type Auth struct {
 	client  dclient.Interface
 	user    string
