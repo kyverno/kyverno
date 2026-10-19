@@ -448,7 +448,8 @@ func TestHandleError(t *testing.T) {
 }
 
 // TestHandleExcludeResourceRules checks that exclude rules apply whatever operations they list,
-// since a deletion scan is not an admission request, and that they exclude nothing more.
+// since a deletion scan is not an admission request, that they exclude nothing more, and that the
+// trace explains an exclusion the same way the match decision was made.
 func TestHandleExcludeResourceRules(t *testing.T) {
 	configMapMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
 	configMapMapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}, meta.RESTScopeNamespace)
@@ -536,7 +537,7 @@ func TestHandleExcludeResourceRules(t *testing.T) {
 					Conditions: []v1.MatchCondition{{Name: "always-true", Expression: "true"}},
 				},
 			}
-			compiled, errs := comp.Compile(policy, nil)
+			compiled, errs := compiler.NewCompilerWithTrace(true).Compile(policy, nil)
 			assert.Nil(t, errs)
 
 			resource := unstructured.Unstructured{}
@@ -551,6 +552,9 @@ func TestHandleExcludeResourceRules(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantMatch, resp.PolicyMatched)
 			assert.Equal(t, tt.wantMatch, resp.Match)
+			if assert.NotNil(t, resp.Trace) && !tt.wantMatch {
+				assert.Contains(t, resp.Trace.Scope.Reason, "is excluded by the policy's excludeResourceRules")
+			}
 		})
 	}
 }
