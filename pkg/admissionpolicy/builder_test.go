@@ -839,9 +839,9 @@ func TestBuildValidatingAdmissionPolicy_EmptyScopedExceptionValues(t *testing.T)
 					AllowedValues: []string{"blue"},
 				},
 			},
-			wantImages:     "[]",
-			wantValues:     `["blue"]`,
-			wantExpression: "variables.allowedImages.size() == 0 && variables.allowedValues.size() > 0",
+			wantImages:       "[]",
+			wantValues:       `["blue"]`,
+			wantExpression:   "variables.allowedImages.size() == 0 && variables.allowedValues.size() > 0",
 			sourceExpression: "exceptions.allowedImages.size() == 0 && exceptions.allowedValues.size() > 0",
 		},
 	}
