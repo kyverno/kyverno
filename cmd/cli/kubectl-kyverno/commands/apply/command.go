@@ -502,6 +502,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	responses = append(responses, responses6...)
 	responses = append(responses, httpResponses...)
 	responses = append(responses, envoyResponses...)
+	if err := c.failOnDeprecationWarnings(); err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses, err
+	}
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 

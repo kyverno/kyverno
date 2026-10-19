@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -1775,4 +1776,52 @@ func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
 			assert.Contains(t, out.String(), "evaluated against a JSON payload")
 		}
 	}
+}
+
+func Test_Apply_PolicyValidationWarnings(t *testing.T) {
+	t.Run("surfaces validation warning without error", func(t *testing.T) {
+		config := &ApplyCommandConfig{}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "test-policy.yaml", Warning: "spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: test-policy.yaml: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
+		assert.Len(t, config.deprecationWarnings, 1)
+		require.NoError(t, config.failOnDeprecationWarnings())
+	})
+
+	t.Run("fails when warnings-as-errors is set", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			warningsAsErrors: true,
+		}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "test-policy.yaml", Warning: "spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead."},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: test-policy.yaml: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
+		assert.Len(t, config.deprecationWarnings, 1)
+		err := config.failOnDeprecationWarnings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 1 deprecation warning(s) and --warnings-as-errors is set")
+	})
+
+	t.Run("accumulates multiple warnings correctly", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			warningsAsErrors: true,
+		}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "custom-ns/policy-1.yaml", Warning: "warning 1"},
+			{Path: "custom-ns/policy-2.yaml", Warning: "warning 2"},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: custom-ns/policy-1.yaml: warning 1")
+		assert.Contains(t, out.String(), "Warning: custom-ns/policy-2.yaml: warning 2")
+		assert.Len(t, config.deprecationWarnings, 2)
+		err := config.failOnDeprecationWarnings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 2 deprecation warning(s) and --warnings-as-errors is set")
+	})
 }
