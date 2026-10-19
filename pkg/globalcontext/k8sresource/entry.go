@@ -29,7 +29,48 @@ import (
 // controller's single reconcile worker indefinitely; the workqueue retries
 // with backoff on error. Callers can enforce a shorter bound through the
 // deadline of the context passed to New.
-const cacheSyncTimeout = 30 * time.Second
+const (
+	cacheSyncTimeout = 30 * time.Second
+	// projectionCoalesceInterval bounds the time spent collecting a burst of
+	// informer events before refreshing from the latest cache snapshot. Unlike
+	// a quiet-period debounce, sustained traffic cannot defer a refresh forever.
+	projectionCoalesceInterval = 25 * time.Millisecond
+)
+
+// notifyProjectionChange never blocks the informer event handler. A buffered
+// notification records that at least one refresh is needed, even if events
+// arrive while a previous projection evaluation is still running.
+func notifyProjectionChange(changes chan<- struct{}) {
+	select {
+	case changes <- struct{}{}:
+	default:
+	}
+}
+
+// runProjectionWorker serializes expensive full-cache evaluations and batches
+// notifications over a fixed, bounded window. Notifications during an active
+// evaluation remain pending for the next iteration.
+func runProjectionWorker(ctx context.Context, changes <-chan struct{}, refresh func()) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-changes:
+		}
+
+		timer := time.NewTimer(projectionCoalesceInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		refresh()
+	}
+}
 
 type entry struct {
 	lister      cache.GenericLister
@@ -133,13 +174,15 @@ func New(
 		projected:   make(map[string]interface{}),
 	}
 
-	// Only add event handlers if projections are defined
-	// This avoids unnecessary processing when projections are not used
+	// A single buffered notification replaces synchronous full-cache scans in
+	// informer callbacks. No projection work is started during initial LIST.
+	var changes chan struct{}
 	if len(projections) > 0 {
+		changes = make(chan struct{}, 1)
 		_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { e.recomputeProjections() },
-			UpdateFunc: func(oldObj, newObj interface{}) { e.recomputeProjections() },
-			DeleteFunc: func(obj interface{}) { e.recomputeProjections() },
+			AddFunc:    func(obj interface{}) { notifyProjectionChange(changes) },
+			UpdateFunc: func(oldObj, newObj interface{}) { notifyProjectionChange(changes) },
+			DeleteFunc: func(obj interface{}) { notifyProjectionChange(changes) },
 		})
 		if err != nil {
 			return nil, err
@@ -173,9 +216,18 @@ func New(
 		return nil, err
 	}
 
-	// Compute initial projections after cache sync
+	// The initial LIST has already populated the cache. Discard its dirty
+	// notification before taking the first complete snapshot; events occurring
+	// during the snapshot are buffered and handled by the worker below.
 	if len(projections) > 0 {
+		select {
+		case <-changes:
+		default:
+		}
 		e.recomputeProjections()
+		group.StartWithContext(ctx, func(ctx context.Context) {
+			runProjectionWorker(ctx, changes, e.recomputeProjections)
+		})
 	}
 
 	return e, nil
@@ -213,6 +265,7 @@ func (e *entry) recomputeProjections() {
 		return
 	}
 
+	updated := make(map[string]interface{}, len(e.projections))
 	for _, proj := range e.projections {
 		result, err := proj.JP.Search(list)
 		if err != nil {
@@ -225,10 +278,22 @@ func (e *entry) recomputeProjections() {
 			}, fmt.Errorf("failed to apply projection %q: %w", proj.Name, err)))
 			continue
 		}
-		e.projectedMu.Lock()
-		e.projected[proj.Name] = result
-		e.projectedMu.Unlock()
+		updated[proj.Name] = result
 	}
+
+	// Publish all successful results under one lock. Preserve the previous
+	// value of a failed projection, matching the existing failure semantics,
+	// instead of exposing partial updates between successful evaluations.
+	e.projectedMu.Lock()
+	next := make(map[string]interface{}, len(e.projected)+len(updated))
+	for name, value := range e.projected {
+		next[name] = value
+	}
+	for name, value := range updated {
+		next[name] = value
+	}
+	e.projected = next
+	e.projectedMu.Unlock()
 }
 
 func (e *entry) Get(projection string) (any, error) {
