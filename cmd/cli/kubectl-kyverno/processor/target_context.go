@@ -5,6 +5,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -128,12 +129,8 @@ func (c *targetOverlayContext) Clone() libs.Context {
 	return &targetOverlayContext{Context: c.Context.Clone(), targets: c.targets}
 }
 
-// matchesLabels reports whether labels carries every key and value in selector.
-func matchesLabels(labels, selector map[string]string) bool {
-	for key, value := range selector {
-		if labels[key] != value {
-			return false
-		}
-	}
-	return true
+// matchesLabels reports whether objectLabels match selector as the API server matches a selector built from
+// a map: every key must be present with its value, an empty value included.
+func matchesLabels(objectLabels, selector map[string]string) bool {
+	return labels.SelectorFromSet(selector).Matches(labels.Set(objectLabels))
 }

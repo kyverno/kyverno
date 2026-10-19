@@ -265,3 +265,24 @@ func TestTargetResourceContext_EdgeCases(t *testing.T) {
 	require.Len(t, list.Items, 1)
 	assert.Equal(t, "live-only", list.Items[0].GetName())
 }
+
+// TestMatchesLabels checks that a label selector map is matched as the API server matches it.
+func TestMatchesLabels(t *testing.T) {
+	tests := []struct {
+		name     string
+		labels   map[string]string
+		selector map[string]string
+		want     bool
+	}{
+		{name: "empty selector matches everything", labels: map[string]string{"app": "web"}, want: true},
+		{name: "every key and value present", labels: map[string]string{"app": "web", "tier": "front"}, selector: map[string]string{"app": "web"}, want: true},
+		{name: "other value", labels: map[string]string{"app": "db"}, selector: map[string]string{"app": "web"}},
+		{name: "empty value needs the key", labels: map[string]string{"app": "web"}, selector: map[string]string{"select": ""}},
+		{name: "empty value with the key", labels: map[string]string{"select": ""}, selector: map[string]string{"select": ""}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, matchesLabels(tt.labels, tt.selector))
+		})
+	}
+}
