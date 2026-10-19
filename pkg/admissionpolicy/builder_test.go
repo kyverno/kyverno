@@ -2,6 +2,7 @@ package admissionpolicy
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/google/cel-go/cel"
@@ -674,6 +675,63 @@ func TestEnsureUniqueExceptionMatchConditionNames(t *testing.T) {
 	got = ensureUniqueExceptionMatchConditionNames(duplicateExceptionNames, nil)
 	assert.Equal(t, "check-name", got[0].Name)
 	assert.Equal(t, "check-name-2", got[1].Name)
+}
+
+func TestEnsureUniqueExceptionMatchConditionNames_MaxLength(t *testing.T) {
+	longName := strings.Repeat("a", 63)
+	existing := []admissionregistrationv1.MatchCondition{{Name: longName, Expression: "true"}}
+	generated := []admissionregistrationv1.MatchCondition{{Name: longName, Expression: "false"}}
+
+	got := ensureUniqueExceptionMatchConditionNames(generated, existing)
+	require.Len(t, got, 1)
+	assert.Len(t, got[0].Name, 63)
+	assert.Equal(t, strings.Repeat("a", 61)+"-2", got[0].Name)
+	assert.Equal(t, longName, existing[0].Name)
+}
+
+func TestBuildValidatingAdmissionPolicy_RewritesAllScopedExceptionFields(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "scoped-references", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "scopeCount",
+				Expression: "exceptions.allowedImages.size() + exceptions.allowedValues.size()",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression:        "exceptions.allowedImages.size() > 0",
+				MessageExpression: "'allowed: ' + string(exceptions.allowedValues.size())",
+			}},
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+				Key:             "example.com/image-count",
+				ValueExpression: "string(exceptions.allowedImages.size())",
+			}},
+		},
+	}
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "only-images"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"ghcr.io/example/app:v1"},
+		},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	err := BuildValidatingAdmissionPolicy(
+		nil, vap, engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{engineapi.NewCELPolicyException(exception)},
+	)
+	require.NoError(t, err)
+	require.Len(t, vap.Spec.Variables, 3)
+	assert.Equal(t, "scopeCount", vap.Spec.Variables[0].Name)
+	assert.Equal(t, "variables.allowedImages.size() + variables.allowedValues.size()", vap.Spec.Variables[0].Expression)
+	assert.Equal(t, "allowedImages", vap.Spec.Variables[1].Name)
+	assert.Equal(t, `["ghcr.io/example/app:v1"]`, vap.Spec.Variables[1].Expression)
+	assert.Equal(t, "allowedValues", vap.Spec.Variables[2].Name)
+	assert.Equal(t, "[]", vap.Spec.Variables[2].Expression)
+	require.Len(t, vap.Spec.Validations, 1)
+	assert.Equal(t, "variables.allowedImages.size() > 0", vap.Spec.Validations[0].Expression)
+	assert.Equal(t, "'allowed: ' + string(variables.allowedValues.size())", vap.Spec.Validations[0].MessageExpression)
+	require.Len(t, vap.Spec.AuditAnnotations, 1)
+	assert.Equal(t, "string(variables.allowedImages.size())", vap.Spec.AuditAnnotations[0].ValueExpression)
 }
 
 func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testing.T) {
