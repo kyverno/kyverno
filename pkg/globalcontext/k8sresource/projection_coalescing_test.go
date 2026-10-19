@@ -7,13 +7,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/globalcontext/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	fakedynamic "k8s.io/client-go/dynamic/fake"
 )
 
 func TestNotifyProjectionChangeCoalescesBurst(t *testing.T) {
@@ -139,7 +143,7 @@ func TestRecomputeProjectionsPreservesLastSuccessfulValue(t *testing.T) {
 			{Name: "flaky", JP: flaky},
 		},
 		projected: map[string]interface{}{
-			"good": "old",
+			"good":  "old",
 			"flaky": "last-valid",
 		},
 	}
@@ -161,15 +165,134 @@ func TestRecomputeProjectionsPreservesLastSuccessfulValue(t *testing.T) {
 
 func TestRecomputeProjectionsKeepsSnapshotOnListerError(t *testing.T) {
 	e := &entry{
-		lister: &mockLister{err: assert.AnError},
-		gce: &kyvernov2beta1.GlobalContextEntry{},
-		eventGen: &mockEventGen{},
+		lister:      &mockLister{err: assert.AnError},
+		gce:         &kyvernov2beta1.GlobalContextEntry{},
+		eventGen:    &mockEventGen{},
 		projections: []store.Projection{{Name: "stable", JP: &controlledProjectionQuery{result: "changed"}}},
-		projected: map[string]interface{}{"stable": "previous"},
+		projected:   map[string]interface{}{"stable": "previous"},
 	}
 	e.recomputeProjections()
 	got, err := e.Get("stable")
 	require.NoError(t, err)
 	assert.Equal(t, "previous", got)
 	assert.Len(t, e.eventGen.(*mockEventGen).events, 1)
+}
+
+// startupProjectionQuery blocks the first evaluation after the informer cache
+// has synchronized. Subsequent evaluations use the current lister snapshot.
+type startupProjectionQuery struct {
+	calls           atomic.Int32
+	initialStarted  chan struct{}
+	continueInitial chan struct{}
+	unblock         sync.Once
+}
+
+func (q *startupProjectionQuery) Search(data interface{}) (interface{}, error) {
+	objects := data.([]interface{})
+	var version string
+	if len(objects) > 0 {
+		resource := objects[0].(map[string]interface{})
+		data, _ := resource["data"].(map[string]interface{})
+		version, _ = data["version"].(string)
+	}
+	if q.calls.Add(1) == 1 {
+		close(q.initialStarted)
+		<-q.continueInitial
+	}
+	return version, nil
+}
+
+func (q *startupProjectionQuery) release() {
+	q.unblock.Do(func() { close(q.continueInitial) })
+}
+
+type startupJMESPath struct {
+	query jmespath.Query
+}
+
+func (s startupJMESPath) Query(string) (jmespath.Query, error) {
+	return s.query, nil
+}
+
+func (s startupJMESPath) Search(_ string, data interface{}) (interface{}, error) {
+	return s.query.Search(data)
+}
+
+// Regression: an update delivered while New is computing its initial snapshot
+// must be observed by the worker after the bootstrap-to-worker handoff.
+func TestNewRetainsUpdatesDuringInitialProjection(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	query := &startupProjectionQuery{
+		initialStarted:  make(chan struct{}),
+		continueInitial: make(chan struct{}),
+	}
+	defer query.release()
+
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	resource := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      "projection-bootstrap",
+			"namespace": "default",
+		},
+		"data": map[string]interface{}{"version": "before"},
+	}}
+	client := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{gvr: "ConfigMapList"},
+		resource,
+	)
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "projection-bootstrap"},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{Name: "version", JMESPath: "[].data.version"},
+			},
+		},
+	}
+	type entryResult struct {
+		entry store.Entry
+		err   error
+	}
+	resultCh := make(chan entryResult, 1)
+	go func() {
+		got, err := New(ctx, gce, &mockEventGen{}, client, logr.Discard(), gvr, "default", startupJMESPath{query: query})
+		resultCh <- entryResult{entry: got, err: err}
+	}()
+
+	select {
+	case <-query.initialStarted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("initial projection did not start")
+	}
+
+	updated := resource.DeepCopy()
+	updated.Object["data"] = map[string]interface{}{"version": "after"}
+	_, err := client.Resource(gvr).Namespace("default").Update(ctx, updated, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	// The first evaluation already read its input before the update.
+	query.release()
+
+	var res entryResult
+	select {
+	case res = <-resultCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("New did not return after initial projection")
+	}
+	require.NoError(t, res.err)
+	defer res.entry.Stop()
+
+	initial, err := res.entry.Get("version")
+	require.NoError(t, err)
+	require.Equal(t, "before", initial)
+
+	require.Eventually(t, func() bool {
+		value, err := res.entry.Get("version")
+		return err == nil && value == "after"
+	}, 10*time.Second, 10*time.Millisecond, "update during startup must reach the projection worker")
+	require.GreaterOrEqual(t, query.calls.Load(), int32(2))
 }
