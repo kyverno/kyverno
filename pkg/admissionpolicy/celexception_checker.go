@@ -9,20 +9,37 @@ import (
 )
 
 // CanGenerateNativePolicy reports whether a ValidatingPolicy still translates to a
-// ValidatingAdmissionPolicy. Controls could be folded in as !(match && controls), but a VAP emits
-// only the policy's own message, and it cannot admit a resource the policy already passes.
+// ValidatingAdmissionPolicy. A VAP cannot represent compensating exception validations or
+// conditionally scope image/value exceptions: its match conditions skip the whole policy, while
+// the CEL engine keeps evaluating the policy and exposes scoped values only when the exception matches.
 func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool, string) {
-	var offending []string
+	var reasons []string
+	var offendingValidations []string
+	var offendingScopedConditions []string
 	for _, exception := range exceptions {
+		name := cache.MetaObjectToName(&exception).String()
 		if len(exception.Spec.Validations) > 0 {
-			offending = append(offending, cache.MetaObjectToName(&exception).String())
+			offendingValidations = append(offendingValidations, name)
+		}
+		if len(exception.Spec.MatchConditions) > 0 &&
+			(len(exception.Spec.Images) > 0 || len(exception.Spec.AllowedValues) > 0) {
+			offendingScopedConditions = append(offendingScopedConditions, name)
 		}
 	}
-	if len(offending) == 0 {
-		return true, ""
+	if len(offendingValidations) > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			"policy exception(s) %s define compensating controls (spec.validations), which a generated ValidatingAdmissionPolicy cannot evaluate",
+			strings.Join(offendingValidations, ", "),
+		))
 	}
-	return false, fmt.Sprintf(
-		"policy exception(s) %s define compensating controls (spec.validations), which a generated ValidatingAdmissionPolicy cannot evaluate",
-		strings.Join(offending, ", "),
-	)
+	if len(offendingScopedConditions) > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			"policy exception(s) %s combine matchConditions with image/value scopes, which a generated ValidatingAdmissionPolicy cannot evaluate",
+			strings.Join(offendingScopedConditions, ", "),
+		))
+	}
+	if len(reasons) > 0 {
+		return false, strings.Join(reasons, "; ")
+	}
+	return true, ""
 }
