@@ -262,13 +262,14 @@ func TestHandleMAPGeneration_SkipsAndDeletesForUnsupportedCELException(t *testin
 			AutogenConfiguration: mapGenEnabled(),
 		},
 	}
+	mpol.Status.Generated = true
 	mapName := "mpol-" + mpol.GetName()
 	bindingName := constructBindingName(mapName)
 	existingMAP := &admissionregistrationv1.MutatingAdmissionPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: mapName},
+		ObjectMeta: metav1.ObjectMeta{Name: mapName, ResourceVersion: "1"},
 	}
 	existingBinding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: bindingName},
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, ResourceVersion: "1"},
 	}
 	kubeClient := kubefake.NewSimpleClientset(existingMAP, existingBinding)
 	kyvernoClient := versionedfake.NewSimpleClientset(mpol)

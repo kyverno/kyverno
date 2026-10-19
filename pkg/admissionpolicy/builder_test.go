@@ -569,6 +569,14 @@ func TestNegateExceptionMatchConditions_MultipleConditionsEvaluation(t *testing.
 			want: false,
 		},
 		{
+			name: "only resource condition matches; policy stays active",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": ""},
+				"resource": map[string]any{"resource": "accessentries"},
+			},
+			want: true,
+		},
+		{
 			name: "neither condition matches; policy stays active",
 			request: map[string]any{
 				"userInfo": map[string]any{"username": ""},
@@ -580,6 +588,114 @@ func TestNegateExceptionMatchConditions_MultipleConditionsEvaluation(t *testing.
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			out, _, err := program.Eval(map[string]any{"request": tt.request})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, out.Value())
+		})
+	}
+}
+
+func TestBuildValidatingAdmissionPolicy_DoesNotMutateCachedPolicy(t *testing.T) {
+	// Keep a sentinel in spare capacity: appending an exception must not write
+	// beyond the source slice's length, even if the source elements are unchanged.
+	conditions := []admissionregistrationv1.MatchCondition{
+		{Name: "scope", Expression: "exceptions.allowedImages.size() > 0"},
+		{Name: "sentinel", Expression: "false"},
+	}
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "cached-policy"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			MatchConditions:  conditions[:1],
+			Variables: []admissionregistrationv1.Variable{{
+				Name: "count", Expression: "exceptions.allowedImages.size()",
+			}},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression:        "exceptions.allowedImages.size() > 0",
+				MessageExpression: "string(exceptions.allowedValues.size())",
+			}},
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+				Key: "scope", ValueExpression: "string(exceptions.allowedImages.size())",
+			}},
+		},
+	}
+	original := policy.DeepCopy()
+	exception := &policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{Images: []string{"example.com/app:v1"}},
+	}
+	fullException := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "conditional-exemption"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "skip", Expression: "false"}},
+		},
+	}
+	var previous *admissionregistrationv1.ValidatingAdmissionPolicy
+	for range 2 {
+		vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+		err := BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy),
+			[]engineapi.GenericException{engineapi.NewCELPolicyException(exception), engineapi.NewCELPolicyException(fullException)})
+		require.NoError(t, err)
+		assert.Equal(t, original, policy)
+		assert.Equal(t, "sentinel", conditions[1].Name)
+		assert.Equal(t, "false", conditions[1].Expression)
+		if previous != nil {
+			assert.Equal(t, previous, vap, "repeated reconciliation must be stable")
+		}
+		previous = vap
+	}
+
+	// Removing the exception must rebuild empty scopes from the original policy,
+	// rather than keeping references or values from a previous reconciliation.
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+	require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy), nil))
+	assert.Equal(t, original, policy)
+	assert.Equal(t, "[].size() > 0", vap.Spec.MatchConditions[0].Expression)
+	require.Len(t, vap.Spec.Variables, 3)
+	assert.Equal(t, "[]", vap.Spec.Variables[0].Expression)
+	assert.Equal(t, "[]", vap.Spec.Variables[1].Expression)
+}
+
+func TestBuildValidatingAdmissionPolicy_InlinesMatchConditionScopes(t *testing.T) {
+	tests := []struct {
+		name   string
+		images []string
+		values []string
+		want   bool
+	}{
+		{name: "empty scopes", want: false},
+		{name: "images only", images: []string{"example.com/app:v1"}, want: true},
+		{name: "values only", values: []string{"blue"}, want: false},
+		{name: "images and values", images: []string{"example.com/app:v1"}, values: []string{"blue"}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "match-condition-scopes"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					MatchConditions: []admissionregistrationv1.MatchCondition{{
+						Name: "scope", Expression: "exceptions.allowedImages.size() == 1 && exceptions.allowedValues.size() == 0",
+					}},
+					Validations: []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			}
+			var exceptions []engineapi.GenericException
+			if len(tt.images)+len(tt.values) > 0 {
+				exceptions = []engineapi.GenericException{engineapi.NewCELPolicyException(&policiesv1beta1.PolicyException{
+					Spec: policiesv1beta1.PolicyExceptionSpec{Images: tt.images, AllowedValues: tt.values},
+				})}
+			}
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+			require.NoError(t, BuildValidatingAdmissionPolicy(nil, vap, engineapi.NewValidatingPolicy(policy), exceptions))
+			require.Len(t, vap.Spec.MatchConditions, 1)
+			// Compile without either exceptions or variables in scope, as required by
+			// the native admission match-condition environment.
+			env, err := cel.NewEnv()
+			require.NoError(t, err)
+			ast, issues := env.Compile(vap.Spec.MatchConditions[0].Expression)
+			require.NoError(t, issues.Err())
+			program, err := env.Program(ast)
+			require.NoError(t, err)
+			out, _, err := program.Eval(map[string]any{})
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, out.Value())
 		})
@@ -739,7 +855,7 @@ func TestBuildValidatingAdmissionPolicy_RewritesAllScopedExceptionFields(t *test
 	assert.Equal(t, "[]", variableExpressions["allowedValues"])
 	require.Len(t, vap.Spec.Validations, 1)
 	assert.Equal(t, "variables.allowedImages.size() > 0", vap.Spec.Validations[0].Expression)
-	assert.Equal(t, "'allowed: ' + string(variables.allowedValues.size())", vap.Spec.Validations[0].MessageExpression)
+	assert.Equal(t, `"allowed: " + string(variables.allowedValues.size())`, vap.Spec.Validations[0].MessageExpression)
 	require.Len(t, vap.Spec.AuditAnnotations, 1)
 	assert.Equal(t, "string(variables.allowedImages.size())", vap.Spec.AuditAnnotations[0].ValueExpression)
 }
@@ -804,9 +920,9 @@ func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testi
 	assert.Equal(t, `["blue","green"]`, variables["allowedValues"])
 	assert.Equal(t, "variables.exceptionAllowedImages2.size() > 0", vap.Spec.Validations[0].Expression)
 	assert.Equal(t, "variables.allowedValues.size() > 0", vap.Spec.Validations[1].Expression)
-	assert.Equal(t, "variables.allowedValues.join(',')", vap.Spec.Validations[0].MessageExpression)
+	assert.Equal(t, `variables.allowedValues.join(",")`, vap.Spec.Validations[0].MessageExpression)
 	require.Len(t, vap.Spec.AuditAnnotations, 1)
-	assert.Equal(t, "variables.exceptionAllowedImages2.join(',')", vap.Spec.AuditAnnotations[0].ValueExpression)
+	assert.Equal(t, `variables.exceptionAllowedImages2.join(",")`, vap.Spec.AuditAnnotations[0].ValueExpression)
 }
 
 func TestBuildValidatingAdmissionPolicy_EmptyScopedExceptionValues(t *testing.T) {

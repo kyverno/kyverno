@@ -7,6 +7,8 @@ spec:
   - name: "check-deployment-labels"
     kind: ValidatingPolicy
   matchConditions:
+    - name: "has-name"
+      expression: "object.metadata.name != ''"
     - name: "check-name"
       expression: "object.metadata.name == 'skipped-deployment'"
 ---

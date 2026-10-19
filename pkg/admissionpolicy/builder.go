@@ -105,10 +105,12 @@ func BuildValidatingAdmissionPolicy(
 		variables = rule.Validation.CEL.Variables
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		matchResources = *vpol.Spec.MatchConstraints
-		matchConditions = vpol.Spec.MatchConditions
-		validations = vpol.Spec.Validations
-		auditAnnotations = vpol.Spec.AuditAnnotations
-		variables = vpol.Spec.Variables
+		// The source policy belongs to the informer cache. Generated expressions must
+		// not overwrite it or reuse spare capacity in any of its slices.
+		matchConditions = slices.Clone(vpol.Spec.MatchConditions)
+		validations = slices.Clone(vpol.Spec.Validations)
+		auditAnnotations = slices.Clone(vpol.Spec.AuditAnnotations)
+		variables = slices.Clone(vpol.Spec.Variables)
 
 		// Convert CEL exceptions if they exist. Aggregate scoped values so the generated
 		// VAP has at most one variable per name, even when several exceptions contribute values.
@@ -129,24 +131,53 @@ func BuildValidatingAdmissionPolicy(
 
 		referencesAllowedImages := false
 		referencesAllowedValues := false
+		var policyExpressions []string
 		for _, variable := range variables {
-			referencesAllowedImages = referencesAllowedImages || strings.Contains(variable.Expression, "exceptions.allowedImages")
-			referencesAllowedValues = referencesAllowedValues || strings.Contains(variable.Expression, "exceptions.allowedValues")
+			policyExpressions = append(policyExpressions, variable.Expression)
 		}
 		for _, validation := range validations {
-			referencesAllowedImages = referencesAllowedImages ||
-				strings.Contains(validation.Expression, "exceptions.allowedImages") ||
-				strings.Contains(validation.MessageExpression, "exceptions.allowedImages")
-			referencesAllowedValues = referencesAllowedValues ||
-				strings.Contains(validation.Expression, "exceptions.allowedValues") ||
-				strings.Contains(validation.MessageExpression, "exceptions.allowedValues")
+			policyExpressions = append(policyExpressions, validation.Expression, validation.MessageExpression)
 		}
 		for _, annotation := range auditAnnotations {
-			referencesAllowedImages = referencesAllowedImages || strings.Contains(annotation.ValueExpression, "exceptions.allowedImages")
-			referencesAllowedValues = referencesAllowedValues || strings.Contains(annotation.ValueExpression, "exceptions.allowedValues")
+			policyExpressions = append(policyExpressions, annotation.ValueExpression)
+		}
+		for _, expression := range policyExpressions {
+			images, err := replaceExpressions(expression, map[string]string{"exceptions.allowedImages": "[]"})
+			if err != nil {
+				return err
+			}
+			values, err := replaceExpressions(expression, map[string]string{"exceptions.allowedValues": "[]"})
+			if err != nil {
+				return err
+			}
+			referencesAllowedImages = referencesAllowedImages || images != expression
+			referencesAllowedValues = referencesAllowedValues || values != expression
 		}
 
 		replacements := map[string]string{}
+		matchConditionReplacements := map[string]string{}
+		// Native match conditions run before variables are available. Inline the
+		// unconditional exception lists here, including an empty list for an absent scope.
+		for field, values := range map[string][]string{
+			"exceptions.allowedImages": exceptionImages,
+			"exceptions.allowedValues": exceptionAllowedValues,
+		} {
+			if values == nil {
+				values = []string{}
+			}
+			literal, err := celStringListLiteral(values)
+			if err != nil {
+				return err
+			}
+			matchConditionReplacements[field] = literal
+		}
+		for i := range matchConditions {
+			expression, err := replaceExpressions(matchConditions[i].Expression, matchConditionReplacements)
+			if err != nil {
+				return err
+			}
+			matchConditions[i].Expression = expression
+		}
 		var exceptionVariables []admissionregistrationv1.Variable
 		if len(exceptionImages) > 0 || referencesAllowedImages {
 			if exceptionImages == nil {
@@ -180,18 +211,35 @@ func BuildValidatingAdmissionPolicy(
 			})
 			replacements["exceptions.allowedValues"] = "variables." + name
 		}
-		// Native VAP variables are evaluated in declaration order. Put generated exception
-		// lists before policy-defined variables so the latter can safely reference them.
-		variables = append(exceptionVariables, variables...)
 		for i := range variables {
-			variables[i].Expression = replaceExpressions(variables[i].Expression, replacements)
+			expression, err := replaceExpressions(variables[i].Expression, replacements)
+			if err != nil {
+				return err
+			}
+			variables[i].Expression = expression
 		}
+		// Rewrite only policy expressions, then prepend the generated literal lists.
+		// Exception-supplied strings must never be rewritten as CEL references.
+		// Native VAP variables may only reference earlier declarations.
+		variables = append(exceptionVariables, variables...)
 		for i := range validations {
-			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
-			validations[i].MessageExpression = replaceExpressions(validations[i].MessageExpression, replacements)
+			expression, err := replaceExpressions(validations[i].Expression, replacements)
+			if err != nil {
+				return err
+			}
+			messageExpression, err := replaceExpressions(validations[i].MessageExpression, replacements)
+			if err != nil {
+				return err
+			}
+			validations[i].Expression = expression
+			validations[i].MessageExpression = messageExpression
 		}
 		for i := range auditAnnotations {
-			auditAnnotations[i].ValueExpression = replaceExpressions(auditAnnotations[i].ValueExpression, replacements)
+			expression, err := replaceExpressions(auditAnnotations[i].ValueExpression, replacements)
+			if err != nil {
+				return err
+			}
+			auditAnnotations[i].ValueExpression = expression
 		}
 	}
 
@@ -220,13 +268,6 @@ func BuildValidatingAdmissionPolicy(
 		vap.Labels[kyverno.LabelExcludeReporting] = "true"
 	}
 	return nil
-}
-
-func replaceExpressions(expr string, replacements map[string]string) string {
-	for old, new := range replacements {
-		expr = strings.ReplaceAll(expr, old, new)
-	}
-	return expr
 }
 
 // BuildValidatingAdmissionPolicyBinding is used to build a Kubernetes ValidatingAdmissionPolicyBinding from a Kyverno policy
@@ -363,27 +404,28 @@ func ensureUniqueExceptionMatchConditionNames(
 		used[condition.Name] = struct{}{}
 	}
 	for i := range conditions {
-		name := conditions[i].Name
-		if _, exists := used[name]; !exists {
-			used[name] = struct{}{}
-			continue
-		}
-		for suffix := 2; ; suffix++ {
-			suffixText := fmt.Sprintf("-%d", suffix)
-			base := name
-			if len(base)+len(suffixText) > 63 {
-				base = base[:63-len(suffixText)]
-			}
-			candidate := base + suffixText
-			if _, exists := used[candidate]; exists {
-				continue
-			}
-			conditions[i].Name = candidate
-			used[candidate] = struct{}{}
-			break
-		}
+		conditions[i].Name = reserveUniqueConditionName(conditions[i].Name, used)
 	}
 	return conditions
+}
+
+func reserveUniqueConditionName(name string, used map[string]struct{}) string {
+	if _, exists := used[name]; !exists {
+		used[name] = struct{}{}
+		return name
+	}
+	for suffix := 2; ; suffix++ {
+		suffixText := fmt.Sprintf("-%d", suffix)
+		base := name
+		if len(base)+len(suffixText) > 63 {
+			base = base[:63-len(suffixText)]
+		}
+		candidate := base + suffixText
+		if _, exists := used[candidate]; !exists {
+			used[candidate] = struct{}{}
+			return candidate
+		}
+	}
 }
 
 // uniqueVariableName chooses an available CEL variable name for a generated exception variable.
