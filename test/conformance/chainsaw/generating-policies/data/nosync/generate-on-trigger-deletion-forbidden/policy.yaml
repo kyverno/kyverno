@@ -1,0 +1,31 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: GeneratingPolicy
+metadata:
+  name: generate-on-podtemplate-deletion
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: ["v1"]
+      operations:  ["DELETE"]
+      resources:   ["podtemplates"]
+  variables:
+    - name: nsName
+      expression: "namespaceObject.metadata.name"
+    - name: configmap
+      expression: >-
+        [
+          {
+            "kind": dyn("ConfigMap"),
+            "apiVersion": dyn("v1"),
+            "metadata": dyn({
+              "name": "podtemplate-deleted",
+              "namespace": string(variables.nsName),
+            }),
+            "data": dyn({
+              "deleted": string(oldObject.metadata.name)
+            })
+          }
+        ]
+  generate:
+    - expression: generator.apply(variables.nsName, variables.configmap)

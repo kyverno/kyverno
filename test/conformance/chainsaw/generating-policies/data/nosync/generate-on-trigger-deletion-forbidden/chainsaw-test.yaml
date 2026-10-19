@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: generate-on-trigger-deletion-forbidden
+spec:
+  concurrent: false
+  steps:
+  - name: background controller cannot read the trigger kind
+    try:
+    - script:
+        content: kubectl auth can-i get podtemplates --namespace $NAMESPACE --as system:serviceaccount:kyverno:kyverno-background-controller
+        check:
+          ($error != null): true
+          (trim_space($stdout)): 'no'
+  - name: create policy
+    use:
+      template: ../../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  # The policy never reports ready: Kyverno cannot read PodTemplates, which is what this test is
+  # about, so the RBACPermissionsGranted condition stays false. Generation only needs the webhook.
+  - name: wait-generating-policy-webhook-configured
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: GeneratingPolicy
+          metadata:
+            name: generate-on-podtemplate-deletion
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - status: 'True'
+  - name: create the trigger
+    try:
+    - apply:
+        file: trigger.yaml
+  - name: delete the trigger
+    try:
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: PodTemplate
+          name: trigger-podtemplate
+  - name: check that the downstream is generated on trigger deletion
+    try:
+    - assert:
+        file: downstream-assert.yaml
