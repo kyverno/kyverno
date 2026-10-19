@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   name: pod-latest-tag
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - image: public.ecr.aws/docker/library/nginx:latest
     name: pod
@@ -13,6 +14,7 @@ metadata:
   name: pod-latest-tag
   namespace: match-conditions-userinfo-ns
 spec:
+  terminationGracePeriodSeconds: 0
   containers:
   - image: public.ecr.aws/docker/library/nginx:latest
     name: pod

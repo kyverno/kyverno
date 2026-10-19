@@ -179,7 +179,8 @@ working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AG
 [`pkg/cel/`](./pkg/cel/AGENTS.md), [`pkg/webhooks/`](./pkg/webhooks/AGENTS.md),
 [`pkg/background/`](./pkg/background/AGENTS.md), [`pkg/image/`](./pkg/image/AGENTS.md),
 [`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/admissionpolicy/`](./pkg/admissionpolicy/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
-[`pkg/controllers/`](./pkg/controllers/AGENTS.md),
+[`pkg/controllers/`](./pkg/controllers/AGENTS.md), [`pkg/config/`](./pkg/config/AGENTS.md),
+[`pkg/deprecations/`](./pkg/deprecations/AGENTS.md), [`pkg/utils/admission/`](./pkg/utils/admission/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/policy/`](./cmd/cli/kubectl-kyverno/policy/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/commands/apply/`](./cmd/cli/kubectl-kyverno/commands/apply/AGENTS.md),
@@ -270,4 +271,5 @@ Use this checklist before every push to avoid repeated CI failures:
 - [Logging](./docs/dev/logging/logging.md) — Logging levels and conventions
 - [Feature Flags](./docs/dev/feature-flags/README.md) — How to add and use feature toggles
 - [Reports Design](./docs/dev/reports/README.md) — Report architecture
+- [OCI Policy Bundle Spec](./docs/dev/oci/bundle-spec.md) — Normative spec for the `kyverno oci` bundle format
 - [Kyverno Docs](https://kyverno.io) — User-facing documentation

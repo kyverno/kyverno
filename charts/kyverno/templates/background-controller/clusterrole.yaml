@@ -83,6 +83,43 @@ rules:
       - patch
       - update
       - watch
+  {{- $aggregatedVerbs := list }}
+  {{- if .Values.rbac.roles.aggregate.admin }}
+  {{- $aggregatedVerbs = list "create" "delete" "get" "list" "patch" "update" "watch" }}
+  {{- else if .Values.rbac.roles.aggregate.view }}
+  {{- $aggregatedVerbs = list "get" "list" "watch" }}
+  {{- end }}
+  {{- if $aggregatedVerbs }}
+  # Everything else the chart aggregates into the admin and view roles (see
+  # templates/rbac/). Generate rules that create a RoleBinding to those roles
+  # are rejected by the RBAC escalation check unless the background controller
+  # holds every permission they grant.
+  - apiGroups:
+      - kyverno.io
+    resources:
+      - cleanuppolicies
+      - clustercleanuppolicies
+    verbs:
+      {{- toYaml $aggregatedVerbs | nindent 6 }}
+  - apiGroups:
+      - policies.kyverno.io
+    resources:
+      - deletingpolicies
+      - imagevalidatingpolicies
+      - namespaceddeletingpolicies
+      - namespacedimagevalidatingpolicies
+      - namespacedvalidatingpolicies
+      - validatingpolicies
+    verbs:
+      {{- toYaml $aggregatedVerbs | nindent 6 }}
+  - apiGroups:
+      - wgpolicyk8s.io
+    resources:
+      - policyreports
+      - clusterpolicyreports
+    verbs:
+      {{- toYaml $aggregatedVerbs | nindent 6 }}
+  {{- end }}
   - apiGroups:
       - ''
     resources:
