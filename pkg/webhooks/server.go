@@ -62,7 +62,9 @@ func NewServer(
 	discovery dclient.IDiscovery,
 	webhookServerHost string,
 	webhookServerPort int32,
+	backgroundServiceAccountName string,
 ) Server {
+	controllerUsernames := []string{config.KyvernoUserName(config.KyvernoServiceAccountName()), backgroundServiceAccountName}
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
@@ -73,6 +75,19 @@ func NewServer(
 	vpolLogger := logger.WithName("vpol")
 	ivpolLogger := logger.WithName("ivpol")
 	mpolLogger := logger.WithName("mpol")
+	// This endpoint validates metadata only, including targets outside policy trigger scope.
+	metadataHandler := handlers.AdmissionHandler(func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+		return handlers.AdmissionResponse{UID: request.UID, Allowed: true}
+	})
+	mux.HandlerFunc(
+		"POST",
+		config.GenerationLabelProtectionWebhookServicePath,
+		metadataHandler.
+			WithGenerateLabelProtection(controllerUsernames...).
+			WithMetrics(resourceLogger, metrics.WebhookValidating).
+			WithAdmission(resourceLogger.WithName("generation-labels")).
+			ToHandlerFunc("GENERATION-LABELS"),
+	)
 	mux.HandlerFunc(
 		"POST",
 		"/mpol/*policies",
@@ -257,6 +272,7 @@ func NewServer(
 		handlerFunc("VALIDATE", policyHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(policyLogger, metrics.WebhookValidating).
 			WithAdmission(policyLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),
@@ -267,6 +283,7 @@ func NewServer(
 		handlerFunc("VALIDATE", exceptionHandlers.Validation, "").
 			WithDump(debugModeOpts.DumpPayload).
 			WithSubResourceFilter().
+			WithLegacyPolicyDenial().
 			WithMetrics(exceptionLogger, metrics.WebhookValidating).
 			WithAdmission(exceptionLogger.WithName("validate")).
 			ToHandlerFunc("VALIDATE"),

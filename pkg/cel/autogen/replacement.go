@@ -6,11 +6,16 @@ import (
 
 // protectedSuffixes lists field paths that must remain anchored to the
 // workload object's own metadata and must never be rewritten into a pod
-// template path. For example, `object.metadata.namespace` must stay as-is
-// because pod templates (e.g. on Deployments) usually do not carry a
-// `metadata.namespace` field, which would otherwise break match conditions.
+// template path. For example, `object.metadata.namespace` and
+// `object.metadata.name` must stay as-is because pod templates (e.g. on
+// Deployments) usually do not carry those fields, which would otherwise
+// break match conditions and message expressions.
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
+	[]byte(".name"),
+	[]byte("['name']"),
+	[]byte("[\"name\"]"),
+	[]byte("[\\\"name\\\"]"),
 	[]byte("['namespace']"),
 	[]byte("[\"namespace\"]"),
 	[]byte("[\\\"namespace\\\"]"), // Handle JSON-escaped namespace paths
@@ -58,7 +63,7 @@ func replace(data, from, to []byte) []byte {
 	for idx >= 0 {
 		buf.Write(data[:idx])
 		rest := data[idx+len(from):]
-		if isProtected(rest) {
+		if isProtected(from, rest) {
 			// Leave this occurrence untouched and continue scanning after it.
 			buf.Write(from)
 		} else {
@@ -76,7 +81,12 @@ func replace(data, from, to []byte) []byte {
 // suffix must either end the expression or be followed by a non-identifier
 // character so that fields like `metadata.namespace` are protected while
 // hypothetical fields like `metadata.namespaceFoo` are not.
-func isProtected(rest []byte) bool {
+func isProtected(from, rest []byte) bool {
+	// The protected suffixes (like .name and .namespace) only apply when rewriting metadata paths.
+	// We do not want to protect .name if the user wrote object.spec.name.
+	if !bytes.Contains(from, []byte("metadata")) {
+		return false
+	}
 	for _, suffix := range protectedSuffixes {
 		if !bytes.HasPrefix(rest, suffix) {
 			continue
@@ -163,7 +173,7 @@ func replaceCEL(data, from, to []byte) []byte {
 				if validBoundary {
 					rest := data[i+len(from):]
 					if len(rest) == 0 || !isIdentifierByte(rest[0]) {
-						if isProtected(rest) {
+						if isProtected(from, rest) {
 							buf.Write(from)
 						} else {
 							buf.Write(to)

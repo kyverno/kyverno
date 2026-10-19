@@ -34,6 +34,7 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -368,7 +369,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			reps, err := eng.Handle(context.TODO(), request, nil)
+			// Skip inline mutation for policies with active target constraints, as admission does.
+			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -390,11 +392,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
-				p.Rc.addMutateResponse(response)
 
-				err = p.processMutateEngineResponse(response, resPath)
-				if err != nil {
-					return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+				// processMutateEngineResponse counts the response, so it is not counted here as well.
+				// A response with no rules, such as the autogen copy of a Pod policy evaluated against a
+				// Pod, mutated nothing, so it is not printed or written to the output file.
+				if len(r.Rules) > 0 {
+					if err := p.processMutateEngineResponse(response, resPath); err != nil {
+						return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+					}
 				}
 
 				responses = append(responses, response)
@@ -676,7 +681,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		compiler := gpolcompiler.NewCompiler()
+		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
 			compiled, errs := compiler.Compile(pol, p.CELExceptions)
@@ -732,11 +737,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				nil,
 			)
 			for _, policy := range compiledPolicies {
-				engineResponse, err := engine.Handle(request, policy, false)
+				engineResponse, err := engine.Handle(context.TODO(), request, policy, false)
 				if err != nil {
 					return nil, err
 				}
 				for _, res := range engineResponse.Policies {
+					// before the no-result branch below, so a skipped policy's trace is printed too
+					if p.Explain && res.Trace != nil {
+						// the generate output of the previous resource ends without a newline
+						fmt.Fprintln(p.Out)
+						trace.Render(p.Out, res.Trace)
+						fmt.Fprintln(p.Out)
+					}
 					if res.Result == nil {
 						generateResponse := engineapi.EngineResponse{
 							Resource: *engineResponse.Trigger,
@@ -1201,7 +1213,12 @@ func discoverCELTargets(
 	resource *unstructured.Unstructured,
 ) (map[string]map[string]bool, error) {
 	result := make(map[string]map[string]bool)
-	pols := provider.Fetch(context.TODO(), true)
+	// One shared cost budget for every target expression this call evaluates, so the CLI
+	// accounts for them the way a controller does. Without it the programs below are built
+	// through NewProgram but evaluated on a budgetless context, which charges nothing.
+	ctx, releaseBudget := requestbudget.EnsureBackground(context.TODO())
+	defer releaseBudget()
+	pols := provider.Fetch(ctx, true)
 	for _, pol := range pols {
 		tc := pol.Policy.GetTargetMatchConstraints()
 		if tc.Expression == "" {
@@ -1216,7 +1233,7 @@ func discoverCELTargets(
 		data[compiler.VariablesKey] = vars
 		for name, variable := range compiledVars {
 			vars.Append(name, func(*lazy.MapValue) ref.Val {
-				out, _, err := variable.ContextEval(context.TODO(), data)
+				out, _, err := variable.ContextEval(ctx, data)
 				if out != nil {
 					return out
 				}
@@ -1239,11 +1256,11 @@ func discoverCELTargets(
 		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
 			return nil, fmt.Errorf("output type of the target selector expression must be a map for policy %s", pol.Policy.GetName())
 		}
-		prog, err := env.Program(ast)
+		prog, err := compiler.NewProgram(env, ast)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create CEL program for policy %s: %w", pol.Policy.GetName(), err)
 		}
-		out, _, err := prog.ContextEval(context.TODO(), data)
+		out, _, err := prog.ContextEval(ctx, data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate CEL expression for policy %s: %w", pol.Policy.GetName(), err)
 		}

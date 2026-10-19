@@ -18,13 +18,21 @@ func SplitDocuments(yamlBytes document) ([]document, error) {
 	for {
 		// Read one YAML document at a time, until io.EOF is returned
 		b, err := reader.Read()
-		if err == io.EOF || len(b) == 0 {
+		// A real read error (e.g. an invalid "---" document separator) also
+		// comes back with an empty b, so it must be checked before the
+		// len(b) == 0 case below, or it looks identical to a clean io.EOF
+		// and gets silently swallowed instead of returned.
+		if err != nil && err != io.EOF {
+			return documents, fmt.Errorf("unable to read yaml: %w", err)
+		}
+		if len(b) == 0 {
 			break
-		} else if err != nil {
-			return documents, fmt.Errorf("unable to read yaml")
 		}
 		if !IsEmptyDocument(b) {
 			documents = append(documents, b)
+		}
+		if err == io.EOF {
+			break
 		}
 	}
 	return documents, nil

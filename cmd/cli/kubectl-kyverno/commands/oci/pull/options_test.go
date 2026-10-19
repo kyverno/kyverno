@@ -1,20 +1,68 @@
 package pull
 
 import (
-	"io"
+	"archive/tar"
+	"compress/gzip"
+	"context"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/static"
-	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-const testValidatingPolicyYAML = `
-apiVersion: policies.kyverno.io/v1beta1
+// writeTree writes files (bundle-root-relative path -> content) under a fresh temp directory
+// and returns its path.
+func writeTree(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for rel, content := range files {
+		full := filepath.Join(dir, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(full), 0o750))
+		require.NoError(t, os.WriteFile(full, []byte(content), 0o600))
+	}
+	return dir
+}
+
+// pushAndPull runs the source tree through Assemble, Validate, and Write, then Read, without
+// touching a real registry, and returns the directory Read extracted into.
+func pushAndPull(t *testing.T, srcDir string) string {
+	t.Helper()
+	b, err := bundle.Assemble(srcDir)
+	require.NoError(t, err)
+	require.NoError(t, bundle.Validate(b))
+	img, err := bundle.Write(b, nil)
+	require.NoError(t, err)
+
+	dstDir := t.TempDir()
+	_, err = bundle.Read(img, dstDir)
+	require.NoError(t, err)
+	return dstDir
+}
+
+// buildUnvalidatedImage assembles srcDir and writes it to an image without calling Validate,
+// simulating a bundle a non-conformant or malicious writer produced (Write itself never
+// validates; the caller does). This is what lets the TestReadRejects* tests below exercise
+// Read's own re-validation (reader MUST 3) directly instead of only bundle.Validate — Read must
+// reject bad content on its own, not merely rely on push having already refused to produce it.
+func buildUnvalidatedImage(t *testing.T, srcDir string) v1.Image {
+	t.Helper()
+	b, err := bundle.Assemble(srcDir)
+	require.NoError(t, err)
+	img, err := bundle.Write(b, nil)
+	require.NoError(t, err)
+	return img
+}
+
+func TestRoundTripPreservesNestedLayoutAndBytes(t *testing.T) {
+	files := map[string]string{
+		"policies/require-labels.yaml": `apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:
   name: require-labels
@@ -28,151 +76,170 @@ spec:
   validations:
   - expression: "object.metadata.labels != null"
     message: "labels are required"
-`
-
-const testDeletingPolicyYAML = `
-apiVersion: policies.kyverno.io/v1beta1
-kind: DeletingPolicy
+`,
+		"exceptions/team-a/check-pod.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
 metadata:
-  name: delete-stale-pods
+  name: check-pod
+  namespace: team-a
 spec:
-  matchConstraints:
-    resourceRules:
-    - apiGroups: [""]
-      apiVersions: ["v1"]
-      resources: ["pods"]
-  conditions:
-  - expression: "object.status.phase == 'Succeeded'"
-`
+  policyRefs:
+  - name: require-labels
+    kind: ValidatingPolicy
+`,
+	}
+	srcDir := writeTree(t, files)
+	dstDir := pushAndPull(t, srcDir)
 
-const testLegacyClusterPolicyYAML = `
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+	for rel, content := range files {
+		got, err := os.ReadFile(filepath.Join(dstDir, filepath.FromSlash(rel)))
+		require.NoError(t, err, "expected %s to be extracted", rel)
+		assert.Equal(t, content, string(got), "%s should round-trip byte-for-byte", rel)
+	}
+}
+
+func TestRoundTripDeterministicContentDigest(t *testing.T) {
+	// Three files across two directories, chosen so a per-directory (filepath.WalkDir) visit
+	// order disagrees with a full-path lexical sort: "foo-bar.yaml" sorts before "foo/" as a
+	// full path ('-' 0x2D < '/' 0x2F), but a directory walk visits the "foo" subtree, whose
+	// entry name "foo" alone sorts before the sibling file "foo-bar.yaml", before it. A writer
+	// that forgets the final full-path sort and archives in walk order would still be
+	// self-consistent (same wrong order every run) but would disagree with a byte-for-byte
+	// comparison against what the tar spec requires; asserting the exact tar entry order below,
+	// not just digest equality, is what catches that class of bug.
+	files := map[string]string{
+		"policies/require-labels.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
 metadata:
   name: require-labels
 spec:
+  validations:
+  - expression: "true"
+`,
+		"foo-bar.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: foo-bar
+spec:
+  validations:
+  - expression: "true"
+`,
+		"foo/x.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: foo-x
+spec:
+  validations:
+  - expression: "true"
+`,
+	}
+	wantOrder := []string{"foo-bar.yaml", "foo/x.yaml", "policies/require-labels.yaml"}
+
+	build := func() (string, []string) {
+		src := writeTree(t, files)
+		b, err := bundle.Assemble(src)
+		require.NoError(t, err)
+		require.NoError(t, bundle.Validate(b))
+		img, err := bundle.Write(b, nil)
+		require.NoError(t, err)
+		layers, err := img.Layers()
+		require.NoError(t, err)
+		require.Len(t, layers, 1)
+		d, err := layers[0].Digest()
+		require.NoError(t, err)
+
+		rc, err := layers[0].Compressed()
+		require.NoError(t, err)
+		defer rc.Close()
+		gz, err := gzip.NewReader(rc)
+		require.NoError(t, err)
+		tr := tar.NewReader(gz)
+		var names []string
+		for {
+			hdr, err := tr.Next()
+			if err != nil {
+				break
+			}
+			names = append(names, hdr.Name)
+		}
+		return d.String(), names
+	}
+
+	digest1, names1 := build()
+	digest2, names2 := build()
+
+	assert.Equal(t, wantOrder, names1, "content-layer entries must be sorted by full path, not by directory-walk order")
+	assert.Equal(t, names1, names2)
+	assert.Equal(t, digest1, digest2, "the same writer against the same input tree must produce the same content-layer digest")
+}
+
+// TestAssembleRejectsLegacyKind and TestAssembleRejectsUnknownResources assert Assemble's own
+// rejection, not Read's: Assemble's per-file policy.Load call fatally rejects a legacy
+// kyverno.io kind (the migration-block predates this change) and any other kind the loader's
+// schema recognizes but this package doesn't handle (e.g. a core v1 ConfigMap), before Write is
+// ever reached. A bundle carrying either therefore can never be produced in the first place, so
+// there is no image to hand to Read for these two cases — unlike TestReadRejectsUnsupportedAPIVersion
+// and friends below, which construct an (unvalidated) image and call Read directly, because
+// their inputs load without a fatal Assemble error and so can reach Read.
+func TestAssembleRejectsLegacyKind(t *testing.T) {
+	srcDir := writeTree(t, map[string]string{
+		"policy.yaml": `apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-root
+spec:
   rules:
-  - name: check-team
+  - name: check-root
     match:
       resources:
         kinds:
         - Pod
     validate:
-      message: "label 'team' is required"
-      pattern:
-        metadata:
-          labels:
-            team: "?*"
-`
-
-type trackedReadCloser struct {
-	io.Reader
-	closed bool
-}
-
-func (t *trackedReadCloser) Close() error {
-	t.closed = true
-	return nil
-}
-
-type trackedLayer struct {
-	v1.Layer
-	rc *trackedReadCloser
-}
-
-func newTrackedLayer(t *testing.T, data []byte) *trackedLayer {
-	t.Helper()
-	base := static.NewLayer(data, types.MediaType("test"))
-	blob, err := base.Compressed()
-	assert.NoError(t, err)
-	return &trackedLayer{Layer: base, rc: &trackedReadCloser{Reader: blob}}
-}
-
-func (l *trackedLayer) Compressed() (io.ReadCloser, error) {
-	return l.rc, nil
-}
-
-func TestExtractAndSavePoliciesValidatingPolicy(t *testing.T) {
-	dir := t.TempDir()
-	layer := newTrackedLayer(t, []byte(testValidatingPolicyYAML))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
-	assert.NoError(t, err)
-	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
-
-	// Filename is now kind-prefixed to prevent collisions: validatingpolicy-<name>.yaml
-	out, err := os.ReadFile(filepath.Join(dir, "validatingpolicy-require-labels.yaml"))
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "require-labels")
-	assert.Contains(t, string(out), "ValidatingPolicy")
-}
-
-func TestExtractAndSavePoliciesDeletingPolicy(t *testing.T) {
-	dir := t.TempDir()
-	layer := newTrackedLayer(t, []byte(testDeletingPolicyYAML))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
-	assert.NoError(t, err)
-	assert.True(t, layer.rc.closed, "layer reader should be closed after extraction")
-
-	// Filename is now kind-prefixed: deletingpolicy-<name>.yaml
-	out, err := os.ReadFile(filepath.Join(dir, "deletingpolicy-delete-stale-pods.yaml"))
-	assert.NoError(t, err)
-	assert.Contains(t, string(out), "delete-stale-pods")
-}
-
-func TestExtractAndSavePoliciesRejectsLegacyKinds(t *testing.T) {
-	dir := t.TempDir()
-	layer := newTrackedLayer(t, []byte(testLegacyClusterPolicyYAML))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
+      message: "Root user is disallowed."
+`,
+	})
+	_, err := bundle.Assemble(srcDir)
 	assert.Error(t, err)
-	assert.True(t, strings.Contains(err.Error(), "legacy"), "error should mention 'legacy'")
-	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
+	assert.Contains(t, err.Error(), "kyverno.io/v1")
 }
 
-func TestExtractAndSavePoliciesClosesReaderOnUnmarshalError(t *testing.T) {
-	dir := t.TempDir()
-	layer := newTrackedLayer(t, []byte("not: [valid, policy"))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
-	assert.Error(t, err)
-	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
-}
-
-func TestExtractAndSavePoliciesEmptyDocument(t *testing.T) {
-	dir := t.TempDir()
-	layer := newTrackedLayer(t, []byte("   \n---\n   "))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
-	assert.NoError(t, err)
-	assert.True(t, layer.rc.closed, "layer reader should be closed")
-}
-
-func TestExtractAndSavePoliciesRejectsUnknownResources(t *testing.T) {
-	dir := t.TempDir()
-	unknownYAML := `
-apiVersion: v1
+func TestAssembleRejectsUnknownResources(t *testing.T) {
+	srcDir := writeTree(t, map[string]string{
+		"config.yaml": `apiVersion: v1
 kind: ConfigMap
 metadata:
   name: my-config
 data:
   key: value
-`
-	layer := newTrackedLayer(t, []byte(unknownYAML))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
+`,
+	})
+	_, err := bundle.Assemble(srcDir)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported resource")
-	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
 }
 
-func TestExtractAndSavePoliciesRejectsVAP(t *testing.T) {
-	dir := t.TempDir()
+func TestReadRejectsUnsupportedAPIVersion(t *testing.T) {
+	srcDir := writeTree(t, map[string]string{
+		"policy.yaml": `apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
+metadata:
+  name: alpha-policy
+spec:
+  validations:
+  - expression: "true"
+`,
+	})
+	img := buildUnvalidatedImage(t, srcDir)
+	_, err := bundle.Read(img, t.TempDir())
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported resource")
+	assert.Contains(t, err.Error(), "policies.kyverno.io/v1alpha1")
+}
+
+func TestReadRejectsVAP(t *testing.T) {
 	// ValidatingAdmissionPolicy is a native k8s type in admissionregistration.k8s.io
 	// and must be rejected even though it is a CEL-based type.
-	vapYAML := `
-apiVersion: admissionregistration.k8s.io/v1
+	srcDir := writeTree(t, map[string]string{
+		"vap.yaml": `apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   name: check-labels
@@ -185,113 +252,80 @@ spec:
       operations: ["CREATE"]
   validations:
   - expression: "object.metadata.labels != null"
-`
-	layer := newTrackedLayer(t, []byte(vapYAML))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
+`,
+	})
+	img := buildUnvalidatedImage(t, srcDir)
+	_, err := bundle.Read(img, t.TempDir())
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported resource")
-	assert.True(t, layer.rc.closed, "layer reader should be closed even when extraction fails")
+	assert.Contains(t, err.Error(), "native Kubernetes admission policy")
 }
 
-func TestExtractAndSavePoliciesKindPrefixedFilenames(t *testing.T) {
-	// Two policies of different kinds with the same object name must produce
-	// two distinct files — no silent overwrite.
-	dir := t.TempDir()
-	multiYAML := `
-apiVersion: policies.kyverno.io/v1beta1
-kind: ValidatingPolicy
-metadata:
-  name: same-name
-spec:
-  validations:
-  - expression: "true"
----
-apiVersion: policies.kyverno.io/v1beta1
-kind: MutatingPolicy
-metadata:
-  name: same-name
-`
-	layer := newTrackedLayer(t, []byte(multiYAML))
-
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
-	assert.NoError(t, err)
-
-	_, errVP := os.Stat(filepath.Join(dir, "validatingpolicy-same-name.yaml"))
-	assert.NoError(t, errVP, "expected validatingpolicy-same-name.yaml")
-	_, errMP := os.Stat(filepath.Join(dir, "mutatingpolicy-same-name.yaml"))
-	assert.NoError(t, errMP, "expected mutatingpolicy-same-name.yaml")
-}
-
-func TestExtractAndSavePoliciesRejectsPartialIdentity(t *testing.T) {
-	dir := t.TempDir()
-
-	// Missing metadata.name
-	noNameYAML := `
-apiVersion: policies.kyverno.io/v1beta1
+func TestReadRejectsPartialIdentity(t *testing.T) {
+	// Missing metadata.name.
+	srcDir := writeTree(t, map[string]string{
+		"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 spec:
   validations:
   - expression: "true"
-`
-	layer := newTrackedLayer(t, []byte(noNameYAML))
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
+`,
+	})
+	img := buildUnvalidatedImage(t, srcDir)
+	_, err := bundle.Read(img, t.TempDir())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "resource missing kind or metadata.name")
-
-	// Missing kind
-	noKindYAML := `
-apiVersion: policies.kyverno.io/v1beta1
-metadata:
-  name: no-kind-policy
-`
-	layer2 := newTrackedLayer(t, []byte(noKindYAML))
-	err2 := extractAndSavePolicies(layer2, dir, make(map[string]bool))
-	assert.Error(t, err2)
-	assert.Contains(t, err2.Error(), "unmarshaling document")
 }
 
-func TestExtractAndSavePoliciesRejectsUnsupportedAPIVersion(t *testing.T) {
-	dir := t.TempDir()
-	v1alpha1YAML := `
-apiVersion: policies.kyverno.io/v1alpha1
-kind: ValidatingPolicy
-metadata:
-  name: alpha-policy
-spec:
-  validations:
-  - expression: "true"
-`
-	layer := newTrackedLayer(t, []byte(v1alpha1YAML))
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "unsupported resource")
-}
-
-func TestExtractAndSavePoliciesRejectsUnknownKind(t *testing.T) {
-	dir := t.TempDir()
-	unknownKindYAML := `
-apiVersion: policies.kyverno.io/v1beta1
+func TestReadRejectsUnknownKind(t *testing.T) {
+	srcDir := writeTree(t, map[string]string{
+		"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
 kind: FooBarPolicy
 metadata:
   name: unknown-kind
 spec:
   validations:
   - expression: "true"
-`
-	layer := newTrackedLayer(t, []byte(unknownKindYAML))
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
+`,
+	})
+	img := buildUnvalidatedImage(t, srcDir)
+	_, err := bundle.Read(img, t.TempDir())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported resource")
 }
 
-func TestExtractAndSavePoliciesNamespacedResourceIncludesNamespaceInFilename(t *testing.T) {
-	// A namespaced CEL policy name is unique within its namespace.
-	// When multiple namespaces contain a policy with the same name, both must be saved
-	// without collision or silent overwrites.
-	dir := t.TempDir()
-	multiYAML := `
-apiVersion: policies.kyverno.io/v1beta1
+// TestReadRejectsInvalidCELExpression exercises Read's own re-validation of CEL compilation
+// (reader MUST 3): a bundle containing a ValidatingPolicy with an invalid expression must never
+// reach a caller's directory, even though it can only exist as an image because it was written
+// via buildUnvalidatedImage (Assemble/Write alone don't compile CEL; only Validate does, and a
+// real push would have refused this bundle before it ever reached a registry).
+func TestReadRejectsInvalidCELExpression(t *testing.T) {
+	srcDir := writeTree(t, map[string]string{
+		"policy.yaml": `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-labels
+spec:
+  validations:
+  - expression: "invalid.syntax == ((("
+    message: "labels are required"
+`,
+	})
+	img := buildUnvalidatedImage(t, srcDir)
+	dstDir := t.TempDir()
+	_, err := bundle.Read(img, dstDir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "validating CEL expression in ValidatingPolicy")
+
+	entries, err := os.ReadDir(dstDir)
+	require.NoError(t, err)
+	assert.Empty(t, entries, "a rejected bundle must leave the destination directory empty")
+}
+
+func TestReadPreservesNamespacedIdentityAcrossNamespaces(t *testing.T) {
+	// A namespaced CEL policy name is unique within its namespace: two namespaces each holding
+	// a policy of the same name are two distinct resources, not a duplicate.
+	srcDir := writeTree(t, map[string]string{
+		"team-a.yaml": `apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedValidatingPolicy
 metadata:
   name: check-pod
@@ -299,8 +333,8 @@ metadata:
 spec:
   validations:
   - expression: "true"
----
-apiVersion: policies.kyverno.io/v1beta1
+`,
+		"team-b.yaml": `apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedValidatingPolicy
 metadata:
   name: check-pod
@@ -308,26 +342,18 @@ metadata:
 spec:
   validations:
   - expression: "true"
-`
-	layer := newTrackedLayer(t, []byte(multiYAML))
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
+`,
+	})
+	dstDir := pushAndPull(t, srcDir)
+	_, err := os.Stat(filepath.Join(dstDir, "team-a.yaml"))
 	assert.NoError(t, err)
-
-	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a_check-pod.yaml"))
-	assert.NoError(t, errA, "expected namespacedvalidatingpolicy-team-a_check-pod.yaml")
-	assert.Contains(t, string(outA), "team-a")
-
-	outB, errB := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-b_check-pod.yaml"))
-	assert.NoError(t, errB, "expected namespacedvalidatingpolicy-team-b_check-pod.yaml")
-	assert.Contains(t, string(outB), "team-b")
+	_, err = os.Stat(filepath.Join(dstDir, "team-b.yaml"))
+	assert.NoError(t, err)
 }
 
-func TestExtractAndSavePoliciesHyphenatedNamespaceAndNameNoCollision(t *testing.T) {
-	// (namespace=team-a, name=check-pod) and (namespace=team, name=a-check-pod)
-	// have distinct identities and must produce distinct filenames without collision or overwriting.
-	dir := t.TempDir()
-	multiYAML := `
-apiVersion: policies.kyverno.io/v1beta1
+func TestReadRejectsDuplicateIdentity(t *testing.T) {
+	srcDir := writeTree(t, map[string]string{
+		"a.yaml": `apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedValidatingPolicy
 metadata:
   name: check-pod
@@ -335,33 +361,8 @@ metadata:
 spec:
   validations:
   - expression: "true"
----
-apiVersion: policies.kyverno.io/v1beta1
-kind: NamespacedValidatingPolicy
-metadata:
-  name: a-check-pod
-  namespace: team
-spec:
-  validations:
-  - expression: "true"
-`
-	layer := newTrackedLayer(t, []byte(multiYAML))
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
-	assert.NoError(t, err)
-
-	outA, errA := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team-a_check-pod.yaml"))
-	assert.NoError(t, errA, "expected namespacedvalidatingpolicy-team-a_check-pod.yaml")
-	assert.Contains(t, string(outA), "team-a")
-
-	outB, errB := os.ReadFile(filepath.Join(dir, "namespacedvalidatingpolicy-team_a-check-pod.yaml"))
-	assert.NoError(t, errB, "expected namespacedvalidatingpolicy-team_a-check-pod.yaml")
-	assert.Contains(t, string(outB), "team")
-}
-
-func TestExtractAndSavePoliciesRejectsDuplicateIdentity(t *testing.T) {
-	dir := t.TempDir()
-	dupYAML := `
-apiVersion: policies.kyverno.io/v1beta1
+`,
+		"b.yaml": `apiVersion: policies.kyverno.io/v1beta1
 kind: NamespacedValidatingPolicy
 metadata:
   name: check-pod
@@ -369,40 +370,37 @@ metadata:
 spec:
   validations:
   - expression: "true"
----
-apiVersion: policies.kyverno.io/v1beta1
-kind: NamespacedValidatingPolicy
-metadata:
-  name: check-pod
-  namespace: team-a
-spec:
-  validations:
-  - expression: "true"
-`
-	layer := newTrackedLayer(t, []byte(dupYAML))
-	err := extractAndSavePolicies(layer, dir, make(map[string]bool))
+`,
+	})
+	img := buildUnvalidatedImage(t, srcDir)
+	_, err := bundle.Read(img, t.TempDir())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate resource identity")
 }
 
-func TestExtractAndSavePoliciesRejectsDuplicateAcrossLayers(t *testing.T) {
-	dir := t.TempDir()
-	yamlDoc := `
-apiVersion: policies.kyverno.io/v1beta1
-kind: ValidatingPolicy
-metadata:
-  name: check-labels
-spec:
-  validations:
-  - expression: "true"
-`
-	seen := make(map[string]bool)
-	layer1 := newTrackedLayer(t, []byte(yamlDoc))
-	err := extractAndSavePolicies(layer1, dir, seen)
-	assert.NoError(t, err)
-
-	layer2 := newTrackedLayer(t, []byte(yamlDoc))
-	err = extractAndSavePolicies(layer2, dir, seen)
+func TestOptionsExecuteWithoutRegistry(t *testing.T) {
+	o := options{imageRef: ""}
+	err := o.validate("dir")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate resource identity")
+
+	o2 := options{imageRef: "example.com/repo/test:v1"}
+	err = o2.validate("")
+	assert.Error(t, err)
+}
+
+// TestOptionsExecuteFailsWhenImageDoesNotExist uses an in-process registry (no external network
+// dependency, so it can't flake on DNS, TLS, or an intermediary) and asks for a reference that
+// registry never received, so the failure is deterministically "manifest unknown", not whatever
+// example.com happens to return today.
+func TestOptionsExecuteFailsWhenImageDoesNotExist(t *testing.T) {
+	srv := httptest.NewServer(registry.New())
+	defer srv.Close()
+	u, err := url.Parse(srv.URL)
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	o := options{imageRef: u.Host + "/does-not-exist/repo:v1"}
+	err = o.execute(context.Background(), dir, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fetching remote image")
 }

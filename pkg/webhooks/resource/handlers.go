@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -94,6 +95,7 @@ func NewHandlers(
 	if maxAuditCapacity <= 0 {
 		maxAuditCapacity = 1
 	}
+	registerLegacyExecutionEscapeHatch(pCache)
 	return &resourceHandlers{
 		engine:                       engine,
 		client:                       client,
@@ -306,7 +308,14 @@ func (h *resourceHandlers) retrieveAndCategorizePolicies(
 			mutatePolicies = append(mutatePolicies, policy)
 		}
 		if spec.HasVerifyImages() {
-			policies = append(policies, policy)
+			if mutation {
+				imageVerifyValidatePolicies = append(imageVerifyValidatePolicies, policy)
+			} else if spec.HasVerifyImageChecks() {
+				imageVerifyValidatePolicies = append(imageVerifyValidatePolicies, policy)
+				if !slices.Contains(policies, policy) {
+					policies = append(policies, policy)
+				}
+			}
 		}
 		if spec.HasValidate() && spec.EmitWarning != nil && *spec.EmitWarning {
 			auditWarnPolicies = append(auditWarnPolicies, policy)
