@@ -317,3 +317,53 @@ func TestHandleMAPGeneration_SkipsAndDeletesForUnsupportedCELException(t *testin
 	assert.Contains(t, updated.Status.GetConditionStatus().Message, "unsupported-image-scope")
 	assert.Contains(t, updated.Status.GetConditionStatus().Message, "cannot evaluate")
 }
+
+func TestHandleMAPGeneration_SkipsUndeclaredExceptionReferences(t *testing.T) {
+	ctx := context.Background()
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-exception-reference"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: mapGenEnabled(),
+			MatchConditions: []admissionregistrationv1.MatchCondition{{
+				Name:       "uses-kyverno-exceptions",
+				Expression: "exceptions.allowedImages.size() == 0",
+			}},
+		},
+	}
+	mpol.Status.Generated = true
+	mapName := "mpol-" + mpol.GetName()
+	bindingName := constructBindingName(mapName)
+	existingMAP := &admissionregistrationv1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: mapName, ResourceVersion: "1"},
+	}
+	existingBinding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName, ResourceVersion: "1"},
+	}
+	kubeClient := kubefake.NewSimpleClientset(existingMAP, existingBinding)
+	kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+	mapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, mapIndexer.Add(existingMAP))
+	require.NoError(t, bindingIndexer.Add(existingBinding))
+	c := &controller{
+		client: kubeClient,
+		kyvernoClient: kyvernoClient,
+		discoveryClient: dclient.NewEmptyFakeClient().Discovery(),
+		checker: permissiveAuthChecker{},
+		mapV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
+		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
+		celpolexLister: newCELPolexLister(t),
+		polexEnabled: true,
+		exceptionNamespace: "*",
+		eventGen: event.NewFake(),
+	}
+	require.NoError(t, c.handleMAPGenerationWithVersion(ctx, mpol, admissionpolicy.MutatingAdmissionPolicyVersionV1))
+	_, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "unsupported native MAP must be deleted")
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "native MAP binding must be deleted")
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.GetName(), metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, updated.Status.Generated)
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "exceptions.allowedImages")
+}

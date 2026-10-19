@@ -992,3 +992,46 @@ func TestBuildValidatingAdmissionPolicy_EmptyScopedExceptionValues(t *testing.T)
 		})
 	}
 }
+
+func TestBuildValidatingAdmissionPolicy_DeterministicExceptionScopeOrder(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "sorted-exceptions", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "exceptions.allowedImages.size() > 0 && exceptions.allowedValues.size() > 0",
+				Message:    "scopes must exist",
+			}},
+		},
+	}
+	alpha := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "a-namespace", Name: "z-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"ghcr.io/example/alpha:v1"},
+			AllowedValues: []string{"alpha"},
+		},
+	}
+	beta := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "b-namespace", Name: "a-exception"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"ghcr.io/example/beta:v1"},
+			AllowedValues: []string{"beta"},
+		},
+	}
+	build := func(first, second *policiesv1beta1.PolicyException) admissionregistrationv1.ValidatingAdmissionPolicySpec {
+		t.Helper()
+		var vap admissionregistrationv1.ValidatingAdmissionPolicy
+		err := BuildValidatingAdmissionPolicy(
+			nil, &vap, engineapi.NewValidatingPolicy(policy),
+			[]engineapi.GenericException{engineapi.NewCELPolicyException(first), engineapi.NewCELPolicyException(second)},
+		)
+		require.NoError(t, err)
+		return vap.Spec
+	}
+	inOrder := build(alpha, beta)
+	reversed := build(beta, alpha)
+	assert.Equal(t, inOrder, reversed)
+	require.Len(t, inOrder.Variables, 2)
+	assert.Equal(t, `["ghcr.io/example/alpha:v1","ghcr.io/example/beta:v1"]`, inOrder.Variables[0].Expression)
+	assert.Equal(t, `["alpha","beta"]`, inOrder.Variables[1].Expression)
+}

@@ -75,6 +75,9 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 		if ok, msg := admissionpolicy.CanGenerateNativeMutatingPolicyWithMatchConditions(celexceptions, len(mpol.Spec.MatchConditions)); !ok {
 			shouldDelete = true
 			reason = "skip generating MutatingAdmissionPolicy: " + msg
+		} else if ok, msg := admissionpolicy.CanGenerateNativeMutatingPolicyExpressions(mpol); !ok {
+			shouldDelete = true
+			reason = "skip generating MutatingAdmissionPolicy: " + msg
 		}
 	}
 

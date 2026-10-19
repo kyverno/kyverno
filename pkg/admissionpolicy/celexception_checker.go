@@ -65,6 +65,47 @@ func CanGenerateNativeMutatingPolicy(exceptions []policiesv1beta1.PolicyExceptio
 	)
 }
 
+// CanGenerateNativeMutatingPolicyExpressions rejects Kyverno-only exception variables
+// in policy CEL expressions. All native MAP API versions copy these expressions
+// without declaring an "exceptions" variable. Keep Kyverno's admission path
+// active rather than submitting an invalid or semantically different native MAP.
+func CanGenerateNativeMutatingPolicyExpressions(policy *policiesv1beta1.MutatingPolicy) (bool, string) {
+	type expression struct {
+		source string
+		value  string
+	}
+	var expressions []expression
+	for _, condition := range policy.Spec.MatchConditions {
+		expressions = append(expressions, expression{"matchCondition " + condition.Name, condition.Expression})
+	}
+	for _, variable := range policy.Spec.Variables {
+		expressions = append(expressions, expression{"variable " + variable.Name, variable.Expression})
+	}
+	for i, mutation := range policy.Spec.Mutations {
+		if mutation.ApplyConfiguration != nil {
+			expressions = append(expressions, expression{fmt.Sprintf("mutation %d applyConfiguration", i), mutation.ApplyConfiguration.Expression})
+		}
+		if mutation.JSONPatch != nil {
+			expressions = append(expressions, expression{fmt.Sprintf("mutation %d jsonPatch", i), mutation.JSONPatch.Expression})
+		}
+	}
+
+	replacements := map[string]string{
+		"exceptions.allowedImages": "[]",
+		"exceptions.allowedValues": "[]",
+	}
+	for _, item := range expressions {
+		rewritten, err := replaceExpressions(item.value, replacements)
+		if err != nil {
+			return false, fmt.Sprintf("cannot inspect %s for native MutatingAdmissionPolicy generation: %v", item.source, err)
+		}
+		if rewritten != item.value {
+			return false, fmt.Sprintf("%s references exceptions.allowedImages or exceptions.allowedValues, which a native MutatingAdmissionPolicy cannot evaluate", item.source)
+		}
+	}
+	return true, ""
+}
+
 // CanGenerateNativePolicyWithMatchConditions also ensures the generated exception conditions
 // fit alongside the policy's own conditions within the Kubernetes API limit.
 func CanGenerateNativePolicyWithMatchConditions(exceptions []policiesv1beta1.PolicyException, policyMatchConditionCount int) (bool, string) {

@@ -7,6 +7,7 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -228,4 +229,84 @@ func Test_CanGenerateNativePolicies_MatchConditionLimit(t *testing.T) {
 	got, reason = CanGenerateNativeMutatingPolicyWithMatchConditions(globalExceptions[:1], 64)
 	assert.Equal(t, false, got)
 	assert.Equal(t, "generated MutatingAdmissionPolicy would contain 65 matchConditions; Kubernetes allows at most 64", reason)
+}
+
+func TestCanGenerateNativeMutatingPolicyExpressions(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy *policiesv1beta1.MutatingPolicy
+		want   bool
+	}{
+		{
+			name:   "no references",
+			policy: &policiesv1beta1.MutatingPolicy{},
+			want:   true,
+		},
+		{
+			name: "match condition references exception values",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "scope", Expression: "exceptions.allowedImages.size() > 0"}},
+			}},
+		},
+		{
+			name: "variable references exception values",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{{Name: "values", Expression: "exceptions.allowedValues"}},
+			}},
+		},
+		{
+			name: "apply configuration references exception values",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				Mutations: []admissionregistrationv1alpha1.Mutation{{ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+					Expression: "exceptions.allowedImages[0]",
+				}}},
+			}},
+		},
+		{
+			name: "json patch references exception values",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				Mutations: []admissionregistrationv1alpha1.Mutation{{JSONPatch: &admissionregistrationv1alpha1.JSONPatch{
+					Expression: "exceptions.allowedValues[0]",
+				}}},
+			}},
+		},
+		{
+			name: "quoted string is not a variable reference",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{{Name: "literal", Expression: "'exceptions.allowedImages'"}},
+			}},
+			want: true,
+		},
+		{
+			name: "similarly named object field is not a variable reference",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{{Name: "resourceField", Expression: "object.exceptions.allowedValues"}},
+			}},
+			want: true,
+		},
+		{
+			name: "locally shadowed exceptions identifier is not a global reference",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{{Name: "local", Expression: "object.items.all(exceptions, exceptions.allowedImages.size() > 0)"}},
+			}},
+			want: true,
+		},
+		{
+			name: "unparseable exception expression fails closed",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				Variables: []admissionregistrationv1.Variable{{Name: "broken", Expression: "exceptions.allowedImages["}},
+			}},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reason := CanGenerateNativeMutatingPolicyExpressions(tc.policy)
+			assert.Equal(t, got, tc.want)
+			if tc.want {
+				assert.Equal(t, reason, "")
+			} else {
+				assert.Assert(t, reason != "")
+			}
+		})
+	}
 }

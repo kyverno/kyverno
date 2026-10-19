@@ -115,13 +115,23 @@ func BuildValidatingAdmissionPolicy(
 		// Convert CEL exceptions if they exist. Aggregate scoped values so the generated
 		// VAP has at most one variable per name, even when several exceptions contribute values.
 		var celExceptions []policiesv1beta1.PolicyException
-		var exceptionImages, exceptionAllowedValues []string
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
 				celExceptions = append(celExceptions, *celpolex)
-				exceptionImages = append(exceptionImages, celpolex.Spec.Images...)
-				exceptionAllowedValues = append(exceptionAllowedValues, celpolex.Spec.AllowedValues...)
 			}
+		}
+		// Informer/list order is not stable. Sort the local copy before aggregating
+		// scope literals so repeated reconciliations produce identical CEL.
+		slices.SortFunc(celExceptions, func(a, b policiesv1beta1.PolicyException) int {
+			if order := strings.Compare(a.Namespace, b.Namespace); order != 0 {
+				return order
+			}
+			return strings.Compare(a.Name, b.Name)
+		})
+		var exceptionImages, exceptionAllowedValues []string
+		for _, exception := range celExceptions {
+			exceptionImages = append(exceptionImages, exception.Spec.Images...)
+			exceptionAllowedValues = append(exceptionAllowedValues, exception.Spec.AllowedValues...)
 		}
 		exceptionMatchConditions := ensureUniqueExceptionMatchConditionNames(
 			negateExceptionMatchConditions(celExceptions),
