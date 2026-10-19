@@ -49,5 +49,6 @@
 Both callers must populate `TargetResources`: `commands/test` from `targetResources` in `kyverno-test.yaml`, and
 `commands/apply` from `--target-resource` / `--target-resources`. Without it, target-only policies produce no result.
 
-Regression tests: `TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger` (`commands/test`) and
-`Test_Apply_MutatingPolicyTargetResources` (`commands/apply`).
+Regression tests: `TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger` and
+`TestRunTest_MutatingPolicyTargetOfAnotherKind` (`commands/test`), and `Test_Apply_MutatingPolicyTargetResources`
+(`commands/apply`).

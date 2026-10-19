@@ -1089,9 +1089,11 @@ func TestRunTest_MutatingPolicySubresourceMatch(t *testing.T) {
 	require.True(t, found, "expected engine response for policy mutate-add-aws-zone-id")
 }
 
-// TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger checks that a MutatingPolicy with
-// targetMatchConstraints mutates only its selected targets and leaves the trigger unchanged.
-func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testing.T) {
+// TestRunTest_MutatingPolicyTargetOfAnotherKind checks the Secret trigger, Deployment target case:
+// the Deployment-shaped mutation reaches only the selected target and leaves the trigger unchanged,
+// whether it succeeds or fails. TestRunTest_MutatingPolicyTargetConstraintsDoNotMutateTrigger covers
+// the Deployment trigger, ConfigMap target fixture.
+func TestRunTest_MutatingPolicyTargetOfAnotherKind(t *testing.T) {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to get working directory")
 	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
@@ -1105,13 +1107,6 @@ func TestRunTest_MutatingPolicyTargetMatchConstraintsDoNotMutateTrigger(t *testi
 		targetName string
 		wantError  bool // the target's mutation fails instead of passing
 	}{
-		{
-			name:       "deployment trigger, configmap target",
-			dir:        "mutate-existing",
-			policy:     "mutate-existing-configmap",
-			targetKind: "ConfigMap",
-			targetName: "test-configmap",
-		},
 		{
 			name:       "secret trigger, deployment target",
 			dir:        "mutate-existing-secret-trigger-deployment-target",
