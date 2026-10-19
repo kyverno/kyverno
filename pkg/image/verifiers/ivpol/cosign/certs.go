@@ -101,8 +101,16 @@ func checkSignatureAnnotationsV2(sig oci.Signature, annotations map[string]strin
 
 	for key, val := range annotations {
 		if val != sci.Optional[key] {
+			actual, ok := sci.Optional[key]
+			if !ok {
+				return fmt.Errorf("annotations mismatch: key %s is missing, expected value %s", key, val)
+			}
+			if _, ok := actual.(string); !ok {
+				return fmt.Errorf("annotations mismatch: %v (%T) does not match expected value %s for key %s",
+					actual, actual, val, key)
+			}
 			return fmt.Errorf("annotations mismatch: %s does not match expected value %s for key %s",
-				sci.Optional[key], val, key)
+				actual, val, key)
 		}
 	}
 	return nil
