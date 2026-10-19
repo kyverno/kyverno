@@ -479,3 +479,110 @@ func TestBuildValidatingAdmissionPolicy_MultiConditionCELException(t *testing.T)
 	assert.Len(t, vap.Spec.Validations, 1)
 	assert.Equal(t, "true", vap.Spec.Validations[0].Expression)
 }
+
+
+func TestNegateExceptionMatchConditions_FullAndScopedExceptions(t *testing.T) {
+	tests := []struct {
+		name      string
+		exception policiesv1beta1.PolicyException
+		wantCount int
+		wantExpr  string
+	}{
+		{
+			name: "full exception without match conditions",
+			exception: policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full"},
+			},
+			wantCount: 1,
+			wantExpr:  "false",
+		},
+		{
+			name: "image-scoped exception without match conditions",
+			exception: policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-scoped"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					Images: []string{"ghcr.io/example/app:v1"},
+				},
+			},
+		},
+		{
+			name: "value-scoped exception without match conditions",
+			exception: policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "value-scoped"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"allowed"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{tt.exception})
+			require.Len(t, got, tt.wantCount)
+			if tt.wantCount == 0 {
+				return
+			}
+			assert.Regexp(t, "^exception-[0-9a-f]{12}$", got[0].Name)
+			assert.Equal(t, tt.wantExpr, got[0].Expression)
+		})
+	}
+}
+
+func TestNegateExceptionMatchConditions_MultipleConditionsEvaluation(t *testing.T) {
+	exception := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "multi"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "admission-only", Expression: "request.userInfo.username != ''"},
+				{Name: "match-legacy-resources", Expression: "request.resource.resource == \"accessentries\""},
+			},
+		},
+	}
+	generated := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{exception})
+	require.Len(t, generated, 1)
+
+	env, err := cel.NewEnv(cel.Variable("request", cel.DynType))
+	require.NoError(t, err)
+	ast, issues := env.Compile(generated[0].Expression)
+	require.NoError(t, issues.Err())
+	program, err := env.Program(ast)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name    string
+		request map[string]any
+		want    bool
+	}{
+		{
+			name: "only username condition matches; policy stays active",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": "system:serviceaccount:kyverno:controller"},
+				"resource": map[string]any{"resource": "pods"},
+			},
+			want: true,
+		},
+		{
+			name: "both conditions match; policy is excluded",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": "system:serviceaccount:kyverno:controller"},
+				"resource": map[string]any{"resource": "accessentries"},
+			},
+			want: false,
+		},
+		{
+			name: "neither condition matches; policy stays active",
+			request: map[string]any{
+				"userInfo": map[string]any{"username": ""},
+				"resource": map[string]any{"resource": "pods"},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out, _, err := program.Eval(map[string]any{"request": tt.request})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, out.Value())
+		})
+	}
+}
