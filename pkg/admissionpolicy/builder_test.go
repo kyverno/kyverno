@@ -683,12 +683,20 @@ func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testi
 			MatchConstraints: &admissionregistrationv1.MatchResources{},
 			Variables: []admissionregistrationv1.Variable{{
 				Name:       "allowedImages",
-				Expression: "['policy-defined-image']",
+				Expression: "exceptions.allowedValues.size() > 0",
 			}},
 			Validations: []admissionregistrationv1.Validation{
-				{Expression: "exceptions.allowedImages.size() > 0", Message: "image list must exist"},
+				{
+					Expression:        "exceptions.allowedImages.size() > 0",
+					Message:           "image list must exist",
+					MessageExpression: "exceptions.allowedValues.join(',')",
+				},
 				{Expression: "exceptions.allowedValues.size() > 0", Message: "value list must exist"},
 			},
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{
+				Key:             "exception-images",
+				ValueExpression: "exceptions.allowedImages.join(',')",
+			}},
 		},
 	}
 	imageOne := &policiesv1beta1.PolicyException{
@@ -723,9 +731,80 @@ func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testi
 	for _, variable := range vap.Spec.Variables {
 		variables[variable.Name] = variable.Expression
 	}
-	assert.Equal(t, "['policy-defined-image']", variables["allowedImages"])
+	assert.Equal(t, "variables.allowedValues.size() > 0", variables["allowedImages"])
 	assert.Equal(t, `["ghcr.io/example/one:v1","ghcr.io/example/two:v1"]`, variables["exceptionAllowedImages2"])
 	assert.Equal(t, `["blue","green"]`, variables["allowedValues"])
 	assert.Equal(t, "variables.exceptionAllowedImages2.size() > 0", vap.Spec.Validations[0].Expression)
 	assert.Equal(t, "variables.allowedValues.size() > 0", vap.Spec.Validations[1].Expression)
+	assert.Equal(t, "variables.allowedValues.join(',')", vap.Spec.Validations[0].MessageExpression)
+	require.Len(t, vap.Spec.AuditAnnotations, 1)
+	assert.Equal(t, "variables.exceptionAllowedImages2.join(',')", vap.Spec.AuditAnnotations[0].ValueExpression)
+}
+
+func TestBuildValidatingAdmissionPolicy_EmptyScopedExceptionValues(t *testing.T) {
+	tests := []struct {
+		name           string
+		exception      *policiesv1beta1.PolicyException
+		wantImages     string
+		wantValues     string
+		wantExpression string
+		sourceExpression string
+	}{
+		{
+			name: "image-only exception declares empty allowed values",
+			exception: &policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-only"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					Images: []string{"ghcr.io/example/app:v1"},
+				},
+			},
+			wantImages:     `["ghcr.io/example/app:v1"]`,
+			wantValues:     "[]",
+			wantExpression: "variables.allowedImages.size() > 0 && variables.allowedValues.size() == 0",
+			sourceExpression: "exceptions.allowedImages.size() > 0 && exceptions.allowedValues.size() == 0",
+		},
+		{
+			name: "value-only exception declares empty allowed images",
+			exception: &policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "value-only"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					AllowedValues: []string{"blue"},
+				},
+			},
+			wantImages:     "[]",
+			wantValues:     `["blue"]`,
+			wantExpression: "variables.allowedImages.size() == 0 && variables.allowedValues.size() > 0",
+			sourceExpression: "exceptions.allowedImages.size() == 0 && exceptions.allowedValues.size() > 0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "empty-scoped-exceptions"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints: &admissionregistrationv1.MatchResources{},
+					Validations: []admissionregistrationv1.Validation{{
+						Expression: tt.sourceExpression,
+						Message:    "scope test",
+					}},
+				},
+			}
+			vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+			err := BuildValidatingAdmissionPolicy(
+				nil,
+				vap,
+				engineapi.NewValidatingPolicy(policy),
+				[]engineapi.GenericException{engineapi.NewCELPolicyException(tt.exception)},
+			)
+			require.NoError(t, err)
+			require.Len(t, vap.Spec.Variables, 2)
+			variables := make(map[string]string, len(vap.Spec.Variables))
+			for _, variable := range vap.Spec.Variables {
+				variables[variable.Name] = variable.Expression
+			}
+			assert.Equal(t, tt.wantImages, variables["allowedImages"])
+			assert.Equal(t, tt.wantValues, variables["allowedValues"])
+			assert.Equal(t, tt.wantExpression, vap.Spec.Validations[0].Expression)
+		})
+	}
 }
