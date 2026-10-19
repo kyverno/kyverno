@@ -1820,12 +1820,10 @@ func Test_Apply_PolicyValidationWarnings(t *testing.T) {
 			&skipped,
 			nil, nil, false,
 		)
-		require.NoError(t, err)
-		assert.Contains(t, out.String(), "Warning: policy test-deprecated-action: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
-		assert.Len(t, config.deprecationWarnings, 1)
-		err = config.failOnDeprecationWarnings()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "found 1 deprecation warning(s) and --warnings-as-errors is set")
+		assert.Contains(t, out.String(), "Warning: policy test-deprecated-action: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
+		assert.Len(t, config.deprecationWarnings, 1)
 	})
 
 	t.Run("surfaces namespaced policy warning formatted as namespace/name", func(t *testing.T) {
@@ -1851,6 +1849,32 @@ func Test_Apply_PolicyValidationWarnings(t *testing.T) {
 		assert.Contains(t, out.String(), "Warning: policy custom-ns/test-namespaced-policy: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
 		assert.Len(t, config.deprecationWarnings, 1)
 	})
+
+	t.Run("suppresses duplicate warning when warning matches fatal validation error", func(t *testing.T) {
+		invalidClusterPol := &kyvernov1.ClusterPolicy{}
+		invalidClusterPol.SetName("invalid-cluster-pol")
+		invalidClusterPol.SetNamespace("should-not-be-set")
+
+		config := &ApplyCommandConfig{}
+		var out bytes.Buffer
+		var skipped SkippedInvalidPolicies
+		_, _, _, err := config.applyPolicies(
+			&out,
+			&store.Store{},
+			nil,
+			[]kyvernov1.PolicyInterface{invalidClusterPol},
+			nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil,
+			&skipped,
+			nil, nil, false,
+		)
+		require.NoError(t, err)
+		assert.Empty(t, out.String(), "duplicate error warning should be suppressed")
+		assert.Empty(t, config.deprecationWarnings)
+		assert.Len(t, skipped.skipped, 1)
+		assert.Equal(t, "invalid-cluster-pol", skipped.skipped[0].name)
+	})
 }
+
 
 
