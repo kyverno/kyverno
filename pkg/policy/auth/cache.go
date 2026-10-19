@@ -14,8 +14,12 @@ import (
 // The resource coordinates (group/version/resource) are the GVR the kind was
 // resolved to before the checker ran, so different spellings of the same kind
 // (e.g. "ConfigMap" and "v1/ConfigMap") collapse onto a single entry. subject
-// keeps decisions for different identities from colliding in a shared cache.
+// keeps decisions for different identities from colliding in a shared cache, and
+// self marks SelfSubjectAccessReview decisions so they occupy a key domain
+// disjoint from every subject — a self decision can never be reused for a
+// SubjectAccessReview even if a subject is literally named like the self value.
 type cacheKey struct {
+	self        bool
 	subject     string
 	group       string
 	version     string
@@ -68,11 +72,12 @@ type cachedChecker struct {
 	inner   checker.AuthChecker
 	cache   *ResultCache
 	subject string
+	self    bool
 }
 
-// NewCachedChecker wraps inner so that authorization decisions within the same
-// validation pass are answered from cache. subject is the identity inner checks
-// as — the SubjectAccessReview user, or a stable sentinel for a self-checker —
+// NewCachedChecker wraps a SubjectAccessReview-based inner checker so that
+// authorization decisions within the same validation pass are answered from
+// cache. subject is the identity inner checks as (the SubjectAccessReview user)
 // and is folded into the cache key so one cache can be shared across subjects.
 // It returns inner unchanged when either inner or cache is nil (callers rely on
 // a nil inner to skip checks).
@@ -83,11 +88,23 @@ func NewCachedChecker(inner checker.AuthChecker, subject string, cache *ResultCa
 	return &cachedChecker{inner: inner, cache: cache, subject: subject}
 }
 
+// NewCachedSelfChecker wraps a SelfSubjectAccessReview-based inner checker. Its
+// decisions key in a domain disjoint from every subject, so a self decision is
+// never reused for a subject's SubjectAccessReview (and vice versa). It returns
+// inner unchanged when either inner or cache is nil.
+func NewCachedSelfChecker(inner checker.AuthChecker, cache *ResultCache) checker.AuthChecker {
+	if inner == nil || cache == nil {
+		return inner
+	}
+	return &cachedChecker{inner: inner, cache: cache, self: true}
+}
+
 // Check returns the cached decision for the (subject, resource, verb) tuple when
 // present, resolving it through the inner checker (one access review) on a miss.
 // Errors are never cached so the next call retries.
 func (c *cachedChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
 	key := cacheKey{
+		self:        c.self,
 		subject:     c.subject,
 		group:       group,
 		version:     version,

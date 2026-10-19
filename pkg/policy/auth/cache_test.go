@@ -142,6 +142,34 @@ func TestCachedChecker_SharedCacheKeyedBySubject(t *testing.T) {
 	assert.Equal(t, 1, background.callCount())
 }
 
+// TestNewCachedSelfChecker_NilPassthrough verifies the self wrapper is a no-op
+// when either the inner checker or the cache is nil.
+func TestNewCachedSelfChecker_NilPassthrough(t *testing.T) {
+	inner := &countingChecker{}
+	assert.Nil(t, NewCachedSelfChecker(nil, NewResultCache()))
+	assert.Same(t, inner, NewCachedSelfChecker(inner, nil))
+}
+
+// TestCachedSelfChecker_DisjointFromSubject verifies a SelfSubjectAccessReview
+// decision is never reused for a subject's SubjectAccessReview on the same
+// resource/verb — even when a subject is literally named like the self value.
+func TestCachedSelfChecker_DisjointFromSubject(t *testing.T) {
+	cache := NewResultCache()
+	self := &countingChecker{}
+	subject := &countingChecker{}
+	selfChecker := NewCachedSelfChecker(self, cache)
+	subjectChecker := NewCachedChecker(subject, "self", cache) // subject literally "self"
+	ctx := context.Background()
+
+	_, _ = selfChecker.Check(ctx, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "", "", "", "create")
+	_, _ = subjectChecker.Check(ctx, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "", "", "", "create")
+
+	// Each inner checker is consulted once; the self decision did not satisfy the
+	// subject's identical tuple, nor vice versa.
+	assert.Equal(t, 1, self.callCount())
+	assert.Equal(t, 1, subject.callCount())
+}
+
 // TestCachedChecker_DoesNotCacheErrors verifies an errored check is not memoized
 // and is retried on the next call.
 func TestCachedChecker_DoesNotCacheErrors(t *testing.T) {
