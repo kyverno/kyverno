@@ -131,14 +131,17 @@ func (e ContextSizeLimitExceededError) Error() string {
 
 // Context stores the data resources as JSON
 type context struct {
-	jp                 jmespath.Interface
-	jsonRaw            map[string]interface{}
-	jsonRawCheckpoints []map[string]interface{}
-	images             map[string]map[string]apiutils.ImageInfo
-	operation          kyvernov1.AdmissionOperation
-	deferred           DeferredLoaders
-	contextSize        int64
-	maxContextSize     int64
+	jp                     jmespath.Interface
+	jsonRaw                map[string]interface{}
+	jsonRawCheckpoints     []map[string]interface{}
+	entrySizes             map[string]int64
+	entrySizesCheckpoints  []map[string]int64
+	contextSizeCheckpoints []int64
+	images                 map[string]map[string]apiutils.ImageInfo
+	operation              kyvernov1.AdmissionOperation
+	deferred               DeferredLoaders
+	contextSize            int64
+	maxContextSize         int64
 }
 
 // NewContext returns a new context
@@ -149,22 +152,28 @@ func NewContext(jp jmespath.Interface) Interface {
 // NewContextFromRaw returns a new context initialized with raw data
 func NewContextFromRaw(jp jmespath.Interface, raw map[string]interface{}) Interface {
 	return &context{
-		jp:                 jp,
-		jsonRaw:            raw,
-		jsonRawCheckpoints: make([]map[string]interface{}, 0),
-		deferred:           NewDeferredLoaders(),
-		maxContextSize:     DefaultMaxContextSize,
+		jp:                     jp,
+		jsonRaw:                raw,
+		jsonRawCheckpoints:     make([]map[string]interface{}, 0),
+		entrySizes:             make(map[string]int64),
+		entrySizesCheckpoints:  make([]map[string]int64, 0),
+		contextSizeCheckpoints: make([]int64, 0),
+		deferred:               NewDeferredLoaders(),
+		maxContextSize:         DefaultMaxContextSize,
 	}
 }
 
 // NewContextWithMaxSize returns a new context with a specified maximum context size
 func NewContextWithMaxSize(jp jmespath.Interface, maxSize int64) Interface {
 	return &context{
-		jp:                 jp,
-		jsonRaw:            map[string]interface{}{},
-		jsonRawCheckpoints: make([]map[string]interface{}, 0),
-		deferred:           NewDeferredLoaders(),
-		maxContextSize:     maxSize,
+		jp:                     jp,
+		jsonRaw:                map[string]interface{}{},
+		jsonRawCheckpoints:     make([]map[string]interface{}, 0),
+		entrySizes:             make(map[string]int64),
+		entrySizesCheckpoints:  make([]map[string]int64, 0),
+		contextSizeCheckpoints: make([]int64, 0),
+		deferred:               NewDeferredLoaders(),
+		maxContextSize:         maxSize,
 	}
 }
 
@@ -219,6 +228,22 @@ func (ctx *context) AddVariable(key string, value interface{}) error {
 	}
 }
 
+func (ctx *context) ensureEntrySizes() {
+	if ctx.entrySizes == nil {
+		ctx.entrySizes = make(map[string]int64)
+	}
+}
+
+func (ctx *context) copyEntrySizes(in map[string]int64) map[string]int64 {
+	if in == nil {
+		return make(map[string]int64)
+	}
+	out := make(map[string]int64, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 	if err := ctx.checkContextSizeLimit(int64(len(dataRaw))); err != nil {
 		return err
@@ -464,6 +489,8 @@ func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 func (ctx *context) Checkpoint() {
 	jsonRawCheckpoint := ctx.copyContext(ctx.jsonRaw)
 	ctx.jsonRawCheckpoints = append(ctx.jsonRawCheckpoints, jsonRawCheckpoint)
+	ctx.contextSizeCheckpoints = append(ctx.contextSizeCheckpoints, ctx.contextSize)
+	ctx.entrySizesCheckpoints = append(ctx.entrySizesCheckpoints, ctx.copyEntrySizes(ctx.entrySizes))
 }
 
 func (ctx *context) copyContext(in map[string]interface{}) map[string]interface{} {

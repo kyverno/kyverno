@@ -461,3 +461,77 @@ func Test_ContextSizeLimitBlocksExponentialAmplification(t *testing.T) {
 	assert.ErrorAs(t, lastErr, &sizeErr)
 	assert.LessOrEqual(t, sizeErr.Limit, int64(testLimit))
 }
+
+func Test_ContextSizeLimitCheckpointRestore(t *testing.T) {
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: 100,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	data1 := []byte(`"01234567"`)
+	err := ctx.AddContextEntry("base", data1)
+	assert.NoError(t, err)
+	initialSize := ctx.contextSize
+	assert.Equal(t, int64(len(data1)), initialSize)
+
+	ctx.Checkpoint()
+
+	data2 := []byte(`"temp_data_bytes"`)
+	err = ctx.AddContextEntry("temp", data2)
+	assert.NoError(t, err)
+	assert.Equal(t, initialSize+int64(len(data2)), ctx.contextSize)
+
+	ctx.Restore()
+	assert.Equal(t, initialSize, ctx.contextSize)
+	assert.Equal(t, int64(0), ctx.entrySizes["temp"])
+	assert.Equal(t, initialSize, ctx.entrySizes["base"])
+}
+
+type mockEntryLoader struct {
+	ctx       Interface
+	name      string
+	data      []byte
+	hasLoaded bool
+}
+
+func (l *mockEntryLoader) Name() string    { return l.name }
+func (l *mockEntryLoader) HasLoaded() bool { return l.hasLoaded }
+func (l *mockEntryLoader) LoadData() error {
+	l.hasLoaded = true
+	return l.ctx.AddContextEntry(l.name, l.data)
+}
+
+func Test_ContextSizeLimitDeferredLoaderReloadIdempotent(t *testing.T) {
+	ctx := &context{
+		jp:             jp,
+		jsonRaw:        map[string]interface{}{},
+		maxContextSize: 100,
+		deferred:       NewDeferredLoaders(),
+	}
+
+	loader := &mockEntryLoader{
+		ctx:  ctx,
+		name: "cm",
+		data: []byte(`"some_data"`),
+	}
+	dl, err := NewDeferredLoader("cm", loader, logger)
+	assert.NoError(t, err)
+	err = ctx.AddDeferredLoader(dl)
+	assert.NoError(t, err)
+
+	val, err := ctx.Query("cm")
+	assert.NoError(t, err)
+	assert.Equal(t, "some_data", val)
+
+	sizeAfterLoad := ctx.contextSize
+	assert.Greater(t, sizeAfterLoad, int64(0))
+
+	for i := 0; i < 5; i++ {
+		ctx.Checkpoint()
+		assert.Equal(t, sizeAfterLoad, ctx.contextSize)
+		ctx.Restore()
+		assert.Equal(t, sizeAfterLoad, ctx.contextSize, "contextSize inflated on iteration %d", i)
+	}
+}

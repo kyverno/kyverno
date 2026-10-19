@@ -45,6 +45,8 @@ func EvaluateConditions(
 	if !ok {
 		return false, "", fmt.Errorf("failed to extract predicate from statement: %v", s)
 	}
+	ctx.Checkpoint()
+	defer ctx.Restore()
 	if err := enginecontext.AddJSONObject(ctx, predicate); err != nil {
 		return false, "", fmt.Errorf("failed to add Statement to the context %v: %w", s, err)
 	}
