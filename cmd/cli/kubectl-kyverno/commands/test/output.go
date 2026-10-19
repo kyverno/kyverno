@@ -20,6 +20,45 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
+// collectUniqueCheckResponses collects each engine evaluation once. Target is a
+// projection of Trigger and TriggerByOperation (see runTest), and the same
+// response may be associated with multiple target resources. Copies of an
+// EngineResponse share their rule slice, so its first element identifies the
+// originating evaluation without merging separate evaluations with equal data.
+func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineResponse {
+	var collected []engineapi.EngineResponse
+	seen := make(map[*engineapi.RuleResponse]struct{})
+	add := func(response engineapi.EngineResponse) {
+		if len(response.PolicyResponse.Rules) == 0 {
+			return
+		}
+		key := &response.PolicyResponse.Rules[0]
+		if _, exists := seen[key]; exists {
+			return
+		}
+		seen[key] = struct{}{}
+		collected = append(collected, response)
+	}
+	for _, responseList := range responses.Trigger {
+		for _, response := range responseList {
+			add(response)
+		}
+	}
+	for _, byResource := range responses.TriggerByOperation {
+		for _, responseList := range byResource {
+			for _, response := range responseList {
+				add(response)
+			}
+		}
+	}
+	for _, responseList := range responses.Target {
+		for _, response := range responseList {
+			add(response)
+		}
+	}
+	return collected
+}
+
 func printCheckResult(
 	checks []v1alpha1.CheckResult,
 	responses TestResponse,
@@ -33,15 +72,10 @@ func printCheckResult(
 		}
 	}
 	testCount := len(resultsTable.RawRows) + 1
+	allEngineResponses := collectUniqueCheckResponses(responses)
 	for _, check := range checks {
-		// filter engine responses
-		var matchingEngineResponses []engineapi.EngineResponse
-		for _, responseList := range responses.Trigger {
-			matchingEngineResponses = append(matchingEngineResponses, responseList...)
-		}
-		for _, responseList := range responses.Target {
-			matchingEngineResponses = append(matchingEngineResponses, responseList...)
-		}
+		// Each check may filter the response slice independently.
+		matchingEngineResponses := allEngineResponses
 		// 1. by resource
 		if check.Match.Resource != nil {
 			var filtered []engineapi.EngineResponse
