@@ -28,15 +28,22 @@
    never runs against this one, where it could fail and abort the whole run.
    The pass follows the cluster's order: which policies are triggered is decided on the trigger as it was
    admitted (`newAdmittedTrigger`, a snapshot taken before the inline loop, because `object` and `request` point
-   at `resource`, which that loop overwrites), and `conditionsStillMatch` then checks their `matchConditions`
-   again on the trigger as stored after inline mutation, as the background controller does. CEL target
-   expressions see the stored trigger and targets are evaluated with the admitted trigger's request, also as in
-   the background controller. Both the target engine and CEL discovery use `targetResourceContext`
-   (`target_context.go`), so CEL `resource.get()`/`resource.list()` see the supplied targets: registered in the
-   processor's own `FakeContextProvider` without a cluster, behind `labelFilterContext` because that provider
-   ignores label selectors, and laid over the live context with `--cluster`,
-   where a supplied target wins over a live object with the same identity and everything else still comes
-   from the cluster. In lists a supplied target replaces the live object with the same namespace and name before
+   at `resource`, which that loop overwrites), and `conditionsStillMatch` then checks the `matchConditions` of
+   the policies that select their targets with a CEL expression again on the trigger as stored after inline
+   mutation, as the background controller does in `getTargetsFromExpression`; it does not check them again for
+   `resourceRules` targets, so neither does the CLI. CEL target expressions see the stored trigger and targets
+   are evaluated with the admitted trigger's request, also as in the background controller.
+   The whole target pass, trigger checks included, only runs when targets are supplied, and they are registered
+   by `targetResourceContext` (`target_context.go`) before the trigger checks, because they exist before the
+   trigger is admitted. Without a cluster they are added to the processor's own `FakeContextProvider`. The
+   policies' compiled CEL (matchConditions, variables, mutations) is bound to that provider when the policies
+   are compiled (`libs.LibraryContext`), so every `resource.get()`/`resource.list()` sees them there; the
+   engine's context argument does not change that. That provider ignores label selectors, so the CEL target
+   expression, which `discoverCELTargets` evaluates itself, gets it behind `labelFilterContext`, and
+   `matchesLabels` follows the API server's selector semantics. With `--cluster` only the CEL target expression
+   sees the supplied targets, laid over the live context, where a supplied target wins over a live object with
+   the same identity and everything else still comes from the cluster; the policies' other CEL reads the live
+   cluster only. In lists a supplied target replaces the live object with the same namespace and name before
    any label filtering, so a stale live copy never stands in for it, and a cluster-wide list includes supplied
    targets from every namespace. Only a kind the cluster does not serve (NotFound) falls back to the supplied
    targets alone; any other list error, such as a rejected selector, is returned.

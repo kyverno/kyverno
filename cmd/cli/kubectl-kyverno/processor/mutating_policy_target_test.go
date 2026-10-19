@@ -559,7 +559,8 @@ func TestApplyPoliciesOnResource_NamespacedPolicyTargetsStayInItsNamespace(t *te
 
 // TestApplyPoliciesOnResource_TargetPoliciesFollowAdmitThenBackgroundOrder checks that inline mutations of
 // the trigger do not decide which target policies are triggered, as at admission, while the matchConditions
-// are checked again on the stored trigger, as in the background controller, before any target is mutated.
+// of a policy selecting its target with a CEL expression are checked again on the stored trigger, as in the
+// background controller, before that expression is evaluated.
 func TestApplyPoliciesOnResource_TargetPoliciesFollowAdmitThenBackgroundOrder(t *testing.T) {
 	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
 	require.Empty(t, secret.GetLabels())
@@ -584,8 +585,20 @@ spec:
 `
 	targetPolicy, err := os.ReadFile(filepath.Join(targetFixture, "policy.yaml"))
 	require.NoError(t, err)
-	withCondition := func(expression string) string {
-		return strings.Replace(string(targetPolicy), "  targetMatchConstraints:", "  matchConditions:\n  - name: marked\n    expression: \""+expression+"\"\n  targetMatchConstraints:", 1)
+	// the same policy selecting its target with a CEL expression instead of resourceRules
+	byExpression := strings.Replace(string(targetPolicy), `  targetMatchConstraints:
+    resourceRules:
+    - apiGroups: ["apps"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["deployments"]
+`, `  targetMatchConstraints:
+    expression: >
+      resource.get("apps/v1", "deployments", object.metadata.namespace, "test-deploy")
+`, 1)
+	require.NotEqual(t, string(targetPolicy), byExpression)
+	withCondition := func(policy, expression string) string {
+		return strings.Replace(policy, "  targetMatchConstraints:", "  matchConditions:\n  - name: marked\n    expression: \""+expression+"\"\n  targetMatchConstraints:", 1)
 	}
 	const marked = "has(object.metadata.labels) && 'marked' in object.metadata.labels"
 	tests := []struct {
@@ -593,9 +606,11 @@ spec:
 		targetPolicy string
 		wantMutated  bool
 	}{
-		{name: "label only added inline does not trigger the target policy", targetPolicy: withCondition(marked)},
-		{name: "label added inline fails the background check of matchConditions", targetPolicy: withCondition("!(" + marked + ")")},
+		{name: "label only added inline does not trigger the target policy", targetPolicy: withCondition(string(targetPolicy), marked)},
+		{name: "label added inline fails the background check of matchConditions for a target expression", targetPolicy: withCondition(byExpression, "!("+marked+")")},
+		{name: "label added inline is not checked again for resourceRules targets", targetPolicy: withCondition(string(targetPolicy), "!("+marked+")"), wantMutated: true},
 		{name: "target policy without matchConditions still mutates the target", targetPolicy: string(targetPolicy), wantMutated: true},
+		{name: "target expression without matchConditions still mutates the target", targetPolicy: byExpression, wantMutated: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -701,5 +716,44 @@ spec:
 		}
 	}
 	assert.Equal(t, []string{"selected"}, mutated, "only the target with the selected label may be mutated")
+	assert.Equal(t, 1, rc.Pass)
+}
+
+// TestApplyPoliciesOnResource_MatchConditionSeesSuppliedTargets checks that without a cluster the
+// matchConditions of a target policy see the supplied targets, which exist before the trigger is admitted.
+func TestApplyPoliciesOnResource_MatchConditionSeesSuppliedTargets(t *testing.T) {
+	secret := readUnstructured(t, filepath.Join(targetFixture, "trigger.yaml"))
+	target := readUnstructured(t, filepath.Join(targetFixture, "target.yaml"))
+	targetPolicy, err := os.ReadFile(filepath.Join(targetFixture, "policy.yaml"))
+	require.NoError(t, err)
+	const condition = `resource.get('apps/v1', 'deployments', object.metadata.namespace, 'test-deploy').metadata.name == 'test-deploy'`
+	withCondition := strings.Replace(string(targetPolicy), "  targetMatchConstraints:", "  matchConditions:\n  - name: target-exists\n    expression: \""+condition+"\"\n  targetMatchConstraints:", 1)
+	require.NotEqual(t, string(targetPolicy), withCondition)
+	loaded := loadMutatingPolicies(t, withCondition)
+	require.Len(t, loaded.MutatingPolicies, 1)
+
+	rc := &ResultCounts{}
+	processor := PolicyProcessor{
+		Store:              &store.Store{},
+		MutatingPolicies:   loaded.MutatingPolicies,
+		Resource:           *secret.DeepCopy(),
+		TargetResources:    []*unstructured.Unstructured{target.DeepCopy()},
+		Variables:          &variables.Variables{},
+		Rc:                 rc,
+		PrintPatchResource: true,
+		Out:                &bytes.Buffer{},
+	}
+	responses, err := processor.ApplyPoliciesOnResource()
+	require.NoError(t, err)
+
+	var mutated []string
+	for _, response := range responses {
+		for _, rule := range response.PolicyResponse.Rules {
+			if patched, _, _ := rule.PatchedTarget(); patched != nil {
+				mutated = append(mutated, patched.GetName())
+			}
+		}
+	}
+	assert.Equal(t, []string{"test-deploy"}, mutated, "the matchCondition must find the supplied target")
 	assert.Equal(t, 1, rc.Pass)
 }

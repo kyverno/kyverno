@@ -101,9 +101,11 @@ func newAdmittedTrigger(
 	}
 }
 
-// conditionsStillMatch keeps the triggered policies whose matchConditions still hold for the trigger as it
-// is stored after inline mutation, described by attr. The background controller checks them again this way
-// before it mutates any target, so a policy triggered at admission can still drop out here.
+// conditionsStillMatch drops the triggered policies that select their targets with a CEL expression and whose
+// matchConditions no longer hold for the trigger as it is stored after inline mutation, described by attr.
+// The background controller checks them again this way before it evaluates the target expression
+// (getTargetsFromExpression), so such a policy triggered at admission can still drop out here. Policies that
+// select their targets with resourceRules are kept, as the background controller does not check them again.
 func conditionsStillMatch(
 	ctx context.Context,
 	provider mpolengine.Provider,
@@ -120,7 +122,8 @@ func conditionsStillMatch(
 		if !keys.Has(key) {
 			continue
 		}
-		if mpol.Policy.GetSpec().MatchConditions != nil && !mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, nil, contextProvider) {
+		if mpol.Policy.GetTargetMatchConstraints().Expression != "" && mpol.Policy.GetSpec().MatchConditions != nil &&
+			!mpol.CompiledPolicy.MatchesConditions(ctx, attr, request, namespace, nil, contextProvider) {
 			continue
 		}
 		kept = append(kept, key)

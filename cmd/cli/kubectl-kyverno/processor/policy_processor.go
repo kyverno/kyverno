@@ -412,16 +412,23 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			// mutateExisting MutatingPolicies - process target resources. Like the admission webhook, only
 			// policies whose trigger rules (matchConstraints, matchConditions) match this resource may
 			// mutate targets; the target engine below has no matcher and never checks the trigger itself.
-			// When no policy is triggered there is nothing to evaluate on the targets.
+			// When no target is supplied or no policy is triggered there is nothing to evaluate.
 			// Which policies are triggered is decided on the admitted trigger, as the admission webhook does,
-			// and their matchConditions are checked again on the trigger as it is now stored, as the
-			// background controller does before it touches any target.
-			triggeredPolicies := triggeredMutateExistingPolicies(context.TODO(), provider, admitted.attr, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
-			storedTrigger := admission.NewAttributesRecord(&resource, admitted.oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admitted.operation, nil, false, admissionpolicy.NewUser(user))
-			triggeredPolicies = conditionsStillMatch(context.TODO(), provider, triggeredPolicies, storedTrigger, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
-			if len(p.TargetResources) > 0 && len(triggeredPolicies) > 0 {
-				// CEL resource.get()/resource.list() must see the supplied targets, in cluster mode too
-				targetContext := targetResourceContext(contextProvider, p.TargetResources, restMapper)
+			// and the matchConditions of the policies that select their targets with a CEL expression are
+			// checked again on the trigger as it is now stored, as the background controller does before it
+			// evaluates that expression.
+			var triggeredPolicies []string
+			var targetContext libs.Context
+			if len(p.TargetResources) > 0 {
+				// The targets exist before the trigger is admitted, so they are registered before the trigger
+				// checks: without a cluster that makes them visible to every CEL resource.get()/resource.list()
+				// of the policies, and the CEL target expression sees them in cluster mode too.
+				targetContext = targetResourceContext(contextProvider, p.TargetResources, restMapper)
+				triggeredPolicies = triggeredMutateExistingPolicies(context.TODO(), provider, admitted.attr, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
+				storedTrigger := admission.NewAttributesRecord(&resource, admitted.oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admitted.operation, nil, false, admissionpolicy.NewUser(user))
+				triggeredPolicies = conditionsStillMatch(context.TODO(), provider, triggeredPolicies, storedTrigger, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
+			}
+			if len(triggeredPolicies) > 0 {
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
 				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, targetContext)
