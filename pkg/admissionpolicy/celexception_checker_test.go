@@ -111,3 +111,58 @@ func Test_CanGenerateNativePolicy_PartialExceptionConditions(t *testing.T) {
 		})
 	}
 }
+
+func Test_CanGenerateNativeMutatingPolicy(t *testing.T) {
+	fullException := exception("default", "full")
+	imageScoped := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "image-scoped"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"ghcr.io/example/app:v1"},
+		},
+	}
+	valueScoped := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "value-scoped"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			AllowedValues: []string{"allowed"},
+		},
+	}
+	guarded := exception("default", "guarded", "object.metadata.name != ''")
+
+	testCases := []struct {
+		name       string
+		exceptions []policiesv1beta1.PolicyException
+		want       bool
+		wantReason string
+	}{
+		{
+			name:       "full exception with match conditions is representable",
+			exceptions: []policiesv1beta1.PolicyException{fullException},
+			want:       true,
+		},
+		{
+			name:       "image scope is not natively represented",
+			exceptions: []policiesv1beta1.PolicyException{imageScoped},
+			want:       false,
+			wantReason: "policy exception(s) default/image-scoped use image/value scopes or compensating controls, which a generated MutatingAdmissionPolicy cannot evaluate",
+		},
+		{
+			name:       "value scope is not natively represented",
+			exceptions: []policiesv1beta1.PolicyException{valueScoped},
+			want:       false,
+			wantReason: "policy exception(s) default/value-scoped use image/value scopes or compensating controls, which a generated MutatingAdmissionPolicy cannot evaluate",
+		},
+		{
+			name:       "compensating controls are not natively represented",
+			exceptions: []policiesv1beta1.PolicyException{guarded},
+			want:       false,
+			wantReason: "policy exception(s) default/guarded use image/value scopes or compensating controls, which a generated MutatingAdmissionPolicy cannot evaluate",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reason := CanGenerateNativeMutatingPolicy(tc.exceptions)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantReason, reason)
+		})
+	}
+}
