@@ -184,7 +184,6 @@ func TestPrintCheckResultIncludesGeneratedAndPatchedFields(t *testing.T) {
 	require.Len(t, resultsTable.RawRows, 1)
 }
 
-
 func TestCollectUniqueCheckResponses(t *testing.T) {
 	newResponse := func(name string) engineapi.EngineResponse {
 		response := engineapi.NewEngineResponse(
