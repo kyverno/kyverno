@@ -141,6 +141,73 @@ class LocalArtifacts(unittest.TestCase):
         os.chdir(self.previous)
         shutil.rmtree(self.path)
 
+    def test_sbom_publication_preserves_identical_attachment_without_rewriting(self):
+        sbom = Path("candidate.cdx.json")
+        sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
+        subject = "ghcr.io/kyverno/kyverno@sha256:" + "a" * 64
+        attachment = "ghcr.io/kyverno/sbom:sha256-" + "a" * 64 + ".sbom"
+        env = {**os.environ, "COSIGN_REPOSITORY": "ghcr.io/kyverno/sbom"}
+        with patch.object(
+            release.subprocess, "check_output",
+            side_effect=[attachment, sbom.read_bytes()],
+        ) as check_output, patch.object(
+            release, "inspect_digest", return_value="sha256:" + "b" * 64,
+        ), patch.object(release, "run") as run:
+            release.publish_sbom(subject, sbom, "kyverno")
+        run.assert_not_called()
+        self.assertEqual(check_output.call_args_list[0].args[0],
+                         ["cosign", "triangulate", "--type", "sbom", subject])
+        self.assertEqual(check_output.call_args_list[0].kwargs["env"], env)
+        self.assertEqual(check_output.call_args_list[1].args[0],
+                         ["cosign", "download", "sbom", subject])
+
+    def test_sbom_publication_rejects_conflicting_attachment_without_rewriting(self):
+        sbom = Path("candidate.cdx.json")
+        sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
+        subject = "ghcr.io/kyverno/kyverno@sha256:" + "a" * 64
+        attachment = "ghcr.io/kyverno/sbom:sha256-" + "a" * 64 + ".sbom"
+        with patch.object(
+            release.subprocess, "check_output",
+            side_effect=[attachment, b'{"bomFormat":"SPDX"}'],
+        ), patch.object(
+            release, "inspect_digest", return_value="sha256:" + "b" * 64,
+        ), patch.object(release, "run") as run:
+            with self.assertRaisesRegex(ValueError, "Refusing to overwrite conflicting"):
+                release.publish_sbom(subject, sbom, "kyverno")
+        run.assert_not_called()
+
+    def test_sbom_publication_attaches_only_when_absent_and_verifies_bytes(self):
+        sbom = Path("candidate.cdx.json")
+        sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
+        subject = "ghcr.io/kyverno/kyverno@sha256:" + "a" * 64
+        attachment = "ghcr.io/kyverno/sbom:sha256-" + "a" * 64 + ".sbom"
+        env = {**os.environ, "COSIGN_REPOSITORY": "ghcr.io/kyverno/sbom"}
+        with patch.object(
+            release.subprocess, "check_output",
+            side_effect=[attachment, sbom.read_bytes()],
+        ) as check_output, patch.object(
+            release, "inspect_digest", return_value=None,
+        ), patch.object(release, "run") as run:
+            release.publish_sbom(subject, sbom, "kyverno")
+        run.assert_called_once_with(
+            "cosign", "attach", "sbom", "--type", "cyclonedx", "--sbom", sbom, subject, env=env,
+        )
+        self.assertEqual(check_output.call_count, 2)
+
+    def test_sbom_publication_rejects_different_bytes_written_during_attach(self):
+        sbom = Path("candidate.cdx.json")
+        sbom.write_bytes(b'{"bomFormat":"CycloneDX"}\n')
+        subject = "ghcr.io/kyverno/kyverno@sha256:" + "a" * 64
+        attachment = "ghcr.io/kyverno/sbom:sha256-" + "a" * 64 + ".sbom"
+        with patch.object(
+            release.subprocess, "check_output",
+            side_effect=[attachment, b'{"bomFormat":"SPDX"}'],
+        ), patch.object(
+            release, "inspect_digest", return_value=None,
+        ), patch.object(release, "run"):
+            with self.assertRaisesRegex(ValueError, "Refusing to overwrite conflicting"):
+                release.publish_sbom(subject, sbom, "kyverno")
+
     def stage_dependencies(self, *args, **kwargs):
         if args[:3] == ("helm", "dependency", "build"):
             for dependency in release.external_dependencies(release.read("charts/kyverno/Chart.lock")):
