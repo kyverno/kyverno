@@ -64,3 +64,32 @@ func CanGenerateNativeMutatingPolicy(exceptions []policiesv1beta1.PolicyExceptio
 		strings.Join(offending, ", "),
 	)
 }
+
+// CanGenerateNativePolicyWithMatchConditions also ensures the generated exception conditions
+// fit alongside the policy's own conditions within the Kubernetes API limit.
+func CanGenerateNativePolicyWithMatchConditions(exceptions []policiesv1beta1.PolicyException, policyMatchConditionCount int) (bool, string) {
+	if ok, reason := CanGenerateNativePolicy(exceptions); !ok {
+		return false, reason
+	}
+	return canGenerateWithMatchConditionLimit("ValidatingAdmissionPolicy", exceptions, policyMatchConditionCount)
+}
+
+// CanGenerateNativeMutatingPolicyWithMatchConditions also checks the combined native MAP condition count.
+func CanGenerateNativeMutatingPolicyWithMatchConditions(exceptions []policiesv1beta1.PolicyException, policyMatchConditionCount int) (bool, string) {
+	if ok, reason := CanGenerateNativeMutatingPolicy(exceptions); !ok {
+		return false, reason
+	}
+	return canGenerateWithMatchConditionLimit("MutatingAdmissionPolicy", exceptions, policyMatchConditionCount)
+}
+
+func canGenerateWithMatchConditionLimit(kind string, exceptions []policiesv1beta1.PolicyException, policyMatchConditionCount int) (bool, string) {
+	const maxMatchConditions = 64
+	combinedCount := policyMatchConditionCount + len(negateExceptionMatchConditions(exceptions))
+	if combinedCount > maxMatchConditions {
+		return false, fmt.Sprintf(
+			"generated %s would contain %d matchConditions; Kubernetes allows at most %d",
+			kind, combinedCount, maxMatchConditions,
+		)
+	}
+	return true, ""
+}
