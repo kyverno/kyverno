@@ -290,16 +290,16 @@ func TestHandleMAPGeneration_SkipsAndDeletesForUnsupportedCELException(t *testin
 	}
 
 	c := &controller{
-		client:           kubeClient,
-		kyvernoClient:    kyvernoClient,
-		discoveryClient:  dclient.NewEmptyFakeClient().Discovery(),
-		checker:          permissiveAuthChecker{},
-		mapV1Lister:      admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
+		client:             kubeClient,
+		kyvernoClient:      kyvernoClient,
+		discoveryClient:    dclient.NewEmptyFakeClient().Discovery(),
+		checker:            permissiveAuthChecker{},
+		mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
 		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
-		celpolexLister:   newCELPolexLister(t, exception),
-		polexEnabled:     true,
+		celpolexLister:     newCELPolexLister(t, exception),
+		polexEnabled:       true,
 		exceptionNamespace: "*",
-		eventGen:         event.NewFake(),
+		eventGen:           event.NewFake(),
 	}
 
 	err := c.handleMAPGenerationWithVersion(ctx, mpol, admissionpolicy.MutatingAdmissionPolicyVersionV1)
