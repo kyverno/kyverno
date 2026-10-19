@@ -266,6 +266,27 @@ class PublishTest(unittest.TestCase):
             self.run_publish("fixtures-only", "2" * 40)
 
 
+class BodyTest(unittest.TestCase):
+    result = {"classification": "manual", "head": "3" * 40, "preview": "fail",
+              "preview_summary": "checked 1 fixture results: 1 unexpected"}
+
+    def test_short_report_is_kept_whole(self):
+        body = publish.pr_body(self.result, "# report\nline\n")
+        self.assertTrue(body.endswith("# report\nline\n"))
+        self.assertNotIn("The report is cut here", body)
+
+    def test_long_report_is_cut_under_the_github_limit(self):
+        report = "# report\n" + "".join(f"+ go diff line {i}\n" for i in range(20000))
+        body = publish.pr_body(self.result, report)
+        self.assertLess(len(body), 65536)
+        self.assertLessEqual(len(body), publish.MAX_BODY)
+        self.assertIn("The report is cut here", body)
+        self.assertIn("pss-upstream-sync` artifact", body)
+        self.assertIn(publish.BODY_MARKER, body)
+        # The cut lands on a line boundary.
+        self.assertRegex(body, r"\+ go diff line \d+\n\n\*\*The report is cut here")
+
+
 class GuardTest(unittest.TestCase):
     def test_forbidden_requests_are_refused(self):
         github = publish.GitHub(REPO)

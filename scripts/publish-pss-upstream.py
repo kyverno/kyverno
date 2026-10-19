@@ -57,6 +57,9 @@ LABEL_COLOR = "d93f0b"
 LABEL_DESCRIPTION = "Upstream PSA change that needs CEL policy changes by hand"
 BODY_MARKER = "<!-- pss-upstream-sync -->"
 PAUSE_MARKER = "<!-- pss-upstream-sync-paused -->"
+MAX_BODY = 60000
+TRUNCATED_NOTE = ("\n**The report is cut here, because it's longer than a PR description can be.** The full "
+                  "report is in the `pss-upstream-sync` artifact of the workflow run that opened or updated this PR.\n")
 EXIT_DONE, EXIT_ERROR, EXIT_PAUSED = 0, 1, 3
 
 sys.dont_write_bytecode = True
@@ -253,8 +256,15 @@ def pr_body(result, report):
               "",
               "It was opened by `scripts/publish-pss-upstream.py`. The bot never merges, approves, or marks this "
               "PR ready. If you push your own commits to this branch, the bot stops updating it.",
-              "", "---", "", report.rstrip("\n"), ""]
-    return "\n".join(lines)
+              "", "---", ""]
+    head = "\n".join(lines)
+    report = report.rstrip("\n")
+    # GitHub rejects a PR body over 65,536 characters, and a large upstream Go
+    # diff can produce a longer report, so cut the report and point to the artifact.
+    room = MAX_BODY - len(head) - len(TRUNCATED_NOTE) - 1
+    if len(report) > room:
+        report = report[:max(room, 0)].rsplit("\n", 1)[0] + "\n" + TRUNCATED_NOTE
+    return head + report + "\n"
 
 
 def publish(args, github, git, result, candidate, report):
