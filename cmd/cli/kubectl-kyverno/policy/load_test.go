@@ -774,6 +774,40 @@ spec:
 	assert.Equal(t, filepath.Join(dir, "dangling.yaml"), results.NonFatalErrors[0].Path)
 }
 
+// TestLoadSkippingInvalidFiles_SymlinkedDirectories checks that a symlink back to a directory being
+// loaded is reported once instead of loading its policies again on every level, and that a dangling
+// symlink that could have pointed at a directory is reported.
+func TestLoadSkippingInvalidFiles_SymlinkedDirectories(t *testing.T) {
+	dir := t.TempDir()
+	valid := `
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: require-team-label
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  validations:
+  - expression: "true"
+`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "valid.yaml"), []byte(valid), 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, "nested"), 0o700))
+	require.NoError(t, os.Symlink("..", filepath.Join(dir, "nested", "parent")))
+	require.NoError(t, os.Symlink(filepath.Join(dir, "does-not-exist"), filepath.Join(dir, "policies")))
+
+	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	require.NoError(t, err)
+	assert.Len(t, results.ValidatingPolicies, 1, "the policy must be loaded exactly once")
+	require.Len(t, results.NonFatalErrors, 2)
+	assert.Equal(t, filepath.Join(dir, "nested", "parent"), results.NonFatalErrors[0].Path)
+	assert.Contains(t, results.NonFatalErrors[0].Error.Error(), "symlink loop")
+	assert.Equal(t, filepath.Join(dir, "policies"), results.NonFatalErrors[1].Path)
+}
+
 // TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal checks that a validator that cannot be set
 // up fails the load instead of being reported against every file.
 func TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal(t *testing.T) {

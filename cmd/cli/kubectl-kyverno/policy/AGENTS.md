@@ -43,7 +43,10 @@ Every new branch is gated on that flag; the strict path must keep behaving as be
 Anything else (resources, `kyverno-test.yaml`, values and context files, `kustomization.yaml`) is ignored, because
 policy folders routinely hold those next to the policies. A document that is not valid YAML is always reported,
 since there is no way to tell what it was meant to be. In a directory, hidden entries are skipped before they are
-touched and an unreadable entry is reported only if it is a directory or a YAML file. For a `v1/List`, policy items
+touched and an unreadable entry is reported only if it is a directory, a YAML file, or a symlink without an
+extension (it may point at a directory). `fsLoadWalking` tracks the real paths of the directories being walked, so a
+symlink back into one of them is reported as a loop instead of loading the same policies again on every level until
+the OS gives up (ELOOP). For a `v1/List`, policy items
 that fail are reported one by one from `handleListItems`, while a broken List shape (an item that is not an object,
 or `items` that is not a list) is ignored in lenient mode because it holds no policy that can be identified.
 

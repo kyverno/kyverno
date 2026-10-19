@@ -627,9 +627,15 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 }
 
 // fsLoad loads a file or walks a directory. When skipUnreadable is set, a directory entry that
-// cannot be read (a broken symlink, a permission error) is recorded under its own path and skipped
-// instead of aborting the whole directory.
+// cannot be read (a broken symlink, a permission error, a symlink back to a directory being walked)
+// is recorded under its own path and skipped instead of aborting the whole directory.
 func fsLoad(loader loader, path string, skipUnreadable bool) (*LoaderResults, error) {
+	return fsLoadWalking(loader, path, skipUnreadable, sets.New[string]())
+}
+
+// fsLoadWalking is fsLoad given the real paths of the directories being walked, so that the lenient
+// walk stops at a symlink loop instead of loading the same policies again on every level.
+func fsLoadWalking(loader loader, path string, skipUnreadable bool, walking sets.Set[string]) (*LoaderResults, error) {
 	fi, err := os.Stat(filepath.Clean(path))
 	if err != nil {
 		return nil, err
@@ -640,6 +646,17 @@ func fsLoad(loader loader, path string, skipUnreadable bool) (*LoaderResults, er
 	}
 	aggregateResults := &LoaderResults{}
 	if fi.IsDir() {
+		if skipUnreadable {
+			realPath, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return nil, err
+			}
+			if walking.Has(realPath) {
+				return nil, errors.Errorf("symlink loop, %s is already being loaded", realPath)
+			}
+			walking.Insert(realPath)
+			defer walking.Delete(realPath)
+		}
 		files, err := os.ReadDir(path)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to read %s", path)
@@ -650,11 +667,14 @@ func fsLoad(loader loader, path string, skipUnreadable bool) (*LoaderResults, er
 				// skip hidden entries before touching them, so a broken hidden symlink is not reported
 				continue
 			}
-			results, err := fsLoad(loader, entry, skipUnreadable)
+			results, err := fsLoadWalking(loader, entry, skipUnreadable, walking)
 			if err != nil {
 				if skipUnreadable && !pkgdeprecations.IsLegacyPolicyBlockError(err) {
-					// only report entries that could have held policies, other files are ignored anyway
-					if ext := filepath.Ext(file.Name()); file.IsDir() || ext == ".yaml" || ext == ".yml" {
+					// only report entries that could have held policies, other files are ignored anyway;
+					// a symlink without an extension may point at a directory
+					ext := filepath.Ext(file.Name())
+					symlink := file.Type()&os.ModeSymlink != 0
+					if file.IsDir() || (symlink && ext == "") || ext == ".yaml" || ext == ".yml" {
 						aggregateResults.addError(entry, err)
 					}
 					continue
