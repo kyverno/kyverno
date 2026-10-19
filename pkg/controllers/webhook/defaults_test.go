@@ -352,3 +352,63 @@ func TestReconcileResourceWebhooksWithOmittedRuleScope(t *testing.T) {
 		})
 	}
 }
+
+// TestReconcileGenerationLabelProtectionWithoutAutoUpdate covers the one webhook
+// Kyverno still manages in the resource validating configuration when
+// autoUpdateWebhooks is disabled: it is added once with the API-server defaults,
+// and later watchdog ticks leave the configuration alone.
+func TestReconcileGenerationLabelProtectionWithoutAutoUpdate(t *testing.T) {
+	t.Parallel()
+	for _, scenario := range []string{"present", "missing"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			c := &controller{servicePort: 443, defaultTimeout: 10, caSecretName: "root-ca"}
+			// The builder leaves the namespace selector and the rule scope for the API server to fill in.
+			stored := c.buildGenerationLabelProtectionWebhook([]byte("ca"))
+			stored.NamespaceSelector = &metav1.LabelSelector{}
+			stored.Rules[0].Scope = ptr.To(admissionregistrationv1.AllScopes)
+			// Policy routing is user-managed in this mode and must be kept as is.
+			_, userManaged := webhookDefaultFixtures(t)
+			observed := &admissionregistrationv1.ValidatingWebhookConfiguration{
+				ObjectMeta: metav1.ObjectMeta{Name: config.ValidatingWebhookConfigurationName},
+				Webhooks:   userManaged[:1],
+			}
+			if scenario == "present" {
+				observed.Webhooks = append(observed.Webhooks, *stored.DeepCopy())
+			}
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			require.NoError(t, indexer.Add(observed))
+			client := fake.NewSimpleClientset(observed.DeepCopy())
+			secrets := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			require.NoError(t, secrets.Add(&corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "root-ca", Namespace: config.KyvernoNamespace()},
+				Data:       map[string][]byte{corev1.TLSCertKey: []byte("ca")},
+			}))
+			c.secretLister = corev1listers.NewSecretLister(secrets)
+			c.vwcLister = admissionregistrationv1listers.NewValidatingWebhookConfigurationLister(indexer)
+			c.vwcClient = client.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+			reconcile := func() error {
+				return c.reconcileValidatingWebhookConfiguration(t.Context(), false, func(context.Context, config.Configuration, []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+					return &admissionregistrationv1.ValidatingWebhookConfiguration{ObjectMeta: metav1.ObjectMeta{Name: config.ValidatingWebhookConfigurationName}}, nil
+				})
+			}
+			require.NoError(t, reconcile())
+			actions := client.Actions()
+			if scenario == "missing" {
+				require.Len(t, actions, 1)
+				require.Equal(t, "update", actions[0].GetVerb())
+				written := actions[0].(clienttesting.UpdateAction).GetObject().(*admissionregistrationv1.ValidatingWebhookConfiguration)
+				require.Equal(t, []admissionregistrationv1.ValidatingWebhook{userManaged[0], stored}, written.Webhooks)
+				// Simulate the informer observing the write before the next tick.
+				require.NoError(t, indexer.Update(written.DeepCopy()))
+			} else {
+				require.Empty(t, actions, "an unchanged protection webhook must not be updated")
+			}
+			client.ClearActions()
+			for range 3 {
+				require.NoError(t, reconcile())
+			}
+			require.Empty(t, client.Actions(), "subsequent watchdog ticks must not send updates")
+		})
+	}
+}

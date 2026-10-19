@@ -580,8 +580,10 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	}
 	if !autoUpdateWebhooks {
 		if desired.Name == config.ValidatingWebhookConfigurationName {
+			protection := []admissionregistrationv1.ValidatingWebhook{c.buildGenerationLabelProtectionWebhook(caData)}
+			defaultValidatingWebhooks(protection)
 			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
-				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
+				setGenerationLabelProtectionWebhook(w, protection[0])
 				return nil
 			})
 			return err
