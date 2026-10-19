@@ -694,14 +694,14 @@ func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testi
 	imageOne := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-one"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
-			Images:       []string{"ghcr.io/example/one:v1"},
+			Images:        []string{"ghcr.io/example/one:v1"},
 			AllowedValues: []string{"blue"},
 		},
 	}
 	imageTwo := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-two"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
-			Images:       []string{"ghcr.io/example/two:v1"},
+			Images:        []string{"ghcr.io/example/two:v1"},
 			AllowedValues: []string{"green"},
 		},
 	}
