@@ -11,8 +11,10 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
@@ -1776,3 +1778,79 @@ func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
 		}
 	}
 }
+
+func Test_Apply_PolicyValidationWarnings(t *testing.T) {
+	pol := &kyvernov1.ClusterPolicy{}
+	pol.SetName("test-deprecated-action")
+	pol.Spec.ValidationFailureAction = "enforce"
+
+	t.Run("surfaces validation warning without error", func(t *testing.T) {
+		config := &ApplyCommandConfig{}
+		var out bytes.Buffer
+		var skipped SkippedInvalidPolicies
+		_, _, _, err := config.applyPolicies(
+			&out,
+			&store.Store{},
+			nil,
+			[]kyvernov1.PolicyInterface{pol},
+			nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil,
+			&skipped,
+			nil, nil, false,
+		)
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), "Warning: policy test-deprecated-action: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
+		assert.Len(t, config.deprecationWarnings, 1)
+		require.NoError(t, config.failOnDeprecationWarnings())
+	})
+
+	t.Run("fails when warnings-as-errors is set", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			warningsAsErrors: true,
+		}
+		var out bytes.Buffer
+		var skipped SkippedInvalidPolicies
+		_, _, _, err := config.applyPolicies(
+			&out,
+			&store.Store{},
+			nil,
+			[]kyvernov1.PolicyInterface{pol},
+			nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil,
+			&skipped,
+			nil, nil, false,
+		)
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), "Warning: policy test-deprecated-action: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
+		assert.Len(t, config.deprecationWarnings, 1)
+		err = config.failOnDeprecationWarnings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 1 deprecation warning(s) and --warnings-as-errors is set")
+	})
+
+	t.Run("surfaces namespaced policy warning formatted as namespace/name", func(t *testing.T) {
+		namespacedPol := &kyvernov1.Policy{}
+		namespacedPol.SetName("test-namespaced-policy")
+		namespacedPol.SetNamespace("custom-ns")
+		namespacedPol.Spec.ValidationFailureAction = "audit"
+
+		config := &ApplyCommandConfig{}
+		var out bytes.Buffer
+		var skipped SkippedInvalidPolicies
+		_, _, _, err := config.applyPolicies(
+			&out,
+			&store.Store{},
+			nil,
+			[]kyvernov1.PolicyInterface{namespacedPol},
+			nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil,
+			&skipped,
+			nil, nil, false,
+		)
+		require.NoError(t, err)
+		assert.Contains(t, out.String(), "Warning: policy custom-ns/test-namespaced-policy: spec.validationFailureAction: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.")
+		assert.Len(t, config.deprecationWarnings, 1)
+	})
+}
+
+
