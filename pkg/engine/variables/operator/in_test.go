@@ -141,6 +141,54 @@ func TestInHandler_Evaluate(t *testing.T) {
 	}
 }
 
+func TestInNotInHandlers_EvaluateNonStringListKeys(t *testing.T) {
+	t.Parallel()
+	log := logr.Discard()
+	handlers := []struct {
+		name      string
+		handler   OperatorHandler
+		reference OperatorHandler
+		notIn     bool
+	}{
+		{"In", NewInHandler(log, nil), NewAnyInHandler(log, nil), false},
+		{"NotIn", NewNotInHandler(log, nil), NewAnyNotInHandler(log, nil), true},
+	}
+	tests := []struct {
+		name  string
+		key   []interface{}
+		value []interface{}
+		in    bool
+	}{
+		{"numbers found", []interface{}{float64(80), float64(443)}, []interface{}{"80", "443"}, true},
+		{"numbers not found", []interface{}{float64(80), float64(443)}, []interface{}{"8080", "8443"}, false},
+		{"booleans found", []interface{}{true, false}, []interface{}{"true", "false"}, true},
+		{"booleans not found", []interface{}{true, false}, []interface{}{"80", "443"}, false},
+		{"mixed types found", []interface{}{float64(80), true}, []interface{}{"80", "true"}, true},
+	}
+	for _, h := range handlers {
+		t.Run(h.name, func(t *testing.T) {
+			t.Parallel()
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					t.Parallel()
+					want := tt.in != h.notIn
+					assert.Equal(t, want, h.reference.Evaluate(tt.key, tt.value))
+					assert.NotPanics(t, func() {
+						assert.Equal(t, want, h.handler.Evaluate(tt.key, tt.value))
+					})
+				})
+			}
+			t.Run("numeric value list", func(t *testing.T) {
+				t.Parallel()
+				assert.NotPanics(t, func() {
+					// These deprecated operators already require string elements in value lists.
+					assert.False(t, h.handler.Evaluate([]interface{}{float64(80)}, []interface{}{float64(80)}))
+				})
+			})
+		})
+	}
+}
+
 func TestInHandler_ValidateValueWithStringPattern(t *testing.T) {
 	log := logr.Discard()
 	handler := InHandler{log: log}
