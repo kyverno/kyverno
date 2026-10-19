@@ -326,8 +326,15 @@ func TestReconcileResourceWebhooksWithOmittedRuleScope(t *testing.T) {
 			var rules []admissionregistrationv1.RuleWithOperations
 			switch obj := written.(type) {
 			case *admissionregistrationv1.ValidatingWebhookConfiguration:
-				require.Len(t, obj.Webhooks, 1)
-				rules = obj.Webhooks[0].Rules
+				// The generation label protection webhook is always added; check the policy webhook.
+				var policyWebhooks []admissionregistrationv1.ValidatingWebhook
+				for _, w := range obj.Webhooks {
+					if w.Name != config.GenerationLabelProtectionWebhookName {
+						policyWebhooks = append(policyWebhooks, w)
+					}
+				}
+				require.Len(t, policyWebhooks, 1)
+				rules = policyWebhooks[0].Rules
 			case *admissionregistrationv1.MutatingWebhookConfiguration:
 				require.Len(t, obj.Webhooks, 1)
 				rules = obj.Webhooks[0].Rules
