@@ -157,6 +157,10 @@ func BuildValidatingAdmissionPolicy(
 		}
 		for i := range validations {
 			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
+			validations[i].MessageExpression = replaceExpressions(validations[i].MessageExpression, replacements)
+		}
+		for i := range auditAnnotations {
+			auditAnnotations[i].ValueExpression = replaceExpressions(auditAnnotations[i].ValueExpression, replacements)
 		}
 	}
 
