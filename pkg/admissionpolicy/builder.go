@@ -254,6 +254,17 @@ func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException
 	for _, exception := range exceptions {
 		conditions := exception.Spec.MatchConditions
 		if len(conditions) == 0 {
+			// An unscoped exception with no match conditions matches every request.
+			// Emit a false policy match condition so native admission generation
+			// honors the exception instead of continuing to enforce the policy.
+			// Image/value-scoped exceptions still need the policy to run so their
+			// allowed values can be applied by the generated validation expressions.
+			if len(exception.Spec.Images) == 0 && len(exception.Spec.AllowedValues) == 0 {
+				result = append(result, admissionregistrationv1.MatchCondition{
+					Name:       exceptionMatchConditionName(exception),
+					Expression: "false",
+				})
+			}
 			continue
 		}
 
@@ -271,8 +282,7 @@ func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException
 		if len(conditions) > 1 {
 			// Multiple source conditions become one generated condition. Use a stable short
 			// name derived from the exception, rather than dropping names or risking duplicates.
-			sum := sha256.Sum256([]byte(exception.Namespace + "/" + exception.Name))
-			name = fmt.Sprintf("exception-%x", sum[:6])
+			name = exceptionMatchConditionName(exception)
 		}
 		result = append(result, admissionregistrationv1.MatchCondition{
 			Name:       name,
@@ -280,6 +290,11 @@ func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException
 		})
 	}
 	return result
+}
+
+func exceptionMatchConditionName(exception policiesv1beta1.PolicyException) string {
+	sum := sha256.Sum256([]byte(exception.Namespace + "/" + exception.Name))
+	return fmt.Sprintf("exception-%x", sum[:6])
 }
 
 // BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
