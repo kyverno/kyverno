@@ -147,6 +147,7 @@ func BuildValidatingAdmissionPolicy(
 		}
 
 		replacements := map[string]string{}
+		var exceptionVariables []admissionregistrationv1.Variable
 		if len(exceptionImages) > 0 || referencesAllowedImages {
 			if exceptionImages == nil {
 				exceptionImages = []string{}
@@ -155,8 +156,9 @@ func BuildValidatingAdmissionPolicy(
 			if err != nil {
 				return err
 			}
-			name := uniqueVariableName("allowedImages", variables)
-			variables = append(variables, admissionregistrationv1.Variable{
+			availableVariables := append(append([]admissionregistrationv1.Variable{}, variables...), exceptionVariables...)
+			name := uniqueVariableName("allowedImages", availableVariables)
+			exceptionVariables = append(exceptionVariables, admissionregistrationv1.Variable{
 				Name:       name,
 				Expression: expression,
 			})
@@ -170,13 +172,17 @@ func BuildValidatingAdmissionPolicy(
 			if err != nil {
 				return err
 			}
-			name := uniqueVariableName("allowedValues", variables)
-			variables = append(variables, admissionregistrationv1.Variable{
+			availableVariables := append(append([]admissionregistrationv1.Variable{}, variables...), exceptionVariables...)
+			name := uniqueVariableName("allowedValues", availableVariables)
+			exceptionVariables = append(exceptionVariables, admissionregistrationv1.Variable{
 				Name:       name,
 				Expression: expression,
 			})
 			replacements["exceptions.allowedValues"] = "variables." + name
 		}
+		// Native VAP variables are evaluated in declaration order. Put generated exception
+		// lists before policy-defined variables so the latter can safely reference them.
+		variables = append(exceptionVariables, variables...)
 		for i := range variables {
 			variables[i].Expression = replaceExpressions(variables[i].Expression, replacements)
 		}
