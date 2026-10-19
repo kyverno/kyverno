@@ -95,6 +95,7 @@ func NewHandlers(
 	if maxAuditCapacity <= 0 {
 		maxAuditCapacity = 1
 	}
+	registerLegacyExecutionEscapeHatch(pCache)
 	return &resourceHandlers{
 		engine:                       engine,
 		client:                       client,
