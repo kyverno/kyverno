@@ -3,4 +3,4 @@
 # scripts/verify-policies-pss-fixtures.py.
 repository: https://github.com/Suhani95/pod-security-admission
 branch: master
-commit: 36a049e80d3ee9f56646153499df3d33083201fb
+commit: 55cf680a1c1a777024a878819de7d3fafe9ce134
