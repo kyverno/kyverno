@@ -675,6 +675,15 @@ func TestEnsureUniqueExceptionMatchConditionNames(t *testing.T) {
 	got = ensureUniqueExceptionMatchConditionNames(duplicateExceptionNames, nil)
 	assert.Equal(t, "check-name", got[0].Name)
 	assert.Equal(t, "check-name-2", got[1].Name)
+
+	longName := strings.Repeat("a", 63)
+	got = ensureUniqueExceptionMatchConditionNames(
+		[]admissionregistrationv1.MatchCondition{{Name: longName, Expression: "true"}},
+		[]admissionregistrationv1.MatchCondition{{Name: longName, Expression: "true"}},
+	)
+	require.Len(t, got, 1)
+	assert.LessOrEqual(t, len(got[0].Name), 63)
+	assert.Equal(t, strings.Repeat("a", 61)+"-2", got[0].Name)
 }
 
 func TestEnsureUniqueExceptionMatchConditionNames_MaxLength(t *testing.T) {
