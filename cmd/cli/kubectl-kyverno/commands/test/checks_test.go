@@ -183,3 +183,75 @@ func TestPrintCheckResultIncludesGeneratedAndPatchedFields(t *testing.T) {
 	assert.Equal(t, 0, rc.Fail)
 	require.Len(t, resultsTable.RawRows, 1)
 }
+
+
+func TestCollectUniqueCheckResponses(t *testing.T) {
+	newResponse := func(name string) engineapi.EngineResponse {
+		response := engineapi.NewEngineResponse(
+			unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "v1",
+				"kind": "Pod",
+				"metadata": map[string]any{"name": name},
+			}},
+			engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Name: "test-policy"}}),
+			nil,
+		)
+		response.PolicyResponse.Rules = []engineapi.RuleResponse{*engineapi.RulePass("rule", engineapi.Validation, "", nil)}
+		return response
+	}
+	trigger := newResponse("trigger")
+	distinct := newResponse("distinct")
+	targetOnly := newResponse("target-only")
+	responses := TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{
+			"trigger": {trigger},
+		},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{
+			"UPDATE": {"trigger": {trigger}, "distinct": {distinct}},
+		},
+		Target: map[string][]engineapi.EngineResponse{
+			"target-1": {trigger, targetOnly},
+			"target-2": {trigger, distinct},
+		},
+	}
+	collected := collectUniqueCheckResponses(responses)
+	require.Len(t, collected, 3)
+	names := make(map[string]bool)
+	for _, response := range collected {
+		name := response.Resource.GetName()
+		require.False(t, names[name], "evaluation collected twice: %s", name)
+		names[name] = true
+	}
+	assert.True(t, names["trigger"])
+	assert.True(t, names["distinct"])
+	assert.True(t, names["target-only"])
+
+	check := v1alpha1.CheckResult{Assert: &kyvernov1.Any{Value: map[string]any{"status": "pass"}}}
+	rc := &resultCounts{}
+	var resultsTable table.Table
+	require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
+	assert.Equal(t, 3, rc.Pass)
+	assert.Equal(t, 0, rc.Fail)
+	require.Len(t, resultsTable.RawRows, 3)
+}
+
+func TestCollectUniqueCheckResponsesKeepsSeparateEqualEvaluations(t *testing.T) {
+	makeResponse := func() engineapi.EngineResponse {
+		response := engineapi.NewEngineResponse(
+			unstructured.Unstructured{Object: map[string]any{
+				"apiVersion": "v1", "kind": "Pod", "metadata": map[string]any{"name": "same"},
+			}},
+			nil,
+			nil,
+		)
+		response.PolicyResponse.Rules = []engineapi.RuleResponse{*engineapi.RulePass("same", engineapi.Validation, "", nil)}
+		return response
+	}
+	responses := TestResponse{
+		Trigger: map[string][]engineapi.EngineResponse{"one": {makeResponse()}},
+		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{
+			"UPDATE": {"two": {makeResponse()}},
+		},
+	}
+	assert.Len(t, collectUniqueCheckResponses(responses), 2)
+}
