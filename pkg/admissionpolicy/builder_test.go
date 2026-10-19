@@ -632,3 +632,100 @@ func TestBuildMutatingAdmissionPolicyV1_FullCELException(t *testing.T) {
 	assert.Regexp(t, "^exception-[0-9a-f]{12}$", mapol.Spec.MatchConditions[0].Name)
 	assert.Equal(t, "false", mapol.Spec.MatchConditions[0].Expression)
 }
+
+func TestNegateExceptionMatchConditions_GlobalExceptionShortCircuits(t *testing.T) {
+	exceptions := []policiesv1beta1.PolicyException{
+		{ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-one"}},
+		{ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-two"}},
+	}
+
+	got := negateExceptionMatchConditions(exceptions)
+	require.Len(t, got, 1)
+	assert.Equal(t, "false", got[0].Expression)
+	assert.Regexp(t, "^exception-[0-9a-f]{12}$", got[0].Name)
+}
+
+func TestEnsureUniqueExceptionMatchConditionNames(t *testing.T) {
+	exception := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "collision"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{Name: "first", Expression: "true"},
+				{Name: "second", Expression: "true"},
+			},
+		},
+	}
+	generated := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{exception})
+	require.Len(t, generated, 1)
+	collidingName := generated[0].Name
+	policyConditions := []admissionregistrationv1.MatchCondition{{
+		Name:       collidingName,
+		Expression: "true",
+	}}
+
+	got := ensureUniqueExceptionMatchConditionNames(generated, policyConditions)
+	assert.Equal(t, collidingName+"-2", got[0].Name)
+	assert.Equal(t, collidingName, policyConditions[0].Name)
+
+	duplicateExceptionNames := []admissionregistrationv1.MatchCondition{
+		{Name: "check-name", Expression: "true"},
+		{Name: "check-name", Expression: "false"},
+	}
+	got = ensureUniqueExceptionMatchConditionNames(duplicateExceptionNames, nil)
+	assert.Equal(t, "check-name", got[0].Name)
+	assert.Equal(t, "check-name-2", got[1].Name)
+}
+
+func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "scoped-exceptions", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Variables: []admissionregistrationv1.Variable{{
+				Name:       "allowedImages",
+				Expression: "['policy-defined-image']",
+			}},
+			Validations: []admissionregistrationv1.Validation{
+				{Expression: "exceptions.allowedImages.size() > 0", Message: "image list must exist"},
+				{Expression: "exceptions.allowedValues.size() > 0", Message: "value list must exist"},
+			},
+		},
+	}
+	imageOne := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-one"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:       []string{"ghcr.io/example/one:v1"},
+			AllowedValues: []string{"blue"},
+		},
+	}
+	imageTwo := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "image-two"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images:       []string{"ghcr.io/example/two:v1"},
+			AllowedValues: []string{"green"},
+		},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+
+	err := BuildValidatingAdmissionPolicy(
+		nil,
+		vap,
+		engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{
+			engineapi.NewCELPolicyException(imageOne),
+			engineapi.NewCELPolicyException(imageTwo),
+		},
+	)
+	require.NoError(t, err)
+
+	require.Len(t, vap.Spec.Variables, 3)
+	variables := make(map[string]string, len(vap.Spec.Variables))
+	for _, variable := range vap.Spec.Variables {
+		variables[variable.Name] = variable.Expression
+	}
+	assert.Equal(t, "['policy-defined-image']", variables["allowedImages"])
+	assert.Equal(t, `["ghcr.io/example/one:v1","ghcr.io/example/two:v1"]`, variables["exceptionAllowedImages2"])
+	assert.Equal(t, `["blue","green"]`, variables["allowedValues"])
+	assert.Equal(t, "variables.exceptionAllowedImages2.size() > 0", vap.Spec.Validations[0].Expression)
+	assert.Equal(t, "variables.allowedValues.size() > 0", vap.Spec.Validations[1].Expression)
+}
