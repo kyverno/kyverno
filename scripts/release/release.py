@@ -482,14 +482,36 @@ def publish_images(metadata):
         subject = reference.rsplit(":", 1)[0] + "@" + digest
         sign(subject, "image", metadata)
         sbom = Path(f".release/sboms/{name}-bom.cdx.json")
-        run("cosign", "attach", "sbom", "--type", "cyclonedx", "--sbom", sbom, subject,
-            env={**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{metadata['owner']}/sbom"})
+        publish_sbom(subject, sbom, metadata["owner"])
         digests[name] = digest
         upload_asset(metadata["tag"], sbom)
     write_json(".release-publication/images.json", digests)
     with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
         for name, digest in digests.items():
             stream.write(f"{name}={digest}\n")
+
+
+def publish_sbom(subject, sbom, owner):
+    env = {**os.environ, "COSIGN_REPOSITORY": f"ghcr.io/{owner}/sbom"}
+    attachment = subprocess.check_output(
+        ["cosign", "triangulate", "--type", "sbom", subject], text=True, env=env,
+    ).strip()
+    if not attachment:
+        raise ValueError(f"Cannot resolve SBOM attachment reference for {subject}")
+
+    expected = hashlib.sha256(Path(sbom).read_bytes().strip()).hexdigest()
+    if inspect_digest(attachment) is not None:
+        existing = subprocess.check_output(
+            ["cosign", "download", "sbom", subject], env=env,
+        ).strip()
+        same_or_absent(hashlib.sha256(existing).hexdigest(), expected, attachment)
+        return
+
+    run("cosign", "attach", "sbom", "--type", "cyclonedx", "--sbom", sbom, subject, env=env)
+    published = subprocess.check_output(
+        ["cosign", "download", "sbom", subject], env=env,
+    ).strip()
+    same_or_absent(hashlib.sha256(published).hexdigest(), expected, attachment)
 
 
 def sign(subject, kind, metadata):
