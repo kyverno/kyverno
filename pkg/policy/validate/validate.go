@@ -27,7 +27,7 @@ func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock boo
 	if mock {
 		authChecker = fake.NewFakeAuth()
 	} else {
-		authChecker = auth.NewCachedAuth(auth.NewAuth(client, reportsSA, logging.GlobalLogger()), authCache)
+		authChecker = auth.NewAuth(client, reportsSA, logging.GlobalLogger(), authCache)
 	}
 
 	return &Validate{

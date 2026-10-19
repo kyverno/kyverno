@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/auth"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 )
 
@@ -21,17 +22,24 @@ type AuthChecks interface {
 
 // Auth provides implementation to check if caller/self/kyverno has access to perofrm operations
 type Auth struct {
-	client dclient.Interface
-	user   string
-	log    logr.Logger
+	client  dclient.Interface
+	user    string
+	log     logr.Logger
+	checker checker.AuthChecker
 }
 
-// NewAuth returns a new instance of Auth for operations
-func NewAuth(client dclient.Interface, user string, log logr.Logger) *Auth {
+// NewAuth returns a new instance of Auth for operations. When cache is non-nil
+// the underlying subject checker is wrapped so per-(subject, resource, verb)
+// decisions are memoized for the duration of the validation pass.
+func NewAuth(client dclient.Interface, user string, log logr.Logger, cache *ResultCache) *Auth {
 	a := Auth{
 		client: client,
 		user:   user,
 		log:    log,
+	}
+	if client != nil {
+		sc := checker.NewSubjectChecker(client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), user, nil)
+		a.checker = NewCachedChecker(sc, user, cache)
 	}
 	return &a
 }
@@ -64,8 +72,7 @@ func (a *Auth) CanICreate(ctx context.Context, gvk, namespace, name, subresource
 }
 
 func (a *Auth) check(ctx context.Context, verb, gvk, namespace, name, subresource string) (bool, error) {
-	subjectReview := a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews()
-	canI := auth.NewCanI(a.client.Discovery(), subjectReview, gvk, namespace, name, verb, subresource, a.user)
+	canI := auth.NewCanI(a.client.Discovery(), a.checker, gvk, namespace, name, verb, subresource)
 	ok, _, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, err

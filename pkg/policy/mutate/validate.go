@@ -30,12 +30,12 @@ func NewMutateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool,
 	if mock || backgroundSA == "" {
 		authCheckBackground = fake.NewFakeAuth()
 	} else {
-		authCheckBackground = auth.NewCachedAuth(auth.NewAuth(client, backgroundSA, logging.GlobalLogger()), authCache)
+		authCheckBackground = auth.NewAuth(client, backgroundSA, logging.GlobalLogger(), authCache)
 	}
 	if mock || reportsSA == "" {
 		authCheckerReports = fake.NewFakeAuth()
 	} else {
-		authCheckerReports = auth.NewCachedAuth(auth.NewAuth(client, reportsSA, logging.GlobalLogger()), authCache)
+		authCheckerReports = auth.NewAuth(client, reportsSA, logging.GlobalLogger(), authCache)
 	}
 
 	return &Mutate{

@@ -29,13 +29,13 @@ type Generate struct {
 func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger, authCache *auth.ResultCache) *Generate {
 	var authCheckerReports auth.AuthChecks
 	if reportsSA != "" {
-		authCheckerReports = auth.NewCachedAuth(auth.NewAuth(client, reportsSA, log), authCache)
+		authCheckerReports = auth.NewAuth(client, reportsSA, log, authCache)
 	}
 
 	g := Generate{
 		user:               user,
 		rule:               rule,
-		authChecker:        auth.NewCachedAuth(auth.NewAuth(client, user, log), authCache),
+		authChecker:        auth.NewAuth(client, user, log, authCache),
 		authCheckerReports: authCheckerReports,
 		log:                log,
 	}

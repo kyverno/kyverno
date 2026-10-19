@@ -7,7 +7,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/auth/checker"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	authorizationv1client "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
 
 // Discovery provides interface to mange Kind and GVR mapping
@@ -31,23 +30,23 @@ type canIOptions struct {
 	verb        string
 	gvk         string
 	subresource string
-	user        string
 	name        string
 	discovery   Discovery
 	checker     checker.AuthChecker
 }
 
-// NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(discovery Discovery, sarClient authorizationv1client.SubjectAccessReviewInterface, gvk, namespace, name, verb, subresource string, user string) CanIOptions {
+// NewCanI returns a new instance of operation access controller evaluator.
+// The authChecker carries the subject identity (or self identity) and is the
+// seam where a caching wrapper can be injected.
+func NewCanI(discovery Discovery, authChecker checker.AuthChecker, gvk, namespace, name, verb, subresource string) CanIOptions {
 	return &canIOptions{
 		name:        name,
 		namespace:   namespace,
 		verb:        verb,
 		gvk:         gvk,
 		subresource: subresource,
-		user:        user,
 		discovery:   discovery,
-		checker:     checker.NewSubjectChecker(sarClient, user, nil),
+		checker:     authChecker,
 	}
 }
 

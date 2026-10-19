@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/authorization/v1"
@@ -45,7 +46,7 @@ func TestNewCanI(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NewCanI(tt.args.client.Discovery(), tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.args.kind, tt.args.namespace, tt.args.verb, tt.args.name, "", "admin")
+			got := NewCanI(tt.args.client.Discovery(), checker.NewSubjectChecker(tt.args.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "admin", nil), tt.args.kind, tt.args.namespace, tt.args.verb, tt.args.name, "")
 			assert.NotNil(t, got)
 		})
 	}
@@ -95,7 +96,7 @@ func TestCanIOptions_DiscoveryError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.discovery, nil, tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "", "admin")
+			o := NewCanI(tt.fields.discovery, checker.NewSubjectChecker(nil, "admin", nil), tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "")
 			got, _, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -154,7 +155,7 @@ func TestCanIOptions_SsarError(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.discovery, tt.fields.sarClient, tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "", "admin")
+			o := NewCanI(tt.fields.discovery, checker.NewSubjectChecker(tt.fields.sarClient, "admin", nil), tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "")
 			got, _, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -226,7 +227,7 @@ func TestCanIOptions_RunAccessCheck(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			o := NewCanI(tt.fields.client.Discovery(), tt.fields.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "", "admin")
+			o := NewCanI(tt.fields.client.Discovery(), checker.NewSubjectChecker(tt.fields.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "admin", nil), tt.fields.kind, tt.fields.namespace, tt.fields.name, tt.fields.verb, "")
 			got, _, err := o.RunAccessCheck(context.TODO())
 			if tt.wantErr {
 				assert.Error(t, err)

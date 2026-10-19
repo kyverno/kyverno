@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/kyverno/kyverno/pkg/auth"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	corev1 "k8s.io/api/core/v1"
@@ -70,7 +71,8 @@ func (a *dclientAdapter) IsNamespaced(group, version, kind string) (bool, error)
 }
 
 func (a *dclientAdapter) CanI(ctx context.Context, kind, namespace, verb, subresource, user string) (bool, string, error) {
-	canI := auth.NewCanI(a.client.Discovery(), a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, "", verb, subresource, user)
+	subjectChecker := checker.NewSubjectChecker(a.client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), user, nil)
+	canI := auth.NewCanI(a.client.Discovery(), subjectChecker, kind, namespace, "", verb, subresource)
 	ok, reason, err := canI.RunAccessCheck(ctx)
 	if err != nil {
 		return false, reason, err

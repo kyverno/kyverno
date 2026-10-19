@@ -3,48 +3,54 @@ package auth
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
+	authorizationv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	clienttesting "k8s.io/client-go/testing"
 )
 
-// countingAuth is a test AuthChecks that records every CanI invocation and the
-// verbs it was asked about, and denies any verb listed in denied.
-type countingAuth struct {
-	user      string
-	denied    map[string]bool
-	err       error
-	calls     int
-	verbCalls []string
+// countingChecker is a test checker.AuthChecker that records every Check
+// invocation and denies any verb listed in denied.
+type countingChecker struct {
+	denied map[string]bool
+	err    error
+	mu     sync.Mutex
+	calls  int
+	verbs  []string
 }
 
-// User returns the configured subject.
-func (c *countingAuth) User() string { return c.user }
-
-// CanI records the invocation and its verbs, then denies any verb present in
-// denied (returning the aggregate message) or returns the configured error.
-func (c *countingAuth) CanI(_ context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error) {
+// Check records the invocation and its verb, then denies any verb present in
+// denied or returns the configured error.
+func (c *countingChecker) Check(_ context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
+	c.mu.Lock()
 	c.calls++
-	c.verbCalls = append(c.verbCalls, verbs...)
+	c.verbs = append(c.verbs, verb)
+	c.mu.Unlock()
 	if c.err != nil {
-		return false, "", c.err
+		return nil, c.err
 	}
-	var failed []string
-	for _, v := range verbs {
-		if c.denied[v] {
-			failed = append(failed, v)
-		}
-	}
-	if len(failed) > 0 {
-		return false, buildMessage(gvk, subresource, failed, c.user, namespace), nil
-	}
-	return true, "", nil
+	return &checker.AuthResult{Allowed: !c.denied[verb], Reason: "reason:" + verb}, nil
 }
 
-// countVerb returns how many times verb appears in verbCalls.
-func countVerb(verbCalls []string, verb string) int {
+func (c *countingChecker) callCount() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.calls
+}
+
+// countVerb returns how many times verb was checked.
+func (c *countingChecker) countVerb(verb string) int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	n := 0
-	for _, v := range verbCalls {
+	for _, v := range c.verbs {
 		if v == verb {
 			n++
 		}
@@ -52,132 +58,161 @@ func countVerb(verbCalls []string, verb string) int {
 	return n
 }
 
-// TestNewCachedAuth_NilPassthrough verifies the wrapper is a no-op when either
-// the inner checker or the cache is nil.
-func TestNewCachedAuth_NilPassthrough(t *testing.T) {
-	inner := &countingAuth{user: "u"}
-
-	assert.Nil(t, NewCachedAuth(nil, NewResultCache()))
-	assert.Same(t, inner, NewCachedAuth(inner, nil))
+// countingSAR wraps a fake kube clientset with a SubjectAccessReview reactor
+// that records every request and allows all of them, so a test can assert how
+// many SubjectAccessReviews were actually issued.
+func countingSAR() (*kubefake.Clientset, func() int) {
+	kube := kubefake.NewSimpleClientset()
+	var mu sync.Mutex
+	count := 0
+	kube.PrependReactor("create", "subjectaccessreviews", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		mu.Lock()
+		count++
+		mu.Unlock()
+		review := action.(clienttesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		review.Status.Allowed = true
+		return true, review, nil
+	})
+	return kube, func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return count
+	}
 }
 
-// TestCachedAuth_MemoizesIdenticalCalls verifies repeated identical CanI calls
-// resolve each verb through the inner checker only once.
-func TestCachedAuth_MemoizesIdenticalCalls(t *testing.T) {
-	inner := &countingAuth{user: "reports-sa"}
-	checker := NewCachedAuth(inner, NewResultCache())
+// TestNewCachedChecker_NilPassthrough verifies the wrapper is a no-op when either
+// the inner checker or the cache is nil.
+func TestNewCachedChecker_NilPassthrough(t *testing.T) {
+	inner := &countingChecker{}
+
+	assert.Nil(t, NewCachedChecker(nil, "u", NewResultCache()))
+	assert.Same(t, inner, NewCachedChecker(inner, "u", nil))
+}
+
+// TestCachedChecker_MemoizesIdenticalCalls verifies repeated identical Check
+// calls resolve through the inner checker only once.
+func TestCachedChecker_MemoizesIdenticalCalls(t *testing.T) {
+	inner := &countingChecker{}
+	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
 	ctx := context.Background()
-	verbs := []string{"get", "list", "watch"}
 
 	for i := 0; i < 5; i++ {
-		ok, msg, err := checker.CanI(ctx, verbs, "Pod", "", "", "")
+		result, err := c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
 		assert.NoError(t, err)
-		assert.True(t, ok)
-		assert.Empty(t, msg)
+		assert.True(t, result.Allowed)
 	}
 
-	// Each of the three verbs is resolved exactly once across all five calls.
-	assert.Equal(t, 3, inner.calls)
-	assert.Equal(t, "reports-sa", checker.User())
+	assert.Equal(t, 1, inner.callCount())
 }
 
-// TestCachedAuth_DeduplicatesOverlappingVerbs is the regression test for the
-// per-verb keying fix: a verb shared by two different CanI calls ("get" in both
-// {get,update} and {get,create}) must only be requested once.
-func TestCachedAuth_DeduplicatesOverlappingVerbs(t *testing.T) {
-	inner := &countingAuth{user: "background-sa"}
-	checker := NewCachedAuth(inner, NewResultCache())
-	ctx := context.Background()
-
-	_, _, _ = checker.CanI(ctx, []string{"get", "update"}, "Pod", "", "", "")
-	_, _, _ = checker.CanI(ctx, []string{"get", "create"}, "Pod", "", "", "")
-
-	// get + update + create = three distinct checks; "get" is not repeated.
-	assert.Equal(t, 3, inner.calls)
-	assert.Equal(t, 1, countVerb(inner.verbCalls, "get"))
-	assert.Equal(t, 1, countVerb(inner.verbCalls, "update"))
-	assert.Equal(t, 1, countVerb(inner.verbCalls, "create"))
-}
-
-// TestCachedAuth_DistinctKeysMiss verifies that varying any component of the
+// TestCachedChecker_DistinctKeysMiss verifies that varying any component of the
 // cache key produces a fresh lookup against the inner checker.
-func TestCachedAuth_DistinctKeysMiss(t *testing.T) {
-	inner := &countingAuth{user: "reports-sa"}
-	checker := NewCachedAuth(inner, NewResultCache())
+func TestCachedChecker_DistinctKeysMiss(t *testing.T) {
+	inner := &countingChecker{}
+	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
 	ctx := context.Background()
-	v := []string{"get"}
 
-	// Vary each component of the key in turn; every variation is a fresh miss.
-	_, _, _ = checker.CanI(ctx, v, "Pod", "", "", "")
-	_, _, _ = checker.CanI(ctx, v, "Deployment", "", "", "") // gvk
-	_, _, _ = checker.CanI(ctx, v, "Pod", "ns", "", "")      // namespace
-	_, _, _ = checker.CanI(ctx, v, "Pod", "", "name", "")    // name
-	_, _, _ = checker.CanI(ctx, v, "Pod", "", "", "status")  // subresource
+	_, _ = c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = c.Check(ctx, "apps", "v1", "deployments", "", "", "", "get")  // resource
+	_, _ = c.Check(ctx, "", "v1", "configmaps", "status", "", "", "get") // subresource
+	_, _ = c.Check(ctx, "", "v1", "configmaps", "", "ns", "", "get")     // namespace
+	_, _ = c.Check(ctx, "", "v1", "configmaps", "", "", "name", "get")   // name
+	_, _ = c.Check(ctx, "", "v1", "configmaps", "", "", "", "list")      // verb
 
-	assert.Equal(t, 5, inner.calls)
+	assert.Equal(t, 6, inner.callCount())
 }
 
-// TestCachedAuth_SharedCacheKeyedByUser verifies a cache shared between
+// TestCachedChecker_SharedCacheKeyedBySubject verifies a cache shared between
 // checkers for different subjects does not let one subject's decision satisfy
 // another's.
-func TestCachedAuth_SharedCacheKeyedByUser(t *testing.T) {
+func TestCachedChecker_SharedCacheKeyedBySubject(t *testing.T) {
 	cache := NewResultCache()
-	reports := &countingAuth{user: "reports-sa"}
-	background := &countingAuth{user: "background-sa"}
-	reportsChecker := NewCachedAuth(reports, cache)
-	backgroundChecker := NewCachedAuth(background, cache)
+	reports := &countingChecker{}
+	background := &countingChecker{}
+	reportsChecker := NewCachedChecker(reports, "reports-sa", cache)
+	backgroundChecker := NewCachedChecker(background, "background-sa", cache)
 	ctx := context.Background()
-	verbs := []string{"get", "list", "watch"}
 
 	// Same tuple but different subjects must not collide in the shared cache.
-	_, _, _ = reportsChecker.CanI(ctx, verbs, "Pod", "", "", "")
-	_, _, _ = reportsChecker.CanI(ctx, verbs, "Pod", "", "", "")
-	_, _, _ = backgroundChecker.CanI(ctx, verbs, "Pod", "", "", "")
+	_, _ = reportsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = reportsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = backgroundChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
 
-	assert.Equal(t, 3, reports.calls)
-	assert.Equal(t, 3, background.calls)
+	assert.Equal(t, 1, reports.callCount())
+	assert.Equal(t, 1, background.callCount())
 }
 
-// TestCachedAuth_DoesNotCacheErrors verifies an errored check is not memoized
+// TestCachedChecker_DoesNotCacheErrors verifies an errored check is not memoized
 // and is retried on the next call.
-func TestCachedAuth_DoesNotCacheErrors(t *testing.T) {
-	inner := &countingAuth{user: "reports-sa", err: errors.New("boom")}
-	checker := NewCachedAuth(inner, NewResultCache())
+func TestCachedChecker_DoesNotCacheErrors(t *testing.T) {
+	inner := &countingChecker{err: errors.New("boom")}
+	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
 	ctx := context.Background()
-	verbs := []string{"get", "list", "watch"}
 
-	_, _, err1 := checker.CanI(ctx, verbs, "Pod", "", "", "")
-	_, _, err2 := checker.CanI(ctx, verbs, "Pod", "", "", "")
+	_, err1 := c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, err2 := c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
 
 	assert.Error(t, err1)
 	assert.Error(t, err2)
-	// First verb errors and short-circuits each call; nothing is cached.
-	assert.Equal(t, 2, inner.calls)
+	assert.Equal(t, 2, inner.callCount())
 }
 
-// TestCachedAuth_DenialMessageMatchesUncached asserts the aggregated denial
-// message is byte-identical to the uncached batch path, and that denials are
-// cached (no repeat requests).
-func TestCachedAuth_DenialMessageMatchesUncached(t *testing.T) {
+// TestCachedChecker_ReturnsResultVerbatim verifies the inner checker's AuthResult
+// (including Reason) is returned unchanged on both the miss and the cache hit —
+// nothing is dropped or rebuilt at this layer.
+func TestCachedChecker_ReturnsResultVerbatim(t *testing.T) {
+	inner := &countingChecker{denied: map[string]bool{"delete": true}}
+	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
 	ctx := context.Background()
-	verbs := []string{"get", "list", "watch"}
-	denied := map[string]bool{"list": true, "watch": true}
 
-	// Uncached reference: a single batched CanI call.
-	reference := &countingAuth{user: "reports-sa", denied: denied}
-	wantOK, wantMsg, _ := reference.CanI(ctx, verbs, "Pod", "", "", "")
-
-	inner := &countingAuth{user: "reports-sa", denied: denied}
-	checker := NewCachedAuth(inner, NewResultCache())
-
-	gotOK, gotMsg, err := checker.CanI(ctx, verbs, "Pod", "", "", "")
+	miss, err := c.Check(ctx, "", "v1", "configmaps", "", "", "", "delete")
 	assert.NoError(t, err)
-	assert.Equal(t, wantOK, gotOK)
-	assert.Equal(t, wantMsg, gotMsg)
+	assert.False(t, miss.Allowed)
+	assert.Equal(t, "reason:delete", miss.Reason)
 
-	// Second call is fully served from cache and returns the same message.
-	gotOK2, gotMsg2, _ := checker.CanI(ctx, verbs, "Pod", "", "", "")
-	assert.False(t, gotOK2)
-	assert.Equal(t, wantMsg, gotMsg2)
-	assert.Equal(t, 3, inner.calls)
+	hit, err := c.Check(ctx, "", "v1", "configmaps", "", "", "", "delete")
+	assert.NoError(t, err)
+	assert.Equal(t, miss, hit)
+	assert.Equal(t, 1, inner.callCount())
+}
+
+// TestAuth_CollapsesKindSpellings drives the full Auth.CanI -> NewCanI ->
+// RunAccessCheck path so GVK->GVR resolution runs before the cache. "ConfigMap"
+// and "v1/ConfigMap" resolve to the same GVR, so the second call is a cache hit
+// and issues no additional SubjectAccessReview — the key benefit of caching at
+// the checker layer instead of on the raw kind string.
+func TestAuth_CollapsesKindSpellings(t *testing.T) {
+	kube, requests := countingSAR()
+	client := dclient.NewFakeClientWithDisco(nil, kube, dclient.NewFakeDiscoveryClient(nil))
+	a := NewAuth(client, "reports-sa", logr.Discard(), NewResultCache())
+	ctx := context.Background()
+
+	ok1, _, err := a.CanI(ctx, []string{"get"}, "ConfigMap", "", "", "")
+	assert.NoError(t, err)
+	assert.True(t, ok1)
+
+	ok2, _, err := a.CanI(ctx, []string{"get"}, "v1/ConfigMap", "", "", "")
+	assert.NoError(t, err)
+	assert.True(t, ok2)
+
+	assert.Equal(t, 1, requests())
+}
+
+// TestAuth_SharedCacheDeduplicatesAcrossCheckers verifies the main motivation of
+// the PR: a single cache shared between two Auth instances for the same subject
+// (as the mutate/validate/generate factories build) issues each distinct
+// (resource, verb) SubjectAccessReview only once.
+func TestAuth_SharedCacheDeduplicatesAcrossCheckers(t *testing.T) {
+	kube, requests := countingSAR()
+	client := dclient.NewFakeClientWithDisco(nil, kube, dclient.NewFakeDiscoveryClient(nil))
+	cache := NewResultCache()
+	first := NewAuth(client, "reports-sa", logr.Discard(), cache)
+	second := NewAuth(client, "reports-sa", logr.Discard(), cache)
+	ctx := context.Background()
+
+	_, _, _ = first.CanI(ctx, []string{"get", "list"}, "ConfigMap", "", "", "")
+	_, _, _ = second.CanI(ctx, []string{"get", "list"}, "ConfigMap", "", "", "")
+
+	// get + list = two distinct checks; the second Auth reuses both from cache.
+	assert.Equal(t, 2, requests())
 }

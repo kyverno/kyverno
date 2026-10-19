@@ -2,101 +2,108 @@ package auth
 
 import (
 	"context"
-	"strings"
 	"sync"
+
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 )
+
+// cacheKey identifies a single authorization decision at the granularity of one
+// (subject, resolved-resource, verb) tuple — the granularity at which
+// checker.AuthChecker issues a SubjectAccessReview/SelfSubjectAccessReview.
+//
+// The resource coordinates (group/version/resource) are the GVR the kind was
+// resolved to before the checker ran, so different spellings of the same kind
+// (e.g. "ConfigMap" and "v1/ConfigMap") collapse onto a single entry. subject
+// keeps decisions for different identities from colliding in a shared cache.
+type cacheKey struct {
+	subject     string
+	group       string
+	version     string
+	resource    string
+	subresource string
+	namespace   string
+	name        string
+	verb        string
+}
 
 // ResultCache memoizes authorization decisions for the duration of a single
 // policy validation pass. It is created once per Validate() call and discarded
 // when that call returns, so it never serves stale authorization decisions
 // across policy updates or RBAC changes.
-//
-// Entries are keyed at the granularity of a single (subject, verb, resource)
-// tuple — the same granularity at which Auth.CanI issues SubjectAccessReview
-// requests (one per verb) — so an overlapping verb shared by different CanI
-// calls (e.g. "get" in both mutate's {get,update} and generate's {get,create})
-// is checked only once.
 type ResultCache struct {
 	mu      sync.Mutex
-	results map[string]bool
+	results map[cacheKey]*checker.AuthResult
 }
 
 // NewResultCache returns an empty ResultCache ready for use.
 func NewResultCache() *ResultCache {
 	return &ResultCache{
-		results: make(map[string]bool),
+		results: make(map[cacheKey]*checker.AuthResult),
 	}
 }
 
 // get returns the cached decision for key and whether an entry exists.
-func (c *ResultCache) get(key string) (bool, bool) {
+func (c *ResultCache) get(key cacheKey) (*checker.AuthResult, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	allowed, ok := c.results[key]
-	return allowed, ok
+	result, ok := c.results[key]
+	return result, ok
 }
 
 // set records the authorization decision for key.
-func (c *ResultCache) set(key string, allowed bool) {
+func (c *ResultCache) set(key cacheKey, result *checker.AuthResult) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.results[key] = allowed
+	c.results[key] = result
 }
 
-// cachedAuth wraps an AuthChecks and memoizes authorization decisions in a
-// shared ResultCache. It evaluates each verb individually (mirroring Auth,
-// which issues one SubjectAccessReview per verb) so overlapping verbs are not
-// re-requested, then rebuilds the aggregate (allowed, message) result with the
-// same buildMessage helper the underlying Auth uses — keeping the returned
-// message byte-identical to the uncached path.
-type cachedAuth struct {
-	inner AuthChecks
-	cache *ResultCache
+// cachedChecker wraps a checker.AuthChecker and memoizes its decisions in a
+// shared ResultCache. Caching at this layer — below pkg/policy/auth.Auth.CanI
+// and the pkg/admissionpolicy self-checks — keys on the resolved GVR and returns
+// the inner checker's AuthResult verbatim, so every caller (CanI's aggregate
+// message as well as the RunAccessCheck callers that surface Reason) sees the
+// same result it would without the cache. This mirrors the upstream Kubernetes
+// NewCachingAuthorizer pattern.
+type cachedChecker struct {
+	inner   checker.AuthChecker
+	cache   *ResultCache
+	subject string
 }
 
-// NewCachedAuth wraps inner so that per-verb authorization decisions within the
-// same validation pass are answered from cache. It returns inner unchanged when
-// either cache or inner is nil (callers rely on a nil inner to skip checks).
-func NewCachedAuth(inner AuthChecks, cache *ResultCache) AuthChecks {
+// NewCachedChecker wraps inner so that authorization decisions within the same
+// validation pass are answered from cache. subject is the identity inner checks
+// as — the SubjectAccessReview user, or a stable sentinel for a self-checker —
+// and is folded into the cache key so one cache can be shared across subjects.
+// It returns inner unchanged when either inner or cache is nil (callers rely on
+// a nil inner to skip checks).
+func NewCachedChecker(inner checker.AuthChecker, subject string, cache *ResultCache) checker.AuthChecker {
 	if inner == nil || cache == nil {
 		return inner
 	}
-	return &cachedAuth{inner: inner, cache: cache}
+	return &cachedChecker{inner: inner, cache: cache, subject: subject}
 }
 
-// User returns the subject of the wrapped checker.
-func (c *cachedAuth) User() string {
-	return c.inner.User()
-}
-
-// CanI reports whether the subject may perform every verb on the resource. Each
-// verb is served from the shared cache when present and resolved via the inner
-// checker (one SubjectAccessReview) on a miss; the aggregate denial message is
-// rebuilt with buildMessage to match the uncached path.
-func (c *cachedAuth) CanI(ctx context.Context, verbs []string, gvk, namespace, name, subresource string) (bool, string, error) {
-	user := c.inner.User()
-	var failedVerbs []string
-	for _, verb := range verbs {
-		key := strings.Join([]string{user, verb, gvk, namespace, name, subresource}, "|")
-		allowed, found := c.cache.get(key)
-		if !found {
-			// Resolve a single verb so the underlying Auth issues exactly one
-			// SubjectAccessReview, which we can memoize per (subject, verb, resource).
-			ok, _, err := c.inner.CanI(ctx, []string{verb}, gvk, namespace, name, subresource)
-			if err != nil {
-				// Never cache errors; the next call should retry.
-				return false, "", err
-			}
-			allowed = ok
-			c.cache.set(key, allowed)
-		}
-		if !allowed {
-			failedVerbs = append(failedVerbs, verb)
-		}
+// Check returns the cached decision for the (subject, resource, verb) tuple when
+// present, resolving it through the inner checker (one access review) on a miss.
+// Errors are never cached so the next call retries.
+func (c *cachedChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*checker.AuthResult, error) {
+	key := cacheKey{
+		subject:     c.subject,
+		group:       group,
+		version:     version,
+		resource:    resource,
+		subresource: subresource,
+		namespace:   namespace,
+		name:        name,
+		verb:        verb,
 	}
-
-	if len(failedVerbs) > 0 {
-		return false, buildMessage(gvk, subresource, failedVerbs, user, namespace), nil
+	if result, ok := c.cache.get(key); ok {
+		return result, nil
 	}
-	return true, "", nil
+	result, err := c.inner.Check(ctx, group, version, resource, subresource, namespace, name, verb)
+	if err != nil {
+		return nil, err
+	}
+	c.cache.set(key, result)
+	return result, nil
 }

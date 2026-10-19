@@ -94,9 +94,9 @@ func countingSAR() (*kubefake.Clientset, func() int) {
 //
 // It calls Validate twice on the same factory instance: the first pass populates
 // the cache with every (subject, verb, resource) tuple it needs, and the second
-// pass must be served entirely from that cache. If a regression drops the
-// NewCachedAuth wrapper from either checker, the second Validate would re-issue
-// that checker's SubjectAccessReviews and the request count would grow.
+// pass must be served entirely from that cache. If a regression stops threading
+// the shared cache into either checker, the second Validate would re-issue that
+// checker's SubjectAccessReviews and the request count would grow.
 func Test_NewGenerateFactory_CachesBothCheckers(t *testing.T) {
 	kube, requests := countingSAR()
 	client := dclient.NewFakeClientWithDisco(nil, kube, dclient.NewFakeDiscoveryClient(nil))
