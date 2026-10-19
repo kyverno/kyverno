@@ -68,6 +68,13 @@ func runProjectionWorker(ctx context.Context, changes <-chan struct{}, refresh f
 		if ctx.Err() != nil {
 			return
 		}
+		// Events already queued during the coalescing window are covered by
+		// the upcoming full-cache snapshot. Preserve only notifications
+		// arriving during (or after) the evaluation for the next iteration.
+		select {
+		case <-changes:
+		default:
+		}
 		refresh()
 	}
 }
@@ -110,6 +117,26 @@ func New(
 	gvr schema.GroupVersionResource,
 	namespace string,
 	jp jmespath.Interface,
+) (store.Entry, error) {
+	var changes chan struct{}
+	if len(gce.Spec.Projections) > 0 {
+		changes = make(chan struct{}, 1)
+	}
+	return newWithChanges(ctx, gce, eventGen, dClient, logger, gvr, namespace, jp, changes)
+}
+
+// newWithChanges accepts the notification channel so integration tests can
+// observe informer callback delivery during the initial projection snapshot.
+func newWithChanges(
+	ctx context.Context,
+	gce *kyvernov2beta1.GlobalContextEntry,
+	eventGen event.Interface,
+	dClient dynamic.Interface,
+	logger logr.Logger,
+	gvr schema.GroupVersionResource,
+	namespace string,
+	jp jmespath.Interface,
+	changes chan struct{},
 ) (store.Entry, error) {
 	if namespace == "" {
 		namespace = metav1.NamespaceAll
@@ -176,10 +203,9 @@ func New(
 
 	// A single buffered notification replaces synchronous full-cache scans in
 	// informer callbacks. No projection work is started during initial LIST.
-	var changes chan struct{}
+	var registration cache.ResourceEventHandlerRegistration
 	if len(projections) > 0 {
-		changes = make(chan struct{}, 1)
-		_, err := informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		registration, err = informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc:    func(obj interface{}) { notifyProjectionChange(changes) },
 			UpdateFunc: func(oldObj, newObj interface{}) { notifyProjectionChange(changes) },
 			DeleteFunc: func(obj interface{}) { notifyProjectionChange(changes) },
@@ -195,7 +221,14 @@ func New(
 
 	syncCtx, syncCancel := context.WithTimeout(ctx, cacheSyncTimeout)
 	defer syncCancel()
-	if !cache.WaitForCacheSync(syncCtx.Done(), informer.Informer().HasSynced) {
+	// The informer store can report synced before its registered handlers
+	// process the initial LIST. Wait for both to prevent a delayed initial
+	// Add callback from masquerading as a post-sync change notification.
+	synced := []cache.InformerSynced{informer.Informer().HasSynced}
+	if registration != nil {
+		synced = append(synced, registration.HasSynced)
+	}
+	if !cache.WaitForCacheSync(syncCtx.Done(), synced...) {
 		stop()
 		var err error
 		if cause := ctx.Err(); cause != nil {
