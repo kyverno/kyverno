@@ -64,3 +64,51 @@ func Test_CanGenerateNativePolicy(t *testing.T) {
 		})
 	}
 }
+
+
+func Test_CanGenerateNativePolicy_PartialExceptionConditions(t *testing.T) {
+	imageScoped := exception("default", "image-scoped")
+	imageScoped.Spec.Images = []string{"ghcr.io/example/app:v1"}
+
+	valueScoped := exception("default", "value-scoped")
+	valueScoped.Spec.AllowedValues = []string{"allowed"}
+
+	unconditionalImageScope := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "unconditional-image-scope"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"ghcr.io/example/app:v1"},
+		},
+	}
+
+	testCases := []struct {
+		name       string
+		exceptions []policiesv1beta1.PolicyException
+		want       bool
+		wantReason string
+	}{
+		{
+			name:       "image-scoped exception with match conditions",
+			exceptions: []policiesv1beta1.PolicyException{imageScoped},
+			want:       false,
+			wantReason: "policy exception(s) default/image-scoped combine matchConditions with image/value scopes, which a generated ValidatingAdmissionPolicy cannot evaluate",
+		},
+		{
+			name:       "value-scoped exception with match conditions",
+			exceptions: []policiesv1beta1.PolicyException{valueScoped},
+			want:       false,
+			wantReason: "policy exception(s) default/value-scoped combine matchConditions with image/value scopes, which a generated ValidatingAdmissionPolicy cannot evaluate",
+		},
+		{
+			name:       "image scope without match conditions is still supported",
+			exceptions: []policiesv1beta1.PolicyException{unconditionalImageScope},
+			want:       true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reason := CanGenerateNativePolicy(tc.exceptions)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantReason, reason)
+		})
+	}
+}
