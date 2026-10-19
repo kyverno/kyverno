@@ -1060,7 +1060,7 @@ func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
 	})
 	err = cmd.Execute()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.NotContains(t, stdout.String(), "Policies Not Loaded")
 	assert.NotContains(t, stderr.String(), "Policies Not Loaded")
 }
@@ -1909,7 +1909,7 @@ func TestLoadPoliciesFromGitStopsOnLegacyPolicies(t *testing.T) {
 
 	_, _, skipped, _, err := config.applyCommandHelper(context.Background(), io.Discard)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 	assert.Empty(t, skipped.loadErrors)
 }
 

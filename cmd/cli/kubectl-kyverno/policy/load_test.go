@@ -1036,5 +1036,5 @@ func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {
 
 	_, err = LoadSkippingInvalidFiles(nil, "", false, dir)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 }
