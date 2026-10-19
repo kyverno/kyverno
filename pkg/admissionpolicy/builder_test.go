@@ -730,12 +730,13 @@ func TestBuildValidatingAdmissionPolicy_RewritesAllScopedExceptionFields(t *test
 	)
 	require.NoError(t, err)
 	require.Len(t, vap.Spec.Variables, 3)
-	assert.Equal(t, "scopeCount", vap.Spec.Variables[0].Name)
-	assert.Equal(t, "variables.allowedImages.size() + variables.allowedValues.size()", vap.Spec.Variables[0].Expression)
-	assert.Equal(t, "allowedImages", vap.Spec.Variables[1].Name)
-	assert.Equal(t, `["ghcr.io/example/app:v1"]`, vap.Spec.Variables[1].Expression)
-	assert.Equal(t, "allowedValues", vap.Spec.Variables[2].Name)
-	assert.Equal(t, "[]", vap.Spec.Variables[2].Expression)
+	variableExpressions := make(map[string]string, len(vap.Spec.Variables))
+	for _, variable := range vap.Spec.Variables {
+		variableExpressions[variable.Name] = variable.Expression
+	}
+	assert.Equal(t, "variables.allowedImages.size() + variables.allowedValues.size()", variableExpressions["scopeCount"])
+	assert.Equal(t, `["ghcr.io/example/app:v1"]`, variableExpressions["allowedImages"])
+	assert.Equal(t, "[]", variableExpressions["allowedValues"])
 	require.Len(t, vap.Spec.Validations, 1)
 	assert.Equal(t, "variables.allowedImages.size() > 0", vap.Spec.Validations[0].Expression)
 	assert.Equal(t, "'allowed: ' + string(variables.allowedValues.size())", vap.Spec.Validations[0].MessageExpression)
