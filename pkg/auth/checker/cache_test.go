@@ -108,22 +108,27 @@ func TestCachedChecker_KeyedBySubjectGroups(t *testing.T) {
 	admins := &countingChecker{}
 	devsChecker := NewCachedChecker(devs, "sa", []string{"devs"}, cache)
 	adminsChecker := NewCachedChecker(admins, "sa", []string{"admins"}, cache)
-	// Same user and groups as devsChecker, only the slice order differs.
-	devsReordered := &countingChecker{}
-	devsReorderedChecker := NewCachedChecker(devsReordered, "sa", []string{"devs", "team-a"}, cache)
-	devsSameChecker := NewCachedChecker(&countingChecker{}, "sa", []string{"team-a", "devs"}, cache)
+	// Same user and groups as reordered below, only the slice order differs.
+	devsAB := &countingChecker{}
+	devsBA := &countingChecker{}
+	devsABChecker := NewCachedChecker(devsAB, "sa", []string{"devs", "team-a"}, cache)
+	devsBAChecker := NewCachedChecker(devsBA, "sa", []string{"team-a", "devs"}, cache)
 	ctx := context.Background()
 
 	_, _ = devsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
 	_, _ = adminsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
-	_, _ = devsReorderedChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
-	_, _ = devsSameChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = devsABChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = devsBAChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
 
-	// Same user, different groups -> each resolved once (no cross-reuse).
+	// Same user "sa", different groups ({devs} vs {admins}) must not collide:
+	// each inner checker is consulted exactly once.
 	assert.Equal(t, 1, devs.callCount())
 	assert.Equal(t, 1, admins.callCount())
-	// {devs,team-a} and {team-a,devs} are the same identity -> second is a hit.
-	assert.Equal(t, 1, devsReordered.callCount())
+	// {devs,team-a} and {team-a,devs} canonicalize to one key: the first resolves
+	// through its inner checker, the second is served from cache and never
+	// consults its own inner checker.
+	assert.Equal(t, 1, devsAB.callCount())
+	assert.Equal(t, 0, devsBA.callCount())
 }
 
 // TestNewCachedSelfChecker_NilPassthrough verifies the self wrapper is a no-op

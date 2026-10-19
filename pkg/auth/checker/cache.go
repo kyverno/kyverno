@@ -45,10 +45,21 @@ func identityGroups(groups []string) string {
 	return strings.Join(sorted, "\x00")
 }
 
-// ResultCache memoizes authorization decisions for the duration of a single
-// policy validation pass. It is created once per Validate() call and discarded
-// when that call returns, so it never serves stale authorization decisions
-// across policy updates or RBAC changes.
+// ResultCache memoizes authorization decisions so a decorated AuthChecker is
+// asked the same (identity, resource, verb) question only once.
+//
+// Contract — the cache is correct ONLY as a short-lived, single-pass cache:
+//
+//   - Lifetime is one validation pass. Create it once (e.g. per
+//     pkg/validation/policy Validate() call) and discard it when that call
+//     returns. It has no expiry or invalidation, so a longer-lived instance
+//     would serve stale allow/deny decisions after an RBAC change — a
+//     correctness/security bug. Never promote it to a controller- or
+//     process-scoped cache.
+//   - Errors are never cached (the next call retries); decisions are.
+//   - It is not single-flight: concurrent callers that miss the same key each
+//     issue their own review before the first result is stored. The mutex only
+//     guards the map.
 type ResultCache struct {
 	mu      sync.Mutex
 	results map[cacheKey]*AuthResult
