@@ -65,7 +65,6 @@ func Test_CanGenerateNativePolicy(t *testing.T) {
 	}
 }
 
-
 func Test_CanGenerateNativePolicy_PartialExceptionConditions(t *testing.T) {
 	imageScoped := exception("default", "image-scoped")
 	imageScoped.Spec.Images = []string{"ghcr.io/example/app:v1"}
