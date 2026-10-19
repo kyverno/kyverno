@@ -127,11 +127,30 @@ func BuildValidatingAdmissionPolicy(
 		)
 		matchConditions = append(matchConditions, exceptionMatchConditions...)
 
-		replacements := map[string]string{
-			"exceptions.allowedImages": "variables.allowedImages",
-			"exceptions.allowedValues": "variables.allowedValues",
+		referencesAllowedImages := false
+		referencesAllowedValues := false
+		for _, variable := range variables {
+			referencesAllowedImages = referencesAllowedImages || strings.Contains(variable.Expression, "exceptions.allowedImages")
+			referencesAllowedValues = referencesAllowedValues || strings.Contains(variable.Expression, "exceptions.allowedValues")
 		}
-		if len(exceptionImages) > 0 {
+		for _, validation := range validations {
+			referencesAllowedImages = referencesAllowedImages ||
+				strings.Contains(validation.Expression, "exceptions.allowedImages") ||
+				strings.Contains(validation.MessageExpression, "exceptions.allowedImages")
+			referencesAllowedValues = referencesAllowedValues ||
+				strings.Contains(validation.Expression, "exceptions.allowedValues") ||
+				strings.Contains(validation.MessageExpression, "exceptions.allowedValues")
+		}
+		for _, annotation := range auditAnnotations {
+			referencesAllowedImages = referencesAllowedImages || strings.Contains(annotation.ValueExpression, "exceptions.allowedImages")
+			referencesAllowedValues = referencesAllowedValues || strings.Contains(annotation.ValueExpression, "exceptions.allowedValues")
+		}
+
+		replacements := map[string]string{}
+		if len(exceptionImages) > 0 || referencesAllowedImages {
+			if exceptionImages == nil {
+				exceptionImages = []string{}
+			}
 			expression, err := celStringListLiteral(exceptionImages)
 			if err != nil {
 				return err
@@ -143,7 +162,10 @@ func BuildValidatingAdmissionPolicy(
 			})
 			replacements["exceptions.allowedImages"] = "variables." + name
 		}
-		if len(exceptionAllowedValues) > 0 {
+		if len(exceptionAllowedValues) > 0 || referencesAllowedValues {
+			if exceptionAllowedValues == nil {
+				exceptionAllowedValues = []string{}
+			}
 			expression, err := celStringListLiteral(exceptionAllowedValues)
 			if err != nil {
 				return err
@@ -154,6 +176,9 @@ func BuildValidatingAdmissionPolicy(
 				Expression: expression,
 			})
 			replacements["exceptions.allowedValues"] = "variables." + name
+		}
+		for i := range variables {
+			variables[i].Expression = replaceExpressions(variables[i].Expression, replacements)
 		}
 		for i := range validations {
 			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
