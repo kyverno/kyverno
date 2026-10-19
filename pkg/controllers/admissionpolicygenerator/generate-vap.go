@@ -97,7 +97,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 			if isAutogen {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
-			} else if ok, msg := admissionpolicy.CanGenerateNativePolicy(celexceptions); !ok {
+			} else if ok, msg := admissionpolicy.CanGenerateNativePolicyWithMatchConditions(celexceptions, len(pol.Spec.MatchConditions)); !ok {
 				shouldDelete = true
 				reason = "skip generating ValidatingAdmissionPolicy: " + msg
 			}
