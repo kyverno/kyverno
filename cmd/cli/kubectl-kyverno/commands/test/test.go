@@ -699,14 +699,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	return &testResponse, nil
 }
 
-// responseTargetsResource reports whether an engine response is associated with the given
-// target resource. It first looks for a patched target extracted from the response, then
-// falls back to GVK/name/namespace matching for mutating policy-like responses that either
-// carry the kyverno.io/target provenance property on a rule or, when no rule results exist,
-// contain target match constraints or match constraints with resource rules. The fallback
-// checks only for the presence of those constraint fields; it does not evaluate whether they
-// select targetResource. Raw JSON payloads take a separate path that evaluates the delete
-// condition directly without applying matchConstraints.
+// responseTargetsResource reports whether an engine response can be correlated with the given
+// target resource. It first looks for a patched target extracted from the response. Otherwise,
+// for a mutating-policy-like response whose resource identity matches, a rule with target
+// provenance qualifies it; a ruleless response qualifies when target match constraints or
+// ordinary match constraints contain an expression or resource rule. This latter check only
+// tests that constraint data is present; it does not evaluate the constraints against
+// targetResource. Raw JSON deleting-policy payloads take a separate path: their delete
+// condition is evaluated directly without applying matchConstraints.
 func responseTargetsResource(targetResource *unstructured.Unstructured, response engineapi.EngineResponse) bool {
 	if r, _ := extractPatchedTargetFromEngineResponse(targetResource.GetAPIVersion(), targetResource.GetKind(), targetResource.GetName(), targetResource.GetNamespace(), response); r != nil {
 		return true
@@ -906,12 +906,13 @@ func applyImageValidatingPolicies(
 	return responses, nil
 }
 
-// applyDeletingPolicies evaluates DeletingPolicies against the given resources. A selected
-// resource whose CEL delete condition is true produces a pass, while a selected resource
-// whose condition is false produces a fail. Resources excluded by matchConstraints produce
-// no result, and evaluation errors produce error responses. Raw JSON payloads are evaluated on a
-// separate path that does not apply matchConstraints. Results are accumulated into a flat slice
-// of EngineResponse values.
+// applyDeletingPolicies evaluates DeletingPolicies against the given resources. For resource
+// inputs, matchConstraints determine whether a policy is selected; a selected resource whose
+// CEL delete condition is true produces a pass, while a selected resource whose condition is
+// false produces a fail. Resources excluded by matchConstraints produce no result, and
+// evaluation errors produce error responses. Raw JSON payloads are evaluated on a separate path
+// that evaluates the delete condition directly without applying matchConstraints. Results are
+// accumulated into a flat slice of EngineResponse values.
 func applyDeletingPolicies(
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
