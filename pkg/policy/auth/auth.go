@@ -39,7 +39,7 @@ func NewAuth(client dclient.Interface, user string, log logr.Logger, cache *chec
 	}
 	if client != nil {
 		sc := checker.NewSubjectChecker(client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), user, nil)
-		a.checker = checker.NewCachedChecker(sc, user, cache)
+		a.checker = checker.NewCachedChecker(sc, user, nil, cache)
 	}
 	return &a
 }

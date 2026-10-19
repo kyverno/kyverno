@@ -28,12 +28,13 @@ one entry.
    and discarded when it returns. **Never** promote it to a controller- or process-scoped cache: RBAC
    can change between passes, and a stale `allow`/`deny` would be a correctness/security bug.
 
-2. **Keying is per `(self, subject, resolved-GVR, subresource, namespace, name, verb)`** — one entry
-   per verb, matching the one-review-per-verb fan-out in `Auth.CanI`, so an overlapping verb (`get`,
-   shared by mutate's `{get,update}` and generate's `{get,create}`) is requested once. `subject` keeps
-   different identities from colliding in a shared cache; `self` puts `SelfSubjectAccessReview`
-   decisions in a disjoint domain, so a self decision is never reused for a subject even if a service
-   account is literally named like the self value.
+2. **Keying is per `(self, subject, subjectGroups, resolved-GVR, subresource, namespace, name, verb)`**
+   — one entry per verb, matching the one-review-per-verb fan-out in `Auth.CanI`, so an overlapping verb
+   (`get`, shared by mutate's `{get,update}` and generate's `{get,create}`) is requested once. `subject`
+   plus `subjectGroups` are the full SubjectAccessReview identity (a review is evaluated against the user
+   *and* its groups), so the same username with different groups keys separately. `self` puts
+   `SelfSubjectAccessReview` decisions in a disjoint domain, so a self decision is never reused for a
+   subject even if a service account is literally named like the self value.
 
 3. **Errors are never cached; decisions are.** A transient error must be retried on the next call.
 

@@ -2,6 +2,8 @@ package checker
 
 import (
 	"context"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -12,20 +14,35 @@ import (
 // The resource coordinates (group/version/resource) are the GVR the kind was
 // resolved to before the checker ran, so different spellings of the same kind
 // (e.g. "ConfigMap" and "v1/ConfigMap") collapse onto a single entry. subject
-// keeps decisions for different identities from colliding in a shared cache, and
-// self marks SelfSubjectAccessReview decisions so they occupy a key domain
-// disjoint from every subject — a self decision can never be reused for a
-// SubjectAccessReview even if a subject is literally named like the self value.
+// and subjectGroups together are the full SubjectAccessReview identity (a review
+// is evaluated against both the user and its groups), so the same username with
+// different groups keys separately. self marks SelfSubjectAccessReview decisions
+// so they occupy a key domain disjoint from every subject — a self decision can
+// never be reused for a SubjectAccessReview even if a subject is literally named
+// like the self value.
 type cacheKey struct {
-	self        bool
-	subject     string
-	group       string
-	version     string
-	resource    string
-	subresource string
-	namespace   string
-	name        string
-	verb        string
+	self          bool
+	subject       string
+	subjectGroups string
+	group         string
+	version       string
+	resource      string
+	subresource   string
+	namespace     string
+	name          string
+	verb          string
+}
+
+// identityGroups canonicalizes a subject's groups into a single map-comparable
+// string (sorted, NUL-separated — NUL cannot appear in a Kubernetes group name,
+// so it is an unambiguous separator).
+func identityGroups(groups []string) string {
+	if len(groups) == 0 {
+		return ""
+	}
+	sorted := append([]string(nil), groups...)
+	sort.Strings(sorted)
+	return strings.Join(sorted, "\x00")
 }
 
 // ResultCache memoizes authorization decisions for the duration of a single
@@ -67,23 +84,26 @@ func (c *ResultCache) set(key cacheKey, result *AuthResult) {
 // result it would without the cache. This mirrors the upstream Kubernetes
 // NewCachingAuthorizer pattern.
 type cachedChecker struct {
-	inner   AuthChecker
-	cache   *ResultCache
-	subject string
-	self    bool
+	inner         AuthChecker
+	cache         *ResultCache
+	subject       string
+	subjectGroups string
+	self          bool
 }
 
 // NewCachedChecker wraps a SubjectAccessReview-based inner checker so that
 // authorization decisions within the same validation pass are answered from
-// cache. subject is the identity inner checks as (the SubjectAccessReview user)
-// and is folded into the cache key so one cache can be shared across subjects.
-// It returns inner unchanged when either inner or cache is nil (callers rely on
-// a nil inner to skip checks).
-func NewCachedChecker(inner AuthChecker, subject string, cache *ResultCache) AuthChecker {
+// cache. subject and groups are the identity inner checks as (the
+// SubjectAccessReview user and its groups — pass the same values given to
+// NewSubjectChecker) and are folded into the cache key, so one cache can be
+// shared across subjects and the same username with different groups never
+// reuses the other's decision. It returns inner unchanged when either inner or
+// cache is nil (callers rely on a nil inner to skip checks).
+func NewCachedChecker(inner AuthChecker, subject string, groups []string, cache *ResultCache) AuthChecker {
 	if inner == nil || cache == nil {
 		return inner
 	}
-	return &cachedChecker{inner: inner, cache: cache, subject: subject}
+	return &cachedChecker{inner: inner, cache: cache, subject: subject, subjectGroups: identityGroups(groups)}
 }
 
 // NewCachedSelfChecker wraps a SelfSubjectAccessReview-based inner checker. Its
@@ -102,15 +122,16 @@ func NewCachedSelfChecker(inner AuthChecker, cache *ResultCache) AuthChecker {
 // Errors are never cached so the next call retries.
 func (c *cachedChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*AuthResult, error) {
 	key := cacheKey{
-		self:        c.self,
-		subject:     c.subject,
-		group:       group,
-		version:     version,
-		resource:    resource,
-		subresource: subresource,
-		namespace:   namespace,
-		name:        name,
-		verb:        verb,
+		self:          c.self,
+		subject:       c.subject,
+		subjectGroups: c.subjectGroups,
+		group:         group,
+		version:       version,
+		resource:      resource,
+		subresource:   subresource,
+		namespace:     namespace,
+		name:          name,
+		verb:          verb,
 	}
 	if result, ok := c.cache.get(key); ok {
 		return result, nil

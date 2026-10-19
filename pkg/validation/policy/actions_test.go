@@ -10,6 +10,7 @@ import (
 	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -278,4 +279,71 @@ func Test_Validate_SharesAuthCacheAcrossRules(t *testing.T) {
 		"reports-sa|secrets|watch":    1,
 	}
 	assert.Equal(t, expected, counts())
+}
+
+// selfSARCountingClient returns a live (non-mock) dclient whose
+// SelfSubjectAccessReview requests are approved and counted. Used to exercise
+// the validate.cel VAP/VAPB permission self-checks, which issue
+// SelfSubjectAccessReviews (not SubjectAccessReviews).
+func selfSARCountingClient(t *testing.T) (dclient.Interface, func() int) {
+	t.Helper()
+	var mu sync.Mutex
+	count := 0
+	kube := kubefake.NewSimpleClientset()
+	kube.PrependReactor("create", "selfsubjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+		mu.Lock()
+		count++
+		mu.Unlock()
+		return true, &authorizationv1.SelfSubjectAccessReview{
+			Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true},
+		}, nil
+	})
+	client := dclient.NewFakeClientWithDisco(
+		dynamicfake.NewSimpleDynamicClient(runtime.NewScheme()),
+		kube,
+		dclient.NewFakeDiscoveryClient(nil),
+	)
+	return client, func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return count
+	}
+}
+
+// Test_validateActions_CachesCELSelfChecks is the regression test for caching
+// the validate.cel VAP/VAPB permission self-checks. Each validate.cel rule runs
+// up to 8 SelfSubjectAccessReviews (create/update/list/delete on both
+// validatingadmissionpolicies and validatingadmissionpolicybindings). With one
+// cache shared across the pass, those 8 tuples are checked exactly once no
+// matter how many validate.cel rules the policy has — so three CEL rules still
+// issue 8 self-reviews, not 24. A regression that stops threading the cache into
+// the self-check (or recreates it per rule) would scale the count with the rule
+// count and fail here.
+func Test_validateActions_CachesCELSelfChecks(t *testing.T) {
+	client, selfReviews := selfSARCountingClient(t)
+	cache := authChecker.NewResultCache()
+
+	celRule := func(name string) *kyvernov1.Rule {
+		return &kyvernov1.Rule{
+			Name:           name,
+			MatchResources: kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"Pod"}}},
+			Validation: &kyvernov1.Validation{
+				CEL: &kyvernov1.CEL{
+					Expressions: []admissionregistrationv1.Validation{{Expression: "true"}},
+				},
+			},
+		}
+	}
+
+	// reportsSA is empty so the reports validate factory is skipped; only the
+	// CEL self-check path runs. The GenerateValidatingAdmissionPolicy toggle
+	// defaults to enabled, so the self-checks execute.
+	for i, name := range []string{"cel-a", "cel-b", "cel-c"} {
+		_, err := validateActions(i, celRule(name), client, false, "", "", cache)
+		assert.NoErrorf(t, err, "rule %s", name)
+	}
+
+	// 4 verbs x 2 resources = 8 distinct self-check tuples, deduped across all
+	// three rules by the shared cache.
+	assert.Equal(t, 8, selfReviews())
 }

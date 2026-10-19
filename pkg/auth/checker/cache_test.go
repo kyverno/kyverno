@@ -41,15 +41,15 @@ func (c *countingChecker) callCount() int {
 func TestNewCachedChecker_NilPassthrough(t *testing.T) {
 	inner := &countingChecker{}
 
-	assert.Nil(t, NewCachedChecker(nil, "u", NewResultCache()))
-	assert.Same(t, inner, NewCachedChecker(inner, "u", nil))
+	assert.Nil(t, NewCachedChecker(nil, "u", nil, NewResultCache()))
+	assert.Same(t, inner, NewCachedChecker(inner, "u", nil, nil))
 }
 
 // TestCachedChecker_MemoizesIdenticalCalls verifies repeated identical Check
 // calls resolve through the inner checker only once.
 func TestCachedChecker_MemoizesIdenticalCalls(t *testing.T) {
 	inner := &countingChecker{}
-	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
+	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
@@ -65,7 +65,7 @@ func TestCachedChecker_MemoizesIdenticalCalls(t *testing.T) {
 // cache key produces a fresh lookup against the inner checker.
 func TestCachedChecker_DistinctKeysMiss(t *testing.T) {
 	inner := &countingChecker{}
-	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
+	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
 	ctx := context.Background()
 
 	_, _ = c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
@@ -85,8 +85,8 @@ func TestCachedChecker_SharedCacheKeyedBySubject(t *testing.T) {
 	cache := NewResultCache()
 	reports := &countingChecker{}
 	background := &countingChecker{}
-	reportsChecker := NewCachedChecker(reports, "reports-sa", cache)
-	backgroundChecker := NewCachedChecker(background, "background-sa", cache)
+	reportsChecker := NewCachedChecker(reports, "reports-sa", nil, cache)
+	backgroundChecker := NewCachedChecker(background, "background-sa", nil, cache)
 	ctx := context.Background()
 
 	// Same tuple but different subjects must not collide in the shared cache.
@@ -96,6 +96,34 @@ func TestCachedChecker_SharedCacheKeyedBySubject(t *testing.T) {
 
 	assert.Equal(t, 1, reports.callCount())
 	assert.Equal(t, 1, background.callCount())
+}
+
+// TestCachedChecker_KeyedBySubjectGroups verifies that the same username checked
+// with different groups keys separately — a SubjectAccessReview is evaluated
+// against the user and its groups, so one group set's decision must not satisfy
+// another's. Group order does not matter (the key is canonicalized).
+func TestCachedChecker_KeyedBySubjectGroups(t *testing.T) {
+	cache := NewResultCache()
+	devs := &countingChecker{}
+	admins := &countingChecker{}
+	devsChecker := NewCachedChecker(devs, "sa", []string{"devs"}, cache)
+	adminsChecker := NewCachedChecker(admins, "sa", []string{"admins"}, cache)
+	// Same user and groups as devsChecker, only the slice order differs.
+	devsReordered := &countingChecker{}
+	devsReorderedChecker := NewCachedChecker(devsReordered, "sa", []string{"devs", "team-a"}, cache)
+	devsSameChecker := NewCachedChecker(&countingChecker{}, "sa", []string{"team-a", "devs"}, cache)
+	ctx := context.Background()
+
+	_, _ = devsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = adminsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = devsReorderedChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+	_, _ = devsSameChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
+
+	// Same user, different groups -> each resolved once (no cross-reuse).
+	assert.Equal(t, 1, devs.callCount())
+	assert.Equal(t, 1, admins.callCount())
+	// {devs,team-a} and {team-a,devs} are the same identity -> second is a hit.
+	assert.Equal(t, 1, devsReordered.callCount())
 }
 
 // TestNewCachedSelfChecker_NilPassthrough verifies the self wrapper is a no-op
@@ -114,7 +142,7 @@ func TestCachedSelfChecker_DisjointFromSubject(t *testing.T) {
 	self := &countingChecker{}
 	subject := &countingChecker{}
 	selfChecker := NewCachedSelfChecker(self, cache)
-	subjectChecker := NewCachedChecker(subject, "self", cache) // subject literally "self"
+	subjectChecker := NewCachedChecker(subject, "self", nil, cache) // subject literally "self"
 	ctx := context.Background()
 
 	_, _ = selfChecker.Check(ctx, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "", "", "", "create")
@@ -130,7 +158,7 @@ func TestCachedSelfChecker_DisjointFromSubject(t *testing.T) {
 // and is retried on the next call.
 func TestCachedChecker_DoesNotCacheErrors(t *testing.T) {
 	inner := &countingChecker{err: errors.New("boom")}
-	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
+	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
 	ctx := context.Background()
 
 	_, err1 := c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
@@ -146,7 +174,7 @@ func TestCachedChecker_DoesNotCacheErrors(t *testing.T) {
 // nothing is dropped or rebuilt at this layer.
 func TestCachedChecker_ReturnsResultVerbatim(t *testing.T) {
 	inner := &countingChecker{denied: map[string]bool{"delete": true}}
-	c := NewCachedChecker(inner, "reports-sa", NewResultCache())
+	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
 	ctx := context.Background()
 
 	miss, err := c.Check(ctx, "", "v1", "configmaps", "", "", "", "delete")
