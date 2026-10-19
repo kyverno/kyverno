@@ -31,7 +31,7 @@ type Auth struct {
 // NewAuth returns a new instance of Auth for operations. When cache is non-nil
 // the underlying subject checker is wrapped so per-(subject, resource, verb)
 // decisions are memoized for the duration of the validation pass.
-func NewAuth(client dclient.Interface, user string, log logr.Logger, cache *ResultCache) *Auth {
+func NewAuth(client dclient.Interface, user string, log logr.Logger, cache *checker.ResultCache) *Auth {
 	a := Auth{
 		client: client,
 		user:   user,
@@ -39,7 +39,7 @@ func NewAuth(client dclient.Interface, user string, log logr.Logger, cache *Resu
 	}
 	if client != nil {
 		sc := checker.NewSubjectChecker(client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), user, nil)
-		a.checker = NewCachedChecker(sc, user, cache)
+		a.checker = checker.NewCachedChecker(sc, user, cache)
 	}
 	return &a
 }

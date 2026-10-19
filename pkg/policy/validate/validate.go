@@ -6,6 +6,7 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -22,7 +23,7 @@ type Validate struct {
 }
 
 // NewValidateFactory returns a new instance of Mutate validation checker
-func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, reportsSA string, authCache *auth.ResultCache) *Validate {
+func NewValidateFactory(rule *kyvernov1.Rule, client dclient.Interface, mock bool, reportsSA string, authCache *checker.ResultCache) *Validate {
 	var authChecker auth.AuthChecks
 	if mock {
 		authChecker = fake.NewFakeAuth()

@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
@@ -27,7 +26,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string, authCache *auth.ResultCache) (warnings []string, err error) {
+func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string, authCache *authChecker.ResultCache) (warnings []string, err error) {
 	if rule == nil {
 		return nil, nil
 	}
@@ -57,7 +56,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 
 		if client != nil && rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
 			selfChecker := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
-			authCheck := auth.NewCachedSelfChecker(selfChecker, authCache)
+			authCheck := authChecker.NewCachedSelfChecker(selfChecker, authCache)
 			if !admissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
 			}

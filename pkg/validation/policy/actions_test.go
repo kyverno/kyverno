@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"github.com/stretchr/testify/assert"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -106,7 +106,7 @@ func Test_validateActions_LiveAuthError(t *testing.T) {
 		},
 	}
 
-	_, err := validateActions(0, rule, client, false, "background-sa", "reports-sa", auth.NewResultCache())
+	_, err := validateActions(0, rule, client, false, "background-sa", "reports-sa", authChecker.NewResultCache())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "authorization request failed")
 }
@@ -187,7 +187,7 @@ func sarCountingClient(t *testing.T) (dclient.Interface, func() map[string]int) 
 // SubjectAccessReviews and a per-tuple count would exceed one.
 func Test_validateActions_SharesAuthCacheAcrossRules(t *testing.T) {
 	client, counts := sarCountingClient(t)
-	cache := auth.NewResultCache() // one cache for the whole pass, as Validate() does
+	cache := authChecker.NewResultCache() // one cache for the whole pass, as Validate() does
 
 	cm := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"v1/ConfigMap"}}}
 	secret := kyvernov1.MatchResources{ResourceDescription: kyvernov1.ResourceDescription{Kinds: []string{"v1/Secret"}}}

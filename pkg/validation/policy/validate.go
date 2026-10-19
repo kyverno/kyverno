@@ -18,6 +18,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/deprecations/policywarnings"
@@ -27,7 +28,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables/operator"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/policy/auth"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -237,9 +237,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	// authCache memoizes SubjectAccessReview results for this single validation
 	// pass, collapsing the redundant auth checks run per rule and per action.
 	// Only used for live (non-mock) checks; mock paths use fake auth.
-	var authCache *auth.ResultCache
+	var authCache *authChecker.ResultCache
 	if !mock {
-		authCache = auth.NewResultCache()
+		authCache = authChecker.NewResultCache()
 	}
 
 	for i, rule := range rules {

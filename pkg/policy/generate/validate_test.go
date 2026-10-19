@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/logging"
-	"github.com/kyverno/kyverno/pkg/policy/auth"
 	"gotest.tools/v3/assert"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -117,7 +117,7 @@ func Test_NewGenerateFactory_CachesBothCheckers(t *testing.T) {
 		},
 	}
 
-	cache := auth.NewResultCache()
+	cache := authChecker.NewResultCache()
 	checker := NewGenerateFactory(client, rule, "user-sa", "reports-sa", logging.GlobalLogger(), cache)
 
 	ctx := context.Background()
