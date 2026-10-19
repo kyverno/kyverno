@@ -123,14 +123,14 @@ class PublishTest(unittest.TestCase):
         return subprocess.run(["git", "--git-dir", str(self.remote), "rev-parse", "-q", "--verify",
                                f"refs/heads/{branch}"], capture_output=True).returncode == 0
 
-    def result(self, classification, head):
+    def result(self, classification, head, preview="pass"):
         return ({"repository": "https://github.com/kubernetes/pod-security-admission", "branch": "master",
                  "pin": "1" * 40, "head": head, "classification": classification, "groups": [],
-                 "preview": "pass", "preview_summary": "checked 1 fixture results: 0 unexpected"},
+                 "preview": preview, "preview_summary": f"checked 1 fixture results: preview {preview}"},
                 {"repository": "https://github.com/kubernetes/pod-security-admission", "branch": "master",
                  "commit": head})
 
-    def run_publish(self, classification, head, dry_run=False, git_class=None):
+    def run_publish(self, classification, head, dry_run=False, git_class=None, preview="pass"):
         self.runs += 1
         work = self.root / f"work{self.runs}"
         work.mkdir()
@@ -138,7 +138,7 @@ class PublishTest(unittest.TestCase):
                                   bot_name=BOT[0], bot_email=BOT[1])
         self.github.dry_run = dry_run
         repo = (git_class or publish.Git)("git", work, str(self.remote))
-        result, candidate = self.result(classification, head)
+        result, candidate = self.result(classification, head, preview)
         with mock.patch("sys.stderr", io.StringIO()):
             return publish.publish(args, self.github, repo, result, candidate, "# report\n")
 
@@ -191,6 +191,30 @@ class PublishTest(unittest.TestCase):
         self.assertTrue(pr["draft"])
         self.assertEqual(pr["labels"], [publish.LABEL])
         self.assertEqual(self.pinned_commit()[0], "3" * 40)
+
+    def test_fixtures_only_change_that_fails_the_check_opens_a_labeled_draft(self):
+        # The end-to-end fork test found this case: a fixtures-only candidate that
+        # still fails the fixture check must not look ready to merge.
+        self.assertEqual(self.run_publish("fixtures-only", "6" * 40, preview="fail"), 0)
+        [pr] = self.github.prs
+        self.assertTrue(pr["draft"])
+        self.assertEqual(pr["labels"], [publish.LABEL])
+        self.assertIn("fails the PSS fixture check, so the CEL policies need changes by hand", pr["body"])
+
+    def test_a_ready_pr_turns_into_a_draft_when_the_check_fails(self):
+        self.run_publish("fixtures-only", "2" * 40)
+        self.assertFalse(self.github.prs[0]["draft"])
+        self.assertEqual(self.run_publish("fixtures-only", "7" * 40, preview="fail"), 0)
+        [pr] = self.github.prs
+        self.assertTrue(pr["draft"])
+        self.assertEqual(pr["labels"], [publish.LABEL])
+
+    def test_needs_manual_work(self):
+        for classification, preview, expected in [("manual", "pass", True), ("manual", "not-run", True),
+                                                  ("fixtures-only", "fail", True), ("fixtures-only", "pass", False),
+                                                  ("fixtures-only", "not-run", False)]:
+            self.assertEqual(publish.needs_manual_work({"classification": classification, "preview": preview}),
+                             expected, (classification, preview))
 
     def test_a_draft_is_never_marked_ready(self):
         self.run_publish("manual", "3" * 40)

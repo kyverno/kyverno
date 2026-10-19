@@ -28,9 +28,11 @@ a change whose new commit fails the fixture check, and `1` for an error. The wor
 
 When publishing is on, the bot keeps a single PR open from the `bot/pss-upstream-sync` branch.
 
-- **A ready PR** means the change is `fixtures-only`. Review the report in the PR description, and check that
-  the `CLI` workflow's fixture check passes. Then merge it as usual.
-- **A draft PR with the `needs-manual-cel` label** means the change is `manual`. To finish it:
+- **A ready PR** means the change is `fixtures-only`, and the new commit passes the fixture check. Review the
+  report in the PR description, and check that the `CLI` workflow's fixture check passes. Then merge it as
+  usual.
+- **A draft PR with the `needs-manual-cel` label** means the change is `manual`, or the new commit fails the
+  fixture check. To finish it:
   1. Read the Go diff in the PR description, and decide what the chart needs.
   2. Push your CEL changes to `bot/pss-upstream-sync`. After you push, the bot stops updating the branch,
      posts one comment, and leaves your work alone.

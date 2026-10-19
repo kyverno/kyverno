@@ -5,9 +5,11 @@ Reads the output directory of scripts/sync-pss-upstream.py (result.json,
 upstream.yaml, report.md) and creates or updates one PR that moves the pin in
 scripts/pss-upstream/upstream.yaml:
 
-- A fixtures-only change opens a ready PR.
-- A manual change opens a draft PR with the needs-manual-cel label, and turns
-  an existing ready bot PR back into a draft.
+- A fixtures-only change whose candidate commit passes the fixture check opens
+  a ready PR.
+- A manual change, or any change whose candidate commit fails the fixture check,
+  opens a draft PR with the needs-manual-cel label, and turns an existing ready
+  bot PR back into a draft.
 
 Safety rules:
 
@@ -240,16 +242,28 @@ def build_commit(git, start, text, message, bot_name, bot_email):
     return git.out("commit-tree", tree, "-p", start, "-m", full, env=identity)
 
 
+def needs_manual_work(result):
+    """Returns True when the PR must be a labeled draft.
+
+    A Go check change needs review even if the chart still matches. A fixtures-only
+    change whose candidate fails the fixture check needs CEL changes too, for
+    example after a manual bot PR was merged without its CEL fix.
+    """
+    return result["classification"] == "manual" or result.get("preview") == "fail"
+
+
 def pr_title(result):
     return f"chore(pss): sync with upstream Pod Security Admission {result['head'][:7]}"
 
 
 def pr_body(result, report):
     lines = [BODY_MARKER, ""]
-    if result["classification"] == "manual":
+    if needs_manual_work(result):
+        reason = ("A Go check changed upstream, so the CEL policies may need changes by hand."
+                  if result["classification"] == "manual" else
+                  "The candidate commit fails the PSS fixture check, so the CEL policies need changes by hand.")
         lines += ["> [!IMPORTANT]",
-                  "> A Go check changed upstream, so the CEL policies may need changes by hand. This PR stays a "
-                  "draft until a maintainer finishes that work and marks it ready.", ""]
+                  f"> {reason} This PR stays a draft until a maintainer finishes that work and marks it ready.", ""]
     preview = {"pass": "passes", "fail": "**fails**"}.get(result.get("preview"), "wasn't checked against")
     lines += [f"This PR moves `{PIN_PATH}` to `{result['head']}`. The candidate commit {preview} the PSS "
               "fixture check" + (f": `{result['preview_summary']}`" if result.get("preview_summary") else "") + ".",
@@ -313,7 +327,7 @@ def publish(args, github, git, result, candidate, report):
             log(f"pushed {new_sha[:12]} to {branch}")
 
     title, body = pr_title(result), pr_body(result, report)
-    manual = result["classification"] == "manual"
+    manual = needs_manual_work(result)
     if pr is None:
         pr = github.create_pr(title, body, branch, base, draft=manual)
         verb = 'would create' if args.dry_run else 'created'
