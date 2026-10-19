@@ -384,7 +384,6 @@ func TestCELStringListLiteral_Shapes(t *testing.T) {
 	assert.Equal(t, "null", expression)
 }
 
-
 func TestNegateExceptionMatchConditions(t *testing.T) {
 	single := policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "single"},
@@ -479,7 +478,6 @@ func TestBuildValidatingAdmissionPolicy_MultiConditionCELException(t *testing.T)
 	assert.Len(t, vap.Spec.Validations, 1)
 	assert.Equal(t, "true", vap.Spec.Validations[0].Expression)
 }
-
 
 func TestNegateExceptionMatchConditions_FullAndScopedExceptions(t *testing.T) {
 	tests := []struct {
@@ -585,4 +583,52 @@ func TestNegateExceptionMatchConditions_MultipleConditionsEvaluation(t *testing.
 			assert.Equal(t, tt.want, out.Value())
 		})
 	}
+}
+
+func TestBuildValidatingAdmissionPolicy_FullCELException(t *testing.T) {
+	policy := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-standard-labels", UID: "policy-uid"},
+		Spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+			Validations: []admissionregistrationv1.Validation{{
+				Expression: "true",
+				Message:    "must pass",
+			}},
+		},
+	}
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-exception"},
+	}
+	vap := &admissionregistrationv1.ValidatingAdmissionPolicy{}
+
+	err := BuildValidatingAdmissionPolicy(
+		nil,
+		vap,
+		engineapi.NewValidatingPolicy(policy),
+		[]engineapi.GenericException{engineapi.NewCELPolicyException(exception)},
+	)
+	require.NoError(t, err)
+	require.Len(t, vap.Spec.MatchConditions, 1)
+	assert.Regexp(t, "^exception-[0-9a-f]{12}$", vap.Spec.MatchConditions[0].Name)
+	assert.Equal(t, "false", vap.Spec.MatchConditions[0].Expression)
+	assert.Len(t, vap.Spec.Validations, 1)
+}
+
+func TestBuildMutatingAdmissionPolicyV1_FullCELException(t *testing.T) {
+	mp := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "mutate-policy", UID: "policy-uid"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{},
+		},
+	}
+	exception := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "kyverno", Name: "full-exception"},
+	}
+	mapol := &admissionregistrationv1.MutatingAdmissionPolicy{}
+
+	BuildMutatingAdmissionPolicyV1(mapol, mp, []policiesv1beta1.PolicyException{exception})
+
+	require.Len(t, mapol.Spec.MatchConditions, 1)
+	assert.Regexp(t, "^exception-[0-9a-f]{12}$", mapol.Spec.MatchConditions[0].Name)
+	assert.Equal(t, "false", mapol.Spec.MatchConditions[0].Expression)
 }
