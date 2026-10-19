@@ -13,6 +13,7 @@ import (
 	fatihcolor "github.com/fatih/color"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
@@ -2636,5 +2637,177 @@ spec:
 		assert.Contains(t, output, "failed:")
 		assert.Contains(t, output, "fail: 1")
 		assert.Contains(t, output, "warn: 0")
+	})
+}
+
+func Test_Apply_PolicyValidationWarnings(t *testing.T) {
+	t.Run("surfaces validation warning without error", func(t *testing.T) {
+		config := &ApplyCommandConfig{}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "test-policy.yaml", Warning: "deprecated policy schema"},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: test-policy.yaml: deprecated policy schema")
+		assert.Len(t, config.deprecationWarnings, 1)
+		require.NoError(t, config.failOnDeprecationWarnings())
+	})
+
+	t.Run("fails when warnings-as-errors is set", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			warningsAsErrors: true,
+		}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "test-policy.yaml", Warning: "deprecated policy schema"},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: test-policy.yaml: deprecated policy schema")
+		assert.Len(t, config.deprecationWarnings, 1)
+		err := config.failOnDeprecationWarnings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 1 deprecation warning(s) and --warnings-as-errors is set")
+	})
+
+	t.Run("accumulates multiple warnings correctly", func(t *testing.T) {
+		config := &ApplyCommandConfig{
+			warningsAsErrors: true,
+		}
+		var out bytes.Buffer
+		warnings := []policy.LoaderWarning{
+			{Path: "custom-ns/policy-1.yaml", Warning: "warning 1"},
+			{Path: "custom-ns/policy-2.yaml", Warning: "warning 2"},
+		}
+		config.recordPolicyWarnings(&out, warnings)
+		assert.Contains(t, out.String(), "Warning: custom-ns/policy-1.yaml: warning 1")
+		assert.Contains(t, out.String(), "Warning: custom-ns/policy-2.yaml: warning 2")
+		assert.Len(t, config.deprecationWarnings, 2)
+		err := config.failOnDeprecationWarnings()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "found 2 deprecation warning(s) and --warnings-as-errors is set")
+	})
+
+	writeWarningFixtures := func(t *testing.T) (string, string) {
+		t.Helper()
+		tmpDir := t.TempDir()
+		policyPath := filepath.Join(tmpDir, "policy.yaml")
+		resourcePath := filepath.Join(tmpDir, "resources.yaml")
+
+		policyYAML := `apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: disallow-host-path
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["pods"]
+  validations:
+    - expression: "!has(object.spec.volumes) || object.spec.volumes.all(volume, !has(volume.hostPath))"
+      message: "HostPath volumes are forbidden."
+`
+		resourcesYAML := `apiVersion: kyverno.io/v2
+kind: GlobalContextEntry
+metadata:
+  name: legacy-gce
+spec:
+  kubernetesResource:
+    group: ""
+    version: v1
+    resource: configmaps
+    namespace: default
+  projections:
+    - name: cm-count
+      jmesPath: "length(@)"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-cm
+  namespace: default
+data:
+  key: value
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: clean-pod
+  namespace: default
+spec:
+  containers:
+    - name: app
+      image: nginx:1.27
+`
+		require.NoError(t, os.WriteFile(policyPath, []byte(policyYAML), 0o600))
+		require.NoError(t, os.WriteFile(resourcePath, []byte(resourcesYAML), 0o600))
+		return policyPath, resourcePath
+	}
+
+	t.Run("evaluates all policies before failing on deprecation warnings in applyCommandHelper", func(t *testing.T) {
+		policyPath, resourcePath := writeWarningFixtures(t)
+
+		t.Run("with warnings-as-errors", func(t *testing.T) {
+			config := &ApplyCommandConfig{
+				PolicyPaths:      []string{policyPath},
+				ResourcePaths:    []string{resourcePath},
+				warningsAsErrors: true,
+			}
+			var out bytes.Buffer
+			rc, _, _, responses, err := config.applyCommandHelper(context.Background(), &out)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "found 1 deprecation warning(s) and --warnings-as-errors is set")
+			assert.Contains(t, out.String(), `Warning: GlobalContextEntry "legacy-gce"`)
+			assert.Contains(t, out.String(), "spec.projections[0].jmesPath")
+			require.NotNil(t, rc)
+			assert.Equal(t, 1, rc.Pass)
+			assert.NotEmpty(t, responses)
+		})
+
+		t.Run("without warnings-as-errors", func(t *testing.T) {
+			config := &ApplyCommandConfig{
+				PolicyPaths:   []string{policyPath},
+				ResourcePaths: []string{resourcePath},
+			}
+			var out bytes.Buffer
+			rc, _, _, responses, err := config.applyCommandHelper(context.Background(), &out)
+			require.NoError(t, err)
+			assert.Contains(t, out.String(), `Warning: GlobalContextEntry "legacy-gce"`)
+			assert.Contains(t, out.String(), "spec.projections[0].jmesPath")
+			require.NotNil(t, rc)
+			assert.Equal(t, 1, rc.Pass)
+			assert.NotEmpty(t, responses)
+		})
+	})
+
+	t.Run("respects --warnings-as-errors flag via Command.Execute", func(t *testing.T) {
+		policyPath, resourcePath := writeWarningFixtures(t)
+
+		t.Run("with --warnings-as-errors", func(t *testing.T) {
+			cmd := Command()
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--warnings-as-errors", "--remove-color"})
+			err := cmd.Execute()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "found 1 deprecation warning(s) and --warnings-as-errors is set")
+			assert.Contains(t, out.String(), `Warning: GlobalContextEntry "legacy-gce"`)
+			assert.Contains(t, out.String(), "spec.projections[0].jmesPath")
+		})
+
+		t.Run("without --warnings-as-errors", func(t *testing.T) {
+			cmd := Command()
+			var out bytes.Buffer
+			cmd.SetOut(&out)
+			cmd.SetErr(&out)
+			cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--remove-color"})
+			err := cmd.Execute()
+			require.NoError(t, err)
+			assert.Contains(t, out.String(), `Warning: GlobalContextEntry "legacy-gce"`)
+			assert.Contains(t, out.String(), "spec.projections[0].jmesPath")
+			assert.Contains(t, out.String(), "pass: 1")
+		})
 	})
 }
