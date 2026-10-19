@@ -26,5 +26,9 @@ one entry.
 
 The cache and its "do-not-loosen" contract (one-pass lifetime, never process-scoped or it serves stale
 RBAC; identity = subject + groups + self; errors not cached; not single-flight) live with the code in
-[`pkg/auth/checker`](../../auth/checker/AGENTS.md). The one consumer-side invariant to preserve here:
-`NewAuth` must build a fresh cache per validation pass and never retain it on a long-lived struct.
+[`pkg/auth/checker`](../../auth/checker/AGENTS.md). The consumer-side invariant to preserve here:
+`NewAuth` only *receives* a `*checker.ResultCache` and wraps its checker with it — it must never create
+or retain one. The per-pass cache is created by `pkg/validation/policy` `Validate()` and threaded down
+through `validateActions` and the factories; keep creation at that pass boundary so a cache never
+outlives the `Validate()` call (these factories and `Auth` are otherwise short-lived too, but don't
+rely on that — the lifetime guarantee is owned by the creation site).
