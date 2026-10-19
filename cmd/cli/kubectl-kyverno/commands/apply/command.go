@@ -492,6 +492,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses1, err
 	}
+	if err := c.failOnDeprecationWarnings(); err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses1, err
+	}
 	responses4, err := c.applyImageValidatingPolicies(out, ivps, jsonPayloads, resources1, celExceptions, variables.Namespace, userInfo, rc, dClient, variables.GlobalOperation())
 	if err != nil {
 		return rc, resources1, skippedInvalidPolicies, responses4, err
@@ -543,6 +546,43 @@ func (c *ApplyCommandConfig) getMutateLogPathIsDir() (bool, error) {
 	return mutateLogPathIsDir, nil
 }
 
+func (c *ApplyCommandConfig) validatePolicies(
+	out io.Writer,
+	policies []kyvernov1.PolicyInterface,
+	skipInvalidPolicies *SkippedInvalidPolicies,
+	rc *processor.ResultCounts,
+) []kyvernov1.PolicyInterface {
+	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
+	sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
+	for _, pol := range policies {
+		polID := pol.GetName()
+		if pol.GetNamespace() != "" {
+			polID = pol.GetNamespace() + "/" + pol.GetName()
+		}
+		warnings, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		for _, warning := range warnings {
+			if err != nil && warning == err.Error() {
+				continue
+			}
+			msg := fmt.Sprintf("Warning: policy %s: %s", polID, warning)
+			fmt.Fprintln(out, msg)
+			c.deprecationWarnings = append(c.deprecationWarnings, msg)
+		}
+		if err != nil {
+			log.Log.Error(err, "policy validation error")
+			rc.IncrementError(1)
+			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
+				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
+			} else {
+				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
+			}
+			continue
+		}
+		validPolicies = append(validPolicies, pol)
+	}
+	return validPolicies
+}
+
 func (c *ApplyCommandConfig) applyPolicies(
 	out io.Writer,
 	store *store.Store,
@@ -570,23 +610,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 	}
 	var rc processor.ResultCounts
 	// validate policies
-	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
-	for _, pol := range policies {
-		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
-		if err != nil {
-			log.Log.Error(err, "policy validation error")
-			rc.IncrementError(1)
-			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
-			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
-			}
-			continue
-		}
-		validPolicies = append(validPolicies, pol)
-	}
+	validPolicies := c.validatePolicies(out, policies, skipInvalidPolicies, &rc)
 	var responses []engineapi.EngineResponse
 	namespaceCache := make(map[string]*unstructured.Unstructured)
 
