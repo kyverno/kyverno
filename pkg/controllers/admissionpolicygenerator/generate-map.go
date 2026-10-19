@@ -72,7 +72,7 @@ func (c *controller) handleMAPGenerationWithVersion(ctx context.Context, mpol *p
 		if err != nil {
 			return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 		}
-		if ok, msg := admissionpolicy.CanGenerateNativeMutatingPolicy(celexceptions); !ok {
+		if ok, msg := admissionpolicy.CanGenerateNativeMutatingPolicyWithMatchConditions(celexceptions, len(mpol.Spec.MatchConditions)); !ok {
 			shouldDelete = true
 			reason = "skip generating MutatingAdmissionPolicy: " + msg
 		}
