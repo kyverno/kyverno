@@ -265,6 +265,26 @@ class RunCommandTest(unittest.TestCase):
         self.assertIn("Exec format error", str(ctx.exception))
 
 
+class FetchErrorTest(unittest.TestCase):
+    def test_git_never_prompts_for_credentials(self):
+        completed = subprocess.CompletedProcess([], 0, "", "")
+        with mock.patch.object(verify.subprocess, "run", return_value=completed) as run:
+            verify.run_command(["git", "fetch"])
+        self.assertEqual(run.call_args.kwargs["env"]["GIT_TERMINAL_PROMPT"], "0")
+
+    def test_missing_repository_is_explained(self):
+        # What git prints on a GitHub runner for a repository that doesn't exist.
+        stderr = "fatal: could not read Username for 'https://github.com': No such device or address\n"
+        message = verify.describe_fetch_error(stderr, "https://github.com/x/missing", "commit abc")
+        self.assertIn("can't fetch commit abc from https://github.com/x/missing", message)
+        self.assertIn("doesn't exist, isn't public", message)
+
+    def test_other_errors_keep_the_git_output(self):
+        message = verify.describe_fetch_error("fatal: unable to access: SSL error\n", "https://example.com/r",
+                                              "commit c")
+        self.assertEqual(message, "can't fetch commit c from https://example.com/r: fatal: unable to access: SSL error")
+
+
 class RepositoryDataTest(unittest.TestCase):
     """Checks the real data files against the chart."""
 

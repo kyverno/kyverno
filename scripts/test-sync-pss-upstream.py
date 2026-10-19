@@ -171,8 +171,14 @@ class DetectorTest(unittest.TestCase):
             self.detect("0" * 40)
 
     def test_missing_branch_is_an_error(self):
-        with self.assertRaisesRegex(sync.VerifyError, "git fetch"):
+        with self.assertRaisesRegex(sync.VerifyError, "can't fetch branch no-such-branch from .*doesn't have"):
             self.detect(self.upstream.base, branch="no-such-branch")
+
+    def test_missing_repository_is_an_error(self):
+        work = Path(self.tmp.name) / "work-missing"
+        work.mkdir()
+        with self.assertRaisesRegex(sync.VerifyError, "can't fetch branch master from .*doesn't exist"):
+            sync.detect("git", str(Path(self.tmp.name) / "no-such-repo"), "master", self.upstream.base, work)
 
 
 class PreviewTest(unittest.TestCase):
@@ -238,6 +244,40 @@ class ReportAndMainTest(unittest.TestCase):
         self.assertIn("check `sysctls`", report)
         self.assertIn("kubernetes/kubernetes@aaaaaaaaaaaa", report)
         self.assertIn("+allowed", report)
+
+    def test_report_when_head_is_the_pin(self):
+        result = dict(self.result("none"), head="1" * 40, files=[], groups={}, commits=[], go_diff="")
+        report = sync.render_report(result, None)
+        self.assertIn("Classification: **none**", report)
+        self.assertIn("The branch head is the pinned commit. Nothing to do.", report)
+        self.assertNotIn("## Changed files", report)
+        self.assertNotIn("fixture check", report)
+
+    def test_report_when_only_irrelevant_files_changed(self):
+        result = dict(self.result("none"), files=[], groups={}, commits=[], go_diff="")
+        report = sync.render_report(result, None)
+        self.assertIn("The branch moved, but no non-test file in `policy/`", report)
+        self.assertNotIn("## Upstream commits", report)
+
+    def test_report_for_fixtures_only_change(self):
+        fixtures = [f"test/testdata/baseline/v1.39/pass/f{i}.yaml" for i in range(25)]
+        result = dict(self.result("fixtures-only"), files=fixtures, groups={"fixtures": fixtures},
+                      new_versions=["baseline/v1.39", "restricted/v1.39"], go_diff="")
+        report = sync.render_report(result, ("pass", "checked 9 fixture results across 4 renders: 0 unexpected", ""))
+        self.assertIn("Classification: **fixtures-only**", report)
+        self.assertIn("The candidate passes the fixture check: `checked 9 fixture results", report)
+        self.assertIn("- fixtures: 25 files", report)
+        self.assertIn("- New fixture versions: `baseline/v1.39`, `restricted/v1.39`", report)
+        self.assertNotIn("## Manual work", report)
+        self.assertNotIn("```diff", report)
+
+    def test_report_lists_a_short_fixture_group(self):
+        fixtures = ["test/testdata/baseline/v1.39/pass/a.yaml", "test/testdata/baseline/v1.39/fail/b.yaml"]
+        result = dict(self.result("fixtures-only"), files=fixtures, groups={"fixtures": fixtures}, go_diff="")
+        report = sync.render_report(result, None)
+        self.assertIn("- fixtures: `test/testdata/baseline/v1.39/pass/a.yaml`, "
+                      "`test/testdata/baseline/v1.39/fail/b.yaml`", report)
+        self.assertIn("The fixture check didn't run (no `--preview`).", report)
 
     def test_exit_codes(self):
         none = dict(self.result("manual"), classification="none")

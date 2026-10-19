@@ -79,8 +79,10 @@ def fetch(git_bin, repository, branch, pin_commit, dest):
     dest.mkdir(parents=True)
     git(git_bin, dest, "init", "-q")
     git(git_bin, dest, "remote", "add", "origin", repository)
-    git(git_bin, dest, "fetch", "-q", "--filter=blob:none", "--tags", "origin",
-        f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
+    result = verifier.run_command([git_bin, "-C", str(dest), "fetch", "-q", "--filter=blob:none", "--tags",
+                                   "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}"])
+    if result.returncode != 0:
+        raise VerifyError(verifier.describe_fetch_error(result.stderr, repository, f"branch {branch}"))
     head = git(git_bin, dest, "rev-parse", f"refs/remotes/origin/{branch}^{{commit}}").strip()
     # The pin is normally reachable from the branch. Fetch it directly if not.
     if verifier.run_command([git_bin, "-C", str(dest), "cat-file", "-e", f"{pin_commit}^{{commit}}"]).returncode != 0:

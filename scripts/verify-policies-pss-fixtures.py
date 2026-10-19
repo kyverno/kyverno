@@ -239,8 +239,11 @@ def prepare_fixtures(src, dst):
 
 
 def run_command(args):
+    # Git must never wait for a password: a missing or private repository has
+    # to fail at once, not hang.
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
     try:
-        return subprocess.run(args, capture_output=True, text=True)
+        return subprocess.run(args, capture_output=True, text=True, env=env)
     except FileNotFoundError as err:
         raise VerifyError(f"command not found: {args[0]}") from err
     except OSError as err:
@@ -370,6 +373,20 @@ def apply_known_differences(findings, known):
     return unexpected, matched, stale
 
 
+def describe_fetch_error(stderr, repository, ref):
+    """Turns a git fetch failure into a message that names the likely cause.
+
+    GitHub answers a missing or private repository with a credentials prompt,
+    so git reports "could not read Username" instead of "not found".
+    """
+    text = stderr.strip()
+    if re.search(r"could not read Username|terminal prompts disabled|Repository not found|not found|"
+                 r"does not appear to be a git repository|couldn't find remote ref", text, re.IGNORECASE):
+        return (f"can't fetch {ref} from {repository}: the repository doesn't exist, isn't public, "
+                f"or doesn't have {ref} (git: {text.splitlines()[-1] if text else 'no output'})")
+    return f"can't fetch {ref} from {repository}: {text[-500:]}"
+
+
 def fetch_fixtures(git, pin, dest):
     """Fetches test/testdata at the pinned commit with a sparse, shallow clone."""
     steps = [
@@ -382,6 +399,8 @@ def fetch_fixtures(git, pin, dest):
     for args in steps:
         result = run_command(args)
         if result.returncode != 0:
+            if "fetch" in args:
+                raise VerifyError(describe_fetch_error(result.stderr, pin["repository"], f"commit {pin['commit']}"))
             raise VerifyError(f"{' '.join(args[1:4])} failed: {result.stderr.strip()[-500:]}")
     return dest / "test/testdata"
 
