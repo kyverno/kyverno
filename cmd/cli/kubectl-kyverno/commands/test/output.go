@@ -20,9 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-// collectUniqueCheckResponses collects each engine evaluation once. Target is a
-// projection of Trigger and TriggerByOperation (see runTest), and the same
-// response may be associated with multiple target resources. Copies of an
+// collectUniqueCheckResponses collects default and target evaluations once.
+// Checks have no operation selector, so dedicated operation evaluations are
+// excluded, including their projections in Target. Copies of an
 // EngineResponse share their rule slice, so its first element identifies the
 // originating evaluation without merging separate evaluations with equal data.
 func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineResponse {
@@ -44,15 +44,23 @@ func collectUniqueCheckResponses(responses TestResponse) []engineapi.EngineRespo
 			add(response)
 		}
 	}
+	operationResponses := make(map[*engineapi.RuleResponse]struct{})
 	for _, byResource := range responses.TriggerByOperation {
 		for _, responseList := range byResource {
 			for _, response := range responseList {
-				add(response)
+				if len(response.PolicyResponse.Rules) > 0 {
+					operationResponses[&response.PolicyResponse.Rules[0]] = struct{}{}
+				}
 			}
 		}
 	}
 	for _, responseList := range responses.Target {
 		for _, response := range responseList {
+			if len(response.PolicyResponse.Rules) > 0 {
+				if _, explicit := operationResponses[&response.PolicyResponse.Rules[0]]; explicit {
+					continue
+				}
+			}
 			add(response)
 		}
 	}

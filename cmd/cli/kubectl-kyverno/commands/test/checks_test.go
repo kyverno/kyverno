@@ -185,12 +185,13 @@ func TestPrintCheckResultIncludesGeneratedAndPatchedFields(t *testing.T) {
 }
 
 func TestCollectUniqueCheckResponses(t *testing.T) {
+	color.Init(true)
 	newResponse := func(name string) engineapi.EngineResponse {
 		response := engineapi.NewEngineResponse(
 			unstructured.Unstructured{Object: map[string]any{
 				"apiVersion": "v1",
-				"kind": "Pod",
-				"metadata": map[string]any{"name": name},
+				"kind":       "Pod",
+				"metadata":   map[string]any{"name": name},
 			}},
 			engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{ObjectMeta: metav1.ObjectMeta{Name: "test-policy"}}),
 			nil,
@@ -214,7 +215,7 @@ func TestCollectUniqueCheckResponses(t *testing.T) {
 		},
 	}
 	collected := collectUniqueCheckResponses(responses)
-	require.Len(t, collected, 3)
+	require.Len(t, collected, 2)
 	names := make(map[string]bool)
 	for _, response := range collected {
 		name := response.Resource.GetName()
@@ -222,16 +223,16 @@ func TestCollectUniqueCheckResponses(t *testing.T) {
 		names[name] = true
 	}
 	assert.True(t, names["trigger"])
-	assert.True(t, names["distinct"])
+	assert.False(t, names["distinct"], "explicit operation responses must not reach checks via targets")
 	assert.True(t, names["target-only"])
 
 	check := v1alpha1.CheckResult{Assert: &kyvernov1.Any{Value: map[string]any{"status": "pass"}}}
 	rc := &resultCounts{}
 	var resultsTable table.Table
 	require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
-	assert.Equal(t, 3, rc.Pass)
+	assert.Equal(t, 2, rc.Pass)
 	assert.Equal(t, 0, rc.Fail)
-	require.Len(t, resultsTable.RawRows, 3)
+	require.Len(t, resultsTable.RawRows, 2)
 }
 
 func TestCollectUniqueCheckResponsesKeepsSeparateEqualEvaluations(t *testing.T) {
@@ -247,10 +248,47 @@ func TestCollectUniqueCheckResponsesKeepsSeparateEqualEvaluations(t *testing.T) 
 		return response
 	}
 	responses := TestResponse{
-		Trigger: map[string][]engineapi.EngineResponse{"one": {makeResponse()}},
+		Trigger: map[string][]engineapi.EngineResponse{"one": {makeResponse(), makeResponse()}},
 		TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{
 			"UPDATE": {"two": {makeResponse()}},
 		},
 	}
 	assert.Len(t, collectUniqueCheckResponses(responses), 2)
+}
+
+func TestPrintCheckResultExcludesExplicitOperations(t *testing.T) {
+	color.Init(true)
+	for _, operation := range []string{"CREATE", "UPDATE", "DELETE"} {
+		t.Run(operation, func(t *testing.T) {
+			newResponse := func(rule *engineapi.RuleResponse) engineapi.EngineResponse {
+				response := engineapi.NewEngineResponse(
+					unstructured.Unstructured{Object: map[string]any{
+						"apiVersion": "v1",
+						"kind":       "Pod",
+						"metadata":   map[string]any{"name": "pod"},
+					}},
+					nil,
+					nil,
+				)
+				response.PolicyResponse.Rules = []engineapi.RuleResponse{*rule}
+				return response
+			}
+			defaultResponse := newResponse(engineapi.RulePass("rule", engineapi.Validation, "default", nil))
+			operationResponse := newResponse(engineapi.RuleFail("rule", engineapi.Validation, "explicit operation", nil))
+			responses := TestResponse{
+				Trigger: map[string][]engineapi.EngineResponse{"pod": {defaultResponse}},
+				TriggerByOperation: map[string]map[string][]engineapi.EngineResponse{
+					operation: {"pod": {operationResponse}},
+				},
+				Target: map[string][]engineapi.EngineResponse{"pod": {defaultResponse, operationResponse}},
+			}
+			check := v1alpha1.CheckResult{Assert: &kyvernov1.Any{Value: map[string]any{"status": "pass"}}}
+			rc := &resultCounts{}
+			var resultsTable table.Table
+			require.NoError(t, printCheckResult([]v1alpha1.CheckResult{check}, responses, rc, &resultsTable))
+			assert.Equal(t, 1, rc.Pass)
+			assert.Zero(t, rc.Fail)
+			require.Len(t, resultsTable.RawRows, 1)
+		})
+	}
 }

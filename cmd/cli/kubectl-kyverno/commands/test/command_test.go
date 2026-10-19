@@ -125,6 +125,18 @@ checks:
 	assert.Contains(t, outBuffer.String(), "Test Summary: 0 tests passed and 1 tests failed")
 }
 
+func TestCommandWithChecksAndExplicitOperation(t *testing.T) {
+	testDir := filepath.Join("..", "..", "..", "..", "..", "test", "cli", "test-validating-policy", "checks-operations")
+	cmd := Command()
+	var outBuffer, errBuffer bytes.Buffer
+	cmd.SetOut(&outBuffer)
+	cmd.SetErr(&errBuffer)
+	cmd.SetArgs([]string{testDir})
+
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, outBuffer.String(), "Test Summary: 2 tests passed and 0 tests failed")
+}
+
 func TestCommandRequireTests(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
