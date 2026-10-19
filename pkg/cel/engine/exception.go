@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"slices"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
@@ -62,6 +63,25 @@ func (l *managerPolicyExceptionLister) List(selector labels.Selector) ([]*polici
 		out = append(out, &list.Items[i])
 	}
 	return out, nil
+}
+
+// AppendExceptions appends to dst every exception in src not already in dst,
+// keeping first-seen order. Exceptions are compared by namespace and name.
+// Extraction mode collects the exceptions of each pod template into one list,
+// and an exception that matches several templates must still be listed once.
+// nil entries in src are skipped, and nil entries in dst never match.
+func AppendExceptions(dst, src []*policiesv1beta1.PolicyException) []*policiesv1beta1.PolicyException {
+	for _, exception := range src {
+		if exception == nil {
+			continue
+		}
+		if !slices.ContainsFunc(dst, func(e *policiesv1beta1.PolicyException) bool {
+			return e != nil && e.GetNamespace() == exception.GetNamespace() && e.GetName() == exception.GetName()
+		}) {
+			dst = append(dst, exception)
+		}
+	}
+	return dst
 }
 
 func ListExceptions(lister PolicyExceptionLister, kind, name string) ([]*policiesv1beta1.PolicyException, error) {

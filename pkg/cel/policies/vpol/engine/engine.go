@@ -405,7 +405,7 @@ func (e *engineImpl) evaluateExtracted(ctx context.Context, policy Policy, attr 
 		// must not short-circuit the remaining templates, or a genuinely bad
 		// template later in the list would go unevaluated.
 		if len(result.Exceptions) > 0 {
-			allExceptions = append(allExceptions, result.Exceptions...)
+			allExceptions = engine.AppendExceptions(allExceptions, result.Exceptions)
 			continue
 		}
 		if result.Error != nil || !result.Result {
