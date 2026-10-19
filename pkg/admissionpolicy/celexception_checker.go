@@ -43,3 +43,25 @@ func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool
 	}
 	return true, ""
 }
+
+
+// CanGenerateNativeMutatingPolicy reports whether the CEL exceptions can be represented
+// by a native MutatingAdmissionPolicy. The current MAP builder cannot expose conditional
+// image/value scopes or apply PolicyException compensating validations.
+func CanGenerateNativeMutatingPolicy(exceptions []policiesv1beta1.PolicyException) (bool, string) {
+	var offending []string
+	for _, exception := range exceptions {
+		if len(exception.Spec.Images) > 0 ||
+			len(exception.Spec.AllowedValues) > 0 ||
+			len(exception.Spec.Validations) > 0 {
+			offending = append(offending, cache.MetaObjectToName(&exception).String())
+		}
+	}
+	if len(offending) == 0 {
+		return true, ""
+	}
+	return false, fmt.Sprintf(
+		"policy exception(s) %s use image/value scopes or compensating controls, which a generated MutatingAdmissionPolicy cannot evaluate",
+		strings.Join(offending, ", "),
+	)
+}
