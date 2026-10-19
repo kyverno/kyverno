@@ -6,12 +6,20 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
+	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	kubefake "k8s.io/client-go/kubernetes/fake"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 )
 
@@ -244,4 +252,67 @@ func (m *mockMAPBindingAlphaLister) List(selector labels.Selector) ([]*admission
 
 func (m *mockMAPBindingAlphaLister) Get(name string) (*admissionregistrationv1alpha1.MutatingAdmissionPolicyBinding, error) {
 	return nil, nil
+}
+
+func TestHandleMAPGeneration_SkipsAndDeletesForUnsupportedCELException(t *testing.T) {
+	ctx := context.Background()
+	mpol := &policiesv1beta1.MutatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			AutogenConfiguration: mapGenEnabled(),
+		},
+	}
+	mapName := "mpol-" + mpol.GetName()
+	bindingName := constructBindingName(mapName)
+	existingMAP := &admissionregistrationv1.MutatingAdmissionPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: mapName},
+	}
+	existingBinding := &admissionregistrationv1.MutatingAdmissionPolicyBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: bindingName},
+	}
+	kubeClient := kubefake.NewSimpleClientset(existingMAP, existingBinding)
+	kyvernoClient := versionedfake.NewSimpleClientset(mpol)
+
+	mapIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	bindingIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, mapIndexer.Add(existingMAP))
+	require.NoError(t, bindingIndexer.Add(existingBinding))
+
+	exception := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "unsupported-image-scope", Namespace: "default"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{
+				Name: mpol.GetName(),
+				Kind: "MutatingPolicy",
+			}},
+			Images: []string{"ghcr.io/example/app:v1"},
+		},
+	}
+
+	c := &controller{
+		client:           kubeClient,
+		kyvernoClient:    kyvernoClient,
+		discoveryClient:  dclient.NewEmptyFakeClient().Discovery(),
+		checker:          permissiveAuthChecker{},
+		mapV1Lister:      admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
+		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
+		celpolexLister:   newCELPolexLister(t, exception),
+		polexEnabled:     true,
+		exceptionNamespace: "*",
+		eventGen:         event.NewFake(),
+	}
+
+	err := c.handleMAPGenerationWithVersion(ctx, mpol, admissionpolicy.MutatingAdmissionPolicyVersionV1)
+	require.NoError(t, err)
+
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "existing native MAP should be deleted")
+	_, err = kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicyBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	assert.True(t, apierrors.IsNotFound(err), "existing native MAP binding should be deleted")
+
+	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.GetName(), metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, updated.Status.Generated)
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "unsupported-image-scope")
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "cannot evaluate")
 }
