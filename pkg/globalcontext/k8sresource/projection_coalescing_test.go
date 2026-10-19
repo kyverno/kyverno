@@ -183,6 +183,7 @@ func TestRecomputeProjectionsKeepsSnapshotOnListerError(t *testing.T) {
 type startupProjectionQuery struct {
 	calls           atomic.Int32
 	initialStarted  chan struct{}
+	initialVersion  chan string
 	continueInitial chan struct{}
 	unblock         sync.Once
 }
@@ -196,6 +197,7 @@ func (q *startupProjectionQuery) Search(data interface{}) (interface{}, error) {
 		version, _ = data["version"].(string)
 	}
 	if q.calls.Add(1) == 1 {
+		q.initialVersion <- version
 		close(q.initialStarted)
 		<-q.continueInitial
 	}
@@ -226,6 +228,7 @@ func TestNewRetainsUpdatesDuringInitialProjection(t *testing.T) {
 
 	query := &startupProjectionQuery{
 		initialStarted:  make(chan struct{}),
+		initialVersion:  make(chan string, 1),
 		continueInitial: make(chan struct{}),
 	}
 	defer query.release()
@@ -258,8 +261,9 @@ func TestNewRetainsUpdatesDuringInitialProjection(t *testing.T) {
 		err   error
 	}
 	resultCh := make(chan entryResult, 1)
+	changes := make(chan struct{}, 1)
 	go func() {
-		got, err := New(ctx, gce, &mockEventGen{}, client, logr.Discard(), gvr, "default", startupJMESPath{query: query})
+		got, err := newWithChanges(ctx, gce, &mockEventGen{}, client, logr.Discard(), gvr, "default", startupJMESPath{query: query}, changes)
 		resultCh <- entryResult{entry: got, err: err}
 	}()
 
@@ -274,7 +278,12 @@ func TestNewRetainsUpdatesDuringInitialProjection(t *testing.T) {
 	_, err := client.Resource(gvr).Namespace("default").Update(ctx, updated, metav1.UpdateOptions{})
 	require.NoError(t, err)
 
-	// The first evaluation already read its input before the update.
+	// Update only modifies the fake tracker's state synchronously. Observe
+	// the informer callback notification before releasing the first query.
+	require.Eventually(t, func() bool {
+		return len(changes) == 1
+	}, 10*time.Second, 10*time.Millisecond, "updated informer event was not delivered during startup")
+	require.Equal(t, "before", <-query.initialVersion)
 	query.release()
 
 	var res entryResult
@@ -285,10 +294,6 @@ func TestNewRetainsUpdatesDuringInitialProjection(t *testing.T) {
 	}
 	require.NoError(t, res.err)
 	defer res.entry.Stop()
-
-	initial, err := res.entry.Get("version")
-	require.NoError(t, err)
-	require.Equal(t, "before", initial)
 
 	require.Eventually(t, func() bool {
 		value, err := res.entry.Get("version")
