@@ -1,6 +1,7 @@
 package admissionpolicy
 
 import (
+	"fmt"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -165,4 +166,66 @@ func Test_CanGenerateNativeMutatingPolicy(t *testing.T) {
 			assert.Equal(t, tc.wantReason, reason)
 		})
 	}
+}
+
+func Test_CanGenerateNativePolicies_MatchConditionLimit(t *testing.T) {
+	globalExceptions := []policiesv1beta1.PolicyException{
+		{ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "full-one"}},
+		{ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "full-two"}},
+	}
+	conditionedExceptions := make([]policiesv1beta1.PolicyException, 65)
+	for i := range conditionedExceptions {
+		conditionedExceptions[i] = policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: fmt.Sprintf("conditioned-%d", i)},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{{
+					Name:       fmt.Sprintf("condition-%d", i),
+					Expression: "true",
+				}},
+			},
+		}
+	}
+
+	tests := []struct {
+		name          string
+		exceptions    []policiesv1beta1.PolicyException
+		existingCount int
+		want          bool
+		wantReason    string
+	}{
+		{
+			name:          "multiple global exceptions collapse to one match condition",
+			exceptions:    globalExceptions,
+			existingCount: 63,
+			want:          true,
+		},
+		{
+			name:          "policy and exception conditions cannot exceed limit",
+			exceptions:    globalExceptions[:1],
+			existingCount: 64,
+			want:          false,
+			wantReason:    "generated ValidatingAdmissionPolicy would contain 65 matchConditions; Kubernetes allows at most 64",
+		},
+		{
+			name:          "too many exception conditions skip native generation",
+			exceptions:    conditionedExceptions,
+			existingCount: 0,
+			want:          false,
+			wantReason:    "generated ValidatingAdmissionPolicy would contain 65 matchConditions; Kubernetes allows at most 64",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, reason := CanGenerateNativePolicyWithMatchConditions(tc.exceptions, tc.existingCount)
+			assert.Equal(t, tc.want, got)
+			assert.Equal(t, tc.wantReason, reason)
+		})
+	}
+
+	got, reason := CanGenerateNativeMutatingPolicyWithMatchConditions(globalExceptions, 63)
+	assert.Equal(t, true, got)
+	assert.Equal(t, "", reason)
+	got, reason = CanGenerateNativeMutatingPolicyWithMatchConditions(globalExceptions[:1], 64)
+	assert.Equal(t, false, got)
+	assert.Equal(t, "generated MutatingAdmissionPolicy would contain 65 matchConditions; Kubernetes allows at most 64", reason)
 }
