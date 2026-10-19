@@ -53,6 +53,14 @@ return status-write errors through reconciliation so the workqueue retries resou
 fresh informer object. Logging and swallowing a conflict can leave `status.generated` false indefinitely even
 after the native admission policy and binding were created.
 
+`generic/webhook.NewController` takes a trailing `...Option`. The only option, `WithoutConfigMatchConditions()`,
+stops `build()` from stamping the ConfigMap's `config.matchConditions` onto the webhook configuration; the zero
+value keeps stamping them, so every existing caller is unaffected. Only the two 1.20 legacy-policy-denial
+configurations (the legacy `PolicyException` webhook in `cmd/kyverno/main.go` and the `CleanupPolicy`/
+`ClusterCleanupPolicy` webhook in `cmd/cleanup-controller/main.go`) pass it, because a documented
+`config.matchConditions` value (for example "skip this service account") would otherwise exempt a principal from
+the legacy-write denial for those two configurations. Do not pass it to a resource-facing webhook.
+
 ## Two confirmed-stale rows in `docs/dev/controllers/README.md`
 
 That table lists `admission-report-controller` and `update-request-controller` as if they were `pkg/controllers/*`
