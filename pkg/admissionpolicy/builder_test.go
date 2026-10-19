@@ -810,11 +810,11 @@ func TestBuildValidatingAdmissionPolicy_AggregatesScopedExceptionValues(t *testi
 
 func TestBuildValidatingAdmissionPolicy_EmptyScopedExceptionValues(t *testing.T) {
 	tests := []struct {
-		name           string
-		exception      *policiesv1beta1.PolicyException
-		wantImages     string
-		wantValues     string
-		wantExpression string
+		name             string
+		exception        *policiesv1beta1.PolicyException
+		wantImages       string
+		wantValues       string
+		wantExpression   string
 		sourceExpression string
 	}{
 		{
@@ -825,9 +825,9 @@ func TestBuildValidatingAdmissionPolicy_EmptyScopedExceptionValues(t *testing.T)
 					Images: []string{"ghcr.io/example/app:v1"},
 				},
 			},
-			wantImages:     `["ghcr.io/example/app:v1"]`,
-			wantValues:     "[]",
-			wantExpression: "variables.allowedImages.size() > 0 && variables.allowedValues.size() == 0",
+			wantImages:       `["ghcr.io/example/app:v1"]`,
+			wantValues:       "[]",
+			wantExpression:   "variables.allowedImages.size() > 0 && variables.allowedValues.size() == 0",
 			sourceExpression: "exceptions.allowedImages.size() > 0 && exceptions.allowedValues.size() == 0",
 		},
 		{
