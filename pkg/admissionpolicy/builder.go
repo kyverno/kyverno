@@ -110,35 +110,50 @@ func BuildValidatingAdmissionPolicy(
 		auditAnnotations = vpol.Spec.AuditAnnotations
 		variables = vpol.Spec.Variables
 
-		// convert celexceptions if exist
+		// Convert CEL exceptions if they exist. Aggregate scoped values so the generated
+		// VAP has at most one variable per name, even when several exceptions contribute values.
+		var celExceptions []policiesv1beta1.PolicyException
+		var exceptionImages, exceptionAllowedValues []string
 		for _, exception := range exceptions {
 			if celpolex := exception.AsCELException(); celpolex != nil {
-				matchConditions = append(matchConditions, negateExceptionMatchConditions([]policiesv1beta1.PolicyException{*celpolex})...)
-				if len(celpolex.Spec.Images) > 0 {
-					expression, err := celStringListLiteral(celpolex.Spec.Images)
-					if err != nil {
-						return err
-					}
-					variables = append(variables, admissionregistrationv1.Variable{
-						Name:       "allowedImages",
-						Expression: expression,
-					})
-				}
-				if len(celpolex.Spec.AllowedValues) > 0 {
-					expression, err := celStringListLiteral(celpolex.Spec.AllowedValues)
-					if err != nil {
-						return err
-					}
-					variables = append(variables, admissionregistrationv1.Variable{
-						Name:       "allowedValues",
-						Expression: expression,
-					})
-				}
+				celExceptions = append(celExceptions, *celpolex)
+				exceptionImages = append(exceptionImages, celpolex.Spec.Images...)
+				exceptionAllowedValues = append(exceptionAllowedValues, celpolex.Spec.AllowedValues...)
 			}
 		}
+		exceptionMatchConditions := ensureUniqueExceptionMatchConditionNames(
+			negateExceptionMatchConditions(celExceptions),
+			matchConditions,
+		)
+		matchConditions = append(matchConditions, exceptionMatchConditions...)
+
 		replacements := map[string]string{
 			"exceptions.allowedImages": "variables.allowedImages",
 			"exceptions.allowedValues": "variables.allowedValues",
+		}
+		if len(exceptionImages) > 0 {
+			expression, err := celStringListLiteral(exceptionImages)
+			if err != nil {
+				return err
+			}
+			name := uniqueVariableName("allowedImages", variables)
+			variables = append(variables, admissionregistrationv1.Variable{
+				Name:       name,
+				Expression: expression,
+			})
+			replacements["exceptions.allowedImages"] = "variables." + name
+		}
+		if len(exceptionAllowedValues) > 0 {
+			expression, err := celStringListLiteral(exceptionAllowedValues)
+			if err != nil {
+				return err
+			}
+			name := uniqueVariableName("allowedValues", variables)
+			variables = append(variables, admissionregistrationv1.Variable{
+				Name:       name,
+				Expression: expression,
+			})
+			replacements["exceptions.allowedValues"] = "variables." + name
 		}
 		for i := range validations {
 			validations[i].Expression = replaceExpressions(validations[i].Expression, replacements)
@@ -250,21 +265,26 @@ func mutatingPolicyOwnerRef(mp *policiesv1beta1.MutatingPolicy) []metav1.OwnerRe
 // applies only when all its match conditions evaluate to true, so the generated policy must exclude
 // their conjunction as a single condition.
 func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException) []admissionregistrationv1.MatchCondition {
+	// A global exception with no conditions applies to every request. One false condition
+	// is sufficient to disable native policy enforcement, and avoids exceeding Kubernetes'
+	// match-condition limit when several such exceptions exist.
+	for _, exception := range exceptions {
+		if len(exception.Spec.MatchConditions) == 0 &&
+			len(exception.Spec.Images) == 0 &&
+			len(exception.Spec.AllowedValues) == 0 {
+			return []admissionregistrationv1.MatchCondition{{
+				Name:       exceptionMatchConditionName(exception),
+				Expression: "false",
+			}}
+		}
+	}
+
 	var result []admissionregistrationv1.MatchCondition
 	for _, exception := range exceptions {
 		conditions := exception.Spec.MatchConditions
 		if len(conditions) == 0 {
-			// An unscoped exception with no match conditions matches every request.
-			// Emit a false policy match condition so native admission generation
-			// honors the exception instead of continuing to enforce the policy.
-			// Image/value-scoped exceptions still need the policy to run so their
-			// allowed values can be applied by the generated validation expressions.
-			if len(exception.Spec.Images) == 0 && len(exception.Spec.AllowedValues) == 0 {
-				result = append(result, admissionregistrationv1.MatchCondition{
-					Name:       exceptionMatchConditionName(exception),
-					Expression: "false",
-				})
-			}
+			// Image/value-scoped exceptions without conditions apply on every request;
+			// the generated validation expressions use their aggregated allowed values.
 			continue
 		}
 
@@ -281,7 +301,7 @@ func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException
 		name := conditions[0].Name
 		if len(conditions) > 1 {
 			// Multiple source conditions become one generated condition. Use a stable short
-			// name derived from the exception, rather than dropping names or risking duplicates.
+			// name derived from the exception.
 			name = exceptionMatchConditionName(exception)
 		}
 		result = append(result, admissionregistrationv1.MatchCondition{
@@ -297,13 +317,69 @@ func exceptionMatchConditionName(exception policiesv1beta1.PolicyException) stri
 	return fmt.Sprintf("exception-%x", sum[:6])
 }
 
+// ensureUniqueExceptionMatchConditionNames reserves policy-owned names and disambiguates
+// exception-generated names, including duplicates between separate exceptions.
+func ensureUniqueExceptionMatchConditionNames(
+	conditions []admissionregistrationv1.MatchCondition,
+	policyConditions []admissionregistrationv1.MatchCondition,
+) []admissionregistrationv1.MatchCondition {
+	used := make(map[string]struct{}, len(policyConditions)+len(conditions))
+	for _, condition := range policyConditions {
+		used[condition.Name] = struct{}{}
+	}
+	for i := range conditions {
+		name := conditions[i].Name
+		if _, exists := used[name]; !exists {
+			used[name] = struct{}{}
+			continue
+		}
+		for suffix := 2; ; suffix++ {
+			suffixText := fmt.Sprintf("-%d", suffix)
+			base := name
+			if len(base)+len(suffixText) > 63 {
+				base = base[:63-len(suffixText)]
+			}
+			candidate := base + suffixText
+			if _, exists := used[candidate]; exists {
+				continue
+			}
+			conditions[i].Name = candidate
+			used[candidate] = struct{}{}
+			break
+		}
+	}
+	return conditions
+}
+
+// uniqueVariableName chooses an available CEL variable name for a generated exception variable.
+func uniqueVariableName(preferred string, variables []admissionregistrationv1.Variable) string {
+	used := make(map[string]struct{}, len(variables))
+	for _, variable := range variables {
+		used[variable.Name] = struct{}{}
+	}
+	if _, exists := used[preferred]; !exists {
+		return preferred
+	}
+	base := "exception" + strings.ToUpper(preferred[:1]) + preferred[1:]
+	for suffix := 2; ; suffix++ {
+		candidate := fmt.Sprintf("%s%d", base, suffix)
+		if _, exists := used[candidate]; !exists {
+			return candidate
+		}
+	}
+}
+
 // BuildMutatingAdmissionPolicy is used to build a Kubernetes MutatingAdmissionPolicy from a MutatingPolicy
 func BuildMutatingAdmissionPolicy(
 	mapol *admissionregistrationv1alpha1.MutatingAdmissionPolicy,
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
 ) {
-	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1alpha1.MatchCondition {
+	exceptionMatchConditions := ensureUniqueExceptionMatchConditionNames(
+		negateExceptionMatchConditions(exceptions),
+		mp.Spec.MatchConditions,
+	)
+	matchConditions := slicesutils.Map(exceptionMatchConditions, func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1alpha1.MatchCondition {
 		return admissionregistrationv1alpha1.MatchCondition(mc)
 	})
 	for _, mc := range mp.Spec.MatchConditions {
@@ -362,7 +438,10 @@ func BuildMutatingAdmissionPolicyV1(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
 ) {
-	matchConditions := negateExceptionMatchConditions(exceptions)
+	matchConditions := ensureUniqueExceptionMatchConditionNames(
+		negateExceptionMatchConditions(exceptions),
+		mp.Spec.MatchConditions,
+	)
 	for _, mc := range mp.Spec.MatchConditions {
 		matchConditions = append(matchConditions, mc)
 	}
@@ -425,7 +504,11 @@ func BuildMutatingAdmissionPolicyBeta(
 	mp *policiesv1beta1.MutatingPolicy,
 	exceptions []policiesv1beta1.PolicyException,
 ) {
-	matchConditions := slicesutils.Map(negateExceptionMatchConditions(exceptions), func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1beta1.MatchCondition {
+	exceptionMatchConditions := ensureUniqueExceptionMatchConditionNames(
+		negateExceptionMatchConditions(exceptions),
+		mp.Spec.MatchConditions,
+	)
+	matchConditions := slicesutils.Map(exceptionMatchConditions, func(mc admissionregistrationv1.MatchCondition) admissionregistrationv1beta1.MatchCondition {
 		return admissionregistrationv1beta1.MatchCondition(mc)
 	})
 	for _, mc := range mp.Spec.MatchConditions {
