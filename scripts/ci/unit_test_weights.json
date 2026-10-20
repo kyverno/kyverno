@@ -1,0 +1,8 @@
+{
+  "github.com/kyverno/kyverno/pkg/cel/compiler": 165,
+  "github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign": 89,
+  "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception": 86,
+  "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/apply": 68,
+  "github.com/kyverno/kyverno/pkg/engine": 29,
+  "github.com/kyverno/kyverno/pkg/controllers/report/aggregate": 28
+}
