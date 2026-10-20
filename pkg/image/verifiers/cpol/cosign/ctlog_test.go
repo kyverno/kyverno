@@ -71,3 +71,35 @@ func TestBuildCosignOptions_KeylessIgnoreSCTSkipsCTLogKeys(t *testing.T) {
 	assert.Equal(t, 0, *calls)
 	assert.True(t, co.IgnoreSCT)
 }
+
+func TestBuildCosignOptions_PinnedCertSkipsCTLogKeys(t *testing.T) {
+	calls := stubCTLogPubs(t)
+
+	root, _ := generateTestRootCA(t)
+	opts := verifiers.Options{
+		Client:     registryclient.New(),
+		Cert:       string(certsToPEM([]*x509.Certificate{root})),
+		IgnoreTlog: true,
+		IgnoreSCT:  false,
+	}
+	co, err := buildCosignOptions(context.TODO(), opts)
+	require.NoError(t, err)
+	assert.Equal(t, 0, *calls)
+	assert.NotNil(t, co.SigVerifier)
+	assert.Nil(t, co.CTLogPubKeys)
+}
+
+func TestBuildCosignOptions_CertChainRootsStillRequiresCTLogKeys(t *testing.T) {
+	calls := stubCTLogPubs(t)
+
+	root, _ := generateTestRootCA(t)
+	opts := verifiers.Options{
+		Client:     registryclient.New(),
+		CertChain:  string(certsToPEM([]*x509.Certificate{root})),
+		IgnoreTlog: true,
+		IgnoreSCT:  false,
+	}
+	_, err := buildCosignOptions(context.TODO(), opts)
+	require.ErrorContains(t, err, "failed to load CTLogs public keys")
+	assert.Equal(t, 1, *calls)
+}
