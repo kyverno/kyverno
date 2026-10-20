@@ -5,6 +5,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/stretchr/testify/assert"
@@ -322,6 +323,32 @@ func Test_BuildPolicyRuleObservations(t *testing.T) {
 			assert.Equal(t, tt.want, samples[0].attributes)
 		})
 	}
+}
+
+func Test_policyRuleMetrics_Uninitialized(t *testing.T) {
+	// NewMetricsConfigManager builds the instruments only when initializeMetrics
+	// runs, so this manager exercises the nil instrument paths
+	ruleInfo := metrics.NewMetricsConfigManager(logr.Discard(), metrics.NewFakeMetricsConfig().Config()).PolicyRuleMetrics()
+
+	t.Run("build returns no observations", func(t *testing.T) {
+		var obs metrics.PolicyRuleObservation
+		var err error
+		assert.NotPanics(t, func() {
+			obs, err = ruleInfo.BuildPolicyRuleObservations(&kyvernov1.ClusterPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
+			})
+		})
+		assert.NoError(t, err)
+		assert.Empty(t, obs)
+	})
+
+	t.Run("record does not reach the observer", func(t *testing.T) {
+		// the embedded observer is nil, so this panics if the nil instrument
+		// guard is missing
+		assert.NotPanics(t, func() {
+			ruleInfo.RecordPolicyRuleObservations(make(metrics.PolicyRuleObservation, 1), &mockObserver{})
+		})
+	})
 }
 
 func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
