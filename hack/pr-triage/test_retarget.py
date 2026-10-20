@@ -243,6 +243,17 @@ class Base(unittest.TestCase):
 
 
 class PreviewAndGateTest(Base):
+    def test_other_repository_is_rejected_before_any_calls(self):
+        manifest = json.loads(self.manifest.read_text())
+        manifest["repository"] = "other/kyverno"
+        self.manifest.write_text(json.dumps(manifest))
+        for execute in (False, True):
+            rc, _, err = self.run_cli("--body-file", str(self.body), execute=execute)
+            self.assertEqual(rc, 1)
+            self.assertIn("only kyverno/kyverno", err)
+        self.assertEqual(self.gh.calls, [])
+        self.assert_untouched()
+
     def test_reviewer_requires_live_upstream_write_permission(self):
         for permission in ("read", "triage", "none", None):
             self.gh.reviewer_permission = permission

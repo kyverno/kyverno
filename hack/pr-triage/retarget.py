@@ -173,6 +173,7 @@ def load_manifest(path, number):
     _require(isinstance(data, dict), "top level must be an object")
     _require(data.get("schema_version") == SCHEMA_VERSION, f"schema_version must be {SCHEMA_VERSION}")
     _require(isinstance(data.get("repository"), str) and REPO_RE.match(data["repository"]), "repository")
+    _require(data["repository"] == "kyverno/kyverno", "only kyverno/kyverno is supported")
     for key in ("source", "target"):
         ref = data.get(key)
         _require(isinstance(ref, dict) and _valid_branch(ref.get("branch")), f"{key}.branch")
