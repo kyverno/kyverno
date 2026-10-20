@@ -638,7 +638,7 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 	if !pol.CompiledPolicy.MatchesConditions(ctx, attr, ar, nil, nil, p.context) {
 		return nil, nil
 	}
-	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil)
+	unstructuredResources, err := pol.CompiledPolicy.EvaluateTargetExpression(ctx, attr, ar, nil, p.context)
 	if err != nil {
 		return nil, err
 	}
