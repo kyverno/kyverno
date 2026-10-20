@@ -14,12 +14,12 @@ import (
 // The resource coordinates (resourceGroup/version/resource) are the GVR the kind
 // was resolved to before the checker ran, so different spellings of the same
 // kind (e.g. "ConfigMap" and "v1/ConfigMap") collapse onto a single entry.
-// subject is the SubjectAccessReview user (the caller's RBAC groups are not
-// threaded today — see NewCachedSubjectChecker); it keeps decisions for
-// different identities from colliding in a shared cache, and self marks
-// SelfSubjectAccessReview decisions so they occupy a key domain disjoint from
-// every subject — a self decision can never be reused for a SubjectAccessReview
-// even if a subject is literally named like the self value.
+// subject is the SubjectAccessReview user (reviews are group-less by contract —
+// see NewCachedSubjectChecker, so there is no subject-groups key component); it
+// keeps decisions for different identities from colliding in a shared cache, and
+// self marks SelfSubjectAccessReview decisions so they occupy a key domain
+// disjoint from every subject — a self decision can never be reused for a
+// SubjectAccessReview even if a subject is literally named like the self value.
 type cacheKey struct {
 	self          bool
 	subject       string
@@ -94,11 +94,21 @@ func newCachedChecker(inner AuthChecker, subject string, self bool, cache *Resul
 }
 
 // NewCachedSubjectChecker builds a SubjectAccessReview-based checker for user
-// and memoizes its decisions in cache. Building the checker here keeps the
+// and memoizes its decisions in cache. Building the inner checker here keeps the
 // review identity and the cache-key identity in one place — they cannot drift.
-// Returns a plain (uncached) checker when cache is nil.
+//
+// This API is deliberately group-less: it issues reviews with NO subject groups
+// (groups are hard-coded nil) and the cache key is (user, resolved-GVR, verb),
+// with no subject-groups component. Every caller in this repo authorizes
+// group-less service-account identities, so threading groups would be unused
+// surface. The restriction is enforced structurally — there is no groups
+// parameter, so a grouped subject cannot be cached (or mis-cached) through this
+// API. If a grouped caller is ever needed, add a groups parameter here, pass it
+// to NewSubjectChecker, and add an injective subjectGroups component to cacheKey
+// (SubjectAccessReview decisions can depend on group membership). Returns a
+// plain (uncached) checker when cache is nil.
 func NewCachedSubjectChecker(client authorizationv1client.SubjectAccessReviewInterface, user string, cache *ResultCache) AuthChecker {
-	inner := NewSubjectChecker(client, user, nil)
+	inner := NewSubjectChecker(client, user, nil) // group-less by contract — see doc above
 	if cache == nil {
 		return inner
 	}
