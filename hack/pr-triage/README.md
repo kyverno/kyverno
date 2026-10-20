@@ -176,6 +176,8 @@ heads/bases and existing sibling PRs prevents replaying a write blindly.
 If an author base edit has an unknown outcome and the live base is still `main`,
 resume refuses to repeat it: an earlier successful edit may have been undone by
 another actor. Reconcile manually or roll back, then prepare a fresh migration.
+The same no-replay rule applies to an unknown rollback base edit: if the base
+has not reached `main`, reconcile manually instead of retrying the edit.
 Sibling title/body inputs are bound when the journal is created, before the
 first remote push; changing them requires rollback and a new reviewed journal.
 Do not delete a journal to work around an error; retain it for reconciliation.

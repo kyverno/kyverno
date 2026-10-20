@@ -30,6 +30,16 @@ class ManifestTest(unittest.TestCase):
         self.assertNotIn("GH_CONFIG_DIR", env)
         self.assertNotIn("GH_REPO", env)
 
+    def test_preparation_refuses_configured_url_rewrites_before_fetch(self):
+        config = subprocess.CompletedProcess(
+            ["git"], 0, stdout="file:.git/config url.attacker.insteadof https://github.com/\n"
+        )
+        with patch.object(prepare, "run", return_value=config) as command:
+            with self.assertRaisesRegex(ValueError, "URL rewrites"):
+                prepare.git("fetch", "https://github.com/kyverno/kyverno.git")
+        self.assertEqual(command.call_count, 1)
+        self.assertNotIn("fetch", command.call_args.args)
+
     def row(self, **changes):
         return {
             "probe": "OK", "draft": False, "title": "fix: legacy bug",

@@ -726,7 +726,7 @@ class AuthorTest(Base):
         self.assertEqual(self.remote(FORK, "feature"), self.head)
         self.assertEqual(self.gh.base, "main")
 
-    def test_rollback_resume_after_head_restored_restores_base(self):
+    def test_rollback_pending_base_edit_is_not_replayed(self):
         self.author()
         self.assertEqual(self.run_cli()[0], 0)
         self.gh.fail_before.add("pr edit")
@@ -735,6 +735,12 @@ class AuthorTest(Base):
         self.assertEqual(self.remote(FORK, "feature"), self.head)
         self.assertEqual(self.gh.base, "release-1.19")
         self.assertEqual(self.states()[-1], "rollback_base_pending")
+        writes = list(self.gh.writes)
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertIn("reconcile manually", err)
+        self.assertEqual(self.gh.writes, writes)
+        self.gh.base = "main"
         rc, _, err = self.run_cli("--rollback")
         self.assertEqual(rc, 0, err)
         self.assertEqual(self.gh.base, "main")

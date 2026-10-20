@@ -34,6 +34,17 @@ def run(*args, cwd=None, check=True, timeout=180, env=None):
 def git(*args, **kwargs):
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
+    if "fetch" in args:
+        config = run(
+            "git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
+            "config", "--includes", "--show-origin", "--get-regexp",
+            r"^url\..*\.(insteadof|pushinsteadof)$",
+            env=env, check=False,
+        )
+        if config.returncode == 0:
+            raise ValueError("Git URL rewrites are not allowed during preparation:\n" + config.stdout)
+        if config.returncode != 1:
+            raise ValueError("Cannot inspect Git URL rewrite configuration: " + config.stderr)
     return run(
         "git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
         *args, env=env, **kwargs

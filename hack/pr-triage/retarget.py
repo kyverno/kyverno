@@ -790,8 +790,9 @@ def author_rollback(ctx):
     if pr["base"]["ref"] == tgt and not j.data["rollback_restore_base"]:
         raise RetargetError(f"PR base changed to {tgt} by someone else during rollback; refusing to edit it")
     if pr["base"]["ref"] == tgt:
-        if j.state != "rollback_base_pending":
-            j.record("rollback_base_pending")
+        if j.state == "rollback_base_pending":
+            raise RetargetError("rollback base edit has an unknown outcome or was reverted; reconcile manually")
+        j.record("rollback_base_pending")
         gh(["pr", "edit", str(ctx.number), "--repo", ctx.repo, "--base", src])
         pr = poll_pr(ctx, ctx.number, lambda p: (p.get("base") or {}).get("ref") == src, f"base == {src}")
         check_original(ctx, pr, {ctx.head}, {src}, check_updated=False)
