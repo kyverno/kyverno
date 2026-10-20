@@ -36,8 +36,8 @@ type canIOptions struct {
 }
 
 // NewCanI returns a new instance of operation access controller evaluator.
-// The authChecker carries the subject identity (or self identity) and is the
-// seam where a caching wrapper can be injected.
+// authChecker answers each access check (a SubjectAccessReview or
+// SelfSubjectAccessReview for its identity).
 func NewCanI(discovery Discovery, authChecker checker.AuthChecker, gvk, namespace, name, verb, subresource string) CanIOptions {
 	return &canIOptions{
 		name:        name,

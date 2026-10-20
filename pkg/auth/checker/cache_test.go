@@ -36,20 +36,28 @@ func (c *countingChecker) callCount() int {
 	return c.calls
 }
 
-// TestNewCachedChecker_NilPassthrough verifies the wrapper is a no-op when either
-// the inner checker or the cache is nil.
-func TestNewCachedChecker_NilPassthrough(t *testing.T) {
-	inner := &countingChecker{}
+// TestNewCachedSubjectChecker_NilCacheIsUncached verifies the exported
+// constructors build a plain checker when cache is nil and a caching wrapper
+// otherwise — the identity (user / self) is owned by the constructor, so there
+// is no second identity source to drift from the review.
+func TestNewCachedSubjectChecker_NilCacheIsUncached(t *testing.T) {
+	// nil client is fine: Check is never called here.
+	_, cached := NewCachedSubjectChecker(nil, "u", nil).(*cachedChecker)
+	assert.False(t, cached)
+	_, cached = NewCachedSubjectChecker(nil, "u", NewResultCache()).(*cachedChecker)
+	assert.True(t, cached)
 
-	assert.Nil(t, NewCachedChecker(nil, "u", nil, NewResultCache()))
-	assert.Same(t, inner, NewCachedChecker(inner, "u", nil, nil))
+	_, cached = NewCachedSelfChecker(nil, nil).(*cachedChecker)
+	assert.False(t, cached)
+	_, cached = NewCachedSelfChecker(nil, NewResultCache()).(*cachedChecker)
+	assert.True(t, cached)
 }
 
 // TestCachedChecker_MemoizesIdenticalCalls verifies repeated identical Check
 // calls resolve through the inner checker only once.
 func TestCachedChecker_MemoizesIdenticalCalls(t *testing.T) {
 	inner := &countingChecker{}
-	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
+	c := newCachedChecker(inner, "reports-sa", false, NewResultCache())
 	ctx := context.Background()
 
 	for i := 0; i < 5; i++ {
@@ -65,7 +73,7 @@ func TestCachedChecker_MemoizesIdenticalCalls(t *testing.T) {
 // cache key produces a fresh lookup against the inner checker.
 func TestCachedChecker_DistinctKeysMiss(t *testing.T) {
 	inner := &countingChecker{}
-	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
+	c := newCachedChecker(inner, "reports-sa", false, NewResultCache())
 	ctx := context.Background()
 
 	_, _ = c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
@@ -85,8 +93,8 @@ func TestCachedChecker_SharedCacheKeyedBySubject(t *testing.T) {
 	cache := NewResultCache()
 	reports := &countingChecker{}
 	background := &countingChecker{}
-	reportsChecker := NewCachedChecker(reports, "reports-sa", nil, cache)
-	backgroundChecker := NewCachedChecker(background, "background-sa", nil, cache)
+	reportsChecker := newCachedChecker(reports, "reports-sa", false, cache)
+	backgroundChecker := newCachedChecker(background, "background-sa", false, cache)
 	ctx := context.Background()
 
 	// Same tuple but different subjects must not collide in the shared cache.
@@ -98,77 +106,6 @@ func TestCachedChecker_SharedCacheKeyedBySubject(t *testing.T) {
 	assert.Equal(t, 1, background.callCount())
 }
 
-// TestCachedChecker_KeyedBySubjectGroups verifies that the same username checked
-// with different groups keys separately — a SubjectAccessReview is evaluated
-// against the user and its groups, so one group set's decision must not satisfy
-// another's. Group order does not matter (the key is canonicalized).
-func TestCachedChecker_KeyedBySubjectGroups(t *testing.T) {
-	cache := NewResultCache()
-	devs := &countingChecker{}
-	admins := &countingChecker{}
-	devsChecker := NewCachedChecker(devs, "sa", []string{"devs"}, cache)
-	adminsChecker := NewCachedChecker(admins, "sa", []string{"admins"}, cache)
-	// Same user and groups as reordered below, only the slice order differs.
-	devsAB := &countingChecker{}
-	devsBA := &countingChecker{}
-	devsABChecker := NewCachedChecker(devsAB, "sa", []string{"devs", "team-a"}, cache)
-	devsBAChecker := NewCachedChecker(devsBA, "sa", []string{"team-a", "devs"}, cache)
-	ctx := context.Background()
-
-	_, _ = devsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
-	_, _ = adminsChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
-	_, _ = devsABChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
-	_, _ = devsBAChecker.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
-
-	// Same user "sa", different groups ({devs} vs {admins}) must not collide:
-	// each inner checker is consulted exactly once.
-	assert.Equal(t, 1, devs.callCount())
-	assert.Equal(t, 1, admins.callCount())
-	// {devs,team-a} and {team-a,devs} canonicalize to one key: the first resolves
-	// through its inner checker, the second is served from cache and never
-	// consults its own inner checker.
-	assert.Equal(t, 1, devsAB.callCount())
-	assert.Equal(t, 0, devsBA.callCount())
-}
-
-// TestCachedChecker_GroupEncodingIsInjective guards the identity-key encoding
-// against collisions for the opaque (arbitrary-byte) group strings a
-// SubjectAccessReview accepts. A plain delimiter would alias, e.g. {"a\x00b"}
-// with {"a","b"}, or [] (no groups) with [""] (one empty group) — reusing one
-// identity's decision for another. Each distinct group set must consult its own
-// inner checker (no cross-reuse in the shared cache).
-func TestCachedChecker_GroupEncodingIsInjective(t *testing.T) {
-	cache := NewResultCache()
-	ctx := context.Background()
-
-	groupSets := [][]string{
-		{"a\x00b"},
-		{"a", "b"},
-		nil,
-		{""},
-		{"ab"},
-	}
-	inners := make([]*countingChecker, len(groupSets))
-	for i, groups := range groupSets {
-		inners[i] = &countingChecker{}
-		c := NewCachedChecker(inners[i], "sa", groups, cache)
-		_, _ = c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
-	}
-
-	// No two group sets share a key, so every inner checker is consulted once.
-	for i := range groupSets {
-		assert.Equalf(t, 1, inners[i].callCount(), "group set %d (%q) collided", i, groupSets[i])
-	}
-}
-
-// TestNewCachedSelfChecker_NilPassthrough verifies the self wrapper is a no-op
-// when either the inner checker or the cache is nil.
-func TestNewCachedSelfChecker_NilPassthrough(t *testing.T) {
-	inner := &countingChecker{}
-	assert.Nil(t, NewCachedSelfChecker(nil, NewResultCache()))
-	assert.Same(t, inner, NewCachedSelfChecker(inner, nil))
-}
-
 // TestCachedSelfChecker_DisjointFromSubject verifies a SelfSubjectAccessReview
 // decision is never reused for a subject's SubjectAccessReview on the same
 // resource/verb — even when a subject is literally named like the self value.
@@ -176,8 +113,8 @@ func TestCachedSelfChecker_DisjointFromSubject(t *testing.T) {
 	cache := NewResultCache()
 	self := &countingChecker{}
 	subject := &countingChecker{}
-	selfChecker := NewCachedSelfChecker(self, cache)
-	subjectChecker := NewCachedChecker(subject, "self", nil, cache) // subject literally "self"
+	selfChecker := newCachedChecker(self, "", true, cache)
+	subjectChecker := newCachedChecker(subject, "", false, cache) // empty subject, non-self
 	ctx := context.Background()
 
 	_, _ = selfChecker.Check(ctx, "admissionregistration.k8s.io", "v1", "validatingadmissionpolicies", "", "", "", "create")
@@ -193,7 +130,7 @@ func TestCachedSelfChecker_DisjointFromSubject(t *testing.T) {
 // and is retried on the next call.
 func TestCachedChecker_DoesNotCacheErrors(t *testing.T) {
 	inner := &countingChecker{err: errors.New("boom")}
-	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
+	c := newCachedChecker(inner, "reports-sa", false, NewResultCache())
 	ctx := context.Background()
 
 	_, err1 := c.Check(ctx, "", "v1", "configmaps", "", "", "", "get")
@@ -209,7 +146,7 @@ func TestCachedChecker_DoesNotCacheErrors(t *testing.T) {
 // nothing is dropped or rebuilt at this layer.
 func TestCachedChecker_ReturnsResultVerbatim(t *testing.T) {
 	inner := &countingChecker{denied: map[string]bool{"delete": true}}
-	c := NewCachedChecker(inner, "reports-sa", nil, NewResultCache())
+	c := newCachedChecker(inner, "reports-sa", false, NewResultCache())
 	ctx := context.Background()
 
 	miss, err := c.Check(ctx, "", "v1", "configmaps", "", "", "", "delete")

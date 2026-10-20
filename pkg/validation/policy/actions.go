@@ -55,8 +55,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		}
 
 		if client != nil && rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
-			selfChecker := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
-			authCheck := authChecker.NewCachedSelfChecker(selfChecker, authCache)
+			authCheck := authChecker.NewCachedSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), authCache)
 			if !admissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
 			}

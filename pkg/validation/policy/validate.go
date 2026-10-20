@@ -234,8 +234,9 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	rules := autogen.Default.ComputeRules(policy, "")
 	rulesPath := specPath.Child("rules")
 
-	// authCache memoizes SubjectAccessReview results for this single validation
-	// pass, collapsing the redundant auth checks run per rule and per action.
+	// authCache memoizes authorization results (SubjectAccessReview and
+	// validate.cel self-checks) for this single validation pass, collapsing the
+	// redundant auth checks run per rule and per action.
 	// Only used for live (non-mock) checks; mock paths use fake auth.
 	var authCache *authChecker.ResultCache
 	if !mock {
