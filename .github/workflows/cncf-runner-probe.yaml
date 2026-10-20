@@ -5,11 +5,6 @@ name: CNCF runner probe
 permissions: {}
 
 on:
-  push:
-    branches:
-      - perf/cncf-runner-probe
-    paths:
-      - .github/workflows/cncf-runner-probe.yaml
   workflow_dispatch: {}
 
 concurrency:
@@ -106,17 +101,21 @@ jobs:
           printf 'setup_seconds=%s\n' "$((ready - setup_start))" | tee evidence/timing.txt
           go version | tee -a evidence/worker.txt
           go env GOOS GOARCH CGO_ENABLED | tee -a evidence/worker.txt
-          /usr/bin/time -v -o evidence/test-resource-usage.txt make test-unit
+          result=0
+          /usr/bin/time -v -o evidence/test-resource-usage.txt make test-unit || result=$?
           finished=$(date +%s)
-          printf 'test_seconds=%s\nsetup_and_test_seconds=%s\n' \
-            "$((finished - ready))" "$((finished - setup_start))" | tee -a evidence/timing.txt
-          go tool cover -func=coverage.out > evidence/coverage-summary.txt
-          cp coverage.out evidence/
+          printf 'test_seconds=%s\nsetup_and_test_seconds=%s\ntest_exit_code=%s\n' \
+            "$((finished - ready))" "$((finished - setup_start))" "$result" | tee -a evidence/timing.txt
           {
             echo "### $RUNNER_LABEL"
             cat evidence/timing.txt
-            tail -1 evidence/coverage-summary.txt
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$result" -ne 0 ]; then
+            exit "$result"
+          fi
+          go tool cover -func=coverage.out > evidence/coverage-summary.txt
+          cp coverage.out evidence/
+          tail -1 evidence/coverage-summary.txt >> "$GITHUB_STEP_SUMMARY"
       - name: Final disk headroom
         if: always()
         shell: bash
