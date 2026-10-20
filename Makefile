@@ -704,11 +704,15 @@ endef
 
 .PHONY: helm-setup-dependency-charts
 helm-setup-dependency-charts: $(HELM) ## Add dependency helm repos and build dependencies
+ifneq ($(RELEASE_MODE),true)
 	@echo Setting up helm dependencies... >&2
 	@$(HELM) repo add openreports https://openreports.github.io/reports-api
 	@$(HELM) repo add reports-server https://kyverno.github.io/reports-server
 	@$(HELM) repo add kyverno-api https://kyverno.github.io/api
 	@$(HELM) dependency update ./charts/kyverno
+else
+	@test -f .release/plan.json || (echo "Missing retained release workspace" >&2; exit 1)
+endif
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: ## Generate helm CRDs
@@ -964,7 +968,7 @@ test-cli-local-maps: $(CLI_BIN) ## Run local CLI MAP tests
 .PHONY: helm-test
 helm-test: $(HELM) ## Run helm test
 	@echo Running helm test... >&2
-	@$(HELM) dependency build ./charts/kyverno
+	@if [ "$(RELEASE_MODE)" != "true" ]; then $(HELM) dependency build ./charts/kyverno; fi
 	@$(HELM) test --namespace kyverno kyverno
 
 .PHONY: verify-legacy-crd-retention
@@ -1096,9 +1100,10 @@ kind-load-image-archive: $(KIND) ## Load docker images from archive
 	@$(KIND) load image-archive kyverno.tar --name $(KIND_NAME)
 
 .PHONY: kind-install-kyverno
+KYVERNO_TEST_CHART ?= ./charts/kyverno
 kind-install-kyverno: helm-setup-dependency-charts ## Install kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --create-namespace --wait $(KYVERNO_TEST_CHART) \
 		--set admissionController.container.image.registry=$(LOCAL_REGISTRY) \
 		--set admissionController.container.image.repository=$(LOCAL_KYVERNO_REPO) \
 		--set admissionController.container.image.tag=$(GIT_SHA) \

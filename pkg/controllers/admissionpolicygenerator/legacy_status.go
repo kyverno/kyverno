@@ -22,7 +22,7 @@ func init() {
 	deprecations.AllowSubresourceForLegacyStatusWriter("status")
 }
 
-func (c *controller) updateLegacyClusterPolicyStatus(ctx context.Context, cpol *kyvernov1.ClusterPolicy, generated bool, msg string) {
+func (c *controller) updateLegacyClusterPolicyStatus(ctx context.Context, cpol *kyvernov1.ClusterPolicy, generated bool, msg string) error {
 	latest := cpol.DeepCopy()
 	latest.Status.ValidatingAdmissionPolicy.Generated = generated
 	latest.Status.ValidatingAdmissionPolicy.Message = msg
@@ -30,7 +30,8 @@ func (c *controller) updateLegacyClusterPolicyStatus(ctx context.Context, cpol *
 	new, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 	if err != nil {
 		logging.Error(err, "failed to update cluster policy status", "name", cpol.GetName(), "status", latest.Status)
-		return
+		return err
 	}
 	logging.V(3).Info("updated cluster policy status", "name", cpol.GetName(), "status", new.Status)
+	return nil
 }

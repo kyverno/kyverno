@@ -295,12 +295,14 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) {
+func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.GenericPolicy, generated bool, msg string) error {
 	if pol := policy.AsKyvernoPolicy(); pol != nil {
 		// The legacy ClusterPolicy branch lives in legacy_status.go, not inline here, so its
 		// /status allowance registration can be deleted along with it in one commit when
-		// #17710 removes legacy execution; the CEL branches below are not legacy and stay.
-		c.updateLegacyClusterPolicyStatus(ctx, pol.(*kyvernov1.ClusterPolicy), generated, msg)
+		// #17710 removes legacy execution. Propagate write failures so the workqueue retries
+		// resource-version conflicts with a fresh informer object. CEL branches below are
+		// separate and are not part of the legacy status allowance.
+		return c.updateLegacyClusterPolicyStatus(ctx, pol.(*kyvernov1.ClusterPolicy), generated, msg)
 	} else if vpol := policy.AsValidatingPolicy(); vpol != nil {
 		latest := vpol.DeepCopy()
 		latest.Status.Generated = generated
@@ -309,7 +311,7 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		new, err := c.kyvernoClient.PoliciesV1beta1().ValidatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update validating policy status", "name", vpol.GetName(), "status", latest.Status)
-			return
+			return err
 		}
 
 		logging.V(3).Info("updated validating policy status", "name", vpol.GetName(), "status", new.Status)
@@ -321,9 +323,10 @@ func (c *controller) updatePolicyStatus(ctx context.Context, policy engineapi.Ge
 		new, err := c.kyvernoClient.PoliciesV1beta1().MutatingPolicies().UpdateStatus(ctx, latest, metav1.UpdateOptions{})
 		if err != nil {
 			logging.Error(err, "failed to update mutating policy status", "name", mpol.GetName(), "status", latest.Status)
-			return
+			return err
 		}
 
 		logging.V(3).Info("updated mutating policy status", "name", mpol.GetName(), "status", new.Status)
 	}
+	return nil
 }

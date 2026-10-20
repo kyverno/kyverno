@@ -1,0 +1,392 @@
+name: Validate immutable release candidate
+
+permissions:
+  contents: read
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+      sha:
+        type: string
+        required: true
+      rehearsal:
+        type: boolean
+        default: false
+
+env:
+  RELEASE_TAG: ${{ inputs.tag }}
+  RELEASE_SHA: ${{ inputs.sha }}
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+  RELEASE_REHEARSAL: ${{ inputs.rehearsal }}
+
+jobs:
+  codegen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Reject event mismatch before loading input-selected code
+        run: test "$RELEASE_SHA" = "$GITHUB_SHA"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/go/setup
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - name: Verify exact event identity and release mapping
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          test "$RELEASE_SHA" = "$EVENT_SHA"
+          python3 -m pip install -r scripts/release/requirements.txt
+          python3 scripts/release/release.py event --owner "${OWNER,,}"
+      - name: Release automation regression tests
+        run: python3 -m unittest discover -s scripts/release -p 'test_*.py' -v
+      - name: Code generation freshness (before release-only metadata)
+        run: |
+          make codegen-all-code
+          make verify-codegen
+      - name: Retain freshness diagnostics
+        if: failure()
+        run: git diff > release-codegen.patch
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-codegen-patch-${{ github.run_attempt }}
+          path: release-codegen.patch
+          retention-days: 90
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/go/setup
+      - run: make test-unit
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-unit-${{ github.run_attempt }}
+          path: coverage.out
+          retention-days: 90
+
+  candidate:
+    needs: codegen
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      policy-library-sha: ${{ steps.testing.outputs.policy-library-sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: false
+          tool-cache: false
+      - uses: ./.github/actions/go/setup
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: ./.github/actions/tools/install
+        with:
+          helm: true
+          ko: true
+          oras: true
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y skopeo
+          python3 -m pip install -r scripts/release/requirements.txt
+      - name: Restore retained artifacts on interrupted retries
+        id: retained
+        run: python3 scripts/release/retained.py
+      - name: Prepare plan
+        if: steps.retained.outputs.artifact-0 != 'true'
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: python3 scripts/release/release.py plan --owner "${OWNER,,}"
+      - name: Preserve release vulnerability scan
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: .release/trivy-results.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          cache: false
+        env:
+          TRIVY_DB_REPOSITORY: mirror.gcr.io/aquasec/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2,public.ecr.aws/aquasecurity/trivy-db:2
+      - name: Build once without publishing
+        if: steps.retained.outputs.artifact-0 != 'true'
+        run: python3 scripts/release/build.py
+      - name: CycloneDX SBOM (admission)
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: app -licenses -json -output .release/sboms/kyverno-bom.cdx.json -main ./cmd/kyverno
+      - name: CycloneDX SBOM (init)
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: app -licenses -json -output .release/sboms/kyvernopre-bom.cdx.json -main ./cmd/kyverno-init
+      - name: CycloneDX SBOM (background)
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: app -licenses -json -output .release/sboms/background-controller-bom.cdx.json -main ./cmd/background-controller
+      - name: CycloneDX SBOM (cleanup)
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: app -licenses -json -output .release/sboms/cleanup-controller-bom.cdx.json -main ./cmd/cleanup-controller
+      - name: CycloneDX SBOM (reports)
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: app -licenses -json -output .release/sboms/reports-controller-bom.cdx.json -main ./cmd/reports-controller
+      - name: CycloneDX SBOM (CLI)
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: app -licenses -json -output .release/sboms/kyverno-cli-bom.cdx.json -main ./cmd/cli/kubectl-kyverno
+      - name: CycloneDX SBOM (readiness)
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: CycloneDX/gh-gomod-generate-sbom@efc74245d6802c8cefd925620515442756c70d8f # v2.0.0
+        with:
+          version: v1
+          args: app -licenses -json -output .release/sboms/readiness-checker-bom.cdx.json -main ./cmd/readiness-checker
+      - name: Seal final candidate including SBOMs
+        if: steps.retained.outputs.artifact-0 != 'true'
+        run: |
+          python3 scripts/release/release.py seal
+          tar -cf release-candidate.tar .release
+      - name: Retain immutable release candidate
+        if: steps.retained.outputs.artifact-0 != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-candidate
+          path: release-candidate.tar
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - name: Restore exact testing artifacts from candidate
+        id: testing
+        run: |
+          python3 scripts/release/release.py check-seal
+          cp .release/kyverno.tar kyverno.tar
+          cp .release/kubectl-kyverno kubectl-kyverno
+          cp .release/workspace.tar workspace.tar
+          sha256sum workspace.tar > release-workspace.sha256
+          echo "policy-library-sha=$(jq -r .policy_library_sha .release/plan.json)" >> "$GITHUB_OUTPUT"
+      - if: steps.retained.outputs.artifact-1 != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-workspace
+          path: |
+            workspace.tar
+            release-workspace.sha256
+          retention-days: 90
+          if-no-files-found: error
+      - if: steps.retained.outputs.artifact-2 != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kyverno.tar
+          path: kyverno.tar
+          retention-days: 90
+          compression-level: 0
+          if-no-files-found: error
+      - if: steps.retained.outputs.artifact-3 != 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kubectl-kyverno
+          path: kubectl-kyverno
+          retention-days: 90
+          if-no-files-found: error
+
+  cli:
+    needs: candidate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/go/setup
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kubectl-kyverno
+      - name: Test exact staged CLI, without Make rebuilding it
+        run: |
+          chmod +x kubectl-kyverno
+          cp kubectl-kyverno cmd/cli/kubectl-kyverno/kubectl-kyverno
+          make -o cmd/cli/kubectl-kyverno/kubectl-kyverno test-cli
+          for test in missing-policy missing-rule missing-resource; do
+            if ./kubectl-kyverno test "./test/cli/test-fail/$test"; then
+              echo "::error::Expected CLI failure: $test"
+              exit 1
+            fi
+          done
+
+  charts:
+    needs: candidate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release/restore
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: helm/chart-testing-action@6ec842c01de15ebb84c8627d2744a0c2f2755c9f # v2.8.0
+      - uses: ./.github/actions/tools/helm
+      - name: Lint both prepared charts explicitly, not only changed charts
+        run: |
+          helm lint --strict .release/packages/*.tgz
+          ct lint --charts charts/kyverno,charts/kyverno-policies --target-branch=main --check-version-increment=false --validate-maintainers=false --skip-helm-dependencies
+
+  artifacthub:
+    needs: candidate
+    runs-on: ubuntu-latest
+    container:
+      image: artifacthub/ah:v1.23.0@sha256:e5d2a2cdef85aac4928e8176ffaad24746c5fe961d64ff6856f7222957095356
+      options: --user root
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release/restore
+      - run: cd charts && ah lint
+
+  conformance:
+    needs: candidate
+    permissions:
+      packages: read
+    uses: ./.github/workflows/tests-conformance.yaml
+    with:
+      release-candidate: true
+      release-sha: ${{ inputs.sha }}
+
+  policy-library:
+    needs: candidate
+    uses: ./.github/workflows/tests-conformance-policy-library.yaml
+    with:
+      release-candidate: true
+      release-sha: ${{ inputs.sha }}
+      policy-library-sha: ${{ needs.candidate.outputs.policy-library-sha }}
+
+  k6:
+    needs: candidate
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/tests-k6.yaml
+    with:
+      release-candidate: true
+      release-sha: ${{ inputs.sha }}
+
+  performance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/go/setup
+      - run: make check-perf
+
+  manifests:
+    needs: candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/release/restore
+      - uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: kind
+          config: ./scripts/config/kind/default.yaml
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: kyverno.tar
+      - name: Test exact staged install manifest using canonical staged image tags
+        run: |
+          kind load image-archive kyverno.tar --name kind
+          kubectl apply --server-side -f .release/install.yaml
+          for deployment in kyverno-admission-controller kyverno-background-controller kyverno-cleanup-controller kyverno-reports-controller; do
+            kubectl -n kyverno rollout status "deployment/$deployment" --timeout=300s
+          done
+      - if: failure()
+        uses: ./.github/actions/kyverno/logs
+
+  gate:
+    if: always()
+    needs: [codegen, unit, candidate, cli, charts, artifacthub, conformance, policy-library, k6, performance, manifests]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+      - uses: ./.github/actions/release/restore
+        if: needs.candidate.result == 'success'
+      - run: python3 -m pip install -r scripts/release/requirements.txt
+        if: always()
+      - name: Detailed full-matrix report, including failed/skipped jobs
+        if: always()
+        run: python3 scripts/release/report.py
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-validation-${{ github.run_attempt }}
+          path: release-report
+          retention-days: 90
+      - name: Require every mandatory validation job to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -c 'import json,os; results=json.loads(os.environ["RESULTS"]); raise SystemExit(0 if all(j["result"]=="success" for j in results.values()) else results)'
