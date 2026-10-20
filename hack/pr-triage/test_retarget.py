@@ -1,4 +1,5 @@
 import contextlib
+import hashlib
 import fcntl
 import importlib.util
 import io
@@ -61,7 +62,8 @@ class FakeGH:
                     "head": {"ref": "feature", "sha": self.api_head or self.head(FORK, "feature"),
                              "repo": {"full_name": FORK}}}
         s = self.siblings[n]
-        return {"number": n, "state": s["state"], "merged": s["merged"], "user": {"login": "maint"},
+        return {"number": n, "state": s["state"], "merged": s["merged"], "body": s.get("body"),
+                "user": {"login": s.get("author", "someone")},
                 "base": {"ref": s["base"], "repo": {"full_name": REPO}},
                 "head": {"ref": s["branch"], "sha": s.get("api_head") or self.head(REPO, s["branch"]),
                          "repo": {"full_name": REPO}}}
@@ -75,6 +77,8 @@ class FakeGH:
             raise retarget.RetargetError(f"simulated {key} failure")
         if args[0] == "api" and "/pulls/" in args[1]:
             return json.dumps(self.pull(int(args[1].rsplit("/", 1)[1])))
+        if args == ["api", "user"]:
+            return json.dumps({"login": "maint"})
         if args[0] == "api" and "/issues/comments/" in args[1]:
             return json.dumps(self.comment)
         if key == "pr list":
@@ -90,7 +94,9 @@ class FakeGH:
         elif key == "pr create":
             n = 100 + len(self.siblings)
             self.siblings[n] = {"branch": args[args.index("--head") + 1], "base": args[args.index("--base") + 1],
-                                "state": "open", "merged": False}
+                                "state": "open", "merged": False, "author": "maint",
+                                "body": args[args.index("--body") + 1]}
+            self.created = n
         elif key == "pr close":
             self.siblings[int(args[2])]["state"] = "closed"
         else:
@@ -98,7 +104,9 @@ class FakeGH:
         if key in self.fail_after:
             self.fail_after.discard(key)
             raise retarget.RetargetError("timed out after 60s, outcome unknown")
-        return f"https://github.com/{REPO}/pull/100\n"
+        if key == "pr create":
+            return f"https://github.com/{REPO}/pull/{n}\n"
+        return ""
 
 
 class Base(unittest.TestCase):
@@ -171,13 +179,19 @@ class Base(unittest.TestCase):
              "prepared_ref": "refs/retarget/prepared/run1/7/rebased", "shared_files": [], "overlap_prs": [],
              "conflict_files": [], "recommendation": "RETARGET", "reasons": [],
              "evidence": {"range_diff": "evidence/range.diff", "final_diff": "evidence/final.diff"},
+             "evidence_sha256": self.evidence_hashes(),
              "approval": {"reviewer": "maint", "head_sha": self.head, "target_sha": self.target,
+                          "evidence_sha256": self.evidence_hashes(),
                           "rebased_sha": self.rebased, "range_diff_reviewed": True, "final_diff_reviewed": True,
                           "tests": [{"command": "go test ./pkg/engine/...", "result": "passed"}],
                           "release_feature_approved": False},
              "strategy": "sibling", "consent_comment_id": None}
         c.update(over)
         return c
+
+    def evidence_hashes(self):
+        return {k: hashlib.sha256((self.root / "evidence" / f).read_bytes()).hexdigest()
+                for k, f in (("range_diff", "range.diff"), ("final_diff", "final.diff"))}
 
     def write_manifest(self, **over):
         self.manifest = self.root / "manifest.json"
@@ -263,7 +277,8 @@ class PreviewAndGateTest(Base):
         self.assert_untouched()
 
     def test_feature_flag_required_only_for_feature_titles_and_draft_never_publishes(self):
-        for title in ("feat(engine): add x", "feat: x", "feat/x", "Feature: x", "feat!: x"):
+        for title in ("feat(engine): add x", "feat: x", "feat/x", "Feature: x", "feat!: x", "feat add metrics",
+                      "  FEAT - x", "feature add y"):
             with self.subTest(title):
                 self.write_manifest(title=title)
                 rc, _, err = self.run_cli("--body-file", str(self.body))
@@ -278,9 +293,37 @@ class PreviewAndGateTest(Base):
                             approval=dict(self.candidate()["approval"], release_feature_approved=True))
         rc, out, _ = self.run_cli(execute=False)
         self.assertIn("STATUS: READY", out)
+        for title in ("fix: featureless", "features: plural is not a feature prefix", "defeat x"):
+            self.write_manifest(title=title)
+            rc, out, _ = self.run_cli(execute=False)
+            self.assertIn("STATUS: READY", out, title)
         self.write_manifest(title="fix: featureless")
         rc, out, _ = self.run_cli(execute=False)
         self.assertIn("STATUS: READY", out)
+
+    def test_evidence_bytes_bound_to_candidate_and_approval(self):
+        good = self.evidence_hashes()
+        approval = self.candidate()["approval"]
+        cases = {
+            "bytes do not match evidence_sha256.final_diff": dict(),
+            "evidence_sha256 must map exactly": dict(evidence_sha256={"range_diff": good["range_diff"]}),
+            "approval.evidence_sha256 does not match": dict(approval=dict(approval, evidence_sha256=None)),
+        }
+        for needle, over in cases.items():
+            with self.subTest(needle):
+                (self.root / "evidence" / "final.diff").write_text("final\n")
+                self.write_manifest(**over)
+                if needle.startswith("bytes"):
+                    (self.root / "evidence" / "final.diff").write_text("tampered\n")
+                rc, _, err = self.run_cli("--body-file", str(self.body))
+                self.assertEqual(rc, 2)
+                self.assertIn(needle, err)
+        (self.root / "evidence" / "final.diff").write_text("final\n")
+        self.write_manifest(approval=dict(approval, evidence_sha256=dict(good, final_diff="0" * 64)))
+        rc, _, err = self.run_cli("--body-file", str(self.body))
+        self.assertEqual(rc, 2)
+        self.assertIn("approval.evidence_sha256", err)
+        self.assert_untouched()
 
     def test_refs_outside_owned_namespace_are_refused(self):
         for key, ref in (("backup_ref", "refs/heads/feature"), ("prepared_ref", "refs/retarget/prepared/run1/8/rebased"),
@@ -384,6 +427,7 @@ class AuthorTest(Base):
             "not written by the PR author": lambda: self.gh.comment.update(user={"login": "mallory"}),
             "does not belong": lambda: self.gh.comment.update(issue_url=f"https://api.github.com/repos/{REPO}/issues/8"),
             "maintainerCanModify": lambda: self.gh.original.update(maintainer_can_modify=False),
+            "maintainerCanModify ": lambda: self.gh.original.update(maintainer_can_modify=None),
         }
         for needle, mutate in cases.items():
             with self.subTest(needle):
@@ -392,7 +436,7 @@ class AuthorTest(Base):
                 mutate()
                 rc, _, err = self.run_cli()
                 self.assertEqual(rc, 1)
-                self.assertIn(needle, err)
+                self.assertIn(needle.strip(), err)
                 self.assertEqual(self.remote(FORK, "feature"), self.head)
                 self.assertEqual(self.gh.writes, [])
         self.write_manifest(strategy="author", consent_comment_id=None)
@@ -489,10 +533,63 @@ class AuthorTest(Base):
         self.gh.base = "release-1.19"
         rc, _, err = self.run_cli("--rollback")
         self.assertEqual(rc, 1)
-        self.assertIn("never recorded changing it", err)
+        self.assertIn("cannot prove it made that change", err)
         self.assertEqual(self.remote(FORK, "feature"), self.rebased)
         self.assertEqual(self.gh.base, "release-1.19")
         self.assertEqual(self.gh.writes, [])
+
+    def test_rollback_refuses_ambiguous_base_pending_with_original_head(self):
+        self.author()
+        self.gh.fail_before.add("pr edit")
+        self.assertEqual(self.run_cli()[0], 1)
+        self.assertEqual(self.states()[-1], "base_pending")
+        self.assertEqual(self.gh.base, "main")
+        # someone else changes the base and the author resets the head to the original commit
+        self.gh.base = "release-1.19"
+        sh(self.work, "push", "-qf", str(self.root / f"{FORK}.git"), f"{self.head}:refs/heads/feature")
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertIn("cannot prove", err)
+        self.assertEqual(self.gh.base, "release-1.19")
+        self.assertEqual(self.gh.writes, [])
+        self.assertEqual(self.states()[-1], "base_pending")
+
+    def test_rollback_with_base_pending_and_prepared_head_is_owned(self):
+        self.author()
+        self.gh.fail_after.add("pr edit")
+        self.assertEqual(self.run_cli()[0], 1)
+        self.assertEqual(self.states()[-1], "base_pending")
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.remote(FORK, "feature"), self.head)
+        self.assertEqual(self.gh.base, "main")
+
+    def test_rollback_resume_after_head_restored_restores_base(self):
+        self.author()
+        self.assertEqual(self.run_cli()[0], 0)
+        self.gh.fail_before.add("pr edit")
+        rc, _, _ = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.remote(FORK, "feature"), self.head)
+        self.assertEqual(self.gh.base, "release-1.19")
+        self.assertEqual(self.states()[-1], "rollback_base_pending")
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.gh.base, "main")
+        self.assertEqual(self.states()[-1], "rolled_back")
+
+    def test_rollback_refuses_base_changed_by_others_mid_rollback(self):
+        self.author()
+        self.gh.fail_before.add("pr edit")
+        self.assertEqual(self.run_cli()[0], 1)
+        with patch.object(retarget, "poll_pr", side_effect=retarget.RetargetError("simulated readback failure")):
+            self.assertEqual(self.run_cli("--rollback")[0], 1)
+        self.assertFalse(json.loads(self.journal.read_text())["rollback_restore_base"])
+        self.gh.base = "release-1.19"
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertIn("by someone else during rollback", err)
+        self.assertEqual(self.gh.base, "release-1.19")
 
     def test_rollback_restores_head_then_base(self):
         self.author()
@@ -507,7 +604,7 @@ class AuthorTest(Base):
         self.assertEqual(rc, 0, err)
         self.assertEqual(self.remote(FORK, "feature"), self.head)
         self.assertEqual(self.gh.base, "main")
-        self.assertEqual(self.states()[-4:], ["rollback_push_pending", "rollback_pushed",
+        self.assertEqual(self.states()[-5:], ["rollback_planned", "rollback_push_pending", "rollback_pushed",
                                               "rollback_base_pending", "rolled_back"])
         rc, _, _ = self.run_cli("--resume")
         self.assertEqual(rc, 1)
@@ -537,7 +634,7 @@ class SiblingTest(Base):
         self.assertEqual(self.remote(FORK, "feature"), self.head)
         self.assertEqual(self.gh.base, "main")
         self.assertEqual(list(self.gh.siblings), [100])
-        self.assertEqual(self.states(), ["planned", "branch_pending", "branch_pushed", "pr_pending", "complete"])
+        self.assertEqual(self.states(), ["planned", "branch_pending", "branch_pushed", "pr_pending", "pr_created", "complete"])
         rc, _, _ = self.run_cli("--resume", "--body-file", str(self.body))
         self.assertEqual(rc, 0)
         self.assertEqual(list(self.gh.siblings), [100])
@@ -598,7 +695,7 @@ class SiblingTest(Base):
         self.stop_at_branch_pushed()
         rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
         self.assertEqual(rc, 1)
-        self.assertIn("refusing to adopt", err)
+        self.assertIn("reconcile manually", err)
         self.assertEqual(self.states()[-1], "branch_pushed")
         self.assertEqual(self.gh.writes, [])
 
@@ -628,7 +725,62 @@ class SiblingTest(Base):
         self.gh.siblings[101] = {"branch": self.branch, "base": "release-1.19", "state": "open", "merged": False}
         rc, _, err = self.run_cli("--resume")
         self.assertEqual(rc, 1)
-        self.assertIn("journal records sibling PR #100", err)
+        self.assertIn("not provably created by this journal", err)
+
+    def test_unknown_create_outcome_adopts_only_marked_pr(self):
+        self.gh.fail_after.add("pr create")
+        self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 1)
+        j = json.loads(self.journal.read_text())
+        self.assertEqual(j["state"], "pr_pending")
+        self.assertNotIn("sibling_pr", j)
+        self.assertIn(f"kyverno-retarget-run: {j['run_id']}", self.gh.siblings[100]["body"])
+        rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(json.loads(self.journal.read_text())["sibling_pr"], 100)
+        self.assertEqual(list(self.gh.siblings), [100])
+
+    def test_unknown_create_outcome_refuses_foreign_matching_pr(self):
+        for name, sib in (
+            ("same body other actor", lambda b: {"author": "mallory", "body": b}),
+            ("same actor no marker", lambda b: {"author": "maint", "body": self.body.read_text()}),
+            ("same actor other run", lambda b: {"author": "maint", "body": b.replace("run: ", "run: x")}),
+        ):
+            with self.subTest(name):
+                self.setUp()
+                self.gh.fail_before.add("pr create")
+                self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 1)
+                run_id = json.loads(self.journal.read_text())["run_id"]
+                marked = self.body.read_text().rstrip("\n") + f"\n\n<!-- kyverno-retarget-run: {run_id} -->\n"
+                self.gh.siblings[100] = dict({"branch": self.branch, "base": "release-1.19", "state": "open",
+                                              "merged": False}, **sib(marked))
+                rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
+                self.assertEqual(rc, 1)
+                self.assertIn("reconcile manually", err)
+                rc, _, err = self.run_cli("--rollback")
+                self.assertEqual(rc, 1)
+                self.assertIn("reconcile manually", err)
+                self.assertEqual(self.gh.siblings[100]["state"], "open")
+                self.assertEqual([w for w in self.gh.writes if w[:2] != ["pr", "create"]], [])
+
+    def test_original_rechecked_immediately_before_create(self):
+        real_list = retarget.find_siblings
+
+        def list_then_original_moves(ctx):
+            rows = real_list(ctx)
+            self.gh.original["state"] = "closed"
+            return rows
+
+        with patch.object(retarget, "find_siblings", list_then_original_moves):
+            rc, _, err = self.run_cli("--body-file", str(self.body))
+        self.assertEqual(rc, 1)
+        self.assertIn("state=closed", err)
+        self.assertEqual(self.gh.siblings, {})
+        self.assertEqual(self.states()[-1], "branch_pushed")
+        self.gh.original["state"] = "open"
+        self.advance(FORK, "feature")
+        rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
+        self.assertEqual(rc, 1)
+        self.assertEqual(self.gh.siblings, {})
 
     def test_rollback_checks_live_branch_before_close(self):
         self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 0)

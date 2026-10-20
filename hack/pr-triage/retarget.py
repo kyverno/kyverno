@@ -9,8 +9,11 @@ creates or mutates the journal, and never writes refs.
 Strategies:
   sibling (default) create upstream branch retarget/legacy-<N>-<oldsha12>
                     (create-only lease) and open a new PR against the target
-                    branch with an operator-reviewed --body-file. The original
-                    PR is never modified or closed.
+                    branch with an operator-reviewed --body-file plus a hidden
+                    journal run marker. A discovered sibling PR is adopted or
+                    closed only if its body, author and number match this
+                    journal; otherwise the run stops for manual
+                    reconciliation. The original PR is never modified or closed.
   author            force-push the prepared commit onto the contributor's head
                     branch (lease on the original head SHA), then change the PR
                     base. Requires maintainerCanModify and a consent comment by
@@ -49,6 +52,7 @@ import shlex
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -63,7 +67,7 @@ SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$")
 LOGIN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*(\[bot\])?$")
 PREPARED_REF_RE = re.compile(r"^refs/retarget/prepared/([A-Za-z0-9._-]+)/(\d+)/(original|rebased)$")
-FEATURE_TITLE_RE = re.compile(r"^\s*feat(ure)?\s*(\(|:|!|/|\[)", re.I)
+FEATURE_TITLE_RE = re.compile(r"(?i)^\s*feat(?:ure)?\b")
 REMOTE_URL_TEMPLATE = "https://github.com/{repo}.git"
 TEMPLATE_PATHS = (
     ".github/pull_request_template.md",
@@ -79,8 +83,8 @@ POLL_ATTEMPTS = 6
 POLL_DELAY = 5
 
 AUTHOR_FORWARD = ("planned", "push_pending", "pushed", "base_pending", "complete")
-SIBLING_FORWARD = ("planned", "branch_pending", "branch_pushed", "pr_pending", "complete")
-ROLLBACK_STATES = ("rollback_push_pending", "rollback_pushed", "rollback_base_pending",
+SIBLING_FORWARD = ("planned", "branch_pending", "branch_pushed", "pr_pending", "pr_created", "complete")
+ROLLBACK_STATES = ("rollback_planned", "rollback_push_pending", "rollback_pushed", "rollback_base_pending",
                    "rollback_close_pending", "rolled_back")
 
 
@@ -232,10 +236,19 @@ def approval_blockers(manifest, cand, manifest_dir):
         b.append("author strategy requires consent_comment_id (author comment "
                  f"`/retarget {manifest['target']['branch']} {cand['head_sha']}`)")
     evidence = cand.get("evidence") if isinstance(cand.get("evidence"), dict) else {}
+    hashes = cand.get("evidence_sha256")
     for key in ("range_diff", "final_diff"):
+        if key not in evidence:
+            b.append(f"evidence.{key} missing")
+    if not isinstance(hashes, dict) or set(hashes) != set(evidence):
+        b.append("evidence_sha256 must map exactly the evidence keys to SHA-256 digests")
+        hashes = {}
+    for key in sorted(evidence):
         p = _evidence_path(manifest_dir, evidence.get(key))
         if p is None or not p.is_file():
             b.append(f"evidence.{key} missing or not a file inside the manifest directory")
+        elif key in hashes and hashlib.sha256(p.read_bytes()).hexdigest() != hashes[key]:
+            b.append(f"evidence.{key} bytes do not match evidence_sha256.{key}")
     a = cand.get("approval")
     if not isinstance(a, dict):
         b.append("approval pending (approval is null)")
@@ -249,6 +262,8 @@ def approval_blockers(manifest, cand, manifest_dir):
                           ("rebased_sha", cand.get("rebased_sha"))):
         if a.get(key) != expected:
             b.append(f"approval.{key} does not match manifest ({a.get(key)!r} != {expected!r})")
+    if a.get("evidence_sha256") != cand.get("evidence_sha256"):
+        b.append("approval.evidence_sha256 does not match candidate.evidence_sha256")
     for key in ("range_diff_reviewed", "final_diff_reviewed"):
         if a.get(key) is not True:
             b.append(f"approval.{key} must be true")
@@ -464,7 +479,7 @@ def push(ctx, repo, branch, expected, src):
 
 def check_consent(ctx, pr):
     c = ctx.cand
-    if pr.get("maintainer_can_modify") is not True and _pr_head_repo(pr) != ctx.repo:
+    if pr.get("maintainer_can_modify") is not True:
         raise RetargetError("author strategy requires maintainerCanModify=true on the PR; use sibling instead")
     comment = gh_json(["api", f"repos/{ctx.repo}/issues/comments/{c['consent_comment_id']}"])
     expected = f"/retarget {ctx.target['branch']} {ctx.head}"
@@ -524,6 +539,31 @@ def validate_body(ctx, body_file):
         if any(body.strip() == t.strip() for t in templates):
             raise RetargetError("--body-file is the unfilled PR template")
     return body, hashlib.sha256(body.encode()).hexdigest()
+
+
+def sibling_body(ctx, body):
+    return body.rstrip("\n") + f"\n\n<!-- kyverno-retarget-run: {ctx.journal.data['run_id']} -->\n"
+
+
+def _norm_hash(text):
+    return hashlib.sha256((text or "").replace("\r\n", "\n").rstrip().encode()).hexdigest()
+
+
+def owned_siblings(ctx):
+    """Split discovered sibling PRs into (owned, foreign).
+
+    A PR is owned only when it carries this journal's run marker in exactly the body we recorded at
+    pr_pending, was opened by the actor recorded at pr_pending, and its number is unrecorded or equal
+    to the recorded one."""
+    j = ctx.journal.data
+    owned, foreign = [], []
+    for row in find_siblings(ctx):
+        pr = read_pr(ctx, row["number"])
+        ok = (j.get("pr_body_sha256") is not None and _norm_hash(pr.get("body")) == j["pr_body_sha256"]
+              and (pr.get("user") or {}).get("login") == j.get("actor")
+              and j.get("sibling_pr") in (None, row["number"]))
+        (owned if ok else foreign).append(row)
+    return owned, foreign
 
 
 def find_siblings(ctx):
@@ -598,8 +638,9 @@ def sibling_forward(ctx):
         _, body_hash = validate_body(ctx, ctx.args.body_file)
     verify_local(ctx)
     verify_pins(ctx)
+    initial = j.state in (None, "planned")
     pr = read_pr(ctx, ctx.number)
-    check_original(ctx, pr, {ctx.head}, {src}, check_updated=j.state in (None, "planned"))
+    check_original(ctx, pr, {ctx.head}, {src}, check_updated=initial)
     remote = ls_remote(ctx, ctx.repo, branch)
     if remote is not None and j.state not in ("branch_pending", "branch_pushed", "pr_pending", "complete"):
         raise RetargetError(f"upstream branch {branch} already exists but the journal never recorded creating it")
@@ -620,23 +661,36 @@ def sibling_forward(ctx):
     title = ctx.args.title or f"[{tgt}] {ctx.cand['title']}"
     if j.state == "pr_pending" and (j.data.get("sibling_title") != title or j.data.get("body_sha256") != body_hash):
         raise RetargetError("sibling title/--body-file differ from the recorded pr_pending intent; refusing")
-    found = find_siblings(ctx)
-    if found and not j.intended("pr_pending"):
-        raise RetargetError(f"sibling PR(s) {[r.get('number') for r in found]} exist for {branch} "
-                            "but the journal never recorded creating one; refusing to adopt")
-    if j.state == "complete" and [r.get("number") for r in found] != [j.data.get("sibling_pr")]:
+    owned, foreign = owned_siblings(ctx)
+    if foreign:
+        raise RetargetError(f"sibling PR(s) {[r.get('number') for r in foreign]} exist for {branch} but are not "
+                            "provably created by this journal (run marker/body/actor/number); reconcile manually")
+    if j.state == "complete" and [r.get("number") for r in owned] != [j.data.get("sibling_pr")]:
         raise RetargetError(f"journal records sibling PR #{j.data.get('sibling_pr')} but found "
-                            f"{[r.get('number') for r in found]}")
-    if not found:
+                            f"{[r.get('number') for r in owned]}")
+    if not owned:
         if j.state == "complete":
             raise RetargetError("journal says complete but no sibling PR found")
-        j.record("pr_pending", sibling_title=title, body_sha256=body_hash)
-        gh(["pr", "create", "--repo", ctx.repo, "--base", tgt, "--head", branch, "--title", title,
-            "--body-file", str(ctx.args.body_file)])
-        found = find_siblings(ctx)
-    if len(found) != 1:
-        raise RetargetError(f"expected exactly one sibling PR for {branch}, found {len(found)}")
-    sib = found[0]
+        body, _ = validate_body(ctx, ctx.args.body_file)
+        final_body = sibling_body(ctx, body)
+        actor = gh_json(["api", "user"]).get("login")
+        if not isinstance(actor, str) or not actor:
+            raise RetargetError("cannot determine authenticated GitHub actor")
+        pr = read_pr(ctx, ctx.number)
+        check_original(ctx, pr, {ctx.head}, {src}, check_updated=initial)
+        j.record("pr_pending", sibling_title=title, body_sha256=body_hash, actor=actor,
+                 pr_body_sha256=_norm_hash(final_body))
+        out = gh(["pr", "create", "--repo", ctx.repo, "--base", tgt, "--head", branch, "--title", title,
+                  "--body", final_body])
+        m = re.search(rf"https://github\.com/{re.escape(ctx.repo)}/pull/(\d+)\s*$", out.strip())
+        if m:
+            j.record("pr_created", sibling_pr=int(m.group(1)))
+        owned, foreign = owned_siblings(ctx)
+        if foreign:
+            raise RetargetError(f"unexpected foreign sibling PR(s) {[r.get('number') for r in foreign]}")
+    if len(owned) != 1:
+        raise RetargetError(f"expected exactly one owned sibling PR for {branch}, found {len(owned)}")
+    sib = owned[0]
     if sib.get("headRefOid") != ctx.rebased or sib.get("baseRefName") != tgt or sib.get("state") == "CLOSED":
         raise RetargetError(f"sibling PR #{sib.get('number')} does not match (head/base/state); refusing")
     if j.state != "complete":
@@ -647,7 +701,8 @@ def sibling_forward(ctx):
 def journal_header(ctx):
     return {"repository": ctx.repo, "pr": ctx.number, "strategy": strategy_of(ctx.cand),
             "identity_hash": ctx.identity, "manifest": str(ctx.args.manifest),
-            "head_sha": ctx.head, "rebased_sha": ctx.rebased, "target": ctx.target, "source": ctx.source}
+            "head_sha": ctx.head, "rebased_sha": ctx.rebased, "target": ctx.target, "source": ctx.source,
+            "run_id": str(uuid.uuid4())}
 
 
 # ---------------------------------------------------------------------------
@@ -658,11 +713,18 @@ def author_rollback(ctx):
     j, src, tgt, c = ctx.journal, ctx.source["branch"], ctx.target["branch"], ctx.cand
     pr = read_pr(ctx, ctx.number)
     check_original(ctx, pr, {ctx.head, ctx.rebased}, {src, tgt}, check_updated=False)
-    if pr["base"]["ref"] == tgt and not j.intended("base_pending"):
-        raise RetargetError(f"PR base is {tgt} but this tool never recorded changing it; refusing rollback")
     remote = ls_remote(ctx, c["head_repository"], c["head_ref"])
     if remote == ctx.rebased and not j.intended("push_pending"):
         raise RetargetError("head branch is at rebased_sha but this tool never recorded pushing it; refusing")
+    if "rollback_restore_base" not in j.data:
+        # Decide base ownership once, while our prepared head proves nobody else has moved the PR.
+        live_base, live_head = pr["base"]["ref"], pr["head"]["sha"]
+        if live_base == tgt:
+            if not (j.intended("complete") or (j.intended("base_pending") and live_head == ctx.rebased
+                                                and remote == ctx.rebased)):
+                raise RetargetError(f"PR base is {tgt} but this tool cannot prove it made that change "
+                                    "(no completed readback and head is not our prepared SHA); refusing rollback")
+        j.record("rollback_planned", rollback_restore_base=live_base == tgt)
     if remote == ctx.rebased:
         if j.state != "rollback_push_pending":
             j.record("rollback_push_pending", rollback_push={"lease": ctx.rebased, "new": ctx.head})
@@ -675,6 +737,8 @@ def author_rollback(ctx):
         raise RetargetError(f"head branch is at {remote}, neither ours nor original; refusing rollback")
     pr = poll_pr(ctx, ctx.number, lambda p: (p.get("head") or {}).get("sha") == ctx.head, "head == original")
     check_original(ctx, pr, {ctx.head}, {src, tgt}, check_updated=False)
+    if pr["base"]["ref"] == tgt and not j.data["rollback_restore_base"]:
+        raise RetargetError(f"PR base changed to {tgt} by someone else during rollback; refusing to edit it")
     if pr["base"]["ref"] == tgt:
         if j.state != "rollback_base_pending":
             j.record("rollback_base_pending")
@@ -691,12 +755,13 @@ def sibling_rollback(ctx):
     if not j.intended("pr_pending"):
         j.record("rolled_back", note=f"no sibling PR was requested; branch {branch} left for manual cleanup")
         return
-    number = j.data.get("sibling_pr")
-    if number is None:
-        found = find_siblings(ctx)
-        if len(found) > 1:
-            raise RetargetError(f"multiple sibling PRs for {branch}; resolve manually")
-        number = found[0]["number"] if found else None
+    owned, foreign = owned_siblings(ctx)
+    if foreign:
+        raise RetargetError(f"sibling PR(s) {[r.get('number') for r in foreign]} for {branch} are not provably "
+                            "created by this journal; reconcile manually")
+    if len(owned) > 1:
+        raise RetargetError(f"multiple sibling PRs for {branch}; resolve manually")
+    number = owned[0]["number"] if owned else None
     if number is not None:
         sib = read_pr(ctx, number)
         if sib.get("merged"):
@@ -736,7 +801,8 @@ def planned_commands(ctx, rollback):
     return [["git", "push", "--no-verify", "--porcelain", f"--force-with-lease=refs/heads/{branch}:",
              remote_url(ctx.repo), f"{rb}:refs/heads/{branch}"],
             ["gh", "pr", "create", "--repo", ctx.repo, "--base", tgt, "--head", branch, "--title",
-             ctx.args.title or f"[{tgt}] {c['title']}", "--body-file", str(ctx.args.body_file or "<body-file>")]]
+             ctx.args.title or f"[{tgt}] {c['title']}", "--body",
+             f"<contents of {ctx.args.body_file or '<body-file>'} + run marker comment>"]]
 
 
 def preview(ctx, blockers, journal_data):

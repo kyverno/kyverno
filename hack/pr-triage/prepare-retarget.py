@@ -20,7 +20,7 @@ SPEC = importlib.util.spec_from_file_location(
 )
 TRIAGE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(TRIAGE)
-FEATURE = re.compile(r"(?i)^feat(?:ure)?(?:\b|[/(:])")
+FEATURE = re.compile(r"(?i)^\s*feat(?:ure)?\b")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -144,6 +144,7 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
         "strategy": "sibling",
         "consent_comment_id": None,
         "evidence": {},
+        "evidence_sha256": {},
     }
     worktree_added = False
     with tempfile.TemporaryDirectory(prefix=f"kyverno-retarget-{number}-") as temp:
@@ -233,6 +234,10 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
             if worktree_added:
                 # Removing this owned worktree also discards any in-progress rebase.
                 git("worktree", "remove", "--force", str(wt))
+    row["evidence_sha256"] = {
+        key: hashlib.sha256((output / path).read_bytes()).hexdigest()
+        for key, path in row["evidence"].items()
+    }
     row["recommendation"], row["reasons"] = recommend(row)
     write_json(evidence_dir / "candidate.json", row)
     print(f"#{number}: {row['probe']} -> {row['recommendation']}", flush=True)

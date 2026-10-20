@@ -283,7 +283,13 @@
       "reasons": [
         "Probe CONFLICT: author or maintainer intervention required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "a9898c544553939241411e562d0981a59026649fc92d9da428018c2988c9c5fb",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "754140094ab8deda7a9cd1734806f2759f175ac62f037dc3dd20fe21f49c487e",
+        "rebase_log": "a9009b2ab3072de9e585ad34003a5dba030fcbc49f1bfe2a3794461a447f7458"
+      }
     },
     {
       "number": 18078,
@@ -394,7 +400,13 @@
             "pkg/background/generate/controller.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "1960c76896409089aa434272e86b230818b880e45895895b7d5cdb77e24b897f",
+        "shared_diff": "bfa1fbd8a21bd55f114cc70b72c272a4f5961cd9eb6399571a12200d3323e2e4",
+        "commits": "ee06e578ff0240f4b0f70877276fd3ed70a2eacf4d3623678a62ed10068681c7",
+        "rebase_log": "957bf0f1f23c5cc14701bea2ec378cafca75ef4fa72bb49317061a9ca938d696"
+      }
     },
     {
       "number": 18057,
@@ -487,7 +499,13 @@
             "pkg/image/verifiers/cpol/cosign/verifier_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "da6818692ba40ecd20efabaef9fa5657b5f8c8dbd3cf5a9b49be12342a392598",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "57c7eedffab0ff32798363116adff0d1f80c02443cbb5511077a821faa568d68",
+        "rebase_log": "0976507ef694bf500b6327770dffdfeab6a706db3c8e09502d57dfc13449e99b"
+      }
     },
     {
       "number": 17834,
@@ -685,7 +703,13 @@
             "pkg/validation/policy/validate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "8cc806d40625721a1060710fc1925970b4758ccf21a417db2a06a1702ef40f79",
+        "shared_diff": "b8e9af89e1b3d83b78d39b748e49c0a7a3b6670a6da96fd63276f56fe806e713",
+        "commits": "d331da27853969c493476fdf91e7b22ff48a2673cf6f594c9617fa7782b888bb",
+        "rebase_log": "e407350577d24175df0b81c32b6f335b95cd29591848a3e69834a2672f998141"
+      }
     },
     {
       "number": 17755,
@@ -858,7 +882,13 @@
             "pkg/engine/handlers/mutation/mutate_image.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "119064d1337314d3eb20b7b4fd2071fa79ee5cfc8d575850234796831ebefaa3",
+        "shared_diff": "ecb1e2d0ce981970483e5ed90bf997d8a232dc3916007343c84ed5c7a8e7d415",
+        "commits": "72abaace6bfda1257718deb9ba0a839324a561ab6f4977b73aee8662e5adaf5b",
+        "rebase_log": "b81b7574975e2b2fc893d86672f7c2c25360d9211d76580565dd07f0eb51f5c6"
+      }
     },
     {
       "number": 17670,
@@ -958,7 +988,13 @@
             "pkg/engine/apicall/apiCall_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "c496884b4fd20721619be50d8efdc58c7018a07d3f884fcce14f03d66e2af5ac",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "295488e694994913e82ac7ea43fa58c2cb4ab97dc1c9bd1abc456edcdd1adbb3",
+        "rebase_log": "8c4d30ecbf3d7520a526aef10123ee8f66995d372c47f2a4c155032c018007b3"
+      }
     },
     {
       "number": 17647,
@@ -1052,7 +1088,13 @@
             "pkg/engine/handlers/validation/validate_resource_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "ead7ce28048948ed2c832944a26277fea999267430f806791e2371f0759a525c",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "499678d4ffb5eabc91661202c6f38ec100f7704deee7999043a1579adb62eaed",
+        "rebase_log": "c75255fe00a4bcb60839e6072d04676806271c22899afa816e052e9e601f1947"
+      }
     },
     {
       "number": 17646,
@@ -1213,7 +1255,13 @@
             "pkg/validation/policy/validate_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "2f85d5bda4ef46145366c75118f6cebb45a9a2caeae3f0212d5ecbcee4cbc8e6",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "513621a58a1202235f4c9ea93f7ce80a2dfaebfbf4ba9d59e5c6e1f7b62eef5f",
+        "rebase_log": "a1fb82b8c479db561ca8e51c1f301167396023d8879e50068277625ee10dfb14"
+      }
     },
     {
       "number": 17630,
@@ -1413,7 +1461,13 @@
             "pkg/validation/policy/validate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "8ebdc5ca1c97fcf9621b7c4e620c3bfa50be1a020f04e757b4c01c2959a9ff65",
+        "shared_diff": "86db37dfc65fc150eea39688a9981307517fe9394a6d617646b4e9be5942bd82",
+        "commits": "1506918cdd5aec26c0ce0b6a2e91cb139d4e89a5eb24f58471f86bf7d2228d99",
+        "rebase_log": "3b13e5548387372406d442916020a79b76555e17a5310d5d2659dac0a9f0bd06"
+      }
     },
     {
       "number": 17525,
@@ -1476,7 +1530,13 @@
       "reasons": [
         "Probe CONFLICT: author or maintainer intervention required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "aeaad5099a9a65539d15afbe2d77037e21cfcc12ab957198b9ecc40aa0610ac4",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "8f0542ad35f4f15709c9bb9ed7ed77c481b1a0dfb00ff69d25e09dd7d70be7cd",
+        "rebase_log": "a787f3a1558a6a07e5ecdf48c818b70c809d228d3d39f1826e50629fbde7b8d2"
+      }
     },
     {
       "number": 17397,
@@ -1563,7 +1623,15 @@
             "pkg/engine/variables/vars_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "f3fe5615960e20cd7c5c55184f6c6c9b74f15b348caf699c62b363f163a49bb0",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "f91ace66f82349a046fae9f6c5c118789a891301d1a35f74226e642025eb9a21",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "f2748bb4d4c4589b4623608bfd483c4d0392440b3b204d5e5cf834f978fcba8b",
+        "range_diff": "256924a21f465767b14f43ef80b9fb2d4df1a92892ad783c9459c0efb723d5e4"
+      }
     },
     {
       "number": 17394,
@@ -1651,7 +1719,13 @@
             "pkg/engine/apicall/apiCall.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "2a1b92c4e8fccb85ff31bf6eea0ddffea0d01a5295745c73879ffd212183992e",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "8756f2bfdb930309aaa2d58acfadb3a74b3115e6dd8ab25642ca3ab59687d1c7",
+        "rebase_log": "cd723813c31a3e8d8c4bcbfc9d87479b1303554138b1a6a5a3c7f5675c64d726"
+      }
     },
     {
       "number": 17366,
@@ -1734,7 +1808,15 @@
             "pkg/engine/validate/validate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "e9ea340556f593411dcf8ff4d632dad70117c4408c5e9e1af58b97972a686857",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "bc2d5c3c40be80d338fa8b43ff032c01e0e2becfcefb8f4ea2d19f65a0df66af",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "e9ea340556f593411dcf8ff4d632dad70117c4408c5e9e1af58b97972a686857",
+        "range_diff": "307c90634ff819aa6f17c182efdd165122871e6cd78b935cf5002a63a4eaf0af"
+      }
     },
     {
       "number": 17279,
@@ -1812,7 +1894,13 @@
             "pkg/policy/generate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "5387235222711724d1608489a09eb63cabd3d67f59fe7ee1c959e9f86d1f05b3",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "b369ac6540555fa78feb22b72539337372d145cac5bf0051be16e56ba6ea492c",
+        "rebase_log": "c08fe66dd19fb63e80ad309e81198aef760f45221c15b434cf3467c6438fa55c"
+      }
     },
     {
       "number": 17243,
@@ -1910,7 +1998,13 @@
             "pkg/engine/internal/imageverifier.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "78406a5fb4dbe3b9c8292dca188d7c573e022bfbe73b29befaeabdbe81ba9f92",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "c37e1eabab4bc8f1c358b2ae8be1b062dcbed51bc01ba357661f0714b3cacf01",
+        "rebase_log": "1ac969297c1f01f509d7b5c2c734b94091e1f29e7ed0781c543130dc7a9e5042"
+      }
     },
     {
       "number": 17129,
@@ -2112,7 +2206,13 @@
             "pkg/engine/context/loaders/imagedata.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "49e0e13bf4ef7f472292dc1ec4e564841fcc26920087347ed2a45aafe8ef8def",
+        "shared_diff": "cde14870ac2f61f22edbd7a903fac21ed7c60a20b190e723f25f70442117e85b",
+        "commits": "96bb7fcdee06a70a49b30138663f971d0834e8abcabe5d76d0787379d5ee0861",
+        "rebase_log": "27778e7b36aa3820d1c9603ba821e4a4b686f59cc3ede34bb194f1ac0135162a"
+      }
     },
     {
       "number": 17128,
@@ -2260,7 +2360,13 @@
             "cmd/kyverno/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "0d6eb561f00d8adfbd6b984202a3b411f0b6e3932d88bcac4a077a89d530bb22",
+        "shared_diff": "ac766266b0c079eef1d2b98499e69be45179419a7fcab4d0a2f8ec88ea7748a8",
+        "commits": "526a9966b340a339b6aa3a10985ee5fd020319c6ba8a0626fa1a36b5bb24d314",
+        "rebase_log": "b4db6a0224a9da10a15796fc1c4aad90de3102b98da72fc2f3a534905abc72b0"
+      }
     },
     {
       "number": 17123,
@@ -2394,7 +2500,15 @@
             "cmd/kyverno/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "141988d91abb4325764e018b24d80b9cfb6fc74ec53360a7c91683320e033c3f",
+        "shared_diff": "069364e535105b6736db3f07cce6df3ed49431e024c11e783ef714c91fcb346f",
+        "commits": "88da79bc652a609e9b8460493760ed37f976086f29ab428330b23d4f07c2d2d3",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "a28e787f7c0ea05e40797180d1ac604e0e89ec6d5b28fd6e4623af4403ec11b4",
+        "range_diff": "41bfdd3162e0730467e5316d54a6c5f096685cdfe8c73e5e3242c3b6d8ae44eb"
+      }
     },
     {
       "number": 17057,
@@ -2469,7 +2583,13 @@
             "pkg/validation/policy/actions_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "81975ef5bbf21125ecfd09e857da18f662a269bee9c1d4fe7598d3ffc7d8ef55",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "d317e9ee2a33e086bcc51574d355641f908068df422dfae93439711571083466",
+        "rebase_log": "061d52bc7a51a38021c8ff952d01570c0dc59c8e713cdea610d6654e92c64d4c"
+      }
     },
     {
       "number": 17056,
@@ -2630,7 +2750,13 @@
             "pkg/validation/policy/validate_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "4d2d18bfb58aa5e968a5f40d9fe0c2435b4b73031fe4d38e318dd70e07392fc5",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "3199fa59556ca13dfcb871822ff26ff09eb47d1fabcfe6b3c91ad25a000a269f",
+        "rebase_log": "e8f87e9837ae511c85b2bc53d901073fd1b2bf0036f91e0d8bbf41f6881eae55"
+      }
     },
     {
       "number": 17055,
@@ -2712,7 +2838,15 @@
             "pkg/engine/validate/validate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "79d481a8e506e8a7c225468c1a219f8ef7e829d842173ff16304c229baaa3ce7",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "4680f2f32df2fcb6a36984f0768c388eaf60c0d369d9b2c2b7db292808f5ddc0",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "79d481a8e506e8a7c225468c1a219f8ef7e829d842173ff16304c229baaa3ce7",
+        "range_diff": "a92f1718230717deb854d5763cdc49fbe9703cf68d950127395b78170345c4e1"
+      }
     },
     {
       "number": 17028,
@@ -2899,7 +3033,13 @@
             "cmd/reports-controller/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "f4a62085e6c99e0c270cfba07bde19bee482acff2afb5135787b2195298513b0",
+        "shared_diff": "c3d2a802620e90f166900a7268b0f42d537b890208c2767ec4b0c48314e5df37",
+        "commits": "868ac409500e6a5f6d84364da8a8a7ad4f824384546a841fcd087f1961d62e4e",
+        "rebase_log": "8c3d8ae75a5ed1935cf2fa35716be367e05466ddd217c63837381f86e5fba81d"
+      }
     },
     {
       "number": 17000,
@@ -3129,7 +3269,13 @@
             "pkg/engine/context/loaders/imagedata.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "206372c2a93b84332a767ca776363190ecdea9e5887db2c5fde077868aaceac9",
+        "shared_diff": "6888648c8500b589e440fa942903c07f3781f97620fdbdaa0487cdb49e42bd73",
+        "commits": "41b5dc8f43ecc3e02d5a7b9462a1bc5db3ce9d9870fdf6322664b8decdba7894",
+        "rebase_log": "79c29fce584321a18af8bfebbfb7a88ac561be9451e7b0a0683373cc89051ceb"
+      }
     },
     {
       "number": 16988,
@@ -3238,7 +3384,13 @@
             "pkg/engine/apicall/executor.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "0ec5e7c213c8fc149f5daf0c0c309fd073063adde97d71234e1c5b4b50e3ff2e",
+        "shared_diff": "e36f277c3c58b06ca50c26fe34cc9a54fa106f7b9b890024dcdeb35167f20b64",
+        "commits": "2201fbf16e83ab826b6b730ef6ab80c030b803c019ca65f23bb9660e0947f428",
+        "rebase_log": "dc8debf9e7f4ef48edeb15bfa9ffcdcc9b4edcd6104f6b901db8548b2053fc0e"
+      }
     },
     {
       "number": 16955,
@@ -3324,7 +3476,13 @@
             "pkg/engine/variables/vars_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "dc7523a97253f997fd2af3d626b076ce8d6da2415be775892416ad49dc7b2e3b",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "abc388542c0f960e042693933658a6c3f9c086262267756e3d9ea2aeac7ff5fb",
+        "rebase_log": "072d73d4a957835233e9e4ad5d01e48372dab3ea9be11bda2c59402d28aa4abf"
+      }
     },
     {
       "number": 16896,
@@ -3411,7 +3569,13 @@
             "pkg/engine/variables/vars_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "8f66408cbe5b5a9789dc49b749b02b1dc1635a4ca563d562dca49d30d0df7f6a",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "6bfc7018770b7d3777749ef8b21556da832a99c870d177a9f461a65b6a6e2ab1",
+        "rebase_log": "1eb039e84446b423c509066ef667a2f913f463c0abd287dc92358fcfda3228c0"
+      }
     },
     {
       "number": 16886,
@@ -3612,7 +3776,13 @@
             "pkg/engine/factories/registryclientfactory_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "9daa35f8d41c7e680d3d70f472d4f6b23e42dde84772e2c0d68d216efbc68877",
+        "shared_diff": "ccbaf20b6d6eae1bc0313f75c358c5078232fb5bbc0ab8152c8fb88870d39fc8",
+        "commits": "ea1bb2771d5cb583e34517006d4be734ae19eb096e8fc1b6e7a42b73313f8e3b",
+        "rebase_log": "12413b756cbb4aa72b7f95c1bad81bd943465b20ecf521425a7b1667b8c1f9b8"
+      }
     },
     {
       "number": 16879,
@@ -3676,7 +3846,13 @@
       "reasons": [
         "Probe CONFLICT: author or maintainer intervention required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "34d24f7e4eb22b75429bf462a1b064457b60f39bc354d7aabf3ceedd85009818",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "76ae3f04e384db7695ef9865c8c6027ef64ffc6c387c885b74809d386ddbe99c",
+        "rebase_log": "ad79d485452763091184f22eb3f058e5a45a11166c60dba0ac785c8d246cea6a"
+      }
     },
     {
       "number": 16813,
@@ -3761,7 +3937,13 @@
             "charts/kyverno-policies/values.yaml"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "e0f6d2fc6b3e1f33238f3e4c2f0f3f8b94d3e99bcc29c46133346f7c511a47b8",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "b915520562079c42122ebacbe4f84a296f2dd8c1f1d0006ffd6b06af5a3701da",
+        "rebase_log": "d933d9d3537d4b9c2eff961a1569f93d8171b20e2ffc90bc966674e28b8e2d40"
+      }
     },
     {
       "number": 16812,
@@ -3888,7 +4070,13 @@
             "pkg/background/generate/controller.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "3ede2bd00f0f358363916e44a1cae4ff4cdd61a53858eb85f6498d67e23975e1",
+        "shared_diff": "a9bda89985fb04d8ce3e8d7818addc4889725c0e705e83e9fec23518f4b53081",
+        "commits": "959b0d5b7e25fce4650619ecb1eff2587bb0a293324524d01d72fb2d0fff8215",
+        "rebase_log": "b408b3b724988fe93b87677235bc16162de2209f5f706d2a3b53e048a6ba113b"
+      }
     },
     {
       "number": 16754,
@@ -3981,7 +4169,13 @@
         "Overlaps open release PRs; compare fixes before moving.",
         "Probe CONFLICT: author or maintainer intervention required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "fc2adb02e9bbbabe43dc4bf948401c1c6adc9dccecd3a058916df7e377d2ab7a",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "7ba6aaa48f527df2120a0574a833d7a4b19230e3c67f7e5cc3c6aaca40066385",
+        "rebase_log": "33ec3ada8c0659be1e611887faec20dca2f3ecd7e03683b4c19afb24ea6abade"
+      }
     },
     {
       "number": 16660,
@@ -4112,7 +4306,13 @@
             "cmd/kyverno/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "60b0b0245b677b50d7c0e79e59f5e34dd6bf3a688a87e2fc71212c4efdc80885",
+        "shared_diff": "fe38f74bbd497755e702bad74a00216b82b38df383f0ec6d9a60dcf6f3d9c6a9",
+        "commits": "1f30e0398cff36d53d66f270aeaa992d2bfb6f88b6f529c1bcadf2c56a9d80ef",
+        "rebase_log": "ac79a1455485234c9a758a4b9b0395bbe9c4c1efdb09e500aed10be6dff95c14"
+      }
     },
     {
       "number": 16647,
@@ -4183,7 +4383,13 @@
         "Overlaps open release PRs; compare fixes before moving.",
         "Probe CONFLICT: author or maintainer intervention required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "ebe3b178fccfca4221d0f4b68825f6f89f0adae452f80c78b38fcadec4d70e82",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "853b3942fc354a05da2ca43a0bd35f759d8ab41e30eeb21922e468bee941c5e5",
+        "rebase_log": "6f0e4aba1a4677ff25b7958f6b79bc9636b73c52a3f08ebab1dd1bcafcd75cce"
+      }
     },
     {
       "number": 16585,
@@ -4388,7 +4594,13 @@
             "pkg/validation/policy/validate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "5f037d52d002a386b9ec85d3929a3f3cc259358b441e530251da3e99be629607",
+        "shared_diff": "853a43f0bf37d0ac7a88c94d53986137c33031720d5bce2d3cc9ac62764fec24",
+        "commits": "a52ed54dddd0937aad697ed507c95f47210bbf5cd4abf1308a74e050d98035a9",
+        "rebase_log": "b28bf6b42af30d4a3a0a1b2731640c14db192d63c44a9667e2fb9cb8a771569a"
+      }
     },
     {
       "number": 16552,
@@ -4491,7 +4703,13 @@
             "config/crds/kyverno/kyverno.io_globalcontextentries.yaml"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "94629148d019c2a20f4bb102e12fadca9df2a7e0bd78c299cf27cef024943526",
+        "shared_diff": "91268a762814741d3469117591fd4951c1cc345d38fe064839e30d174be61481",
+        "commits": "bb29475ea739a186a055e66f2e5f106e604ae1ba9ff5df23a10696df27111b1d",
+        "rebase_log": "34a4b58b06bceed7a608fc80600520dd2b78fe2c57a64b3c3f9554e2daf5dea7"
+      }
     },
     {
       "number": 16448,
@@ -4626,7 +4844,13 @@
             "cmd/kyverno/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "d1df6a54e57beb6e7f4f1355b2d2d782445c05c43a5e860122c1c630a2e3a578",
+        "shared_diff": "f951c85fb52ec79f86cf5b2aec54de11c456ed1a9a4e63397ddf8cced026782f",
+        "commits": "475144afadbbbe27ee7ce1ec9a8652965eb1359c72dee63aa9fda50ea93590fe",
+        "rebase_log": "38934684e85f29cc2c7e6faf14a3919faad4396457c7744309b5a597b9a1c47a"
+      }
     },
     {
       "number": 16355,
@@ -4686,7 +4910,15 @@
       "reasons": [
         "Clean legacy-only probe; evidence review, tests and approval still required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "1bae3890e02155520f5dd16c1888ec7559e49c88cd7aa04c52fc213973c09af5",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "6309be6bdfacf3e115d64926b8f3b5660a9ade58252bd9c075f0d14af3fa7faf",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "1bae3890e02155520f5dd16c1888ec7559e49c88cd7aa04c52fc213973c09af5",
+        "range_diff": "678fe58c1d16da5debf3aee6d506f8a67f441cda80000e7340656b4631864a9d"
+      }
     },
     {
       "number": 16306,
@@ -4769,7 +5001,15 @@
             "charts/kyverno-policies/values.yaml"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "d76b39f2316bc4a91c265e6eab1d42ed4ac559116fa17b6aa81dd0bb67539c0f",
+        "shared_diff": "2236a6a430562e6260fe0f74a26ee6a107527930fdbebfb6b14fd51ad56ad8e8",
+        "commits": "0ef94e1803de833f96dc847584c16f6fbab3ebed9b363a6a97ac8be3288371ba",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "624472b41ceb0b038db6ef7aa706dae22805f2736e955f854aa32e2f104f1bb1",
+        "range_diff": "452b0b8cec7596742c2c0b179d90cc0b59b721a257179957cec500a663c0804a"
+      }
     },
     {
       "number": 16259,
@@ -4847,7 +5087,13 @@
       "reasons": [
         "Probe CONFLICT: author or maintainer intervention required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "9d9098ec13e7034783455d3334f3d5e6af1da10d8b383a08bdc1c420b3d2afe5",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "9823279baf9c631f4625cf05e3530be59caac73c43c398c6d013bc668d3fcc9e",
+        "rebase_log": "52413c5a48f9b48d2dce4ac1629c5f126f1ddc2c441f5305ad52ed7b50c412d0"
+      }
     },
     {
       "number": 16243,
@@ -5020,7 +5266,13 @@
             "pkg/engine/internal/imageverifier.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "d4d4b1d76d94c5624992425c3816ff7aec770379ca7fbc76f6415c07a7d72910",
+        "shared_diff": "ce84596cf7653c32b1861668dbf7cda0d3d1f534068fa203d21377510a27d639",
+        "commits": "8c7f4845fb281e2ea3adb7c8d4c444e858d4c8df1317c8e770c9811f7d72349f",
+        "rebase_log": "a188a113ff040037f1a628f6df5ab189f6a0ba083a57e8ab65ac0bc4ec21a5b6"
+      }
     },
     {
       "number": 16230,
@@ -5254,7 +5506,13 @@
             "pkg/engine/factories/registryclientfactory_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "e460bc46730a233b637d219cf1911c5a4333856391500b0e1a5d9db57b103f42",
+        "shared_diff": "f3d715d6156b5f2c630fd1dce1f63ea6ee0e3ab8577dd0db9aff3b05603c6b5d",
+        "commits": "81e703f0d9a2390ddf41fe36fe7fa3b6ba036f7c9fa732b886d88aee00f12cef",
+        "rebase_log": "d5e65d46c8fa266fc2f14cedc593ce16b316287da3fed6d625e1cad3ff46dcb4"
+      }
     },
     {
       "number": 16125,
@@ -5589,7 +5847,13 @@
             "pkg/engine/api/contextloader.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "16a0bc9a4cf439065ce79b6d7a3d8c59d84034a4bcc19501ddf3a6ce848bd075",
+        "shared_diff": "6141845ba72dcd1cd6250ceeac3597c41e19813526b7e5f299588b0b9c9e5a1f",
+        "commits": "86b12d05cb3a58da99c7ca3dbfbd8ddf415b23666f8716af3c22ba9634ff2542",
+        "rebase_log": "1593a422ec23a261b086bf42a9b31eb326038816f00e50c1adfa18026638b6dc"
+      }
     },
     {
       "number": 16111,
@@ -5756,7 +6020,13 @@
             "pkg/validation/policy/validate_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "28ec2a99fbfbc924a3744731888ef37584054e48292f4747834b214e92d01e45",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "9fef5742530904f84985d1fd46287bedcb415426f5295c2fcbdde83354220cb5",
+        "rebase_log": "fdee01446db110965efac599c35c4c8b70d0721876b01c3e9c448f00bb63e8a1"
+      }
     },
     {
       "number": 16069,
@@ -5839,7 +6109,15 @@
             "pkg/engine/validate/validate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "8be9677220a499ceff8a7b52dfb342e752dc2d3c036ff6ff631360afd0e53e17",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "dd82b2c9033dc7dabf2b06ddb3f7beda30b1bc2cef7358a1397ead2ad8f981c5",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "8be9677220a499ceff8a7b52dfb342e752dc2d3c036ff6ff631360afd0e53e17",
+        "range_diff": "f21448d5052f56b50857feda9b7a7477b253ea461c63d17f1a3a64165ed23ea3"
+      }
     },
     {
       "number": 16047,
@@ -5974,7 +6252,13 @@
             "pkg/engine/apicall/executor.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "92a29fdfc53f670651644fc1b0caf2aff58aeb8ec37ad2b04668f03786209597",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "336d609acace1178d8d37eda00f4c715cbdf9583b250675603bdf3f78f679d39",
+        "rebase_log": "d401dfccda5c9ca5c223e9c295347306fbd5e155b474f17897fbec987aa4edb1"
+      }
     },
     {
       "number": 16019,
@@ -6273,7 +6557,13 @@
             "cmd/reports-controller/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "5e931b3a760c1ecf47abc34a0604d5a967a1a4dbecf035138243249f55ba2ecc",
+        "shared_diff": "032251818834ac33205c870551db73015d05ec7090bb3bb5e82feba145402dbc",
+        "commits": "e91bc60bcff186dd81e9d9c437a26ee2dea29d2c408abd46f6b19278f0106e0d",
+        "rebase_log": "39c329e270edbc803bf5e79c8e47ed81c7e487d352334c234eb661df8c7a7f0a"
+      }
     },
     {
       "number": 15951,
@@ -6370,7 +6660,15 @@
         "Shared-file hunks require an explicit legacy-only scope decision.",
         "Overlaps open release PRs; compare fixes before moving."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "9a92b8395e2450debf6a8d61940ff1e11bd8962c88987d3e291e85901954520a",
+        "shared_diff": "640c7b99102fba9fd5b030b15000edf0bece077c40c2497b2fcb619d9be2875b",
+        "commits": "faec63e22a91894e1616e5f4bad15c52ac9d2b24377ea85564b1eedb8772b518",
+        "rebase_log": "ebcf3d5bf761be4e4fb638780e51b62cb872e22938a6e073f1c3a8619f90cb21",
+        "final_diff": "01025f400959ebc83e76e04733af6629d5b8222d2b22dbdbb382db276cd072ac",
+        "range_diff": "cbfbe746acb96895fb8158f2fc4e89d95589b537a171ea40d5dc622fed2e5485"
+      }
     },
     {
       "number": 15938,
@@ -6562,7 +6860,13 @@
             "pkg/engine/handlers/mutation/mutate_image.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "0468569163673329fe5233e1953e35ae1ecfc0a091d6876080815bb937e161b5",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "c31f023c66ac25a618df5cc52e3c053e1f039878f1de913eecbe29e7911b42ad",
+        "rebase_log": "80d69f10aca304f7ae8b3da7ec1396b641f1323745b2e7c17deb85fa5b572e69"
+      }
     },
     {
       "number": 15913,
@@ -6703,7 +7007,15 @@
             "pkg/validation/policy/validate.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "c01d596d8a3dcc32fbac5dc7841564be62ff2e680baa853c573b02f34d4754bb",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "823238374f22eb5f2223d7561d91bdb2141584096b5ce408983354a6cb9f19a6",
+        "rebase_log": "ebcf3d5bf761be4e4fb638780e51b62cb872e22938a6e073f1c3a8619f90cb21",
+        "final_diff": "5bf01562b894b313ab2906bd1640d4ca33e6d21d17279eefe1d773c3a8744e3d",
+        "range_diff": "8d3489ad4a10136d057be32399c1f46afe3cd4077a5de1683ffb30ae35acccb5"
+      }
     },
     {
       "number": 15907,
@@ -6847,7 +7159,13 @@
             "cmd/cli/kubectl-kyverno/processor/policy_processor.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "b838dd17602bcec91c04146b075058ec04c6da697c1d44574d5176d2a11fd4df",
+        "shared_diff": "2236295ae767d257970db26ed1c5ce624becf383fcdea0de57339068dbe6a22d",
+        "commits": "6efe43776689ea7945c9d29ce3b6b6c0f4036edfe6c0d77f8528d0e5f728e786",
+        "rebase_log": "9c6553412cf6514fb8713e1c659ef6ebcc1a3f2cd1886694b1aa3e0b6ef857ca"
+      }
     },
     {
       "number": 15905,
@@ -6949,7 +7267,13 @@
             "pkg/engine/internal/imageverifier.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "766777407b4690f2139db8f57079d3f44d5bcd1c9799858e95724d5aa126e32f",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "9a2b328db2f8726d31fbbfe2ac644345ad1c80f2670a4c754825f94a1c008383",
+        "rebase_log": "9bd2d6bf16079534987c846c76246f46f39349057536ceeeea4e1afa0584b6d4"
+      }
     },
     {
       "number": 15869,
@@ -7124,7 +7448,13 @@
             "pkg/validation/policy/validate_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "d01b4ca8fc5ad91516c47d6392485a13b09f5d442f1ad3f3591e3b85bc627c03",
+        "shared_diff": "1e3d31c2d690e13fa3a7d38fac464b6f5628c6c4e46e5e90ce7586054c794dd8",
+        "commits": "06cf23c2128eb5a8ccff6f3ead5df9710ea30b05094791904e8e60c8674d584f",
+        "rebase_log": "a70f238814c7130c485a95b7e299ca2e3a987e66a544763aae6af46beb82cd6b"
+      }
     },
     {
       "number": 15760,
@@ -7286,7 +7616,13 @@
             "pkg/engine/context/loaders/imagedata.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "948aeeb87ee9b3d812b7c0bc0b3cc8472751662dd31a1a9512baea06eec8057c",
+        "shared_diff": "008474825be77f1dae8e8af37a06b5ca69dd64b169f2417858018778ceb4f088",
+        "commits": "513b3b87df00c5e652cbc3d259ff61940b27a424ce75cf91b845b6189701938b",
+        "rebase_log": "f0cef8fabb1dce2498c3a427f353ae6c40b511c27db5133428496a441cf69ce0"
+      }
     },
     {
       "number": 15731,
@@ -7403,7 +7739,13 @@
             "cmd/cleanup-controller/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "d6796294988374c32a7f997bfabd4f2cbe301a056e9c798f6d36c3dafc59fe14",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "f246bd60e2b53f2e04b3cb6d824f8b0620c1d1340acbeb4ebfefe2f4b481121d",
+        "rebase_log": "08f343fc52da446187ca6f5d8941e0d76d4aa1e2a931d591e6bfa4760465447e"
+      }
     },
     {
       "number": 15548,
@@ -7672,7 +8014,15 @@
             "cmd/internal/engine.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "85f21072421f7bf8e86c134eef09a4427a905c26c18904f84e6a5d6eee9a22cd",
+        "shared_diff": "7d04a4c83614a86c38d2a87a8b551d022dc45e0c88369b5554efb96362965265",
+        "commits": "2e807f00e1616eed3840669c99001fd77da4c5984fd4799fba9bc62ccb4473e4",
+        "rebase_log": "8e4fe7def893639ad9afda7f0b02d14452c3a3448ceaf896dc44954289e3bcb9",
+        "final_diff": "ff114d3973198c35176c29b1637c06b04669fa346a935ea0673836b606249709",
+        "range_diff": "4c58de1e79bc4a45e11bd139f44083a243392bbc5b500abf7116cfacf7575a67"
+      }
     },
     {
       "number": 15460,
@@ -7775,7 +8125,13 @@
             "pkg/engine/internal/imageverifier_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "1d8c63f1f507b11f080dd1f5c126decfc9e6fd2b44ef7974e3f1e31efd6fb981",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "a37ec0f13d606a73e06d05afed6926c54d71ca6889e80a7879725e455e85a94c",
+        "rebase_log": "f733290080a485a8de3a36ad604ad59f74a0bd084aab8d5e388da6ab231c250f"
+      }
     },
     {
       "number": 15458,
@@ -7993,7 +8349,13 @@
             "cmd/reports-controller/main.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "355c70c995470c83a879723ac1cbd59b78fe4db63cf7ab444662c405f597d7f7",
+        "shared_diff": "f558fab3b42bb7fdb81bbb20f243549d27ce638a374e3c664cb9a26d896306c7",
+        "commits": "a41fb1ce3bf77119b3778d883327d20f3e5149c8dea128e7e7738bfc802fb10d",
+        "rebase_log": "89e91df7ba7a9e30eb80cf0642f1e01336d5f1308fa389fe0ebd8c816c297761"
+      }
     },
     {
       "number": 15432,
@@ -8054,7 +8416,15 @@
       "reasons": [
         "Clean legacy-only probe; evidence review, tests and approval still required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "5c8e15b27f0e37f7c061550ed7c2e7c25b619533b381c4c836a4b3e94af39c85",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "cf2b04541835d047b0d4a368700c629e003033d407a4f671ee76d10208a1920f",
+        "rebase_log": "8e4fe7def893639ad9afda7f0b02d14452c3a3448ceaf896dc44954289e3bcb9",
+        "final_diff": "5c8e15b27f0e37f7c061550ed7c2e7c25b619533b381c4c836a4b3e94af39c85",
+        "range_diff": "6c97d0946a49782ddf3267375378f80565032455da598b11e60f23338a26b224"
+      }
     },
     {
       "number": 15174,
@@ -8114,7 +8484,13 @@
         "Draft: do not rebase while the author is iterating.",
         "Probe CONFLICT: author or maintainer intervention required."
       ],
-      "overlap_candidates": []
+      "overlap_candidates": [],
+      "evidence_sha256": {
+        "original_diff": "ad1a79f6b7b2fed8a1e6fb9059f5deea72b9679e1ce981a1fe03ad9f2a5b5b0a",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "c79229676468d9c4c71e0b7b89fcb1149eaf2e4109c4a73cec7914877d4762f1",
+        "rebase_log": "9de1e88d41e98a2866495d0d6e913a93ccced4f150ae3c3e5ca35a084b7beaab"
+      }
     },
     {
       "number": 15158,
@@ -8251,7 +8627,15 @@
             "pkg/engine/internal/imageverifier_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "b4c919be439429367e7fb75c204f50f0706ae9fd33df6986d98079e42505f233",
+        "shared_diff": "6eebb68445363912c7c203b3b05907bae00b25340b7a15bccb1b3578f258cd77",
+        "commits": "981e66a7dffe928ad80e56efe2cd2ae6eb7790790d27f4e33b85b2c52cde5e86",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "3347ff74486d3f491919d019687be6953af24e4ef35386fe7aed7d85df4b452d",
+        "range_diff": "a4f82730fa9d9a6c9f0168347f86c31b91b439ac455a428b387603e4ce09f9f3"
+      }
     },
     {
       "number": 15037,
@@ -8370,7 +8754,15 @@
             "pkg/validation/policy/validate_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "01d687546ec2bc966518fea28f1d6492cecf92cabfcd1a7ca494614178147dda",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "74c40a078f5d6f41c2607d6549710e4ae8072ff3f6536340104f83c26d25b9c9",
+        "rebase_log": "af4ea0fd26055dc94f3a7c3ab74f59f81f61513e5f440e0902660568edfc206e",
+        "final_diff": "c692a1bbe0c9877adede1e4b82366005348c8299b8c5de7d3da0087f7117cfc1",
+        "range_diff": "5ff5837c5211c310d75b1d01f4dd18ad45a759899a611d8697596bf4e306d108"
+      }
     },
     {
       "number": 14915,
@@ -8651,7 +9043,13 @@
             "cmd/internal/engine.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "83c151d58be0900f6060816f98747f0ddd6cadd156c3b7c97d27a34754d82383",
+        "shared_diff": "fcbbb8076492837ee08790d18830c2626c93fd937e6157a3bd6cf73088704b19",
+        "commits": "d820028bc5ad27c2b104fedd8f763e5a8c8acd9723e8af8f7f6971303ffe9e2d",
+        "rebase_log": "e8ebe7fc16f99126b358f7b4df271e751651fe30b068ce5ddb1757348eda366e"
+      }
     },
     {
       "number": 14814,
@@ -8751,7 +9149,13 @@
             "charts/kyverno-policies/values.yaml"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "ea433c0cbe113013cf197b3c04a88dbd0243d3e348f9690f48061e606bf768d6",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "d346825ce36f4c3875281280738e74520da01e0130f7addc887552a1bc701b28",
+        "rebase_log": "31029fc45591a415b541cbfc39c71cd72d4fd1940b902cc02ce624e538b4af59"
+      }
     },
     {
       "number": 14711,
@@ -8835,7 +9239,13 @@
             "pkg/background/generate/controller.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "270f79036b802aa02f4dd1909fe6ffff486eb424dc5af93e32c111911ea3ca45",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "07c041d2e11a695a1965b2a885445111e6e096330cf1e744b719eb9ec0414e4a",
+        "rebase_log": "29e2e5c3ffdfac6aacf5e4e2bdadf2d82e50eff261c1467fbbc9379dc3cab64c"
+      }
     },
     {
       "number": 13576,
@@ -9002,7 +9412,13 @@
             "pkg/validation/policy/validate_test.go"
           ]
         }
-      ]
+      ],
+      "evidence_sha256": {
+        "original_diff": "59efaca5ce049b823cb4367e4bc7f59f0a44f9f0978d9cc04e9c106c54cd35ca",
+        "shared_diff": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "commits": "60d59869f50f08407dc36bf3cea16da460f2b16cc8055249b6121878a451e365",
+        "rebase_log": "ac352333ce165198bff81dc61a1d983bc1d6adfb25280f9f686fb2d25fa7f2aa"
+      }
     }
   ],
   "classification_summary": {

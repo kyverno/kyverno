@@ -46,6 +46,8 @@ Original and clean rebased commits remain under unique
 worktree cleanup and must be retained, along with the artifact directory and
 journal, until the migration/rollback window closes. They are local to this
 clone; a committed review snapshot does not recreate them in another clone.
+Each evidence file is bound to the candidate by `evidence_sha256`; publication
+verifies its bytes and requires the approval to repeat the complete digest map.
 Preparation failures are explicit holds, never publishable fallback results.
 
 `RETARGET` is a **recommendation**, not authorization. Drafts, features, shared
@@ -82,6 +84,7 @@ and fill the candidate's approval:
   "head_sha": "<captured original SHA>",
   "target_sha": "<captured release-1.19 SHA>",
   "rebased_sha": "<reviewed prepared SHA>",
+  "evidence_sha256": {"<each evidence key>": "<captured SHA-256 digest>"},
   "range_diff_reviewed": true,
   "final_diff_reviewed": true,
   "tests": [{"command": "<exact validation command>", "result": "passed"}],
@@ -116,6 +119,10 @@ The default `strategy: "sibling"` preserves the author's branch and original
 PR. Supply `--body-file` with a reviewed body based on the repository PR
 template, linking the original PR. Publishing creates a uniquely named upstream
 branch with a create-only lease and opens a PR against `release-1.19`.
+The publisher appends a hidden run-identity comment to the reviewed body and
+records its exact digest and authenticated actor in the journal. Reconciliation
+requires these to match before adopting or closing a discovered sibling. A
+foreign or edited PR is a manual-reconciliation hold, never silently adopted.
 It does not copy approvals or close the original.
 
 `strategy: "author"` additionally requires live `maintainerCanModify` and an
@@ -169,6 +176,9 @@ the migration's SHA and restores the original base. It refuses to overwrite new
 author work. Sibling rollback closes only the journal-owned, unmerged sibling;
 it does not delete branches. Merged PRs require a separate reviewed revert,
 not this rollback mechanism.
+Author rollback records its base-restoration ownership decision before restoring
+the head, so interrupted recovery can resume without claiming a foreign base
+change. An ambiguous original-head/release-base state requires manual review.
 
 After publication, require the release ruleset checks, appropriate conformance,
 renewed approval and resolution of **addressed** review conversations before
