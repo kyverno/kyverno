@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: jp-null-input-file
+spec:
+  steps:
+  - name: json-null-file
+    try:
+    - script:
+        content: |
+          printf '{"unexpected":"stdin"}' | kyverno jp query -i input.json 'type(@)'
+        check:
+          ($error): ~
+          (contains($stdout, '"null"')): true
+          (contains($stdout, '"object"')): false
+          (contains($stdout, 'Enter input object')): false
+  - name: yaml-null-file
+    try:
+    - script:
+        content: |
+          printf 'unexpected: stdin' | kyverno jp query -i input.yaml 'type(@)'
+        check:
+          ($error): ~
+          (contains($stdout, '"null"')): true
+          (contains($stdout, '"object"')): false
+          (contains($stdout, 'Enter input object')): false
+  - name: query-from-stdin
+    try:
+    - script:
+        content: |
+          printf 'type(@)' | kyverno jp query -i input.json
+        check:
+          ($error): ~
+          (contains($stdout, '"null"')): true
+          (contains($stdout, 'Enter input object')): false
