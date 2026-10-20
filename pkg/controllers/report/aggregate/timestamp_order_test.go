@@ -60,14 +60,14 @@ func TestAggregateResultsOrdersNanosecondsAcrossPolicySources(t *testing.T) {
 		for _, transition := range transitions {
 			old := openreportsv1alpha1.ReportResult{
 				Source: source, Policy: "require-label", Rule: "check-label",
-				Result: transition.before,
+				Result:    transition.before,
 				Timestamp: metav1.Timestamp{Seconds: second, Nanos: 100_000_000},
 			}
 			newer := old
 			newer.Result = transition.after
 			newer.Timestamp.Nanos = 900_000_000
 			orders := []struct {
-				name string
+				name          string
 				first, second openreportsv1alpha1.ReportResult
 			}{
 				{"older-first", old, newer},
@@ -89,45 +89,45 @@ func TestAggregateResultsOrdersNanosecondsAcrossPolicySources(t *testing.T) {
 func TestAggregateResultsTimestampCompatibility(t *testing.T) {
 	const second int64 = 1700000000
 	tests := []struct {
-		name string
+		name          string
 		first, second metav1.Timestamp
-		want openreportsv1alpha1.Result
+		want          openreportsv1alpha1.Result
 	}{
 		{
-			name: "legacy-exact-tie-keeps-first",
-			first: metav1.Timestamp{Seconds: second},
+			name:   "legacy-exact-tie-keeps-first",
+			first:  metav1.Timestamp{Seconds: second},
 			second: metav1.Timestamp{Seconds: second},
-			want: openreports.StatusFail,
+			want:   openreports.StatusFail,
 		},
 		{
-			name: "nonzero-nanos-exact-tie-keeps-first",
-			first: metav1.Timestamp{Seconds: second, Nanos: 200_000_000},
+			name:   "nonzero-nanos-exact-tie-keeps-first",
+			first:  metav1.Timestamp{Seconds: second, Nanos: 200_000_000},
 			second: metav1.Timestamp{Seconds: second, Nanos: 200_000_000},
-			want: openreports.StatusFail,
+			want:   openreports.StatusFail,
 		},
 		{
-			name: "mixed-precision-uses-recorded-order",
-			first: metav1.Timestamp{Seconds: second},
+			name:   "mixed-precision-uses-recorded-order",
+			first:  metav1.Timestamp{Seconds: second},
 			second: metav1.Timestamp{Seconds: second, Nanos: 500_000_000},
-			want: openreports.StatusPass,
+			want:   openreports.StatusPass,
 		},
 		{
-			name: "mixed-precision-reversed",
-			first: metav1.Timestamp{Seconds: second, Nanos: 500_000_000},
+			name:   "mixed-precision-reversed",
+			first:  metav1.Timestamp{Seconds: second, Nanos: 500_000_000},
 			second: metav1.Timestamp{Seconds: second},
-			want: openreports.StatusFail,
+			want:   openreports.StatusFail,
 		},
 		{
-			name: "strictly-newer-second",
-			first: metav1.Timestamp{Seconds: second, Nanos: 900_000_000},
+			name:   "strictly-newer-second",
+			first:  metav1.Timestamp{Seconds: second, Nanos: 900_000_000},
 			second: metav1.Timestamp{Seconds: second + 1},
-			want: openreports.StatusPass,
+			want:   openreports.StatusPass,
 		},
 		{
-			name: "older-second-not-newer-despite-nanos",
-			first: metav1.Timestamp{Seconds: second + 1},
+			name:   "older-second-not-newer-despite-nanos",
+			first:  metav1.Timestamp{Seconds: second + 1},
 			second: metav1.Timestamp{Seconds: second, Nanos: 900_000_000},
-			want: openreports.StatusFail,
+			want:   openreports.StatusFail,
 		},
 	}
 	for _, tc := range tests {
@@ -150,7 +150,7 @@ func TestAggregateResultsTimestampCompatibility(t *testing.T) {
 func TestPermanentReportUpdatedByNewerEphemeral(t *testing.T) {
 	old := openreportsv1alpha1.ReportResult{
 		Source: reportutils.SourceKyverno, Policy: "require-label", Rule: "check-label",
-		Result: openreports.StatusFail,
+		Result:    openreports.StatusFail,
 		Timestamp: metav1.Timestamp{Seconds: 1700000000, Nanos: 100_000_000},
 	}
 	newer := old
@@ -164,14 +164,14 @@ func TestPermanentReportUpdatedByNewerEphemeral(t *testing.T) {
 	results := aggregate.AggregateResults(timestampTestMaps(), types.UID("uid"),
 		permanent, ephemeralTimestampResult(newer))
 	require.Len(t, results, 1)
-	require.Equal(t, openreports.StatusPass, results[0].Result)
+	require.Equal(t, openreportsv1alpha1.Result(openreports.StatusPass), results[0].Result)
 	require.Equal(t, newer.Timestamp, results[0].Timestamp)
 }
 
 func TestMergedResultAndSummaryAcrossReportAdapters(t *testing.T) {
 	old := openreportsv1alpha1.ReportResult{
 		Source: reportutils.SourceKyverno, Policy: "require-label", Rule: "check-label",
-		Result: openreports.StatusFail,
+		Result:    openreports.StatusFail,
 		Timestamp: metav1.Timestamp{Seconds: 1700000000, Nanos: 100_000_000},
 	}
 	newer := old
@@ -182,9 +182,9 @@ func TestMergedResultAndSummaryAcrossReportAdapters(t *testing.T) {
 		ephemeralTimestampResult(old), ephemeralTimestampResult(newer))
 
 	tests := []struct {
-		name string
+		name       string
 		makeReport func() reportsv1.ReportInterface
-		summary func(reportsv1.ReportInterface) (int, int)
+		summary    func(reportsv1.ReportInterface) (int, int)
 	}{
 		{
 			name: "openreports-namespaced",
@@ -233,7 +233,7 @@ func TestMergedResultAndSummaryAcrossReportAdapters(t *testing.T) {
 			reportutils.SetResults(report, results...)
 			got := report.GetResults()
 			require.Len(t, got, 1)
-			require.Equal(t, openreports.StatusPass, got[0].Result)
+			require.Equal(t, openreportsv1alpha1.Result(openreports.StatusPass), got[0].Result)
 			require.Equal(t, newer.Timestamp, got[0].Timestamp)
 			pass, fail := tc.summary(report)
 			require.Equal(t, 1, pass)
