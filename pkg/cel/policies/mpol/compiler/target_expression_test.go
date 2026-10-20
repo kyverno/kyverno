@@ -33,6 +33,9 @@ func (c *ctxRecordingContext) GetResourceContext(_ context.Context, apiVersion, 
 
 func (c *ctxRecordingContext) ListResourcesContext(ctx context.Context, _, _, _ string, _ map[string]string) (*unstructured.UnstructuredList, error) {
 	c.listCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return &unstructured.UnstructuredList{Object: map[string]any{"kind": "List"}}, nil
 }
 
@@ -56,11 +59,33 @@ func TestEvaluateTargetExpression_UsesRequestContext(t *testing.T) {
 	attr := admission.NewAttributesRecord(object, nil, schema.GroupVersionKind{Version: "v1", Kind: "Pod"},
 		"default", "p", schema.GroupVersionResource{Version: "v1", Resource: "pods"}, "", admission.Create, nil, false, nil)
 
-	provider := &ctxRecordingContext{FakeContextProvider: libs.NewFakeContextProvider()}
-	ctx := context.WithValue(context.Background(), targetCtxKey{}, "request")
-	out, err := compiled.EvaluateTargetExpression(ctx, attr, nil, nil, provider)
-	require.NoError(t, err)
-	assert.Equal(t, "List", out["kind"])
-	require.NotNil(t, provider.listCtx, "resource.List must reach the bound request context provider")
-	assert.Equal(t, "request", provider.listCtx.Value(targetCtxKey{}))
+	tests := []struct {
+		name    string
+		cancel  bool
+		wantErr error
+	}{
+		{name: "propagates request context"},
+		{name: "cancelled request context fails evaluation", cancel: true, wantErr: context.Canceled},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := &ctxRecordingContext{FakeContextProvider: libs.NewFakeContextProvider()}
+			ctx, cancel := context.WithCancel(context.WithValue(context.Background(), targetCtxKey{}, "request"))
+			defer cancel()
+			if tt.cancel {
+				cancel()
+			}
+			out, err := compiled.EvaluateTargetExpression(ctx, attr, nil, nil, provider)
+			require.NotNil(t, provider.listCtx, "resource.List must reach the bound request context provider")
+			assert.Equal(t, "request", provider.listCtx.Value(targetCtxKey{}))
+			if tt.wantErr != nil {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr.Error())
+				assert.Nil(t, out)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, "List", out["kind"])
+		})
+	}
 }
