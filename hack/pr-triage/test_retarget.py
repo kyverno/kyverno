@@ -122,6 +122,11 @@ class Base(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory(dir=os.environ.get("RETARGET_TEST_TMPDIR", HERE), prefix=".rt-test-")
         self.addCleanup(tmp.cleanup)
         self.root = Path(tmp.name)
+        # retarget.py strips GIT_*, so isolate its global config through HOME/XDG instead.
+        (self.root / "home").mkdir()
+        home = patch.dict(os.environ, {"HOME": str(self.root / "home"), "XDG_CONFIG_HOME": str(self.root / "xdg")})
+        home.start()
+        self.addCleanup(home.stop)
         for name in (REPO, FORK):
             subprocess.run(["git", "init", "-q", "--bare", str(self.root / f"{name}.git")], check=True, timeout=30)
         w = self.work = self.root / "work"
@@ -329,6 +334,81 @@ class PreviewAndGateTest(Base):
         self.assertEqual(rc, 2)
         self.assertIn("approval.evidence_sha256", err)
         self.assert_untouched()
+
+    def test_only_main_to_release_routing_is_supported(self):
+        good = json.loads(self.manifest.read_text())
+        cases = {
+            "reverse": dict(source={"branch": "release-1.19", "sha": self.target},
+                            target={"branch": "main", "sha": self.source}),
+            "other target": dict(target={"branch": "release-1.18", "sha": self.target}),
+            "other source": dict(source={"branch": "develop", "sha": self.source}),
+            "missing target": dict(target={"sha": self.target}),
+        }
+        for name, over in cases.items():
+            with self.subTest(name):
+                self.manifest.write_text(json.dumps(dict(good, **over)))
+                for execute in (False, True):
+                    rc, _, err = self.run_cli("--body-file", str(self.body), execute=execute)
+                    self.assertEqual(rc, 1)
+                    self.assertIn("invalid manifest", err)
+        self.assertEqual(self.gh.calls, [])
+        self.assert_untouched()
+
+    def git_config(self, path, *args):
+        subprocess.run(["git", "config", "--file", str(path)] + list(args), check=True, timeout=30)
+
+    def rewrite_to_evil(self, scope):
+        evil = self.root / "evil.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(evil)], check=True, timeout=30)
+        real = str(self.root / f"{REPO}.git")
+        if scope == "global":
+            self.git_config(self.root / "home" / ".gitconfig", f"url.{evil}.insteadOf", real)
+        elif scope == "xdg":
+            (self.root / "xdg" / "git").mkdir(parents=True)
+            self.git_config(self.root / "xdg" / "git" / "config", f"url.{evil}.pushInsteadOf", real)
+        elif scope == "local":
+            self.git_config(self.work / ".git" / "config", f"url.{evil}.pushInsteadOf", real)
+        elif scope == "include":
+            inc = self.root / "home" / "included.cfg"
+            self.git_config(inc, f"url.{evil}.insteadOf", real)
+            self.git_config(self.root / "home" / ".gitconfig", "include.path", str(inc))
+        return evil
+
+    def test_url_rewrite_config_refused_before_any_write(self):
+        for scope in ("global", "xdg", "local", "include"):
+            with self.subTest(scope):
+                self.setUp()
+                evil = self.rewrite_to_evil(scope)
+                rc, _, err = self.run_cli("--body-file", str(self.body))
+                self.assertEqual(rc, 1)
+                self.assertIn("rewrites remote URLs", err)
+                self.assertEqual(self.gh.calls, [])
+                self.assertFalse(self.journal.exists())
+                self.assertEqual(sh(self.root, "--git-dir", str(evil), "for-each-ref"), "")
+                self.assertIsNone(self.remote(REPO, "retarget/legacy-7-" + self.head[:12]))
+
+    def test_url_rewrite_refused_for_rollback(self):
+        self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 0)
+        writes = len(self.gh.writes)
+        self.rewrite_to_evil("global")
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertIn("rewrites remote URLs", err)
+        self.assertEqual(len(self.gh.writes), writes)
+        self.assertEqual(self.states()[-1], "complete")
+
+    def test_inherited_git_env_is_stripped(self):
+        evil = self.root / "evil.git"
+        subprocess.run(["git", "init", "-q", "--bare", str(evil)], check=True, timeout=30)
+        injected = {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": f"url.{evil}.insteadOf",
+                    "GIT_CONFIG_VALUE_0": str(self.root / f"{REPO}.git"),
+                    "GIT_CONFIG_PARAMETERS": f"'url.{evil}.pushinsteadof'='{self.root / REPO}.git'",
+                    "GIT_DIR": str(evil), "GIT_NAMESPACE": "evil"}
+        with patch.dict(os.environ, injected):
+            rc, _, err = self.run_cli("--body-file", str(self.body))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.remote(REPO, "retarget/legacy-7-" + self.head[:12]), self.rebased)
+        self.assertEqual(sh(self.root, "--git-dir", str(evil), "for-each-ref"), "")
 
     def test_only_legacy_only_category_is_publishable(self):
         for category in (None, "MIXED", "CEL_ONLY", "SHARED_ONLY", "REVIEW-MIGRATION", "legacy_only"):

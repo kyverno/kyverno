@@ -29,6 +29,9 @@ Preparation pins the current `main` and `release-1.19` SHAs, checks captured PR
 state/head/base/metadata and the complete changed-file inventory, and probes
 every legacy candidate in an isolated worktree. Hooks, automatic ref updates,
 and rerere are disabled for these probes. It never runs PR code or tests.
+Before checkout it recomputes path, content and migration routing with the
+current classifier against the pinned original diff; stale report signals block
+preparation rather than authorizing a legacy recommendation.
 Checkout/rebase runs in a freshly initialized temporary repository, with system
 and global Git configuration disabled and inherited `GIT_*` variables removed.
 It does not inherit the operator clone's local filters, merge drivers or templates.
@@ -114,6 +117,10 @@ The default is a preview, including blocked approval conditions, with no
 GitHub or journal writes. Explicitly select **one PR** per invocation.
 Before any execution, arrange a scoped maintenance window for the existing
 `PR Branch Auto-Updater` and any other automation that can push to this PR.
+Execution also rejects Git URL-rewrite rules (`insteadOf`/`pushInsteadOf`) in
+any configuration scope, including included files. Remove these rules before
+publishing; inherited `GIT_*` overrides are ignored. Normal file-configured
+GitHub credential helpers remain available.
 The publisher requires `--updater-paused` as an operator attestation; it does
 not disable shared automation itself. Coordinate the pause and restoration
 with maintainers rather than leaving the updater disabled indefinitely.

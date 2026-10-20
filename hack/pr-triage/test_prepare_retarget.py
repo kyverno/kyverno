@@ -28,6 +28,24 @@ class ManifestTest(unittest.TestCase):
     def test_recommendation_is_not_approval(self):
         self.assertEqual(prepare.recommend(self.row())[0], "RETARGET")
 
+    def test_pinned_routing_is_recomputed_before_probe(self):
+        files = ["pkg/engine/probe.txt"]
+        snapshot = {"category": "LEGACY_ONLY", "content_signal": "NEUTRAL", "migration_flag": False}
+        prepare.verify_routing(snapshot, {}, files, "+neutral\n")
+        for stale, live_files, diff in (
+            ({**snapshot, "content_signal": "LEGACY_CONTENT"}, files, "+neutral\n"),
+            (snapshot, ["pkg/cel/probe.go"], "+neutral\n"),
+            (snapshot, files + ["pkg/cel/probe.go"], "+neutral\n"),
+            ({**snapshot, "migration_flag": True}, files, "+neutral\n"),
+            (snapshot, files, "+ValidatingPolicy\n"),
+        ):
+            with self.subTest(stale=stale, files=live_files, diff=diff):
+                with self.assertRaisesRegex(ValueError, "refresh report"):
+                    prepare.verify_routing(stale, {}, live_files, diff)
+        self.assertEqual(
+            prepare.recommend(self.row(migration_flag=True))[0], "NEEDS_AUTHOR"
+        )
+
     def test_unsafe_or_unreviewed_candidates_are_held(self):
         for changes in (
             {"draft": True}, {"title": "Feat/background metrics"},
@@ -156,6 +174,7 @@ class ProbeTest(unittest.TestCase):
             "number": 42, "title": "fix: legacy probe", "head_sha": self.head,
             "base_ref": "main", "updated_at": "captured", "draft": False,
             "files": ["pkg/engine/probe.txt"], "category": "LEGACY_ONLY",
+            "content_signal": "NEUTRAL", "migration_flag": False,
         }
         pr = {
             "state": "open", "base": {"ref": "main"}, "updated_at": "captured",

@@ -70,12 +70,30 @@ def overlap(files, release_prs):
     ]
 
 
+def verify_routing(snapshot, pr, files, diff):
+    category, _ = TRIAGE.classify_pr(files)
+    signal, _, _ = TRIAGE.classify_content(diff)
+    migration = TRIAGE.is_migration_pr(pr.get("title", ""), pr.get("body", ""), files)
+    if category == "LEGACY_ONLY" and signal in ("CEL_CONTENT", "MIXED_CONTENT"):
+        category = "MIXED"
+    if migration:
+        category = "REVIEW-MIGRATION"
+    if (
+        category != "LEGACY_ONLY" or snapshot.get("category") != category
+        or snapshot.get("content_signal") != signal
+        or snapshot.get("migration_flag") is not migration
+    ):
+        raise ValueError("Pinned routing differs from current classification; refresh report")
+
+
 def recommend(row):
     if row.get("override") == "KEEP_MAIN":
         return "KEEP_MAIN", ["Explicit maintainer override: keep on main."]
     if row.get("override") == "SPLIT":
         return "SPLIT", ["Explicit maintainer override: split before retargeting."]
     reasons = []
+    if row.get("migration_flag"):
+        reasons.append("Migration/removal work must remain on main.")
     if row["probe"] == "EMPTY":
         return "KEEP_MAIN", ["No remaining commits after rebase; inspect already-landed evidence."]
     if row["draft"]:
@@ -180,6 +198,7 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
             if set(original_files) != set(snapshot["files"]):
                 raise ValueError("Pinned source diff differs from classified file inventory")
             original_diff = git("diff", "--no-ext-diff", "--no-textconv", merge_base, backup_ref).stdout
+            verify_routing(snapshot, pr, original_files, original_diff)
             (evidence_dir / "original.diff").write_text(original_diff)
             row["evidence"]["original_diff"] = f"{number}/original.diff"
             shared_diff = git(

@@ -63,6 +63,10 @@ except ImportError:  # pragma: no cover - non-POSIX
 
 SCHEMA_VERSION = 1
 JOURNAL_SCHEMA_VERSION = 1
+SOURCE_BRANCH = "main"
+TARGET_BRANCH = "release-1.19"
+PUSH_FLAGS = ("--no-verify", "--porcelain", "--no-follow-tags", "--recurse-submodules=no")
+URL_REWRITE_RE = r"^url\..*\.(insteadof|pushinsteadof)$"
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 REPO_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+$")
 LOGIN_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9-]*(\[bot\])?$")
@@ -93,7 +97,10 @@ class RetargetError(Exception):
 
 
 def _env():
-    env = dict(os.environ)
+    # Inherited GIT_* variables can inject config (GIT_CONFIG_PARAMETERS/COUNT), relocate the repository or
+    # object store (GIT_DIR, GIT_OBJECT_DIRECTORY, ...), namespace pushed refs (GIT_NAMESPACE) or swap the
+    # transport (GIT_SSH*). Drop them all; file-based config is checked by check_git_config().
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     env.update({"GIT_TERMINAL_PROMPT": "0", "GH_PROMPT_DISABLED": "1", "GH_NO_UPDATE_NOTIFIER": "1"})
     return env
 
@@ -166,7 +173,8 @@ def load_manifest(path, number):
         ref = data.get(key)
         _require(isinstance(ref, dict) and _valid_branch(ref.get("branch")), f"{key}.branch")
         _require(isinstance(ref.get("sha"), str) and SHA_RE.match(ref["sha"]), f"{key}.sha")
-    _require(data["source"]["branch"] != data["target"]["branch"], "source and target branch must differ")
+    _require(data["source"]["branch"] == SOURCE_BRANCH and data["target"]["branch"] == TARGET_BRANCH,
+             f"only {SOURCE_BRANCH} -> {TARGET_BRANCH} retargeting is supported")
     cands = data.get("candidates")
     _require(isinstance(cands, list), "candidates must be a list")
     matches = [c for c in cands if isinstance(c, dict) and c.get("number") == number
@@ -414,6 +422,22 @@ def verify_local(ctx):
         raise RetargetError("rebased_sha is not a non-empty descendant of target.sha")
 
 
+def check_git_config(ctx):
+    """Refuse when Git config could redirect the GitHub URLs used for pin checks, leases and pushes."""
+    res = git(ctx.git_repo, ["config", "--includes", "--show-origin", "--get-regexp", URL_REWRITE_RE],
+              check=False)
+    if res.returncode == 0:
+        raise RetargetError("Git config rewrites remote URLs (url.*.insteadOf/pushInsteadOf); remove these "
+                            "entries (including from included files) before publishing:\n" + res.stdout.strip())
+    if res.returncode != 1:
+        raise RetargetError(f"cannot inspect Git config ({res.returncode}): {res.stderr.strip()}")
+    for repo in sorted({ctx.repo, ctx.cand["head_repository"]}):
+        url = remote_url(repo)
+        got = git(ctx.git_repo, ["ls-remote", "--get-url", url]).stdout.strip()
+        if got != url:
+            raise RetargetError(f"Git resolves {url} to {got}; refusing to publish through a rewritten URL")
+
+
 def verify_pins(ctx):
     for name, ref in (("source", ctx.source), ("target", ctx.target)):
         live = ls_remote(ctx, ctx.repo, ref["branch"])
@@ -474,7 +498,7 @@ def poll_pr(ctx, number, predicate, what):
 
 def push(ctx, repo, branch, expected, src):
     lease = f"--force-with-lease=refs/heads/{branch}:{expected or ''}"
-    git(ctx.git_repo, ["push", "--no-verify", "--porcelain", lease, remote_url(repo),
+    git(ctx.git_repo, ["push", *PUSH_FLAGS, lease, remote_url(repo),
                        f"{src}:refs/heads/{branch}"], timeout=PUSH_TIMEOUT)
     live = ls_remote(ctx, repo, branch)
     if live != src:
@@ -799,16 +823,16 @@ def planned_commands(ctx, rollback):
     if strategy_of(c) == "author":
         url, ref = remote_url(c["head_repository"]), c["head_ref"]
         if rollback:
-            return [["git", "push", "--no-verify", "--porcelain", f"--force-with-lease=refs/heads/{ref}:{rb}",
+            return [["git", "push", *PUSH_FLAGS, f"--force-with-lease=refs/heads/{ref}:{rb}",
                      url, f"{ctx.head}:refs/heads/{ref}"],
                     ["gh", "pr", "edit", str(ctx.number), "--repo", ctx.repo, "--base", src]]
-        return [["git", "push", "--no-verify", "--porcelain", f"--force-with-lease=refs/heads/{ref}:{ctx.head}",
+        return [["git", "push", *PUSH_FLAGS, f"--force-with-lease=refs/heads/{ref}:{ctx.head}",
                  url, f"{rb}:refs/heads/{ref}"],
                 ["gh", "pr", "edit", str(ctx.number), "--repo", ctx.repo, "--base", tgt]]
     branch = ctx.sibling_branch
     if rollback:
         return [["gh", "pr", "close", "<sibling-pr>", "--repo", ctx.repo]]
-    return [["git", "push", "--no-verify", "--porcelain", f"--force-with-lease=refs/heads/{branch}:",
+    return [["git", "push", *PUSH_FLAGS, f"--force-with-lease=refs/heads/{branch}:",
              remote_url(ctx.repo), f"{rb}:refs/heads/{branch}"],
             ["gh", "pr", "create", "--repo", ctx.repo, "--base", tgt, "--head", branch, "--title",
              ctx.args.title or f"[{tgt}] {c['title']}", "--body",
@@ -873,6 +897,7 @@ def main(argv=None):
         if blockers and not args.rollback:
             print("BLOCKED:\n" + "\n".join(f"  - {b}" for b in blockers), file=sys.stderr)
             return 2
+        check_git_config(ctx)
         journal.lock()
         try:
             existing = journal.read()
