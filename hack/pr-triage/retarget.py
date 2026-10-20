@@ -65,6 +65,7 @@ SCHEMA_VERSION = 1
 JOURNAL_SCHEMA_VERSION = 1
 SOURCE_BRANCH = "main"
 TARGET_BRANCH = "release-1.19"
+REQUIRED_EVIDENCE = ("original_diff", "shared_diff", "commits", "rebase_log", "range_diff", "final_diff")
 PUSH_FLAGS = ("--no-verify", "--porcelain", "--no-follow-tags", "--recurse-submodules=no")
 URL_REWRITE_RE = r"^url\..*\.(insteadof|pushinsteadof)$"
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -252,7 +253,7 @@ def approval_blockers(manifest, cand, manifest_dir):
                  f"`/retarget {manifest['target']['branch']} {cand['head_sha']}`)")
     evidence = cand.get("evidence") if isinstance(cand.get("evidence"), dict) else {}
     hashes = cand.get("evidence_sha256")
-    for key in ("range_diff", "final_diff"):
+    for key in REQUIRED_EVIDENCE:
         if key not in evidence:
             b.append(f"evidence.{key} missing")
     if not isinstance(hashes, dict) or set(hashes) != set(evidence):
@@ -660,8 +661,11 @@ def author_forward(ctx):
     pr = poll_pr(ctx, ctx.number, lambda p: (p.get("head") or {}).get("sha") == ctx.rebased, "head == rebased")
     check_original(ctx, pr, {ctx.rebased}, {src, tgt}, check_updated=False)
     if pr["base"]["ref"] == src:
-        if j.state != "base_pending":
-            j.record("base_pending", base={"from": src, "to": tgt})
+        if j.state == "base_pending":
+            # A previous edit may have succeeded and been reverted by someone else; never replay it.
+            raise RetargetError(f"journal is base_pending but PR base is {src}: the earlier base edit outcome is "
+                                "unknown or was reverted; reconcile manually or run --rollback")
+        j.record("base_pending", base={"from": src, "to": tgt})
         recheck_approval(ctx)
         gh(["pr", "edit", str(ctx.number), "--repo", ctx.repo, "--base", tgt])
     elif not j.intended("base_pending"):

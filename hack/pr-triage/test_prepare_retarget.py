@@ -18,6 +18,18 @@ SPEC.loader.exec_module(prepare)
 
 
 class ManifestTest(unittest.TestCase):
+    def test_preparation_metadata_is_pinned_to_github_host(self):
+        result = subprocess.CompletedProcess(["gh"], 0, stdout='{"ok": true}')
+        with patch.dict(os.environ, {"GH_HOST": "other.invalid", "GH_CONFIG_DIR": "/untrusted",
+                                     "GH_REPO": "other/repo", "GH_TOKEN": "test-only"}), \
+                patch.object(prepare, "run", return_value=result) as command:
+            self.assertEqual(prepare.gh("api", "user"), {"ok": True})
+        env = command.call_args.kwargs["env"]
+        self.assertEqual(env["GH_HOST"], "github.com")
+        self.assertEqual(env["GH_TOKEN"], "test-only")
+        self.assertNotIn("GH_CONFIG_DIR", env)
+        self.assertNotIn("GH_REPO", env)
+
     def row(self, **changes):
         return {
             "probe": "OK", "draft": False, "title": "fix: legacy bug",

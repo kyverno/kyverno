@@ -41,7 +41,9 @@ def git(*args, **kwargs):
 
 
 def gh(*args):
-    return json.loads(run("gh", *args).stdout)
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GH_") or k == "GH_TOKEN"}
+    env.update(GH_HOST="github.com", GH_PROMPT_DISABLED="1", GH_NO_UPDATE_NOTIFIER="1")
+    return json.loads(run("gh", *args, env=env).stdout)
 
 
 def write_json(path, value):

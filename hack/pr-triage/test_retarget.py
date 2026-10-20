@@ -20,6 +20,8 @@ SPEC.loader.exec_module(retarget)
 REPO = "kyverno/kyverno"
 FORK = "alice/kyverno"
 TEMPLATE = "## Explanation\n\n<!-- why -->\n\n## Checklist\n\n```yaml\n# not a heading\n```\n"
+EVIDENCE = {"original_diff": "original.diff", "shared_diff": "shared.diff", "commits": "commits.txt",
+            "rebase_log": "rebase.log", "range_diff": "range-diff.txt", "final_diff": "final.diff"}
 GIT_ENV = {
     "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
     "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.com",
@@ -177,8 +179,8 @@ class Base(unittest.TestCase):
             p.start()
             self.addCleanup(p.stop)
         (self.root / "evidence").mkdir()
-        (self.root / "evidence" / "range.diff").write_text("range\n")
-        (self.root / "evidence" / "final.diff").write_text("final\n")
+        for name in EVIDENCE.values():
+            (self.root / "evidence" / name).write_text(name + "\n")
         self.body = self.root / "body.md"
         self.body.write_text(f"## Explanation\n\nRetarget of https://github.com/{REPO}/pull/7\n\n## Checklist\n\n- ok\n")
         self.journal = self.root / "journal.json"
@@ -191,7 +193,7 @@ class Base(unittest.TestCase):
              "rebased_sha": self.rebased, "backup_ref": "refs/retarget/prepared/run1/7/original",
              "prepared_ref": "refs/retarget/prepared/run1/7/rebased", "shared_files": [], "overlap_prs": [],
              "conflict_files": [], "recommendation": "RETARGET", "reasons": [],
-             "evidence": {"range_diff": "evidence/range.diff", "final_diff": "evidence/final.diff"},
+             "evidence": {k: f"evidence/{f}" for k, f in EVIDENCE.items()},
              "evidence_sha256": self.evidence_hashes(),
              "approval": {"reviewer": "maint", "head_sha": self.head, "target_sha": self.target,
                           "evidence_sha256": self.evidence_hashes(),
@@ -204,7 +206,7 @@ class Base(unittest.TestCase):
 
     def evidence_hashes(self):
         return {k: hashlib.sha256((self.root / "evidence" / f).read_bytes()).hexdigest()
-                for k, f in (("range_diff", "range.diff"), ("final_diff", "final.diff"))}
+                for k, f in EVIDENCE.items()}
 
     def write_manifest(self, **over):
         self.manifest = self.root / "manifest.json"
@@ -341,6 +343,20 @@ class PreviewAndGateTest(Base):
         self.write_manifest(title="fix: featureless")
         rc, out, _ = self.run_cli(execute=False)
         self.assertIn("STATUS: READY", out)
+
+    def test_every_required_evidence_key_is_mandatory(self):
+        for key in EVIDENCE:
+            with self.subTest(key):
+                evidence = {k: f"evidence/{f}" for k, f in EVIDENCE.items() if k != key}
+                hashes = {k: v for k, v in self.evidence_hashes().items() if k != key}
+                self.write_manifest(evidence=evidence, evidence_sha256=hashes,
+                                    approval=dict(self.candidate()["approval"], evidence_sha256=hashes))
+                rc, out, _ = self.run_cli(execute=False)
+                self.assertIn(f"evidence.{key} missing", out)
+                rc, _, err = self.run_cli("--body-file", str(self.body))
+                self.assertEqual(rc, 2)
+                self.assertIn(f"evidence.{key} missing", err)
+        self.assert_untouched()
 
     def test_evidence_bytes_bound_to_candidate_and_approval(self):
         good = self.evidence_hashes()
@@ -736,6 +752,68 @@ class AuthorTest(Base):
         self.assertEqual(rc, 1)
         self.assertIn("by someone else during rollback", err)
         self.assertEqual(self.gh.base, "release-1.19")
+
+    def test_base_pending_resume_with_source_base_never_replays_edit(self):
+        for name, fail in (("edit never sent", "fail_before"), ("edit applied then reverted", "fail_after")):
+            with self.subTest(name):
+                self.setUp()
+                self.author()
+                getattr(self.gh, fail).add("pr edit")
+                self.assertEqual(self.run_cli()[0], 1)
+                self.assertEqual(self.states()[-1], "base_pending")
+                self.gh.base = "main"  # either never changed or another actor reverted it
+                writes = list(self.gh.writes)
+                rc, _, err = self.run_cli("--resume")
+                self.assertEqual(rc, 1)
+                self.assertIn("reconcile manually or run --rollback", err)
+                self.assertEqual(self.gh.writes, writes)
+                self.assertEqual(self.gh.base, "main")
+                self.assertEqual(self.states()[-1], "base_pending")
+                rc, _, err = self.run_cli("--rollback")
+                self.assertEqual(rc, 0, err)
+                self.assertEqual(self.remote(FORK, "feature"), self.head)
+                self.assertEqual(self.gh.base, "main")
+                self.assertEqual(self.gh.writes, writes)
+
+    def test_base_pending_resume_reconciles_applied_edit(self):
+        self.author()
+        def base_readback_times_out(ctx, number, predicate, what):
+            if what.startswith("base"):
+                raise retarget.RetargetError("readback timeout")
+            return retarget.read_pr(ctx, number)
+
+        with patch.object(retarget, "poll_pr", base_readback_times_out):
+            self.assertEqual(self.run_cli()[0], 1)
+        self.assertEqual(self.gh.base, "release-1.19")
+        self.assertEqual(self.states()[-1], "base_pending")
+        rc, _, err = self.run_cli("--resume")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(len(self.gh.writes), 1)
+        self.assertEqual(self.states()[-1], "complete")
+
+    def test_evidence_change_after_push_blocks_base_edit_and_rollback_still_works(self):
+        self.author()
+        real_push = retarget.push
+
+        def push_then_tamper(ctx, repo, branch, expected, src):
+            real_push(ctx, repo, branch, expected, src)
+            if src == self.rebased:
+                (self.root / "evidence" / "final.diff").write_text("tampered after push\n")
+
+        with patch.object(retarget, "push", push_then_tamper):
+            rc, _, err = self.run_cli()
+            self.assertEqual(rc, 1)
+            self.assertIn("evidence changed before publication", err)
+            self.assertEqual(self.remote(FORK, "feature"), self.rebased)
+            self.assertEqual(self.gh.base, "main")
+            self.assertEqual(self.gh.writes, [])
+            self.assertEqual(self.states()[-1], "base_pending")
+            rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(self.remote(FORK, "feature"), self.head)
+        self.assertEqual(self.gh.base, "main")
+        self.assertEqual(self.gh.writes, [])
+        self.assertEqual(self.states()[-1], "rolled_back")
 
     def test_live_title_drift_refused_on_resume(self):
         self.author()
