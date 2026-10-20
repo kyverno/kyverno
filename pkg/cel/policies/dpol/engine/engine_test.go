@@ -549,6 +549,9 @@ func TestHandleExcludeResourceRules(t *testing.T) {
 			engine := NewEngine(nsResolver, configMapMapper, &libs.FakeContextProvider{}, matcher)
 			resp, err := engine.Handle(ctx, Policy{Policy: policy, CompiledPolicy: compiled}, resource)
 
+			// the operations are widened on a copy, never on the cached policy
+			assert.Equal(t, tt.excludeOperations, policy.Spec.MatchConstraints.ExcludeResourceRules[0].Operations)
+			assert.Empty(t, policy.Spec.MatchConstraints.ResourceRules[0].Operations)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantMatch, resp.PolicyMatched)
 			assert.Equal(t, tt.wantMatch, resp.Match)
