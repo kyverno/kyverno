@@ -33,11 +33,26 @@ type Maps struct {
 
 // MergeReports merges the results of the given reports into accumulator, keyed
 // by (source, policy, [rule], uid). On a key collision it keeps the result with
-// the later Timestamp.Seconds (and the first-seen result when timestamps are
-// equal), and it drops results whose policy is not present in maps.
+// the later (Seconds, Nanos) timestamp, dropping results whose policy is not
+// present in maps. Exactly equal timestamps keep the first-seen result.
+// Legacy second-precision timestamps have Nanos=0; when old and new
+// precisions are mixed, this orders the recorded values and cannot prove
+// their true evaluation chronology.
 //
 // accumulator must be non-nil.
 // Pure: no I/O, no clients, no clock.
+// mergeLatestResult keeps the latest recorded timestamp for a report key.
+// Exact ties keep the existing value: report iteration order is not reliable
+// evidence of evaluation order, especially for second-precision legacy data.
+func mergeLatestResult(accumulator map[string]openreportsv1alpha1.ReportResult, key string, result openreportsv1alpha1.ReportResult) {
+	old, exists := accumulator[key]
+	if !exists ||
+		old.Timestamp.Seconds < result.Timestamp.Seconds ||
+		(old.Timestamp.Seconds == result.Timestamp.Seconds && old.Timestamp.Nanos < result.Timestamp.Nanos) {
+		accumulator[key] = result
+	}
+}
+
 func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportResult, uid types.UID, reports ...reportsv1.ReportInterface) {
 	for _, report := range reports {
 		if report == nil {
@@ -48,56 +63,32 @@ func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportRe
 			case reportutils.SourceValidatingPolicy:
 				if maps.Vpol != nil && maps.Vpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceImageValidatingPolicy:
 				if maps.Ivpol != nil && maps.Ivpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceGeneratingPolicy:
 				if maps.Gpol != nil && maps.Gpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceValidatingAdmissionPolicy:
 				if maps.Vap != nil && maps.Vap.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingAdmissionPolicy:
 				if maps.Mappol != nil && maps.Mappol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			case reportutils.SourceMutatingPolicy:
 				if maps.Mpol != nil && maps.Mpol.Has(result.Policy) {
 					key := result.Source + "/" + result.Policy + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			// Legacy kyverno.io source (ClusterPolicy/Policy): deprecated in
 			// 1.20, removed in 1.21 (#17491). Still aggregated for reporting
@@ -110,11 +101,7 @@ func MergeReports(maps Maps, accumulator map[string]openreportsv1alpha1.ReportRe
 				currentPolicy := maps.Pol[result.Policy]
 				if currentPolicy.Rules != nil && currentPolicy.Rules.Has(result.Rule) {
 					key := result.Source + "/" + result.Policy + "/" + result.Rule + "/" + string(uid)
-					if rule, exists := accumulator[key]; !exists {
-						accumulator[key] = result
-					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-						accumulator[key] = result
-					}
+					mergeLatestResult(accumulator, key, result)
 				}
 			}
 		}

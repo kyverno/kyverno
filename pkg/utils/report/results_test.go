@@ -314,3 +314,25 @@ func TestToPolicyReportResult_ConcurrentAccess(t *testing.T) {
 		assert.Equal(t, "resource is compliant", r.Description, "goroutine %d", i)
 	}
 }
+
+func TestToPolicyReportResultPreservesSubsecondTimestamp(t *testing.T) {
+	t.Parallel()
+
+	pol := engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-label"},
+	})
+	rule := engineapi.NewRuleResponse(
+		"check-label", engineapi.Validation, "label missing",
+		engineapi.RuleStatusFail, nil,
+	)
+
+	before := time.Now()
+	result := ToPolicyReportResult(pol, *rule, nil)
+	after := time.Now()
+	recorded := time.Unix(result.Timestamp.Seconds, int64(result.Timestamp.Nanos))
+
+	assert.False(t, recorded.Before(before), "timestamp was truncated before evaluation")
+	assert.False(t, recorded.After(after), "timestamp exceeds evaluation interval")
+	assert.GreaterOrEqual(t, result.Timestamp.Nanos, int32(0))
+	assert.Less(t, result.Timestamp.Nanos, int32(time.Second))
+}
