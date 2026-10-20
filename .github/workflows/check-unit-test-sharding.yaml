@@ -21,10 +21,6 @@ on:
           - '2'
           - '4'
         default: '4'
-      runner:
-        description: Available runner label (use configured larger runners for comparisons)
-        type: string
-        default: ubuntu-latest
 
 concurrency:
   group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
@@ -45,7 +41,7 @@ jobs:
 
   shards:
     name: Pilot shard ${{ matrix.shard }}
-    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
