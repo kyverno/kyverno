@@ -700,7 +700,8 @@ func (p *processor) getTargetsFromExpression(ctx context.Context, ur *kyvernov2.
 }
 
 func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policyNs string, data map[string]interface{}) (map[string]interface{}, error) {
-	e, err := BuildMpolTargetEvalEnv(libs.GetLibsCtx(), policyNs)
+	libsCtx := libs.GetLibsCtx()
+	e, err := BuildMpolTargetEvalEnv(libsCtx, policyNs)
 	if err != nil {
 		return nil, err
 	}
@@ -716,6 +717,7 @@ func (p *processor) getResourcesFromExpression(ctx context.Context, expr, policy
 	if err != nil {
 		return nil, err
 	}
+	libs.BindRequestContext(ctx, libsCtx, data)
 	out, _, err := prog.ContextEval(ctx, data)
 	if err != nil {
 		return nil, err

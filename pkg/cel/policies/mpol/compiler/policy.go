@@ -152,6 +152,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 	if err != nil {
 		return false
 	}
+	libs.BindRequestContext(ctx, contextProvider, data)
 
 	p.appendVariables(ctx, data, nil)
 
@@ -194,7 +195,7 @@ func (p *Policy) Evaluate(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, false)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, false)
 }
 
 func (p *Policy) EvaluateTarget(
@@ -206,7 +207,7 @@ func (p *Policy) EvaluateTarget(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, true)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, true)
 }
 
 func (p *Policy) evaluate(
@@ -216,6 +217,7 @@ func (p *Policy) evaluate(
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
 	requestMapFn func() (map[string]any, error),
+	contextProvider libs.Context,
 	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
@@ -227,6 +229,7 @@ func (p *Policy) evaluate(
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}
+	libs.BindRequestContext(ctx, contextProvider, data)
 
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
