@@ -1,3 +1,9 @@
+The Pod fixtures in `foreach`, `nested-foreach`, and `simple` test admission-time
+array mutation only. Their unmatched `kyverno.io/test-node: nonexistent` node
+selector deliberately prevents scheduling, so cleanup does not depend on image
+pulls or container termination. The Pod assertions check that the selector is
+preserved alongside the original mutation expectations.
+
 All of the following tests in this directory have been copied (for now) to kyverno/policies where they rightfully belong.
 Once we are executing tests from that repo in this one, we can remove all the cases.
 
