@@ -222,7 +222,7 @@ class ProbeTest(unittest.TestCase):
                 self.assertIn("rebase.updateRefs=false", command)
                 self.assertIn("rerere.enabled=false", command)
                 self.assertNotEqual(command[command.index("-C") + 1], str(self.clone))
-            if "diff" in command and "--name-only" not in command:
+            if "diff" in command:
                 self.assertIn("--no-ext-diff", command)
                 self.assertIn("--no-textconv", command)
             if "update-ref" in command:

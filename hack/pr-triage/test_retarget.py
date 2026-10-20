@@ -41,6 +41,7 @@ class FakeGH:
         self.fail_after = set()
         self.fail_before = set()
         self.api_head = None
+        self.reviewer_permission = "write"
         self.base = "main"
         self.original = {"state": "open", "merged": False, "updated_at": "2026-10-01T00:00:00Z",
                          "maintainer_can_modify": True, "author": "alice", "title": "fix legacy"}
@@ -80,6 +81,8 @@ class FakeGH:
             return json.dumps(self.pull(int(args[1].rsplit("/", 1)[1])))
         if args == ["api", "user"]:
             return json.dumps({"login": "maint"})
+        if args[0] == "api" and args[1].endswith("/permission"):
+            return json.dumps({"permission": self.reviewer_permission})
         if args[0] == "api" and "/issues/comments/" in args[1]:
             return json.dumps(self.comment)
         if key == "pr list":
@@ -240,6 +243,23 @@ class Base(unittest.TestCase):
 
 
 class PreviewAndGateTest(Base):
+    def test_reviewer_requires_live_upstream_write_permission(self):
+        for permission in ("read", "triage", "none", None):
+            self.gh.reviewer_permission = permission
+            rc, _, err = self.run_cli("--body-file", str(self.body))
+            self.assertEqual(rc, 1)
+            self.assertIn("lacks upstream", err)
+            self.assert_untouched()
+
+    def test_github_environment_cannot_redirect_host_or_configuration(self):
+        with patch.dict(os.environ, {"GH_HOST": "other.invalid", "GH_CONFIG_DIR": "/untrusted",
+                                     "GH_REPO": "other/repository", "GH_TOKEN": "test-only"}):
+            env = retarget._env()
+        self.assertEqual(env["GH_HOST"], "github.com")
+        self.assertNotIn("GH_CONFIG_DIR", env)
+        self.assertNotIn("GH_REPO", env)
+        self.assertEqual(env["GH_TOKEN"], "test-only")
+
     def assert_untouched(self, locked=False):
         self.assertEqual(self.gh.writes, [])
         self.assertFalse(self.journal.exists())

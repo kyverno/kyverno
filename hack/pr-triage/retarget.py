@@ -100,8 +100,12 @@ def _env():
     # Inherited GIT_* variables can inject config (GIT_CONFIG_PARAMETERS/COUNT), relocate the repository or
     # object store (GIT_DIR, GIT_OBJECT_DIRECTORY, ...), namespace pushed refs (GIT_NAMESPACE) or swap the
     # transport (GIT_SSH*). Drop them all; file-based config is checked by check_git_config().
-    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
-    env.update({"GIT_TERMINAL_PROMPT": "0", "GH_PROMPT_DISABLED": "1", "GH_NO_UPDATE_NOTIFIER": "1"})
+    env = {
+        k: v for k, v in os.environ.items()
+        if not k.startswith(("GIT_", "GH_")) or k == "GH_TOKEN"
+    }
+    env.update({"GIT_TERMINAL_PROMPT": "0", "GH_HOST": "github.com",
+                "GH_PROMPT_DISABLED": "1", "GH_NO_UPDATE_NOTIFIER": "1"})
     return env
 
 
@@ -898,6 +902,11 @@ def main(argv=None):
             print("BLOCKED:\n" + "\n".join(f"  - {b}" for b in blockers), file=sys.stderr)
             return 2
         check_git_config(ctx)
+        if not args.rollback:
+            reviewer = cand["approval"]["reviewer"]
+            permission = gh_json(["api", f"repos/{ctx.repo}/collaborators/{reviewer}/permission"])
+            if permission.get("permission") not in ("admin", "maintain", "write"):
+                raise RetargetError(f"reviewer {reviewer} lacks upstream maintainer/write permission")
         journal.lock()
         try:
             existing = journal.read()

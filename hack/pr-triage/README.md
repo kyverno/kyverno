@@ -100,8 +100,10 @@ and fill the candidate's approval:
 
 The approval records a human decision; it is not a substitute for GitHub branch
 protection or renewed reviewer approval after publication. The reviewer must be
-different from the PR author. `release_feature_approved` is a required boolean
-and must be true for feature-titled PRs. All approvals in the
+different from the PR author. Execution verifies the recorded reviewer has live upstream write,
+maintain or admin permission. This local operator-owned approval record is not
+a cryptographic signature or proof that the named reviewer authored it.
+`release_feature_approved` is a required boolean and must be true for feature-titled PRs. All approvals in the
 committed October snapshot are intentionally null. Approval of the tooling PR
 does not approve any candidate.
 

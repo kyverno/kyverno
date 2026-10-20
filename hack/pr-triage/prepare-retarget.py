@@ -193,7 +193,7 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
             merge_base = git("merge-base", source_ref, backup_ref).stdout.strip()
             row["merge_base"] = merge_base
             original_files = git(
-                "diff", "--name-only", merge_base, backup_ref
+                "diff", "--no-ext-diff", "--no-textconv", "--name-only", merge_base, backup_ref
             ).stdout.splitlines()
             if set(original_files) != set(snapshot["files"]):
                 raise ValueError("Pinned source diff differs from classified file inventory")
@@ -237,7 +237,8 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
             row["evidence"]["rebase_log"] = f"{number}/rebase.log"
             if result.returncode:
                 row["conflict_files"] = git(
-                    "-C", str(wt), "diff", "--name-only", "--diff-filter=U"
+                    "-C", str(wt), "diff", "--no-ext-diff", "--no-textconv",
+                    "--name-only", "--diff-filter=U"
                 ).stdout.splitlines()
                 row["probe"] = "CONFLICT" if row["conflict_files"] else "ERROR:rebase"
             else:
