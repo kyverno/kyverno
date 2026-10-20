@@ -164,6 +164,8 @@ The journal is locked locally, atomically replaced and fsynced, with write-ahead
 states before remote writes. Use the same manifest, PR selection, body and
 journal with `--resume --execute` after a partial failure. Read-back of remote
 heads/bases and existing sibling PRs prevents replaying a write blindly.
+Sibling title/body inputs are bound when the journal is created, before the
+first remote push; changing them requires rollback and a new reviewed journal.
 Do not delete a journal to work around an error; retain it for reconciliation.
 Local locking does not coordinate independent clones: the operator must enforce
 one migration owner per PR.

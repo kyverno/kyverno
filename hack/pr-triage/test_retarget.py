@@ -43,7 +43,7 @@ class FakeGH:
         self.api_head = None
         self.base = "main"
         self.original = {"state": "open", "merged": False, "updated_at": "2026-10-01T00:00:00Z",
-                         "maintainer_can_modify": True, "author": "alice"}
+                         "maintainer_can_modify": True, "author": "alice", "title": "fix legacy"}
         self.comment = {"user": {"login": "alice"}, "issue_url": f"https://api.github.com/repos/{REPO}/issues/7",
                         "body": None}
         self.siblings = {}
@@ -58,6 +58,7 @@ class FakeGH:
             o = self.original
             return {"number": 7, "state": o["state"], "merged": o["merged"], "draft": o.get("draft", False), "updated_at": o["updated_at"],
                     "maintainer_can_modify": o["maintainer_can_modify"], "user": {"login": o["author"]},
+                    "title": o["title"],
                     "base": {"ref": self.base, "repo": {"full_name": REPO}},
                     "head": {"ref": "feature", "sha": self.api_head or self.head(FORK, "feature"),
                              "repo": {"full_name": FORK}}}
@@ -328,6 +329,24 @@ class PreviewAndGateTest(Base):
         self.assertEqual(rc, 2)
         self.assertIn("approval.evidence_sha256", err)
         self.assert_untouched()
+
+    def test_only_legacy_only_category_is_publishable(self):
+        for category in (None, "MIXED", "CEL_ONLY", "SHARED_ONLY", "REVIEW-MIGRATION", "legacy_only"):
+            with self.subTest(category):
+                self.write_manifest(category=category)
+                rc, out, _ = self.run_cli(execute=False)
+                self.assertIn("BLOCKED", out)
+                rc, _, err = self.run_cli("--body-file", str(self.body))
+                self.assertEqual(rc, 2)
+                self.assertIn("category", err)
+        self.assert_untouched()
+
+    def test_live_title_drift_refused_initially(self):
+        self.gh.original["title"] = "feat: now a feature"
+        rc, _, err = self.run_cli("--body-file", str(self.body))
+        self.assertEqual(rc, 1)
+        self.assertIn("title", err)
+        self.assert_untouched(locked=True)
 
     def test_refs_outside_owned_namespace_are_refused(self):
         for key, ref in (("backup_ref", "refs/heads/feature"), ("prepared_ref", "refs/retarget/prepared/run1/8/rebased"),
@@ -607,6 +626,30 @@ class AuthorTest(Base):
         self.assertIn("by someone else during rollback", err)
         self.assertEqual(self.gh.base, "release-1.19")
 
+    def test_live_title_drift_refused_on_resume(self):
+        self.author()
+        self.gh.fail_before.add("pr edit")
+        self.assertEqual(self.run_cli()[0], 1)
+        self.assertEqual(self.states()[-1], "base_pending")
+        self.gh.original["title"] = "feat: now a feature"
+        rc, _, err = self.run_cli("--resume")
+        self.assertEqual(rc, 1)
+        self.assertIn("title", err)
+        self.assertEqual(self.gh.base, "main")
+        self.assertEqual(self.gh.writes, [])
+
+    def test_rollback_refuses_complete_with_reset_head_and_target_base(self):
+        self.author()
+        self.assertEqual(self.run_cli()[0], 0)
+        writes = len(self.gh.writes)
+        sh(self.work, "push", "-qf", str(self.root / f"{FORK}.git"), f"{self.head}:refs/heads/feature")
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertIn("cannot prove", err)
+        self.assertEqual(self.gh.base, "release-1.19")
+        self.assertEqual(len(self.gh.writes), writes)
+        self.assertEqual(self.states()[-1], "complete")
+
     def test_rollback_restores_head_then_base(self):
         self.author()
         self.assertEqual(self.run_cli()[0], 0)
@@ -718,6 +761,30 @@ class SiblingTest(Base):
         self.assertEqual(self.states()[-1], "branch_pushed")
         self.gh.siblings[100] = {"branch": self.branch, "base": "release-1.19", "state": "open", "merged": False}
 
+    def test_reviewed_title_and_body_bound_before_first_push(self):
+        self.assertEqual(json.loads(self.journal.read_text()) if self.journal.exists() else None, None)
+        self.gh.fail_before.add("pr list")
+        self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 1)
+        j = json.loads(self.journal.read_text())
+        self.assertEqual(j["state"], "branch_pushed")
+        self.assertEqual(j["events"][0]["state"], "planned")
+        self.assertEqual(j["sibling_title"], "[release-1.19] fix legacy")
+        self.assertIsNotNone(j["body_sha256"])
+        original = self.body.read_text()
+        for name, extra, text in (("title", ("--title", "other"), original),
+                                  ("body", (), original + "swapped\n")):
+            with self.subTest(name):
+                self.body.write_text(text)
+                rc, _, err = self.run_cli("--resume", "--body-file", str(self.body), *extra)
+                self.assertEqual(rc, 1)
+                self.assertIn("bound in the journal before the first push", err)
+                self.assertEqual(self.gh.siblings, {})
+                self.assertEqual(self.states()[-1], "branch_pushed")
+        self.body.write_text(original)
+        rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(list(self.gh.siblings), [100])
+
     def test_unowned_sibling_pr_is_not_adopted(self):
         self.stop_at_branch_pushed()
         rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
@@ -742,7 +809,7 @@ class SiblingTest(Base):
         self.body.write_text(self.body.read_text() + "edited\n")
         rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
         self.assertEqual(rc, 1)
-        self.assertIn("recorded pr_pending intent", err)
+        self.assertIn("bound in the journal before the first push", err)
         rc, _, err = self.run_cli("--resume", "--body-file", str(self.body), "--title", "other")
         self.assertEqual(rc, 1)
         self.assertEqual(self.gh.siblings, {})
@@ -808,6 +875,30 @@ class SiblingTest(Base):
         rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
         self.assertEqual(rc, 1)
         self.assertEqual(self.gh.siblings, {})
+
+    def test_owned_sibling_retargeted_elsewhere_is_detected(self):
+        self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 0)
+        self.gh.siblings[100]["base"] = "main"
+        rc, _, err = self.run_cli("--resume")
+        self.assertEqual(rc, 1)
+        self.assertIn("no longer target release-1.19", err)
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertIn("head/base changed", err)
+        self.assertEqual(self.gh.siblings[100]["state"], "open")
+        self.assertNotIn("rolled_back", self.states())
+        self.assertNotIn(["pr", "close", "100", "--repo", REPO], self.gh.writes)
+        lists = [c for c in self.gh.calls if c[:2] == ["pr", "list"]]
+        self.assertTrue(lists)
+        self.assertTrue(all("--base" not in c for c in lists))
+
+    def test_rollback_refuses_when_recorded_sibling_missing(self):
+        self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 0)
+        self.gh.siblings.clear()
+        rc, _, err = self.run_cli("--rollback")
+        self.assertEqual(rc, 1)
+        self.assertIn("not found", err)
+        self.assertNotIn("rolled_back", self.states())
 
     def test_rollback_checks_live_branch_before_close(self):
         self.assertEqual(self.run_cli("--body-file", str(self.body))[0], 0)

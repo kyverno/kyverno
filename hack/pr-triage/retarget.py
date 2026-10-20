@@ -226,6 +226,8 @@ def approval_blockers(manifest, cand, manifest_dir):
     b = []
     if cand.get("recommendation") != "RETARGET":
         b.append(f"recommendation is {cand.get('recommendation')!r}, not 'RETARGET'")
+    if cand.get("category") != "LEGACY_ONLY":
+        b.append(f"category is {cand.get('category')!r}, not 'LEGACY_ONLY'")
     if cand.get("draft") is not False:
         b.append("draft PRs are never published")
     if cand.get("probe") != "OK":
@@ -445,6 +447,8 @@ def check_original(ctx, pr, heads, bases, check_updated):
         problems.append(f"head ref {(pr.get('head') or {}).get('ref')} != {c['head_ref']}")
     if (pr.get("user") or {}).get("login") != c["author"]:
         problems.append("author mismatch")
+    if pr.get("title") != c["title"]:
+        problems.append(f"title {pr.get('title')!r} != manifest {c['title']!r}")
     if (pr.get("head") or {}).get("sha") not in heads:
         problems.append(f"head {(pr.get('head') or {}).get('sha')} not in expected {sorted(heads)}")
     if (pr.get("base") or {}).get("ref") not in bases:
@@ -567,8 +571,7 @@ def owned_siblings(ctx):
 
 
 def find_siblings(ctx):
-    rows = gh_json(["pr", "list", "--repo", ctx.repo, "--head", ctx.sibling_branch, "--base",
-                    ctx.target["branch"], "--state", "all", "--json",
+    rows = gh_json(["pr", "list", "--repo", ctx.repo, "--head", ctx.sibling_branch, "--state", "all", "--json",
                     "number,url,state,headRefName,headRefOid,baseRefName,isCrossRepository"])
     return [r for r in rows if r.get("headRefName") == ctx.sibling_branch and not r.get("isCrossRepository")]
 
@@ -633,9 +636,13 @@ def author_forward(ctx):
 
 def sibling_forward(ctx):
     j, src, tgt, branch = ctx.journal, ctx.source["branch"], ctx.target["branch"], ctx.sibling_branch
+    title = ctx.args.title or f"[{tgt}] {ctx.cand['title']}"
     body_hash = None
     if j.state != "complete":
         _, body_hash = validate_body(ctx, ctx.args.body_file)
+        if j.data is not None and (j.data.get("sibling_title") != title or j.data.get("body_sha256") != body_hash):
+            raise RetargetError("sibling --title/--body-file differ from the reviewed values bound in the journal "
+                                "before the first push; refusing")
     verify_local(ctx)
     verify_pins(ctx)
     initial = j.state in (None, "planned")
@@ -645,7 +652,7 @@ def sibling_forward(ctx):
     if remote is not None and j.state not in ("branch_pending", "branch_pushed", "pr_pending", "complete"):
         raise RetargetError(f"upstream branch {branch} already exists but the journal never recorded creating it")
     if j.state is None:
-        j.create(journal_header(ctx))
+        j.create(dict(journal_header(ctx), sibling_title=title, body_sha256=body_hash))
 
     if remote is None:
         if j.state in ("branch_pushed", "pr_pending", "complete"):
@@ -658,13 +665,13 @@ def sibling_forward(ctx):
     elif j.state == "branch_pending":
         j.record("branch_pushed", reconciled=True)
 
-    title = ctx.args.title or f"[{tgt}] {ctx.cand['title']}"
-    if j.state == "pr_pending" and (j.data.get("sibling_title") != title or j.data.get("body_sha256") != body_hash):
-        raise RetargetError("sibling title/--body-file differ from the recorded pr_pending intent; refusing")
     owned, foreign = owned_siblings(ctx)
     if foreign:
         raise RetargetError(f"sibling PR(s) {[r.get('number') for r in foreign]} exist for {branch} but are not "
                             "provably created by this journal (run marker/body/actor/number); reconcile manually")
+    moved = [r.get("number") for r in owned if r.get("baseRefName") != tgt]
+    if moved:
+        raise RetargetError(f"sibling PR(s) {moved} no longer target {tgt}; reconcile manually")
     if j.state == "complete" and [r.get("number") for r in owned] != [j.data.get("sibling_pr")]:
         raise RetargetError(f"journal records sibling PR #{j.data.get('sibling_pr')} but found "
                             f"{[r.get('number') for r in owned]}")
@@ -720,10 +727,10 @@ def author_rollback(ctx):
         # Decide base ownership once, while our prepared head proves nobody else has moved the PR.
         live_base, live_head = pr["base"]["ref"], pr["head"]["sha"]
         if live_base == tgt:
-            if not (j.intended("complete") or (j.intended("base_pending") and live_head == ctx.rebased
-                                                and remote == ctx.rebased)):
+            if not (j.intended("complete", "base_pending") and live_head == ctx.rebased
+                    and remote == ctx.rebased):
                 raise RetargetError(f"PR base is {tgt} but this tool cannot prove it made that change "
-                                    "(no completed readback and head is not our prepared SHA); refusing rollback")
+                                    "(no recorded base intent or head is not our prepared SHA); refusing rollback")
         j.record("rollback_planned", rollback_restore_base=live_base == tgt)
     if remote == ctx.rebased:
         if j.state != "rollback_push_pending":
@@ -762,6 +769,9 @@ def sibling_rollback(ctx):
     if len(owned) > 1:
         raise RetargetError(f"multiple sibling PRs for {branch}; resolve manually")
     number = owned[0]["number"] if owned else None
+    if number is None and (j.data.get("sibling_pr") is not None or j.intended("complete")):
+        raise RetargetError(f"recorded sibling PR #{j.data.get('sibling_pr')} not found for {branch}; "
+                            "reconcile manually")
     if number is not None:
         sib = read_pr(ctx, number)
         if sib.get("merged"):
