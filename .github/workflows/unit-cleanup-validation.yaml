@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Unit cleanup validation
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - perf/ci-unit-no-cleanup
+    paths:
+      - .github/workflows/unit-cleanup-validation.yaml
+
+jobs:
+  compare:
+    if: github.repository == 'kyverno/kyverno'
+    name: ${{ matrix.revision.name }} cleanup=${{ matrix.cleanup }} repeat=${{ matrix.repeat }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        revision:
+          - name: current
+            sha: 3726f5b55f5e312e191a03d69e1cd4c45838a53c
+          - name: sigstore-update
+            sha: 3944c1c60c83b4ec95b5d0c32c32ba3283225c28
+        cleanup: [true, false]
+        repeat: [1, 2]
+    permissions:
+      contents: read
+    env:
+      EVIDENCE: cleanup-evidence
+    steps:
+      - name: Checkout trusted test revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.revision.sha }}
+          persist-credentials: false
+      - name: Checkout existing benchmark helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: JimBugwadia/kyverno
+          ref: b47fdcbecda5689d53c33e74c60c9e386d1b1dff
+          path: benchmark-tools
+          sparse-checkout: scripts/ci
+          persist-credentials: false
+      - name: Record initial disk and worker
+        run: python3 benchmark-tools/scripts/ci/setup_benchmark.py mark "$EVIDENCE" start
+      - name: Cleanup control
+        if: matrix.cleanup
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: false
+          haskell: false
+          large-packages: false
+          swap-storage: false
+          tool-cache: false
+      - name: Record cleaned disk
+        run: python3 benchmark-tools/scripts/ci/setup_benchmark.py mark "$EVIDENCE" cleaned
+      - name: Setup Go with build caching retained
+        uses: ./.github/actions/go/setup
+        with:
+          gobuild-cache-prefix: gobuild-unit-tests
+          gobuild-cache-include-run-id: 'true'
+      - name: Record ready disk
+        run: python3 benchmark-tools/scripts/ci/setup_benchmark.py mark "$EVIDENCE" ready
+      - name: Full race and coverage suite
+        run: |
+          python3 benchmark-tools/scripts/ci/setup_benchmark.py run "$EVIDENCE" -- make test-unit
+          cp coverage.out "$EVIDENCE/"
+      - name: Final disk
+        if: always()
+        run: df -h . /tmp
+      - name: Upload validation evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cleanup-${{ matrix.revision.name }}-${{ matrix.cleanup }}-${{ matrix.repeat }}
+          path: cleanup-evidence/
+          retention-days: 7
+          if-no-files-found: error
