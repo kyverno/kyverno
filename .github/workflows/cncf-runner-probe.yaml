@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: CNCF runner probe
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - perf/cncf-runner-probe
+    paths:
+      - .github/workflows/cncf-runner-probe.yaml
+  workflow_dispatch: {}
+
+concurrency:
+  group: cncf-runner-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    if: >-
+      github.repository == 'kyverno/kyverno' &&
+      (github.ref == 'refs/heads/perf/cncf-runner-probe' ||
+       github.ref == 'refs/heads/main')
+    name: Smoke (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - cncf-ubuntu-8-32-x86
+          - cncf-ubuntu-16-64-x86
+    steps:
+      - name: Inspect worker without checking out code
+        shell: bash
+        env:
+          RUNNER_LABEL: ${{ matrix.runner }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Runner label: $RUNNER_LABEL"
+            echo "Started: $(date -u +%FT%TZ)"
+            uname -a
+            cat /etc/os-release
+            lscpu
+            free -h
+            df -h . /tmp
+            echo "ImageOS=${ImageOS:-unset}"
+            echo "ImageVersion=${ImageVersion:-unset}"
+          } | tee "$GITHUB_STEP_SUMMARY"
+      - name: Verify Docker
+        shell: bash
+        run: timeout 60 docker info
+
+  benchmark:
+    name: Full unit benchmark (${{ matrix.runner }})
+    needs: smoke
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - cncf-ubuntu-8-32-x86
+          - cncf-ubuntu-16-64-x86
+    env:
+      RUNNER_LABEL: ${{ matrix.runner }}
+    steps:
+      - name: Checkout trusted main revision only
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: kyverno/kyverno
+          ref: 3726f5b55f5e312e191a03d69e1cd4c45838a53c
+          persist-credentials: false
+      - name: Record setup start and worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir evidence
+          date +%s > "$RUNNER_TEMP/cncf-setup-start"
+          {
+            git rev-parse HEAD
+            echo "$RUNNER_LABEL"
+            echo "ImageOS=${ImageOS:-unset}"
+            echo "ImageVersion=${ImageVersion:-unset}"
+            lscpu
+            free -h
+            df -h . /tmp
+          } | tee evidence/worker.txt
+      - name: Setup Go with existing read-only cache
+        uses: ./.github/actions/go/setup
+        with:
+          gobuild-cache-prefix: gobuild-unit-tests
+          gobuild-cache-include-run-id: 'true'
+      - name: Measure full race and coverage suite without disk cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          ready=$(date +%s)
+          setup_start=$(cat "$RUNNER_TEMP/cncf-setup-start")
+          printf 'setup_seconds=%s\n' "$((ready - setup_start))" | tee evidence/timing.txt
+          go version | tee -a evidence/worker.txt
+          go env GOOS GOARCH CGO_ENABLED | tee -a evidence/worker.txt
+          /usr/bin/time -v -o evidence/test-resource-usage.txt make test-unit
+          finished=$(date +%s)
+          printf 'test_seconds=%s\nsetup_and_test_seconds=%s\n' \
+            "$((finished - ready))" "$((finished - setup_start))" | tee -a evidence/timing.txt
+          go tool cover -func=coverage.out > evidence/coverage-summary.txt
+          cp coverage.out evidence/
+          {
+            echo "### $RUNNER_LABEL"
+            cat evidence/timing.txt
+            tail -1 evidence/coverage-summary.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Final disk headroom
+        if: always()
+        shell: bash
+        run: df -h . /tmp | tee evidence/final-disk.txt
+      - name: Preserve benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cncf-benchmark-${{ matrix.runner }}
+          path: evidence/
+          retention-days: 7
+          if-no-files-found: error
