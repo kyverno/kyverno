@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: quantity-scalar-division
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  background: false
+  rules:
+  - name: halve-cpu-request
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          selector:
+            matchLabels:
+              test.kyverno.io/quantity-scalar-division: "true"
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - (name): app
+            resources:
+              requests:
+                cpu: "{{ divide('{{ @ }}', `2`) }}"

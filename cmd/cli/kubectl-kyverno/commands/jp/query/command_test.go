@@ -56,3 +56,18 @@ func TestCommandHelp(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(string(out), cmd.Long))
 }
+
+func TestCommandQuantityScalarDivision(t *testing.T) {
+	for _, cpu := range []string{"1", "1.0", "1000m"} {
+		t.Run(cpu, func(t *testing.T) {
+			cmd := Command()
+			cmd.SetArgs([]string{"--compact", "divide(cpu, divisor)"})
+			cmd.SetIn(strings.NewReader(`{"cpu":"` + cpu + `","divisor":2}`))
+			var output bytes.Buffer
+			cmd.SetOut(&output)
+
+			assert.NoError(t, cmd.Execute())
+			assert.Contains(t, output.String(), "# divide(cpu, divisor)\n\"500m\"\n")
+		})
+	}
+}

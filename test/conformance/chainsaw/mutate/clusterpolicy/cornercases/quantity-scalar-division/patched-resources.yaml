@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quantity-integer
+spec:
+  containers:
+  - name: app
+    resources:
+      requests:
+        cpu: 500m
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quantity-decimal
+spec:
+  containers:
+  - name: app
+    resources:
+      requests:
+        cpu: 500m
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: quantity-milli
+spec:
+  containers:
+  - name: app
+    resources:
+      requests:
+        cpu: 500m
