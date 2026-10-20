@@ -101,7 +101,8 @@ class ProbeTest(unittest.TestCase):
         self.output = self.root / "evidence"
         self.output.mkdir()
         self.environment = {
-            **os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+            **{k: v for k, v in os.environ.items() if not k.startswith("GIT_")},
+            "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_AUTHOR_NAME": "Test", "GIT_AUTHOR_EMAIL": "test@example.invalid",
             "GIT_COMMITTER_NAME": "Test", "GIT_COMMITTER_EMAIL": "test@example.invalid",
         }
@@ -110,6 +111,7 @@ class ProbeTest(unittest.TestCase):
         self.path = self.clone / "pkg/engine/probe.txt"
         self.path.parent.mkdir(parents=True)
         self.path.write_text("base\n")
+        (self.clone / ".gitattributes").write_text("pkg/engine/probe.txt filter=untrusted merge=untrusted\n")
         self.git("add", ".")
         self.git("commit", "-qm", "base")
         self.base = self.git("rev-parse", "HEAD")
@@ -145,6 +147,11 @@ class ProbeTest(unittest.TestCase):
             hook = self.clone / ".git/hooks" / name
             hook.write_text(hook_body)
             hook.chmod(0o755)
+        for config in ("filter.untrusted.smudge", "filter.untrusted.clean",
+                       "filter.untrusted.process", "merge.untrusted.driver"):
+            self.git("config", config, "touch " + shlex.quote(str(marker)))
+        attributes = self.clone / ".git/info/attributes"
+        attributes.write_text("* filter=untrusted merge=untrusted\n")
         snapshot = {
             "number": 42, "title": "fix: legacy probe", "head_sha": self.head,
             "base_ref": "main", "updated_at": "captured", "draft": False,
@@ -180,6 +187,9 @@ class ProbeTest(unittest.TestCase):
         self.assertEqual(row["probe"], outcome)
         self.assertFalse(marker.exists(), "untrusted worktree hooks executed")
         self.assertEqual(self.git("worktree", "list", "--porcelain").count("worktree "), 1)
+        removed = [command[-1] for command in commands if "remove" in command and "worktree" in command]
+        self.assertEqual(len(removed), 1)
+        self.assertFalse(Path(removed[0]).exists())
         self.assertTrue((self.output / "42/candidate.json").is_file())
         for key, relative in row["evidence"].items():
             self.assertEqual(
@@ -192,6 +202,7 @@ class ProbeTest(unittest.TestCase):
             if "rebase" in command:
                 self.assertIn("rebase.updateRefs=false", command)
                 self.assertIn("rerere.enabled=false", command)
+                self.assertNotEqual(command[command.index("-C") + 1], str(self.clone))
             if "diff" in command and "--name-only" not in command:
                 self.assertIn("--no-ext-diff", command)
                 self.assertIn("--no-textconv", command)

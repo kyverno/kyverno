@@ -449,7 +449,7 @@ def check_original(ctx, pr, heads, bases, check_updated):
         problems.append(f"head {(pr.get('head') or {}).get('sha')} not in expected {sorted(heads)}")
     if (pr.get("base") or {}).get("ref") not in bases:
         problems.append(f"base {(pr.get('base') or {}).get('ref')} not in expected {sorted(bases)}")
-    if check_updated and pr.get("draft") is not c.get("draft"):
+    if pr.get("draft") is not c.get("draft"):
         problems.append(f"draft {pr.get('draft')} != manifest {c.get('draft')} (stale metadata)")
     if check_updated and pr.get("updated_at") != c["updated_at"]:
         problems.append(f"updated_at {pr.get('updated_at')} != manifest {c['updated_at']} (stale metadata)")

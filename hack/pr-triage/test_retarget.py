@@ -111,7 +111,11 @@ class FakeGH:
 
 class Base(unittest.TestCase):
     def setUp(self):
-        env = patch.dict(os.environ, GIT_ENV)
+        env = patch.dict(
+            os.environ,
+            {**{k: v for k, v in os.environ.items() if not k.startswith("GIT_")}, **GIT_ENV},
+            clear=True,
+        )
         env.start()
         self.addCleanup(env.stop)
         tmp = tempfile.TemporaryDirectory(dir=os.environ.get("RETARGET_TEST_TMPDIR", HERE), prefix=".rt-test-")
@@ -406,6 +410,18 @@ class PreviewAndGateTest(Base):
 
 
 class AuthorTest(Base):
+    def test_resume_refuses_new_draft_after_partial_publication(self):
+        self.author()
+        self.gh.fail_before.add("pr edit")
+        rc, _, _ = self.run_cli()
+        self.assertEqual(rc, 1)
+        self.gh.original["draft"] = True
+        writes = list(self.gh.writes)
+        rc, _, err = self.run_cli("--resume")
+        self.assertEqual(rc, 1)
+        self.assertIn("draft", err)
+        self.assertEqual(self.gh.writes, writes)
+
     def test_happy_path(self):
         self.author()
         rc, _, err = self.run_cli()
@@ -626,6 +642,17 @@ class AuthorTest(Base):
 
 class SiblingTest(Base):
     branch = property(lambda self: "retarget/legacy-7-" + self.head[:12])
+
+    def test_resume_refuses_new_draft_after_partial_publication(self):
+        self.gh.fail_before.add("pr create")
+        rc, _, _ = self.run_cli("--body-file", str(self.body))
+        self.assertEqual(rc, 1)
+        self.gh.original["draft"] = True
+        writes = list(self.gh.writes)
+        rc, _, err = self.run_cli("--resume", "--body-file", str(self.body))
+        self.assertEqual(rc, 1)
+        self.assertIn("draft", err)
+        self.assertEqual(self.gh.writes, writes)
 
     def test_happy_path_and_no_duplicate(self):
         rc, _, err = self.run_cli("--body-file", str(self.body))

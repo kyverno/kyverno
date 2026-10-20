@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import importlib.util
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -24,16 +25,18 @@ FEATURE = re.compile(r"(?i)^\s*feat(?:ure)?\b")
 SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
-def run(*args, cwd=None, check=True, timeout=180):
+def run(*args, cwd=None, check=True, timeout=180, env=None):
     return subprocess.run(
-        args, cwd=cwd, check=check, timeout=timeout, capture_output=True, text=True
+        args, cwd=cwd, check=check, timeout=timeout, capture_output=True, text=True, env=env
     )
 
 
 def git(*args, **kwargs):
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
     return run(
         "git", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false",
-        *args, **kwargs
+        *args, env=env, **kwargs
     )
 
 
@@ -149,6 +152,7 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
     worktree_added = False
     with tempfile.TemporaryDirectory(prefix=f"kyverno-retarget-{number}-") as temp:
         wt = Path(temp) / "worktree"
+        isolated = Path(temp) / "probe.git"
         try:
             pr = gh("api", f"repos/{repo}/pulls/{number}")
             if not same_identity(snapshot, pr):
@@ -192,12 +196,22 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
                 git("log", "--format=%H %s", f"{merge_base}..{backup_ref}").stdout
             )
             row["evidence"]["commits"] = f"{number}/commits.txt"
-            git("worktree", "add", "-q", "-d", str(wt), backup_ref)
+            # A new repository prevents PR attributes from selecting operator-configured drivers.
+            git("init", "--bare", "--template=", "-q", str(isolated))
+            common = git("rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+            target_sha = git("rev-parse", target_ref).stdout.strip()
+            git(
+                "-C", str(isolated), "fetch", "--no-write-fetch-head", "-q",
+                common, snapshot["head_sha"], target_sha,
+            )
+            git("-C", str(isolated), "config", "user.name", "Kyverno retarget probe")
+            git("-C", str(isolated), "config", "user.email", "retarget@users.noreply.github.com")
+            git("-C", str(isolated), "worktree", "add", "-q", "-d", str(wt), snapshot["head_sha"])
             worktree_added = True
             result = git(
                 "-c", "rebase.updateRefs=false", "-c", "rerere.enabled=false",
                 "-c", "commit.gpgSign=false", "-C", str(wt), "rebase",
-                "--no-autostash", "--onto", target_ref, merge_base,
+                "--no-autostash", "--onto", target_sha, merge_base,
                 check=False, timeout=300,
             )
             (evidence_dir / "rebase.log").write_text(result.stdout + result.stderr)
@@ -209,6 +223,7 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
                 row["probe"] = "CONFLICT" if row["conflict_files"] else "ERROR:rebase"
             else:
                 rebased = git("-C", str(wt), "rev-parse", "HEAD").stdout.strip()
+                git("fetch", "--no-write-fetch-head", "-q", str(isolated), rebased)
                 git("update-ref", prepared_ref, rebased, "0" * 40)
                 row["prepared_ref"] = prepared_ref
                 row["rebased_sha"] = rebased
@@ -220,7 +235,7 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
                 row["evidence"]["final_diff"] = f"{number}/final.diff"
                 (evidence_dir / "range-diff.txt").write_text(
                     git(
-                        "range-diff", "--no-color", "--no-ext-diff",
+                        "range-diff", "--no-color", "--no-ext-diff", "--no-textconv",
                         f"{merge_base}..{backup_ref}", f"{target_ref}..{rebased}",
                     ).stdout if count else "EMPTY: all commits dropped; inspect patch equivalence.\n"
                 )
@@ -233,7 +248,7 @@ def prepare_one(snapshot, repo, source_ref, target_ref, namespace, output, relea
         finally:
             if worktree_added:
                 # Removing this owned worktree also discards any in-progress rebase.
-                git("worktree", "remove", "--force", str(wt))
+                git("-C", str(isolated), "worktree", "remove", "--force", str(wt))
     row["evidence_sha256"] = {
         key: hashlib.sha256((output / path).read_bytes()).hexdigest()
         for key, path in row["evidence"].items()

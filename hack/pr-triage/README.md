@@ -29,6 +29,9 @@ Preparation pins the current `main` and `release-1.19` SHAs, checks captured PR
 state/head/base/metadata and the complete changed-file inventory, and probes
 every legacy candidate in an isolated worktree. Hooks, automatic ref updates,
 and rerere are disabled for these probes. It never runs PR code or tests.
+Checkout/rebase runs in a freshly initialized temporary repository, with system
+and global Git configuration disabled and inherited `GIT_*` variables removed.
+It does not inherit the operator clone's local filters, merge drivers or templates.
 
 The output contains:
 
