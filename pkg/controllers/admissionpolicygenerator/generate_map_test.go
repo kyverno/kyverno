@@ -348,7 +348,7 @@ func TestHandleMAPGeneration_SkipsUndeclaredExceptionReferences(t *testing.T) {
 	c := &controller{
 		client:             kubeClient,
 		kyvernoClient:      kyvernoClient,
-		discoveryClient:    dclient.NewEmptyFakeClient().Discovery,
+		discoveryClient:    dclient.NewEmptyFakeClient().Discovery(),
 		checker:            permissiveAuthChecker{},
 		mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
 		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
