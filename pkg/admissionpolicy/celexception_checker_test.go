@@ -271,6 +271,30 @@ func TestCanGenerateNativeMutatingPolicyExpressions(t *testing.T) {
 			}},
 		},
 		{
+			name: "target match condition referencing exception values is not supported",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				TargetMatchConditions: []admissionregistrationv1.MatchCondition{{Name: "target-scope", Expression: "exceptions.allowedValues.size() > 0"}},
+			}},
+		},
+		{
+			name: "target match condition without exception references is not supported",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				TargetMatchConditions: []admissionregistrationv1.MatchCondition{{Name: "target", Expression: "object.metadata.name == 'example'"}},
+			}},
+		},
+		{
+			name: "target resolver referencing exception values is not supported",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{Expression: "exceptions.allowedImages[0]"},
+			}},
+		},
+		{
+			name: "target constraints without an expression are not silently dropped",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				TargetMatchConstraints: &policiesv1beta1.TargetMatchConstraints{},
+			}},
+		},
+		{
 			name: "quoted string is not a variable reference",
 			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
 				Variables: []admissionregistrationv1.Variable{{Name: "literal", Expression: "'exceptions.allowedImages'"}},

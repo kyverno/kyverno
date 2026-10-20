@@ -70,6 +70,16 @@ func CanGenerateNativeMutatingPolicy(exceptions []policiesv1beta1.PolicyExceptio
 // without declaring an "exceptions" variable. Keep Kyverno's admission path
 // active rather than submitting an invalid or semantically different native MAP.
 func CanGenerateNativeMutatingPolicyExpressions(policy *policiesv1beta1.MutatingPolicy) (bool, string) {
+	// Kyverno evaluates target matching after resolving the target resource, but
+	// Kubernetes MutatingAdmissionPolicy has no equivalent target-selection phase.
+	// The native builders omit both fields; generating one would silently change
+	// which resources are mutated, even when no exception variables are referenced.
+	if len(policy.Spec.TargetMatchConditions) > 0 {
+		return false, "targetMatchConditions cannot be represented by a native MutatingAdmissionPolicy"
+	}
+	if policy.Spec.TargetMatchConstraints != nil {
+		return false, "targetMatchConstraints cannot be represented by a native MutatingAdmissionPolicy"
+	}
 	type expression struct {
 		source string
 		value  string
