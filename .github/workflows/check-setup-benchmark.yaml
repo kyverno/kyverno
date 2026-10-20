@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Go setup overhead benchmark
+
+permissions: {}
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+    paths:
+      - .github/workflows/check-setup-benchmark.yaml
+      - scripts/ci/setup_benchmark*
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  helpers:
+    name: Validate benchmark helpers
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test benchmark contracts
+        run: python3 -m unittest discover -s scripts/ci -p 'setup_benchmark_test.py' -v
+
+  benchmark:
+    name: Setup benchmark (${{ matrix.arm }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arm: baseline
+            cleanup: true
+            build-cache: true
+          - arm: no-cleanup
+            cleanup: false
+            build-cache: true
+          - arm: no-build-cache
+            cleanup: true
+            build-cache: false
+          - arm: minimal-setup
+            cleanup: false
+            build-cache: false
+    env:
+      EVIDENCE: setup-${{ matrix.arm }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Record initial disk and runner
+        run: python3 scripts/ci/setup_benchmark.py mark "$EVIDENCE" start
+      - name: Free disk space (control)
+        if: matrix.cleanup
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        with:
+          android: true
+          docker-images: false
+          dotnet: false
+          haskell: false
+          large-packages: false
+          swap-storage: false
+          tool-cache: false
+      - name: Record post-cleanup disk
+        run: python3 scripts/ci/setup_benchmark.py mark "$EVIDENCE" cleaned
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+        with:
+          gobuild-cache-prefix: ${{ matrix.build-cache && 'gobuild-unit-tests' || '' }}
+          gobuild-cache-include-run-id: 'true'
+      - name: Record ready disk
+        run: python3 scripts/ci/setup_benchmark.py mark "$EVIDENCE" ready
+      - name: Full race and coverage suite
+        run: |
+          python3 scripts/ci/setup_benchmark.py run "$EVIDENCE" -- make test-unit
+          cp coverage.out "$EVIDENCE/coverage.out"
+      - name: Record final disk
+        if: always()
+        run: df -h . /tmp
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: setup-${{ matrix.arm }}
+          path: setup-${{ matrix.arm }}/
+          retention-days: 7
+          if-no-files-found: error
+
+  compare:
+    name: Compare setup benchmark
+    if: always()
+    needs:
+      - helpers
+      - benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      HELPERS_RESULT: ${{ needs.helpers.result }}
+      BENCHMARK_RESULT: ${{ needs.benchmark.result }}
+    steps:
+      - name: Require complete successful benchmark
+        run: test "$HELPERS_RESULT" = success && test "$BENCHMARK_RESULT" = success
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Download all arms
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: setup-*
+          path: artifacts
+      - name: Compare timing, disk and complete coverage
+        run: python3 scripts/ci/setup_benchmark.py report artifacts | tee "$GITHUB_STEP_SUMMARY"
+      - name: Upload comparison
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: setup-comparison
+          path: artifacts/comparison.json
+          retention-days: 7
+          if-no-files-found: error
