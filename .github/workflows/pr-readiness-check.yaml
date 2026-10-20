@@ -273,10 +273,9 @@ jobs:
             number=$(jq -r '.number' pr.json)
             author=$(jq -r '.author.login' pr.json)
             findings=$(jq -c -f readiness-checks.jq pr.json)
-            # e2e_gate is never something the author can fix from this PR — it's reported as an FYI comment
-            # below, not as a reason to withhold ready-for-review.
-            blocking=$(jq -c '[.[] | select(.id != "e2e_gate")]' <<< "$findings")
-            e2e_finding=$(jq -c '[.[] | select(.id == "e2e_gate")]' <<< "$findings")
+            # infra_checks aren't the author's to fix — FYI comment below, not a reason to withhold ready-for-review.
+            blocking=$(jq -c '[.[] | select(.id != "infra_checks")]' <<< "$findings")
+            infra_finding=$(jq -c '[.[] | select(.id == "infra_checks")]' <<< "$findings")
             has_label=$(jq -r '[.labels.nodes[].name] | any(. == "needs-author-action")' pr.json)
             has_ready_label=$(jq -r '[.labels.nodes[].name] | any(. == "ready-for-review")' pr.json)
             has_approval_label=$(jq -r '[.labels.nodes[].name] | any(. == "workflow-approval-required")' pr.json)
@@ -330,12 +329,14 @@ jobs:
                 [[ "$has_label" == "true" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --remove-label "needs-author-action"
                 [[ "$has_ready_label" == "false" ]] && gh pr edit "$number" --repo "${GITHUB_REPOSITORY}" --add-label "ready-for-review"
 
-                if [[ "$e2e_finding" != "[]" ]]; then
-                  e2e_marker="<!-- pr-readiness-check-e2e -->"
+                if [[ "$infra_finding" != "[]" ]]; then
+                  # Marker hashes the message, so a different red check later gets its own comment.
+                  infra_message=$(jq -r '.[0].message' <<< "$infra_finding")
+                  infra_marker="<!-- pr-readiness-check-infra: $(printf '%s' "$infra_message" | sha1sum | cut -c1-12) -->"
                   gh api "repos/${GITHUB_REPOSITORY}/issues/$number/comments" --paginate --jq '.[].body' > comments.txt
-                  if ! grep -qF -- "$e2e_marker" comments.txt; then
-                    gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$e2e_marker
-          Everything else here looks ready — the only red check is the E2E gate or its status-sync job. Either way it's a base-branch or CI-infrastructure issue, not something in this PR. No action needed on your end."
+                  if ! grep -qF -- "$infra_marker" comments.txt; then
+                    gh pr comment "$number" --repo "${GITHUB_REPOSITORY}" --body "$infra_marker
+          Everything else here looks ready, so this is labelled \`ready-for-review\`. ${infra_message}"
                   fi
                 fi
               fi

@@ -2,8 +2,11 @@ package imageverify
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -48,6 +51,11 @@ type IvFuncs struct {
 	verifications   *ImageVerificationResults
 	diagnostics     *verificationDiagnostics
 
+	// requestCtx is the admission request's context. CEL function bindings only
+	// receive their arguments, so the per-request copy made by
+	// NewRuntimeForPolicy carries it.
+	requestCtx context.Context //nolint:containedctx
+
 	// pendingIntotoRestores holds intoto payloads read back from the cache on
 	// a verifyAttestationSignatures() hit, keyed by "<image>\x00<attestation>".
 	// Applying them to ImageData (which needs an imgCtx.Get()) is deferred
@@ -80,8 +88,9 @@ type Runtime struct {
 // state to the copy. This is needed because the same compiled policy can be used
 // by two admission requests, and those shouldn't replace stateful fields in IvFuncs
 // that belong to eachother
-func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
+func NewRuntimeForPolicy(ctx context.Context, f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
 	newFuncs := *f
+	newFuncs.requestCtx = ctx
 	newFuncs.imgCtx = imgCtx
 	newFuncs.ivCache = cache
 	newFuncs.verifications = results
@@ -89,6 +98,24 @@ func NewRuntimeForPolicy(f *IvFuncs, imgCtx imagedataloader.ImageContext, cache 
 	newFuncs.diagnostics = &verificationDiagnostics{}
 
 	return Runtime{functions: &newFuncs}
+}
+
+// requestContext returns the admission request's context, so registry and
+// verification work stops when the request is cancelled or times out.
+func (f *IvFuncs) requestContext() context.Context {
+	if f.requestCtx != nil {
+		return f.requestCtx
+	}
+	return context.Background()
+}
+
+// WithRequestContext returns opts with remote.WithContext(ctx) appended last.
+// go-containerregistry applies options in order, so this overrides the context
+// that registryclient.GlobalOptsOrDefault puts into the options when a policy is
+// compiled. The slice is clipped first because compiled policies share their
+// options across admission requests.
+func WithRequestContext(ctx context.Context, opts []remote.Option) []remote.Option {
+	return append(slices.Clip(opts), remote.WithContext(ctx))
 }
 
 func NewIvFuncs(
@@ -120,21 +147,34 @@ func NewIvFuncs(
 	}
 }
 
-// build a cache key from a CEL function name, a qualifier (attestation name in practice)
-// and the sorted group of attestors
-func attestorCacheRule(fn string, qualifier string, attestors []v1beta1.Attestor) string {
-	names := make([]string, 0, len(attestors))
+// attestorCacheRule builds a cache key from a CEL function name, a qualifier
+// (the attestation name in practice) and the group of attestors.
+//
+// The attestors are hashed whole rather than by name. An attestor's name is a
+// label chosen by the policy author, while its key, certificate and trusted
+// root are resolved per request from CEL expressions, so keying on the name
+// alone would serve one request's verdict to another that resolved different
+// material under the same name. Returns an error if an attestor cannot be
+// encoded; the caller must then skip the cache rather than key on a partial
+// rule.
+func attestorCacheRule(fn string, qualifier string, attestors []v1beta1.Attestor) (string, error) {
+	digests := make([]string, 0, len(attestors))
 	for _, attestor := range attestors {
-		names = append(names, attestor.GetKey())
+		encoded, err := json.Marshal(attestor)
+		if err != nil {
+			return "", fmt.Errorf("failed to encode attestor %q: %w", attestor.GetKey(), err)
+		}
+		sum := sha256.Sum256(encoded)
+		digests = append(digests, hex.EncodeToString(sum[:]))
 	}
-	sort.Strings(names)
+	sort.Strings(digests)
 	var b strings.Builder
 	writeCacheKeyPart(&b, fn)
 	writeCacheKeyPart(&b, qualifier)
-	for _, name := range names {
-		writeCacheKeyPart(&b, name)
+	for _, digest := range digests {
+		writeCacheKeyPart(&b, digest)
 	}
-	return b.String()
+	return b.String(), nil
 }
 
 func writeCacheKeyPart(b *strings.Builder, part string) {
@@ -147,8 +187,25 @@ func pendingKey(image, attestation string) string {
 	return image + "\x00" + attestation
 }
 
+// attestorsHaveUnbindableKeyMaterial reports whether any attestor verifies with
+// key material the cache rule cannot bind. A KMS url names a key that is
+// fetched during verification, after the rule is derived, so rotating what sits
+// behind the url leaves the rule unchanged and the old verdict live. Inline and
+// expression-derived keys are materialized before hashing and so are bound.
+func attestorsHaveUnbindableKeyMaterial(attestors []v1beta1.Attestor) bool {
+	for _, attestor := range attestors {
+		if attestor.Cosign == nil || attestor.Cosign.Key == nil {
+			continue
+		}
+		if attestor.Cosign.Key.KMS != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attestors ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestors, err := utils.ConvertToNative[[]v1beta1.Attestor](attestors); err != nil {
@@ -164,8 +221,15 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 		f.logger.V(4).Info("verifyImageSignatures called", "image", image, "attestorCount", len(attestors))
 
 		// create a rule with the given attestors
-		cacheRule := attestorCacheRule(signatureCacheRule, "", attestors)
-		if f.ivCache != nil {
+		cacheRule, cacheRuleErr := attestorCacheRule(signatureCacheRule, "", attestors)
+		if cacheRuleErr != nil {
+			f.logger.Error(cacheRuleErr, "caching disabled: failed to derive cache rule", "image", image)
+		}
+		cacheable := cacheRuleErr == nil && !attestorsHaveUnbindableKeyMaterial(attestors)
+		if cacheRuleErr == nil && !cacheable {
+			f.logger.V(2).Info("caching disabled: attestor verifies with key material the cache rule cannot bind", "image", image)
+		}
+		if f.ivCache != nil && cacheable {
 			if found, err := f.ivCache.Get(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
@@ -177,7 +241,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 
 		// Fetch image data once before the loop: the image reference and
 		// credentials are the same for every attestor.
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -202,6 +266,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 				}
 				f.logger.V(4).Info("verifying image signature", "image", image, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyImageSignature(ctx, img, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, "", err)
 					f.logger.V(6).Info("image signature verification failed", "image", image, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("image signature verified", "image", image, "attestor", attestor.Name, "type", "notary")
@@ -210,7 +275,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 			}
 		}
 		f.logger.V(6).Info("verifyImageSignatures returning", "image", image, "verifiedCount", count)
-		if f.ivCache != nil && len(attestors) > 0 && count == len(attestors) {
+		if f.ivCache != nil && cacheable && len(attestors) > 0 && count == len(attestors) {
 			if _, err := f.ivCache.Set(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache set", "image", image)
 			}
@@ -223,7 +288,7 @@ func (f *IvFuncs) verify_image_signature_string_stringarray(image ref.Val, attes
 }
 
 func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if len(args) != 3 {
 		return types.NewErr("function usage: <image> <attestation> <attestor list>")
 	}
@@ -246,8 +311,15 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
-		cacheRule := attestorCacheRule(attestationCacheRule, attestation, attestors)
-		if f.ivCache != nil {
+		cacheRule, cacheRuleErr := attestorCacheRule(attestationCacheRule, attestation, attestors)
+		if cacheRuleErr != nil {
+			f.logger.Error(cacheRuleErr, "caching disabled: failed to derive cache rule", "image", image)
+		}
+		cacheable := cacheRuleErr == nil && !attestorsHaveUnbindableKeyMaterial(attestors)
+		if cacheRuleErr == nil && !cacheable {
+			f.logger.V(2).Info("caching disabled: attestor verifies with key material the cache rule cannot bind", "image", image)
+		}
+		if f.ivCache != nil && cacheable {
 			if found, payloads, err := f.ivCache.GetWithPayload(ctx, f.policy, cacheRule, image, true); err != nil {
 				f.logger.Error(err, "error occurred during image verify cache get", "image", image)
 			} else if found {
@@ -274,7 +346,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 			}
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -302,6 +374,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 				}
 				f.logger.V(4).Info("verifying attestation signature", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
 				if err := f.notaryVerifier.VerifyAttestationSignature(ctx, img, attest.Referrer.Type, certs, tsaCerts); err != nil {
+					f.diagnostics.record(image, attestor.Name, attestation, err)
 					f.logger.V(6).Info("attestation signature verification failed", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary", "error", err)
 				} else {
 					f.logger.V(4).Info("attestation signature verified", "image", image, "attestation", attestation, "attestor", attestor.Name, "type", "notary")
@@ -310,7 +383,7 @@ func (f *IvFuncs) verify_image_attestations_string_string_stringarray(args ...re
 			}
 		}
 		f.logger.V(6).Info("verifyAttestationSignatures returning", "image", image, "attestation", attestation, "verifiedCount", count)
-		if f.ivCache != nil && len(attestors) > 0 && count == len(attestors) {
+		if f.ivCache != nil && cacheable && len(attestors) > 0 && count == len(attestors) {
 			// The write stays eager: img is already in memory (fetched
 			// above for verification), so extracting the payload here costs
 			// no extra I/O -- unlike the read-side restore, which does.
@@ -361,7 +434,7 @@ func intotoPayloadsFromImage(img *imagedataloader.ImageData, attest v1beta1.Atte
 }
 
 func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else if attestation, err := utils.ConvertToNative[string](attestation); err != nil {
@@ -371,7 +444,7 @@ func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 		if !ok {
 			return types.NewErr("attestation not found in policy: %s", attestation)
 		}
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}
@@ -397,11 +470,11 @@ func (f *IvFuncs) payload_string_string(image ref.Val, attestation ref.Val) ref.
 }
 
 func (f *IvFuncs) get_image_data_string(image ref.Val) ref.Val {
-	ctx := context.TODO()
+	ctx := f.requestContext()
 	if image, err := utils.ConvertToNative[string](image); err != nil {
 		return types.WrapErr(err)
 	} else {
-		img, err := f.imgCtx.Get(ctx, image, f.authOpts, f.nameOpts)
+		img, err := f.imgCtx.Get(ctx, image, WithRequestContext(ctx, f.authOpts), f.nameOpts)
 		if err != nil {
 			return types.NewErr("failed to get imagedata: %v", err)
 		}

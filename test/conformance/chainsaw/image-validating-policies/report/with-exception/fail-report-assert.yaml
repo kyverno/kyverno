@@ -8,7 +8,8 @@ metadata:
     kind: Deployment
     name: bad-deployment
 results:
-- message: failed to verify image with notary cert
+# the policy's message, then why Notary rejected the image
+- "(starts_with(message, 'failed to verify image with notary cert; verification details: '))": true
   policy: ivpol-report-background-sample
   result: fail
   rule: ivpol-report-background-sample

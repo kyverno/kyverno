@@ -11,6 +11,9 @@ import (
 // `metadata.namespace` field, which would otherwise break match conditions.
 var protectedSuffixes = [][]byte{
 	[]byte(".namespace"),
+	[]byte("['namespace']"),
+	[]byte("[\"namespace\"]"),
+	[]byte("[\\\"namespace\\\"]"), // Handle JSON-escaped namespace paths
 }
 
 type Replacement struct {
@@ -18,6 +21,8 @@ type Replacement struct {
 	To   string
 }
 
+// Apply rewrites the configured field paths in the given data,
+// replacing both the "object." and "oldObject." prefixes.
 func (r *Replacement) Apply(data []byte) []byte {
 	data = replace(data, []byte("object."+r.From), []byte("object."+r.To))
 	data = replace(data, []byte("oldObject."+r.From), []byte("oldObject."+r.To))
@@ -92,9 +97,148 @@ func isIdentifierByte(b byte) bool {
 		(b >= '0' && b <= '9')
 }
 
+// Apply sequentially applies a list of replacements to the given data.
 func Apply(data []byte, replacements ...Replacement) []byte {
 	for _, replacement := range replacements {
 		data = replacement.Apply(data)
 	}
 	return data
+}
+
+// ApplyCEL sequentially applies a list of replacements to raw CEL strings,
+// skipping replacements inside string literals.
+func ApplyCEL(data []byte, replacements ...Replacement) []byte {
+	for _, replacement := range replacements {
+		// dot syntax
+		data = replaceCEL(data, []byte("object."+replacement.From), []byte("object."+replacement.To))
+		data = replaceCEL(data, []byte("oldObject."+replacement.From), []byte("oldObject."+replacement.To))
+
+		// equivalent selector forms (bracket syntax)
+		data = replaceCEL(data, []byte("object['"+replacement.From+"']"), []byte("object."+replacement.To))
+		data = replaceCEL(data, []byte("oldObject['"+replacement.From+"']"), []byte("oldObject."+replacement.To))
+
+		data = replaceCEL(data, []byte("object[\""+replacement.From+"\"]"), []byte("object."+replacement.To))
+		data = replaceCEL(data, []byte("oldObject[\""+replacement.From+"\"]"), []byte("oldObject."+replacement.To))
+	}
+	return data
+}
+
+// replaceCEL is a syntax-aware replacer that skips CEL string literals.
+func replaceCEL(data, from, to []byte) []byte {
+	if len(from) == 0 || bytes.Equal(from, to) {
+		return data
+	}
+	idx := bytes.Index(data, from)
+	if idx < 0 {
+		return data
+	}
+
+	size := len(data)
+	if len(to) > len(from) {
+		size += bytes.Count(data, from) * (len(to) - len(from))
+	}
+	var buf bytes.Buffer
+	buf.Grow(size)
+
+	inString := false
+	var stringQuote string
+	escaped := false
+
+	for i := 0; i < len(data); {
+		if !inString {
+			if bytes.HasPrefix(data[i:], from) {
+				validBoundary := false
+				if i == 0 {
+					validBoundary = true
+				} else if data[i-1] == '.' {
+					if i >= 8 && bytes.Equal(data[i-8:i], []byte("request.")) {
+						if i == 8 || (!isIdentifierByte(data[i-9]) && data[i-9] != '.') {
+							validBoundary = true
+						}
+					}
+				} else if !isIdentifierByte(data[i-1]) {
+					validBoundary = true
+				}
+
+				if validBoundary {
+					rest := data[i+len(from):]
+					if len(rest) == 0 || !isIdentifierByte(rest[0]) {
+						if isProtected(rest) {
+							buf.Write(from)
+						} else {
+							buf.Write(to)
+						}
+						i += len(from)
+						continue
+					}
+				}
+			}
+
+			// Check for string start
+			if bytes.HasPrefix(data[i:], []byte("'''")) {
+				inString = true
+				stringQuote = "'''"
+				buf.Write(data[i : i+3])
+				i += 3
+				continue
+			} else if bytes.HasPrefix(data[i:], []byte("\"\"\"")) {
+				inString = true
+				stringQuote = "\"\"\""
+				buf.Write(data[i : i+3])
+				i += 3
+				continue
+			} else if bytes.HasPrefix(data[i:], []byte("r'")) || bytes.HasPrefix(data[i:], []byte("R'")) {
+				inString = true
+				stringQuote = "r'"
+				buf.Write(data[i : i+2])
+				i += 2
+				continue
+			} else if bytes.HasPrefix(data[i:], []byte("r\"")) || bytes.HasPrefix(data[i:], []byte("R\"")) {
+				inString = true
+				stringQuote = "r\""
+				buf.Write(data[i : i+2])
+				i += 2
+				continue
+			} else if data[i] == '\'' {
+				inString = true
+				stringQuote = "'"
+			} else if data[i] == '"' {
+				inString = true
+				stringQuote = "\""
+			} else if data[i] == '`' {
+				inString = true
+				stringQuote = "`"
+			}
+		} else {
+			// Check for string end
+			if stringQuote == "'''" && bytes.HasPrefix(data[i:], []byte("'''")) && !escaped {
+				inString = false
+				buf.Write(data[i : i+3])
+				i += 3
+				continue
+			} else if stringQuote == "\"\"\"" && bytes.HasPrefix(data[i:], []byte("\"\"\"")) && !escaped {
+				inString = false
+				buf.Write(data[i : i+3])
+				i += 3
+				continue
+			} else if (stringQuote == "'" || stringQuote == "r'") && data[i] == '\'' && !escaped {
+				inString = false
+			} else if (stringQuote == "\"" || stringQuote == "r\"") && data[i] == '"' && !escaped {
+				inString = false
+			} else if stringQuote == "`" && data[i] == '`' {
+				inString = false
+			}
+
+			// Manage escapes
+			if data[i] == '\\' && stringQuote != "r'" && stringQuote != "r\"" && stringQuote != "`" {
+				escaped = !escaped
+			} else {
+				escaped = false
+			}
+		}
+
+		buf.WriteByte(data[i])
+		i++
+	}
+	return buf.Bytes()
 }
