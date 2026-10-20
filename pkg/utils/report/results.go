@@ -118,7 +118,7 @@ func ToPolicyReportResult(pol engineapi.GenericPolicy, ruleResult engineapi.Rule
 		Scored:      annotations[kyverno.AnnotationPolicyScored] != "false",
 		Timestamp: metav1.Timestamp{
 			Seconds: now.Unix(),
-			Nanos:   int32(now.Nanosecond()),
+			Nanos:   int32(now.Nanosecond()), //nolint:gosec // Nanosecond is in [0, 1e9), which fits in int32.
 		},
 		Category: annotations[kyverno.AnnotationPolicyCategory],
 		Severity: SeverityFromString(annotations[kyverno.AnnotationPolicySeverity]),
