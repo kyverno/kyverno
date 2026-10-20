@@ -301,3 +301,59 @@ func TestNewRetainsUpdatesDuringInitialProjection(t *testing.T) {
 	}, 10*time.Second, 10*time.Millisecond, "update during startup must reach the projection worker")
 	require.GreaterOrEqual(t, query.calls.Load(), int32(2))
 }
+
+func TestNewWithChangesNilChannelProcessesUpdates(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	query := &startupProjectionQuery{
+		initialStarted:  make(chan struct{}),
+		initialVersion:  make(chan string, 1),
+		continueInitial: make(chan struct{}),
+	}
+	query.release()
+
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	resource := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "ConfigMap",
+		"metadata": map[string]interface{}{
+			"name":      "projection-nil-channel",
+			"namespace": "default",
+		},
+		"data": map[string]interface{}{"version": "before"},
+	}}
+	client := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{gvr: "ConfigMapList"},
+		resource,
+	)
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "projection-nil-channel"},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			Projections: []kyvernov2beta1.GlobalContextEntryProjection{
+				{Name: "version", JMESPath: "[].data.version"},
+			},
+		},
+	}
+
+	got, err := newWithChanges(ctx, gce, &mockEventGen{}, client, logr.Discard(), gvr, "default", startupJMESPath{query: query}, nil)
+	require.NoError(t, err)
+	defer got.Stop()
+	require.Equal(t, "before", <-query.initialVersion)
+
+	value, err := got.Get("version")
+	require.NoError(t, err)
+	require.Equal(t, "before", value)
+
+	updated := resource.DeepCopy()
+	updated.Object["data"] = map[string]interface{}{"version": "after"}
+	_, err = client.Resource(gvr).Namespace("default").Update(ctx, updated, metav1.UpdateOptions{})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		value, err := got.Get("version")
+		return err == nil && value == "after"
+	}, 10*time.Second, 10*time.Millisecond, "nil notification channel must not prevent projection refresh")
+	require.GreaterOrEqual(t, query.calls.Load(), int32(2))
+}
