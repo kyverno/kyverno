@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sync-update-trigger-in-place
+  namespace: sync-update-trigger-in-place
+data:
+  QUOTA: "10"

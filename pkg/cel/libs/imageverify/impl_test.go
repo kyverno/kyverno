@@ -1,12 +1,25 @@
 package imageverify
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/common/types/ref"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/cosign"
+	"github.com/kyverno/kyverno/pkg/image/verifiers/ivpol/notary"
 	"github.com/kyverno/sdk/extensions/imagedataloader"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -56,12 +69,12 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
-	imgCtx, err := imagedataloader.NewImageContext(nil)
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil),
+		Lib(),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -86,6 +99,7 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 	}
 
 	data := map[string]any{
+		RuntimeKey:  NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
@@ -94,12 +108,12 @@ func Test_impl_verify_image_signature_string_stringarray(t *testing.T) {
 }
 
 func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T) {
-	imgCtx, err := imagedataloader.NewImageContext(nil)
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
 	assert.NoError(t, err)
 
 	options := []cel.EnvOption{
 		cel.Variable("attestors", cel.MapType(cel.StringType, cel.DynType)),
-		Lib(nil, imgCtx, ivpol, nil),
+		Lib(),
 	}
 	env, err := cel.NewEnv(options...)
 	assert.NoError(t, err)
@@ -125,9 +139,821 @@ func Test_impl_verify_image_attestations_string_string_stringarray(t *testing.T)
 	}
 
 	data := map[string]any{
+		RuntimeKey:  NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults()),
 		"attestors": att,
 	}
 	out, _, err := prog.Eval(data)
 	assert.NoError(t, err)
 	assert.Equal(t, out.Value(), int64(1))
+}
+
+func Test_impl_verify_image_signature_cache_hit(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "notary",
+			Notary: &v1beta1.Notary{
+				Certs: &v1beta1.StringOrExpression{
+					Value: cert,
+				},
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "cache-policy",
+			UID:             "test-uid",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors: attestors,
+		},
+	}
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	// imgCtx is left nil on purpose: if the cache is bypassed, fetching image data errors
+	// out, and the test fails, proving a cache hit skips the registry round trip entirely.
+	f := &IvFuncs{
+		Adapter:        types.DefaultTypeAdapter,
+		policy:         pol,
+		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier: notary.NewVerifier(logr.Discard()),
+		ivCache:        ivCache,
+	}
+
+	cacheRule, _ := attestorCacheRule(signatureCacheRule, "", attestors)
+	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	out2 := f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+	assert.Equal(t, int64(len(attestors)), out2.Value())
+}
+
+func Test_impl_verify_image_signature_cache_miss_does_not_cache_failure(t *testing.T) {
+	// a certificate that doesn't match the image's actual signer, so verification fails
+	// while the image fetch itself still succeeds against the real registry.
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "notary",
+			Notary: &v1beta1.Notary{
+				Certs: &v1beta1.StringOrExpression{
+					Value: "not-a-valid-certificate",
+				},
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "cache-policy-miss",
+			UID:             "test-uid-miss",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors: attestors,
+		},
+	}
+	// reuse the same signed image as the other tests: the fetch succeeds, but the bogus
+	// cert above means verification never passes, so the count never reaches len(attestors)
+	// and the result must not be cached. Digest-pinned so the absence of an entry is
+	// attributable to the failed verification and not to the cache refusing a bare tag.
+	image := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	f := &IvFuncs{
+		Adapter:        types.DefaultTypeAdapter,
+		imgCtx:         imgCtx,
+		policy:         pol,
+		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier: notary.NewVerifier(logr.Discard()),
+		ivCache:        ivCache,
+	}
+
+	out := f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+	count, ok := out.Value().(int64)
+	assert.True(t, ok, "expected an integer result, got an error instead: %v", out.Value())
+	assert.Less(t, count, int64(len(attestors)))
+
+	cacheRule, _ := attestorCacheRule(signatureCacheRule, "", attestors)
+	found, err := ivCache.Get(context.TODO(), pol, cacheRule, image, true)
+	assert.NoError(t, err)
+	assert.False(t, found, "a partial or failed verification must never be cached")
+}
+
+// Demonstrates that a verifyAttestationSignatures cache hit restores Cosign
+// verifiedIntotoPayloads onto a fresh ImageData so extractPayload still works.
+func Test_impl_verify_attestation_cache_hit_restores_payload(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "github-keyless-attestation",
+			Cosign: &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  "https://token.actions.githubusercontent.com",
+							Subject: "https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main",
+						},
+					},
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:               "https://rekor.sigstore.dev",
+					InsecureIgnoreSCT: true,
+				},
+			},
+		},
+	}
+	attestations := []v1beta1.Attestation{
+		{
+			Name: "slsa",
+			InToto: &v1beta1.InToto{
+				Type: "https://slsa.dev/provenance/v1",
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "attestation-cache-policy",
+			UID:             "test-uid-attestation-cache",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors:    attestors,
+			Attestations: attestations,
+		},
+	}
+	// Cosign/InToto image — Referrer/Notary GetPayload falls back to the registry and
+	// would not reproduce the "intoto attestation payload cannot be fetch" error.
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
+	attestationName := "slsa"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	f := &IvFuncs{
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
+	}
+
+	// 1. Cache miss: real Cosign verification populates verifiedIntotoPayloads and Sets the ivCache.
+	out := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.False(t, types.IsError(out), "cache-miss verification should not error: %v", out)
+	assert.Equal(t, int64(len(attestors)), out.Value())
+
+	// 2. extractPayload succeeds on the same ImageData that verification just populated.
+	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
+	assert.False(t, types.IsError(payload), "extractPayload should succeed after a cache miss: %v", payload)
+	missPayload := payload.Value()
+	assert.NotNil(t, missPayload)
+
+	// 3. New admission request: fresh imgCtx, same process-lifetime ivCache (already Set by step 1).
+	imgCtx2, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+	f.imgCtx = imgCtx2
+	f.verifications = NewImageVerificationResults()
+
+	// 4. Cache hit: restores verifiedIntotoPayloads onto the fresh ImageData from ivCache.
+	out2 := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.False(t, types.IsError(out2), "cache-hit verification should not error: %v", out2)
+	assert.Equal(t, int64(len(attestors)), out2.Value())
+
+	// 5. extractPayload after cache hit must match the miss-path payload exactly
+	// (proves GetPayload→json.Marshal→AddVerifiedIntotoPayloads→GetPayload is lossless).
+	payload2 := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
+	assert.False(t, types.IsError(payload2), "extractPayload should succeed after attestation cache hit: %v", payload2)
+	hitPayload := payload2.Value()
+	assert.NotNil(t, hitPayload)
+	assert.Equal(t, missPayload, hitPayload, "cache-restored payload must deeply equal the fresh-verification payload")
+}
+
+// Attestation verify-only (no extractPayload): miss then hit must both succeed with the
+// SetWithPayload/GetWithPayload plumbing — payload caching must not break verify-only use.
+func Test_impl_verify_attestation_cache_hit_without_extract_payload(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "github-keyless-attestation",
+			Cosign: &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  "https://token.actions.githubusercontent.com",
+							Subject: "https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main",
+						},
+					},
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:               "https://rekor.sigstore.dev",
+					InsecureIgnoreSCT: true,
+				},
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "attestation-verify-only-policy",
+			UID:             "test-uid-attestation-verify-only",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors: attestors,
+			Attestations: []v1beta1.Attestation{
+				{
+					Name: "slsa",
+					InToto: &v1beta1.InToto{
+						Type: "https://slsa.dev/provenance/v1",
+					},
+				},
+			},
+		},
+	}
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
+	attestationName := "slsa"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	f := &IvFuncs{
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
+	}
+
+	out := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.False(t, types.IsError(out), "cache-miss verification should not error: %v", out)
+	assert.Equal(t, int64(len(attestors)), out.Value())
+
+	imgCtx2, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+	f.imgCtx = imgCtx2
+	f.verifications = NewImageVerificationResults()
+
+	out2 := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.False(t, types.IsError(out2), "cache-hit verification should not error: %v", out2)
+	assert.Equal(t, int64(len(attestors)), out2.Value())
+}
+
+// Two intoto attestation types on the same image: each cache entry is keyed by attestation
+// name and stores a predicateType→payload map. After a fresh imgCtx, both cache hits must
+// restore the correct payload with no cross-attestation leak/overwrite.
+//
+// This verifies cache-KEY isolation (generateKey/cacheRule differs per attestation name +
+// attestor set), not within-map key collision: intotoPayloadsFromImage only ever returns a
+// single-key map {attest.InToto.Type: bytes}, and production SetWithPayload callers never
+// write a multi-key payload map today.
+func Test_impl_verify_attestation_cache_hit_two_intoto_types_isolated(t *testing.T) {
+	attestorsSlsa := []v1beta1.Attestor{
+		{
+			Name: "github-keyless-slsa",
+			Cosign: &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  "https://token.actions.githubusercontent.com",
+							Subject: "https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main",
+						},
+					},
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:               "https://rekor.sigstore.dev",
+					InsecureIgnoreSCT: true,
+				},
+			},
+		},
+	}
+	// Distinct attestor name so attestorCacheRule differs from the SLSA combo.
+	attestorsCustom := []v1beta1.Attestor{
+		{
+			Name: "github-keyless-custom",
+			Cosign: &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  "https://token.actions.githubusercontent.com",
+							Subject: "https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main",
+						},
+					},
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:               "https://rekor.sigstore.dev",
+					InsecureIgnoreSCT: true,
+				},
+			},
+		},
+	}
+	const (
+		slsaType   = "https://slsa.dev/provenance/v1"
+		customType = "https://example.com/attestation/custom/v1"
+		slsaName   = "slsa"
+		customName = "custom"
+	)
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "attestation-two-types-policy",
+			UID:             "test-uid-attestation-two-types",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors: append(append([]v1beta1.Attestor{}, attestorsSlsa...), attestorsCustom...),
+			Attestations: []v1beta1.Attestation{
+				{Name: slsaName, InToto: &v1beta1.InToto{Type: slsaType}},
+				{Name: customName, InToto: &v1beta1.InToto{Type: customType}},
+			},
+		},
+	}
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	f := &IvFuncs{
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
+	}
+
+	// Miss path for SLSA: real Cosign verify + SetWithPayload.
+	outSlsa := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(slsaName),
+		f.NativeToValue(attestorsSlsa),
+	)
+	assert.False(t, types.IsError(outSlsa), "slsa cache-miss verification should not error: %v", outSlsa)
+	assert.Equal(t, int64(len(attestorsSlsa)), outSlsa.Value())
+
+	slsaMiss := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(slsaName))
+	assert.False(t, types.IsError(slsaMiss), "slsa extractPayload after miss: %v", slsaMiss)
+	slsaMissPayload := slsaMiss.Value()
+	assert.NotNil(t, slsaMissPayload)
+
+	// The public test image only carries SLSA provenance. Seed the second attestation's
+	// cache entry (same key shape verify would write) so we can exercise two hit restores
+	// without requiring a second signed predicate type on the image.
+	customPayloadObj := map[string]any{
+		"marker":        "custom-attestation-payload",
+		"predicateType": customType,
+	}
+	customPayloadBytes, err := json.Marshal(customPayloadObj)
+	assert.NoError(t, err)
+	customRule, _ := attestorCacheRule(attestationCacheRule, customName, attestorsCustom)
+	stored, err := ivCache.SetWithPayload(context.TODO(), pol, customRule, image, true, map[string][]byte{
+		customType: customPayloadBytes,
+	})
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	// Fresh request: same ivCache, empty ImageData.
+	imgCtx2, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+	f.imgCtx = imgCtx2
+	f.verifications = NewImageVerificationResults()
+
+	outSlsaHit := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(slsaName),
+		f.NativeToValue(attestorsSlsa),
+	)
+	assert.False(t, types.IsError(outSlsaHit), "slsa cache-hit verification should not error: %v", outSlsaHit)
+	assert.Equal(t, int64(len(attestorsSlsa)), outSlsaHit.Value())
+
+	outCustomHit := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(customName),
+		f.NativeToValue(attestorsCustom),
+	)
+	assert.False(t, types.IsError(outCustomHit), "custom cache-hit verification should not error: %v", outCustomHit)
+	assert.Equal(t, int64(len(attestorsCustom)), outCustomHit.Value())
+
+	slsaHit := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(slsaName))
+	assert.False(t, types.IsError(slsaHit), "slsa extractPayload after hit: %v", slsaHit)
+	slsaHitPayload := slsaHit.Value()
+	assert.Equal(t, slsaMissPayload, slsaHitPayload, "slsa restored payload must match miss-path payload")
+
+	customHit := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(customName))
+	assert.False(t, types.IsError(customHit), "custom extractPayload after hit: %v", customHit)
+	customHitPayload := customHit.Value()
+	assert.Equal(t, customPayloadObj, customHitPayload, "custom restored payload must match seeded payload")
+
+	assert.NotEqual(t, slsaHitPayload, customHitPayload, "distinct attestation types must not share or overwrite payloads")
+}
+
+// Demonstrates that a degraded cache entry -- the cache reports "found" but
+// carries no payload to restore, e.g. from a TTL-window entry predating the
+// write-side fix that now skips caching on failed payload capture -- falls
+// back to full re-verification instead of hard-failing the CEL expression.
+// This is the fix requested in PR review for "cache-hit restore can deny
+// valid admissions": missing/degraded payloads must be treated as a cache
+// miss, not an error.
+func Test_impl_verify_attestation_cache_hit_missing_payload_falls_back_to_reverify(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name: "github-keyless-attestation",
+			Cosign: &v1beta1.Cosign{
+				Keyless: &v1beta1.Keyless{
+					Identities: []v1beta1.Identity{
+						{
+							Issuer:  "https://token.actions.githubusercontent.com",
+							Subject: "https://github.com/kyverno/test-images/.github/workflows/cosign.yml@refs/heads/main",
+						},
+					},
+				},
+				CTLog: &v1beta1.CTLog{
+					URL:               "https://rekor.sigstore.dev",
+					InsecureIgnoreSCT: true,
+				},
+			},
+		},
+	}
+	attestations := []v1beta1.Attestation{
+		{
+			Name: "slsa",
+			InToto: &v1beta1.InToto{
+				Type: "https://slsa.dev/provenance/v1",
+			},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "attestation-degraded-cache-policy",
+			UID:             "test-uid-attestation-degraded-cache",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{
+			Attestors:    attestors,
+			Attestations: attestations,
+		},
+	}
+	// Digest-pinned: the process-local cache only stores entries for digest-bound
+	// references now, so a tag-only ref here would always miss and this test would
+	// no longer exercise the cache-hit path it is named for.
+	image := "ghcr.io/kyverno/test-images/cosign:github-attestation@sha256:d83c5ae586a555ce51bcd693529193548a34b0242ef07e8415b95da3e1302371"
+	attestationName := "slsa"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	f := &IvFuncs{
+		Adapter:               types.DefaultTypeAdapter,
+		imgCtx:                imgCtx,
+		policy:                pol,
+		attestationList:       attestationMap(pol),
+		cosignVerifier:        cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier:        notary.NewVerifier(logr.Discard()),
+		ivCache:               ivCache,
+		verifications:         NewImageVerificationResults(),
+		pendingIntotoRestores: map[string]map[string][]byte{},
+	}
+
+	// Seed a degraded (presence-only) cache entry directly, simulating what a
+	// failed payload capture used to leave behind before the write-side fix.
+	// This exercises the READ-side fallback independent of the write-side skip.
+	cacheRule, _ := attestorCacheRule(attestationCacheRule, attestationName, attestors)
+	stored, err := ivCache.SetWithPayload(context.TODO(), pol, cacheRule, image, true, nil)
+	assert.NoError(t, err)
+	assert.True(t, stored, "degraded presence-only entry must still be cacheable, matching pre-fix Set() behavior")
+
+	// Cache reports found=true but there is nothing to restore. The fix must
+	// NOT error the CEL expression here -- it must fall back to a real verify
+	// and succeed, exactly as if this had been a genuine cache miss.
+	out := f.verify_image_attestations_string_string_stringarray(
+		f.NativeToValue(image),
+		f.NativeToValue(attestationName),
+		f.NativeToValue(attestors),
+	)
+	assert.False(t, types.IsError(out), "degraded cache hit must fall back to re-verification, not error: %v", out)
+	assert.Equal(t, int64(len(attestors)), out.Value())
+
+	// extractPayload must succeed too: the fallback real-verify populates the
+	// payload on this request's ImageData, same as a genuine cache miss would.
+	payload := f.payload_string_string(f.NativeToValue(image), f.NativeToValue(attestationName))
+	assert.False(t, types.IsError(payload), "extractPayload should succeed after fallback re-verification: %v", payload)
+	assert.NotNil(t, payload.Value())
+}
+
+// Test_impl_getImageData evaluates getImageData() against a real registry image, which failed
+// to convert to a CEL value after cel-go v0.31.
+func Test_impl_getImageData(t *testing.T) {
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+
+	env, err := cel.NewEnv(Lib())
+	assert.NoError(t, err)
+	ast, issues := env.Compile(`getImageData("ghcr.io/kyverno/test-verify-image:signed")`)
+	assert.Nil(t, issues.Err())
+	prog, err := env.Program(ast)
+	assert.NoError(t, err)
+
+	runtime := NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+
+	out, _, err := prog.Eval(map[string]any{RuntimeKey: runtime})
+	assert.NoError(t, err, "getImageData on a real image must not fail at evaluation time")
+	if err == nil {
+		asMap, ok := out.Value().(map[string]any)
+		assert.True(t, ok, "getImageData result must convert to a CEL map, got %T", out.Value())
+		assert.Equal(t, "sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", asMap["digest"])
+	}
+}
+
+// Test_impl_getImageData_errors covers getImageData() failures that need no registry: a
+// reference that does not parse, and a registry nothing listens on.
+func Test_impl_getImageData_errors(t *testing.T) {
+	tests := []struct {
+		name  string
+		image string
+	}{
+		{name: "invalid image reference", image: "not a valid::image"},
+		{name: "unreachable registry", image: "localhost:1/missing/image:v1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+			assert.NoError(t, err)
+			env, err := cel.NewEnv(Lib())
+			assert.NoError(t, err)
+			ast, issues := env.Compile(fmt.Sprintf("getImageData(%q)", tt.image))
+			assert.Nil(t, issues.Err())
+			prog, err := env.Program(ast)
+			assert.NoError(t, err)
+			runtime := NewRuntimeForPolicy(context.Background(), NewIvFuncs(logr.Discard(), ivpol, nil, env.CELTypeAdapter(), nil), imgCtx, nil, NewImageVerificationResults())
+
+			_, _, err = prog.Eval(map[string]any{RuntimeKey: runtime})
+			assert.ErrorContains(t, err, "failed to get imagedata")
+		})
+	}
+}
+
+// staticImages is an image context that never reaches a registry: every image resolves to the
+// same empty ImageData.
+type staticImages struct{}
+
+func (staticImages) AddImages(context.Context, []string, []remote.Option, []name.Option) error {
+	return nil
+}
+
+func (staticImages) Get(context.Context, string, []remote.Option, []name.Option) (*imagedataloader.ImageData, error) {
+	return &imagedataloader.ImageData{}, nil
+}
+
+// Test_impl_notary_failures_are_in_verification_diagnostics: a failed Notary verification, of a
+// signature or of an attestation, is recorded in the verification diagnostics the same way a
+// failed cosign one is, so the policy's failure message says which image and attestor failed
+// and why, instead of only logging it. An invalid certificate makes Notary fail before any
+// registry call, so the test runs offline.
+func Test_impl_notary_failures_are_in_verification_diagnostics(t *testing.T) {
+	const image = "example.com/app:1.0"
+	attestors := []v1beta1.Attestor{{
+		Name:   "notary",
+		Notary: &v1beta1.Notary{Certs: &v1beta1.StringOrExpression{Value: "not-a-valid-certificate"}},
+	}}
+	newRuntime := func() (Runtime, *ImageVerificationResults) {
+		results := NewImageVerificationResults()
+		f := &IvFuncs{
+			Adapter:        types.DefaultTypeAdapter,
+			logger:         logr.Discard(),
+			policy:         &v1beta1.ImageValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "notary-diagnostics"}},
+			notaryVerifier: notary.NewVerifier(logr.Discard()),
+			attestationList: map[string]v1beta1.Attestation{
+				"sbom": {Name: "sbom", Referrer: &v1beta1.Referrer{Type: "sbom/cyclone-dx"}},
+			},
+		}
+		return NewRuntimeForPolicy(context.Background(), f, staticImages{}, nil, results), results
+	}
+
+	tests := map[string]struct {
+		call func(f *IvFuncs) ref.Val
+		want string
+	}{
+		"image signature": {
+			call: func(f *IvFuncs) ref.Val {
+				return f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+			},
+			want: `image "example.com/app:1.0", attestor "notary": failed to setup notation verification data`,
+		},
+		"attestation signature": {
+			call: func(f *IvFuncs) ref.Val {
+				return f.verify_image_attestations_string_string_stringarray(f.NativeToValue(image), f.NativeToValue("sbom"), f.NativeToValue(attestors))
+			},
+			want: `image "example.com/app:1.0", attestor "notary", attestation "sbom": failed to setup notation verification data`,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			runtime, results := newRuntime()
+			out := tt.call(runtime.functions)
+
+			count, ok := out.Value().(int64)
+			require.True(t, ok, "expected a count, got: %v", out.Value())
+			assert.Zero(t, count, "an invalid certificate verifies nothing")
+			assert.Contains(t, runtime.VerificationDiagnostics(), tt.want, "the reason Notary failed must reach the policy's message")
+
+			verified, attempted := results.Status(image)
+			assert.True(t, attempted)
+			assert.False(t, verified)
+		})
+	}
+}
+
+// Test_attestorCacheRule_BindsMaterialNotName pins that the cache rule tracks
+// what an attestor actually verifies with, not the label the policy gave it.
+// Attestor content is resolved per request from CEL expressions, so two
+// requests can present the same name carrying different key material.
+func Test_attestorCacheRule_BindsMaterialNotName(t *testing.T) {
+	withKey := func(data string) []v1beta1.Attestor {
+		return []v1beta1.Attestor{{
+			Name:   "signer",
+			Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: data}},
+		}}
+	}
+
+	ruleA, err := attestorCacheRule(signatureCacheRule, "", withKey("KEY-A"))
+	assert.NoError(t, err)
+	ruleB, err := attestorCacheRule(signatureCacheRule, "", withKey("KEY-B"))
+	assert.NoError(t, err)
+	assert.NotEqual(t, ruleA, ruleB, "same attestor name with different key material must not share a cache rule")
+
+	// Positive control: identical material must still hit the same rule, or
+	// the cache would never serve anything.
+	ruleARepeat, err := attestorCacheRule(signatureCacheRule, "", withKey("KEY-A"))
+	assert.NoError(t, err)
+	assert.Equal(t, ruleA, ruleARepeat)
+
+	// Order must not matter: the same set presented in either order is one rule.
+	pair := []v1beta1.Attestor{withKey("KEY-A")[0], withKey("KEY-B")[0]}
+	reversed := []v1beta1.Attestor{pair[1], pair[0]}
+	rulePair, err := attestorCacheRule(signatureCacheRule, "", pair)
+	assert.NoError(t, err)
+	ruleReversed, err := attestorCacheRule(signatureCacheRule, "", reversed)
+	assert.NoError(t, err)
+	assert.Equal(t, rulePair, ruleReversed)
+
+	// The qualifier still separates attestations from signatures.
+	ruleAttestation, err := attestorCacheRule(attestationCacheRule, "slsa", withKey("KEY-A"))
+	assert.NoError(t, err)
+	assert.NotEqual(t, ruleA, ruleAttestation)
+}
+
+// Test_attestorsHaveUnbindableKeyMaterial pins which attestor shapes the cache
+// rule can bind. A KMS url names key material that is fetched during
+// verification, after the rule is derived, so a cached verdict could outlive a
+// rotation of what sits behind the url. Inline and expression-derived keys are
+// materialized before hashing and stay bound.
+func Test_attestorsHaveUnbindableKeyMaterial(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		attestors  []v1beta1.Attestor
+		unbindable bool
+	}{
+		{"inline key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: "KEY"}}}}, false},
+		{"expression key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Expression: "variables.key"}}}}, false},
+		{"kms key", []v1beta1.Attestor{{Name: "signer", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/signing"}}}}, true},
+		{"notary only", []v1beta1.Attestor{{Name: "notary", Notary: &v1beta1.Notary{}}}, false},
+		{"one kms among many", []v1beta1.Attestor{
+			{Name: "inline", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{Data: "KEY"}}},
+			{Name: "kms", Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/signing"}}},
+		}, true},
+		{"no attestors", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.unbindable, attestorsHaveUnbindableKeyMaterial(tc.attestors))
+		})
+	}
+}
+
+// Test_impl_verify_image_signature_kms_attestor_ignores_cache is the regression
+// for the write and read sides together: with a KMS-backed attestor the cache
+// must be bypassed, so a seeded entry must not be served as a pass.
+func Test_impl_verify_image_signature_kms_attestor_ignores_cache(t *testing.T) {
+	attestors := []v1beta1.Attestor{
+		{
+			Name:   "kms-signer",
+			Cosign: &v1beta1.Cosign{Key: &v1beta1.Key{KMS: "awskms:///alias/does-not-exist"}},
+		},
+	}
+	pol := &v1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "cache-policy-kms",
+			UID:             "test-uid-kms",
+			ResourceVersion: "1",
+		},
+		Spec: v1beta1.ImageValidatingPolicySpec{Attestors: attestors},
+	}
+	image := "ghcr.io/kyverno/test-verify-image:signed@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105"
+
+	imgCtx, err := imagedataloader.NewImageContext(nil, nil, nil)
+	assert.NoError(t, err)
+	ivCache, err := imageverifycache.New(
+		imageverifycache.WithCacheEnableFlag(true),
+		imageverifycache.WithMaxSize(0),
+		imageverifycache.WithTTLDuration(0),
+	)
+	assert.NoError(t, err)
+
+	// Seed the entry the pre-fix code would have read: same rule, same image.
+	cacheRule, err := attestorCacheRule(signatureCacheRule, "", attestors)
+	assert.NoError(t, err)
+	stored, err := ivCache.Set(context.TODO(), pol, cacheRule, image, true)
+	assert.NoError(t, err)
+	assert.True(t, stored)
+
+	f := &IvFuncs{
+		Adapter:        types.DefaultTypeAdapter,
+		imgCtx:         imgCtx,
+		policy:         pol,
+		cosignVerifier: cosign.NewVerifier(nil, logr.Discard()),
+		notaryVerifier: notary.NewVerifier(logr.Discard()),
+		ivCache:        ivCache,
+	}
+
+	out := f.verify_image_signature_string_stringarray(f.NativeToValue(image), f.NativeToValue(attestors))
+	count, ok := out.Value().(int64)
+	assert.True(t, ok, "expected an integer result, got an error instead: %v", out.Value())
+	assert.Less(t, count, int64(len(attestors)), "a seeded entry must not be served for a KMS-backed attestor")
 }

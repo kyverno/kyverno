@@ -131,13 +131,15 @@ func urProcessorClosure(
 			if admissionRequest == nil {
 				return fmt.Errorf("no admission request in UR context for policy %s", spec.Policy)
 			}
-			contextProvider.ClearGeneratedResources()
-			request := celengine.RequestFromAdmission(contextProvider, *admissionRequest)
+			// A fresh clone per trigger, as the CELGenerateController does: the context provider
+			// holds per-evaluation state (the trigger it labels downstreams with and the generated
+			// list), and URs from concurrent admission requests would otherwise overwrite each other's.
+			request := celengine.RequestFromAdmission(contextProvider.Clone(), *admissionRequest)
 			policy, err := provider.Get(context.TODO(), spec.GetPolicyKey())
 			if err != nil {
 				return fmt.Errorf("failed to fetch policy %s: %w", spec.GetPolicyKey(), err)
 			}
-			resp, err := engine.Handle(request, policy, rc.CacheRestore)
+			resp, err := engine.Handle(context.TODO(), request, policy, rc.CacheRestore)
 			if err != nil {
 				return fmt.Errorf("failed to process UR for policy %s: %w", spec.GetPolicyKey(), err)
 			}
@@ -156,7 +158,7 @@ func urProcessorClosure(
 				if len(generated) == 0 {
 					continue
 				}
-				if err := wm.SyncWatchers(spec.GetPolicyKey(), generated); err != nil {
+				if err := wm.SyncWatchers(spec.GetPolicyKey(), &rc.Trigger, generated, policy.Policy.GetSpec().UseServerSideApply); err != nil {
 					return fmt.Errorf("failed to sync watchers for policy %s: %w", spec.GetPolicyKey(), err)
 				}
 			}

@@ -1,0 +1,17 @@
+apiVersion: policies.kyverno.io/v1
+kind: ValidatingPolicy
+metadata:
+  name: destinationrule-specific-host
+spec:
+  validationActions: [Audit]
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [networking.istio.io]
+        apiVersions: [v1beta1]
+        operations: [CREATE, UPDATE]
+        resources: [destinationrules]
+  validations:
+    - expression: >-
+        object.spec.host != "*" && !object.spec.host.matches("^\\*\\..*$")
+      message: >-
+        DestinationRule must target a specific service host with no wildcard.

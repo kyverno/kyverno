@@ -117,7 +117,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 		}
 	}
 
-	isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(policy))
+	isMatch, _, _, err := matcher.DefinitionMatches(a, o, mutating.NewMutatingAdmissionPolicyAccessor(ConvertMutatingAdmissionPolicy(policy)))
 	if err != nil {
 		mapLogger.Error(err, "failed to match policy definition for mutatingadmissionpolicy", "policy", policy.GetName(), "resource", resPath)
 		return er, err
@@ -144,7 +144,7 @@ func processMAPWithClient(policy *admissionregistrationv1beta1.MutatingAdmission
 			}
 		}
 
-		isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(&binding))
+		isMatch, err := matcher.BindingMatches(a, o, mutating.NewMutatingAdmissionPolicyBindingAccessor(ConvertMutatingAdmissionPolicyBinding(&binding)))
 		if err != nil {
 			mapLogger.Error(err, "failed to match policy binding for mutatingadmissionpolicy", "policy", policy.GetName(), "binding", binding.GetName(), "resource", resPath)
 			continue

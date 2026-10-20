@@ -217,6 +217,26 @@ func TestExpressionsUseHTTP(t *testing.T) {
 	}
 }
 
+func TestExpressionsUseGlobalContext(t *testing.T) {
+	assert.True(t, ExpressionsUseGlobalContext(`globalContext.get("entry", "")`))
+	assert.False(t, ExpressionsUseGlobalContext("object.metadata.name == 'foo'"))
+}
+
+func TestConfineGlobalContext(t *testing.T) {
+	_, err := ConfineGlobalContext(allowGlobalContext{}, "tenant-ns").GetGlobalReference("entry", "")
+	assert.ErrorContains(t, err, "not allowed in namespaced policies")
+
+	got, err := ConfineGlobalContext(allowGlobalContext{}, "").GetGlobalReference("entry", "")
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", got)
+}
+
+type allowGlobalContext struct{}
+
+func (allowGlobalContext) GetGlobalReference(_, _ string) (any, error) {
+	return "ok", nil
+}
+
 func TestAllowHTTPInNamespacedPoliciesToggledViaParse(t *testing.T) {
 	tests := []struct {
 		name  string

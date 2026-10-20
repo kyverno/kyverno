@@ -1,0 +1,33 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: MutatingPolicy
+metadata:
+  name: add-acm-cert-annotation
+spec:
+  evaluation:
+    mutateExisting:
+      enabled: true
+  matchConstraints:
+    resourceRules:
+    - apiGroups: ["networking.k8s.io"]
+      apiVersions: ["v1"]
+      operations: ["CREATE", "UPDATE"]
+      resources: ["ingresses"]
+  matchConditions:
+  - name: is-alb
+    expression: >-
+      has(object.spec) && has(object.spec.ingressClassName) && object.spec.ingressClassName == "alb"
+  - name: annotation-not-present
+    expression: >-
+      !has(object.metadata.annotations) ||
+      !object.metadata.annotations.exists(k, k == 'alb.ingress.kubernetes.io/create-acm-cert')
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          metadata: Object.metadata{
+            annotations: {
+              "alb.ingress.kubernetes.io/create-acm-cert": "true"
+            }
+          }
+        }

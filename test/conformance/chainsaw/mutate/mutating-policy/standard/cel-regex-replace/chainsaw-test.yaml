@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mpol-cel-regex-replace
+spec:
+  concurrent: false
+  steps:
+  - name: create-mutating-policy
+    try:
+    - apply:
+        file: policy.yaml
+  - name: wait-for-webhook
+    try:
+    - assert:
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: rewrite-image-registry
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - status: "True"
+  - name: verify-image-rewritten
+    try:
+    # A server-side dry run still goes through the mutating webhook, so the rewrite is
+    # checked without creating a pod whose rewritten image can never be pulled.
+    - script:
+        content: kubectl create -n $NAMESPACE -f pod.yaml --dry-run=server -o jsonpath='{.spec.containers[0].image}'
+        check:
+          ($error == null): true
+          ($stdout): myregistry.io/nginx:latest

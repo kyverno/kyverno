@@ -21,14 +21,13 @@ func (w *metricWrapper) Evaluate(ctx context.Context, attr admission.Attributes,
 		return response, err
 	}
 
-	if w.metrics != nil {
-		for _, policy := range response.Policies {
-			if len(policy.Rules) == 0 {
-				continue
-			}
-
-			w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Operation))
+	for _, policy := range response.Policies {
+		if len(policy.Rules) == 0 {
+			continue
 		}
+
+		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Operation))
+		w.metrics.RecordResult(ctx, string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Operation))
 	}
 
 	return response, nil
@@ -40,16 +39,14 @@ func (w *metricWrapper) Handle(ctx context.Context, request engine.EngineRequest
 		return response, err
 	}
 
-	if w.metrics != nil {
-		for _, policy := range response.Policies {
-			if len(policy.Rules) == 0 {
-				continue
-			}
-
-			w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+	for _, policy := range response.Policies {
+		if len(policy.Rules) == 0 {
+			continue
 		}
-	}
 
+		w.metrics.RecordDuration(ctx, policy.Rules[0].Stats().ProcessingTime().Seconds(), string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+		w.metrics.RecordResult(ctx, string(policy.Rules[0].Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+	}
 	return response, nil
 }
 
@@ -66,9 +63,13 @@ func (w *metricWrapper) GetCompiledPolicies(names ...string) map[string]Policy {
 }
 
 func NewMetricWrapper(inner Engine, ruleExecutionCause metrics.RuleExecutionCause) Engine {
+	m := metrics.GetMutatingMetrics()
+	if m == nil {
+		return inner
+	}
 	return &metricWrapper{
 		inner:              inner,
-		metrics:            metrics.GetMutatingMetrics(),
+		metrics:            m,
 		ruleExecutionCause: string(ruleExecutionCause),
 	}
 }

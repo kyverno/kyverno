@@ -21,9 +21,8 @@ spec:
             name: test-api
             namespace: default
           status:
-            phase: Running
-    - sleep:
-        duration: 30s
+            (conditions[?type == 'Ready']):
+            - status: "True"
   - name: create policy
     use:
       template: ../../../../_step-templates/create-policy.yaml

@@ -33,9 +33,9 @@ uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
 )
 
 func Test_ImageSignatureVerificationStandard(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, image)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
@@ -44,9 +44,9 @@ func Test_ImageSignatureVerificationStandard(t *testing.T) {
 }
 
 func Test_ImageSignatureVerificationUnsigned(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, unsignedImage)
+	img, err := idf.FetchImageData(ctx, unsignedImage, nil, nil)
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
@@ -55,9 +55,9 @@ func Test_ImageSignatureVerificationUnsigned(t *testing.T) {
 }
 
 func Test_ImageAttestationVerificationStandard(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, image)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
@@ -66,9 +66,9 @@ func Test_ImageAttestationVerificationStandard(t *testing.T) {
 }
 
 func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, image)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
@@ -77,9 +77,9 @@ func Test_ImageAttestationVerificationFailNotFound(t *testing.T) {
 }
 
 func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, image)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}
@@ -88,9 +88,9 @@ func Test_ImageAttestationVerificationFailUntrusted(t *testing.T) {
 }
 
 func Test_ImageAttestationVerificationFailUnsigned(t *testing.T) {
-	idf, err := imagedataloader.New(nil)
+	idf, err := imagedataloader.New(nil, nil, nil)
 	assert.NoError(t, err)
-	img, err := idf.FetchImageData(ctx, image)
+	img, err := idf.FetchImageData(ctx, image, nil, nil)
 	assert.NoError(t, err)
 
 	v := Verifier{log: logr.Discard()}

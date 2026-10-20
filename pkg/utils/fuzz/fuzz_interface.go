@@ -8,6 +8,7 @@ import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 	openapiv2 "github.com/google/gnostic-models/openapiv2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -222,6 +223,10 @@ func (fid FuzzIDiscovery) OpenAPISchema() (*openapiv2.Document, error) {
 }
 
 func (fid FuzzIDiscovery) CachedDiscoveryInterface() discovery.CachedDiscoveryInterface {
+	return nil
+}
+
+func (fid FuzzIDiscovery) RESTMapper() meta.RESTMapper {
 	return nil
 }
 

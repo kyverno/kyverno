@@ -1,6 +1,8 @@
 package common
 
 import (
+	"context"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -29,15 +31,15 @@ func NewStatusControl(client versioned.Interface, urLister kyvernov2listers.Upda
 
 // Failed sets ur status.state to failed with message
 func (sc *statusControl) Failed(name, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
-	return UpdateStatus(sc.client, sc.urLister, name, kyvernov2.Failed, message, genResources)
+	return UpdateStatus(context.TODO(), sc.client, sc.urLister, name, kyvernov2.Failed, message, genResources)
 }
 
 // Success sets the ur status.state to completed and clears message
 func (sc *statusControl) Success(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
-	return UpdateStatus(sc.client, sc.urLister, name, kyvernov2.Completed, "", genResources)
+	return UpdateStatus(context.TODO(), sc.client, sc.urLister, name, kyvernov2.Completed, "", genResources)
 }
 
 // Success sets the ur status.state to completed and clears message
 func (sc *statusControl) Skip(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
-	return UpdateStatus(sc.client, sc.urLister, name, kyvernov2.Skip, "", genResources)
+	return UpdateStatus(context.TODO(), sc.client, sc.urLister, name, kyvernov2.Skip, "", genResources)
 }

@@ -1,0 +1,39 @@
+# Allocation ceilings for the CEL admission-path benchmark gate (#17509).
+#
+# Format: <benchmark-name> <max_allocs_per_op> <max_bytes_per_op>
+#
+# This gate runs post-merge (see the `perf` job in
+# .github/workflows/check-tests.yaml), not per pull request: a failure files
+# or updates a workflow-failure issue on main rather than blocking anyone's
+# PR, which is what makes it safe to keep this headroom tight (see
+# docs/dev/README.md, "Performance benchmarks").
+#
+# Values below are measured on linux/amd64 (the CI platform - allocation
+# counts differ across GOOS/GOARCH, so darwin/arm64 numbers must never be
+# committed here) with:
+#   go test -run=^$ -bench=. -benchmem -benchtime=100x -count=10 \
+#     ./pkg/cel/policies/vpol/engine ./pkg/cel/policies/mpol/engine \
+#     ./pkg/webhooks/resource/vpol ./pkg/webhooks/resource/mpol
+# inside a `golang` Docker container, taking the max observed allocs/op and
+# bytes/op across the 10 runs per benchmark.
+#
+# Headroom: +5% on allocs/op (minimum +2), +15% on bytes/op, rounded up. Each
+# gated benchmark synchronizes its own async (unwaited-goroutine) work before
+# the timed loop advances - see each benchmark's doc comment for how - so a
+# single headroom applies uniformly; a future benchmark that genuinely can't
+# be made deterministic should get a documented override instead.
+#
+# Ratchet rule: if your PR legitimately changes allocation counts at one of
+# these boundaries (an intentional improvement or a justified increase), run
+# `make bench-baseline` and commit the regenerated ceilings in the same PR,
+# with a one-line justification in the PR description. At each release
+# branch cut, the release owner re-runs `make bench-baseline` on linux/amd64
+# as a periodic backstop against ceiling staleness.
+
+# name                                    max_allocs_per_op  max_bytes_per_op
+BenchmarkEngineHandleVpol/N=1            2869               332430
+BenchmarkEngineHandleVpol/N=16           3565               374753
+BenchmarkEngineHandleVpol/N=64           5784               525032
+BenchmarkEngineHandleMpol                4688               329186
+BenchmarkVpolHandlerValidate             3539               286141
+BenchmarkMpolHandlerMutate               11928              1189925

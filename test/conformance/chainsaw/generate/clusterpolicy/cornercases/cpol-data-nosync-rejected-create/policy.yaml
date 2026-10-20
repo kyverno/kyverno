@@ -1,0 +1,34 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: cpol-rejected-create
+  annotations:
+    policies.kyverno.io/description: >-
+      Generate a ConfigMap when a namespace with layer=business is created.
+      This test verifies that the policy does NOT trigger for rejected creates
+      where the namespace already exists with a different UID.
+spec:
+  background: false
+  rules:
+    - name: generate-configmap
+      match:
+        any:
+        - resources:
+            kinds:
+              - Namespace
+            selector:
+              matchLabels:
+                layer: business
+      generate:
+        synchronize: false
+        apiVersion: v1
+        kind: ConfigMap
+        name: generated-cm
+        namespace: "{{request.object.metadata.name}}"
+        data:
+          metadata:
+            labels:
+              generated-by: kyverno
+          data:
+            key: value

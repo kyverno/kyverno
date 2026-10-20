@@ -119,7 +119,7 @@ func createRules(ff *fuzz.ConsumeFuzzer) []kyvernov1.Rule {
 	for i := 0; i < noOfRules%100; i++ {
 		ruleBytes, err := ff.GetBytes()
 		if err != nil {
-			return rules
+			break
 		}
 		wg.Add(1)
 		ff1 := fuzz.NewConsumer(ruleBytes)

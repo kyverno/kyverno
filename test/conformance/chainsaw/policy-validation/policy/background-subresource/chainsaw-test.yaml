@@ -6,38 +6,45 @@ metadata:
 spec:
   concurrent: false
   steps:
-  - name: step-01
+  - name: unresolved Scale is accepted with a warning
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-1.yaml
-  - name: step-02
+    - script:
+        content: kubectl create --dry-run=server --namespace "$NAMESPACE" -f policy-1.yaml
+        check:
+          ($error == null): true
+          (contains($stderr, 'unable to convert GVK to GVR for kinds Scale,')): true
+  - name: nonexistent Pod scale is accepted with a warning
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-2.yaml
+    - script:
+        content: kubectl create --dry-run=server --namespace "$NAMESPACE" -f policy-2.yaml
+        check:
+          ($error == null): true
+          (contains($stderr, 'unable to convert GVK to GVR for kinds Pod/scale,')): true
   - name: step-03
     try:
-    - apply:
+    - create:
         expect:
         - check:
-            ($error != null): true
+            (contains($error, 'background scan enabled with subresource Pod/*')): true
         file: policy-3.yaml
   - name: step-04
     try:
-    - apply:
+    - create:
         expect:
         - check:
-            ($error != null): true
+            (contains($error, 'background scan enabled with subresource */*')): true
         file: policy-4.yaml
   - name: step-05
     try:
-    - apply:
+    - create:
         expect:
         - check:
-            ($error != null): true
+            (contains($error, 'background scan enabled with subresource */status')): true
         file: policy-5.yaml
+  - name: resolvable Deployment scale is rejected
+    try:
+    - create:
+        expect:
+        - check:
+            (contains($error, 'background scan enabled with subresource apps/v1/Deployment/scale')): true
+        file: policy-6.yaml

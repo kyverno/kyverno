@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	"github.com/sigstore/cosign/v3/pkg/blob"
-	"github.com/sigstore/sigstore/pkg/tuf"
 )
 
 func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
@@ -33,7 +33,7 @@ func setupSigstoreTUF(ctx context.Context, logger logr.Logger) {
 	}
 
 	logger.V(2).Info("Initializing TUF root")
-	if err := tuf.Initialize(ctx, tufMirror, tufRootBytes); err != nil {
+	if err := sigstoretuf.Initialize(ctx, tufMirror, tufRootBytes); err != nil {
 		checkError(logger, err, fmt.Sprintf("Failed to initialize TUF client from %s : %v", tufRoot, err))
 	}
 }

@@ -42,7 +42,7 @@ spec:
     try:
     - delete:
         ref:
-          apiVersion: kyverno.io/v2beta1
+          apiVersion: kyverno.io/v1
           kind: ClusterPolicy
           name: cpol-clone-sync-delete-policy
   - name: step-05

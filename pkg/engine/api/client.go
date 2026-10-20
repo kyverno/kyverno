@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	corev1 "k8s.io/api/core/v1"
@@ -58,17 +57,12 @@ type ImageDataClient interface {
 	FetchImageDescriptor(context.Context, string) (*gcrremote.Descriptor, error)
 }
 
-type KeychainClient interface {
-	Keychain() authn.Keychain
-}
-
 type RemoteClient interface {
-	Options(context.Context) ([]gcrremote.Option, error)
+	Options(context.Context) ([]gcrremote.Option, []name.Option, error)
 	NameOptions() []name.Option
 }
 
 type RegistryClient interface {
 	ImageDataClient
-	KeychainClient
 	RemoteClient
 }

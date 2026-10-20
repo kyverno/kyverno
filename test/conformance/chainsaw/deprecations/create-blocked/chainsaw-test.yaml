@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: create-blocked
+spec:
+  description: >
+    Under the 1.20 default (features.blockLegacyPolicyAPIs.enabled=true), creating any legacy
+    kyverno.io policy kind, in any served version, is hard-denied at admission. This exercises
+    every legacy kind/version pair, including the storage versions (kyverno.io/v2 for
+    CleanupPolicy/ClusterCleanupPolicy/PolicyException) that previously bypassed the admission
+    webhook entirely because the webhook rules only listed v2beta1 (see #17483).
+  concurrent: false
+  steps:
+  - name: probe-condition-wiring
+    description: >
+      The legacy-denial-probe overlay sets config.matchConditions. Prove the probe is actually
+      live before trusting the denials above: the TTL webhook must carry the condition
+      (it is built unconditionally with static rules, unlike the resource webhook, which has no
+      entries until a policy exists), and every legacy denial configuration must omit it (so
+      WithoutConfigMatchConditions is doing its job). Without the first assertion a Helm or
+      plumbing regression would silently disarm the probe and the error steps would pass for the
+      ordinary reason, proving nothing.
+    try:
+    - assert:
+        resource:
+          apiVersion: admissionregistration.k8s.io/v1
+          kind: ValidatingWebhookConfiguration
+          metadata:
+            name: kyverno-ttl-validating-webhook-cfg
+          webhooks:
+          - (matchConditions[?name == 'exempt-cluster-admin'] | length(@)): 1
+    - script:
+        content: |
+          set -eu
+          for cfg in kyverno-policy-validating-webhook-cfg \
+                     kyverno-exception-validating-webhook-cfg \
+                     kyverno-cleanup-validating-webhook-cfg; do
+            found=$(kubectl get validatingwebhookconfiguration "$cfg" \
+              -o jsonpath='{.webhooks[*].matchConditions[*].name}')
+            case " $found " in
+              *" exempt-cluster-admin "*)
+                echo "FAIL: $cfg inherited config.matchConditions; legacy writes could bypass denial"
+                exit 1
+                ;;
+            esac
+          done
+          echo "OK: no legacy denial webhook inherited config.matchConditions"
+  - name: cluster-policy
+    try:
+    - error:
+        file: cluster-policy-v1.yaml
+    - error:
+        file: cluster-policy-v2beta1.yaml
+  - name: policy
+    try:
+    - error:
+        file: policy-v1.yaml
+    - error:
+        file: policy-v2beta1.yaml
+  - name: cluster-cleanup-policy
+    try:
+    - error:
+        file: cluster-cleanup-policy-v2.yaml
+    - error:
+        file: cluster-cleanup-policy-v2beta1.yaml
+  - name: cleanup-policy
+    try:
+    - error:
+        file: cleanup-policy-v2.yaml
+    - error:
+        file: cleanup-policy-v2beta1.yaml
+  - name: policy-exception
+    try:
+    - error:
+        file: policy-exception-v2.yaml
+    - error:
+        file: policy-exception-v2beta1.yaml

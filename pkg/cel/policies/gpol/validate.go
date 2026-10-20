@@ -4,6 +4,7 @@ import (
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	gpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/gpol/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -31,8 +32,12 @@ func Validate(gpol v1beta1.GeneratingPolicyLike) ([]string, error) {
 		err = append(err, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
 	}
 
-	if gpol.GetNamespace() != "" && !toggle.AllowHTTPInNamespacedPolicies.Enabled() {
-		if compiler.ExpressionsUseHTTP(gpolExpressions(spec)...) {
+	if gpol.GetNamespace() != "" {
+		exprs := gpolExpressions(spec)
+		if compiler.ExpressionsUseGlobalContext(exprs...) {
+			err = append(err, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && compiler.ExpressionsUseHTTP(exprs...) {
 			err = append(err, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}
@@ -57,7 +62,12 @@ func gpolExpressions(spec *v1beta1.GeneratingPolicySpec) []string {
 		exprs = append(exprs, mc.Expression)
 	}
 	for _, g := range spec.Generation {
-		exprs = append(exprs, g.Expression)
+		if g.Expression != "" {
+			exprs = append(exprs, g.Expression)
+		}
+		if g.Template != nil && g.Template.Interpolate == v1beta1.InterpolationModeCEL {
+			exprs = append(exprs, template.ExtractExpressions(g.Template.Value)...)
+		}
 	}
 	for _, a := range spec.AuditAnnotations {
 		exprs = append(exprs, a.ValueExpression)
