@@ -1,12 +1,14 @@
 package cosign
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -29,6 +31,81 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
+type candidateStoreKey struct{}
+
+// CandidateStore stores verified attestation candidates keyed by ImageData and predicate type.
+type CandidateStore struct {
+	mu         sync.Mutex
+	candidates map[*imagedataloader.ImageData]map[string]verifiedCandidate
+}
+
+func NewCandidateStore() *CandidateStore {
+	return &CandidateStore{
+		candidates: make(map[*imagedataloader.ImageData]map[string]verifiedCandidate),
+	}
+}
+
+func (s *CandidateStore) Get(image *imagedataloader.ImageData, predicateType string) (verifiedCandidate, bool) {
+	if s == nil || image == nil {
+		return verifiedCandidate{}, false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.candidates == nil {
+		return verifiedCandidate{}, false
+	}
+	if preds, ok := s.candidates[image]; ok {
+		c, ok := preds[predicateType]
+		return c, ok
+	}
+	return verifiedCandidate{}, false
+}
+
+func (s *CandidateStore) Set(image *imagedataloader.ImageData, predicateType string, candidate verifiedCandidate) {
+	if s == nil || image == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.candidates == nil {
+		s.candidates = make(map[*imagedataloader.ImageData]map[string]verifiedCandidate)
+	}
+	if s.candidates[image] == nil {
+		s.candidates[image] = make(map[string]verifiedCandidate)
+	}
+	s.candidates[image][predicateType] = candidate
+}
+
+func (s *CandidateStore) Delete(image *imagedataloader.ImageData) {
+	if s == nil || image == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.candidates, image)
+}
+
+// WithCandidateStore injects a CandidateStore into the context to scope candidate
+// state to the request lifecycle.
+func WithCandidateStore(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if CandidateStoreFromContext(ctx) != nil {
+		return ctx
+	}
+	return context.WithValue(ctx, candidateStoreKey{}, NewCandidateStore())
+}
+
+// CandidateStoreFromContext extracts the CandidateStore from ctx, if present.
+func CandidateStoreFromContext(ctx context.Context) *CandidateStore {
+	if ctx == nil {
+		return nil
+	}
+	store, _ := ctx.Value(candidateStoreKey{}).(*CandidateStore)
+	return store
+}
+
 type Verifier struct {
 	secretLister corev1listers.SecretLister
 	log          logr.Logger
@@ -39,6 +116,13 @@ func NewVerifier(secretLister corev1listers.SecretLister, logger logr.Logger) *V
 		log:          logging.WithName("Cosign"),
 		secretLister: secretLister,
 	}
+}
+
+func (v *Verifier) candidateStore(ctx context.Context, image *imagedataloader.ImageData) *CandidateStore {
+	if store := CandidateStoreFromContext(ctx); store != nil {
+		return store
+	}
+	return NewCandidateStore()
 }
 
 // buildCheckOptsWithBundleDetection builds CheckOpts and loads any cosign v3 bundle
@@ -166,19 +250,21 @@ func parseBundleLayer(layer v1.Layer) (*sgbundle.Bundle, error) {
 // cosign.VerifyNewBundle, but sequentially rather than through cosign's worker
 // pool: require, build and claim-verify a DSSE attestation for each bundle that
 // passes verification, and skip any that does not.
-func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbundle.Bundle, hash *v1.Hash) ([]oci.Signature, bool, error) {
+func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbundle.Bundle, hash *v1.Hash) ([]oci.Signature, []*sgbundle.Bundle, []*verify.VerificationResult, bool, error) {
 	// Enforce this up front, matching cosign.VerifyImageAttestations.
 	if cOpts.RootCerts == nil && cOpts.SigVerifier == nil && cOpts.TrustedMaterial == nil {
-		return nil, false, stderrors.New("one of verifier, root certs, or TrustedMaterial is required")
+		return nil, nil, nil, false, stderrors.New("one of verifier, root certs, or TrustedMaterial is required")
 	}
 
 	digestBytes, err := hex.DecodeString(hash.Hex)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, nil, false, err
 	}
 	artifactPolicyOption := verify.WithArtifactDigest(hash.Algorithm, digestBytes)
 
 	var checkedAttestations []oci.Signature
+	var verifiedBundles []*sgbundle.Bundle
+	var verifiedResults []*verify.VerificationResult
 	var atLeastOneVerified bool
 	var errs []error
 	for _, bundle := range bundles {
@@ -186,7 +272,8 @@ func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbu
 		// UseSignedTimestamps on the CheckOpts it is given; a shared pointer would
 		// let one bundle's write affect how the next bundle in this loop is verified.
 		coCopy := *cOpts
-		if _, err := cosign.VerifyNewBundle(ctx, &coCopy, artifactPolicyOption, bundle); err != nil {
+		res, err := cosign.VerifyNewBundle(ctx, &coCopy, artifactPolicyOption, bundle)
+		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
@@ -212,14 +299,16 @@ func verifyBundles(ctx context.Context, cOpts *cosign.CheckOpts, bundles []*sgbu
 			}
 		}
 		checkedAttestations = append(checkedAttestations, att)
+		verifiedBundles = append(verifiedBundles, bundle)
+		verifiedResults = append(verifiedResults, res)
 		atLeastOneVerified = true
 	}
 
 	if len(checkedAttestations) == 0 {
-		return nil, false, fmt.Errorf("no matching attestations: %w", stderrors.Join(errs...))
+		return nil, nil, nil, false, fmt.Errorf("no matching attestations: %w", stderrors.Join(errs...))
 	}
 
-	return checkedAttestations, atLeastOneVerified, nil
+	return checkedAttestations, verifiedBundles, verifiedResults, atLeastOneVerified, nil
 }
 
 // shouldUseSignedTimestamps reports whether a detected Sigstore bundle (format
@@ -272,7 +361,7 @@ func (v *Verifier) VerifyImageSignature(ctx context.Context, image *imagedataloa
 	var verified bool
 
 	if len(bundles) > 0 {
-		sigs, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
+		sigs, _, _, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
 	} else {
 		sigs, verified, err = cosign.VerifyImageSignatures(ctx, image.NameRef(), cOpts)
 	}
@@ -334,9 +423,11 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	cOpts.Annotations = toAnnotationsOpt(attestor.Cosign.Annotations)
 
 	var sigs []oci.Signature
+	var verifiedBundles []*sgbundle.Bundle
+	var verifiedResults []*verify.VerificationResult
 	var verified bool
 	if len(bundles) > 0 {
-		sigs, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
+		sigs, verifiedBundles, verifiedResults, verified, err = verifyBundles(ctx, cOpts, bundles, hash)
 	} else {
 		sigs, verified, err = cosign.VerifyImageAttestations(ctx, image.NameRef(), cOpts)
 	}
@@ -351,8 +442,8 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 	}
 
 	checkedTypes := []string{}
-	found := false
-	for _, s := range sigs {
+	candidatesByPredicate := make(map[string][]verifiedCandidate)
+	for i, s := range sigs {
 		payload, gotType, err := policy.AttestationToPayloadJSON(ctx, attestation.InToto.Type, s)
 		if err != nil {
 			return fmt.Errorf("converting to consumable policy validation: %w", err)
@@ -363,14 +454,59 @@ func (v *Verifier) VerifyAttestationSignature(ctx context.Context, image *imaged
 			continue
 		}
 
-		found = true
-		image.AddVerifiedIntotoPayloads(gotType, payload)
+		var associatedBundle *sgbundle.Bundle
+		var associatedResult *verify.VerificationResult
+		if i < len(verifiedBundles) {
+			associatedBundle = verifiedBundles[i]
+		}
+		if i < len(verifiedResults) {
+			associatedResult = verifiedResults[i]
+		}
+		bTS, hasB, sTS, hasS := extractAttestationTimestamps(s, payload, cOpts, associatedBundle, associatedResult)
+		candidatesByPredicate[gotType] = append(candidatesByPredicate[gotType], verifiedCandidate{
+			payload:       payload,
+			predicateType: gotType,
+			statementTS:   sTS,
+			hasStatement:  hasS,
+			bundleTS:      bTS,
+			hasBundle:     hasB,
+		})
 	}
 
-	if !found {
+	if len(candidatesByPredicate) == 0 {
 		err := fmt.Errorf("required predicate type %s not found, found %v", attestation.InToto.Type, checkedTypes)
 		logger.Error(err, "image verification failed")
 		return err
+	}
+
+	for pType, candidates := range candidatesByPredicate {
+		chosen, err := selectNewestAttestation(candidates, pType)
+		if err != nil {
+			logger.Error(err, "image verification failed to select newest attestation")
+			return err
+		}
+
+		store := v.candidateStore(ctx, image)
+		if prev, ok := store.Get(image, pType); ok {
+			if bytes.Equal(prev.payload, chosen.payload) {
+				// Byte-identical payload already stored across attestors/evaluations;
+				// preserve whichever candidate has verified timestamps.
+				if (!prev.hasBundle && chosen.hasBundle) || (!prev.hasStatement && chosen.hasStatement) {
+					store.Set(image, pType, chosen)
+				}
+				image.AddVerifiedIntotoPayloads(chosen.predicateType, chosen.payload)
+				continue
+			}
+			merged, err := selectNewestAttestation([]verifiedCandidate{prev, chosen}, pType)
+			if err != nil {
+				logger.Error(err, "image verification failed to merge newest attestation across attestors")
+				return err
+			}
+			chosen = merged
+		}
+		store.Set(image, pType, chosen)
+
+		image.AddVerifiedIntotoPayloads(chosen.predicateType, chosen.payload)
 	}
 
 	return nil

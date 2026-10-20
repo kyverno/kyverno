@@ -590,14 +590,14 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
-	wm.log.Info("Resource added", "name", obj.GetName())
+	wm.log.V(4).Info("Resource added", "name", obj.GetName(), "namespace", obj.GetNamespace())
 }
 
 func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
-	wm.log.Info("Resource updated", "name", obj.GetName())
+	wm.log.V(4).Info("Resource updated", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	watcher, exists := wm.dynamicWatchers[gvr]
 	if exists {
 		uid := obj.GetUID()
@@ -922,7 +922,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
-	wm.log.Info("Resource deleted", "name", obj.GetName())
+	wm.log.V(4).Info("Resource deleted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	watcher, exists := wm.dynamicWatchers[gvr]
 	if exists {
 		uid := obj.GetUID()

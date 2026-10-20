@@ -32,6 +32,21 @@
   {{- fail "Kyverno cannot be installed in namespace kube-system." -}}
 {{- end -}}
 
+{{- if hasKey .Values.upgrade "allowLegacyPolicies" -}}
+  {{- if .Values.upgrade.allowLegacyPolicies -}}
+    {{- fail (join "\n" (list
+      ""
+      ""
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      "  | upgrade.allowLegacyPolicies was removed in 1.20. Legacy kyverno.io policies found on this cluster"
+      "  | are no longer enforced. If you accept that, set upgrade.acknowledgeLegacyPoliciesNotEnforced=true."
+      "  +--------------------------------------------------------------------------------------------------------------------------------------+"
+      ""
+      ))
+    -}}
+  {{- end -}}
+{{- end -}}
+
 {{- if not .Values.upgrade.fromV2 -}}
   {{- $v2 := lookup "apps/v1" "Deployment" (include "kyverno.namespace" .) (include "kyverno.fullname" .) -}}
   {{- if $v2 -}}

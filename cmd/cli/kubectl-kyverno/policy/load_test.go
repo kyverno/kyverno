@@ -371,7 +371,7 @@ spec:
 
 			_, err := Load(nil, "", false, path)
 			require.Error(t, err, "expected the legacy-policy block to fire")
-			assert.Contains(t, err.Error(), "is no longer accepted")
+			assert.Contains(t, err.Error(), "removed execution")
 
 			_, err = Load(nil, "", true, path)
 			require.NoError(t, err, "expected allowLegacyPolicies=true to bypass the block")
@@ -385,7 +385,7 @@ func TestLoad_BlocksMalformedLegacyClusterPolicy(t *testing.T) {
 	// so the block must fire instead of surfacing only the generic schema error.
 	_, err := Load(nil, "", false, "../_testdata/policies/invalid-schema.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 
 	_, err = Load(nil, "", true, "../_testdata/policies/invalid-schema.yaml")
 	require.Error(t, err)
@@ -399,7 +399,7 @@ func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T)
 	// (unrelated, non-fatal-by-comparison) "unsupported kind" error.
 	_, err := Load(nil, "", false, "testdata/configmap-then-legacy-clusterpolicy.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 
 	// With the block bypassed, the ConfigMap's own "unsupported kind" problem is still a real,
 	// pre-existing error the loader must surface (not silently swallow), same as before this PR.
@@ -413,7 +413,7 @@ func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
 	// v1 List; the block must fire for a List item exactly as it does for a standalone manifest.
 	_, err := Load(nil, "", false, "testdata/list-single-clusterpolicy.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 
 	results, err := Load(nil, "", true, "testdata/list-single-clusterpolicy.yaml")
 	require.NoError(t, err)
