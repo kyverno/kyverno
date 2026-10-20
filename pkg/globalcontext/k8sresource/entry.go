@@ -148,6 +148,12 @@ func newWithChanges(
 	jp jmespath.Interface,
 	changes chan struct{},
 ) (store.Entry, error) {
+	// Keep this internal helper safe for callers that do not supply a channel.
+	// Without it, projected entries would silently miss informer changes.
+	if len(gce.Spec.Projections) > 0 && changes == nil {
+		changes = make(chan struct{}, 1)
+	}
+
 	if namespace == "" {
 		namespace = metav1.NamespaceAll
 	}
