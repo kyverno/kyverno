@@ -64,13 +64,16 @@ func (c *controller) report(ctx context.Context, observer metric.Observer) error
 	if c.ruleInfo == nil {
 		return nil
 	}
-	cpols, pols := c.snapshot.list()
-	for _, obs := range pols {
-		c.ruleInfo.RecordPolicyRuleObservations(obs, observer)
-	}
-	for _, obs := range cpols {
-		c.ruleInfo.RecordPolicyRuleObservations(obs, observer)
-	}
+	// the metrics ConfigMap can be reloaded at runtime, so the namespace filter
+	// has to be evaluated against the current configuration instead of the one
+	// in effect when the policy event was handled
+	config := metrics.GetManager().Config()
+	c.snapshot.rangeObservations(func(obs policyObservation) {
+		if !config.CheckNamespace(obs.namespace) {
+			return
+		}
+		c.ruleInfo.RecordPolicyRuleObservations(obs.series, observer)
+	})
 	return nil
 }
 
@@ -88,8 +91,8 @@ func (c *controller) buildObservations(policy kyvernov1.PolicyInterface) metrics
 
 // storeObservations refreshes the snapshot entry of a policy. A nil observation
 // means the policy contributes no series anymore, either because its build
-// failed or because the metrics configuration filters its namespace out, so any
-// entry it may have is dropped.
+// failed or because metrics are not initialized, so any entry it may have is
+// dropped.
 func (c *controller) storeObservations(policy kyvernov1.PolicyInterface) {
 	obs := c.buildObservations(policy)
 	if obs == nil {
@@ -153,21 +156,29 @@ func (c *controller) deleteNsPolicy(obj interface{}) {
 	c.startRoutine(func() { c.registerPolicyChangesMetricDeletePolicy(context.TODO(), logger, p) })
 }
 
+// policyObservation pairs the series a policy contributes with the namespace
+// the metrics configuration filters on. The namespace is kept so the filter can
+// be applied when the metric is reported: the metrics ConfigMap is reloadable,
+// so an observation built while a namespace was included must disappear if the
+// configuration later excludes it, and the other way around.
+type policyObservation struct {
+	namespace string
+	series    metrics.PolicyRuleObservation
+}
+
 // policySnapshot holds the series contributed by the policies currently present
 // in the cluster, keyed by namespace/name (or just name for cluster-wide
 // policies). It is written by the informer event handlers and read by the
 // metrics callback, which can run concurrently, so every access goes through
 // the mutex.
 type policySnapshot struct {
-	mux   sync.RWMutex
-	cpols map[string]metrics.PolicyRuleObservation
-	pols  map[string]metrics.PolicyRuleObservation
+	mux      sync.RWMutex
+	policies map[string]policyObservation
 }
 
 func newPolicySnapshot() *policySnapshot {
 	return &policySnapshot{
-		cpols: make(map[string]metrics.PolicyRuleObservation),
-		pols:  make(map[string]metrics.PolicyRuleObservation),
+		policies: make(map[string]policyObservation),
 	}
 }
 
@@ -179,10 +190,9 @@ func (s *policySnapshot) upsert(policy kyvernov1.PolicyInterface, obs metrics.Po
 	}
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	if policy.GetNamespace() == "" {
-		s.cpols[key] = obs
-	} else {
-		s.pols[key] = obs
+	s.policies[key] = policyObservation{
+		namespace: policy.GetNamespace(),
+		series:    obs,
 	}
 }
 
@@ -196,20 +206,16 @@ func (s *policySnapshot) remove(obj interface{}) {
 	}
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	delete(s.cpols, key)
-	delete(s.pols, key)
+	delete(s.policies, key)
 }
 
-func (s *policySnapshot) list() (cpols, pols []metrics.PolicyRuleObservation) {
+// rangeObservations calls fn for every observation in the snapshot while
+// holding the read lock. It avoids allocating a copy of the policies on every
+// metrics scrape.
+func (s *policySnapshot) rangeObservations(fn func(policyObservation)) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	cpols = make([]metrics.PolicyRuleObservation, 0, len(s.cpols))
-	for _, obs := range s.cpols {
-		cpols = append(cpols, obs)
+	for _, obs := range s.policies {
+		fn(obs)
 	}
-	pols = make([]metrics.PolicyRuleObservation, 0, len(s.pols))
-	for _, obs := range s.pols {
-		pols = append(pols, obs)
-	}
-	return cpols, pols
 }

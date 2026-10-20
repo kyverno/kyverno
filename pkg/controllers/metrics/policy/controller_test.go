@@ -8,7 +8,11 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/stretchr/testify/assert"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -56,6 +60,14 @@ func (m *observableMetricsManager) RecordPolicyChanges(ctx context.Context, poli
 	m.mux.Lock()
 	defer m.mux.Unlock()
 	m.recordedCalls++
+}
+
+func snapshotEntries(s *policySnapshot) []policyObservation {
+	var entries []policyObservation
+	s.rangeObservations(func(obs policyObservation) {
+		entries = append(entries, obs)
+	})
+	return entries
 }
 
 func Test_report_NilRuleInfo(t *testing.T) {
@@ -115,28 +127,201 @@ func Test_report_SkipsFailedObservationBuilds(t *testing.T) {
 	assert.Empty(t, mockRuleInfo.replayed)
 }
 
+func Test_report_AppliesCurrentNamespaceFilter(t *testing.T) {
+	manager := &observableMetricsManager{MetricsConfigManager: metrics.NewFakeMetricsConfig()}
+	metrics.SetManager(manager)
+	defer metrics.SetManager(metrics.NewFakeMetricsConfig())
+
+	mockRuleInfo := &mockPolicyRuleMetrics{}
+	wg := &wait.Group{}
+	c := &controller{
+		ruleInfo:  mockRuleInfo,
+		snapshot:  newPolicySnapshot(),
+		waitGroup: wg,
+	}
+	c.addNsPolicy(&kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "included", Namespace: "default"},
+	})
+	c.addNsPolicy(&kyvernov1.Policy{
+		ObjectMeta: metav1.ObjectMeta{Name: "excluded", Namespace: "other"},
+	})
+	wg.Wait()
+
+	// excluding a namespace after the observations were built must hide them on
+	// the next report, without waiting for another policy event
+	manager.Config().Load(&corev1.ConfigMap{Data: map[string]string{
+		"namespaces": `{"exclude":["default"]}`,
+	}})
+	mockRuleInfo.replayed = nil
+	assert.NoError(t, c.report(context.TODO(), &mockObserver{}))
+	assert.Len(t, mockRuleInfo.replayed, 1)
+	assert.Len(t, mockRuleInfo.replayed[0], 2, "expected only the observation of the namespace still included")
+
+	// and including it again must bring the stored observation back
+	manager.Config().Load(&corev1.ConfigMap{Data: map[string]string{
+		"namespaces": `{"exclude":["other"]}`,
+	}})
+	mockRuleInfo.replayed = nil
+	assert.NoError(t, c.report(context.TODO(), &mockObserver{}))
+	assert.Len(t, mockRuleInfo.replayed, 1)
+	assert.Len(t, mockRuleInfo.replayed[0], 1, "expected only the observation of the namespace still included")
+}
+
+type policyRuleSample struct {
+	value      float64
+	attributes map[string]any
+}
+
+// collectPolicyRuleObservations replays observations through a real SDK
+// provider and returns the data points Prometheus would scrape, so tests can
+// assert the metric output (value and attributes) rather than the internal
+// observe options.
+func collectPolicyRuleObservations(t *testing.T, obs metrics.PolicyRuleObservation) []policyRuleSample {
+	t.Helper()
+
+	reader := sdkmetric.NewManualReader()
+	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	previous := otel.GetMeterProvider()
+	otel.SetMeterProvider(provider)
+	t.Cleanup(func() {
+		otel.SetMeterProvider(previous)
+		_ = provider.Shutdown(context.Background())
+	})
+
+	ruleInfo := metrics.NewFakeMetricsConfig().PolicyRuleMetrics()
+	_, err := ruleInfo.RegisterCallback(func(ctx context.Context, observer metric.Observer) error {
+		ruleInfo.RecordPolicyRuleObservations(obs, observer)
+		return nil
+	})
+	assert.NoError(t, err)
+
+	var data metricdata.ResourceMetrics
+	err = reader.Collect(context.Background(), &data)
+	assert.NoError(t, err)
+
+	var samples []policyRuleSample
+	for _, scope := range data.ScopeMetrics {
+		for _, m := range scope.Metrics {
+			if m.Name != "kyverno_policy_rule_info_total" {
+				continue
+			}
+			gauge, ok := m.Data.(metricdata.Gauge[float64])
+			if !assert.True(t, ok, "expected %s to be a float64 gauge", m.Name) {
+				continue
+			}
+			for _, point := range gauge.DataPoints {
+				attributes := make(map[string]any, point.Attributes.Len())
+				for _, kv := range point.Attributes.ToSlice() {
+					attributes[string(kv.Key)] = kv.Value.AsInterface()
+				}
+				samples = append(samples, policyRuleSample{value: point.Value, attributes: attributes})
+			}
+		}
+	}
+	return samples
+}
+
+func Test_updatePolicy_FailedRebuildDropsEntry(t *testing.T) {
+	manager := &observableMetricsManager{MetricsConfigManager: metrics.NewFakeMetricsConfig()}
+	metrics.SetManager(manager)
+	defer metrics.SetManager(metrics.NewFakeMetricsConfig())
+
+	mockRuleInfo := &mockPolicyRuleMetrics{}
+	wg := &wait.Group{}
+	c := &controller{
+		ruleInfo:  mockRuleInfo,
+		snapshot:  newPolicySnapshot(),
+		waitGroup: wg,
+	}
+	p := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
+	}
+
+	c.addPolicy(p)
+	mockRuleInfo.err = assert.AnError
+	c.updatePolicy(p, p)
+	wg.Wait()
+
+	// a rebuild failure must drop the entry stored by the earlier successful add
+	assert.Empty(t, snapshotEntries(c.snapshot))
+}
+
 func Test_BuildPolicyRuleObservations(t *testing.T) {
-	ruleInfo := metrics.GetPolicyInfoMetrics()
-	obs, err := ruleInfo.BuildPolicyRuleObservations(&kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
-		Spec: kyvernov1.Spec{
-			Rules: []kyvernov1.Rule{{
-				Name: "test-rule",
-				MatchResources: kyvernov1.MatchResources{
-					Any: []kyvernov1.ResourceFilter{{
-						ResourceDescription: kyvernov1.ResourceDescription{
-							Kinds: []string{"ConfigMap"},
+	matchConfigMaps := kyvernov1.MatchResources{
+		Any: []kyvernov1.ResourceFilter{{
+			ResourceDescription: kyvernov1.ResourceDescription{
+				Kinds: []string{"ConfigMap"},
+			},
+		}},
+	}
+
+	tests := []struct {
+		name   string
+		policy kyvernov1.PolicyInterface
+		want   map[string]any
+	}{
+		{
+			name: "cluster policy",
+			policy: &kyvernov1.ClusterPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-cluster-policy"},
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{{
+						Name:           "test-rule",
+						MatchResources: matchConfigMaps,
+						Validation: &kyvernov1.Validation{
+							Message: "test",
 						},
 					}},
 				},
-				Validation: &kyvernov1.Validation{
-					Message: "test",
-				},
-			}},
+			},
+			want: map[string]any{
+				"policy_namespace":       "-",
+				"policy_name":            "test-cluster-policy",
+				"policy_type":            "cluster",
+				"status_ready":           false,
+				"policy_validation_mode": "audit",
+				"policy_background_mode": "true",
+				"rule_name":              "test-rule",
+				"rule_type":              "validate",
+			},
 		},
-	})
-	assert.NoError(t, err)
-	assert.Len(t, obs, 1)
+		{
+			name: "namespaced policy",
+			policy: &kyvernov1.Policy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-policy", Namespace: "default"},
+				Spec: kyvernov1.Spec{
+					Rules: []kyvernov1.Rule{{
+						Name:           "mutate-rule",
+						MatchResources: matchConfigMaps,
+						Mutation: &kyvernov1.Mutation{
+							PatchesJSON6902: "[]",
+						},
+					}},
+				},
+			},
+			want: map[string]any{
+				"policy_namespace":       "default",
+				"policy_name":            "test-policy",
+				"policy_type":            "namespaced",
+				"status_ready":           false,
+				"policy_validation_mode": "audit",
+				"policy_background_mode": "true",
+				"rule_name":              "mutate-rule",
+				"rule_type":              "mutate",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obs, err := metrics.GetPolicyInfoMetrics().BuildPolicyRuleObservations(tt.policy)
+			assert.NoError(t, err)
+
+			samples := collectPolicyRuleObservations(t, obs)
+			assert.Len(t, samples, 1)
+			assert.Equal(t, float64(1), samples[0].value)
+			assert.Equal(t, tt.want, samples[0].attributes)
+		})
+	}
 }
 
 func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
@@ -162,25 +347,21 @@ func Test_addUpdateDeletePolicy_SnapshotTransitions(t *testing.T) {
 	c.addPolicy(p1)
 	c.updatePolicy(p1, p2)
 	wg.Wait()
-	cpols, pols := c.snapshot.list()
-	assert.Len(t, cpols, 1)
-	assert.Len(t, cpols[0], 2, "expected the update to replace the stored observation")
-	assert.Empty(t, pols)
+	entries := snapshotEntries(c.snapshot)
+	assert.Len(t, entries, 1)
+	assert.Empty(t, entries[0].namespace)
+	assert.Len(t, entries[0].series, 2, "expected the update to replace the stored observation")
 
 	// delete drops the entry, tombstone or not
 	c.deletePolicy(p2)
 	wg.Wait()
-	cpols, pols = c.snapshot.list()
-	assert.Empty(t, cpols)
-	assert.Empty(t, pols)
+	assert.Empty(t, snapshotEntries(c.snapshot))
 
 	// a tombstone without the object still identifies the policy by its key
 	c.addPolicy(p1)
 	c.deletePolicy(cache.DeletedFinalStateUnknown{Key: "test-policy"})
 	wg.Wait()
-	cpols, pols = c.snapshot.list()
-	assert.Empty(t, cpols)
-	assert.Empty(t, pols)
+	assert.Empty(t, snapshotEntries(c.snapshot))
 }
 
 func Test_addUpdateDeleteNsPolicy_SnapshotTransitions(t *testing.T) {
@@ -206,25 +387,21 @@ func Test_addUpdateDeleteNsPolicy_SnapshotTransitions(t *testing.T) {
 	c.addNsPolicy(p1)
 	c.updateNsPolicy(p1, p2)
 	wg.Wait()
-	cpols, pols := c.snapshot.list()
-	assert.Empty(t, cpols)
-	assert.Len(t, pols, 1)
-	assert.Len(t, pols[0], 2, "expected the update to replace the stored observation")
+	entries := snapshotEntries(c.snapshot)
+	assert.Len(t, entries, 1)
+	assert.Equal(t, "default", entries[0].namespace)
+	assert.Len(t, entries[0].series, 2, "expected the update to replace the stored observation")
 
 	// delete drops the entry, tombstone or not
 	c.deleteNsPolicy(p2)
 	wg.Wait()
-	cpols, pols = c.snapshot.list()
-	assert.Empty(t, cpols)
-	assert.Empty(t, pols)
+	assert.Empty(t, snapshotEntries(c.snapshot))
 
 	// a tombstone without the object still identifies the policy by its key
 	c.addNsPolicy(p1)
 	c.deleteNsPolicy(cache.DeletedFinalStateUnknown{Key: "default/test-policy"})
 	wg.Wait()
-	cpols, pols = c.snapshot.list()
-	assert.Empty(t, cpols)
-	assert.Empty(t, pols)
+	assert.Empty(t, snapshotEntries(c.snapshot))
 }
 
 func Test_deletePolicy_Tombstone(t *testing.T) {

@@ -11,6 +11,8 @@ import (
 // PolicyRuleObservation holds the series a single policy contributes to the
 // kyverno_policy_rule_info_total gauge. Building it once per policy event
 // allows the scrape callback to replay it instead of walking the policy again.
+// Namespace filtering is left to the caller because the metrics configuration
+// can change between the policy event and the scrape.
 type PolicyRuleObservation []metric.ObserveOption
 
 func GetPolicyInfoMetrics() PolicyRuleMetrics {
@@ -63,10 +65,6 @@ func (m *policyRuleMetrics) BuildPolicyRuleObservations(policy kyvernov1.PolicyI
 	name, namespace, policyType, backgroundMode, validationMode, err := GetPolicyInfos(policy)
 	if err != nil {
 		return nil, err
-	}
-
-	if !GetManager().Config().CheckNamespace(namespace) {
-		return nil, nil
 	}
 
 	if policyType == Cluster {
