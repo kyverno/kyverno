@@ -34,7 +34,7 @@ type imageResult struct {
 
 type requestContext struct {
 	Context
-	ctx context.Context
+	ctx context.Context //nolint:containedctx // scoped to a single evaluation, the native CEL functions have no ctx parameter
 
 	mu     sync.Mutex
 	images map[imageKey]*imageResult
