@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -19,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/tools/cache"
 )
@@ -57,6 +59,65 @@ func (f *fakeCache) getUnsetCalls() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]string(nil), f.unsetCalls...)
+}
+
+type erroringCpolLister struct {
+	kyvernov1listers.ClusterPolicyLister
+	getErr  error
+	listErr error
+}
+
+func (l erroringCpolLister) Get(string) (*kyvernov1.ClusterPolicy, error) {
+	if l.getErr != nil {
+		return nil, l.getErr
+	}
+	if l.ClusterPolicyLister != nil {
+		return l.ClusterPolicyLister.Get("")
+	}
+	return nil, nil
+}
+
+func (l erroringCpolLister) List(labels.Selector) ([]*kyvernov1.ClusterPolicy, error) {
+	if l.listErr != nil {
+		return nil, l.listErr
+	}
+	if l.ClusterPolicyLister != nil {
+		return l.ClusterPolicyLister.List(labels.Everything())
+	}
+	return nil, nil
+}
+
+type erroringPolLister struct {
+	kyvernov1listers.PolicyLister
+	listErr error
+	getErr  error
+}
+
+func (l erroringPolLister) Policies(string) kyvernov1listers.PolicyNamespaceLister {
+	return erroringPolNamespaceLister{
+		listErr: l.listErr,
+		getErr:  l.getErr,
+	}
+}
+
+type erroringPolNamespaceLister struct {
+	kyvernov1listers.PolicyNamespaceLister
+	listErr error
+	getErr  error
+}
+
+func (l erroringPolNamespaceLister) List(labels.Selector) ([]*kyvernov1.Policy, error) {
+	if l.listErr != nil {
+		return nil, l.listErr
+	}
+	return nil, nil
+}
+
+func (l erroringPolNamespaceLister) Get(string) (*kyvernov1.Policy, error) {
+	if l.getErr != nil {
+		return nil, l.getErr
+	}
+	return nil, nil
 }
 
 func newCpolLister(cpols ...*kyvernov1.ClusterPolicy) kyvernov1listers.ClusterPolicyLister {
@@ -130,12 +191,39 @@ func TestNewController(t *testing.T) {
 	t.Parallel()
 	client := dclient.NewEmptyFakeClient()
 	fc := &fakeCache{}
-	factory := externalversions.NewSharedInformerFactory(versionedfake.NewSimpleClientset(), 0)
+
+	cpol := readyClusterPolicy("cpol-test")
+	pol := readyPolicy("ns-test", "pol-test")
+	fakeClient := versionedfake.NewSimpleClientset(cpol, pol)
+	factory := externalversions.NewSharedInformerFactory(fakeClient, 0)
 	cpolInformer := factory.Kyverno().V1().ClusterPolicies()
 	polInformer := factory.Kyverno().V1().Policies()
 
 	ctrl := NewController(client, fc, cpolInformer, polInformer)
 	require.NotNil(t, ctrl)
+	c, ok := ctrl.(*controller)
+	require.True(t, ok)
+	defer c.queue.ShutDown()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	factory.Start(ctx.Done())
+	require.True(t, cache.WaitForCacheSync(ctx.Done(), cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced))
+
+	assert.Eventually(t, func() bool {
+		return c.queue.Len() == 2
+	}, 2*time.Second, 10*time.Millisecond)
+
+	enqueued := make(map[any]bool)
+	for c.queue.Len() > 0 {
+		item, _ := c.queue.Get()
+		enqueued[item] = true
+		c.queue.Done(item)
+	}
+
+	assert.True(t, enqueued["cpol-test"], "cpol-test should be enqueued by clusterpolicy event handler")
+	assert.True(t, enqueued["ns-test/pol-test"], "ns-test/pol-test should be enqueued by policy event handler")
 }
 
 func TestLoadPolicy(t *testing.T) {
@@ -218,6 +306,19 @@ func TestReconcile(t *testing.T) {
 		assert.Equal(t, []string{"missing-cpol"}, fc.getUnsetCalls())
 	})
 
+	t.Run("ClusterPolicy generic load error does not unset cache", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		loadErr := errors.New("lister failure")
+		c := newTestController(fc, nil, nil)
+		c.cpolLister = erroringCpolLister{getErr: loadErr}
+
+		err := c.reconcile(ctx, logr.Discard(), "cpol", "", "cpol")
+		require.ErrorIs(t, err, loadErr)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Empty(t, fc.getUnsetCalls())
+	})
+
 	t.Run("ClusterPolicy admission processing disabled unsets cache", func(t *testing.T) {
 		t.Parallel()
 		fc := &fakeCache{}
@@ -291,6 +392,56 @@ func TestReconcile(t *testing.T) {
 		assert.Equal(t, []string{key}, fc.getUnsetCalls())
 	})
 
+	t.Run("Namespaced Policy generic load error does not unset cache", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		loadErr := errors.New("namespaced lister failure")
+		c := newTestController(fc, nil, nil)
+		c.polLister = erroringPolLister{getErr: loadErr}
+
+		key := "ns-1/pol"
+		err := c.reconcile(ctx, logr.Discard(), key, "ns-1", "pol")
+		require.ErrorIs(t, err, loadErr)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Empty(t, fc.getUnsetCalls())
+	})
+
+	t.Run("Namespaced Policy admission processing disabled unsets cache", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		pol := readyPolicy("ns-1", "disabled-pol")
+		disabled := false
+		pol.Spec.Admission = &disabled
+		c := newTestController(fc, nil, []*kyvernov1.Policy{pol})
+
+		key := "ns-1/disabled-pol"
+		err := c.reconcile(ctx, logr.Discard(), key, "ns-1", "disabled-pol")
+		require.NoError(t, err)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Equal(t, []string{key}, fc.getUnsetCalls())
+	})
+
+	t.Run("Namespaced Policy with custom webhook match conditions unsets cache", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		pol := readyPolicy("ns-1", "custom-pol")
+		pol.Spec.WebhookConfiguration = &kyvernov1.WebhookConfiguration{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "custom-match",
+					Expression: "true",
+				},
+			},
+		}
+		c := newTestController(fc, nil, []*kyvernov1.Policy{pol})
+
+		key := "ns-1/custom-pol"
+		err := c.reconcile(ctx, logr.Discard(), key, "ns-1", "custom-pol")
+		require.NoError(t, err)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Equal(t, []string{key}, fc.getUnsetCalls())
+	})
+
 	t.Run("Cache set error propagates error", func(t *testing.T) {
 		t.Parallel()
 		setErr := errors.New("failed to set cache")
@@ -343,6 +494,40 @@ func TestWarmUp(t *testing.T) {
 		assert.Equal(t, []string{"not-ready-cpol"}, fc.getUnsetCalls())
 	})
 
+	t.Run("ClusterPolicy admission disabled unsets during warm up", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		cpol := readyClusterPolicy("disabled-cpol")
+		disabled := false
+		cpol.Spec.Admission = &disabled
+		c := newTestController(fc, []*kyvernov1.ClusterPolicy{cpol}, nil)
+
+		err := c.WarmUp()
+		require.NoError(t, err)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Equal(t, []string{"disabled-cpol"}, fc.getUnsetCalls())
+	})
+
+	t.Run("ClusterPolicy custom webhook match conditions unsets during warm up", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		cpol := readyClusterPolicy("custom-cpol")
+		cpol.Spec.WebhookConfiguration = &kyvernov1.WebhookConfiguration{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "custom-match",
+					Expression: "true",
+				},
+			},
+		}
+		c := newTestController(fc, []*kyvernov1.ClusterPolicy{cpol}, nil)
+
+		err := c.WarmUp()
+		require.NoError(t, err)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Equal(t, []string{"custom-cpol"}, fc.getUnsetCalls())
+	})
+
 	t.Run("Ready Namespaced Policy warms up into cache", func(t *testing.T) {
 		t.Parallel()
 		fc := &fakeCache{}
@@ -367,6 +552,40 @@ func TestWarmUp(t *testing.T) {
 		assert.Equal(t, []string{"ns-1/not-ready-pol"}, fc.getUnsetCalls())
 	})
 
+	t.Run("Namespaced Policy admission disabled unsets during warm up", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		pol := readyPolicy("ns-1", "disabled-pol")
+		disabled := false
+		pol.Spec.Admission = &disabled
+		c := newTestController(fc, nil, []*kyvernov1.Policy{pol})
+
+		err := c.WarmUp()
+		require.NoError(t, err)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Equal(t, []string{"ns-1/disabled-pol"}, fc.getUnsetCalls())
+	})
+
+	t.Run("Namespaced Policy custom webhook match conditions unsets during warm up", func(t *testing.T) {
+		t.Parallel()
+		fc := &fakeCache{}
+		pol := readyPolicy("ns-1", "custom-pol")
+		pol.Spec.WebhookConfiguration = &kyvernov1.WebhookConfiguration{
+			MatchConditions: []admissionregistrationv1.MatchCondition{
+				{
+					Name:       "custom-match",
+					Expression: "true",
+				},
+			},
+		}
+		c := newTestController(fc, nil, []*kyvernov1.Policy{pol})
+
+		err := c.WarmUp()
+		require.NoError(t, err)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Equal(t, []string{"ns-1/custom-pol"}, fc.getUnsetCalls())
+	})
+
 	t.Run("Mixed policies warm up correctly", func(t *testing.T) {
 		t.Parallel()
 		fc := &fakeCache{}
@@ -384,15 +603,58 @@ func TestWarmUp(t *testing.T) {
 		assert.ElementsMatch(t, []string{"not-ready-cpol", "ns-2/not-ready-pol"}, fc.getUnsetCalls())
 	})
 
-	t.Run("Cache set error during warm up returns error", func(t *testing.T) {
+	t.Run("polLister.List error during warm up returns error", func(t *testing.T) {
 		t.Parallel()
-		setErr := errors.New("failed to warm up")
-		fc := &fakeCache{setErr: setErr}
+		listErr := errors.New("failed to list policies")
+		fc := &fakeCache{}
+		c := newTestController(fc, []*kyvernov1.ClusterPolicy{readyClusterPolicy("ready-cpol")}, nil)
+		c.polLister = erroringPolLister{listErr: listErr}
+
+		err := c.WarmUp()
+		require.ErrorIs(t, err, listErr)
+		assert.Empty(t, fc.getSetCalls())
+		assert.Empty(t, fc.getUnsetCalls())
+	})
+
+	t.Run("cpolLister.List error during warm up returns error", func(t *testing.T) {
+		t.Parallel()
+		listErr := errors.New("failed to list cluster policies")
+		fc := &fakeCache{}
 		pol := readyPolicy("ns-1", "ready-pol")
 		c := newTestController(fc, nil, []*kyvernov1.Policy{pol})
+		c.cpolLister = erroringCpolLister{listErr: listErr}
+
+		err := c.WarmUp()
+		require.ErrorIs(t, err, listErr)
+		assert.Equal(t, []string{"ns-1/ready-pol"}, fc.getSetCalls())
+		assert.Empty(t, fc.getUnsetCalls())
+	})
+
+	t.Run("Cache set error on Namespaced Policy during warm up returns error and exits early", func(t *testing.T) {
+		t.Parallel()
+		setErr := errors.New("failed to warm up namespaced")
+		fc := &fakeCache{setErr: setErr}
+		pol := readyPolicy("ns-1", "ready-pol")
+		cpol := readyClusterPolicy("ready-cpol")
+		c := newTestController(fc, []*kyvernov1.ClusterPolicy{cpol}, []*kyvernov1.Policy{pol})
 
 		err := c.WarmUp()
 		require.Error(t, err)
 		assert.Equal(t, setErr, err)
+		assert.Equal(t, []string{"ns-1/ready-pol"}, fc.getSetCalls())
+		assert.Empty(t, fc.getUnsetCalls())
+	})
+
+	t.Run("Cache set error on ClusterPolicy during warm up returns error", func(t *testing.T) {
+		t.Parallel()
+		setErr := errors.New("failed to warm up cluster policy")
+		fc := &fakeCache{setErr: setErr}
+		c := newTestController(fc, []*kyvernov1.ClusterPolicy{readyClusterPolicy("ready-cpol")}, nil)
+
+		err := c.WarmUp()
+		require.Error(t, err)
+		assert.Equal(t, setErr, err)
+		assert.Equal(t, []string{"ready-cpol"}, fc.getSetCalls())
+		assert.Empty(t, fc.getUnsetCalls())
 	})
 }
