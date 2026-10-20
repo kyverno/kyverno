@@ -85,7 +85,13 @@ def report(root):
     rows = []
     baseline = coverage(root / "setup-baseline" / "coverage.out")
     identities = {key: value[0] for key, value in baseline.items()}
-    checkout = read(root / "setup-baseline", "start")["checkout"]
+    baseline_start = read(root / "setup-baseline", "start")
+    checkout = baseline_start["checkout"]
+    identity_keys = ("cpu_count", "image_os", "image_version")
+    identity = {key: baseline_start[key] for key in identity_keys}
+    if any(value is None for value in identity.values()):
+        raise ValueError("runner identity is incomplete")
+    comparable = True
     for arm in ARMS:
         directory = root / ("setup-" + arm)
         start, cleaned, ready = [read(directory, name)
@@ -95,6 +101,13 @@ def report(root):
             raise ValueError("full test suite failed in " + arm)
         if any(record["checkout"] != checkout for record in (start, cleaned, ready)):
             raise ValueError("benchmark checkouts differ")
+        runner_identity = {key: start[key] for key in identity_keys}
+        if any(value is None for value in runner_identity.values()):
+            raise ValueError("runner identity is incomplete")
+        if any({key: record[key] for key in identity_keys} != runner_identity
+               for record in (cleaned, ready)):
+            raise ValueError("runner identity changed within an arm")
+        comparable = comparable and runner_identity == identity
         blocks = coverage(directory / "coverage.out")
         if {key: value[0] for key, value in blocks.items()} != identities:
             raise ValueError("coverage block inventory differs in " + arm)
@@ -116,8 +129,9 @@ def report(root):
             "covered_statements": covered,
             "total_statements": statements,
             "coverage_blocks": len(blocks),
+            "runner": runner_identity,
         })
-    return {"checkout": checkout, "arms": rows}
+    return {"checkout": checkout, "comparable": comparable, "arms": rows}
 
 
 def main():
@@ -144,6 +158,9 @@ def main():
     else:
         result = report(args.root)
         (args.root / "comparison.json").write_text(json.dumps(result, indent=2) + "\n")
+        if not result["comparable"]:
+            print("**NON-COMPARABLE: runner image or CPU identities differ across arms. "
+                  "Do not attribute timing differences to setup changes or promote a winner.**\n")
         print("| Arm | Cleanup | Go setup | Tests | Measured total | Min free during tests | Covered statements |")
         print("|---|---:|---:|---:|---:|---:|---:|")
         for row in result["arms"]:
@@ -151,6 +168,12 @@ def main():
                   "{test_seconds:.1f}s | {measured_seconds:.1f}s | "
                   "{sampled_test_min_free_gib:.1f} GiB | "
                   "{covered_statements}/{total_statements} |".format(**row))
+        print("\n| Arm | CPUs | Image OS | Image version |")
+        print("|---|---:|---|---|")
+        for row in result["arms"]:
+            print("| {} | {} | {} | {} |".format(
+                row["arm"], row["runner"]["cpu_count"],
+                row["runner"]["image_os"], row["runner"]["image_version"]))
         print("\nAll arms have identical coverage block identities and statement counts. "
               "Covered totals may vary with test nondeterminism; compare before promotion. "
               "Disk minima are sampled once per second during tests, not a capacity guarantee. "
