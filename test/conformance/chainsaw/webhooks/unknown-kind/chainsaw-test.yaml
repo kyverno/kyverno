@@ -9,29 +9,29 @@ spec:
   steps:
   - name: step-01
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-1.yaml
+    - script:
+        content: kubectl create --dry-run=server -f policy-1.yaml
+        check:
+          ($error == null): true
+          (contains($stderr, 'unable to convert GVK to GVR for kinds Foo,')): true
   - name: step-02
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-2.yaml
+    - script:
+        content: kubectl create --dry-run=server -f policy-2.yaml
+        check:
+          ($error == null): true
+          (contains($stderr, 'unable to convert GVK to GVR for kinds Foo/*,')): true
   - name: step-03
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-3.yaml
+    - script:
+        content: kubectl create --dry-run=server -f policy-3.yaml
+        check:
+          ($error == null): true
+          (contains($stderr, 'unable to convert GVK to GVR for kinds v2/Pod,')): true
   - name: step-04
     try:
-    - apply:
-        expect:
-        - check:
-            ($error != null): true
-        file: policy-4.yaml
+    - script:
+        content: kubectl create --dry-run=server -f policy-4.yaml
+        check:
+          ($error == null): true
+          (contains($stderr, 'unable to convert GVK to GVR for kinds Pod/foo,')): true
