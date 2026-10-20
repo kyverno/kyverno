@@ -51,6 +51,17 @@ func notifyProjectionChange(changes chan<- struct{}) {
 // notifications over a fixed, bounded window. Notifications during an active
 // evaluation remain pending for the next iteration.
 func runProjectionWorker(ctx context.Context, changes <-chan struct{}, refresh func()) {
+	// Reuse one timer across bursts to avoid allocations and GC pressure on
+	// frequently updated resources. Stop it before the first notification.
+	timer := time.NewTimer(projectionCoalesceInterval)
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -58,10 +69,9 @@ func runProjectionWorker(ctx context.Context, changes <-chan struct{}, refresh f
 		case <-changes:
 		}
 
-		timer := time.NewTimer(projectionCoalesceInterval)
+		timer.Reset(projectionCoalesceInterval)
 		select {
 		case <-ctx.Done():
-			timer.Stop()
 			return
 		case <-timer.C:
 		}
