@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: PR triage tooling tests
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release-*
+    paths:
+      - hack/pr-triage/**
+      - .github/workflows/pr-branch-guard.yaml
+      - .github/workflows/check-pr-triage.yaml
+  push:
+    branches:
+      - main
+    paths:
+      - hack/pr-triage/**
+      - .github/workflows/pr-branch-guard.yaml
+      - .github/workflows/check-pr-triage.yaml
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow_ref }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: PR triage regression tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run offline safety tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -B -m unittest discover -s hack/pr-triage -p 'test_*.py'

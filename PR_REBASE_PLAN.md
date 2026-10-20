@@ -2,6 +2,18 @@
 
 Review of `PR_REBASE_INTENT.md` — grounded against the live state of `kyverno/kyverno` on 2026-09-13.
 
+> **Execution update (2026-10-20):** the counts, clean-rebase rate and workflow
+> sketches below are the September design record, not approval to execute.
+> Use [the current runbook](hack/pr-triage/README.md) and
+> [dated dry-run manifest](hack/pr-triage/snapshots/2026-10-20.md).
+> Publication requires a fresh pinned manifest, per-PR evidence/test approval,
+> updater coordination and an explicit execution flag. The guard is advisory;
+> CEL backports to 1.19 are allowed. Do not use the old blanket CEL prohibition
+> or the pseudocode below as executable commands.
+> The October snapshot probes all 65 legacy candidates: 13 clean, 52 conflicts.
+> Only 2 have an unqualified `RETARGET` recommendation after overlap/scope
+> screening; 63 are held. Every per-PR approval remains null.
+
 ## 0. Executive summary (what the data says)
 
 | Fact | Value | Implication |
