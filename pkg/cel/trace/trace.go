@@ -24,6 +24,9 @@ type ExpressionTrace struct {
 	// LoopValuesOmitted is set when nodes inside a loop body (all, exists, exists_one, map,
 	// filter) ran but were left out of Nodes; see Build for why.
 	LoopValuesOmitted bool
+	// NoBreakdown is set, by the caller, when Nodes were deliberately not collected for this
+	// expression, and says why, so the missing breakdown is not mistaken for an empty one.
+	NoBreakdown string
 }
 
 func Build(source string, ast *cel.Ast, result ref.Val, details *cel.EvalDetails) ExpressionTrace {
@@ -187,6 +190,21 @@ const (
 	VerdictNotRun = "NOT RUN"
 )
 
+// ImagesTrace lists the images an ImageValidatingPolicy's image extractors found on the
+// resource. Found is empty when extraction ran and found nothing.
+type ImagesTrace struct {
+	Found []ImageTrace
+}
+
+// ImageTrace is one image found on the resource. Category is the image extractor that found it
+// (e.g. containers); Checked is whether the policy's matchImageReferences kept it, which is what
+// decides whether the policy's validations see it at all.
+type ImageTrace struct {
+	Category string
+	Image    string
+	Checked  bool
+}
+
 // ValidationTrace is one validation's own outcome. Index is its position in the policy's
 // validations, since validations have no names.
 type ValidationTrace struct {
@@ -214,7 +232,9 @@ type Decision struct {
 	// Validations lists every validation in order: the ones that ran with their own status, then
 	// any after a failure as VerdictNotRun. Verdict still carries the deciding one in full.
 	Validations []ValidationTrace
-	Verdict     VerdictTrace
+	// Images is what an ImageValidatingPolicy found to check; nil for every other policy kind.
+	Images  *ImagesTrace
+	Verdict VerdictTrace
 	// Mutations holds one entry per mutation expression that actually ran, in order. Unlike
 	// Verdict (vpol's single deciding validation), a MutatingPolicy has no one expression that
 	// "decides" the outcome -- every mutation that runs contributes to the result, so this is a
