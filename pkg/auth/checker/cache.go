@@ -11,23 +11,25 @@ import (
 // (subject, resolved-resource, verb) tuple — the granularity at which an
 // AuthChecker issues a SubjectAccessReview/SelfSubjectAccessReview.
 //
-// The resource coordinates (group/version/resource) are the GVR the kind was
-// resolved to before the checker ran, so different spellings of the same kind
-// (e.g. "ConfigMap" and "v1/ConfigMap") collapse onto a single entry. subject
-// keeps decisions for different identities from colliding in a shared cache, and
-// self marks SelfSubjectAccessReview decisions so they occupy a key domain
-// disjoint from every subject — a self decision can never be reused for a
-// SubjectAccessReview even if a subject is literally named like the self value.
+// The resource coordinates (resourceGroup/version/resource) are the GVR the kind
+// was resolved to before the checker ran, so different spellings of the same
+// kind (e.g. "ConfigMap" and "v1/ConfigMap") collapse onto a single entry.
+// subject is the SubjectAccessReview user (the caller's RBAC groups are not
+// threaded today — see NewCachedSubjectChecker); it keeps decisions for
+// different identities from colliding in a shared cache, and self marks
+// SelfSubjectAccessReview decisions so they occupy a key domain disjoint from
+// every subject — a self decision can never be reused for a SubjectAccessReview
+// even if a subject is literally named like the self value.
 type cacheKey struct {
-	self        bool
-	subject     string
-	group       string
-	version     string
-	resource    string
-	subresource string
-	namespace   string
-	name        string
-	verb        string
+	self          bool
+	subject       string
+	resourceGroup string
+	version       string
+	resource      string
+	subresource   string
+	namespace     string
+	name          string
+	verb          string
 }
 
 // ResultCache memoizes authorization decisions so a decorated AuthChecker is
@@ -120,15 +122,15 @@ func NewCachedSelfChecker(client authorizationv1client.SelfSubjectAccessReviewIn
 // Errors are never cached so the next call retries.
 func (c *cachedChecker) Check(ctx context.Context, group, version, resource, subresource, namespace, name, verb string) (*AuthResult, error) {
 	key := cacheKey{
-		self:        c.self,
-		subject:     c.subject,
-		group:       group,
-		version:     version,
-		resource:    resource,
-		subresource: subresource,
-		namespace:   namespace,
-		name:        name,
-		verb:        verb,
+		self:          c.self,
+		subject:       c.subject,
+		resourceGroup: group,
+		version:       version,
+		resource:      resource,
+		subresource:   subresource,
+		namespace:     namespace,
+		name:          name,
+		verb:          verb,
 	}
 	if result, ok := c.cache.get(key); ok {
 		return result, nil
