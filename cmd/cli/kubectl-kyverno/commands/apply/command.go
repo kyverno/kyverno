@@ -605,9 +605,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 		}
 		validPolicies = append(validPolicies, pol)
 	}
-	if err := c.failOnDeprecationWarnings(); err != nil {
-		return &rc, nil, nil, err
-	}
 	var responses []engineapi.EngineResponse
 	namespaceCache := make(map[string]*unstructured.Unstructured)
 
