@@ -380,6 +380,7 @@ class Journal:
 
 class Ctx:
     def __init__(self, manifest, cand, journal, git_repo, args):
+        self.manifest = manifest
         self.repo = manifest["repository"]
         self.source = manifest["source"]
         self.target = manifest["target"]
@@ -501,7 +502,15 @@ def poll_pr(ctx, number, predicate, what):
     raise RetargetError(f"PR #{number} did not reach expected state ({what}); re-run with --resume")
 
 
+def recheck_approval(ctx):
+    if not ctx.args.rollback:
+        blockers = approval_blockers(ctx.manifest, ctx.cand, ctx.args.manifest.resolve().parent)
+        if blockers:
+            raise RetargetError("approval/evidence changed before publication: " + "; ".join(blockers))
+
+
 def push(ctx, repo, branch, expected, src):
+    recheck_approval(ctx)
     lease = f"--force-with-lease=refs/heads/{branch}:{expected or ''}"
     git(ctx.git_repo, ["push", *PUSH_FLAGS, lease, remote_url(repo),
                        f"{src}:refs/heads/{branch}"], timeout=PUSH_TIMEOUT)
@@ -653,6 +662,7 @@ def author_forward(ctx):
     if pr["base"]["ref"] == src:
         if j.state != "base_pending":
             j.record("base_pending", base={"from": src, "to": tgt})
+        recheck_approval(ctx)
         gh(["pr", "edit", str(ctx.number), "--repo", ctx.repo, "--base", tgt])
     elif not j.intended("base_pending"):
         raise RetargetError(f"PR base is already {tgt} but the journal never recorded base intent")
@@ -668,7 +678,7 @@ def sibling_forward(ctx):
     title = ctx.args.title or f"[{tgt}] {ctx.cand['title']}"
     body_hash = None
     if j.state != "complete":
-        _, body_hash = validate_body(ctx, ctx.args.body_file)
+        body, body_hash = validate_body(ctx, ctx.args.body_file)
         if j.data is not None and (j.data.get("sibling_title") != title or j.data.get("body_sha256") != body_hash):
             raise RetargetError("sibling --title/--body-file differ from the reviewed values bound in the journal "
                                 "before the first push; refusing")
@@ -707,7 +717,6 @@ def sibling_forward(ctx):
     if not owned:
         if j.state == "complete":
             raise RetargetError("journal says complete but no sibling PR found")
-        body, _ = validate_body(ctx, ctx.args.body_file)
         final_body = sibling_body(ctx, body)
         actor = gh_json(["api", "user"]).get("login")
         if not isinstance(actor, str) or not actor:
@@ -716,6 +725,7 @@ def sibling_forward(ctx):
         check_original(ctx, pr, {ctx.head}, {src}, check_updated=initial)
         j.record("pr_pending", sibling_title=title, body_sha256=body_hash, actor=actor,
                  pr_body_sha256=_norm_hash(final_body))
+        recheck_approval(ctx)
         out = gh(["pr", "create", "--repo", ctx.repo, "--base", tgt, "--head", branch, "--title", title,
                   "--body", final_body])
         m = re.search(rf"https://github\.com/{re.escape(ctx.repo)}/pull/(\d+)\s*$", out.strip())

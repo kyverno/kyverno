@@ -167,8 +167,8 @@ Header summary, then one table per category (already produced in `pr-triage-repo
 ### 2.4 Dry-run approval gate
 
 1. Commit `pr-triage-report.md` to a tracking issue ("Legacy PR retargeting — batch 1").
-2. Maintainers annotate overrides directly in the JSON (`"override": "KEEP_MAIN" | "RETARGET" | "SPLIT"`), e.g. confirming the 5 REVIEW-MIGRATION PRs → `KEEP_MAIN`. Overrides are preserved during reclassification. An explicit `"override": "RETARGET"` on a `MIXED` or `REVIEW-MIGRATION` PR is a human decision to bypass that category's default routing; re-running `--probe-rebase` probes the captured PR head before it can pass the gate.
-3. Only PRs with `(category=LEGACY_ONLY || override=RETARGET) && override!=KEEP_MAIN && probe=OK` and an unchanged captured head/base proceed to automated execution; everything else is manual.
+2. Maintainers annotate disposition overrides directly in the JSON (`"override": "KEEP_MAIN" | "SPLIT"`). Overrides are preserved during reclassification. Mixed and migration/removal PRs must be split or handled manually; `override: RETARGET` does not bypass the publisher's legacy-only category gate.
+3. Only PRs with `category=LEGACY_ONLY && override!=KEEP_MAIN && override!=SPLIT && probe=OK`, an unchanged captured identity, and the exact-SHA evidence and approval required by the execution runbook proceed to automated execution; everything else is manual.
 
 ### 2.5 Category labels — `type_legacy` / `type_cel` / `type_mixed` / `type_shared`
 

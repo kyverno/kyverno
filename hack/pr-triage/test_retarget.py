@@ -797,6 +797,34 @@ class AuthorTest(Base):
 class SiblingTest(Base):
     branch = property(lambda self: "retarget/legacy-7-" + self.head[:12])
 
+    def test_body_changed_during_push_does_not_change_published_body(self):
+        reviewed = self.body.read_text()
+        real_push = retarget.push
+
+        def changing_push(*args, **kwargs):
+            result = real_push(*args, **kwargs)
+            self.body.write_text(reviewed + "\nUNREVIEWED CHANGE\n")
+            return result
+
+        with patch.object(retarget, "push", side_effect=changing_push):
+            rc, _, err = self.run_cli("--body-file", str(self.body))
+        self.assertEqual(rc, 0, err)
+        self.assertNotIn("UNREVIEWED CHANGE", self.gh.siblings[100]["body"])
+
+    def test_evidence_changed_during_live_checks_blocks_first_write(self):
+        real_read = retarget.read_pr
+
+        def tampering_read(*args, **kwargs):
+            (self.root / "evidence/final.diff").write_text("changed after initial validation\n")
+            return real_read(*args, **kwargs)
+
+        with patch.object(retarget, "read_pr", side_effect=tampering_read):
+            rc, _, err = self.run_cli("--body-file", str(self.body))
+        self.assertEqual(rc, 1)
+        self.assertIn("evidence changed before publication", err)
+        self.assertEqual(self.gh.writes, [])
+        self.assertIsNone(self.remote(REPO, self.branch))
+
     def test_resume_refuses_new_draft_after_partial_publication(self):
         self.gh.fail_before.add("pr create")
         rc, _, _ = self.run_cli("--body-file", str(self.body))
