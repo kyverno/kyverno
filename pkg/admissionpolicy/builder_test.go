@@ -1007,14 +1007,14 @@ func TestBuildValidatingAdmissionPolicy_DeterministicExceptionScopeOrder(t *test
 	alpha := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "a-namespace", Name: "z-exception"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
-			Images: []string{"ghcr.io/example/alpha:v1"},
+			Images:        []string{"ghcr.io/example/alpha:v1"},
 			AllowedValues: []string{"alpha"},
 		},
 	}
 	beta := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Namespace: "b-namespace", Name: "a-exception"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
-			Images: []string{"ghcr.io/example/beta:v1"},
+			Images:        []string{"ghcr.io/example/beta:v1"},
 			AllowedValues: []string{"beta"},
 		},
 	}

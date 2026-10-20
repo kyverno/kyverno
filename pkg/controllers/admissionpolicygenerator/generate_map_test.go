@@ -346,16 +346,16 @@ func TestHandleMAPGeneration_SkipsUndeclaredExceptionReferences(t *testing.T) {
 	require.NoError(t, mapIndexer.Add(existingMAP))
 	require.NoError(t, bindingIndexer.Add(existingBinding))
 	c := &controller{
-		client: kubeClient,
-		kyvernoClient: kyvernoClient,
-		discoveryClient: dclient.NewEmptyFakeClient().Discovery(),
-		checker: permissiveAuthChecker{},
-		mapV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
+		client:             kubeClient,
+		kyvernoClient:      kyvernoClient,
+		discoveryClient:    dclient.NewEmptyFakeClient().Discovery,
+		checker:            permissiveAuthChecker{},
+		mapV1Lister:        admissionregistrationv1listers.NewMutatingAdmissionPolicyLister(mapIndexer),
 		mapbindingV1Lister: admissionregistrationv1listers.NewMutatingAdmissionPolicyBindingLister(bindingIndexer),
-		celpolexLister: newCELPolexLister(t),
-		polexEnabled: true,
+		celpolexLister:     newCELPolexLister(t),
+		polexEnabled:       true,
 		exceptionNamespace: "*",
-		eventGen: event.NewFake(),
+		eventGen:           event.NewFake(),
 	}
 	require.NoError(t, c.handleMAPGenerationWithVersion(ctx, mpol, admissionpolicy.MutatingAdmissionPolicyVersionV1))
 	_, err := kubeClient.AdmissionregistrationV1().MutatingAdmissionPolicies().Get(ctx, mapName, metav1.GetOptions{})
