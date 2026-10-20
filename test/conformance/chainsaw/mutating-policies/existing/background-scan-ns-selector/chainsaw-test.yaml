@@ -6,14 +6,20 @@ metadata:
 spec:
   # Regression test for https://github.com/kyverno/kyverno/issues/16953.
   #
-  # Before the fix the background controller was wired with a nil matcher, which
-  # caused handlePolicy() to skip the matchConstraints block entirely — including
-  # namespaceSelector evaluation. Policies scoped to specific namespaces (via
-  # namespaceSelector) would apply to ALL namespaces instead.
+  # The policy uses targetMatchConstraints (no namespaceSelector) so that
+  # collectGVK discovers ConfigMaps in EVERY namespace — including the excluded
+  # one. The namespace restriction lives solely in matchConstraints.namespaceSelector
+  # (env=production), which is evaluated inside Evaluate() by handlePolicy after
+  # the namespace is resolved via nsResolver.
   #
-  # This test creates two ConfigMaps with the same name in two different
-  # namespaces, applies a MutatingPolicy that targets only namespaces labelled
-  # env=production, and verifies:
+  # Before the fix, the background controller was wired with a nil matcher so
+  # handlePolicy() skipped the matchConstraints block entirely — including
+  # namespaceSelector evaluation. ConfigMaps in unlabelled namespaces were
+  # incorrectly mutated. Using targetMatchConstraints without namespaceSelector
+  # ensures collectGVK sends both namespaces' CMs to Evaluate(), making the
+  # Evaluate()-level namespace check the only gate.
+  #
+  # This test verifies:
   #   1. The ConfigMap in the labelled namespace IS mutated (label added).
   #   2. The ConfigMap in the unlabelled namespace is NOT mutated.
   concurrent: false
