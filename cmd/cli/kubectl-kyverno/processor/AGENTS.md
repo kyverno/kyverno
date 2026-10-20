@@ -38,12 +38,17 @@
    trigger is admitted. Without a cluster they are added to the processor's own `FakeContextProvider`. The
    policies' compiled CEL (matchConditions, variables, mutations) is bound to that provider when the policies
    are compiled (`libs.LibraryContext`), so every `resource.get()`/`resource.list()` sees them there; the
-   engine's context argument does not change that. That provider ignores label selectors, so the CEL target
-   expression, which `discoverCELTargets` evaluates itself, gets it behind `labelFilterContext`, and
-   `matchesLabels` follows the API server's selector semantics. With `--cluster` only the CEL target expression
-   sees the supplied targets, laid over the live context, where a supplied target wins over a live object with
-   the same identity and everything else still comes from the cluster; the policies' other CEL reads the live
-   cluster only. In lists a supplied target replaces the live object with the same namespace and name before
+   engine's context argument does not change that. The CEL target expression, which `discoverCELTargets`
+   compiles and evaluates itself, gets the supplied targets laid over that context in both modes
+   (`targetOverlayContext`): a supplied target wins over an object with the same identity and everything else
+   still comes from the context underneath. Without a cluster the overlay also makes a cluster-wide list include
+   the supplied targets of every namespace, which the `FakeContextProvider` alone does not, and it sits behind
+   `labelFilterContext` because that provider ignores label selectors (`matchesLabels` follows the API server's
+   selector semantics). With `--cluster` only the CEL target expression sees the supplied targets; the
+   policies' other CEL reads the live cluster only. A target expression cannot reference `variables` in the CLI
+   yet: `BuildMpolTargetEvalEnv` declares no variable fields, so it fails to compile (this predates the target
+   pass changes; the background controller evaluates the policy's compiled target expression instead).
+   In lists a supplied target replaces the live object with the same namespace and name before
    any label filtering, so a stale live copy never stands in for it, and a cluster-wide list includes supplied
    targets from every namespace. Only a kind the cluster does not serve (NotFound) falls back to the supplied
    targets alone; any other list error, such as a rejected selector, is returned.

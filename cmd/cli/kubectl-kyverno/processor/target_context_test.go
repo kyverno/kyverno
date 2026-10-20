@@ -114,6 +114,28 @@ func TestTargetResourceContext_WithoutCluster(t *testing.T) {
 	require.IsType(t, &labelFilterContext{}, got.Clone())
 }
 
+// TestTargetResourceContext_WithoutClusterListsEveryNamespace checks that without a cluster a cluster-wide
+// list includes the supplied targets of every namespace, as an API server does, although the fake context
+// only returns the objects stored under the empty namespace, and that a namespaced list holds each once.
+func TestTargetResourceContext_WithoutClusterListsEveryNamespace(t *testing.T) {
+	ctx := targetResourceContext(libs.NewFakeContextProvider(), []*unstructured.Unstructured{
+		configMapIn("team-a", "selected", map[string]string{"app": "x"}),
+		configMapIn("team-b", "other", map[string]string{"app": "y"}),
+	}, testRESTMapper())
+	listed := func(namespace string, labels map[string]string) []string {
+		list, err := ctx.ListResources("v1", "configmaps", namespace, labels)
+		require.NoError(t, err)
+		var names []string
+		for _, item := range list.Items {
+			names = append(names, item.GetNamespace()+"/"+item.GetName())
+		}
+		return names
+	}
+	assert.ElementsMatch(t, []string{"team-a/selected", "team-b/other"}, listed("", nil))
+	assert.Equal(t, []string{"team-a/selected"}, listed("", map[string]string{"app": "x"}))
+	assert.Equal(t, []string{"team-a/selected"}, listed("team-a", nil))
+}
+
 // TestTargetResourceContext_PropagatesLiveListErrors checks that only a kind the cluster does not serve falls
 // back to the supplied targets; any other list error, such as a rejected selector, is returned.
 func TestTargetResourceContext_PropagatesLiveListErrors(t *testing.T) {

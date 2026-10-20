@@ -10,11 +10,12 @@ import (
 )
 
 // targetResourceContext returns the context the mutate-existing target pass evaluates with, in which CEL
-// resource.get() and resource.list() see the supplied target resources. Without a cluster the processor
-// already works on a FakeContextProvider and the targets are registered in it; as that provider ignores
-// label selectors, lists go through labelFilterContext. With a cluster the targets are laid over the live
-// context: they win over live objects with the same identity, and everything else still comes from the
-// cluster, so a supplied target that does not exist in the cluster can still be selected.
+// resource.get() and resource.list() see the supplied target resources. The targets are laid over the given
+// context: they win over objects with the same identity, everything else still comes from that context, and
+// a cluster-wide list includes the supplied targets of every namespace. Without a cluster the processor works
+// on a FakeContextProvider: the targets are also registered in it, so the policies' compiled CEL, which is
+// bound to that provider, sees them too, and lists go through labelFilterContext because that provider
+// ignores label selectors. With a cluster a supplied target that does not exist there can still be selected.
 func targetResourceContext(contextProvider libs.Context, targets []*unstructured.Unstructured, restMapper meta.RESTMapper) libs.Context {
 	fake, isFake := contextProvider.(*libs.FakeContextProvider)
 	overlay := &targetOverlayContext{Context: contextProvider, targets: map[schema.GroupVersionResource][]*unstructured.Unstructured{}}
@@ -26,12 +27,11 @@ func targetResourceContext(contextProvider libs.Context, targets []*unstructured
 		}
 		if isFake {
 			_ = fake.AddResource(mapping.Resource, target)
-			continue
 		}
 		overlay.targets[mapping.Resource] = append(overlay.targets[mapping.Resource], target)
 	}
 	if isFake {
-		return &labelFilterContext{Context: contextProvider}
+		return &labelFilterContext{Context: overlay}
 	}
 	return overlay
 }
