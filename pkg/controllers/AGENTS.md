@@ -2,8 +2,7 @@
 
 Reconciler layer wiring the engine/webhooks/background packages into controller-runtime-style loops. See
 [docs/dev/controllers/README.md](../../docs/dev/controllers/README.md) for the original controller list (has two
-confirmed-stale rows, noted below) and [pkg/controllers/policycache.md](../../docs/dev/controllers/policycache.md)
-for a per-controller-doc example.
+confirmed-stale rows, noted below).
 
 ## Shared pattern every controller follows
 
@@ -15,9 +14,10 @@ queue, workers, maxRetries, reconcileFunc, routines...)` call — identical acro
 controller in this package. This is not a universal pattern, though — three subdirectories opt out entirely:
 `pkg/controllers/generic/logging` doesn't use a workqueue or implement `Controller.Run` at all — it's a
 fire-and-forget event logger wired directly to informer callbacks (used for CleanupPolicy/ClusterCleanupPolicy
-change logging). `pkg/controllers/metrics/policy` and `pkg/controllers/metrics/updaterequest` are the same shape:
-callback-only constructors subscribed directly to informer events (see the table below), with no `Controller.Run`,
-no queue, and no `controllerutils.Run` call — don't assume the shared pattern applies when touching these three.
+change logging). `pkg/controllers/metrics/legacypolicy` and `pkg/controllers/metrics/updaterequest` are the same
+shape: callback-only constructors subscribed directly to informer events (see the table below), with no
+`Controller.Run`, no queue, and no `controllerutils.Run` call — don't assume the shared pattern applies when
+touching these three.
 
 ## Subdirectory → responsibility → leader election
 
@@ -27,14 +27,12 @@ leader-elected = created before/outside that block, so it runs on every replica.
 | Subdirectory | Reconciles | Leader-elected? |
 |---|---|---|
 | `certmanager` | Kyverno's own webhook TLS certificate Secrets | Yes |
-| `cleanup` | `CleanupPolicy`/`ClusterCleanupPolicy` and their cron jobs | Yes |
 | `deleting` | CEL `DeletingPolicy`/`NamespacedDeletingPolicy` — see [pkg/background/AGENTS.md](../background/AGENTS.md) for why this is not UpdateRequest-driven | Yes |
 | `exceptions` | In-memory index of `PolicyException` rule matches, feeding the engine's exception selector | **No** — built alongside the webhook server, outside the leader block |
 | `admissionpolicygenerator` | Generates native `ValidatingAdmissionPolicy`/`MutatingAdmissionPolicy` from Kyverno CEL policies, gated by the `GenerateValidatingAdmissionPolicy`/`GenerateMutatingAdmissionPolicy` toggles | Yes |
 | `globalcontext` | `GlobalContextEntry`/`ClusterGlobalContextEntry` → in-memory cache store for CEL/JMESPath external lookups | **No** — created/run before/outside the leader-election block in all four binaries that use it (`kyverno`, background, cleanup, reports controllers; in `cmd/kyverno/main.go` it's explicitly under the "start non leader controllers" comment) |
-| `metrics/policy` | Updates policy Prometheus metrics from CRD events only — its own code comment calls it "a strange controller, it only processes events" | No (event-driven, no queue) |
+| `metrics/legacypolicy` | Reports the `kyverno_legacy_policies_total` gauge at scrape time, from counters the admission and cleanup controllers each supply for the legacy kinds they natively watch | No (scrape-time callback, no queue) |
 | `metrics/updaterequest` | Updates `UpdateRequest` count/status metrics from informer events | No (event-driven, no queue) |
-| `policycache` | Keeps an up-to-date in-memory policy cache for webhook-time lookups | **No** — explicitly started before leader election in `cmd/kyverno` |
 | `policystatus` | Aggregates and writes `.status` for CEL policy kinds | Yes |
 | `report/aggregate` | Aggregates intermediary Admission/BackgroundScan reports into final `PolicyReport`/`ClusterPolicyReport`; uses two separate queues (front/back) | Yes |
 | `report/background` | Periodic background policy scans producing `BackgroundScanReport`/`ClusterBackgroundScanReport` | Yes |
