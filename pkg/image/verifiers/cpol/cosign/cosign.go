@@ -159,8 +159,12 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 	}
 
 	cosignOpts.IgnoreSCT = opts.IgnoreSCT
-	if !opts.IgnoreSCT {
-		cosignOpts.CTLogPubKeys, err = getCTLogPubs(ctx, opts.CTLogsPubKey)
+	// CT log keys are only consumed when cosign validates a certificate chain
+	// itself (ValidateAndUnpackCertWithIntermediates, reached only when
+	// SigVerifier is nil). With a static key, KMS, or pinned certificate the
+	// SigVerifier is already set and no SCT is checked, so skip the TUF fetch.
+	if !opts.IgnoreSCT && cosignOpts.SigVerifier == nil {
+		cosignOpts.CTLogPubKeys, err = ctLogPubsFn(ctx, opts.CTLogsPubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load CTLogs public keys: %w", err)
 		}
@@ -577,6 +581,9 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 	}
 	return &publicKeys, nil
 }
+
+// ctLogPubsFn is a seam so tests can observe CT log key loading.
+var ctLogPubsFn = getCTLogPubs
 
 func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if ctlogPubKey == "" {
