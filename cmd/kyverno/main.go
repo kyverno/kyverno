@@ -355,6 +355,7 @@ func main() {
 		webhookRegistrationTimeout      time.Duration
 		admissionReports                bool
 		dumpPayload                     bool
+		enableDecisionTraces            bool
 		servicePort                     int
 		webhookServerHost               string
 		webhookServerPort               int
@@ -370,6 +371,7 @@ func main() {
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
+	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy and MutatingPolicy admission decision: which expressions ran and what they resolved to. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values are logged for Secrets).")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations (number of seconds, integer).")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
@@ -699,7 +701,9 @@ func main() {
 			// without the exception, and never gets retried.
 			celExceptionLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace())
 			// create compiler
-			compiler := vpolcompiler.NewCompiler()
+			// with --enableDecisionTraces the policies are compiled for tracing, and the vpol and mpol
+			// handlers log the trace of every decision
+			compiler := vpolcompiler.NewCompilerWithTrace(enableDecisionTraces)
 			// create vpolProvider
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,
@@ -716,7 +720,7 @@ func main() {
 				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
 			}
-			mpolcompiler := mpolcompiler.NewCompiler()
+			mpolcompiler := mpolcompiler.NewCompilerWithTrace(enableDecisionTraces)
 			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celExceptionLister, internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")
