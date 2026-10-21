@@ -352,6 +352,8 @@ class CherryPickTests(unittest.TestCase):
         for failure, stage in (("PUSH_ERROR", "pushing"), ("CREATE_ERROR", "creating PR")):
             with self.subTest(failure=failure):
                 before = len(self.calls())
+                for name in ("outputs", "summary", "bodies"):
+                    (self.directory / name).unlink(missing_ok=True)
                 result = self.shell(
                     ACTION_STEPS[-1], TARGET_BRANCHES="release-1.19,release-1.20",
                     **{failure: "1"},
@@ -361,6 +363,11 @@ class CherryPickTests(unittest.TestCase):
                 self.assertIn(stage, (self.directory / "summary").read_text())
                 calls = self.calls()[before:]
                 self.assertEqual(len([call for call in calls if call[1] == "cherry-pick"]), 2)
+                self.assertEqual(len([call for call in calls if call[1] == "push"]), 2)
+                self.assertEqual(
+                    len([call for call in calls if call[:3] == ["gh", "pr", "create"]]),
+                    2 if failure == "CREATE_ERROR" else 0,
+                )
 
     def test_missing_remote_branch_prevents_mutations(self):
         result = self.shell(ACTION_STEPS[-1], MISSING_BRANCH="1")
