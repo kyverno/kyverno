@@ -79,7 +79,7 @@ func TestMutateDigestCachedPolicyExceptionExpiry(t *testing.T) {
 	request, attr, pod := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
 	require.NoError(t, unstructured.SetNestedSlice(
 		pod.Object, []any{map[string]any{
-			"name": "main",
+			"name":  "main",
 			"image": "example.com/image:tag",
 		}}, "spec", "containers",
 	))

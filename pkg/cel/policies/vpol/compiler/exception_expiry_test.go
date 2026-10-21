@@ -50,7 +50,7 @@ func TestCachedPolicyExceptionExpiry(t *testing.T) {
 }
 
 // TestCachedPolicyExceptionExpiryAcrossEvaluations reuses the same compiled
- // policy while its referenced PolicyException crosses the expiry boundary.
+// policy while its referenced PolicyException crosses the expiry boundary.
 func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
 	expiry := metav1.NewTime(time.Now().Add(time.Hour))
 	exception := &policiesv1beta1.PolicyException{
