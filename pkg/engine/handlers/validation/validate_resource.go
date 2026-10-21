@@ -64,22 +64,24 @@ func (h validateResourceHandler) Process(
 			engineapi.RuleSkip(rule.Name, engineapi.Validation, "rule is skipped due to policy exceptions"+strings.Join(keys, ", "), rule.ReportProperties).WithExceptions(exceptions),
 		)
 	}
-	v := newValidator(logger, contextLoader, policyContext, rule)
+	v := newValidator(logger, contextLoader, policyContext, rule).withClient(h.client)
 	return resource, handlers.WithResponses(v.validate(ctx))
 }
 
 type validator struct {
-	log              logr.Logger
-	policyContext    engineapi.PolicyContext
-	rule             kyvernov1.Rule
-	contextEntries   []kyvernov1.ContextEntry
-	anyAllConditions any
-	pattern          apiextensions.JSON
-	anyPattern       apiextensions.JSON
-	deny             *kyvernov1.Deny
-	forEach          []kyvernov1.ForEachValidation
-	contextLoader    engineapi.EngineContextLoader
-	nesting          int
+	log                 logr.Logger
+	policyContext       engineapi.PolicyContext
+	rule                kyvernov1.Rule
+	contextEntries      []kyvernov1.ContextEntry
+	anyAllConditions    any
+	pattern             apiextensions.JSON
+	anyPattern          apiextensions.JSON
+	deny                *kyvernov1.Deny
+	forEach             []kyvernov1.ForEachValidation
+	contextLoader       engineapi.EngineContextLoader
+	nesting             int
+	client              engineapi.Client
+	validatingOldObject bool
 }
 
 func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, ctx engineapi.PolicyContext, rule kyvernov1.Rule) *validator {
@@ -94,6 +96,11 @@ func newValidator(log logr.Logger, contextLoader engineapi.EngineContextLoader, 
 		anyAllConditions: rule.GetAnyAllConditions(),
 		forEach:          rule.Validation.ForEachValidation,
 	}
+}
+
+func (v *validator) withClient(client engineapi.Client) *validator {
+	v.client = client
+	return v
 }
 
 func newForEachValidator(
@@ -178,6 +185,17 @@ func (v *validator) validate(ctx context.Context) *engineapi.RuleResponse {
 				return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", v.rule.ReportProperties)
 			}
 		}
+
+		// handle CREATE requests for managed resources (e.g. pods recreated by a Deployment)
+		// if the root owner predates the policy, treat as a pre-existing violation and skip
+		if !v.validatingOldObject && allowExisitingViolations && v.nesting == 0 {
+			if ruleResponse != nil && ruleResponse.Status() == engineapi.RuleStatusFail && v.client != nil {
+				if engineutils.ShouldSkipCreatePreExistingViolation(ctx, v.client, v.policyContext) {
+					v.log.V(2).Info("skipping rule: resource owner predates policy (pre-existing violation)", "rule", v.rule.Name)
+					return engineapi.RuleSkip(v.rule.Name, engineapi.Validation, "skipping as resource owner predates policy (pre-existing violation)", v.rule.ReportProperties)
+				}
+			}
+		}
 	}
 
 	return ruleResponse
@@ -187,6 +205,11 @@ func (v *validator) validateOldObject(ctx context.Context) (resp *engineapi.Rule
 	if v.policyContext.Operation() != kyvernov1.Update {
 		return nil, errors.New("invalid operation")
 	}
+
+	v.validatingOldObject = true
+	defer func() {
+		v.validatingOldObject = false
+	}()
 
 	newResource := v.policyContext.NewResource()
 	oldResource := v.policyContext.OldResource()

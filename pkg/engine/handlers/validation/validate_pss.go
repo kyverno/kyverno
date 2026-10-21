@@ -46,7 +46,7 @@ func (h validatePssHandler) Process(
 	engineLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
 ) (unstructured.Unstructured, []engineapi.RuleResponse) {
-	resource, ruleResp := h.validate(ctx, logger, policyContext, resource, rule, engineLoader, exceptions)
+	resource, ruleResp := h.validate(ctx, logger, policyContext, resource, rule, engineLoader, exceptions, false)
 	return resource, handlers.WithResponses(ruleResp)
 }
 
@@ -58,6 +58,7 @@ func (h validatePssHandler) validate(
 	rule kyvernov1.Rule,
 	engineLoader engineapi.EngineContextLoader,
 	exceptions []*kyvernov2.PolicyException,
+	validatingOldObject bool,
 ) (unstructured.Unstructured, *engineapi.RuleResponse) {
 	if engineutils.IsDeleteRequest(policyContext) {
 		logger.V(3).Info("skipping PSS validation on deleted resource")
@@ -167,6 +168,16 @@ func (h validatePssHandler) validate(
 					return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", rule.ReportProperties)
 				}
 			}
+
+			// handle CREATE requests for managed resources (e.g. pods recreated by a Deployment)
+			if !validatingOldObject && allowExisitingViolations {
+				if ruleResponse != nil && ruleResponse.Status() == engineapi.RuleStatusFail && h.client != nil {
+					if engineutils.ShouldSkipCreatePreExistingViolation(ctx, h.client, policyContext) {
+						logger.V(2).Info("warning: skipping the rule evaluation as pre-existing violations are allowed", "rule", rule.Name)
+						return resource, engineapi.RuleSkip(rule.Name, engineapi.Validation, "skipping the rule evaluation as pre-existing violations are allowed", rule.ReportProperties)
+					}
+				}
+			}
 		}
 
 		return resource, ruleResponse
@@ -211,7 +222,7 @@ func (h validatePssHandler) validateOldObject(
 		return
 	}
 
-	_, resp = h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions)
+	_, resp = h.validate(ctx, logger, policyContext, oldResource, rule, engineLoader, exceptions, true)
 
 	return
 }
