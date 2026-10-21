@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read # Required for the GHCR Trivy database pull.
       security-events: write
     steps:
       - name: Checkout
@@ -44,6 +45,9 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
           ignore-policy: .trivyignore.rego
+        env:
+          TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload Trivy scan results to GitHub Security
         uses: github/codeql-action/upload-sarif@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
         with:
