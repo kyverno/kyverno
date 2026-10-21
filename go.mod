@@ -7,7 +7,6 @@ require (
 	github.com/AdamKorcz/go-fuzz-headers-1 v0.0.0-20230919221257-8b5d3ce2d11d
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alitto/pond/v2 v2.7.1
 	github.com/aptible/supercronic v0.2.49
 	github.com/aquilax/truncate v1.0.1
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
