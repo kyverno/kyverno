@@ -4,6 +4,8 @@ metadata:
   name: test-secret-pod
   namespace: test-verify-images
 spec:
+  nodeSelector:
+    kyverno.io/test-node: nonexistent
   containers:
   - image: ghcr.io/kyverno/test-verify-image:signed
     name: test-secret
