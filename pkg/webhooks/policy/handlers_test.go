@@ -7,10 +7,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,10 +55,6 @@ func newFakeClient() dclient.Interface {
 // TestValidateCELPoliciesUnaffected proves the legacy-policy write block never engages for the
 // CEL-based policies.kyverno.io kinds handled earlier in Validate's dispatch chain.
 func TestValidateCELPoliciesUnaffected(t *testing.T) {
-	t.Cleanup(func() {
-		require.NoError(t, toggle.BlockLegacyPolicyAPIs.Parse(""))
-	})
-
 	raw := []byte(`{
 		"apiVersion": "policies.kyverno.io/v1beta1",
 		"kind": "ValidatingPolicy",
