@@ -15,7 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *controller) handleVAPGeneration(ctx context.Context, polType string, policy engineapi.GenericPolicy) error {
+func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.GenericPolicy) error {
 	// check if the controller has the required permissions to generate ValidatingAdmissionPolicies.
 	if !admissionpolicy.HasValidatingAdmissionPolicyPermission(c.checker) {
 		logger.V(2).Info("insufficient permissions to generate ValidatingAdmissionPolicies")
@@ -29,100 +29,61 @@ func (c *controller) handleVAPGeneration(ctx context.Context, polType string, po
 		return nil
 	}
 
-	var vapName string
-	if polType == "ClusterPolicy" {
-		vapName = "cpol-" + policy.GetName()
-	} else {
-		vapName = "vpol-" + policy.GetName()
-	}
+	vapName := "vpol-" + policy.GetName()
 	vapBindingName := constructBindingName(vapName)
 	// get the ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding if exists.
 	observedVAP, vapErr := c.getValidatingAdmissionPolicy(vapName)
 	observedVAPbinding, vapBindingErr := c.getValidatingAdmissionPolicyBinding(vapBindingName)
 
 	genericExceptions := make([]engineapi.GenericException, 0)
-	// in case of clusterpolicies, check if we can generate a VAP from it.
-	if polType == "ClusterPolicy" {
-		spec := policy.AsKyvernoPolicy().GetSpec()
-		exceptions, err := c.getExceptions(policy.GetName(), spec.Rules[0].Name)
+
+	pol := policy.AsValidatingPolicy()
+	wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
+	shouldDelete := !wantVap
+
+	var celexceptions []policiesv1beta1.PolicyException
+	var reason string
+	if wantVap {
+		var err error
+		celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind())
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
 		}
-
-		if ok, msg := admissionpolicy.CanGenerateVAP(spec, exceptions, false); !ok {
-			// delete the ValidatingAdmissionPolicy if exist
-			if vapErr == nil {
-				err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{})
-				if err != nil {
-					return err
-				}
-			}
-			// delete the ValidatingAdmissionPolicyBinding if exist
-			if vapBindingErr == nil {
-				err = c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{})
-				if err != nil {
-					return err
-				}
-			}
-
-			if msg == "" {
-				msg = "skip generating ValidatingAdmissionPolicy: a policy exception is configured."
-			}
-			c.updatePolicyStatus(ctx, policy, false, msg)
-			return nil
+		// Read autogen from the spec: status.autogen is written later by the
+		// policystatus controller and can still be empty on a new policy.
+		autogenConfigs, err := vpolautogen.Autogen(pol)
+		if err != nil {
+			return fmt.Errorf("failed to compute autogen configs for %s: %w", pol.GetName(), err)
 		}
-		for _, exception := range exceptions {
-			genericExceptions = append(genericExceptions, engineapi.NewPolicyException(&exception))
+		isAutogen := len(autogenConfigs) > 0
+		if isAutogen {
+			shouldDelete = true
+			reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
+		} else if ok, msg := admissionpolicy.CanGenerateNativePolicyWithMatchConditions(celexceptions, len(pol.Spec.MatchConditions)); !ok {
+			shouldDelete = true
+			reason = "skip generating ValidatingAdmissionPolicy: " + msg
 		}
 	} else {
-		pol := policy.AsValidatingPolicy()
-		wantVap := pol.GetSpec().GenerateValidatingAdmissionPolicyEnabled()
-		shouldDelete := !wantVap
-
-		var celexceptions []policiesv1beta1.PolicyException
-		var reason string
-		if wantVap {
-			var err error
-			celexceptions, err = c.getCELExceptions(policy.GetName(), pol.GetKind())
-			if err != nil {
-				return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
+		reason = "skip generating ValidatingAdmissionPolicy: not enabled."
+	}
+	if shouldDelete {
+		// delete the ValidatingAdmissionPolicy if exist
+		if vapErr == nil {
+			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil {
+				return err
 			}
-			// Read autogen from the spec: status.autogen is written later by the
-			// policystatus controller and can still be empty on a new policy.
-			autogenConfigs, err := vpolautogen.Autogen(pol)
-			if err != nil {
-				return fmt.Errorf("failed to compute autogen configs for %s: %w", pol.GetName(), err)
-			}
-			isAutogen := len(autogenConfigs) > 0
-			if isAutogen {
-				shouldDelete = true
-				reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
-			} else if ok, msg := admissionpolicy.CanGenerateNativePolicyWithMatchConditions(celexceptions, len(pol.Spec.MatchConditions)); !ok {
-				shouldDelete = true
-				reason = "skip generating ValidatingAdmissionPolicy: " + msg
-			}
-		} else {
-			reason = "skip generating ValidatingAdmissionPolicy: not enabled."
 		}
-		if shouldDelete {
-			// delete the ValidatingAdmissionPolicy if exist
-			if vapErr == nil {
-				if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(ctx, vapName, metav1.DeleteOptions{}); err != nil {
-					return err
-				}
+		// delete the ValidatingAdmissionPolicyBinding if exist
+		if vapBindingErr == nil {
+			if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{}); err != nil {
+				return err
 			}
-			// delete the ValidatingAdmissionPolicyBinding if exist
-			if vapBindingErr == nil {
-				if err := c.client.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(ctx, vapBindingName, metav1.DeleteOptions{}); err != nil {
-					return err
-				}
-			}
-			c.updatePolicyStatus(ctx, policy, false, reason)
-			return nil
 		}
-		for _, exception := range celexceptions {
-			genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
-		}
+		c.updatePolicyStatus(ctx, policy, false, reason)
+		return nil
+	}
+	for _, exception := range celexceptions {
+		genericExceptions = append(genericExceptions, engineapi.NewCELPolicyException(&exception))
 	}
 
 	if vapErr != nil {

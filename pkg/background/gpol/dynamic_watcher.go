@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -239,16 +240,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyvernov1.Resou
 				}
 
 				for _, uid := range uidsToDelete {
-					res := oldWatcher.metadataCache[uid]
-					logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-					err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
-					if err != nil {
-						logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
-					} else {
-						logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
-						// remove the resource from the metadata cache upon successful deletion
-						delete(oldWatcher.metadataCache, uid)
-					}
+					wm.deleteCachedDownstream(logger, oldWatcher, uid, oldWatcher.metadataCache[uid])
 				}
 
 				// other triggers of this policy may still own resources of this GVR:
@@ -307,6 +299,11 @@ func (wm *WatchManager) GetDownstreams(policyName string) []*unstructured.Unstru
 			for _, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
 				if resource.Labels[common.GeneratePolicyLabel] == policyName {
+					// InvalidateDownstreams blanks the hash and leaves the entry so a
+					// later delete can still find it. It is not a live trigger.
+					if resource.Hash == "" {
+						continue
+					}
 					logger.V(4).Info("found downstream resource", "kind", resource.Data.GetKind(), "name", resource.Name, "namespace", resource.Namespace)
 					// create a copy of the resource to avoid modifying the original one
 					downstream := resource.Data.DeepCopy()
@@ -330,15 +327,7 @@ func (wm *WatchManager) DeleteDownstreams(policyName string, trigger *kyvernov1.
 	logger.V(2).Info("deleting downstream resources for policy")
 
 	wm.walkDownstreams(policyName, trigger, func(watcher *watcher, uid types.UID, res Resource) {
-		logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-		err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
-		if err != nil {
-			logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
-		} else {
-			logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
-			// remove the resource from the metadata cache upon successful deletion
-			delete(watcher.metadataCache, uid)
-		}
+		wm.deleteCachedDownstream(logger, watcher, uid, res)
 	})
 }
 
@@ -420,22 +409,41 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 			}
 		}
 		for _, uid := range uidsToDelete {
-			res := watcher.metadataCache[uid]
-			logger.V(4).Info("deleting stale downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
-			err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
-			if err != nil {
-				logger.Error(err, "failed to delete stale downstream resource", "name", res.Name, "namespace", res.Namespace)
-			} else {
-				logger.V(4).Info("stale downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
-				// remove the resource from the metadata cache upon successful deletion
-				delete(watcher.metadataCache, uid)
-			}
+			wm.deleteCachedDownstream(logger, watcher, uid, watcher.metadataCache[uid])
 		}
 	}
 }
 
 func downstreamKey(gvk schema.GroupVersionKind, namespace, name string) string {
 	return gvk.String() + "/" + namespace + "/" + name
+}
+
+// deleteCachedDownstream deletes one generated object and drops its cache entry
+// when the delete succeeds or the object is already gone. Any other error keeps
+// the entry so a later pass can retry.
+func (wm *WatchManager) deleteCachedDownstream(logger logr.Logger, watcher *watcher, uid types.UID, res Resource) {
+	logger.V(4).Info("deleting downstream resource", "kind", res.Data.GetKind(), "name", res.Name, "namespace", res.Namespace)
+	err := wm.client.DeleteResource(context.TODO(), res.Data.GetAPIVersion(), res.Data.GetKind(), res.Namespace, res.Name, false, metav1.DeleteOptions{})
+	if err != nil && !apierrors.IsNotFound(err) {
+		logger.Error(err, "failed to delete downstream resource", "name", res.Name, "namespace", res.Namespace)
+		return
+	}
+	if apierrors.IsNotFound(err) {
+		logger.V(4).Info("downstream resource already gone", "name", res.Name, "namespace", res.Namespace)
+	} else {
+		logger.V(4).Info("downstream resource deleted", "name", res.Name, "namespace", res.Namespace)
+	}
+	delete(watcher.metadataCache, uid)
+}
+
+// namespaceMissing reports whether namespace has been deleted. A cluster scoped
+// downstream has no namespace, so a failed recreate keeps its cache entry.
+func (wm *WatchManager) namespaceMissing(namespace string) bool {
+	if namespace == "" {
+		return false
+	}
+	_, err := wm.client.GetResource(context.TODO(), "v1", "Namespace", "", namespace)
+	return apierrors.IsNotFound(err)
 }
 
 // RemoveWatchersForPolicy removes all downstream resources and watchers for a given policy name.
@@ -582,14 +590,14 @@ func (wm *WatchManager) startWatcherWithCache(resource *unstructured.Unstructure
 }
 
 func (wm *WatchManager) handleAdd(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
-	wm.log.Info("Resource added", "name", obj.GetName())
+	wm.log.V(4).Info("Resource added", "name", obj.GetName(), "namespace", obj.GetNamespace())
 }
 
 func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
-	wm.log.Info("Resource updated", "name", obj.GetName())
+	wm.log.V(4).Info("Resource updated", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	watcher, exists := wm.dynamicWatchers[gvr]
 	if exists {
 		uid := obj.GetUID()
@@ -914,7 +922,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 	wm.lock.Lock()
 	defer wm.lock.Unlock()
 
-	wm.log.Info("Resource deleted", "name", obj.GetName())
+	wm.log.V(4).Info("Resource deleted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 	watcher, exists := wm.dynamicWatchers[gvr]
 	if exists {
 		uid := obj.GetUID()
@@ -937,14 +945,7 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 					if _, exists := watcher.metadataCache[downstream.GetUID()]; !exists {
 						continue
 					}
-					err := wm.client.DeleteResource(context.TODO(), downstream.GetAPIVersion(), downstream.GetKind(), downstream.GetNamespace(), downstream.GetName(), false, metav1.DeleteOptions{})
-					if err != nil {
-						wm.log.Error(err, "failed to delete downstream resource", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
-					} else {
-						wm.log.V(4).Info("downstream resource deleted", "name", downstream.GetName(), "namespace", downstream.GetNamespace())
-						// remove the resource from the metadata cache upon successful deletion
-						delete(watcher.metadataCache, downstream.GetUID())
-					}
+					wm.deleteCachedDownstream(wm.log, watcher, downstream.GetUID(), watcher.metadataCache[downstream.GetUID()])
 				}
 			}
 		} else {
@@ -974,6 +975,10 @@ func (wm *WatchManager) handleDelete(obj *unstructured.Unstructured, gvr schema.
 				}
 				if err != nil {
 					wm.log.Error(err, "failed to revert downstream resource", "name", obj.GetName(), "namespace", obj.GetNamespace())
+					// The namespace is gone, so another recreate cannot succeed.
+					if wm.namespaceMissing(resource.Namespace) {
+						delete(watcher.metadataCache, uid)
+					}
 				} else {
 					wm.log.V(4).Info("downstream resource reverted", "name", obj.GetName(), "namespace", obj.GetNamespace())
 					// The API server assigns a new UID to the recreated resource. Re-register

@@ -202,7 +202,6 @@ spec:
             {{- include "kyverno.features.flags" (pick (mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride)
               "admissionReports"
               "autoUpdateWebhooks"
-              "blockLegacyPolicyAPIs"
               "configMapCaching"
               "controllerRuntimeMetrics"
               "deferredLoading"
