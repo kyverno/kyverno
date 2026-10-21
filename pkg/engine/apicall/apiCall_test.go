@@ -481,6 +481,7 @@ func Test_PercentEncodedPathTraversal(t *testing.T) {
 	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
 }
 
+<<<<<<< HEAD
 // recordingClient captures the exact path that was executed, so tests can
 // assert that the executor receives the same canonical path that namespace
 // validation checked - not the original, unvalidated URLPath.
@@ -693,6 +694,42 @@ func Test_URLPathCanonicalization(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y", client.gotPath)
 	})
+=======
+func Test_transformAndStore_NonStringJMESPath(t *testing.T) {
+	// Regression test: when context.apiCall.jmesPath is written as a single,
+	// whole variable reference (e.g. "{{ somePriority }}"), SubstituteAll
+	// returns the resolved value with its native JSON type instead of
+	// coercing it to string. If that type isn't a string (a JSON number
+	// here), transformAndStore used to do path.(string) unchecked and
+	// panic. This path is not reachable via the production
+	// Fetch-then-Store sequence (loaders.apiLoader.LoadData), since
+	// Fetch's own SubstituteAllInType call on the same field fails closed
+	// first -- but Store is an exported method and must not panic if
+	// invoked directly, e.g. with jsonData supplied out-of-band.
+	entry := kyvernov1.ContextEntry{
+		Name: "test",
+		APICall: &kyvernov1.ContextAPICall{
+			JMESPath: "{{ somePriority }}",
+		},
+	}
+	ctx := enginecontext.NewContext(jp)
+	err := ctx.AddContextEntry("somePriority", []byte("5"))
+	assert.NilError(t, err)
+
+	call, err := New(logr.Discard(), jp, entry, ctx, nil, apiConfig, "")
+	assert.NilError(t, err)
+
+	assert.Assert(t, func() (ok bool) {
+		defer func() {
+			if r := recover(); r != nil {
+				ok = false
+			}
+		}()
+		_, err = call.Store([]byte(`{"day":"Monday"}`))
+		return true
+	}())
+	assert.ErrorContains(t, err, "JMESPath did not resolve to a string")
+>>>>>>> 1bedc5d14 (Fix unchecked type assertion panic in apiCall.transformAndStore (#17670))
 }
 
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {
