@@ -195,7 +195,10 @@ func TestGenerationLabelProtectionManualRoutingUpgrade(t *testing.T) {
 			assert.Equal(t, observed.OwnerReferences, updated.OwnerReferences)
 			require.Len(t, updated.Webhooks, 2)
 			assert.Equal(t, manual, updated.Webhooks[0])
-			assert.Equal(t, c.buildGenerationLabelProtectionWebhook([]byte("ca")), updated.Webhooks[1])
+			// Written with the API-server defaults, so it equals the stored copy on later ticks.
+			protection := []admissionregistrationv1.ValidatingWebhook{c.buildGenerationLabelProtectionWebhook([]byte("ca"))}
+			defaultValidatingWebhooks(protection)
+			assert.Equal(t, protection[0], updated.Webhooks[1])
 			assertGenerationBootstrapAdmission(t, updated.Webhooks[1], true)
 			require.NoError(t, webhooks.Update(updated))
 			client.ClearActions()
