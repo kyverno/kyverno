@@ -17,7 +17,8 @@ always pass. There are exactly two exceptions, both narrow:
 
 - Finalizer removal on an already-terminating object, via
   `admissionutils.IsFinalizerRemovalOnTerminatingObject`. See that package's `AGENTS.md`.
-- Subresources registered through `AllowSubresourceForLegacyStatusWriter`, currently only `status`.
+- Subresources registered through `AllowSubresourceForLegacyStatusWriter`. Nothing registers any
+  today (see below), so this exception is currently dormant, not active.
 
 Do not widen either. The blanket "any subresource passes" bypass this replaced is the exact hole
 issue #17708 set out to close.
@@ -35,14 +36,16 @@ a known starting point. It deliberately leaves the subresource allowances alone,
 registered from `init()` and cannot be re-triggered within a process. Never add a selective remove.
 
 The registries are empty by default, so this package on its own denies unconditionally. Each
-allowance is registered *by the legacy code that justifies it*, so deleting that code deletes the
-allowance in the same commit:
+allowance was registered *by the legacy code that justifies it*, so deleting that code deletes the
+allowance in the same commit. #17710 deleted the last three registrants of
+`AllowSubresourceForLegacyStatusWriter("status")` — the `legacy_status.go` files holding Kyverno's
+own legacy status writers in `pkg/controllers/admissionpolicygenerator`, `pkg/controllers/cleanup`,
+and `pkg/controllers/webhook` — along with the writers themselves, so that registry is now empty
+too. `AllowSubresourceForLegacyStatusWriter` itself stays in `block.go`, unused, for the same reason
+as `RegisterLegacyExecutionEscapeHatch` below: it's a documented hook for genuinely restored legacy
+code, not something to call speculatively.
 
-| Allowance | Registered from | Deleted by |
-|---|---|---|
-| `status` subresource | The three `legacy_status.go` files holding Kyverno's own legacy status writers | Deleting those writers |
-
-#17710 deleted both escape-hatch registration sites (`pkg/webhooks/resource/legacy_hatch.go`,
+#17710 also deleted both escape-hatch registration sites (`pkg/webhooks/resource/legacy_hatch.go`,
 registered from `NewHandlers` over the now-deleted `policycache.Cache`, and
 `pkg/controllers/cleanup/legacy_hatch.go`, registered from `NewController` in the now-deleted
 `pkg/controllers/cleanup`) along with the legacy execution they guarded. `RegisterLegacyExecutionEscapeHatch`
