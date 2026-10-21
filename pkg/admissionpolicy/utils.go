@@ -17,9 +17,16 @@ import (
 type MutatingAdmissionPolicyVersion string
 
 const (
+	MutatingAdmissionPolicyVersionV1       MutatingAdmissionPolicyVersion = "v1"
 	MutatingAdmissionPolicyVersionV1alpha1 MutatingAdmissionPolicyVersion = "v1alpha1"
 	MutatingAdmissionPolicyVersionV1beta1  MutatingAdmissionPolicyVersion = "v1beta1"
 )
+
+var mutatingAdmissionPolicyVersions = []MutatingAdmissionPolicyVersion{
+	MutatingAdmissionPolicyVersionV1,
+	MutatingAdmissionPolicyVersionV1beta1,
+	MutatingAdmissionPolicyVersionV1alpha1,
+}
 
 var errMutatingAdmissionPolicyNotRegistered = fmt.Errorf("mutating admission policy API is not registered")
 
@@ -45,27 +52,35 @@ func HasValidatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
 	return hasPermissions(gvr, s)
 }
 
-// HasMutatingAdmissionPolicyPermission check if the admission controller has the required permissions to generate
-// Kubernetes MutatingAdmissionPolicy. It checks for v1beta1 first (supported in K8s 1.32+),
-// and falls back to v1alpha1 for earlier versions.
+// HasMutatingAdmissionPolicyPermission checks whether the admission controller can manage
+// MutatingAdmissionPolicies in any supported API version.
 func HasMutatingAdmissionPolicyPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1beta1", Resource: "mutatingadmissionpolicies"}
-	if hasPermissions(gvr, s) {
-		return true
+	for _, version := range mutatingAdmissionPolicyVersions {
+		if HasMutatingAdmissionPolicyPermissionForVersion(version, s) {
+			return true
+		}
 	}
-	gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "mutatingadmissionpolicies"}
+	return false
+}
+
+// HasMutatingAdmissionPolicyBindingPermission checks whether the admission controller can manage
+// MutatingAdmissionPolicyBindings in any supported API version.
+func HasMutatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
+	for _, version := range mutatingAdmissionPolicyVersions {
+		if HasMutatingAdmissionPolicyBindingPermissionForVersion(version, s) {
+			return true
+		}
+	}
+	return false
+}
+
+func HasMutatingAdmissionPolicyPermissionForVersion(version MutatingAdmissionPolicyVersion, s checker.AuthChecker) bool {
+	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: string(version), Resource: "mutatingadmissionpolicies"}
 	return hasPermissions(gvr, s)
 }
 
-// HasMutatingAdmissionPolicyBindingPermission check if the admission controller has the required permissions to generate
-// Kubernetes MutatingAdmissionPolicyBinding. It checks for v1beta1 first (supported in K8s 1.32+),
-// and falls back to v1alpha1 for earlier versions.
-func HasMutatingAdmissionPolicyBindingPermission(s checker.AuthChecker) bool {
-	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1beta1", Resource: "mutatingadmissionpolicybindings"}
-	if hasPermissions(gvr, s) {
-		return true
-	}
-	gvr = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1alpha1", Resource: "mutatingadmissionpolicybindings"}
+func HasMutatingAdmissionPolicyBindingPermissionForVersion(version MutatingAdmissionPolicyVersion, s checker.AuthChecker) bool {
+	gvr := schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: string(version), Resource: "mutatingadmissionpolicybindings"}
 	return hasPermissions(gvr, s)
 }
 
@@ -89,12 +104,7 @@ func isRegistered(kubeClient kubernetes.Interface, group, version string, resour
 // PreferredMutatingAdmissionPolicyVersion compares the kyverno-supported list of MAP versions to the cluster's versions
 // and returns the latest available one
 func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (MutatingAdmissionPolicyVersion, error) {
-	// TODO: Add MutatingAdmissionPolicyVersionV1 when released and remove alpha
-	versions := []MutatingAdmissionPolicyVersion{
-		MutatingAdmissionPolicyVersionV1beta1,
-		MutatingAdmissionPolicyVersionV1alpha1,
-	}
-	for _, version := range versions {
+	for _, version := range mutatingAdmissionPolicyVersions {
 		registered, err := isRegistered(
 			kubeClient,
 			"admissionregistration.k8s.io",
@@ -116,7 +126,7 @@ func PreferredMutatingAdmissionPolicyVersion(kubeClient kubernetes.Interface) (M
 }
 
 // IsMutatingAdmissionPolicyRegistered checks if MutatingAdmissionPolicies are registered in the API Server.
-// It checks for v1beta1 first, then falls back to v1alpha1.
+// It checks supported versions in preference order: v1, then v1beta1, then v1alpha1.
 func IsMutatingAdmissionPolicyRegistered(kubeClient kubernetes.Interface) (bool, error) {
 	_, err := PreferredMutatingAdmissionPolicyVersion(kubeClient)
 	if err != nil {

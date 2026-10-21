@@ -7,8 +7,8 @@ metadata:
   annotations:
     policies.kyverno.io/title: Require runAsNonRoot User
     policies.kyverno.io/category: Pod Security Standards (Restricted)
-    {{- if .Values.podSecuritySeverity }}
-    policies.kyverno.io/severity: {{ .Values.podSecuritySeverity | quote }}
+    {{- with (include "kyverno-policies.policySeverity" (dict "name" $name "values" .Values)) }}
+    policies.kyverno.io/severity: {{ . }}
     {{- end }}
     policies.kyverno.io/subject: Pod
     kyverno.io/kyverno-version: {{ default .Chart.AppVersion (include "kyverno-policies.kyvernoVersion" .) }}
@@ -26,29 +26,38 @@ spec:
       apiVersions: [v1]
       operations: [CREATE, UPDATE]
       resources: [pods]
+    {{- with (include "kyverno-policies.policyVpolExclude" (dict "name" $name "values" .Values) | fromYaml) }}
+    {{- with .excludeResourceRules }}
+    excludeResourceRules:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+  {{- include "kyverno-policies.vpolExcludeMatchConditions" . | nindent 2 }}
+  {{ end }}
   validations:
     - expression: >-
-        (!has(object.spec.securityContext) || 
-         !has(object.spec.securityContext.runAsUser) || 
+        {{- with (include "kyverno-policies.userNamespaceRelaxation" .) }}{{ . | nindent 8 }}{{- end }}
+        (!has(object.spec.securityContext) ||
+         !has(object.spec.securityContext.runAsUser) ||
          object.spec.securityContext.runAsUser != 0) &&
-        (!has(object.spec.containers) || object.spec.containers.all(c, 
-          !has(c.securityContext) || 
-          !has(c.securityContext.runAsUser) || 
+        (!has(object.spec.containers) || object.spec.containers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
           c.securityContext.runAsUser != 0)) &&
-        (!has(object.spec.initContainers) || object.spec.initContainers.all(c, 
-          !has(c.securityContext) || 
-          !has(c.securityContext.runAsUser) || 
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
           c.securityContext.runAsUser != 0)) &&
-        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c, 
-          !has(c.securityContext) || 
-          !has(c.securityContext.runAsUser) || 
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(c,
+          !has(c.securityContext) ||
+          !has(c.securityContext.runAsUser) ||
           c.securityContext.runAsUser != 0))
       message: >-
         Running as root user (UID 0) is not allowed. The fields
         spec.securityContext.runAsUser,
         spec.containers[*].securityContext.runAsUser,
         spec.initContainers[*].securityContext.runAsUser, and
-        spec.ephemeralContainers[*].securityContext.runAsUser must not be set to `0`.
+        spec.ephemeralContainers[*].securityContext.runAsUser must not be set to `0`{{ if .Values.podSecurityUserNamespaces }},
+        unless the Pod sets spec.hostUsers to `false`{{ end }}.
   {{- include "kyverno-policies.policyAuditAnnotations" (dict "name" $name "values" .Values) | nindent 2 }}
   {{- $actions := include "kyverno-policies.policyValidationActions" (dict "name" $name "values" .Values) }}
   validationActions: {{ $actions | nindent 4 }}

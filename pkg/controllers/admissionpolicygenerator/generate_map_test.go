@@ -7,10 +7,12 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/stretchr/testify/assert"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/utils/ptr"
 )
 
 // TestPreferredMAPVersion tests that the controller selects the right API version
@@ -84,6 +86,122 @@ func TestHandleMAPGeneration_NoLister(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test-policy"},
 	})
 	assert.NoError(t, err)
+}
+
+func mapGenEnabled() *policiesv1beta1.MutatingPolicyAutogenConfiguration {
+	return &policiesv1beta1.MutatingPolicyAutogenConfiguration{
+		MutatingAdmissionPolicy: &policiesv1beta1.MAPGenerationConfiguration{Enabled: ptr.To(true)},
+	}
+}
+
+// podsMatchConstraints is a pods-only CREATE match, which makes pod-controller autogen eligible.
+func podsMatchConstraints() *admissionregistrationv1.MatchResources {
+	return &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+}
+
+func mapGenEnabledWithPodControllerAutogen() *policiesv1beta1.MutatingPolicyAutogenConfiguration {
+	cfg := mapGenEnabled()
+	cfg.PodControllers = &policiesv1beta1.PodControllersGenerationConfiguration{
+		Controllers: []string{"deployments"},
+	}
+	return cfg
+}
+
+// TestMapGenerationSkipReason covers the decision of whether a MutatingAdmissionPolicy may be
+// generated for a MutatingPolicy. A policy using useServerSideApply mutates atomic fields that a
+// native MutatingAdmissionPolicy rejects, so generation must be skipped, otherwise the generated MAP
+// becomes the sole admission path and the mutation breaks.
+func TestMapGenerationSkipReason(t *testing.T) {
+	tests := []struct {
+		name       string
+		policy     *policiesv1beta1.MutatingPolicy
+		wantSkip   bool
+		wantReason string
+	}{
+		{
+			name: "generation not enabled",
+			policy: &policiesv1beta1.MutatingPolicy{
+				Spec: policiesv1beta1.MutatingPolicySpec{},
+			},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: not enabled.",
+		},
+		{
+			name: "generation enabled, plain mutation",
+			policy: &policiesv1beta1.MutatingPolicy{
+				Spec: policiesv1beta1.MutatingPolicySpec{
+					AutogenConfiguration: mapGenEnabled(),
+				},
+			},
+			wantSkip: false,
+		},
+		{
+			name: "generation enabled with useServerSideApply",
+			policy: &policiesv1beta1.MutatingPolicy{
+				Spec: policiesv1beta1.MutatingPolicySpec{
+					AutogenConfiguration: mapGenEnabled(),
+					EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+						UseServerSideApply: true,
+					},
+				},
+			},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects.",
+		},
+		{
+			// autogen and MAP generation enabled, status.autogen already populated
+			name: "generation enabled with pod controllers autogen, status already populated",
+			policy: &policiesv1beta1.MutatingPolicy{
+				Spec: policiesv1beta1.MutatingPolicySpec{
+					AutogenConfiguration: mapGenEnabledWithPodControllerAutogen(),
+					MatchConstraints:     podsMatchConstraints(),
+				},
+				Status: policiesv1beta1.MutatingPolicyStatus{
+					Autogen: policiesv1beta1.MutatingPolicyAutogenStatus{
+						Configs: map[string]policiesv1beta1.MutatingPolicyAutogen{"deployments": {}},
+					},
+				},
+			},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled.",
+		},
+		{
+			// same spec, but status.autogen is still empty (policystatus has not reconciled yet)
+			name: "generation enabled with pod controllers autogen, status NOT yet populated (race window)",
+			policy: &policiesv1beta1.MutatingPolicy{
+				Spec: policiesv1beta1.MutatingPolicySpec{
+					AutogenConfiguration: mapGenEnabledWithPodControllerAutogen(),
+					MatchConstraints:     podsMatchConstraints(),
+				},
+			},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: pod controllers autogen is enabled.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reason, err := mapGenerationSkipReason(tt.policy)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantSkip, reason != "")
+			if tt.wantReason != "" {
+				assert.Equal(t, tt.wantReason, reason)
+			}
+		})
+	}
 }
 
 // Mock implementations for listers

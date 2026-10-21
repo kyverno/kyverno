@@ -1,22 +1,42 @@
 # -- Policy kind (`ClusterPolicy`, `Policy`)
-# Set to `Policy` if you need namespaced policies and not cluster policies
+# Set to `Policy` if you need namespaced policies and not cluster policies.
+# Only used when `policyType` is `ClusterPolicy` (the legacy kyverno.io types);
+# with the default `policyType: ValidatingPolicy` cluster-wide CEL policies are installed.
 policyKind: ClusterPolicy
 
 # -- Policy engine type (`ClusterPolicy`, `ValidatingPolicy`)
-# Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+)
-# ClusterPolicy will be deprecated in Kyverno 1.17
-# Default: ClusterPolicy (for backward compatibility)
-policyType: ClusterPolicy
+# `ValidatingPolicy` installs CEL-based policies (policies.kyverno.io, requires Kyverno 1.17+).
+# Set to `ClusterPolicy` to keep installing the legacy kyverno.io policy types,
+# which are deprecated and will be removed in a future release
+# (see https://kyverno.io/docs/guides/migration-to-cel/).
+policyType: ValidatingPolicy
 
 # -- Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`).
 # For more info https://kyverno.io/policies/pod-security.
 podSecurityStandard: baseline
 
-# -- Pod Security Standard (`low`, `medium`, `high`).
+# -- Pod Security Standard severity (`low`, `medium`, `high`).
 podSecuritySeverity: medium
+
+# -- Define podSecuritySeverity overrides for specific policies.
+# Override the global `podSecuritySeverity` with an individual severity for individual policies.
+# An empty string per-policy entry suppresses the annotation entirely.
+podSecuritySeverityByPolicy: {}
+#  disallow-host-path: high
+#  disallow-privileged-containers: high
 
 # -- Policies to include when `podSecurityStandard` is `custom`.
 podSecurityPolicies: []
+
+# -- Enable the Kubernetes Pod Security Admission relaxation for user namespace pods
+# for ValidatingPolicy templates only.
+# When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and
+# `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly
+# set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is
+# always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never
+# relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed.
+# This setting has no effect on legacy `ClusterPolicy` templates.
+podSecurityUserNamespaces: false
 
 # -- Additional policies to include from `other`.
 includeOtherPolicies: []
@@ -78,12 +98,13 @@ auditAnnotationsByPolicy: {}
 # For more info https://kyverno.io/docs/policy-types/.
 validationAllowExistingViolations: true
 
-# -- Exclude resources from individual policies.
+# -- Exclude resources from individual policies (policyType: ClusterPolicy only).
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map.
+# NOTE: This setting only applies when policyType is set to ClusterPolicy. For ValidatingPolicy, use vpolExclude/vpolExcludeByPolicy instead.
 policyExclude: {}
   # # Exclude resources from individual policies
   # disallow-host-path:
-  #   any:
+  #   all:
   #   - resources:
   #       kinds:
   #       - Pod
@@ -97,6 +118,55 @@ policyExclude: {}
   #       - Pod
   #       namespaces:
   #       - kube-system
+
+# -- Default excludes applied to ALL ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead.
+# Supports the following optional keys:
+#   excludeResourceRules: list of Kubernetes NamedRuleWithOperations (native VAP excludes)
+#   excludeNamespaces:    list of namespace names to exclude (generates CEL matchCondition)
+#   excludeSubjects:      list of subjects to exclude (generates CEL matchCondition)
+#   matchConditions:      list of CEL matchConditions for advanced filtering (passthrough of custom condition)
+# Per-policy overrides via vpolExcludeByPolicy replace these defaults entirely for that policy.
+vpolExclude: {}
+  # excludeNamespaces:
+  #   - kube-system
+  # excludeSubjects:
+  #   - kind: Group
+  #     name: system:masters
+
+# -- Per-policy excludes for individual ValidatingPolicy policies (policyType: ValidatingPolicy only).
+# When set for a policy, it completely replaces the global vpolExclude defaults for that policy.
+# NOTE: This setting only applies when policyType is set to ValidatingPolicy. For ClusterPolicy, use policyExclude instead.
+# Each policy name maps to an object with the same keys as vpolExclude.
+vpolExcludeByPolicy: {}
+  # disallow-host-path:
+  #   excludeResourceRules:
+  #     - apiGroups:
+  #         - ""
+  #       apiVersions:
+  #         - v1
+  #       operations:
+  #         - CREATE
+  #         - UPDATE
+  #       resources:
+  #         - pods
+  #       # optional - exact resource names to exclude
+  #       resourceNames:
+  #         - specific-pod-name
+  #   excludeNamespaces:
+  #     - kube-system
+  #     - monitoring
+  #   excludeSubjects:
+  #     - kind: Group
+  #       name: system:masters
+  #     - kind: User
+  #       name: admin@example.com
+  #     - kind: ServiceAccount
+  #       namespace: kube-system
+  #       name: default
+  #   matchConditions:
+  #     - name: exclude-custom
+  #       expression: "!object.metadata.name.startsWith('temp-')"
 
 # -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.

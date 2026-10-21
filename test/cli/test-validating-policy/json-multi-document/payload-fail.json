@@ -1,0 +1,14 @@
+{
+    "resource_changes": [
+      {
+        "type": "aws_acmpca_certificate_authority",
+        "change": {
+          "actions": ["create"],
+          "after": {
+            "type": "ROOT",
+            "enabled": true
+          }
+        }
+      }
+    ]
+  }

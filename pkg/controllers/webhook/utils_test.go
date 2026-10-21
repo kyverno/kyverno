@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	autogenv1 "github.com/kyverno/kyverno/pkg/autogen/v1"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -721,6 +724,8 @@ func TestDeduplicateRules(t *testing.T) {
 			admissionregistrationv1.Update,
 		},
 	}
+	rule8_NilScope := *rule1.DeepCopy()
+	rule8_NilScope.Scope = nil
 
 	testCases := []struct {
 		name          string
@@ -728,6 +733,18 @@ func TestDeduplicateRules(t *testing.T) {
 		expectedCount int
 		expectedRules []admissionregistrationv1.RuleWithOperations
 	}{
+		{
+			name:          "Nil and explicit AllScopes are duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule8_NilScope, rule1},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule8_NilScope},
+		},
+		{
+			name:          "Explicit AllScopes and nil are duplicates",
+			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule8_NilScope},
+			expectedCount: 1,
+			expectedRules: []admissionregistrationv1.RuleWithOperations{rule1},
+		},
 		{
 			name:          "No duplicates",
 			input:         []admissionregistrationv1.RuleWithOperations{rule1, rule4_Unique},
@@ -883,6 +900,201 @@ func TestSortedRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			result := sortedRules(tc.input)
 			assert.Equal(t, tc.expectedRules, result)
+		})
+	}
+}
+
+func TestSortedRules_NilScope(t *testing.T) {
+	ruleNilScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+	ruleNamespacedScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+			Scope:       ptr.To(admissionregistrationv1.NamespacedScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+	ruleClusterScope := admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
+			APIGroups:   []string{"apps"},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"deployments"},
+			Scope:       ptr.To(admissionregistrationv1.ClusterScope),
+		},
+		Operations: []admissionregistrationv1.OperationType{
+			admissionregistrationv1.Create,
+		},
+	}
+
+	t.Run("nil scope does not panic", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			sortedRules([]admissionregistrationv1.RuleWithOperations{ruleNilScope, ruleNamespacedScope})
+		})
+	})
+
+	t.Run("both nil scopes do not panic", func(t *testing.T) {
+		assert.NotPanics(t, func() {
+			sortedRules([]admissionregistrationv1.RuleWithOperations{ruleNilScope, ruleNilScope})
+		})
+	})
+
+	t.Run("nil scope treated as AllScopes sorts before Cluster and Namespaced", func(t *testing.T) {
+		result := sortedRules([]admissionregistrationv1.RuleWithOperations{
+			ruleNamespacedScope, ruleNilScope, ruleClusterScope,
+		})
+		assert.Equal(t, string(admissionregistrationv1.AllScopes), scopeString(result[0].Scope))
+		assert.Equal(t, string(admissionregistrationv1.ClusterScope), scopeString(result[1].Scope))
+		assert.Equal(t, string(admissionregistrationv1.NamespacedScope), scopeString(result[2].Scope))
+	})
+}
+
+func TestScopeString(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    *admissionregistrationv1.ScopeType
+		expected string
+	}{
+		{"nil returns AllScopes", nil, string(admissionregistrationv1.AllScopes)},
+		{"Namespaced", ptr.To(admissionregistrationv1.NamespacedScope), string(admissionregistrationv1.NamespacedScope)},
+		{"Cluster", ptr.To(admissionregistrationv1.ClusterScope), string(admissionregistrationv1.ClusterScope)},
+		{"AllScopes", ptr.To(admissionregistrationv1.AllScopes), string(admissionregistrationv1.AllScopes)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, scopeString(tt.input))
+		})
+	}
+}
+
+func TestIvpolsNeedingMutation(t *testing.T) {
+	trueVal := true
+	falseVal := false
+
+	tests := []struct {
+		name          string
+		ivpols        []engineapi.GenericPolicy
+		expectedCount int
+	}{
+		{
+			name:          "empty input",
+			ivpols:        []engineapi.GenericPolicy{},
+			expectedCount: 0,
+		},
+		{
+			name: "nil MutateDigest and nil VerifyDigest default to true -- needs mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: nil,
+							VerifyDigest: nil,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+		{
+			name: "MutateDigest true -- needs mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &trueVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+		{
+			// VerifyDigest is a validation concern (the validating webhook asserts the
+			// image carries a digest); it never requires a mutating webhook, which can
+			// only ever pin digests.
+			name: "VerifyDigest true but MutateDigest false -- does not need mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &falseVal,
+							VerifyDigest: &trueVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 0,
+		},
+		{
+			name: "nil MutateDigest defaults to true even when VerifyDigest is false -- needs mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: nil,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+		{
+			// Core regression: test C from the issue -- both false means no mutating
+			// webhook should be registered.
+			name: "both false -- does not need mutation",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &falseVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 0,
+		},
+		{
+			name: "mixed -- only policies needing mutation are kept",
+			ivpols: []engineapi.GenericPolicy{
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &trueVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+				engineapi.NewImageValidatingPolicy(&policiesv1beta1.ImageValidatingPolicy{
+					Spec: policiesv1beta1.ImageValidatingPolicySpec{
+						ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{
+							MutateDigest: &falseVal,
+							VerifyDigest: &falseVal,
+						},
+					},
+				}),
+			},
+			expectedCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ivpolsNeedingMutation(tt.ivpols)
+			assert.Equal(t, tt.expectedCount, len(got))
 		})
 	}
 }

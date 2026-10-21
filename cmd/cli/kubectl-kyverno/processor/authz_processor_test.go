@@ -148,7 +148,7 @@ func testAuthzFixturePolicyDir(t *testing.T, subdir string) string {
 
 func TestProcessHTTPPolicy_Allow(t *testing.T) {
 	dir := testAuthzFixturePolicyDir(t, "http-allow")
-	res, err := policy.Load(nil, "", filepath.Join(dir, "policy.yaml"))
+	res, err := policy.Load(nil, "", true, filepath.Join(dir, "policy.yaml"))
 	require.NoError(t, err)
 	require.Len(t, res.HTTPPolicies, 1)
 
@@ -163,7 +163,7 @@ func TestProcessHTTPPolicy_Allow(t *testing.T) {
 
 func TestProcessHTTPPolicy_Deny(t *testing.T) {
 	dir := testAuthzFixturePolicyDir(t, "http-deny")
-	res, err := policy.Load(nil, "", filepath.Join(dir, "policy.yaml"))
+	res, err := policy.Load(nil, "", true, filepath.Join(dir, "policy.yaml"))
 	require.NoError(t, err)
 	require.Len(t, res.HTTPPolicies, 1)
 
@@ -178,7 +178,7 @@ func TestProcessHTTPPolicy_Deny(t *testing.T) {
 
 func TestProcessEnvoyPolicy_Allow(t *testing.T) {
 	dir := testAuthzFixturePolicyDir(t, "envoy-allow")
-	res, err := policy.Load(nil, "", filepath.Join(dir, "policy.yaml"))
+	res, err := policy.Load(nil, "", true, filepath.Join(dir, "policy.yaml"))
 	require.NoError(t, err)
 	require.Len(t, res.EnvoyPolicies, 1)
 
@@ -193,7 +193,7 @@ func TestProcessEnvoyPolicy_Allow(t *testing.T) {
 
 func TestProcessEnvoyPolicy_Deny(t *testing.T) {
 	dir := testAuthzFixturePolicyDir(t, "envoy-deny")
-	res, err := policy.Load(nil, "", filepath.Join(dir, "policy.yaml"))
+	res, err := policy.Load(nil, "", true, filepath.Join(dir, "policy.yaml"))
 	require.NoError(t, err)
 	require.Len(t, res.EnvoyPolicies, 1)
 
@@ -220,7 +220,7 @@ spec:
 	policyPath := filepath.Join(t.TempDir(), "policy.yaml")
 	require.NoError(t, os.WriteFile(policyPath, []byte(badYAML), 0o600))
 
-	res, err := policy.Load(nil, "", policyPath)
+	res, err := policy.Load(nil, "", true, policyPath)
 	require.NoError(t, err)
 	require.Len(t, res.HTTPPolicies, 1)
 
@@ -244,7 +244,7 @@ spec:
 	policyPath := filepath.Join(t.TempDir(), "policy.yaml")
 	require.NoError(t, os.WriteFile(policyPath, []byte(badYAML), 0o600))
 
-	res, err := policy.Load(nil, "", policyPath)
+	res, err := policy.Load(nil, "", true, policyPath)
 	require.NoError(t, err)
 	require.Len(t, res.EnvoyPolicies, 1)
 

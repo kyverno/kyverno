@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 
@@ -11,26 +10,25 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
-	"github.com/kyverno/kyverno/pkg/toggle"
-	"github.com/kyverno/sdk/cel/libs/generator"
-	"github.com/kyverno/sdk/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/cel/libs/gzip"
-	"github.com/kyverno/sdk/cel/libs/hash"
-	"github.com/kyverno/sdk/cel/libs/http"
-	"github.com/kyverno/sdk/cel/libs/image"
-	"github.com/kyverno/sdk/cel/libs/imagedata"
-	"github.com/kyverno/sdk/cel/libs/json"
-	"github.com/kyverno/sdk/cel/libs/math"
-	"github.com/kyverno/sdk/cel/libs/random"
-	"github.com/kyverno/sdk/cel/libs/resource"
-	"github.com/kyverno/sdk/cel/libs/time"
-	"github.com/kyverno/sdk/cel/libs/transform"
-	"github.com/kyverno/sdk/cel/libs/x509"
-	"github.com/kyverno/sdk/cel/libs/yaml"
+	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
+	"github.com/kyverno/kyverno/pkg/cel/policies/gpol/template"
+	"github.com/kyverno/sdk/extensions/cel/libs/generator"
+	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
+	"github.com/kyverno/sdk/extensions/cel/libs/hash"
+	"github.com/kyverno/sdk/extensions/cel/libs/http"
+	"github.com/kyverno/sdk/extensions/cel/libs/image"
+	"github.com/kyverno/sdk/extensions/cel/libs/imagedata"
+	"github.com/kyverno/sdk/extensions/cel/libs/json"
+	"github.com/kyverno/sdk/extensions/cel/libs/math"
+	"github.com/kyverno/sdk/extensions/cel/libs/random"
+	"github.com/kyverno/sdk/extensions/cel/libs/resource"
+	"github.com/kyverno/sdk/extensions/cel/libs/time"
+	"github.com/kyverno/sdk/extensions/cel/libs/transform"
+	"github.com/kyverno/sdk/extensions/cel/libs/x509"
+	"github.com/kyverno/sdk/extensions/cel/libs/yaml"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/version"
 	apiservercel "k8s.io/apiserver/pkg/cel"
-	"k8s.io/apiserver/pkg/cel/environment"
 )
 
 var (
@@ -43,13 +41,28 @@ type Compiler interface {
 }
 
 func NewCompiler() Compiler {
-	return &compilerImpl{}
+	return NewCompilerWithTrace(false)
 }
 
-type compilerImpl struct{}
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on: when trace is
+// true, match conditions, variables and generate expressions are compiled with state tracking and
+// keep their ASTs, so each evaluation can record what every expression resolved to. It is a
+// separate constructor rather than a parameter on NewCompiler so the existing callers
+// (controllers, CLI, tests) are untouched and stay untraced.
+func NewCompilerWithTrace(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
+}
 
-func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.EnvSet, *compiler.VariablesProvider, error) {
-	baseOpts := compiler.DefaultEnvOptions()
+type compilerImpl struct{ trace bool }
+
+func (c *compilerImpl) createBaseGpolEnv(libsctx libs.Context, namespace string) (*cel.Env, *compiler.VariablesProvider, error) {
+	baseOpts := compiler.EnvOptionsForVersion(
+		gpolCompilerVersion,
+		compiler.VersionedEnvOptions{
+			IntroducedVersion: version.MajorMinor(1, 0),
+			EnvOptions:        compiler.DynamicResourceEnvOptionsWithCompat(),
+		},
+	)
 	baseOpts = append(baseOpts,
 		cel.Variable(compiler.NamespaceObjectKey, compiler.NamespaceType.CelType()),
 		cel.Variable(compiler.ObjectKey, cel.DynType),
@@ -60,13 +73,12 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 		cel.Variable(compiler.VariablesKey, compiler.VariablesType),
 	)
 
-	base := environment.MustBaseEnvSet(gpolCompilerVersion)
-	env, err := base.Env(environment.StoredExpressions)
+	baseEnv, err := cel.NewEnv(baseOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	variablesProvider := compiler.NewVariablesProvider(env.CELTypeProvider())
+	variablesProvider := compiler.NewVariablesProvider(baseEnv.CELTypeProvider())
 	declProvider := apiservercel.NewDeclTypeProvider(compiler.NamespaceType, compiler.RequestType)
 	declOptions, err := declProvider.EnvOptions(variablesProvider)
 	if err != nil {
@@ -75,85 +87,76 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 
 	baseOpts = append(baseOpts, declOptions...)
 
-	// http.Get/Post are gated by scope and operator configuration (CVE-2026-4789).
-	// Namespaced policies cannot use http.* unless explicitly enabled via --allowHTTPInNamespacedPolicies.
-	libEnvOpts := []cel.EnvOption{
-		ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
-		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
-		generator.Lib(
-			generator.Context{ContextInterface: libsctx},
-			generator.Latest(),
-		),
-		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
-			globalcontext.Latest(),
-		),
-		resource.Lib(
-			resource.Context{ContextInterface: libsctx},
-			namespace,
-			resource.Latest(),
-		),
-		image.Lib(
-			image.Latest(),
-		),
-		imagedata.Lib(
-			imagedata.Context{ContextInterface: libsctx},
-			imagedata.Latest(),
-		),
-		hash.Lib(
-			hash.Latest(),
-		),
-		math.Lib(
-			math.Latest(),
-		),
-		json.Lib(
-			&json.JsonImpl{},
-			json.Latest(),
-		),
-		yaml.Lib(
-			&yaml.YamlImpl{},
-			yaml.Latest(),
-		),
-		random.Lib(
-			random.Latest(),
-		),
-		x509.Lib(
-			x509.Latest(),
-		),
-		time.Lib(
-			time.Latest(),
-		),
-		transform.Lib(
-			transform.Latest(),
-		),
-		gzip.Lib(
-			gzip.Latest(),
-		),
-	}
-	if namespace == "" || toggle.FromContext(context.TODO()).AllowHTTPInNamespacedPolicies() {
-		httpCtx, err := compiler.NewCELHTTPContext()
-		if err != nil {
-			return nil, nil, err
-		}
-		libEnvOpts = append(libEnvOpts, http.Lib(
-			http.Context{ContextInterface: httpCtx},
-			http.Latest(),
-		))
-	}
-
-	// the custom types have to be registered after the decl options have been registered, because these are what allow
-	// go struct type resolution
-	extendedBase, err := base.Extend(
-		environment.VersionedOptions{
-			IntroducedVersion: gpolCompilerVersion,
-			EnvOptions:        baseOpts,
-		},
-		// libraries
-		environment.VersionedOptions{
-			IntroducedVersion: gpolCompilerVersion,
-			EnvOptions:        libEnvOpts,
+	libEnvOpts := compiler.EnvOptionsForVersion(
+		gpolCompilerVersion,
+		compiler.VersionedEnvOptions{
+			IntroducedVersion: version.MajorMinor(1, 0),
+			EnvOptions: []cel.EnvOption{
+				ext.NativeTypes(reflect.TypeFor[libs.Exception](), ext.ParseStructTags(true)),
+				cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
+				generator.Lib(
+					generator.Context{ContextInterface: libsctx},
+					namespace,
+					generator.Latest(),
+				),
+				globalcontext.Lib(
+					globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
+					globalcontext.Latest(),
+				),
+				resource.Lib(
+					resource.Context{ContextInterface: libsctx},
+					namespace,
+					resource.Latest(),
+				),
+				image.Lib(
+					image.Latest(),
+				),
+				imagedata.Lib(
+					imagedata.Context{ContextInterface: libsctx},
+					imagedata.Latest(),
+					nil,
+				),
+				hash.Lib(
+					hash.Latest(),
+				),
+				math.Lib(
+					math.Latest(),
+				),
+				json.Lib(
+					&json.JsonImpl{},
+					json.Latest(),
+				),
+				yaml.Lib(
+					&yaml.YamlImpl{},
+					yaml.Latest(),
+				),
+				random.Lib(
+					random.Latest(),
+				),
+				x509.Lib(
+					x509.Latest(),
+				),
+				time.Lib(
+					time.Latest(),
+				),
+				transform.Lib(
+					transform.Latest(),
+				),
+				gzip.Lib(
+					gzip.Latest(), 0,
+				),
+				http.Lib(
+					http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
+					http.Latest(),
+				),
+			},
 		},
 	)
+	// the custom types have to be registered after the decl options have been registered, because these are what allow
+	// go struct type resolution
+	finalOpts := append(baseOpts, libEnvOpts...)
+	// compiler.NewEnv, not cel.NewEnv: registers CostLib last (see pkg/cel/compiler/env.go).
+	extendedBase, err := compiler.NewEnv(finalOpts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -162,12 +165,7 @@ func createBaseGpolEnv(libsctx libs.Context, namespace string) (*environment.Env
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	var allErrs field.ErrorList
-	gpolEnvSet, variablesProvider, err := createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
-	if err != nil {
-		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
-	}
-
-	env, err := gpolEnvSet.Env(environment.StoredExpressions)
+	env, variablesProvider, err := c.createBaseGpolEnv(libs.GetLibsCtx(), policy.GetNamespace())
 	if err != nil {
 		return nil, append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, err)))
 	}
@@ -179,27 +177,49 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 	spec := policy.GetSpec()
 
 	matchConditions := make([]cel.Program, 0, len(spec.MatchConditions))
+	var tracedMatchConditions []compiler.TracedProgram
 	{
 		path := path.Child("matchConditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.MatchConditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.MatchConditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		matchConditions = append(matchConditions, programs...)
+		tracedMatchConditions = traced
 	}
 
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
-	generations := make([]cel.Program, 0, len(spec.Generation))
+	generations := make([]Generation, 0, len(spec.Generation))
 	{
 		path := path.Child("generate")
-		programs, errs := compiler.CompileGenerations(path, env, spec.Generation...)
-		if errs != nil {
-			return nil, append(allErrs, errs...)
+		for i, generation := range spec.Generation {
+			entryPath := path.Index(i)
+			switch {
+			case generation.Template != nil && generation.Expression != "":
+				return nil, append(allErrs, field.Invalid(entryPath, generation, "only one of expression or template may be set"))
+			case generation.Template != nil:
+				tpl, errs := template.Compile(entryPath.Child("template"), env, generation.Template)
+				if errs != nil {
+					return nil, append(allErrs, errs...)
+				}
+				generations = append(generations, Generation{template: tpl, name: fmt.Sprintf("generate[%d] (template)", i)})
+			case generation.Expression != "":
+				traced, errs := compiler.CompileGenerationWithTrace(entryPath, env, generation, c.trace)
+				if errs != nil {
+					return nil, append(allErrs, errs...)
+				}
+				generations = append(generations, Generation{expression: traced.Program, traced: traced.Traced, ast: traced.AST, name: fmt.Sprintf("generate[%d] (expression)", i)})
+			default:
+				return nil, append(allErrs, field.Required(entryPath, "one of expression or template must be set"))
+			}
 		}
-		generations = append(generations, programs...)
+	}
+	auditAnnotations, errs := compiler.CompileAuditAnnotations(path.Child("auditAnnotations"), env, spec.AuditAnnotations...)
+	if errs != nil {
+		return nil, append(allErrs, errs...)
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
@@ -214,10 +234,16 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.GeneratingPolicyLike, exce
 		})
 	}
 	return &Policy{
+		namespace:        policy.GetNamespace(),
 		matchConditions:  matchConditions,
 		variables:        variables,
 		generations:      generations,
+		auditAnnotations: auditAnnotations,
 		exceptions:       compiledExceptions,
 		matchConstraints: policy.GetSpec().MatchConstraints,
+
+		trace:                 c.trace,
+		tracedMatchConditions: tracedMatchConditions,
+		tracedVariables:       tracedVariables,
 	}, nil
 }

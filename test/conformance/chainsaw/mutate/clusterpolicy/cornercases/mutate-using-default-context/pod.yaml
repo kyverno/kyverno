@@ -4,8 +4,9 @@ metadata:
   name: 'bad-box'
 spec:
   automountServiceAccountToken: false
+  nodeSelector:
+    kyverno.io/test-node: nonexistent
   containers:
   - name: busybox
     image: public.ecr.aws/docker/library/busybox:latest
     command: ["sleep", "9999"]
-

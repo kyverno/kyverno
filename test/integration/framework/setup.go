@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,9 +28,20 @@ type TestEnv struct {
 	Client          client.Client
 	KubeClient      kubernetes.Interface
 	KyvernoClient   kyvernoclient.Interface
+	DClient         dclient.Interface
 	Scheme          *kruntime.Scheme
 	ContextProvider libs.Context
-	cancel          context.CancelFunc
+
+	// Per-policy-type setups, populated when the corresponding type is requested
+	// via NewTestEnvWithOptions. Nil for types that were not requested.
+	Vpol  *VpolSetup
+	Mpol  *MpolSetup
+	Gpol  *GpolSetup
+	Dpol  *DpolSetup
+	Ivpol *IvpolSetup
+
+	cancel    context.CancelFunc
+	optCancel context.CancelFunc
 }
 
 // NewTestEnv creates an envtest environment with Kyverno CEL policy CRDs installed.
@@ -95,9 +107,19 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		return nil, fmt.Errorf("failed to create dclient: %w", err)
 	}
 
+	// TODO: informer exit, we rely on the fact that this is gonna be used in the cli
+	// so the context and the informer will just die at the end of the command execution.
+	// but maybe we can do better ?
+	informerFactory := informers.NewSharedInformerFactory(kubeClient, 0)
+	stopCh := make(chan struct{})
+	informerFactory.Start(stopCh)
+	informerFactory.WaitForCacheSync(stopCh)
+
+	lister := informerFactory.Core().V1().Secrets().Lister()
+
 	// Create the real ContextProvider — same code path as production.
 	// Only the underlying K8s API is swapped (envtest instead of real cluster).
-	ctxProvider, err := libs.NewContextProvider(dc, nil, nil, mgr.GetRESTMapper(), false)
+	ctxProvider, err := libs.NewContextProvider(dc, lister, nil, mgr.GetRESTMapper(), false)
 	if err != nil {
 		_ = env.Stop()
 		return nil, fmt.Errorf("failed to create context provider: %w", err)
@@ -109,6 +131,7 @@ func NewTestEnv(crdPaths ...string) (*TestEnv, error) {
 		Client:          mgr.GetClient(),
 		KubeClient:      kubeClient,
 		KyvernoClient:   kyvernoClient,
+		DClient:         dc,
 		Scheme:          scheme,
 		ContextProvider: ctxProvider,
 	}, nil
@@ -136,6 +159,9 @@ func (te *TestEnv) Start() error {
 func (te *TestEnv) Stop() {
 	if te.cancel != nil {
 		te.cancel()
+	}
+	if te.optCancel != nil {
+		te.optCancel()
 	}
 	_ = te.Env.Stop()
 }

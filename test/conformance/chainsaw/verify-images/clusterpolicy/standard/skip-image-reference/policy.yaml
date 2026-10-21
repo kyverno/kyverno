@@ -31,7 +31,7 @@ data:
     uOKpF5rWAruB5PCIrquamOejpXV9aQA/K2JQDuc0mcKz
     -----END CERTIFICATE-----
 ---
-apiVersion: kyverno.io/v2beta1
+apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: verify-exclude-refs

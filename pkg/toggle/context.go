@@ -13,42 +13,42 @@ type Toggles interface {
 	GenerateValidatingAdmissionPolicy() bool
 	GenerateMutatingAdmissionPolicy() bool
 	DumpMutatePatches() bool
-	AutogenV2() bool
 	AllowHTTPInNamespacedPolicies() bool
+	BlockLegacyPolicyAPIs() bool
 }
 
 type defaultToggles struct{}
 
 func (defaultToggles) ProtectManagedResources() bool {
-	return ProtectManagedResources.enabled()
+	return ProtectManagedResources.Enabled()
 }
 
 func (defaultToggles) ForceFailurePolicyIgnore() bool {
-	return ForceFailurePolicyIgnore.enabled()
+	return ForceFailurePolicyIgnore.Enabled()
 }
 
 func (defaultToggles) EnableDeferredLoading() bool {
-	return EnableDeferredLoading.enabled()
+	return EnableDeferredLoading.Enabled()
 }
 
 func (defaultToggles) GenerateValidatingAdmissionPolicy() bool {
-	return GenerateValidatingAdmissionPolicy.enabled()
+	return GenerateValidatingAdmissionPolicy.Enabled()
 }
 
 func (defaultToggles) GenerateMutatingAdmissionPolicy() bool {
-	return GenerateMutatingAdmissionPolicy.enabled()
+	return GenerateMutatingAdmissionPolicy.Enabled()
 }
 
 func (defaultToggles) DumpMutatePatches() bool {
-	return DumpMutatePatches.enabled()
-}
-
-func (defaultToggles) AutogenV2() bool {
-	return AutogenV2.enabled()
+	return DumpMutatePatches.Enabled()
 }
 
 func (defaultToggles) AllowHTTPInNamespacedPolicies() bool {
-	return AllowHTTPInNamespacedPolicies.enabled()
+	return AllowHTTPInNamespacedPolicies.Enabled()
+}
+
+func (defaultToggles) BlockLegacyPolicyAPIs() bool {
+	return BlockLegacyPolicyAPIs.Enabled()
 }
 
 type contextKey struct{}

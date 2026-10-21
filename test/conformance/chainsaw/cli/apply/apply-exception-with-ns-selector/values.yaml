@@ -1,0 +1,8 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Value
+metadata:
+  name: values
+namespaceSelector:
+- name: ns-1
+  labels:
+    kyverno.tess.io/mutateresource: "false"

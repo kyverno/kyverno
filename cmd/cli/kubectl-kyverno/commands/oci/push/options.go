@@ -8,71 +8,49 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/static"
-	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/policy"
-	"github.com/kyverno/kyverno/pkg/config"
-	policyutils "github.com/kyverno/kyverno/pkg/utils/policy"
-	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/internal/bundle"
 )
 
 type options struct {
 	imageRef string
 }
 
-func (o options) validate(policy string) error {
+func (o options) validate(dir string) error {
 	if o.imageRef == "" {
 		return errors.New("image is required")
 	}
-	if policy == "" {
+	if dir == "" {
 		return errors.New("policy is required")
 	}
 	return nil
 }
 
 func (o options) execute(ctx context.Context, dir string, keychain authn.Keychain) error {
-	results, err := policy.Load(nil, "", dir)
-	if err != nil {
-		return fmt.Errorf("unable to read policy file or directory %s (%w)", dir, err)
-	}
-	for _, policy := range results.Policies {
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		if _, err := policyvalidation.Validate(policy, nil, nil, true, sa, sa); err != nil {
-			return fmt.Errorf("validating policy %s: %v", policy.GetName(), err)
-		}
-	}
-	img := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
-	img = mutate.ConfigMediaType(img, internal.PolicyConfigMediaType)
 	ref, err := name.ParseReference(o.imageRef)
 	if err != nil {
-		return fmt.Errorf("parsing image reference: %v", err)
+		return fmt.Errorf("parsing image reference: %w", err)
 	}
-	for _, policy := range results.Policies {
-		if policy.IsNamespaced() {
-			fmt.Fprintf(os.Stderr, "Adding policy [%s]\n", policy.GetName())
-		} else {
-			fmt.Fprintf(os.Stderr, "Adding cluster policy [%s]\n", policy.GetName())
-		}
-		policyBytes, err := policyutils.ToYaml(policy)
-		if err != nil {
-			return fmt.Errorf("converting policy to yaml: %v", err)
-		}
-		policyLayer := static.NewLayer(policyBytes, internal.PolicyLayerMediaType)
-		img, err = mutate.Append(img, mutate.Addendum{
-			Layer:       policyLayer,
-			Annotations: internal.Annotations(policy),
-		})
-		if err != nil {
-			return fmt.Errorf("mutating image: %v", err)
-		}
+
+	b, err := bundle.Assemble(dir)
+	if err != nil {
+		return fmt.Errorf("assembling bundle from %s: %w", dir, err)
 	}
+
+	if err := bundle.Validate(b); err != nil {
+		return err
+	}
+
+	// No descriptor support yet: #17663 parses kyverno-bundle.yaml into a *bundle.Descriptor
+	// and passes it here. Until then every push uses the no-descriptor defaults.
+	img, err := bundle.Write(b, nil)
+	if err != nil {
+		return fmt.Errorf("writing bundle image: %w", err)
+	}
+
 	fmt.Fprintf(os.Stderr, "Uploading [%s]...\n", ref.Name())
 	if err = remote.Write(ref, img, remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain)); err != nil {
-		return fmt.Errorf("writing image: %v", err)
+		return fmt.Errorf("writing image: %w", err)
 	}
 	fmt.Fprintf(os.Stderr, "Done.")
 	return nil

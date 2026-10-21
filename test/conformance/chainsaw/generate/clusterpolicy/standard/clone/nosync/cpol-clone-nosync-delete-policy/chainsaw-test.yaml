@@ -34,6 +34,6 @@ spec:
         file: check.yaml
     - delete:
         ref:
-          apiVersion: kyverno.io/v2beta1
+          apiVersion: kyverno.io/v1
           kind: ClusterPolicy
           name: cpol-nosync-clone-delete-policy

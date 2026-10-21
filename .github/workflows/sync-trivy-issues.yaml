@@ -25,7 +25,31 @@ jobs:
         script: |
           const { owner, repo } = context.repo;
 
-          const branches = ["main", "release-1.17", "release-1.16"];
+          const repoBranches = await github.paginate(
+            github.rest.repos.listBranches,
+            { owner, repo, per_page: 100 }
+          );
+
+          const latestReleaseBranch = repoBranches
+            .map(b => b.name)
+            .map(name => {
+              const match = name.match(/^release-(\d+)\.(\d+)$/);
+              if (!match) return null;
+              return {
+                name,
+                major: Number(match[1]),
+                minor: Number(match[2]),
+              };
+            })
+            .filter(Boolean)
+            .sort((a, b) => (b.major - a.major) || (b.minor - a.minor))[0]?.name;
+
+          const branches = ["main"];
+          if (latestReleaseBranch) {
+            branches.push(latestReleaseBranch);
+          }
+          core.info(`Syncing alerts for branches: ${branches.join(", ")}`);
+
           const allAlerts = [];
           for (const branch of branches) {
             const ref = `refs/heads/${branch}`;

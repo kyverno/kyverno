@@ -1,12 +1,13 @@
 package compiler
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/types"
 	"github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/sdk/cel/utils"
+	"github.com/kyverno/sdk/extensions/cel/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -70,8 +71,8 @@ func getImageExtractorsFromGVR(gvr metav1.GroupVersionResource) []v1beta1.ImageE
 	return nil
 }
 
-func (c *ImageExtractor) GetImages(data map[string]any) ([]string, error) {
-	out, _, err := c.Eval(data)
+func (c *ImageExtractor) GetImages(ctx context.Context, data map[string]any) ([]string, error) {
+	out, _, err := c.ContextEval(ctx, data)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 			msg := fmt.Sprintf("output is expected to be of type %s", expectedType.TypeName())
 			return nil, append(allErrs, field.Invalid(path, m.Expression, msg))
 		}
-		prog, err := env.Program(ast)
+		prog, err := NewProgram(env, ast)
 		if err != nil {
 			return nil, append(allErrs, field.Invalid(path, m.Expression, err.Error()))
 		}
@@ -115,14 +116,52 @@ func CompileImageExtractors(path *field.Path, env *cel.Env, gvr *metav1.GroupVer
 	return compiled, nil
 }
 
-func ExtractImages(data map[string]any, extractors map[string]ImageExtractor) (map[string][]string, error) {
+func ExtractImages(ctx context.Context, data map[string]any, extractors map[string]ImageExtractor) (map[string][]string, error) {
 	result := make(map[string][]string, len(extractors))
 	for key, value := range extractors {
-		if images, err := value.GetImages(data); err != nil {
+		if images, err := value.GetImages(ctx, data); err != nil {
 			return nil, err
 		} else {
 			result[key] = images
 		}
 	}
 	return result, nil
+}
+
+// ImageExtractorProfiles contains the finite built-in extraction layouts plus
+// custom-only extraction. All maps and programs are immutable after compilation.
+type ImageExtractorProfiles [4]map[string]ImageExtractor
+
+func (p ImageExtractorProfiles) ForResource(gvr *metav1.GroupVersionResource) map[string]ImageExtractor {
+	if gvr != nil {
+		switch *gvr {
+		case pods:
+			return p[1]
+		case jobs, deployments, statefulsets, daemonsets, replicasets:
+			return p[2]
+		case cronjobs:
+			return p[3]
+		}
+	}
+	return p[0]
+}
+
+func CompileImageExtractorProfiles(path *field.Path, env *cel.Env, custom ...v1beta1.ImageExtractor) (ImageExtractorProfiles, field.ErrorList) {
+	var profiles ImageExtractorProfiles
+	compiledCustom, errs := CompileImageExtractors(path, env, nil, custom...)
+	if len(errs) != 0 {
+		return profiles, errs
+	}
+	profiles[0] = compiledCustom
+	for i, gvr := range []metav1.GroupVersionResource{pods, deployments, cronjobs} {
+		defaults, errs := CompileImageExtractors(path, env, &gvr)
+		if len(errs) != 0 {
+			return profiles, errs
+		}
+		for name, extractor := range compiledCustom {
+			defaults[name] = extractor
+		}
+		profiles[i+1] = defaults
+	}
+	return profiles, nil
 }

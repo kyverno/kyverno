@@ -6,6 +6,15 @@ import (
 	"strings"
 )
 
+var defaultPolicyHTTPBlocklist = []string{
+	"169.254.169.254/32",       // AWS/GCP/Azure metadata service
+	"169.254.169.253/32",       // GCP metadata service alternate
+	"fd00:ec2::254/128",        // AWS IMDS IPv6 endpoint
+	"metadata.google.internal", // GCP metadata service hostname
+	"127.0.0.0/8",              // IPv4 loopback
+	"::1/128",                  // IPv6 loopback
+}
+
 const (
 	// protect managed resource
 	ProtectManagedResourcesFlagName    = "protectManagedResources"
@@ -37,11 +46,6 @@ const (
 	DumpMutatePatchesDescription = "Set the flag to 'true', to dump mutate patches."
 	dumpMutatePatchesEnvVar      = "FLAG_DUMP_PATCHES"
 	defaultDumpMutatePatches     = false
-	// select autogen
-	AutogenV2FlagName    = "autogenV2"
-	AutogenV2Description = "Set the flag to 'true', to enable autogen v2."
-	autogenV2EnvVar      = "FLAG_AUTOGEN_V2"
-	defaultAutogenV2     = false
 	// enable http calls in namespaced policies (CVE-2026-4789)
 	AllowHTTPInNamespacedPoliciesFlagName    = "allowHTTPInNamespacedPolicies"
 	AllowHTTPInNamespacedPoliciesDescription = "Set to 'true' to enable CEL http.Get/Post in namespaced policies. Disabled by default due to SSRF risk (CVE-2026-4789); enable only when combined with restrictive network policies."
@@ -49,28 +53,17 @@ const (
 	defaultAllowHTTPInNamespacedPolicies     = false
 	// http blocklist / allowlist flag names
 	HTTPBlocklistFlagName    = "httpBlocklist"
-	HTTPBlocklistDescription = "Comma-separated list of CIDR ranges or hostnames blocked from CEL http.Get/Post calls. Overrides the built-in defaults when set. Example: '10.0.0.0/8,metadata.google.internal'."
+	HTTPBlocklistDescription = "Comma-separated list of CIDR ranges or hostnames blocked from CEL http.Get/Post and apiCall.service calls. Overrides the built-in defaults when set. Example: '169.254.169.254,metadata.google.internal'."
 	httpBlocklistEnvVar      = "FLAG_HTTP_BLOCKLIST"
 	HTTPAllowlistFlagName    = "httpAllowlist"
-	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
+	HTTPAllowlistDescription = "Comma-separated list of URL prefixes (scheme+host[+path]) permitted in CEL http.Get/Post and apiCall.service calls. When set, only matching URLs are allowed. Example: 'https://api.example.com,https://webhook.corp/v1/'."
 	httpAllowlistEnvVar      = "FLAG_HTTP_ALLOWLIST"
+	// block legacy policy APIs (1.20 grace-window escape hatch, removed in 1.21)
+	BlockLegacyPolicyAPIsFlagName    = "blockLegacyPolicyAPIs"
+	BlockLegacyPolicyAPIsDescription = "Set the flag to 'false' to allow creating/updating legacy kyverno.io policy APIs during the 1.20 migration window. This is a temporary escape hatch and will be removed in 1.21."
+	blockLegacyPolicyAPIsEnvVar      = "FLAG_BLOCK_LEGACY_POLICY_APIS"
+	defaultBlockLegacyPolicyAPIs     = true
 )
-
-// defaultHTTPBlocklist mirrors DefaultBlockedCIDRs + DefaultBlockedHosts from
-// github.com/kyverno/sdk/cel/libs/http. Duplicated here to avoid an import cycle.
-var defaultHTTPBlocklist = []string{
-	"127.0.0.0/8",
-	"::1/128",
-	"169.254.0.0/16",
-	"fe80::/10",
-	"10.0.0.0/8",
-	"172.16.0.0/12",
-	"192.168.0.0/16",
-	"fc00::/7",
-	"100.64.0.0/10",
-	"metadata.google.internal",
-	"metadata.internal",
-}
 
 var (
 	ProtectManagedResources           = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
@@ -79,10 +72,10 @@ var (
 	GenerateValidatingAdmissionPolicy = newToggle(defaultGenerateValidatingAdmissionPolicy, generateValidatingAdmissionPolicyEnvVar)
 	GenerateMutatingAdmissionPolicy   = newToggle(defaultGenerateMutatingAdmissionPolicy, generateMutatingAdmissionPolicyEnvVar)
 	DumpMutatePatches                 = newToggle(defaultDumpMutatePatches, dumpMutatePatchesEnvVar)
-	AutogenV2                         = newToggle(defaultAutogenV2, autogenV2EnvVar)
 	AllowHTTPInNamespacedPolicies     = newToggle(defaultAllowHTTPInNamespacedPolicies, allowHTTPInNamespacedPoliciesEnvVar)
-	HTTPBlocklist                     = newStringSliceFlag(defaultHTTPBlocklist, httpBlocklistEnvVar)
+	HTTPBlocklist                     = newStringSliceFlag(append([]string{}, defaultPolicyHTTPBlocklist...), httpBlocklistEnvVar)
 	HTTPAllowlist                     = newStringSliceFlag(nil, httpAllowlistEnvVar)
+	BlockLegacyPolicyAPIs             = newToggle(defaultBlockLegacyPolicyAPIs, blockLegacyPolicyAPIsEnvVar)
 )
 
 type ToggleFlag interface {
@@ -91,7 +84,7 @@ type ToggleFlag interface {
 
 type Toggle interface {
 	ToggleFlag
-	enabled() bool
+	Enabled() bool
 }
 
 type toggle struct {
@@ -116,7 +109,7 @@ func (t *toggle) Parse(in string) error {
 	}
 }
 
-func (t *toggle) enabled() bool {
+func (t *toggle) Enabled() bool {
 	if t.value != nil {
 		return *t.value
 	}

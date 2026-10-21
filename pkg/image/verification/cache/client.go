@@ -4,14 +4,20 @@ import (
 	"context"
 	"time"
 
-	"github.com/dgraph-io/ristretto"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	defaultTTL     = 1 * time.Hour
-	defaultMaxSize = 1000
+	defaultTTL = 1 * time.Hour
+	// DefaultMaxSize is the default cache budget in bytes (10 MiB).
+	DefaultMaxSize = 10 << 20
+	// expectedEntryCost is the average entry cost assumed when sizing
+	// ristretto's admission counters: presence-only entries cost far less,
+	// entries carrying attestation payloads usually a few times more.
+	expectedEntryCost = 1 << 10
 )
 
 type cache struct {
@@ -19,7 +25,7 @@ type cache struct {
 	isCacheEnabled bool
 	maxSize        int64
 	ttl            time.Duration
-	cache          *ristretto.Cache
+	cache          *ristretto.Cache[string, any]
 }
 
 type Option = func(*cache) error
@@ -31,9 +37,9 @@ func New(options ...Option) (Client, error) {
 			return nil, err
 		}
 	}
-	config := ristretto.Config{
+	config := ristretto.Config[string, any]{
 		MaxCost:     cache.maxSize,
-		NumCounters: 10 * cache.maxSize,
+		NumCounters: numCounters(cache.maxSize),
 		BufferItems: 64,
 	}
 	rcache, err := ristretto.NewCache(&config)
@@ -42,6 +48,13 @@ func New(options ...Option) (Client, error) {
 	}
 	cache.cache = rcache
 	return cache, nil
+}
+
+// numCounters follows ristretto's advice of ten counters per entry the cache is
+// expected to hold. Ten counters per unit of the byte budget would allocate far
+// more memory up front than the budget itself.
+func numCounters(maxCost int64) int64 {
+	return 10 * max(maxCost/expectedEntryCost, 100)
 }
 
 func DisabledImageVerifyCache() Client {
@@ -70,7 +83,7 @@ func WithCacheEnableFlag(b bool) Option {
 func WithMaxSize(s int64) Option {
 	return func(c *cache) error {
 		if s == 0 {
-			s = defaultMaxSize
+			s = DefaultMaxSize
 		}
 		c.maxSize = s
 		return nil
@@ -91,36 +104,105 @@ func generateKey(policy metav1.Object, ruleName string, imageRef string) string 
 	return string(policy.GetUID()) + ";" + policy.GetResourceVersion() + ";" + ruleName + ";" + imageRef
 }
 
-func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
-	if !c.isCacheEnabled {
-		// If cache is globally disabled just return
-		return false, nil
-	} else if !useCache {
-		// Else If enabled globally then return if locally disabled
-		return false, nil
-	}
-	key := generateKey(policy, ruleName, imageRef)
+// isDigestRef reports whether imageRef is pinned to a digest (either
+// "repo@sha256:d" or "repo:tag@sha256:d"). Only such references are immutable
+// enough to key a verification verdict; a bare tag can be moved by the
+// registry after the entry is written.
+func isDigestRef(imageRef string) bool {
+	_, err := name.NewDigest(imageRef)
+	return err == nil
+}
 
-	stored := c.cache.SetWithTTL(key, nil, 1, c.ttl)
-	c.cache.Wait()
-	if stored {
-		return true, nil
-	}
-	return false, nil
+func (c *cache) Set(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	return c.SetWithPayload(ctx, policy, ruleName, imageRef, useCache, nil)
 }
 
 func (c *cache) Get(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, error) {
+	found, _, err := c.GetWithPayload(ctx, policy, ruleName, imageRef, useCache)
+	return found, err
+}
+
+func (c *cache) SetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool, payloads map[string][]byte) (bool, error) {
 	if !c.isCacheEnabled {
 		// If cache is globally disabled just return
 		return false, nil
 	} else if !useCache {
 		// Else If enabled globally then return if locally disabled
 		return false, nil
+	} else if !isDigestRef(imageRef) {
+		// A cache entry keyed on anything other than a resolved digest is a
+		// verdict bound to a mutable reference, not an immutable one. Refuse
+		// to store it rather than optimise the caller into holding a stale key.
+		return false, nil
 	}
 	key := generateKey(policy, ruleName, imageRef)
-	_, found := c.cache.Get(key)
-	if found {
-		return true, nil
+	cost := payloadCost(payloads)
+
+	// ristretto replaces an existing key without checking MaxCost, so drop the
+	// old entry first and let the new one go through the normal admission.
+	c.cache.Del(key)
+	c.cache.SetWithTTL(key, clonePayloads(payloads), cost, c.ttl)
+	c.cache.Wait()
+	// SetWithTTL returning true only means ristretto queued the write. Its
+	// policy can still drop the entry afterwards, for example when the entry
+	// costs more than the whole budget, so report what the cache holds.
+	_, stored := c.cache.GetTTL(key)
+	if !stored {
+		// Callers don't act on the result, so this is the only sign that the
+		// image will be verified again on its next admission.
+		c.logger.V(3).Info("image verify cache did not keep the entry, the cache is full or the entry is larger than --imageVerifyCacheMaxSize",
+			"namespace", policy.GetNamespace(), "policy", policy.GetName(), "image", imageRef, "cost", cost)
 	}
-	return false, nil
+	return stored, nil
+}
+
+func (c *cache) GetWithPayload(ctx context.Context, policy metav1.Object, ruleName string, imageRef string, useCache bool) (bool, map[string][]byte, error) {
+	if !c.isCacheEnabled {
+		// If cache is globally disabled just return
+		return false, nil, nil
+	} else if !useCache {
+		// Else If enabled globally then return if locally disabled
+		return false, nil, nil
+	} else if !isDigestRef(imageRef) {
+		// Never serve a hit for a mutable reference: the registry may have
+		// moved it since any entry could have been written.
+		return false, nil, nil
+	}
+	key := generateKey(policy, ruleName, imageRef)
+	val, found := c.cache.Get(key)
+	if !found {
+		return false, nil, nil
+	}
+	payloads, _ := val.(map[string][]byte)
+	return true, clonePayloads(payloads), nil
+}
+
+// payloadCost estimates the memory footprint of a cache entry so ristretto's
+// MaxCost (--imageVerifyCacheMaxSize) bounds actual memory rather than just
+// entry count: a presence-only entry (nil payloads) costs 1, while an entry
+// carrying attestation payload bytes costs roughly its real size. ristretto
+// adds its own per-item cost on top of both.
+func payloadCost(payloads map[string][]byte) int64 {
+	cost := int64(1)
+	for _, v := range payloads {
+		cost += int64(len(v))
+	}
+	return cost
+}
+
+func clonePayloads(in map[string][]byte) map[string][]byte {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string][]byte, len(in))
+	for k, v := range in {
+		if v == nil {
+			out[k] = nil
+			continue
+		}
+		cp := make([]byte, len(v))
+		copy(cp, v)
+		out[k] = cp
+	}
+	return out
 }

@@ -1,0 +1,32 @@
+apiVersion: cli.kyverno.io/v1alpha1
+globalContextEntries:
+- data:
+    deployments:
+    - name: existing-deployment-1
+    - name: existing-deployment-2
+  name: gctxentry-deployments
+  projections:
+  - name: items
+    path: deployments
+kind: Test
+metadata:
+  name: mock-global-context
+policies:
+- policy.yaml
+- policy-vpol.yaml
+resources:
+- resources.yaml
+results:
+- kind: Deployment
+  policy: check-global-context
+  resources:
+  - test-ns/test-deployment
+  result: pass
+  rule: check-deployment-count
+- isValidatingPolicy: true
+  kind: Deployment
+  policy: check-global-context-cel
+  resources:
+  - test-ns/test-deployment
+  result: pass
+variables: values.yaml

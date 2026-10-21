@@ -2,13 +2,14 @@ package patch
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	assertnew "github.com/stretchr/testify/assert"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -261,4 +262,29 @@ func Test_PolicyDeserilize(t *testing.T) {
 	if !assertnew.Equal(t, string(eb), string(out)) {
 		t.FailNow()
 	}
+}
+
+func TestMergePatchControlCharacters(t *testing.T) {
+	// encoding/json leaves these unescaped
+	for _, c := range []string{"\u007f", "\u0080", "\u0085", "\u009f", "\ufffe", "a\u007fb", "\u00a0"} {
+		t.Run(fmt.Sprintf("%+q", c), func(t *testing.T) {
+			value, err := json.Marshal(c)
+			assert.NilError(t, err)
+			base := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"p"},"spec":{"containers":[{"name":"c","env":[{"name":"X","value":` + string(value) + `}]}]}}`
+			overlay := `{"metadata":{"labels":{"foo":"bar","baz":` + string(value) + `}}}`
+			expected := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"p","labels":{"foo":"bar","baz":` + string(value) + `}},"spec":{"containers":[{"name":"c","env":[{"name":"X","value":` + string(value) + `}]}]}}`
+			out, err := strategicMergePatch(logr.Discard(), base, overlay)
+			assert.NilError(t, err)
+			assert.DeepEqual(t, toJSON(t, []byte(expected)), toJSON(t, out))
+		})
+	}
+}
+
+func TestMergePatchMalformed(t *testing.T) {
+	valid := `{"apiVersion":"v1","kind":"Pod","metadata":{"name":"p"}}`
+	malformed := `{"metadata": [}`
+	_, err := strategicMergePatch(logr.Discard(), valid, malformed)
+	assert.ErrorContains(t, err, "failed to preProcess rule")
+	_, err = strategicMergePatch(logr.Discard(), malformed, valid)
+	assert.ErrorContains(t, err, "failed to preProcess rule")
 }

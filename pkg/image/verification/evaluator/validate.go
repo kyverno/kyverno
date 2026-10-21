@@ -1,34 +1,17 @@
 package evaluator
 
 import (
-	"encoding/json"
-	"strings"
-
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	"github.com/kyverno/kyverno/api/kyverno"
+	engine "github.com/kyverno/kyverno/pkg/cel/compiler"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/sdk/extensions/imagedataloader"
-	"gomodules.xyz/jsonpatch/v2"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/sets"
-	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
-
-type ImageVerificationOutcome struct {
-	// Name is the rule name specified in policy
-	Name string `json:"name,omitempty"`
-	// RuleType is the rule type (Mutation,Generation,Validation) for Kyverno Policy
-	RuleType engineapi.RuleType `json:"ruleType,omitempty"`
-	// Message is the message response from the rule application
-	Message string `json:"message,omitempty"`
-	// Status rule status
-	Status engineapi.RuleStatus `json:"status,omitempty"`
-	// EmitWarning enable passing rule message as warning to api server warning header
-	EmitWarning bool `json:"emitWarning,omitempty"`
-	// Properties are the additional properties from the rule that will be added to the policy report result
-	Properties map[string]string `json:"properties,omitempty"`
-}
 
 type ImageVerifyEngineResponse struct {
 	Resource *unstructured.Unstructured
@@ -40,69 +23,108 @@ type ImageVerifyPolicyResponse struct {
 	Exceptions []*policiesv1beta1.PolicyException
 	Actions    sets.Set[admissionregistrationv1.ValidationAction]
 	Result     engineapi.RuleResponse
+	// Trace explains how the policy reached Result. It is nil unless the policy was compiled
+	// with tracing on (NewCompilerWithTrace). A traced policy that did not apply, or that a
+	// match condition skipped, is still returned so its trace is not lost, with an empty Result.
+	Trace *trace.Decision
 }
 
-func outcomeFromPolicyResponse(responses map[string]ImageVerifyPolicyResponse) map[string]ImageVerificationOutcome {
-	outcomes := make(map[string]ImageVerificationOutcome)
-	for pol, resp := range responses {
-		outcomes[pol] = ImageVerificationOutcome{
-			Name:        resp.Result.Name(),
-			RuleType:    resp.Result.RuleType(),
-			Message:     resp.Result.Message(),
-			Status:      resp.Result.Status(),
-			EmitWarning: resp.Result.EmitWarning(),
-			Properties:  resp.Result.Properties(),
+func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister corev1listers.SecretLister) ([]string, error) {
+	compiler := NewCompiler(lister)
+	_, errList := compiler.Compile(ivpol, nil)
+
+	errs := make(field.ErrorList, 0, len(errList))
+	if len(errList) > 0 {
+		errs = errList
+	}
+
+	spec := ivpol.GetSpec()
+	if spec.MatchConstraints == nil || len(spec.MatchConstraints.ResourceRules) == 0 {
+		errs = append(errs, field.Required(field.NewPath("spec").Child("matchConstraints"), "a matchConstraints with at least one resource rule is required"))
+	}
+
+	if ivpol.GetNamespace() != "" {
+		exprs := ivpolExpressions(ivpol)
+		if engine.ExpressionsUseGlobalContext(exprs...) {
+			errs = append(errs, field.Forbidden(field.NewPath("spec"), "globalContext.* is not allowed in namespaced policies"))
+		}
+		if !toggle.AllowHTTPInNamespacedPolicies.Enabled() && engine.ExpressionsUseHTTP(exprs...) {
+			errs = append(errs, field.Forbidden(field.NewPath("spec"), "http.* is not allowed in namespaced policies; set --allowHTTPInNamespacedPolicies to enable"))
 		}
 	}
-	return outcomes
-}
 
-func MakeImageVerifyOutcomePatch(hasAnnotations bool, responses map[string]ImageVerifyPolicyResponse) ([]jsonpatch.JsonPatchOperation, error) {
-	patches := make([]jsonpatch.JsonPatchOperation, 0)
-	annotationKey := "/metadata/annotations/" + strings.ReplaceAll(kyverno.AnnotationImageVerifyOutcomes, "/", "~1")
-	if !hasAnnotations {
-		patch := jsonpatch.JsonPatchOperation{
-			Operation: "add",
-			Path:      "/metadata/annotations",
-			Value:     map[string]string{},
-		}
-		logger.V(4).Info("adding annotation patch", "patch", patch)
-		patches = append(patches, patch)
-	}
-
-	outcomes := outcomeFromPolicyResponse(responses)
-	data, err := json.Marshal(outcomes)
-	if err != nil {
-		return nil, err
-	}
-
-	patch := jsonpatch.JsonPatchOperation{
-		Operation: "add",
-		Path:      annotationKey,
-		Value:     string(data),
-	}
-
-	logger.V(4).Info("adding image verification patch", "patch", patch)
-	patches = append(patches, patch)
-	return patches, nil
-}
-
-func Validate(ivpol policiesv1beta1.ImageValidatingPolicyLike, lister k8scorev1.SecretInterface) ([]string, error) {
-	ictx, er := imagedataloader.NewImageContext(lister)
-	if er != nil {
+	if len(errs) == 0 {
 		return nil, nil
 	}
 
-	compiler := NewCompiler(ictx, lister, nil)
-	_, err := compiler.Compile(ivpol, nil)
-	if err == nil {
-		return nil, nil
-	}
-
-	warnings := make([]string, 0, len(err.ToAggregate().Errors()))
-	for _, e := range err.ToAggregate().Errors() {
+	warnings := make([]string, 0, len(errs.ToAggregate().Errors()))
+	for _, e := range errs.ToAggregate().Errors() {
 		warnings = append(warnings, e.Error())
 	}
 
-	return warnings, err.ToAggregate()
+	return warnings, errs.ToAggregate()
+}
+
+func ivpolExpressions(ivpol policiesv1beta1.ImageValidatingPolicyLike) []string {
+	spec := ivpol.GetSpec()
+	if spec == nil {
+		return nil
+	}
+	exprs := make([]string, 0, len(spec.Variables)+len(spec.MatchConditions)+len(spec.Validations)*2+len(spec.AuditAnnotations)+len(spec.ImageExtractors)+len(spec.MatchImageReferences))
+	for _, v := range spec.Variables {
+		exprs = append(exprs, v.Expression)
+	}
+	for _, mc := range spec.MatchConditions {
+		exprs = append(exprs, mc.Expression)
+	}
+	for _, val := range spec.Validations {
+		exprs = append(exprs, val.Expression, val.MessageExpression)
+	}
+	for _, aa := range spec.AuditAnnotations {
+		exprs = append(exprs, aa.ValueExpression)
+	}
+	for _, ie := range spec.ImageExtractors {
+		exprs = append(exprs, ie.Expression)
+	}
+	for _, mir := range spec.MatchImageReferences {
+		if mir.Expression != "" {
+			exprs = append(exprs, mir.Expression)
+		}
+	}
+	// attestor CEL inputs are compiled and evaluated at verification time
+	// (see pkg/image/verification/variables/attestors.go), so they must be
+	// scanned for forbidden libraries too
+	for _, att := range spec.Attestors {
+		exprs = append(exprs, attestorExpressions(att)...)
+	}
+	return exprs
+}
+
+func attestorExpressions(att policiesv1beta1.Attestor) []string {
+	exprs := make([]string, 0, 6)
+	if att.Cosign != nil {
+		if att.Cosign.Key != nil && att.Cosign.Key.Expression != "" {
+			exprs = append(exprs, att.Cosign.Key.Expression)
+		}
+		if att.Cosign.Certificate != nil {
+			if att.Cosign.Certificate.Certificate != nil && att.Cosign.Certificate.Certificate.Expression != "" {
+				exprs = append(exprs, att.Cosign.Certificate.Certificate.Expression)
+			}
+			if att.Cosign.Certificate.CertificateChain != nil && att.Cosign.Certificate.CertificateChain.Expression != "" {
+				exprs = append(exprs, att.Cosign.Certificate.CertificateChain.Expression)
+			}
+		}
+		if att.Cosign.TrustedRoot != nil && att.Cosign.TrustedRoot.Expression != "" {
+			exprs = append(exprs, att.Cosign.TrustedRoot.Expression)
+		}
+	}
+	if att.Notary != nil {
+		if att.Notary.Certs != nil && att.Notary.Certs.Expression != "" {
+			exprs = append(exprs, att.Notary.Certs.Expression)
+		}
+		if att.Notary.TSACerts != nil && att.Notary.TSACerts.Expression != "" {
+			exprs = append(exprs, att.Notary.TSACerts.Expression)
+		}
+	}
+	return exprs
 }

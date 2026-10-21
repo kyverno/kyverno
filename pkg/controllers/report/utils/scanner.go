@@ -16,12 +16,15 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	gctxstore "github.com/kyverno/kyverno/pkg/globalcontext/store"
+	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
+	iveval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"go.uber.org/multierr"
@@ -35,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission/plugin/policy/mutating/patch"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 type scanner struct {
@@ -43,6 +47,7 @@ type scanner struct {
 	config        config.Configuration
 	jp            jmespath.Interface
 	client        dclient.Interface
+	secretLister  corev1listers.SecretLister
 	gctxStore     gctxstore.Store
 	mapper        meta.RESTMapper
 	typeConverter patch.TypeConverterManager
@@ -75,6 +80,7 @@ func NewScanner(
 	client dclient.Interface,
 	gctxStore gctxstore.Store,
 	mapper meta.RESTMapper,
+	secretLister corev1listers.SecretLister,
 	typeConverter patch.TypeConverterManager,
 ) Scanner {
 	return &scanner{
@@ -85,6 +91,7 @@ func NewScanner(
 		client:        client,
 		gctxStore:     gctxStore,
 		mapper:        mapper,
+		secretLister:  secretLister,
 		typeConverter: typeConverter,
 	}
 }
@@ -100,6 +107,11 @@ func (s *scanner) ScanResource(
 	exceptions []*policiesv1beta1.PolicyException,
 	policies ...engineapi.GenericPolicy,
 ) map[*engineapi.GenericPolicy]ScanResult {
+	// EnsureBackground, not Ensure: ScanResource runs under the background-controller or
+	// reports-controller pod, whose chart memory limit is a third of the admission
+	// controller's (pkg/cel/requestbudget's own comment on backgroundBudget) -- one shared
+	// CEL cost budget for every policy this resource is scanned against below.
+	ctx, _ = requestbudget.EnsureBackground(ctx)
 	logger := s.logger.WithValues("kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	results := map[*engineapi.GenericPolicy]ScanResult{}
 
@@ -204,7 +216,7 @@ func (s *scanner) ScanResource(
 			engineResponse, err := engine.Handle(ctx, request, nil)
 			rules := make([]engineapi.RuleResponse, 0)
 			for _, policy := range engineResponse.Policies {
-				rules = append(rules, policy.Rules...)
+				rules = append(rules, filterMatchConditionSkips(policy.Rules)...)
 			}
 
 			response := engineapi.EngineResponse{
@@ -274,8 +286,8 @@ func (s *scanner) ScanResource(
 	}
 
 	for i, policy := range ivpols {
-		if pol := policy.AsImageValidatingPolicy(); pol != nil {
-			provider, err := ivpolengine.NewProvider([]policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions)
+		if pol := policy.AsImageValidatingPolicyLike(); pol != nil {
+			provider, err := ivpolengine.NewProvider(iveval.NewCompiler(s.secretLister), []policiesv1beta1.ImageValidatingPolicyLike{pol}, exceptions)
 			if err != nil {
 				logger.Error(err, "failed to create image verification policy provider")
 				results[&ivpols[i]] = ScanResult{nil, err}
@@ -285,8 +297,9 @@ func (s *scanner) ScanResource(
 				provider,
 				func(name string) *corev1.Namespace { return ns },
 				matching.NewMatcher(),
-				s.client.GetKubeClient().CoreV1().Secrets(config.KyvernoNamespace()),
-				nil,
+				s.secretLister,
+				imageverifycache.DisabledImageVerifyCache(),
+				s.config,
 			), metrics.BackgroundScan)
 			request := celengine.Request(
 				libs.GetLibsCtx(),
@@ -302,7 +315,7 @@ func (s *scanner) ScanResource(
 				false,
 				nil,
 			)
-			engineResponse, _, err := engine.HandleMutating(ctx, request, nil)
+			engineResponse, err := engine.HandleValidating(ctx, request, nil)
 			response := engineapi.EngineResponse{
 				Resource:       resource,
 				PolicyResponse: engineapi.PolicyResponse{},
@@ -363,6 +376,7 @@ func (s *scanner) validateImages(ctx context.Context, resource unstructured.Unst
 	if annotations != nil {
 		resource = *resource.DeepCopy()
 		delete(annotations, kyverno.AnnotationImageVerify)
+		delete(annotations, kyverno.AnnotationImageVerifyScoped)
 		resource.SetAnnotations(annotations)
 	}
 	policyCtx, err := engine.NewPolicyContext(s.jp, resource, kyvernov1.Create, nil, s.config)
@@ -387,4 +401,18 @@ func (s *scanner) checkResourceFilters(resource unstructured.Unstructured, subre
 		}
 	}
 	return true
+}
+
+// filterMatchConditionSkips removes RuleResponses that were skipped solely
+// because matchConditions evaluated to false. These are internal routing
+// signals and should not appear in PolicyReports.
+func filterMatchConditionSkips(rules []engineapi.RuleResponse) []engineapi.RuleResponse {
+	result := make([]engineapi.RuleResponse, 0, len(rules))
+	for _, r := range rules {
+		if r.Status() == engineapi.RuleStatusSkip && r.SkipReason() == engineapi.SkipReasonMatchConditions {
+			continue
+		}
+		result = append(result, r)
+	}
+	return result
 }
