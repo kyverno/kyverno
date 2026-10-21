@@ -154,8 +154,6 @@ func createrLeaderControllers(
 		kyvernoClient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
