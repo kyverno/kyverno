@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	policyhandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/policy"
 	resourcehandlers "github.com/kyverno/kyverno/cmd/cleanup-controller/handlers/admission/resource"
 	"github.com/kyverno/kyverno/cmd/internal"
 	"github.com/kyverno/kyverno/pkg/auth/checker"
@@ -23,7 +23,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
-	"github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	"github.com/kyverno/kyverno/pkg/controllers/deleting"
 	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
@@ -40,12 +39,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -76,10 +75,6 @@ func (probes) IsReady(context.Context) bool {
 
 func (probes) IsLive(context.Context) bool {
 	return true
-}
-
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsInstalled(apiserverClient, "cleanuppolicies.kyverno.io", "clustercleanuppolicies.kyverno.io")
 }
 
 func main() {
@@ -133,7 +128,6 @@ func main() {
 		internal.WithConfigMapCaching(),
 		internal.WithDeferredLoading(),
 		internal.WithMetadataClient(),
-		internal.WithApiServerClient(),
 		internal.WithFlagSets(flagset),
 		internal.WithRestConfig(),
 	)
@@ -159,10 +153,6 @@ func main() {
 		}
 		if tlsSecretName == "" {
 			setup.Logger.Error(errors.New("exiting... tlsSecretName is a required flag"), "exiting... tlsSecretName is a required flag")
-			os.Exit(1)
-		}
-		if err := sanityChecks(setup.ApiServerClient); err != nil {
-			setup.Logger.Error(err, "sanity checks failed")
 			os.Exit(1)
 		}
 		keyAlgorithm, ok := tls.KeyAlgorithms[strings.ToUpper(tlsKeyAlgorithm)]
@@ -381,22 +371,6 @@ func main() {
 					),
 					webhookWorkers,
 				)
-				cleanupController := internal.NewController(
-					cleanup.ControllerName,
-					cleanup.NewController(
-						setup.KyvernoDynamicClient,
-						setup.KyvernoClient,
-						kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
-						kyvernoInformer.Kyverno().V2().CleanupPolicies(),
-						nsLister,
-						setup.Configuration,
-						cmResolver,
-						setup.Jp,
-						eventGenerator,
-						gcstore,
-					),
-					cleanup.Workers,
-				)
 				deletingController := internal.NewController(
 					deleting.ControllerName,
 					deleting.NewController(
@@ -441,7 +415,6 @@ func main() {
 				}
 				policyValidatingWebhookController.Run(ctx, logger, &wg)
 				ttlWebhookController.Run(ctx, logger, &wg)
-				cleanupController.Run(ctx, logger, &wg)
 				deletingController.Run(ctx, logger, &wg)
 				ttlManagerController.Run(ctx, logger, &wg)
 				wg.Wait()
@@ -453,7 +426,6 @@ func main() {
 			os.Exit(1)
 		}
 		// create handlers
-		policyHandlers := policyhandlers.New(setup.KyvernoDynamicClient)
 		resourceHandlers := resourcehandlers.New(checker)
 		// create server
 		server := NewServer(
@@ -464,7 +436,14 @@ func main() {
 				}
 				return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 			},
-			policyHandlers.Validate,
+			// Legacy CleanupPolicy/ClusterCleanupPolicy writes are denied one layer up by
+			// handlers.WithLegacyPolicyDenial() (see server.go); this inner handler only
+			// ever sees requests already allowed through (DELETE, finalizer-removal
+			// UPDATE), so it is success-only, same pattern as
+			// pkg/webhooks/policy/handlers.go's Mutate.
+			func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ time.Time) handlers.AdmissionResponse {
+				return admissionutils.ResponseSuccess(request.UID)
+			},
 			resourceHandlers.Validate,
 			setup.MetricsManager,
 			webhooks.DebugModeOptions{
