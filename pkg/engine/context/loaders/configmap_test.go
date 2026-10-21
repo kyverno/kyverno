@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -140,4 +140,13 @@ func Test_ConfigMapAccess_WithNonStringNameSubstitution(t *testing.T) {
 	assert.ErrorContains(t, err, "configMap.name")
 	assert.ErrorContains(t, err, "expected string")
 	assert.Equal(t, resolver.called, false)
+}
+
+func Test_NamespacedPolicyCannotLoadGlobalReference(t *testing.T) {
+	entry := kyvernov1.ContextEntry{
+		Name:            "gctx",
+		GlobalReference: &kyvernov1.GlobalContextEntryReference{Name: "entry"},
+	}
+	err := NewGCTXLoader(context.TODO(), logr.Discard(), entry, enginecontext.NewContext(jp), jp, nil, "tenant-ns").LoadData()
+	assert.ErrorContains(t, err, "globalReference is not allowed in namespaced policies")
 }

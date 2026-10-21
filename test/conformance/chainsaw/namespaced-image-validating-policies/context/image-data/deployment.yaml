@@ -17,4 +17,4 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: ghcr.io/kyverno/test-verify-image:latest
+        image: ghcr.io/kyverno/test-verify-image:signed

@@ -24,26 +24,76 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Go
         uses: ./.github/actions/go/setup
       - name: Generate code
         run: make codegen-all-code
       - name: Verify codegen is up to date
         run: make verify-codegen
+      - name: Create codegen patch
+        if: failure()
+        run: |
+          git diff > codegen-code.patch
+          echo 'Codegen is out of date. Download the codegen-code-patch artifact, then run `git apply codegen-code.patch` and commit the result.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload codegen patch
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codegen-code-patch
+          path: codegen-code.patch
+
+  generate-codegen-docs:
+    name: Generate codegen docs (${{ matrix.group }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: api
+            target: codegen-api-docs
+          - group: cli-api
+            target: codegen-cli-api-docs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Go
+        uses: ./.github/actions/go/setup
+      - name: Generate docs
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          start=$SECONDS
+          summarize() {
+            printf '%s: %ss\n' "$TARGET" "$((SECONDS - start))" >> "$GITHUB_STEP_SUMMARY"
+          }
+          trap summarize EXIT
+          make "$TARGET"
+      - name: Verify codegen is up to date
+        run: make verify-codegen
+      - name: Create codegen patch
+        if: failure()
+        run: |
+          git diff > codegen-docs-${{ matrix.group }}.patch
+          echo 'Codegen is out of date. Download the codegen-docs-${{ matrix.group }}-patch artifact, then run `git apply codegen-docs-${{ matrix.group }}.patch` and commit the result.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload codegen patch
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codegen-docs-${{ matrix.group }}-patch
+          path: codegen-docs-${{ matrix.group }}.patch
 
   verify-codegen-docs:
     name: Verify codegen (docs)
-    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - generate-codegen-docs
+    runs-on: ubuntu-slim
     steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Setup Go
-        uses: ./.github/actions/go/setup
-      - name: Generate api docs
-        run: make codegen-all-docs
-      - name: Verify codegen is up to date
-        run: make verify-codegen
+      - name: Require all docs generators to succeed
+        env:
+          RESULT: ${{ needs.generate-codegen-docs.result }}
+        run: test "$RESULT" = success
 
   sync-issue:
     if: always() && github.event_name == 'push'
@@ -55,7 +105,7 @@ jobs:
     runs-on: ubuntu-slim
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Sync issue
         uses: ./.github/actions/workflow/failure-issue
         with:

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: background-scan
+spec:
+  concurrent: false
+  steps:
+  - name: create namespace and configmap
+    try:
+    - create:
+        file: namespace.yaml
+    - assert:
+        file: namespace.yaml
+    - create:
+        file: configmap.yaml
+    - assert:
+        file: configmap.yaml
+  - name: create policy
+    use:
+      template: ..//../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait-mutating-policy-ready
+    description: >
+      Wait for the background-only policy to become ready.
+      Because admission is disabled, only the RBACPermissionsGranted condition is set
+      (no WebhookConfigured condition).
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: test-mpol-background-scan
+          status:
+            conditionStatus:
+              ready: true
+  - name: wait-for-background-scan
+    description: >
+      Wait for the background scan to run and apply the mutation.
+      The background controller periodically scans existing resources and creates
+      CELMutate UpdateRequests for MutatingPolicies with mutateExisting enabled.
+      No admission event is needed — this exercises the background scan code path.
+    try:
+    - assert:
+        file: configmap-assert.yaml
+        timeout: 3m

@@ -274,6 +274,13 @@ func (c *mutateExistingController) createReports(
 	resource unstructured.Unstructured,
 	engineResponses ...engineapi.EngineResponse,
 ) error {
+	// Skip report creation for resources with incomplete identity metadata (for example subresources such as pods/exec).
+	// Reports require both name and UID; if either is empty, the generated report would be invalid.
+	if resource.GetName() == "" || resource.GetUID() == "" {
+		c.log.V(3).Info("skipping report creation for subresource with empty name or uid", "gvk", resource.GroupVersionKind())
+		return nil
+	}
+
 	report := reportutils.BuildMutateExistingReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
 		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {

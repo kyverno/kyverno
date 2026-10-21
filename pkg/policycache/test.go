@@ -19,6 +19,8 @@ var (
 	cronjobsGVR               = schema.GroupVersionResource{Group: "batch", Version: "v1", Resource: "cronjobs"}
 	replicasetsGVR            = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "replicasets"}
 	replicationcontrollersGVR = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "replicationcontrollers"}
+	configmapsGVR             = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	secretsGVR                = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
 
 	podsGVRS                   = mapGVR(podsGVR, "Pod")
 	namespacesGVRS             = mapGVR(namespacesGVR, "Namespace")
@@ -30,6 +32,8 @@ var (
 	cronjobsGVRS               = mapGVR(cronjobsGVR, "CronJob")
 	replicasetsGVRS            = mapGVR(replicasetsGVR, "ReplicaSet")
 	replicationcontrollersGVRS = mapGVR(replicationcontrollersGVR, "ReplicationController")
+	configmapsGVRS             = mapGVR(configmapsGVR, "ConfigMap")
+	secretsGVRS                = mapGVR(secretsGVR, "Secret")
 )
 
 func mapGVR(gvr schema.GroupVersionResource, kind string) dclient.TopLevelApiDescription {
@@ -65,6 +69,10 @@ func (TestResourceFinder) FindResources(group, version, kind, subresource string
 		return map[dclient.TopLevelApiDescription]metav1.APIResource{replicationcontrollersGVRS: dummy}, nil
 	case "CronJob":
 		return map[dclient.TopLevelApiDescription]metav1.APIResource{cronjobsGVRS: dummy}, nil
+	case "ConfigMap":
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{configmapsGVRS: dummy}, nil
+	case "Secret":
+		return map[dclient.TopLevelApiDescription]metav1.APIResource{secretsGVRS: dummy}, nil
 	}
 	return nil, fmt.Errorf("not found: %s", kind)
 }

@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/create-acm-cert: "true"
+  name: missing-cert-annotation
+  namespace: workload
+spec:
+  ingressClassName: alb
+  rules:
+  - host: missing-cert-annotation.example.com
+    http:
+      paths:
+      - backend:
+          service:
+            name: my-service
+            port:
+              number: 80
+        path: /
+        pathType: Prefix

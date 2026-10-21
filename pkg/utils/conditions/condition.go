@@ -12,15 +12,15 @@ import (
 )
 
 func CheckAnyAllConditions(logger logr.Logger, ctx enginecontext.Interface, condition kyvernov2.AnyAllConditions) (bool, error) {
-	for _, condition := range condition.AllConditions {
-		if passed, err := checkCondition(logger, ctx, condition); err != nil {
+	for _, cond := range condition.AllConditions {
+		if passed, err := checkCondition(logger, ctx, cond); err != nil {
 			return false, err
 		} else if !passed {
 			return false, nil
 		}
 	}
-	for _, condition := range condition.AnyConditions {
-		if passed, err := checkCondition(logger, ctx, condition); err != nil {
+	for _, cond := range condition.AnyConditions {
+		if passed, err := checkCondition(logger, ctx, cond); err != nil {
 			return false, err
 		} else if passed {
 			return true, nil

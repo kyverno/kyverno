@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_NewScopedTokenClient_Defaults(t *testing.T) {

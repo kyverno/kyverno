@@ -16,6 +16,19 @@ func TestCommand(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCommandWarnsOnLegacyExceptionKind(t *testing.T) {
+	cmd := Command()
+	errBuf := bytes.NewBufferString("")
+	cmd.SetErr(errBuf)
+	cmd.SetOut(bytes.NewBufferString(""))
+	cmd.SetArgs([]string{"test", "--policy-rules", "policy,rule-1,rule-2"})
+	err := cmd.Execute()
+	assert.NoError(t, err)
+	out, err := io.ReadAll(errBuf)
+	assert.NoError(t, err)
+	assert.Contains(t, string(out), "kyverno.io/v2 PolicyException is deprecated")
+}
+
 func TestCommandWithMultipleArgs(t *testing.T) {
 	cmd := Command()
 	cmd.SetArgs([]string{"test", "test2", "--policy-rules", "policy,rule-1,rule-2"})

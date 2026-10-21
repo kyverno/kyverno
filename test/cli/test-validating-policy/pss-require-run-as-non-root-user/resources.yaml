@@ -1,0 +1,74 @@
+# Pod-level UID 0 with hostUsers absent: enforce.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: root-user-pod-host-users-absent
+spec:
+  securityContext:
+    runAsUser: 0
+  containers:
+  - name: app
+    image: nginx
+---
+# hostUsers true is not a user namespace Pod: enforce.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: root-user-container-host-users-true
+spec:
+  hostUsers: true
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      runAsUser: 0
+---
+# An init container running as UID 0 still fails when hostUsers is absent.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: root-user-init-container-host-users-absent
+spec:
+  initContainers:
+  - name: init
+    image: busybox
+    securityContext:
+      runAsUser: 0
+  containers:
+  - name: app
+    image: nginx
+---
+# hostUsers explicitly false: relax.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: root-user-pod-host-users-false
+spec:
+  hostUsers: false
+  securityContext:
+    runAsUser: 0
+  containers:
+  - name: app
+    image: nginx
+    securityContext:
+      runAsUser: 0
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nonroot-user-pod
+spec:
+  securityContext:
+    runAsUser: 1000
+  containers:
+  - name: app
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: unset-run-as-user
+spec:
+  containers:
+  - name: app
+    image: nginx

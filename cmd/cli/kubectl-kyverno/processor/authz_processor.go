@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
+	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
 	authzengine "github.com/kyverno/kyverno-authz/pkg/engine"
@@ -81,7 +82,7 @@ func processEnvoyPolicy(vpol *policiesv1beta1.ValidatingPolicy, request *authv3.
 		dynClient = dClient.GetDynamicInterface()
 	}
 	compiler := authzcompiler.NewCompiler[dynamic.Interface, *authv3.CheckRequest, *authv3.CheckResponse](dynClient)
-	compiled, errs := compiler.Compile(vpol)
+	compiled, errs := compiler.Compile(&policiesv1.ValidatingPolicy{TypeMeta: vpol.TypeMeta, ObjectMeta: vpol.ObjectMeta, Spec: vpol.Spec}, nil)
 	if len(errs) > 0 {
 		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile envoy policy %s: %v", vpol.Name, errs.ToAggregate())
 	}
@@ -146,7 +147,7 @@ func processHTTPPolicy(vpol *policiesv1beta1.ValidatingPolicy, request *authzhtt
 		dynClient = dClient.GetDynamicInterface()
 	}
 	compiler := authzcompiler.NewCompiler[dynamic.Interface, *authzhttp.CheckRequest, *authzhttp.CheckResponse](dynClient)
-	compiled, errs := compiler.Compile(vpol)
+	compiled, errs := compiler.Compile(&policiesv1.ValidatingPolicy{TypeMeta: vpol.TypeMeta, ObjectMeta: vpol.ObjectMeta, Spec: vpol.Spec}, nil)
 	if len(errs) > 0 {
 		return engineapi.EngineResponse{}, fmt.Errorf("failed to compile HTTP policy %s: %v", vpol.Name, errs.ToAggregate())
 	}

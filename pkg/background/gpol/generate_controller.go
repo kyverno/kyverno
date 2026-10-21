@@ -13,17 +13,19 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	gpolengine "github.com/kyverno/kyverno/pkg/cel/policies/gpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	event "github.com/kyverno/kyverno/pkg/event"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	restmapperutils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/restmapper"
 )
 
 // CELGenerateController is used to process URs that are generated as a result of an event from the trigger resource.
@@ -41,6 +43,7 @@ type CELGenerateController struct {
 	watchManager *WatchManager
 
 	statusControl common.StatusControlInterface
+	configuration config.Configuration
 
 	breaker.Breaker
 
@@ -60,9 +63,13 @@ func NewCELGenerateController(
 	statusControl common.StatusControlInterface,
 	eventGen event.Interface,
 	log logr.Logger,
+	configuration config.Configuration,
 ) *CELGenerateController {
-	apiGroupResources, _ := restmapper.GetAPIGroupResources(client.GetKubeClient().Discovery())
-	restMapper := restmapper.NewDiscoveryRESTMapper(apiGroupResources)
+	restMapper, err := restmapperutils.GetRESTMapper(client)
+	if err != nil || restMapper == nil {
+		log.Error(err, "failed to get RESTMapper, falling back to default mapper")
+		restMapper = meta.NewDefaultRESTMapper(nil)
+	}
 	return &CELGenerateController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
@@ -74,6 +81,7 @@ func NewCELGenerateController(
 		statusControl: statusControl,
 		eventGen:      eventGen,
 		log:           log,
+		configuration: configuration,
 	}
 }
 
@@ -83,13 +91,15 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 	logger.V(2).Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	var failures []error
+	// One cost budget for the whole update request, established outside the loop. Inside
+	// it, every iteration would start from a fresh context and so get its own ceiling,
+	// which bounds each rule context rather than the request that contains them.
+	ctx, releaseBudget := requestbudget.EnsureBackground(context.TODO())
+	defer releaseBudget()
 	for i := 0; i < len(ur.Spec.RuleContext); i++ {
 		if ur.Spec.RuleContext[i].DeleteDownstream {
 			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 			continue
-		}
-		if ur.Spec.RuleContext[i].Synchronize {
-			c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
 		}
 		trigger, err := common.GetTrigger(c.client, ur.Spec, i, c.log)
 		if err != nil || trigger == nil {
@@ -97,6 +107,11 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			failures = append(failures, fmt.Errorf("gpol %s failed: failed to fetch trigger resource: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
+		if c.configuration != nil && c.configuration.ToFilter(trigger.GroupVersionKind(), "", trigger.GetNamespace(), trigger.GetName()) {
+			logger.V(4).Info("trigger resource is filtered out by resource filters", "kind", trigger.GetKind(), "namespace", trigger.GetNamespace(), "name", trigger.GetName())
+			continue
+		}
+		workerCtx := c.context.Clone()
 		var request celengine.EngineRequest
 		admissionRequest := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 		if admissionRequest == nil {
@@ -108,7 +123,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 
 			gvr := mapping.Resource
 			request = celengine.Request(
-				c.context,
+				workerCtx,
 				trigger.GroupVersionKind(),
 				gvr,
 				"",
@@ -122,17 +137,21 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				nil,
 			)
 		} else {
-			request = celengine.RequestFromAdmission(c.context, *admissionRequest)
+			request = celengine.RequestFromAdmission(workerCtx, *admissionRequest)
 		}
-		policy, err := c.provider.Get(context.TODO(), ur.Spec.GetPolicyKey())
+		policy, err := c.provider.Get(ctx, ur.Spec.GetPolicyKey())
 		if err != nil {
 			logger.Error(err, "failed to fetch gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
 			continue
 		}
 		isSync := policy.Policy.GetSpec().SynchronizationEnabled()
-		gpolResponse, err := c.engine.Handle(request, policy, ur.Spec.RuleContext[i].CacheRestore)
+		// Covers engine.Handle's write and the SyncWatchers call below that
+		// catches the watcher cache up; keyed like the labels the engine stamps.
+		endGenerate := c.watchManager.BeginGenerate(policy.Policy.GetName(), trigger.GetUID())
+		gpolResponse, err := c.engine.Handle(ctx, request, policy, ur.Spec.RuleContext[i].CacheRestore)
 		if err != nil {
+			endGenerate()
 			logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey())
 			failures = append(failures, fmt.Errorf("gpol %s failed: %v", ur.Spec.GetPolicyKey(), err))
 			continue
@@ -141,6 +160,13 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 		for _, res := range gpolResponse.Policies {
 			if res.Result == nil {
 				logger.V(4).Info("no resources generated by gpol", "gpol", ur.Spec.GetPolicyKey(), "policy", res.Policy.GetName())
+				if ur.Spec.RuleContext[i].Synchronize {
+					// the trigger was updated and no longer matches the policy
+					// (match constraints or match conditions), delete the
+					// downstream resources previously generated for it.
+					logger.V(2).Info("trigger no longer matches the policy, deleting downstream resources", "gpol", ur.Spec.GetPolicyKey(), "trigger", ur.Spec.RuleContext[i].Trigger.String())
+					c.watchManager.DeleteDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger)
+				}
 				continue
 			}
 			engineResponse := engineapi.EngineResponse{
@@ -151,8 +177,16 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 			engineResponse = engineResponse.WithPolicy(engineapi.NewGeneratingPolicyFromLike(res.Policy))
 			if res.Result.Status() == engineapi.RuleStatusSkip {
 				c.eventGen.Add(event.NewPolicyExceptionEvents(engineResponse, *res.Result, event.GeneratePolicyController)...)
+			} else if res.Result.Status() == engineapi.RuleStatusError || res.Result.Status() == engineapi.RuleStatusFail {
+				// surface evaluation/generation errors instead of silently
+				// reporting the UR as Completed, so users can diagnose why no
+				// resources were generated (https://github.com/kyverno/kyverno/issues/16983)
+				err := fmt.Errorf("gpol %s rule %s %s for trigger %s: %s", ur.Spec.GetPolicyKey(), res.Result.Name(), res.Result.Status(), ur.Spec.RuleContext[i].Trigger.String(), res.Result.Message())
+				logger.Error(err, "failed to generate resources for gpol", "gpol", ur.Spec.GetPolicyKey(), "rule", res.Result.Name(), "status", res.Result.Status())
+				failures = append(failures, err)
 			} else {
-				for _, resource := range res.Result.GeneratedResources() {
+				resourcesToSync := res.Result.GeneratedResources()
+				for _, resource := range resourcesToSync {
 					generatedResources = append(generatedResources, kyvernov1.ResourceSpec{
 						Kind:       resource.GetKind(),
 						APIVersion: resource.GetAPIVersion(),
@@ -160,14 +194,25 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 						Namespace:  resource.GetNamespace(),
 					})
 				}
-				if isSync {
-					go func() {
-						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), res.Result.GeneratedResources()); err != nil {
+
+				if res.Result.Status() == engineapi.RuleStatusPass &&
+					isSync &&
+					(!ur.Spec.RuleContext[i].CacheRestore || len(resourcesToSync) > 0) {
+					// Synchronous so the watcher cache holds this write's hash before
+					// ProcessUR returns.
+					if len(resourcesToSync) > 0 {
+						if err := c.watchManager.SyncWatchers(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToSync, policy.Policy.GetSpec().UseServerSideApply); err != nil {
 							logger.Error(err, "failed to sync watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						} else {
 							logger.V(4).Info("synced watchers for generated resources", "gpol", ur.Spec.GetPolicyKey())
 						}
-					}()
+					}
+					if ur.Spec.RuleContext[i].Synchronize {
+						// the trigger was updated: delete downstream resources that were
+						// previously generated for it but are no longer part of the
+						// desired set of generated resources.
+						c.watchManager.CleanupStaleDownstreams(ur.Spec.GetPolicyKey(), &ur.Spec.RuleContext[i].Trigger, resourcesToSync)
+					}
 				}
 			}
 			if err := c.audit(context.TODO(), engineResponse, generatedResources); err != nil {
@@ -178,6 +223,7 @@ func (c *CELGenerateController) ProcessUR(ur *kyvernov2.UpdateRequest) error {
 				reportableEngineResponses = append(reportableEngineResponses, engineResponse)
 			}
 		}
+		endGenerate()
 		if c.needsReports(*trigger) && len(reportableEngineResponses) > 0 {
 			if err := c.createReports(context.TODO(), *trigger, reportableEngineResponses...); err != nil {
 				c.log.Error(err, "failed to create report")
@@ -230,6 +276,11 @@ func (c *CELGenerateController) createReports(
 	resource unstructured.Unstructured,
 	engineResponses ...engineapi.EngineResponse,
 ) error {
+	if resource.GetName() == "" || resource.GetUID() == "" {
+		c.log.V(3).Info("skipping report creation for subresource with empty name or uid", "gvk", resource.GroupVersionKind())
+		return nil
+	}
+
 	report := reportutils.BuildGenerateReport(resource.GetNamespace(), resource.GroupVersionKind(), resource.GetName(), resource.GetUID(), engineResponses...)
 	if len(report.GetResults()) > 0 {
 		err := breaker.GetReportsBreaker().Do(ctx, func(ctx context.Context) error {

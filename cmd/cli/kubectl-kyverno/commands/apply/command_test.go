@@ -2,71 +2,49 @@ package apply
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 
-	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/util"
-	git "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
+	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-// fakeCloner returns a CloneFunc that populates the provided billy.Filesystem
-// with files from a local fixture directory instead of cloning over the network.
-// This allows tests to exercise the full git-URL policy loading code path
-// (URL parsing, branch extraction, filesystem listing, policy loading)
-// without requiring network access.
-func fakeCloner(t *testing.T, fixtureDir string) func(string, billy.Filesystem, string, http.BasicAuth) (*git.Repository, error) {
-	t.Helper()
-	return func(_ string, fs billy.Filesystem, _ string, _ http.BasicAuth) (*git.Repository, error) {
-		return nil, copyFixturesToFS(t, fixtureDir, "/", fs)
-	}
-}
-
-// copyFixturesToFS recursively copies files from a local directory into a billy.Filesystem.
-func copyFixturesToFS(t *testing.T, srcDir string, destPrefix string, fs billy.Filesystem) error {
-	t.Helper()
-	entries, err := os.ReadDir(srcDir)
-	if err != nil {
-		return fmt.Errorf("failed to read fixture directory %s: %w", srcDir, err)
-	}
-	for _, entry := range entries {
-		srcPath := filepath.Join(srcDir, entry.Name())
-		destPath := filepath.Join(destPrefix, entry.Name())
-		if entry.IsDir() {
-			if err := fs.MkdirAll(destPath, 0o755); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
-			}
-			if err := copyFixturesToFS(t, srcPath, destPath, fs); err != nil {
-				return err
-			}
-		} else {
-			data, err := os.ReadFile(srcPath)
-			if err != nil {
-				return fmt.Errorf("failed to read fixture file %s: %w", srcPath, err)
-			}
-			if err := util.WriteFile(fs, destPath, data, 0o644); err != nil {
-				return fmt.Errorf("failed to write file %s to filesystem: %w", destPath, err)
-			}
-		}
-	}
-	return nil
-}
 
 func TestMain(m *testing.M) {
 	log.SetLogger(logr.Discard())
 	m.Run()
+}
+
+func TestPrintSkippedAndInvalidPolicies(t *testing.T) {
+	var out bytes.Buffer
+	printSkippedAndInvalidPolicies(&out, SkippedInvalidPolicies{
+		skipped: []PolicyDiagnostic{{
+			name:   "skipped-policy",
+			reason: "missing variable `request.operation`",
+		}},
+		invalid: []PolicyDiagnostic{{
+			name:   "invalid-policy",
+			reason: "failed to compile policy invalid-policy (spec.matchConditions[0].expression: Forbidden: variables cannot be referenced)",
+		}},
+	})
+
+	printed := out.String()
+	assert.Contains(t, printed, "Policies Skipped:")
+	assert.Contains(t, printed, "1. skipped-policy: missing variable `request.operation`")
+	assert.Contains(t, printed, "Invalid Policies:")
+	assert.Contains(t, printed, "1. invalid-policy: failed to compile policy invalid-policy")
+	assert.Contains(t, printed, "variables cannot be referenced")
 }
 
 func Test_Apply(t *testing.T) {
@@ -75,199 +53,7 @@ func Test_Apply(t *testing.T) {
 		config          ApplyCommandConfig
 		stdinFile       string
 	}
-	// copy disallow_latest_tag.yaml to local path
-	localFileName, err := copyFileToThisDir("../../../../../test/best_practices/disallow_latest_tag.yaml")
-	assert.NoError(t, err)
-	defer func() { _ = os.Remove(localFileName) }()
-
 	testcases := []*TestCase{
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:              []string{"../../../../../test/cli/apply/exception-within-policy/pol"},
-				ResourcePaths:            []string{"../../../../../test/cli/apply/exception-within-policy/res"},
-				exceptionsWithinPolicies: true,
-				PolicyReport:             true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  1,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-resource/pol"},
-				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-resource/res"},
-				exceptionsWithinResources: true,
-				PolicyReport:              true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  1,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:               []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/pol"},
-				ResourcePaths:             []string{"../../../../../test/cli/apply/exception-within-policy-and-resource/res"},
-				exceptionsWithinResources: true,
-				exceptionsWithinPolicies:  true,
-				PolicyReport:              true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  2,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{localFileName},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resource"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  2,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"-"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_latest_tag.yaml"},
-				PolicyReport:  true,
-				AuditWarn:     true,
-				warnExitCode:  3,
-			},
-			stdinFile: "../../../../../test/best_practices/disallow_latest_tag.yaml",
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"-"},
-				PolicyReport:  true,
-				AuditWarn:     true,
-			},
-			stdinFile: "../../../../../test/resources/pod_with_latest_tag.yaml",
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  1,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  1,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/apply/policies-set"},
-				ResourcePaths: []string{"../../../../../test/cli/apply/resources-set"},
-				Variables:     []string{"request.operation=UPDATE"},
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../../../../test/cli/test-validating-admission-policy/check-deployments-replica/policy.yaml"},
@@ -461,64 +247,6 @@ func Test_Apply(t *testing.T) {
 				},
 			}},
 		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"https://github.com/kyverno/policies/best-practices/require-labels/", "../../../../../test/best_practices/disallow_latest_tag.yaml"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			// Same as the above test case but the policy paths are reordered
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/best_practices/disallow_latest_tag.yaml", "https://github.com/kyverno/policies/best-practices/require-labels/"},
-				ResourcePaths: []string{"../../../../../test/resources/pod_with_version_tag.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-				Cloner:        fakeCloner(t, "../../../../../test/cli/apply/git-test-fixtures"),
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  2,
-					Fail:  1,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
-		{
-			config: ApplyCommandConfig{
-				PolicyPaths: []string{
-					"../../../../../test/cli/apply/type/policy1.yaml",
-					"../../../../../test/cli/apply/type/policy2.yaml",
-					"../../../../../test/cli/apply/type/policy3.yaml",
-				},
-				ResourcePaths: []string{"../../../../../test/cli/apply/type/resource.yaml"},
-				GitBranch:     "main",
-				PolicyReport:  true,
-			},
-			expectedReports: []openreportsv1alpha1.Report{{
-				Summary: openreportsv1alpha1.ReportSummary{
-					Pass:  3,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			}},
-		},
 	}
 
 	compareSummary := func(expected openreportsv1alpha1.ReportSummary, actual openreportsv1alpha1.ReportSummary, desc string) {
@@ -544,7 +272,7 @@ func Test_Apply(t *testing.T) {
 		}
 		desc := fmt.Sprintf("Policies: [%s], / Resources: [%s]", strings.Join(tc.config.PolicyPaths, ","), strings.Join(tc.config.ResourcePaths, ","))
 
-		_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
+		_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), os.Stdout)
 		assert.NoError(t, err, desc)
 
 		clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
@@ -889,7 +617,7 @@ func Test_Apply_JsonPayload_K8sMode_NoSegfault(t *testing.T) {
 		JSONPaths:    []string{"../../../../../test/cli/test-validating-policy/json-payload-k8s-mode-policy/payload.json"},
 		PolicyReport: true,
 	}
-	_, _, _, responses, err := config.applyCommandHelper(io.Discard)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), io.Discard)
 	assert.NoError(t, err, "should not crash with segfault")
 	// K8s-mode policy should be skipped for JSON payloads, so no responses expected
 	assert.Equal(t, 0, len(responses), "K8s-mode policies should be skipped for JSON payloads")
@@ -1087,67 +815,6 @@ func Test_Apply_DeletingPolicies(t *testing.T) {
 	}
 }
 
-func Test_Apply_CleanupPolicies(t *testing.T) {
-	type testCase struct {
-		name      string
-		config    ApplyCommandConfig
-		wantPass  int
-		wantFail  int
-		wantRules int
-	}
-
-	testcases := []*testCase{
-		{
-			name: "namespaced-cleanup-policy-match-vs-nomatch",
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cleanup-pod-by-name/resource.yaml"},
-				PolicyReport:  true,
-			},
-			wantPass:  1, // cleanup-pod-1 would be deleted
-			wantFail:  1, // cleanup-pod-2 would NOT be deleted
-			wantRules: 2,
-		},
-		{
-			name: "cluster-cleanup-policy-match-only",
-			config: ApplyCommandConfig{
-				PolicyPaths:   []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/policy.yaml"},
-				ResourcePaths: []string{"../../../../../test/cli/test-cleanup-policy/cluster-cleanup-namespace/resource.yaml"},
-				PolicyReport:  true,
-			},
-			wantPass:  1,
-			wantFail:  0,
-			wantRules: 1,
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, responses, err := tc.config.applyCommandHelper(io.Discard)
-			assert.NoError(t, err)
-
-			passCount := 0
-			failCount := 0
-			rulesCount := 0
-			for _, resp := range responses {
-				for _, rule := range resp.PolicyResponse.Rules {
-					rulesCount++
-					switch rule.Status() {
-					case engineapi.RuleStatusPass:
-						passCount++
-					case engineapi.RuleStatusFail:
-						failCount++
-					}
-				}
-			}
-
-			assert.Equal(t, tc.wantRules, rulesCount, "rule count should match resource count for fixture")
-			assert.Equal(t, tc.wantPass, passCount, "matched resources should be reported as would-delete (Pass)")
-			assert.Equal(t, tc.wantFail, failCount, "unmatched resources should be reported as would-not-delete (Fail)")
-		})
-	}
-}
-
 func Test_Apply_MutatingAdmissionPolicies(t *testing.T) {
 	testcases := []*TestCase{
 		{
@@ -1291,13 +958,14 @@ func verifyTestcase(t *testing.T, tc *TestCase, compareSummary func(*testing.T, 
 			_ = input.Close()
 		}()
 	}
-	desc := fmt.Sprintf("Policies: [%s], / Resources: [%s], JSON payload: [%s]",
+	desc := fmt.Sprintf(
+		"Policies: [%s], / Resources: [%s], JSON payload: [%s]",
 		strings.Join(tc.config.PolicyPaths, ","),
 		strings.Join(tc.config.ResourcePaths, ","),
 		strings.Join(tc.config.JSONPaths, ","),
 	)
 
-	_, _, _, responses, err := tc.config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err, desc)
 
 	clustered, _ := report.ComputePolicyReports(tc.config.AuditWarn, responses...)
@@ -1319,17 +987,6 @@ func copyFileToThisDir(sourceFile string) (string, error) {
 	}
 
 	return filepath.Base(sourceFile), os.WriteFile(filepath.Base(sourceFile), input, 0o644)
-}
-
-func TestCommand(t *testing.T) {
-	cmd := Command()
-	cmd.SetArgs([]string{
-		"../../_testdata/apply/test-1/policy.yaml",
-		"--resource",
-		"../../_testdata/apply/test-1/resources.yaml",
-	})
-	err := cmd.Execute()
-	assert.NoError(t, err)
 }
 
 func TestCommandWithInvalidArg(t *testing.T) {
@@ -1373,27 +1030,16 @@ func TestCommandWithJsonAndResource(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
-func TestCommandWarnExitCode(t *testing.T) {
-	warnExitCode := 3
-
-	cmd := Command()
-	cmd.SetArgs([]string{
-		"../../_testdata/apply/test-2/policy.yaml",
-		"--resource",
-		"../../_testdata/apply/test-2/resources.yaml",
-		"--audit-warn",
-		"--warn-exit-code",
-		strconv.Itoa(warnExitCode),
-	})
-	err := cmd.Execute()
-	if err != nil {
-		switch e := err.(type) {
-		case WarnExitCodeError:
-			assert.Equal(t, warnExitCode, e.ExitCode)
-		default:
-			assert.Fail(t, "Expecting WarnExitCodeError")
-		}
+func TestApplyBlocksLegacyClusterPolicy(t *testing.T) {
+	blocked := ApplyCommandConfig{
+		PolicyPaths:   []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/policy.yaml"},
+		ResourcePaths: []string{"../../../../../test/cli/test-legacy-policies/legacy-clusterpolicy/resources.yaml"},
+		PolicyReport:  true,
 	}
+	_, _, _, _, err := blocked.applyCommandHelper(context.TODO(), io.Discard)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
+	assert.Contains(t, err.Error(), pkgdeprecations.MigrationGuideURL)
 }
 
 func TestCommandHelp(t *testing.T) {
@@ -1416,7 +1062,7 @@ func Test_ValidatingPolicy_DefaultMessage(t *testing.T) {
 		PolicyReport:  true,
 	}
 
-	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err)
 
 	// Check the responses for the correct message
@@ -1443,7 +1089,7 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 		PolicyReport:  true,
 	}
 
-	_, _, _, responses, err := config.applyCommandHelper(os.Stdout)
+	_, _, _, responses, err := config.applyCommandHelper(context.TODO(), os.Stdout)
 	assert.NoError(t, err)
 
 	// Check the responses for the correct message
@@ -1463,18 +1109,63 @@ func Test_ImageValidatingPolicy_DefaultMessage(t *testing.T) {
 	assert.True(t, found, "Should have at least one failed rule")
 }
 
-func Test_Apply_ValidatingPoliciesWithCRD(t *testing.T) {
+func Test_Apply_PoliciesWithCRD(t *testing.T) {
 	testcases := []*TestCase{
 		{
 			config: ApplyCommandConfig{
 				PolicyPaths:   []string{"../../_testdata/apply/test-3/resource-validating-policy/policy.yml"},
 				ResourcePaths: []string{"../../_testdata/apply/test-3/resources/resource.yml"},
-				CrdPath:       "../../_testdata/apply/test-3/crd/crd.yml",
+				CrdPaths:      []string{"../../_testdata/apply/test-3/crd/crd.yml"},
 				PolicyReport:  true,
 			},
 			expectedReports: []openreportsv1alpha1.Report{{
 				Summary: openreportsv1alpha1.ReportSummary{
 					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/policy.yaml"},
+				ResourcePaths: []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/widget.yaml"},
+				CrdPaths:      []string{"../../../../../test/cli/test-mutating-policy/mutate-custom-crd/crds/widget-crd.yaml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  1,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			}},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run("", func(t *testing.T) {
+			verifyTestcase(t, tc, compareSummary)
+		})
+	}
+}
+
+func Test_Apply_ValidatingPoliciesWithMultipleCRDS(t *testing.T) {
+	testcases := []*TestCase{
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../_testdata/apply/test-4/resource-validating-policy/policy.yml"},
+				ResourcePaths: []string{"../../_testdata/apply/test-4/resources/foo.yml", "../../_testdata/apply/test-4/resources/bar.yml"},
+				CrdPaths:      []string{"../../_testdata/apply/test-4/crd/crds.yml"},
+				PolicyReport:  true,
+			},
+			expectedReports: []openreportsv1alpha1.Report{{
+				Summary: openreportsv1alpha1.ReportSummary{
+					Pass:  2,
 					Fail:  0,
 					Skip:  0,
 					Error: 0,
@@ -1500,7 +1191,7 @@ func TestCommandCRDKubeEnable(t *testing.T) {
 		"../../_testdata/apply/test-2/policy.yaml",
 		"--resource",
 		"../../_testdata/apply/test-2/resources.yaml",
-		"--crd-path",
+		"--crd-paths",
 		"./crd.yml",
 		"--kubeconfig",
 		"./kubeconfig.yaml",
@@ -1509,7 +1200,7 @@ func TestCommandCRDKubeEnable(t *testing.T) {
 	assert.Error(t, err)
 	out, err := io.ReadAll(b)
 	assert.NoError(t, err)
-	expected := `Error: crdpath and kubeconfig flags are mutually exclusive, please use only one of them`
+	expected := `Error: crd-paths and kubeconfig flags are mutually exclusive, please use only one of them`
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(out)))
 }
 
@@ -1591,7 +1282,6 @@ func Test_Apply_AuthzPolicies(t *testing.T) {
 			verifyTestcase(t, tc, compareSummary)
 		})
 	}
-
 }
 
 func Test_Apply_AuthzPolicies_MixedHTTPAndEnvoy(t *testing.T) {
@@ -1695,4 +1385,394 @@ func TestCommandWithInvalidEnvoyPayloadPath(t *testing.T) {
 	err := cmd.Execute()
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to parse envoy payload from")
+}
+
+func TestCommandWithStdinForPolicyAndResource(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{
+			name: "stdin later in policy and resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin first in policy paths and later in resource paths",
+			args: []string{
+				"-",
+				"policy.yaml",
+				"--resource",
+				"resource.yaml,-",
+			},
+		},
+		{
+			name: "stdin later in policy paths and first in resource paths",
+			args: []string{
+				"policy.yaml",
+				"-",
+				"--resource",
+				"-,resource.yaml",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			assert.NotNil(t, cmd)
+
+			b := bytes.NewBufferString("")
+			cmd.SetErr(b)
+
+			cmd.SetArgs(tt.args)
+
+			err := cmd.Execute()
+
+			assert.Error(t, err)
+			assert.ErrorContains(t, err, "stdin pipe can be used for either policies or resources")
+		})
+	}
+}
+
+// Test_Apply_ExplainFlagCombinations checks that --explain is rejected next to every flag whose
+// stdout is meant for another program, before anything is written, while the combinations whose
+// output is for humans keep working.
+func Test_Apply_ExplainFlagCombinations(t *testing.T) {
+	const (
+		policy   = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+		resource = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"
+	)
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr string // empty means the command must succeed
+	}{
+		{name: "explain with policy report", args: []string{"--explain", "--policy-report"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with policy report short flag", args: []string{"--explain", "-p"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with json policy report", args: []string{"--explain", "--policy-report", "--output-format", "json"}, wantErr: "--explain cannot be used with --policy-report"},
+		{name: "explain with generate exceptions", args: []string{"--explain", "--generate-exceptions"}, wantErr: "--explain cannot be used with --generate-exceptions"},
+		{name: "explain with stdin", args: []string{"--explain", "--stdin"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain with stdin short flag", args: []string{"--explain", "-i"}, wantErr: "--explain cannot be used with --stdin"},
+		{name: "explain alone", args: []string{"--explain"}},
+		{name: "explain with table", args: []string{"--explain", "--table"}},
+		{name: "policy report without explain", args: []string{"--policy-report"}},
+		{name: "generate exceptions without explain", args: []string{"--generate-exceptions"}},
+		{name: "stdin without explain", args: []string{"--stdin"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := Command()
+			var stdout, stderr bytes.Buffer
+			cmd.SetOut(&stdout)
+			cmd.SetErr(&stderr)
+			cmd.SetArgs(append([]string{policy, "--resource", resource}, tt.args...))
+
+			err := cmd.Execute()
+
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tt.wantErr)
+			assert.Empty(t, stdout.String(), "a rejected combination must fail before writing any output")
+		})
+	}
+}
+
+// Test_Apply_ExplainKeepsTheCostLimit runs the review repro through the apply command: a policy
+// that exceeds the CEL cost limit is an error without --explain and must stay an error with it,
+// rather than being decided by the trace-only program, which does not enforce the limit.
+func Test_Apply_ExplainKeepsTheCostLimit(t *testing.T) {
+	const dir = "../../../../../test/cli/test-validating-policy/explain-cost-limit/"
+	run := func(explain bool) (*processor.ResultCounts, string) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{dir + "policy.yaml"},
+			ResourcePaths: []string{dir + "resource.yaml"},
+			Explain:       explain,
+		}
+		var out bytes.Buffer
+		rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+		require.NoError(t, err)
+		return rc, out.String()
+	}
+	plain, _ := run(false)
+	explained, output := run(true)
+
+	assert.Equal(t, 1, plain.Error, "the cost limit stops the expression without --explain")
+	assert.Equal(t, 0, plain.Pass)
+	assert.Equal(t, plain, explained, "--explain must not change the result")
+	assert.Contains(t, output, "VERDICT    ERROR")
+	assert.Contains(t, output, "cost limit exceeded")
+}
+
+// Test_Apply_Explain runs --explain through the apply command for both input paths: resource
+// files (a ValidatingPolicy and a MutatingPolicy) and a JSON payload. With the flag the trace is
+// printed; without it nothing trace-shaped appears and the results themselves do not change.
+func Test_Apply_Explain(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name   string
+		config ApplyCommandConfig
+		want   []string
+		// wantCounts, when set, is what both runs must count
+		wantCounts *processor.ResultCounts
+	}{{
+		name: "validating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-validating-policy/check-deployment-labels/policy.yaml"},
+			ResourcePaths: []string{base + "test-validating-policy/check-deployment-labels/deployment2.yaml"},
+		},
+		want: []string{"(ValidatingPolicy)", "SCOPE      applied", "VERDICT    FAIL"},
+	}, {
+		name: "mutating policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-mutating-policy/mutating-label/policy.yaml"},
+			ResourcePaths: []string{base + "test-mutating-policy/mutating-label/resource.yaml"},
+		},
+		want: []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
+	}, {
+		name: "validating policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-validating-policy/json-check-dockerfile/policy.yaml"},
+			JSONPaths:   []string{base + "test-validating-policy/json-check-dockerfile/payload.json"},
+		},
+		want: []string{"(ValidatingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		// the mutated resource's output ends without a newline, so a trace printed after it, of
+		// either policy type, must still start on its own line
+		name: "mutating and validating policies on the same resources",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{
+				base + "test-mutating-policy/mutating-label/policy.yaml",
+				base + "test-validating-policy/check-deployment-labels/policy.yaml",
+			},
+			ResourcePaths: []string{base + "test-mutating-policy/mutating-label/resource.yaml"},
+		},
+		want: []string{"(MutatingPolicy)", "(ValidatingPolicy)", "Mutation has been applied successfully."},
+	}, {
+		// two pods: test-nginx-1 meets both conditions, test-nginx-2 fails the second
+		name: "deleting policy on a resource file",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-deleting-policy/deleting-pod-by-name/policy.yaml"},
+			ResourcePaths: []string{base + "test-deleting-policy/deleting-pod-by-name/resource.yaml"},
+		},
+		want: []string{
+			"(DeletingPolicy)",
+			"(deletion scan, so operations are not checked)",
+			"VERDICT    PASS     conditions held: the resource would be deleted",
+			`VERDICT    FAIL     condition "pod-name" is false: the resource is kept`,
+		},
+	}, {
+		name: "deleting policy on a JSON payload",
+		config: ApplyCommandConfig{
+			PolicyPaths: []string{base + "test-deleting-policy/deleting-json/policy.yaml"},
+			JSONPaths:   []string{base + "test-deleting-policy/deleting-json/payload.json"},
+		},
+		want: []string{"(DeletingPolicy)", "evaluated against a JSON payload", "VERDICT"},
+	}, {
+		name: "generating policy with a generate expression",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/data/generate-cm/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/data/generate-cm/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (expression): generator.apply(variables.nsName, variables.configmap)  ->  true",
+			"generated ConfigMap test-ns/zk-kafka-address",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		name: "generating policy with a template",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/template/generate-cm-interpolated/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/template/generate-cm-interpolated/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE            generate[0] (template)",
+			"generated ConfigMap test-ns/test-ns-config",
+			"VERDICT    PASS     generated 1 resource",
+		},
+	}, {
+		// the generate expression reads a label the namespace does not have
+		name: "generating policy whose generate expression fails",
+		config: ApplyCommandConfig{
+			PolicyPaths:   []string{base + "test-generating-policy/explain-generate-error/policy.yaml"},
+			ResourcePaths: []string{base + "test-generating-policy/explain-generate-error/resource.yaml"},
+		},
+		want: []string{
+			"(GeneratingPolicy)",
+			"GENERATE   ERROR    generate[0] (expression): no such key: labels",
+			"object.metadata.labels  ->  ERROR: no such key: labels",
+			"VERDICT    ERROR    no such key: labels",
+		},
+		wantCounts: &processor.ResultCounts{Error: 1},
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(explain bool) (string, *processor.ResultCounts) {
+				config := tt.config
+				config.Explain = explain
+				var out bytes.Buffer
+				rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+				require.NoError(t, err)
+				return out.String(), rc
+			}
+
+			explained, explainedCounts := run(true)
+			for _, want := range tt.want {
+				assert.Contains(t, explained, want)
+			}
+			for _, line := range strings.Split(explained, "\n") {
+				if i := strings.Index(line, "Policy:   "); i > 0 {
+					t.Errorf("a trace header must start its own line, got %q", line)
+				}
+			}
+
+			plain, plainCounts := run(false)
+			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
+			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
+			assert.Equal(t, plainCounts, explainedCounts, "--explain must not change the results")
+			if tt.wantCounts != nil {
+				assert.Equal(t, tt.wantCounts, plainCounts)
+			}
+		})
+	}
+}
+
+// Test_Apply_ExplainThroughTheCommand runs `apply --explain` the way a user does, through the
+// Cobra command and its flag parsing rather than by setting ApplyCommandConfig.Explain, and
+// checks the trace reaches the command's output. Without the flag no trace is printed, and the
+// flag never changes whether the command succeeds.
+func Test_Apply_ExplainThroughTheCommand(t *testing.T) {
+	const base = "../../../../../test/cli/"
+	tests := []struct {
+		name     string
+		policy   string
+		resource string
+		want     []string
+		// wantErr is a command that fails outright: --explain must fail it the same way, and
+		// no trace is expected
+		wantErr bool
+	}{{
+		name:     "validating policy",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/deployment2.yaml",
+		want:     []string{"(ValidatingPolicy)", "SCOPE      applied", "VERDICT    FAIL"},
+	}, {
+		name:     "mutating policy",
+		policy:   base + "test-mutating-policy/mutating-label/policy.yaml",
+		resource: base + "test-mutating-policy/mutating-label/resource.yaml",
+		want:     []string{"(MutatingPolicy)", "SCOPE      applied", "MUTATIONS", "VERDICT    PASS"},
+	}, {
+		name:     "deleting policy",
+		policy:   base + "test-deleting-policy/deleting-pod-by-name/policy.yaml",
+		resource: base + "test-deleting-policy/deleting-pod-by-name/resource.yaml",
+		want:     []string{"(DeletingPolicy)", "VERDICT    PASS     conditions held: the resource would be deleted"},
+	}, {
+		name:     "missing resource file",
+		policy:   base + "test-validating-policy/check-deployment-labels/policy.yaml",
+		resource: base + "test-validating-policy/check-deployment-labels/does-not-exist.yaml",
+		wantErr:  true,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := func(extra ...string) (string, error) {
+				cmd := Command()
+				var out bytes.Buffer
+				cmd.SetOut(&out)
+				cmd.SetErr(&out)
+				cmd.SetArgs(append([]string{tt.policy, "--resource", tt.resource}, extra...))
+				err := cmd.Execute()
+				return out.String(), err
+			}
+
+			explained, explainedErr := run("--explain")
+			if tt.wantErr {
+				_, plainErr := run()
+				require.Error(t, plainErr)
+				require.Error(t, explainedErr, "--explain must not hide a command error")
+				assert.Equal(t, plainErr.Error(), explainedErr.Error())
+				return
+			}
+			for _, want := range tt.want {
+				assert.Contains(t, explained, want)
+			}
+
+			plain, plainErr := run()
+			assert.NotContains(t, plain, "VERDICT ", "no trace without --explain")
+			assert.NotContains(t, plain, "SCOPE ", "no trace without --explain")
+			assert.Equal(t, plainErr == nil, explainedErr == nil, "--explain must not change whether the command succeeds")
+		})
+	}
+}
+
+// Test_Apply_ExplainImageValidatingPolicy runs an ImageValidatingPolicy with --explain: a pod
+// that passes, one that fails, and one a match condition skips. Its images do not match
+// matchImageReferences, so nothing is fetched or verified. The trace is printed, and the results
+// are exactly the ones without --explain.
+func Test_Apply_ExplainImageValidatingPolicy(t *testing.T) {
+	const dir = "../../../../../test/cli/test-image-validating-policy/explain/"
+	run := func(explain bool) (*processor.ResultCounts, string) {
+		config := ApplyCommandConfig{
+			PolicyPaths:   []string{dir + "policy.yaml"},
+			ResourcePaths: []string{dir + "resources.yaml"},
+			Explain:       explain,
+		}
+		var out bytes.Buffer
+		rc, _, _, _, err := config.applyCommandHelper(context.TODO(), &out)
+		require.NoError(t, err)
+		return rc, out.String()
+	}
+	plain, plainOut := run(false)
+	explained, output := run(true)
+
+	assert.Equal(t, 1, plain.Pass)
+	assert.Equal(t, 1, plain.Fail)
+	assert.Equal(t, plain, explained, "--explain must not change the results")
+	assert.NotContains(t, plainOut, "VERDICT ", "no trace without --explain")
+
+	for _, want := range []string{
+		"Policy:   check-images (ImageValidatingPolicy)",
+		"Resource: Pod/with-team (namespace: prod)",
+		"IMAGES     skipped  containers: docker.io/library/nginx:1.27  (not matched by matchImageReferences)",
+		"VARIABLES           team: object.metadata.?labels.?team.orValue('')  ->  payments",
+		"VERDICT    PASS     all 2 validations passed",
+		"VALIDATION FAIL     [1] variables.team != ''  ->  false",
+		`message: "pods need a team label"`,
+		`VERDICT    SKIP     match condition "not-kube-system" did not pass, so the policy was skipped`,
+	} {
+		assert.Contains(t, output, want)
+	}
+}
+
+// Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition is a JSON payload a JSON-mode
+// policy's match condition excludes. Evaluating it returns a nil result, which the apply command
+// used to read and crash on; it must report nothing, and with --explain print the skip.
+func Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition(t *testing.T) {
+	const dir = "../../../../../test/cli/test-image-validating-policy/explain/"
+	for _, explain := range []bool{false, true} {
+		config := ApplyCommandConfig{
+			PolicyPaths: []string{dir + "json-policy.yaml"},
+			JSONPaths:   []string{dir + "payload.json"},
+			Explain:     explain,
+		}
+		var out bytes.Buffer
+		var rc *processor.ResultCounts
+		require.NotPanics(t, func() {
+			var err error
+			rc, _, _, _, err = config.applyCommandHelper(context.TODO(), &out)
+			require.NoError(t, err)
+		})
+		assert.Equal(t, processor.ResultCounts{}, *rc, "a skipped payload is not counted (explain=%v)", explain)
+		if explain {
+			assert.Contains(t, out.String(), `VERDICT    SKIP     match condition "is-production" did not pass`)
+			assert.Contains(t, out.String(), "evaluated against a JSON payload")
+		}
+	}
 }

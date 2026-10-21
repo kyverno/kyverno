@@ -3,18 +3,19 @@ package test
 import (
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/kyverno/kyverno-json/pkg/engine/assert"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/assert"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/color"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/output/table"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/openreports"
-	"gopkg.in/yaml.v3"
+	"go.yaml.in/yaml/v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -179,20 +180,26 @@ func printTestResult(
 ) error {
 	testCount := 1
 	for _, test := range tests {
+		// results declaring an explicit operation are checked against the
+		// responses of the dedicated evaluation run for that operation
+		trigger := responses.Trigger
+		if test.Operation != "" {
+			trigger = responses.TriggerByOperation[test.Operation]
+		}
 		var resources []string
 		// The test specifies certain resources to check, results will be checked for those resources only
 		if test.Resources != nil {
 			for _, r := range test.Resources {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
-						nameParts := strings.Split(resourceGVKAndName, ",")
+						nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
 						nsAndName := strings.Split(r, "/")
 						if len(nsAndName) == 1 {
 							if r == nameParts[len(nameParts)-1] {
 								resources = append(resources, resourceGVKAndName)
 							}
 						}
-						if len(nsAndName) == 2 {
+						if len(nsAndName) == 2 && len(nameParts) >= 2 {
 							if nsAndName[0] == nameParts[len(nameParts)-2] && nsAndName[1] == nameParts[len(nameParts)-1] {
 								resources = append(resources, resourceGVKAndName)
 							}
@@ -201,9 +208,12 @@ func printTestResult(
 				}
 			}
 			for _, resourceSpec := range test.ResourceSpecs {
-				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, responses.Trigger} {
+				for _, m := range []map[string][]engineapi.EngineResponse{responses.Target, trigger} {
 					for resourceGVKAndName := range m {
-						nameParts := strings.Split(resourceGVKAndName, ",")
+						nameParts := strings.SplitN(resourceGVKAndName, ",", 4)
+						if len(nameParts) < 4 {
+							continue
+						}
 						if resourceSpec.Group == "" {
 							if resourceSpec.Version != nameParts[0] {
 								continue
@@ -213,10 +223,10 @@ func printTestResult(
 								continue
 							}
 						}
-						if resourceSpec.Namespace != nameParts[len(nameParts)-2] {
+						if resourceSpec.Namespace != nameParts[2] {
 							continue
 						}
-						if resourceSpec.Name == nameParts[len(nameParts)-1] {
+						if resourceSpec.Name == nameParts[3] {
 							resources = append(resources, resourceGVKAndName)
 						}
 					}
@@ -229,7 +239,7 @@ func printTestResult(
 			for r := range responses.Target {
 				resources = append(resources, r)
 			}
-			for r := range responses.Trigger {
+			for r := range trigger {
 				resources = append(resources, r)
 			}
 		}
@@ -237,12 +247,21 @@ func printTestResult(
 		for _, resource := range resources {
 			var rows []table.Row
 			var resourceSkipped bool
-			if _, ok := responses.Trigger[resource]; ok {
-				for _, response := range responses.Trigger[resource] {
-					polNameNs := strings.Split(test.Policy, "/")
-					if response.Policy().GetName() != polNameNs[len(polNameNs)-1] {
+			if _, ok := trigger[resource]; ok {
+				var policyResponseFound bool
+				policyNamespace, policyName := "", test.Policy
+				if ns, name, ok := strings.Cut(test.Policy, "/"); ok {
+					policyNamespace = ns
+					policyName = name
+				}
+
+				for _, response := range trigger[resource] {
+					if response.Policy().GetName() != policyName {
 						continue
 					}
+
+					policyResponseFound = true
+
 					var (
 						rulesToCheck []engineapi.RuleResponse
 						ruleName     string
@@ -252,6 +271,7 @@ func printTestResult(
 					} else {
 						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
 					}
+
 					for _, rule := range rulesToCheck {
 						r := response.Resource
 						ruleName = rule.Name()
@@ -267,10 +287,15 @@ func printTestResult(
 								continue
 							}
 
-							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, strings.Replace(resource, ",", "/", -1))
+							resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resourceDisplayPath(resource))
 							rows = append(rows, resourceRows...)
 						} else {
 							generatedResources := rule.GeneratedResources()
+							if len(generatedResources) == 0 {
+								ok, message, reason := checkRuleResultOnly(test, response, rule)
+								resourceRows := createRowsAccordingToResults(test, rc, &testCount, ruleName, ok, message, reason, resourceDisplayPath(resource))
+								rows = append(rows, resourceRows...)
+							}
 							for _, r := range generatedResources {
 								ok, message, reason := checkResult(test, fs, resourcePath, response, rule, *r, removeColor)
 
@@ -280,23 +305,23 @@ func printTestResult(
 						}
 					}
 
-					// if there are no RuleResponse, the resource has been excluded. This is a pass.
+					// A matching policy response with no rule responses means
+					// the resource was excluded by the policy.
 					if len(rows) == 0 && !resourceSkipped {
-						resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-						resourceParts := strings.Split(resourceGVKAndName, "/")
+						row := createExcludedRow(test, testCount, resource, false)
+						rc.Skip++
+						testCount++
+						rows = append(rows, row)
+					}
+				}
 
-						row := table.Row{
-							RowCompact: table.RowCompact{
-								ID:        testCount,
-								Policy:    color.Policy("", test.Policy),
-								Rule:      color.Rule(test.Rule),
-								Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
-								Result:    color.ResultPass(),
-								Reason:    color.Excluded(),
-								IsFailure: false,
-							},
-							Message: color.Excluded(),
-						}
+				// A DeletingPolicy that was loaded but produced no EngineResponse
+				// means the resource was excluded by its match constraints.
+				if !policyResponseFound &&
+					test.IsDeletingPolicy &&
+					test.Result == openreports.StatusSkip {
+					if _, ok := responses.DeletingPolicies[deletingPolicyKey(policyNamespace, policyName)]; ok {
+						row := createExcludedRow(test, testCount, resource, true)
 						rc.Skip++
 						testCount++
 						rows = append(rows, row)
@@ -306,24 +331,61 @@ func printTestResult(
 
 			// Check if the resource specified exists in the targets
 			if _, ok := responses.Target[resource]; ok {
+				policyNamespace, policyName := "", test.Policy
+				if ns, name, ok := strings.Cut(test.Policy, "/"); ok {
+					policyNamespace = ns
+					policyName = name
+				}
+
 				for _, response := range responses.Target[resource] {
+					if test.Policy != "" {
+						if response.Policy() == nil {
+							continue
+						}
+						if response.Policy().GetName() != policyName {
+							continue
+						}
+						if response.Policy().GetNamespace() != policyNamespace {
+							continue
+						}
+					}
+
 					// we are doing this twice which is kinda not nice
-					nameParts := strings.Split(resource, ",")
-					name, ns, kind, apiVersion := nameParts[len(nameParts)-1], nameParts[len(nameParts)-2], nameParts[len(nameParts)-3], nameParts[len(nameParts)-4]
+					nameParts := strings.SplitN(resource, ",", 4)
+					if len(nameParts) < 4 {
+						continue
+					}
+					apiVersion, kind, ns, name := nameParts[0], nameParts[1], nameParts[2], nameParts[3]
 
+					displayResource := resourceDisplayPath(resource)
 					r, rule := extractPatchedTargetFromEngineResponse(apiVersion, kind, name, ns, response)
-					ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
+					if r != nil && rule != nil && (test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) || len(lookupRuleResponses(test, *rule)) > 0) {
+						ok, message, reason := checkResult(test, fs, resourcePath, response, *rule, *r, removeColor)
 
-					resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, strings.Replace(resource, ",", "/", -1))
-					rows = append(rows, resourceRows...)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rule.Name(), ok, message, reason, displayResource)
+						rows = append(rows, resourceRows...)
+						continue
+					}
+
+					var rulesToCheck []engineapi.RuleResponse
+					if test.Rule == "" || (response.Policy() != nil && isRulelessPolicyKind(response.Policy().GetKind())) {
+						rulesToCheck = append(rulesToCheck, response.PolicyResponse.Rules...)
+					} else {
+						rulesToCheck = append(rulesToCheck, lookupRuleResponses(test, response.PolicyResponse.Rules...)...)
+					}
+
+					for _, rResp := range rulesToCheck {
+						ok, message, reason := checkRuleResultOnly(test, response, rResp)
+						resourceRows := createRowsAccordingToResults(test, rc, &testCount, rResp.Name(), ok, message, reason, displayResource)
+						rows = append(rows, resourceRows...)
+					}
 				}
 			}
 
 			if len(rows) == 0 && !resourceSkipped {
 				policyName := strings.Split(test.Policy, "/")[len(strings.Split(test.Policy, "/"))-1]
 
-				resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
-				resourceParts := strings.Split(resourceGVKAndName, "/")
+				resourcePath, resourceName := formatResourceDisplay(resource)
 
 				var row table.Row
 				if _, wasSkippedDuringValidation := responses.SkippedPolicies[policyName]; wasSkippedDuringValidation {
@@ -332,7 +394,7 @@ func printTestResult(
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Resource:  color.Resource(resourcePath, "", resourceName),
 							Result:    color.ResultSkip(),
 							Reason:    color.InvalidPolicy(),
 							IsFailure: false,
@@ -346,7 +408,7 @@ func printTestResult(
 							ID:        testCount,
 							Policy:    color.Policy("", test.Policy),
 							Rule:      color.Rule(test.Rule),
-							Resource:  color.Resource(strings.Join(resourceParts[:len(resourceParts)-1], "/"), "", resourceParts[len(resourceParts)-1]),
+							Resource:  color.Resource(resourcePath, "", resourceName),
 							IsFailure: true,
 							Result:    color.ResultFail(),
 							Reason:    color.NotFound(),
@@ -363,6 +425,53 @@ func printTestResult(
 		}
 	}
 	return nil
+}
+
+func formatResourceDisplay(resource string) (string, string) {
+	nameParts := strings.SplitN(resource, ",", 4)
+	if len(nameParts) == 4 {
+		if nameParts[2] != "" {
+			return nameParts[0] + "/" + nameParts[1] + "/" + nameParts[2], nameParts[3]
+		}
+		return nameParts[0] + "/" + nameParts[1], nameParts[3]
+	}
+	resourceGVKAndName := strings.Replace(resource, ",", "/", -1)
+	resourceParts := strings.Split(resourceGVKAndName, "/")
+	return strings.Join(resourceParts[:len(resourceParts)-1], "/"), resourceParts[len(resourceParts)-1]
+}
+
+func resourceDisplayPath(resource string) string {
+	path, name := formatResourceDisplay(resource)
+	if path == "" {
+		return name
+	}
+	return path + "/" + name
+}
+
+func createExcludedRow(test v1alpha1.TestResult, testCount int, resource string, skipped bool) table.Row {
+	resourcePath, resourceName := formatResourceDisplay(resource)
+
+	result := color.ResultPass()
+	if skipped {
+		result = color.ResultSkip()
+	}
+
+	return table.Row{
+		RowCompact: table.RowCompact{
+			ID:     testCount,
+			Policy: color.Policy("", test.Policy),
+			Rule:   color.Rule(test.Rule),
+			Resource: color.Resource(
+				resourcePath,
+				"",
+				resourceName,
+			),
+			Result:    result,
+			Reason:    color.Excluded(),
+			IsFailure: false,
+		},
+		Message: color.Excluded(),
+	}
 }
 
 func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, globalTestCounter *int, ruleName string, success bool, message string, reason string, resourceGVKAndName string) []table.Row {
@@ -415,14 +524,16 @@ func createRowsAccordingToResults(test v1alpha1.TestResult, rc *resultCounts, gl
 }
 
 func extractPatchedTargetFromEngineResponse(apiVersion, kind, resourceName, resourceNamespace string, response engineapi.EngineResponse) (*unstructured.Unstructured, *engineapi.RuleResponse) {
-	for _, rule := range response.PolicyResponse.Rules {
+	for i := range response.PolicyResponse.Rules {
+		rule := &response.PolicyResponse.Rules[i]
 		r, _, _ := rule.PatchedTarget()
 		if r != nil {
-			if resourceNamespace == "" {
-				resourceNamespace = r.GetNamespace()
+			targetNs := resourceNamespace
+			if targetNs == "" {
+				targetNs = r.GetNamespace()
 			}
-			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == resourceNamespace {
-				return r, &rule
+			if r.GetAPIVersion() == apiVersion && r.GetKind() == kind && r.GetName() == resourceName && r.GetNamespace() == targetNs {
+				return r, rule
 			}
 		}
 	}
@@ -495,18 +606,19 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 					failures++
 				}
 			}
-			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", policyName, len(rows), failures))
+			b.WriteString(fmt.Sprintf(" <testsuite name=\"%s\" tests=\"%d\" failures=\"%d\">\n", escapeXML(policyName), len(rows), failures))
 			for _, policyRow := range rows {
-				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", policyRow.Rule, policyRow.Resource))
+				b.WriteString(fmt.Sprintf("  <testcase classname=\"%s\" name=\"%s\">\n", escapeXML(policyRow.Rule), escapeXML(policyRow.Resource)))
 				if policyRow.IsFailure {
-					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource, policyRow.Result))
+					b.WriteString(fmt.Sprintf("   <failure message=\"%s\">\n    Policy: %s\n    Rule: %s\n    Resource: %s\n    Result: %s\n", escapeXML(policyRow.Reason), escapeXML(policyRow.Policy), escapeXML(policyRow.Rule), escapeXML(policyRow.Resource), escapeXML(policyRow.Result)))
 					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n   </failure>\n", policyRow.Message))
+						b.WriteString(fmt.Sprintf("    Message: %s\n", escapeXML(policyRow.Message)))
 					}
+					b.WriteString("   </failure>\n")
 				} else {
-					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", policyRow.Reason, policyRow.Policy, policyRow.Rule, policyRow.Resource))
+					b.WriteString(fmt.Sprintf("   <system-out><![CDATA[\n    Reason: %s\n    Policy: %s\n    Rule: %s\n    Resource: %s\n", escapeCDATA(policyRow.Reason), escapeCDATA(policyRow.Policy), escapeCDATA(policyRow.Rule), escapeCDATA(policyRow.Resource)))
 					if detailedResults {
-						b.WriteString(fmt.Sprintf("    Message: %s\n", policyRow.Message))
+						b.WriteString(fmt.Sprintf("    Message: %s\n", escapeCDATA(policyRow.Message)))
 					}
 					b.WriteString("   ]]></system-out>\n")
 				}
@@ -528,4 +640,14 @@ func printOutputFormats(out io.Writer, outputFormat string, resultTable table.Ta
 		fmt.Fprintln(out, string(finalOutput))
 		fmt.Fprintln(out)
 	}
+}
+
+func escapeXML(s string) string {
+	var b strings.Builder
+	_ = xml.EscapeText(&b, []byte(s))
+	return b.String()
+}
+
+func escapeCDATA(s string) string {
+	return strings.ReplaceAll(s, "]]>", "]]]]><![CDATA[>")
 }

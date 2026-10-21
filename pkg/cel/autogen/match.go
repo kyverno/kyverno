@@ -9,11 +9,12 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admissionregistrationv1.OperationType) *admissionregistrationv1.MatchResources {
+func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admissionregistrationv1.OperationType, namespaceSelector *metav1.LabelSelector) *admissionregistrationv1.MatchResources {
 	if len(targets) == 0 {
 		return nil
 	}
@@ -53,8 +54,13 @@ func CreateMatchConstraints(targets []policiesv1beta1.Target, operations []admis
 			},
 		})
 	}
+	var selector *metav1.LabelSelector
+	if namespaceSelector != nil {
+		selector = namespaceSelector.DeepCopy()
+	}
 	return &admissionregistrationv1.MatchResources{
-		ResourceRules: rules,
+		ResourceRules:     rules,
+		NamespaceSelector: selector,
 	}
 }
 
@@ -64,6 +70,20 @@ func CreateMatchConditions(config string, targets []policiesv1beta1.Target, cond
 	}
 	if len(conditions) == 0 {
 		return conditions
+	}
+	// Extraction targets' Spec (and therefore its MatchConditions) is never
+	// rewritten - it's still written against a Pod (see
+	// ExtractionReplacementsRef). Wrapping it here would make it an
+	// API-server-level matchCondition evaluated against the raw parent
+	// object (e.g. a JobSet), before Kyverno's webhook - and before
+	// extraction ever runs - so it would almost always spuriously fail and
+	// silently prevent the webhook from being invoked at all. The
+	// corresponding ResourceRules (added independently by the caller) already
+	// scope the webhook to the right GVR/operations; the policy's own
+	// MatchConditions are correctly re-evaluated inside the engine, once per
+	// synthesized Pod, after extraction.
+	if config == ExtractionReplacementsRef {
+		return nil
 	}
 	preconditions := sets.New[string]()
 	for _, target := range targets {

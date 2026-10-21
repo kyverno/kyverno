@@ -1,0 +1,18 @@
+apiVersion: cli.kyverno.io/v1alpha1
+clusterResources:
+- clusterresources.yaml
+kind: Test
+metadata:
+  name: sync-new-label-secrets
+policies:
+- ../sync-new-label-secrets.yaml
+resources:
+- resources/secret-with-label.yaml
+results:
+- generatedResource: generated/synced-secret.yaml
+  isGeneratingPolicy: true
+  kind: Secret
+  policy: sync-new-label-secrets
+  resources:
+  - my-secret
+  result: pass

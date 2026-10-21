@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: mutate-existing-pod-resize
+spec:
+  concurrent: false
+  steps:
+  - name: create rbac
+    try:
+    - apply:
+        file: rbac.yaml
+  - name: create existing pod
+    try:
+    - create:
+        file: namespace.yaml
+    - create:
+        file: pod.yaml
+    - assert:
+        file: pod.yaml
+  - name: create policy
+    use:
+      template: ../../../_step-templates/create-policy.yaml
+      with:
+        bindings:
+        - name: file
+          value: policy.yaml
+  - name: wait for policy
+    try:
+    - assert:
+        timeout: 60s
+        resource:
+          apiVersion: policies.kyverno.io/v1beta1
+          kind: MutatingPolicy
+          metadata:
+            name: test-mpol-resize
+          status:
+            conditionStatus:
+              ready: true
+  - name: verify resize mutation
+    try:
+    - assert:
+        file: pod-assert.yaml
+        timeout: 3m

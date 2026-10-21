@@ -15,6 +15,7 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/image/verifiers"
+	"github.com/kyverno/kyverno/pkg/sigstoretuf"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	"github.com/sigstore/cosign/v3/pkg/cosign/attestation"
@@ -23,7 +24,6 @@ import (
 	sigs "github.com/sigstore/cosign/v3/pkg/signature"
 	rekorclient "github.com/sigstore/rekor/pkg/client"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
-	"github.com/sigstore/sigstore/pkg/fulcioroots"
 	"github.com/sigstore/sigstore/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/signature/payload"
 	"github.com/sigstore/sigstore/pkg/tuf"
@@ -49,7 +49,7 @@ func countPEMCertBlocks(pem []byte) int {
 func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.CheckOpts, error) {
 	var err error
 
-	options, err := opts.Client.Options(ctx)
+	options, _, err := opts.Client.Options(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("constructing cosign remote options: %w", err)
 	}
@@ -133,7 +133,7 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 		} else {
 			// if key, cert, and roots are not provided, default to Fulcio roots
 			if cosignOpts.RootCerts == nil {
-				roots, err := fulcioroots.Get()
+				roots, _, err := sigstoretuf.FulcioRoots()
 				if err != nil {
 					return nil, fmt.Errorf("failed to get roots from fulcio: %w", err)
 				}
@@ -159,8 +159,12 @@ func buildCosignOptions(ctx context.Context, opts verifiers.Options) (*cosign.Ch
 	}
 
 	cosignOpts.IgnoreSCT = opts.IgnoreSCT
-	if !opts.IgnoreSCT {
-		cosignOpts.CTLogPubKeys, err = getCTLogPubs(ctx, opts.CTLogsPubKey)
+	// CT log keys are only consumed when cosign validates a certificate chain
+	// itself (ValidateAndUnpackCertWithIntermediates, reached only when
+	// SigVerifier is nil). With a static key, KMS, or pinned certificate the
+	// SigVerifier is already set and no SCT is checked, so skip the TUF fetch.
+	if !opts.IgnoreSCT && cosignOpts.SigVerifier == nil {
+		cosignOpts.CTLogPubKeys, err = ctLogPubsFn(ctx, opts.CTLogsPubKey)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load CTLogs public keys: %w", err)
 		}
@@ -298,7 +302,11 @@ func decodeStatement(sig oci.Signature) (map[string]any, string, error) {
 	if dataPayload, ok := data["payload"]; !ok {
 		return nil, "", fmt.Errorf("missing payload in %v", data)
 	} else {
-		decodedStatement, err := decodePayload(dataPayload.(string))
+		payloadStr, ok := dataPayload.(string)
+		if !ok {
+			return nil, "", fmt.Errorf("'payload' found to be of the type %T. The payload is expected to be a base64 encoded string", dataPayload)
+		}
+		decodedStatement, err := decodePayload(payloadStr)
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to decode statement %s: %w", string(pld), err)
 		}
@@ -564,7 +572,7 @@ func checkAnnotations(payloads []payload.SimpleContainerImage, annotations map[s
 
 func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if rekorPubKey == "" {
-		return cosign.GetRekorPubs(ctx)
+		return sigstoretuf.RekorPublicKeys(ctx)
 	}
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()
@@ -574,9 +582,12 @@ func getRekorPubs(ctx context.Context, rekorPubKey string) (*cosign.TrustedTrans
 	return &publicKeys, nil
 }
 
+// ctLogPubsFn is a seam so tests can observe CT log key loading.
+var ctLogPubsFn = getCTLogPubs
+
 func getCTLogPubs(ctx context.Context, ctlogPubKey string) (*cosign.TrustedTransparencyLogPubKeys, error) {
 	if ctlogPubKey == "" {
-		return cosign.GetCTLogPubs(ctx)
+		return sigstoretuf.CTLogPublicKeys(ctx)
 	}
 
 	publicKeys := cosign.NewTrustedTransparencyLogPubKeys()

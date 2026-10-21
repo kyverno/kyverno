@@ -2,6 +2,7 @@ package admissionpolicygenerator
 
 import (
 	"testing"
+	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -160,4 +161,154 @@ func TestEnqueueCELExceptionContinuesOnMissingPolicy(t *testing.T) {
 	assert.True(t, enqueuedPolicies["ValidatingPolicy/vpol-1"], "vpol-1 should be enqueued")
 	assert.True(t, enqueuedPolicies["ValidatingPolicy/vpol-2"], "vpol-2 should be enqueued despite vpol-missing error")
 	assert.True(t, enqueuedPolicies["MutatingPolicy/mpol-1"], "mpol-1 should be enqueued despite mpol-missing error")
+}
+
+// TestGetCELExceptionsIgnoresExpired is a regression guard for the expiry gate, which
+// already worked correctly before the exception-gating change. Its fixtures deliberately
+// share the same kind and name, differing only in ExpiresAt, so it keeps testing expiry
+// rather than the other gates.
+func TestGetCELExceptionsIgnoresExpired(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	active := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "active-exception",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{
+				Name: "vpol-1",
+				Kind: "ValidatingPolicy",
+			}},
+			ExpiresAt: &metav1.Time{
+				Time: time.Now().Add(time.Hour),
+			},
+		},
+	}
+	expired := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "expired-exception",
+			Namespace: "default",
+		},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{
+				Name: "vpol-1",
+				Kind: "ValidatingPolicy",
+			}},
+			ExpiresAt: &metav1.Time{
+				Time: time.Now().Add(-time.Hour),
+			},
+		},
+	}
+	assert.NoError(t, indexer.Add(active))
+	assert.NoError(t, indexer.Add(expired))
+
+	lister := policiesv1beta1listers.NewPolicyExceptionLister(indexer)
+	c := &controller{
+		celpolexLister:     lister,
+		polexEnabled:       true,
+		exceptionNamespace: "*",
+	}
+	got, err := c.getCELExceptions("vpol-1", "ValidatingPolicy")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "active-exception", got[0].GetName())
+}
+
+// names are unique only within a kind, so a MutatingPolicy exception must not surface for a
+// same-named ValidatingPolicy: it would otherwise be baked into that policy's generated VAP.
+func TestGetCELExceptionsFiltersByKind(t *testing.T) {
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	newException := func(name, kind string) *policiesv1beta1.PolicyException {
+		return &policiesv1beta1.PolicyException{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "shared-name", Kind: kind}},
+			},
+		}
+	}
+	assert.NoError(t, indexer.Add(newException("vpol-exception", "ValidatingPolicy")))
+	assert.NoError(t, indexer.Add(newException("mpol-exception", "MutatingPolicy")))
+
+	c := &controller{
+		celpolexLister:     policiesv1beta1listers.NewPolicyExceptionLister(indexer),
+		polexEnabled:       true,
+		exceptionNamespace: "*",
+	}
+
+	got, err := c.getCELExceptions("shared-name", "ValidatingPolicy")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "vpol-exception", got[0].GetName())
+
+	got, err = c.getCELExceptions("shared-name", "MutatingPolicy")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "mpol-exception", got[0].GetName())
+}
+
+// --- PolicyException gate regression tests ---
+//
+// These cover the runtime gates getCELExceptions must apply, matching what the CEL
+// admission path already enforces: the --enablePolicyException flag and
+// --exceptionNamespace scoping.
+
+func newCELPolexLister(t *testing.T, polexs ...*policiesv1beta1.PolicyException) policiesv1beta1listers.PolicyExceptionLister {
+	t.Helper()
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	for _, p := range polexs {
+		assert.NoError(t, indexer.Add(p))
+	}
+	return policiesv1beta1listers.NewPolicyExceptionLister(indexer)
+}
+
+func TestGetCELExceptions_DisabledFlag(t *testing.T) {
+	polex := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-1", Namespace: "ns-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "vpol-1", Kind: "ValidatingPolicy"}},
+		},
+	}
+	lister := newCELPolexLister(t, polex)
+
+	disabled := &controller{celpolexLister: lister, polexEnabled: false, exceptionNamespace: "*"}
+	got, err := disabled.getCELExceptions("vpol-1", "ValidatingPolicy")
+	assert.NoError(t, err)
+	assert.Nil(t, got)
+
+	// Positive control: the same exception, with the flag enabled, IS returned.
+	enabled := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "*"}
+	got, err = enabled.getCELExceptions("vpol-1", "ValidatingPolicy")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+}
+
+// TestGetCELExceptions_NamespaceScope also documents that the CEL path reads both "" and
+// "*" as cluster-wide, matching engine.NewPolicyExceptionLister.
+func TestGetCELExceptions_NamespaceScope(t *testing.T) {
+	polexA := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-a", Namespace: "ns-a"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "vpol-1", Kind: "ValidatingPolicy"}},
+		},
+	}
+	polexB := &policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Name: "cel-polex-b", Namespace: "ns-b"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: "vpol-1", Kind: "ValidatingPolicy"}},
+		},
+	}
+	lister := newCELPolexLister(t, polexA, polexB)
+
+	scoped := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: "ns-a"}
+	got, err := scoped.getCELExceptions("vpol-1", "ValidatingPolicy")
+	assert.NoError(t, err)
+	assert.Len(t, got, 1)
+	assert.Equal(t, "cel-polex-a", got[0].GetName())
+
+	for _, ns := range []string{"", "*"} {
+		clusterWide := &controller{celpolexLister: lister, polexEnabled: true, exceptionNamespace: ns}
+		got, err = clusterWide.getCELExceptions("vpol-1", "ValidatingPolicy")
+		assert.NoError(t, err)
+		assert.Len(t, got, 2, "exceptionNamespace %q must be cluster-wide on the CEL path", ns)
+	}
 }

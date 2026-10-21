@@ -22,6 +22,7 @@ func (w *metricWrapper) HandleMutating(ctx context.Context, request EngineReques
 
 	for _, policy := range response.Policies {
 		w.metrics.RecordDuration(ctx, policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+		w.metrics.RecordResult(ctx, string(policy.Result.Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
 	}
 
 	return response, patch, nil
@@ -35,15 +36,20 @@ func (w *metricWrapper) HandleValidating(ctx context.Context, request EngineRequ
 
 	for _, policy := range response.Policies {
 		w.metrics.RecordDuration(ctx, policy.Result.Stats().ProcessingTime().Seconds(), string(policy.Result.Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
+		w.metrics.RecordResult(ctx, string(policy.Result.Status()), w.ruleExecutionCause, policy.Policy, response.Resource, string(request.Request.Operation))
 	}
 
 	return response, nil
 }
 
 func NewMetricWrapper(inner Engine, ruleExecutionCause metrics.RuleExecutionCause) Engine {
+	m := metrics.GetImageValidatingMetrics()
+	if m == nil {
+		return inner
+	}
 	return &metricWrapper{
 		inner:              inner,
-		metrics:            metrics.GetImageValidatingMetrics(),
+		metrics:            m,
 		ruleExecutionCause: string(ruleExecutionCause),
 	}
 }
