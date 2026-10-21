@@ -574,26 +574,50 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 // pruneLegacyWebhooks drops any validating webhook whose service path is servicePath or a servicePath/...
 // subpath. Used in the autoUpdateWebhooks=false branches, where a webhook configuration persisted by 1.19
 // (or managed externally) may still carry the removed legacy resource admission entries; matching by path
-// rather than name because operators own webhook names in this mode.
+// rather than name because operators own webhook names in this mode. Returns webhooks unchanged, same
+// slice value (nil included) when nothing matches servicePath: the lister's observed slice is nil for
+// an already-clean config (omitempty), and controllerutils.Update compares with reflect.DeepEqual, so
+// returning a freshly allocated empty slice here would differ from nil and write forever on an
+// autoUpdateWebhooks=false leader's 10s ticker.
 func pruneLegacyWebhooks(webhooks []admissionregistrationv1.ValidatingWebhook, servicePath string) []admissionregistrationv1.ValidatingWebhook {
-	pruned := webhooks[:0:0]
-	for _, w := range webhooks {
+	var pruned []admissionregistrationv1.ValidatingWebhook
+	removed := false
+	for i, w := range webhooks {
 		if isLegacyWebhookPath(w.ClientConfig.Service, servicePath) {
+			if !removed {
+				pruned = append(pruned, webhooks[:i]...)
+				removed = true
+			}
 			continue
 		}
-		pruned = append(pruned, w)
+		if removed {
+			pruned = append(pruned, w)
+		}
+	}
+	if !removed {
+		return webhooks
 	}
 	return pruned
 }
 
 // pruneLegacyMutatingWebhooks is pruneLegacyWebhooks for MutatingWebhook; see that function's comment.
 func pruneLegacyMutatingWebhooks(webhooks []admissionregistrationv1.MutatingWebhook, servicePath string) []admissionregistrationv1.MutatingWebhook {
-	pruned := webhooks[:0:0]
-	for _, w := range webhooks {
+	var pruned []admissionregistrationv1.MutatingWebhook
+	removed := false
+	for i, w := range webhooks {
 		if isLegacyWebhookPath(w.ClientConfig.Service, servicePath) {
+			if !removed {
+				pruned = append(pruned, webhooks[:i]...)
+				removed = true
+			}
 			continue
 		}
-		pruned = append(pruned, w)
+		if removed {
+			pruned = append(pruned, w)
+		}
+	}
+	if !removed {
+		return webhooks
 	}
 	return pruned
 }

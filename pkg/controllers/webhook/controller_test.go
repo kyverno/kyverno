@@ -259,3 +259,63 @@ func TestReconcileResourceWebhookConfigurations_NoChurnWithoutLegacyEntries(t *t
 		assert.NotEqual(t, "update", action.GetVerb(), "a configuration with nothing to prune must not be written back")
 	}
 }
+
+// TestReconcileResourceMutatingWebhookConfiguration_NoChurnWhenAlreadyEmpty is the regression for
+// the empty-config no-op-update bug: an already-pruned (or never-populated) mutating webhook
+// configuration has Webhooks == nil on the wire (omitempty), but pruneLegacyMutatingWebhooks used
+// to always allocate and return a non-nil empty slice, so reflect.DeepEqual in controllerutils.Update
+// never matched and every reconcile wrote the same empty list back to the API server.
+func TestReconcileResourceMutatingWebhookConfiguration_NoChurnWhenAlreadyEmpty(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	observedMWC := &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{Name: config.MutatingWebhookConfigurationName},
+		Webhooks:   nil,
+	}
+	client := kubefake.NewClientset(observedMWC.DeepCopy())
+	mwcs := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, mwcs.Add(observedMWC))
+	secrets := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, secrets.Add(&corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ca", Namespace: config.KyvernoNamespace()}, Data: map[string][]byte{corev1.TLSCertKey: []byte("ca")}}))
+
+	c := &controller{
+		defaultTimeout: 10, servicePort: 443, caSecretName: "ca", autoUpdateWebhooks: false,
+		configuration:     config.NewDefaultConfiguration(false),
+		mwcClient:         client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+		mwcLister:         admissionregistrationv1listers.NewMutatingWebhookConfigurationLister(mwcs),
+		secretLister:      corev1listers.NewSecretLister(secrets),
+		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+	}
+
+	client.ClearActions()
+	require.NoError(t, c.reconcileResourceMutatingWebhookConfiguration(ctx))
+	for _, action := range client.Actions() {
+		assert.NotEqual(t, "update", action.GetVerb(), "an already-empty mutating webhook configuration must not be rewritten every reconcile")
+	}
+}
+
+// TestPruneLegacyWebhooks_PreservesIdentityWhenNothingMatches is a direct regression for the
+// no-op-update bug: pruning must return the input unchanged, nil included, when nothing matches,
+// rather than allocating a new (possibly non-nil) slice that would compare unequal to nil under
+// reflect.DeepEqual.
+func TestPruneLegacyWebhooks_PreservesIdentityWhenNothingMatches(t *testing.T) {
+	t.Parallel()
+	assert.Nil(t, pruneLegacyWebhooks(nil, config.ValidatingWebhookServicePath))
+	assert.Nil(t, pruneLegacyMutatingWebhooks(nil, config.MutatingWebhookServicePath))
+
+	unrelated := []admissionregistrationv1.ValidatingWebhook{{Name: "user-managed"}}
+	assert.Same(t, &unrelated[0], &pruneLegacyWebhooks(unrelated, config.ValidatingWebhookServicePath)[0],
+		"must return the same backing array when nothing is pruned")
+
+	// The legacy entry sits first, so a naive "copy once we've seen the first match" accumulator
+	// (the actual bug) can mistake "no entries copied yet" for "nothing removed yet" and silently
+	// resurrect the first removed entry.
+	withLeadingLegacy := []admissionregistrationv1.ValidatingWebhook{
+		webhookWithPath("legacy", config.ValidatingWebhookServicePath),
+		{Name: "user-managed"},
+	}
+	pruned := pruneLegacyWebhooks(withLeadingLegacy, config.ValidatingWebhookServicePath)
+	require.Len(t, pruned, 1)
+	assert.Equal(t, "user-managed", pruned[0].Name)
+}
