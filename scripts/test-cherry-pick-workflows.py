@@ -160,9 +160,9 @@ class CherryPickTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.directory = Path(self.temp.name)
-        template = self.directory / ".github/pull_request_template.md"
+        template = self.directory / ".github/PULL_REQUEST_TEMPLATE.md"
         template.parent.mkdir()
-        template.write_text((ROOT / ".github/pull_request_template.md").read_text())
+        template.write_text((ROOT / ".github/PULL_REQUEST_TEMPLATE.md").read_text())
         for command in ("git", "gh"):
             path = self.directory / command
             path.write_text(f"#!{sys.executable}\n{MOCK_COMMAND}")
@@ -488,7 +488,7 @@ class CherryPickTests(unittest.TestCase):
         git("config", "commit.gpgsign", "false")
         git("config", "core.hooksPath", str(self.directory / "no-hooks"))
         (self.directory / ".git/info/exclude").write_text(
-            "/git\n/gh\n/calls\n/outputs\n/summary\n/bodies\n/.github/pull_request_template.md\n/origin.git/\n"
+            "/git\n/gh\n/calls\n/outputs\n/summary\n/bodies\n/.github/PULL_REQUEST_TEMPLATE.md\n/origin.git/\n"
         )
         resource = self.directory / "resource"
         resource.write_bytes(b"base\0\n" if conflict == "binary" else b"base\n")

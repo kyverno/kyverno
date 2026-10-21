@@ -77,7 +77,7 @@ runs:
         cherry_pick_log="$(mktemp)"
         pr_body="$(mktemp)"
         template="$(mktemp)"
-        cp .github/pull_request_template.md "$template"
+        cp .github/PULL_REQUEST_TEMPLATE.md "$template"
         stage="checking target branches"
         finish() {
           status=$?
