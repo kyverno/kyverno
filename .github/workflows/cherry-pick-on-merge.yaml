@@ -140,10 +140,10 @@ jobs:
           target-branches: ${{ join(fromJSON(steps.cherry.outputs.result), ',') }}
           merge-commit: ${{ github.event.pull_request.merge_commit_sha }}
       - name: Report cherry-pick failure
-        if: ${{ failure() && steps.cherry.outcome == 'success' }}
+        if: ${{ failure() && !cancelled() }}
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          FAILURE_STAGE: ${{ steps.normalize-key.outcome == 'failure' && 'private-key validation' || steps.app-token.outcome == 'failure' && 'App token creation' || steps.cherry-pick.outcome == 'failure' && 'cherry-pick, push, or PR creation' || 'workflow setup' }}
+          FAILURE_STAGE: ${{ steps.cherry.outcome == 'failure' && 'target discovery' || steps.normalize-key.outcome == 'failure' && 'private-key validation' || steps.app-token.outcome == 'failure' && 'App token creation' || steps.cherry-pick.outcome == 'failure' && 'cherry-pick, push, or PR creation' || 'workflow setup' }}
         with:
           script: |
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;

@@ -3,9 +3,14 @@ name: Cherry-pick conflict markers
 permissions: {}
 
 on:
-  pull_request_target:
+  # Trusted base code only; read-only token, no secrets, no PR code execution.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
     types: [opened, synchronize, reopened, ready_for_review, edited]
     branches: [main, release-*]
+
+concurrency:
+  group: cherry-pick-conflicts-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   check:
@@ -25,8 +30,13 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          git fetch --no-tags origin "$HEAD_SHA"
+          git fetch --no-tags origin "refs/pull/$PR_NUMBER/head"
+          if [[ "$(git rev-parse FETCH_HEAD)" != "$HEAD_SHA" ]]; then
+            echo "::error::PR head changed; the newer run must check the replacement commit"
+            exit 1
+          fi
           python3 - <<'PY'
           import os
           import re

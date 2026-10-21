@@ -182,6 +182,7 @@ class CherryPickTests(unittest.TestCase):
             "GITHUB_RUN_ID": "1234",
             "GITHUB_STEP_SUMMARY": str(self.directory / "summary"),
             "PR_BODIES": str(self.directory / "bodies"),
+            "PR_NUMBER": "42",
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_NOSYSTEM": "1",
             "GIT_TERMINAL_PROMPT": "0",
@@ -359,6 +360,14 @@ class CherryPickTests(unittest.TestCase):
         result = self.shell(ACTION_STEPS[-1], MISSING_BRANCH="1")
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual([call[1] for call in self.calls()], ["ls-remote"])
+
+    def test_missing_template_is_reported_and_cleans_up(self):
+        (self.directory / ".github/PULL_REQUEST_TEMPLATE.md").unlink()
+        result = self.shell(ACTION_STEPS[-1])
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("success=false", (self.directory / "outputs").read_text())
+        self.assertIn("preparing pull request template", (self.directory / "summary").read_text())
+        self.assertEqual(self.calls(), [])
 
     def test_pr_list_error_does_not_create_pr(self):
         result = self.shell(ACTION_STEPS[-1], API_FAILURE="1")
@@ -588,6 +597,7 @@ class CherryPickTests(unittest.TestCase):
         )
         self.assertIn("resource", manifest)
         guard = CONFLICT_CHECK["jobs"]["check"]["steps"][-1]
+        git("push", "-q", "origin", "HEAD:refs/pull/42/head")
         result = self.shell(
             guard, REAL_GIT="1", BASE_SHA=git("rev-parse", "release-1.19"),
             HEAD_SHA=git("rev-parse", "HEAD"),
@@ -637,6 +647,7 @@ class CherryPickTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         head = git("rev-parse", "cherry-pick-42-release-1.19")
         base = git("rev-parse", "release-1.19")
+        git("push", "-q", "origin", "HEAD:refs/pull/42/head")
         result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=head)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(".github/cherry-pick-conflicts", result.stdout)
@@ -644,6 +655,7 @@ class CherryPickTests(unittest.TestCase):
         git("commit", "-qm", "Remove resolution checklist but leave markers")
         head = git("rev-parse", "HEAD")
         git("push", "-q", "origin", "cherry-pick-42-release-1.19")
+        git("push", "-q", "origin", "HEAD:refs/pull/42/head")
         result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=head)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Unresolved conflict markers", result.stdout)
@@ -651,8 +663,12 @@ class CherryPickTests(unittest.TestCase):
         git("commit", "-qam", "Resolve conflicts")
         head = git("rev-parse", "HEAD")
         git("push", "-q", "origin", "cherry-pick-42-release-1.19")
+        git("push", "-q", "origin", "HEAD:refs/pull/42/head")
         result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=head)
         self.assertEqual(result.returncode, 0, result.stderr)
+        result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=base)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("PR head changed", result.stdout)
 
 
 if __name__ == "__main__":
