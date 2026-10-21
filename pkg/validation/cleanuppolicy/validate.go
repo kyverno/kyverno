@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/auth"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -89,8 +90,9 @@ func validateAuth(ctx context.Context, client dclient.Interface, policy kyvernov
 }
 
 func canI(ctx context.Context, client dclient.Interface, kind, namespace, name, subresource string) error {
-	checker := auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, name, "delete", subresource, config.KyvernoUserName(config.KyvernoServiceAccountName()))
-	allowedDeletion, _, err := checker.RunAccessCheck(ctx)
+	subjectChecker := checker.NewSubjectChecker(client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), config.KyvernoUserName(config.KyvernoServiceAccountName()), nil)
+	checkDeletion := auth.NewCanI(client.Discovery(), subjectChecker, kind, namespace, name, "delete", subresource)
+	allowedDeletion, _, err := checkDeletion.RunAccessCheck(ctx)
 	if err != nil {
 		return err
 	}
@@ -98,8 +100,8 @@ func canI(ctx context.Context, client dclient.Interface, kind, namespace, name, 
 		return fmt.Errorf("cleanup controller has no permission to delete kind %s", kind)
 	}
 
-	checker = auth.NewCanI(client.Discovery(), client.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), kind, namespace, name, "list", subresource, config.KyvernoUserName(config.KyvernoServiceAccountName()))
-	allowedList, _, err := checker.RunAccessCheck(ctx)
+	checkList := auth.NewCanI(client.Discovery(), subjectChecker, kind, namespace, name, "list", subresource)
+	allowedList, _, err := checkList.RunAccessCheck(ctx)
 	if err != nil {
 		return err
 	}

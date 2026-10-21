@@ -40,7 +40,7 @@ func TestNewAuth_DifferentUsers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			auth := NewAuth(nil, tt.user, logr.Discard())
+			auth := NewAuth(nil, tt.user, logr.Discard(), nil)
 
 			assert.NotNil(t, auth)
 			assert.Equal(t, tt.user, auth.user)

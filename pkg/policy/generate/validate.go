@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
+	"github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/variables/regex"
 	"github.com/kyverno/kyverno/pkg/policy/auth"
@@ -26,16 +27,16 @@ type Generate struct {
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger) *Generate {
+func NewGenerateFactory(client dclient.Interface, rule *kyvernov1.Rule, user, reportsSA string, log logr.Logger, authCache *checker.ResultCache) *Generate {
 	var authCheckerReports auth.AuthChecks
 	if reportsSA != "" {
-		authCheckerReports = auth.NewAuth(client, reportsSA, log)
+		authCheckerReports = auth.NewAuth(client, reportsSA, log, authCache)
 	}
 
 	g := Generate{
 		user:               user,
 		rule:               rule,
-		authChecker:        auth.NewAuth(client, user, log),
+		authChecker:        auth.NewAuth(client, user, log, authCache),
 		authCheckerReports: authCheckerReports,
 		log:                log,
 	}

@@ -18,6 +18,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
+	authChecker "github.com/kyverno/kyverno/pkg/auth/checker"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/deprecations/policywarnings"
@@ -233,6 +234,15 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 	rules := autogen.Default.ComputeRules(policy, "")
 	rulesPath := specPath.Child("rules")
 
+	// authCache memoizes authorization results (SubjectAccessReview and
+	// validate.cel self-checks) for this single validation pass, collapsing the
+	// redundant auth checks run per rule and per action.
+	// Only used for live (non-mock) checks; mock paths use fake auth.
+	var authCache *authChecker.ResultCache
+	if !mock {
+		authCache = authChecker.NewResultCache()
+	}
+
 	for i, rule := range rules {
 		match := rule.MatchResources
 		for j, value := range match.Any {
@@ -340,7 +350,7 @@ func Validate(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.Interf
 			}
 		}
 
-		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA)
+		w, err := validateActions(i, &rules[i], client, mock, backgroundSA, reportsSA, authCache)
 		if err != nil {
 			return warnings, err
 		} else if len(w) > 0 {

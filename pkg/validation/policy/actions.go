@@ -26,7 +26,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string) (warnings []string, err error) {
+func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool, backgroundSA, reportsSA string, authCache *authChecker.ResultCache) (warnings []string, err error) {
 	if rule == nil {
 		return nil, nil
 	}
@@ -35,7 +35,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 
 	// Mutate
 	if rule.HasMutate() {
-		checker = mutate.NewMutateFactory(rule, client, mock, backgroundSA, reportsSA)
+		checker = mutate.NewMutateFactory(rule, client, mock, backgroundSA, reportsSA, authCache)
 		if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 			return nil, fmt.Errorf("path: spec.rules[%d].mutate.%s.: %v", idx, path, err)
 		} else if w != nil {
@@ -46,7 +46,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 	// Validate
 	if rule.HasValidate() {
 		if reportsSA != "" {
-			checker = validate.NewValidateFactory(rule, client, mock, reportsSA)
+			checker = validate.NewValidateFactory(rule, client, mock, reportsSA, authCache)
 			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].validate.%s.: %v", idx, path, err)
 			} else if w != nil {
@@ -55,7 +55,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		}
 
 		if client != nil && rule.HasValidateCEL() && toggle.FromContext(context.TODO()).GenerateValidatingAdmissionPolicy() {
-			authCheck := authChecker.NewSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews())
+			authCheck := authChecker.NewCachedSelfChecker(client.GetKubeClient().AuthorizationV1().SelfSubjectAccessReviews(), authCache)
 			if !admissionpolicy.HasValidatingAdmissionPolicyPermission(authCheck) {
 				warnings = append(warnings, "insufficient permissions to generate ValidatingAdmissionPolicies")
 			}
@@ -81,14 +81,14 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 		} else {
 			if rule.Generation.Synchronize {
 				admissionSA := fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName())
-				checker = generate.NewGenerateFactory(client, rule, admissionSA, reportsSA, logging.GlobalLogger())
+				checker = generate.NewGenerateFactory(client, rule, admissionSA, reportsSA, logging.GlobalLogger(), authCache)
 				if w, path, err := checker.Validate(context.TODO(), []string{"list", "get"}); err != nil {
 					return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 				} else if w != nil {
 					warnings = append(warnings, w...)
 				}
 			}
-			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger())
+			checker = generate.NewGenerateFactory(client, rule, backgroundSA, reportsSA, logging.GlobalLogger(), authCache)
 			if w, path, err := checker.Validate(context.TODO(), nil); err != nil {
 				return nil, fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			} else if w != nil {
