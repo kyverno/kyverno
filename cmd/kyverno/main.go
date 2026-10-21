@@ -31,13 +31,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
-	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
-	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
-	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/deprecations"
@@ -50,24 +47,24 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookscelexception "github.com/kyverno/kyverno/pkg/webhooks/celexception"
-	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
-	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -112,28 +109,6 @@ func showWarnings(ctx context.Context, logger logr.Logger) {
 
 func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient, "clusterpolicies.kyverno.io", "policies.kyverno.io")
-}
-
-func createNonLeaderControllers(
-	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	dynamicClient dclient.Interface,
-	policyCache policycache.Cache,
-) ([]internal.Controller, func(context.Context) error) {
-	policyCacheController := policycachecontroller.NewController(
-		dynamicClient,
-		policyCache,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-	)
-	return []internal.Controller{
-			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
-		},
-		func(ctx context.Context) error {
-			if err := policyCacheController.WarmUp(); err != nil {
-				return err
-			}
-			return nil
-		}
 }
 
 func createrLeaderControllers(
@@ -532,7 +507,6 @@ func main() {
 			tlsSecretName,
 			keyAlgorithm,
 		)
-		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)
 		stateRecorder := webhookcontroller.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
@@ -561,17 +535,10 @@ func main() {
 			),
 			globalcontextcontroller.Workers,
 		)
-		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventController := internal.NewController(
 			event.ControllerName,
 			eventGenerator,
 			event.Workers,
-		)
-		// this controller only subscribe to events, nothing is returned...
-		policymetricscontroller.NewController(
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V1().Policies(),
-			&wg,
 		)
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
@@ -600,19 +567,6 @@ func main() {
 			setup.Logger.V(2).Info("policy exceptions are disabled, skipping legacy PolicyException count for kyverno_legacy_policies_total")
 		}
 		legacypolicymetricscontroller.NewController(metrics.GetLegacyPolicyMetrics(), "kyverno.io", legacyPolicyCounters)
-		// log policy changes
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("policy"),
-			"Policy",
-			kyvernoInformer.Kyverno().V1().Policies(),
-			genericloggingcontroller.CheckGeneration,
-		)
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("cluster-policy"),
-			"ClusterPolicy",
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			genericloggingcontroller.CheckGeneration,
-		)
 		runtime := runtimeutils.NewRuntime(
 			setup.Logger.WithName("runtime-checks"),
 			serverIP,
@@ -620,37 +574,10 @@ func main() {
 			certRenewer,
 			informerHealth.Ready,
 		)
-		// engine
-		engine := internal.NewEngine(
-			signalCtx,
-			setup.Logger,
-			setup.Configuration,
-			setup.Jp,
-			setup.KyvernoDynamicClient,
-			setup.ImageVerifyCacheClient,
-			setup.KubeClient,
-			setup.KyvernoClient,
-			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
-			polexCache,
-			gcstore,
-		)
-		// create non leader controllers
-		nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
-			kyvernoInformer,
-			setup.KyvernoDynamicClient,
-			policyCache,
-		)
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
-		}
-		// bootstrap non leader controllers
-		if nonLeaderBootstrap != nil {
-			if err := nonLeaderBootstrap(signalCtx); err != nil {
-				setup.Logger.Error(err, "warning: failed to bootstrap non leader controllers")
-			}
 		}
 		// setup leader election
 		le, err := leaderelection.New(
@@ -882,26 +809,6 @@ func main() {
 			}))
 		}
 
-		resourceHandlers := webhooksresource.NewHandlers(
-			engine,
-			setup.KyvernoDynamicClient,
-			setup.KyvernoClient,
-			setup.Configuration,
-			setup.MetricsManager,
-			policyCache,
-			nsLister,
-			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V1().Policies(),
-			urgen,
-			eventGenerator,
-			admissionReports,
-			backgroundServiceAccountName,
-			reportsServiceAccountName,
-			setup.Jp,
-			maxAuditWorkers,
-			maxAuditCapacity,
-		)
 		voplHandlers := vpol.New(
 			vpolEngine,
 			contextProvider,
@@ -917,10 +824,6 @@ func main() {
 			eventGenerator,
 		)
 		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(), backgroundServiceAccountName)
-		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
-		})
 		mpolHandlers := mpol.New(contextProvider, mpolEngine, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName, eventGenerator)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
@@ -934,21 +837,25 @@ func main() {
 				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
 			},
 			webhooks.ResourceHandlers{
-				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
-				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.MutateClustered),
+				ImageVerificationPoliciesMutation:           webhooks.HandlerFunc(ivpolHandlers.MutateClustered),
 				NamespacedImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.MutateNamespaced),
-				MutatingPolicies:                    webhooks.HandlerFunc(mpolHandlers.MutateClustered),
-				NamespacedMutatingPolicies:          webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
-				Validation:                          webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies:                  webhooks.HandlerFunc(voplHandlers.ValidateClustered),
-				NamespacedValidatingPolicies:        webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
-				ImageVerificationPolicies:           webhooks.HandlerFunc(ivpolHandlers.ValidateClustered),
-				NamespacedImageVerificationPolicies: webhooks.HandlerFunc(ivpolHandlers.ValidateNamespaced),
-				GeneratingPolicies:                  webhooks.HandlerFunc(gpolHandlers.Generate),
-				NamespacedGeneratingPolicies:        webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
+				MutatingPolicies:                            webhooks.HandlerFunc(mpolHandlers.MutateClustered),
+				NamespacedMutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
+				ValidatingPolicies:                          webhooks.HandlerFunc(voplHandlers.ValidateClustered),
+				NamespacedValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
+				ImageVerificationPolicies:                   webhooks.HandlerFunc(ivpolHandlers.ValidateClustered),
+				NamespacedImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.ValidateNamespaced),
+				GeneratingPolicies:                          webhooks.HandlerFunc(gpolHandlers.Generate),
+				NamespacedGeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
 			},
+			// Legacy kyverno.io PolicyException writes are denied one layer up by
+			// handlers.WithLegacyPolicyDenial(); this inner handler only ever sees
+			// requests already allowed through (DELETE, finalizer-removal UPDATE), so it
+			// is success-only, same shape as policyHandlers.Mutate.
 			webhooks.ExceptionHandlers{
-				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
+				Validation: webhooks.HandlerFunc(func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) admissionv1.AdmissionResponse {
+					return admissionutils.ResponseSuccess(request.UID)
+				}),
 			},
 			webhooks.CELExceptionHandlers{
 				Validation: webhooks.HandlerFunc(celExceptionHandlers.Validate),
@@ -991,12 +898,6 @@ func main() {
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
-		if polexController != nil {
-			polexController.Run(signalCtx, setup.Logger, &wg)
-		}
-		for _, controller := range nonLeaderControllers {
-			controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
-		}
 		// start leader election
 		le.Run(signalCtx)
 	}()

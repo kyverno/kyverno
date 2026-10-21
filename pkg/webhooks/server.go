@@ -224,39 +224,6 @@ func NewServer(
 			WithAdmission(resourceLogger.WithName("generate")).
 			ToHandlerFunc("NGPOL"),
 	)
-	registerWebhookHandlersWithAll(
-		mux,
-		"MUTATE",
-		config.MutatingWebhookServicePath,
-		resourceHandlers.Mutation,
-		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
-			return handler.
-				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithRoles(rbLister, crbLister).
-				WithOperationFilter(admissionv1.Create, admissionv1.Update, admissionv1.Connect).
-				WithMetrics(resourceLogger, metrics.WebhookMutating).
-				WithTopLevelGVK(discovery).
-				WithAdmission(resourceLogger.WithName("mutate"))
-		},
-	)
-	registerWebhookHandlersWithAll(
-		mux,
-		"VALIDATE",
-		config.ValidatingWebhookServicePath,
-		resourceHandlers.Validation,
-		func(handler handlers.AdmissionHandler) handlers.HttpHandler {
-			return handler.
-				WithFilter(configuration).
-				WithProtection(toggle.FromContext(ctx).ProtectManagedResources()).
-				WithDump(debugModeOpts.DumpPayload).
-				WithRoles(rbLister, crbLister).
-				WithMetrics(resourceLogger, metrics.WebhookValidating).
-				WithTopLevelGVK(discovery).
-				WithAdmission(resourceLogger.WithName("validate"))
-		},
-	)
 	mux.HandlerFunc(
 		"POST",
 		config.PolicyMutatingWebhookServicePath,
@@ -411,33 +378,6 @@ func (s *server) cleanup(ctx context.Context) {
 		deleteVwc()
 		deleteMwc()
 	}
-}
-
-func registerWebhookHandlers(
-	mux *httprouter.Router,
-	name string,
-	basePath string,
-	handler Handler,
-	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
-) {
-	ignore := handlerFunc(name, handler, "ignore")
-	fail := handlerFunc(name, handler, "fail")
-	mux.HandlerFunc("POST", basePath+"/ignore", builder(ignore).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/fail", builder(fail).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/ignore"+config.FineGrainedWebhookPath+"/*policy", builder(ignore).ToHandlerFunc(name))
-	mux.HandlerFunc("POST", basePath+"/fail"+config.FineGrainedWebhookPath+"/*policy", builder(fail).ToHandlerFunc(name))
-}
-
-func registerWebhookHandlersWithAll(
-	mux *httprouter.Router,
-	name string,
-	basePath string,
-	handler Handler,
-	builder func(handler handlers.AdmissionHandler) handlers.HttpHandler,
-) {
-	all := handlerFunc(name, handler, "all")
-	mux.HandlerFunc("POST", basePath, builder(all).ToHandlerFunc(name))
-	registerWebhookHandlers(mux, name, basePath, handler, builder)
 }
 
 func handlerFunc(name string, handler Handler, failurePolicy string) handlers.AdmissionHandler {

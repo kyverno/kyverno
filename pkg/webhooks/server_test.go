@@ -153,7 +153,6 @@ func TestNewServer(t *testing.T) {
 		ValidatingPolicies: dummyHandler, NamespacedValidatingPolicies: dummyHandler,
 		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
 		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
-		Mutation: dummyHandler, Validation: dummyHandler,
 	}
 	eHandlers := ExceptionHandlers{Validation: dummyHandler}
 	celHandlers := CELExceptionHandlers{Validation: dummyHandler}
@@ -201,7 +200,6 @@ func buildTestServerWithContext(t *testing.T, ctx context.Context, backgroundSer
 		GeneratingPolicies: dummyHandler, NamespacedGeneratingPolicies: dummyHandler,
 		ImageVerificationPolicies: dummyHandler, ImageVerificationPoliciesMutation: dummyHandler,
 		NamespacedImageVerificationPolicies: dummyHandler, NamespacedImageVerificationPoliciesMutation: dummyHandler,
-		Mutation: dummyHandler, Validation: dummyHandler,
 	}
 	eHandlers := ExceptionHandlers{Validation: dummyHandler}
 	celHandlers := CELExceptionHandlers{Validation: dummyHandler}
