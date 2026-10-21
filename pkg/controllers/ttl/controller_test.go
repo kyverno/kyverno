@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/metadata"
 	metafake "k8s.io/client-go/metadata/fake"
 	k8stesting "k8s.io/client-go/testing"
@@ -111,6 +112,8 @@ func newDeleteErrorTestController(t *testing.T) (*controller, *captureQueue, str
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "test-cm",
 			Namespace:         "default",
+			UID:               types.UID("test-cm-uid"),
+			ResourceVersion:   "10",
 			CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
 			Labels: map[string]string{
 				kyverno.LabelCleanupTtl: "1h",
@@ -241,11 +244,13 @@ type mockResourceInterface struct {
 	deleteCalled bool
 	deletedName  string
 	deleteErr    error
+	deleteOptions metav1.DeleteOptions
 }
 
 func (m *mockResourceInterface) Delete(ctx context.Context, name string, opts metav1.DeleteOptions, subresources ...string) error {
 	m.deleteCalled = true
 	m.deletedName = name
+	m.deleteOptions = opts
 	return m.deleteErr
 }
 
@@ -369,6 +374,8 @@ func TestReconcileMetrics(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              "test-resource",
 					Namespace:         "test-namespace",
+					UID:               types.UID("test-resource-uid"),
+					ResourceVersion:   "10",
 					CreationTimestamp: metav1.NewTime(tc.creationTime),
 					Labels: map[string]string{
 						kyverno.LabelCleanupTtl: tc.ttlValue,
@@ -420,4 +427,116 @@ func TestReconcileMetrics(t *testing.T) {
 			}
 		})
 	}
+}
+
+
+func TestReconcileExpiredTTLDeletePreconditions(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		namespace   string
+		annotations map[string]string
+		propagation *metav1.DeletionPropagation
+	}{
+		{name: "namespaced", namespace: "tenant"},
+		{name: "cluster-scoped"},
+		{
+			name: "preserves propagation policy", namespace: "tenant",
+			annotations: map[string]string{
+				kyverno.AnnotationCleanupPropagationPolicy: "Foreground",
+			},
+			propagation: ptr.To(metav1.DeletePropagationForeground),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cached := &metav1.PartialObjectMetadata{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "job-config", Namespace: tc.namespace,
+					UID: types.UID("old-uid"), ResourceVersion: "100",
+					CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+					Labels: map[string]string{kyverno.LabelCleanupTtl: "1h"},
+					Annotations: tc.annotations,
+				},
+			}
+			res := &mockResourceInterface{}
+			queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: "ttl-preconditions-test"})
+			defer queue.ShutDown()
+			c := &controller{
+				client: &mockMetadataGetter{resource: res},
+				lister: &mockLister{obj: cached},
+				queue: queue,
+			}
+			key, err := cache.MetaNamespaceKeyFunc(cached)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := c.reconcile(context.Background(), logr.Discard(), key, "", ""); err != nil {
+				t.Fatal(err)
+			}
+			if !res.deleteCalled || res.deletedName != cached.Name {
+				t.Fatalf("expected deletion for %q, got called=%v name=%q", key, res.deleteCalled, res.deletedName)
+			}
+			got := res.deleteOptions.Preconditions
+			if got == nil || got.UID == nil || *got.UID != cached.UID ||
+				got.ResourceVersion == nil || *got.ResourceVersion != cached.ResourceVersion {
+				t.Fatalf("DELETE not bound to cached identity and revision: %+v", got)
+			}
+			assert.Equal(t, tc.propagation, res.deleteOptions.PropagationPolicy)
+		})
+	}
+}
+
+func TestReconcileExpiredTTLRefusesMissingUID(t *testing.T) {
+	cached := &metav1.PartialObjectMetadata{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "job-config", Namespace: "tenant",
+			CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+			Labels: map[string]string{kyverno.LabelCleanupTtl: "1h"},
+		},
+	}
+	res := &mockResourceInterface{}
+	metrics := &mockMetrics{}
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: "ttl-preconditions-test"})
+	defer queue.ShutDown()
+	c := &controller{
+		client: &mockMetadataGetter{resource: res},
+		lister: &mockLister{obj: cached},
+		queue: queue,
+		metrics: metrics,
+	}
+	err := c.reconcile(context.Background(), logr.Discard(), "tenant/job-config", "", "")
+	assert.ErrorContains(t, err, "missing resource UID")
+	assert.False(t, res.deleteCalled, "a missing UID must never permit unconditional deletion")
+	assert.Equal(t, 0, metrics.deletedCount)
+	assert.Equal(t, 1, metrics.failureCount)
+}
+
+func TestReconcileExpiredTTLDeleteConflictPreservesFailureAccounting(t *testing.T) {
+	cached := &metav1.PartialObjectMetadata{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "job-config", Namespace: "tenant",
+			UID: types.UID("old-uid"), ResourceVersion: "100",
+			CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+			Labels: map[string]string{kyverno.LabelCleanupTtl: "1h"},
+		},
+	}
+	res := &mockResourceInterface{
+		deleteErr: apierrors.NewConflict(
+			schema.GroupResource{Resource: "configmaps"}, cached.Name,
+			fmt.Errorf("resource UID changed"),
+		),
+	}
+	metrics := &mockMetrics{}
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(workqueue.DefaultTypedControllerRateLimiter[any](), workqueue.TypedRateLimitingQueueConfig[any]{Name: "ttl-preconditions-test"})
+	defer queue.ShutDown()
+	c := &controller{
+		client: &mockMetadataGetter{resource: res},
+		lister: &mockLister{obj: cached},
+		queue: queue, metrics: metrics,
+	}
+	err := c.reconcile(context.Background(), logr.Discard(), "tenant/job-config", "", "")
+	assert.True(t, apierrors.IsConflict(err))
+	assert.True(t, res.deleteCalled)
+	assert.NotNil(t, res.deleteOptions.Preconditions)
+	assert.Equal(t, 0, metrics.deletedCount, "a rejected DELETE is not a successful cleanup")
+	assert.Equal(t, 1, metrics.failureCount)
 }
