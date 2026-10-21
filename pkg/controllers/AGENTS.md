@@ -2,8 +2,7 @@
 
 Reconciler layer wiring the engine/webhooks/background packages into controller-runtime-style loops. See
 [docs/dev/controllers/README.md](../../docs/dev/controllers/README.md) for the original controller list (has two
-confirmed-stale rows, noted below) and [pkg/controllers/policycache.md](../../docs/dev/controllers/policycache.md)
-for a per-controller-doc example.
+confirmed-stale rows, noted below).
 
 ## Shared pattern every controller follows
 
@@ -34,7 +33,6 @@ leader-elected = created before/outside that block, so it runs on every replica.
 | `globalcontext` | `GlobalContextEntry`/`ClusterGlobalContextEntry` → in-memory cache store for CEL/JMESPath external lookups | **No** — created/run before/outside the leader-election block in all four binaries that use it (`kyverno`, background, cleanup, reports controllers; in `cmd/kyverno/main.go` it's explicitly under the "start non leader controllers" comment) |
 | `metrics/policy` | Updates policy Prometheus metrics from CRD events only — its own code comment calls it "a strange controller, it only processes events" | No (event-driven, no queue) |
 | `metrics/updaterequest` | Updates `UpdateRequest` count/status metrics from informer events | No (event-driven, no queue) |
-| `policycache` | Keeps an up-to-date in-memory policy cache for webhook-time lookups | **No** — explicitly started before leader election in `cmd/kyverno` |
 | `policystatus` | Aggregates and writes `.status` for CEL policy kinds | Yes |
 | `report/aggregate` | Aggregates intermediary Admission/BackgroundScan reports into final `PolicyReport`/`ClusterPolicyReport`; uses two separate queues (front/back) | Yes |
 | `report/background` | Periodic background policy scans producing `BackgroundScanReport`/`ClusterBackgroundScanReport` | Yes |
