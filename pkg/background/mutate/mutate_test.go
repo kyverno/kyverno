@@ -209,7 +209,7 @@ func TestApplyMutations_ConflictIsReturnedSeparately(t *testing.T) {
 	client, updates := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
 	c := &mutateExistingController{client: client}
 
-	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a), nil)
+	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a), nil, nil)
 
 	assert.True(t, apierrors.IsConflict(conflict))
 	assert.Len(t, conflicted, 1, "the conflicting target is handed back for a retry")
@@ -226,7 +226,7 @@ func TestApplyMutations_SkipsSettledTargets(t *testing.T) {
 	c := &mutateExistingController{client: client}
 
 	only := targetKeys([]targetMutation{{target: b}})
-	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a, b), only)
+	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a, b), only, nil)
 
 	assert.NoError(t, conflict)
 	assert.Empty(t, errs)
@@ -243,7 +243,7 @@ func TestApplyMutations_NonConflictErrorIsCollected(t *testing.T) {
 	client, updates := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, apierrors.NewInternalError(errors.New("boom")))
 	c := &mutateExistingController{client: client}
 
-	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a), nil)
+	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a), nil, nil)
 
 	assert.NoError(t, conflict, "only conflicts are retryable")
 	assert.Empty(t, conflicted)
@@ -260,7 +260,7 @@ func TestApplyMutations_SuccessIsReportedOnce(t *testing.T) {
 	client, updates := newTargetClient([]*unstructured.Unstructured{a}, nil, nil)
 	c := &mutateExistingController{client: client}
 
-	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a), nil)
+	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a), nil, nil)
 
 	assert.NoError(t, conflict)
 	assert.Empty(t, errs)
@@ -360,19 +360,67 @@ func TestMutateWithRetry_TargetLoadErrorOnRetryIsTerminal(t *testing.T) {
 	assert.ErrorContains(t, multierr.Combine(errs...), "failed to load targets", "the target-load error must fail the update request")
 }
 
-// A conflicted target that drops out of the recomputed response keeps its conflict as a terminal failure.
-func TestMutateWithRetry_VanishedTargetKeepsItsConflict(t *testing.T) {
+// ruleResponse builds an engine response from rule responses that carry no patched target.
+func ruleResponse(rules ...*engineapi.RuleResponse) engineapi.EngineResponse {
+	var pr engineapi.PolicyResponse
+	for _, rule := range rules {
+		pr.Add(engineapi.ExecutionStats{}, *rule)
+	}
+	return engineapi.EngineResponse{}.WithPolicyResponse(pr)
+}
+
+// When the other writer already applied the same patch, the recompute skips the target; that settles it rather than failing it.
+func TestMutateWithRetry_SkipOnRetrySettlesTheTarget(t *testing.T) {
 	t.Parallel()
 
 	a := configMap("a")
-	client, _ := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
-	empty := engineapi.EngineResponse{}
-	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(a), retryResponse: &empty}}
+	client, updates := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
+	retryResponse := ruleResponse(engineapi.RuleSkip("register", engineapi.Mutation, "no patches applied", nil))
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(a), retryResponse: &retryResponse}}
 
 	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
 
 	assert.NoError(t, err)
-	assert.Len(t, errs, 1)
-	assert.True(t, apierrors.IsConflict(errs[0]))
-	assert.Len(t, reports, 1)
+	assert.Empty(t, errs, "an already-applied mutation is not a failure")
+	assert.Empty(t, reports)
+	assert.Equal(t, 1, updates["a"])
+}
+
+// A rule-wide failure the engine repeats on every attempt is reported once, not once per conflict retry.
+func TestMutateWithRetry_RuleWideFailureIsReportedOnce(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, updates := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
+	response := mutationResponse(a)
+	response.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleError("register", engineapi.Mutation, "failed to load targets", errors.New("forbidden"), nil))
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: response}}
+
+	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, errs, 1, "the repeated rule-wide failure is collected once")
+	assert.ErrorContains(t, errs[0], "failed to load targets")
+	assert.Len(t, reports, 2, "one failure report and one success report")
+	assert.Equal(t, 2, updates["a"])
+}
+
+// A retry that hits a second instance of an already-collected failure still reports the new one.
+func TestMutateWithRetry_NewInstanceOfARuleWideFailureIsReported(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, _ := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
+	failure := func() *engineapi.RuleResponse {
+		return engineapi.RuleError("register", engineapi.Mutation, "failed to load context", errors.New("boom"), nil)
+	}
+	response := mutationResponse(a)
+	response.PolicyResponse.Add(engineapi.ExecutionStats{}, *failure())
+	retryResponse := ruleResponse(failure(), failure())
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: response, retryResponse: &retryResponse}}
+
+	_, _, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Len(t, errs, 2, "the conflicted target's own failure on retry is not mistaken for the earlier one")
 }

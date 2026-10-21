@@ -193,19 +193,13 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName string, policyContext engineapi.PolicyContext) (er engineapi.EngineResponse, reports []targetMutation, errs []error, conflictErr error) {
 	var pending map[string]struct{}
 	var conflicted []targetMutation
+	ruleWide := map[string]int{}
 	conflictErr = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		er = c.engine.Mutate(context.TODO(), policyContext)
-		settled, settledErrs, toRetry, err := c.applyMutations(logger, ruleName, er, pending)
+		// A conflicted target missing from the recomputed response is settled: it now skips, is gone, or failed with a rule-wide error collected below.
+		settled, settledErrs, toRetry, err := c.applyMutations(logger, ruleName, er, pending, ruleWide)
 		reports = append(reports, settled...)
 		errs = append(errs, settledErrs...)
-		// A conflicted target missing from the recomputed response would otherwise vanish; keep its conflict as terminal.
-		seen := targetKeys(append(settled[:len(settled):len(settled)], toRetry...))
-		for _, m := range conflicted {
-			if _, ok := seen[targetKey(m.target, m.subresource)]; !ok {
-				reports = append(reports, m)
-				errs = append(errs, m.err)
-			}
-		}
 		conflicted, pending = toRetry, targetKeys(toRetry)
 		return err
 	})
@@ -224,17 +218,26 @@ type targetMutation struct {
 	subresource string
 }
 
-// applyMutations applies er to its targets, skipping those outside only when set, and returns conflicting targets separately for a retry.
-func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName string, er engineapi.EngineResponse, only map[string]struct{}) (reports []targetMutation, errs []error, conflicted []targetMutation, conflict error) {
+// applyMutations applies er to its targets, skipping those outside only; conflicts come back for a retry, and ruleWide dedupes target-less failures across attempts.
+func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName string, er engineapi.EngineResponse, only map[string]struct{}, ruleWide map[string]int) (reports []targetMutation, errs []error, conflicted []targetMutation, conflict error) {
+	attempt := map[string]int{}
 	for _, r := range er.PolicyResponse.Rules {
 		patched, parentGVR, patchedSubresource := r.PatchedTarget()
-		if only != nil {
+		if s := r.Status(); patched == nil && (s == engineapi.RuleStatusFail || s == engineapi.RuleStatusError || s == engineapi.RuleStatusWarn) {
+			// The engine recomputes these on every attempt, and one can belong to a conflicted target, so count rather than drop them on a retry.
+			key := strings.Join([]string{r.Name(), string(s), r.Message()}, "/")
+			attempt[key]++
+			if attempt[key] <= ruleWide[key] {
+				continue
+			}
+			if ruleWide != nil {
+				ruleWide[key] = attempt[key]
+			}
+		} else if only != nil {
 			if patched == nil {
-				// A retry that fails to load a conflicted target has no patched target; it is still a terminal failure.
-				if s := r.Status(); s != engineapi.RuleStatusFail && s != engineapi.RuleStatusError && s != engineapi.RuleStatusWarn {
-					continue
-				}
-			} else if _, ok := only[targetKey(patched, patchedSubresource)]; !ok {
+				continue
+			}
+			if _, ok := only[targetKey(patched, patchedSubresource)]; !ok {
 				continue
 			}
 		}
