@@ -26,13 +26,13 @@
   {{- fail "Kyverno cannot be installed in namespace kube-system." -}}
 {{- end -}}
 
-{{- if hasKey .Values.features "blockLegacyPolicyAPIs" -}}
+{{- if or (hasKey .Values.features "blockLegacyPolicyAPIs") (hasKey .Values.admissionController.featuresOverride "blockLegacyPolicyAPIs") (hasKey .Values.cleanupController.featuresOverride "blockLegacyPolicyAPIs") -}}
   {{- fail (join "\n" (list
     ""
     ""
     "  +--------------------------------------------------------------------------------------------------------------------------------------+"
-    "  | features.blockLegacyPolicyAPIs was removed in 1.20: legacy kyverno.io policies are never executed; see"
-    "  | upgrade.acknowledgeLegacyPoliciesNotEnforced"
+    "  | features.blockLegacyPolicyAPIs (and admissionController/cleanupController featuresOverride.blockLegacyPolicyAPIs) was removed in 1.20:"
+    "  | legacy kyverno.io policies are never executed; see upgrade.acknowledgeLegacyPoliciesNotEnforced"
     "  +--------------------------------------------------------------------------------------------------------------------------------------+"
     ""
     ))

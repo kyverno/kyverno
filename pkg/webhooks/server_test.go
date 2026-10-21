@@ -541,3 +541,51 @@ func TestServerLegacyPolicyDenial(t *testing.T) {
 		})
 	}
 }
+
+// TestServerLegacyCompatRoutes proves every 1.19 path shape under /validate and /mutate still gets
+// a 200/allowed response instead of a 404, so a stale webhook configuration persisted from before
+// #17710 doesn't turn into a cluster-wide write denial on a failurePolicy: Fail webhook. The
+// negative control proves the test would actually catch a missing route.
+func TestServerLegacyCompatRoutes(t *testing.T) {
+	t.Parallel()
+	router := buildTestServer(t, "")
+
+	for _, base := range []string{config.ValidatingWebhookServicePath, config.MutatingWebhookServicePath} {
+		for _, path := range []string{
+			base,
+			base + "/ignore",
+			base + "/fail",
+			base + "/ignore" + config.FineGrainedWebhookPath + "/ns/name",
+			base + "/fail" + config.FineGrainedWebhookPath + "/ns/name",
+		} {
+			t.Run(path, func(t *testing.T) {
+				t.Parallel()
+				request := &admissionv1.AdmissionRequest{
+					UID:       "legacy-compat",
+					Operation: admissionv1.Create,
+					Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+					Object:    runtime.RawExtension{Raw: []byte(`{"metadata":{"name":"pod"}}`)},
+				}
+				body, err := json.Marshal(admissionv1.AdmissionReview{TypeMeta: metav1.TypeMeta{APIVersion: "admission.k8s.io/v1", Kind: "AdmissionReview"}, Request: request})
+				require.NoError(t, err)
+				httpRequest := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+				httpRequest.Header.Set("Content-Type", "application/json")
+				response := httptest.NewRecorder()
+				router.ServeHTTP(response, httpRequest)
+				require.Equalf(t, http.StatusOK, response.Code, "POST %s must not 404: a stale 1.19 webhook configuration with failurePolicy Fail would deny every matching write", path)
+				var review admissionv1.AdmissionReview
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &review))
+				require.NotNil(t, review.Response)
+				assert.Equal(t, request.UID, review.Response.UID)
+				assert.True(t, review.Response.Allowed)
+			})
+		}
+	}
+
+	// Negative control: an unregistered path under the same base must still 404, proving the
+	// compat routes above are specific registrations, not a catch-all that would swallow this test.
+	httpRequest := httptest.NewRequest(http.MethodPost, config.ValidatingWebhookServicePath+"/not-a-real-shape/extra/segments", bytes.NewReader([]byte("{}")))
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httpRequest)
+	assert.Equal(t, http.StatusNotFound, response.Code)
+}
