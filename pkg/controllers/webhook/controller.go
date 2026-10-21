@@ -233,6 +233,9 @@ func NewController(
 		stateRecorder:             stateRecorder,
 		celExpressionCache:        NewExpressionCache(),
 	}
+	if !autoUpdateWebhooks {
+		logger.Info("autoUpdateWebhooks is disabled: CEL policy webhooks require either autoUpdateWebhooks=true or an externally managed webhook configuration")
+	}
 	// Set up the CRD change callback
 	c.discoveryClient.OnChanged(c.OnCRDChange)
 	if _, _, err := controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue); err != nil {
@@ -516,6 +519,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	if !autoUpdateWebhooks {
 		if desired.Name == config.ValidatingWebhookConfigurationName {
 			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+				w.Webhooks = pruneLegacyWebhooks(w.Webhooks, config.ValidatingWebhookServicePath)
 				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
 				return nil
 			})
@@ -551,7 +555,11 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 		return err
 	}
 	if !autoUpdateWebhooks {
-		return nil
+		_, err := controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
+			w.Webhooks = pruneLegacyMutatingWebhooks(w.Webhooks, config.MutatingWebhookServicePath)
+			return nil
+		})
+		return err
 	}
 	_, err = controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
@@ -561,6 +569,41 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 		return nil
 	})
 	return err
+}
+
+// pruneLegacyWebhooks drops any validating webhook whose service path is servicePath or a servicePath/...
+// subpath. Used in the autoUpdateWebhooks=false branches, where a webhook configuration persisted by 1.19
+// (or managed externally) may still carry the removed legacy resource admission entries; matching by path
+// rather than name because operators own webhook names in this mode.
+func pruneLegacyWebhooks(webhooks []admissionregistrationv1.ValidatingWebhook, servicePath string) []admissionregistrationv1.ValidatingWebhook {
+	pruned := webhooks[:0:0]
+	for _, w := range webhooks {
+		if isLegacyWebhookPath(w.ClientConfig.Service, servicePath) {
+			continue
+		}
+		pruned = append(pruned, w)
+	}
+	return pruned
+}
+
+// pruneLegacyMutatingWebhooks is pruneLegacyWebhooks for MutatingWebhook; see that function's comment.
+func pruneLegacyMutatingWebhooks(webhooks []admissionregistrationv1.MutatingWebhook, servicePath string) []admissionregistrationv1.MutatingWebhook {
+	pruned := webhooks[:0:0]
+	for _, w := range webhooks {
+		if isLegacyWebhookPath(w.ClientConfig.Service, servicePath) {
+			continue
+		}
+		pruned = append(pruned, w)
+	}
+	return pruned
+}
+
+func isLegacyWebhookPath(service *admissionregistrationv1.ServiceReference, servicePath string) bool {
+	if service == nil || service.Path == nil {
+		return false
+	}
+	path := *service.Path
+	return path == servicePath || strings.HasPrefix(path, servicePath+"/")
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
