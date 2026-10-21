@@ -391,14 +391,14 @@ func TestMutateWithRetry_SkipOnRetrySettlesTheTarget(t *testing.T) {
 	assert.Equal(t, 1, updates["a"])
 }
 
-// A rule-wide failure the engine repeats on every attempt is reported once, not once per conflict retry.
+// The engine runs every rule of the policy, so another rule's failure repeats on each retry; it is reported once.
 func TestMutateWithRetry_RuleWideFailureIsReportedOnce(t *testing.T) {
 	t.Parallel()
 
 	a := configMap("a")
 	client, updates := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
 	response := mutationResponse(a)
-	response.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleError("register", engineapi.Mutation, "failed to load targets", errors.New("forbidden"), nil))
+	response.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleError("other", engineapi.Mutation, "failed to load targets", errors.New("forbidden"), nil))
 	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: response}}
 
 	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
@@ -506,6 +506,44 @@ func TestMutateWithRetry_DuplicateOnRetryKeepsTheConflict(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, updates["a"], "an ambiguous retry is not applied")
 	assert.Len(t, reports, 1)
+	assert.Len(t, errs, 1)
+	assert.True(t, apierrors.IsConflict(errs[0]))
+}
+
+// A rule with a response that names no target may hide a duplicate entry for the conflicted object, so its conflict is not retried.
+func TestMutateWithRetry_RuleWithATargetlessResponseIsNotRetried(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, updates := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
+	response := mutationResponse(a)
+	response.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleSkip("register", engineapi.Mutation, "preconditions not met", nil))
+	engine := &mutatingEngine{response: response}
+	c := &mutateExistingController{client: client, engine: engine}
+
+	_, _, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, engine.calls)
+	assert.Equal(t, 1, updates["a"])
+	assert.Len(t, errs, 1)
+	assert.True(t, apierrors.IsConflict(errs[0]), "the conflict is terminal, as before retries existed")
+}
+
+// A conflicted response whose rule turns target-less responses on the recompute is not applied; its conflict stays terminal.
+func TestMutateWithRetry_TargetlessResponseOnRetryKeepsTheConflict(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, updates := newTargetClient([]*unstructured.Unstructured{a}, map[string]int{"a": 1}, conflictErr("a"))
+	retryResponse := mutationResponse(a)
+	retryResponse.PolicyResponse.Add(engineapi.ExecutionStats{}, *engineapi.RuleSkip("register", engineapi.Mutation, "no patches applied", nil))
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(a), retryResponse: &retryResponse}}
+
+	_, _, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 1, updates["a"], "the pass may come from another entry for the same object")
 	assert.Len(t, errs, 1)
 	assert.True(t, apierrors.IsConflict(errs[0]))
 }

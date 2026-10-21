@@ -196,10 +196,10 @@ func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName 
 	ruleWide := map[string]int{}
 	conflictErr = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		er = c.engine.Mutate(context.TODO(), policyContext)
-		// A conflicted response that now shares its object with another response of the rule is ambiguous to retry, so its conflict stays terminal.
-		counts := responseCounts(er)
+		// A conflicted response the recompute cannot single out (a duplicate, or a rule with target-less responses) stays a terminal conflict.
+		counts, opaque := responseCounts(er)
 		for _, m := range conflicted {
-			if counts[m.id] > 1 {
+			if counts[m.id] > 1 || (counts[m.id] == 1 && opaque[m.rule]) {
 				reports = append(reports, m)
 				errs = append(errs, m.err)
 				delete(pending, m.id)
@@ -223,6 +223,7 @@ func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName 
 // targetMutation is one target's outcome, held until the retry settles so a retried attempt does not emit duplicate events.
 type targetMutation struct {
 	id          string
+	rule        string
 	err         error
 	target      *unstructured.Unstructured
 	subresource string
@@ -231,7 +232,7 @@ type targetMutation struct {
 // applyMutations applies er to its targets, skipping those outside only when set; conflicts come back for a retry, and ruleWide dedupes target-less failures across attempts.
 func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName string, er engineapi.EngineResponse, only map[string]struct{}, ruleWide map[string]int) (reports []targetMutation, errs []error, conflicted []targetMutation, conflict error) {
 	attempt := map[string]int{}
-	total := responseCounts(er)
+	total, opaque := responseCounts(er)
 	for _, r := range er.PolicyResponse.Rules {
 		patched, parentGVR, patchedSubresource := r.PatchedTarget()
 		id := responseID(r.Name(), patched, patchedSubresource)
@@ -290,11 +291,11 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 				_, updateErr = c.client.UpdateResource(context.TODO(), patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
 			}
 
-			// Several responses of one rule to the same object cannot be told apart across attempts, so only a sole response is retried.
-			if apierrors.IsConflict(updateErr) && total[id] == 1 {
+			// Responses carry no target-entry identity, so only a response provably alone for its rule and object is retried.
+			if apierrors.IsConflict(updateErr) && total[id] == 1 && !opaque[r.Name()] {
 				logger.WithName(ruleName).V(3).Info("conflict updating target resource, recomputing the mutation and retrying",
 					"namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-				conflicted = append(conflicted, targetMutation{id: id, err: updateErr, target: patched, subresource: patchedSubresource})
+				conflicted = append(conflicted, targetMutation{id: id, rule: r.Name(), err: updateErr, target: patched, subresource: patchedSubresource})
 				if conflict == nil {
 					conflict = updateErr
 				}
@@ -329,15 +330,17 @@ func mutationIDs(mutations []targetMutation) map[string]struct{} {
 	return ids
 }
 
-// responseCounts counts the responses that patched each rule and target.
-func responseCounts(er engineapi.EngineResponse) map[string]int {
-	counts := map[string]int{}
+// responseCounts counts the responses that patched each rule and target, and marks the rules with a response that names no target, whose counts may be incomplete.
+func responseCounts(er engineapi.EngineResponse) (counts map[string]int, opaque map[string]bool) {
+	counts, opaque = map[string]int{}, map[string]bool{}
 	for _, r := range er.PolicyResponse.Rules {
 		if patched, _, subresource := r.PatchedTarget(); patched != nil {
 			counts[responseID(r.Name(), patched, subresource)]++
+		} else {
+			opaque[r.Name()] = true
 		}
 	}
-	return counts
+	return counts, opaque
 }
 
 func (c *mutateExistingController) getPolicy(ur *kyvernov2.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {
