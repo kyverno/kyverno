@@ -522,3 +522,60 @@ spam:
 merge-conflicts:
   color: E65100
   description: PR has merge conflicts
+
+# ── E2E gate (.github/workflows/e2e-gate.yaml) ───────────────────────────────
+e2e-failure:
+  color: B60205
+  description: Post-merge tests are failing on a branch; the E2E gate blocks PRs to it
+
+e2e-gate-bypass:
+  color: FBCA04
+  description: Lets this PR through the E2E gate, e.g. the PR that fixes the branch
+
+# Applied by .coderabbit.yaml's reviews.slop_detection.
+ai-generated:
+  color: 8B5CF6
+  description: Flagged by CodeRabbit's slop detection as likely low-quality AI-generated content
+
+# Applied and removed automatically by .github/workflows/pr-readiness-check.yaml.
+needs-author-action:
+  color: B60205
+  description: Failing DCO or CI, a merge conflict, or unresolved review threads on this PR
+
+# Applied and removed automatically by pr-readiness-check.yaml (human PRs) and dependabot-merge-triage.yaml
+# (Dependabot PRs).
+ready-for-review:
+  color: 0E8A16
+  description: Everything's clean — DCO, CI, conflicts, and (for human PRs) review threads
+
+# Applied and removed automatically by pr-readiness-check.yaml.
+workflow-approval-required:
+  color: FBCA04
+  description: This PR's workflows are waiting for a maintainer's approval to run
+
+# Applied automatically by pr-readiness-check.yaml during its sweep, never removed. Purely informational —
+# marks a PR as closing an open "Kyverno Release ..." milestone issue.
+milestone-pr:
+  color: "0075ca"
+  description: Closes an open Kyverno Release milestone issue
+
+# Applied and removed automatically by dependabot-merge-triage.yaml
+needs-review:
+  color: FBCA04
+  description: Not safe to auto-merge — failing CI, a conflict, or Copilot didn't recommend approval
+
+# Applied automatically by dependabot-merge-triage.yaml. Purely informational (a permanent fact about the bump,
+# never removed) — always paired with needs-review.
+major-bump:
+  color: "5319E7"
+  description: A major-semver Dependabot bump — needs a human to check for breaking changes
+
+# Managed by pr-stale-author-action.yaml; don't set by hand.
+stale:
+  color: CFD3D7
+  description: Waiting on the author with no new commit for 14 days
+
+# Set by a maintainer. Exempts a PR from pr-stale-author-action.yaml (no stale label, no review nudge).
+no-stale:
+  color: C2E0C6
+  description: Exempt from the stale-author and idle-review reminders

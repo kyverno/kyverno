@@ -10,15 +10,14 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-func policyWithVerifications(required *bool, recorded map[string]bool) *compiledPolicy {
+func policyWithVerifications(required *bool, recorded map[string]bool) (*compiledPolicy, *imageverify.ImageVerificationResults) {
 	verifications := imageverify.NewImageVerificationResults()
 	for image, ok := range recorded {
 		verifications.Record(image, ok)
 	}
 	return &compiledPolicy{
 		validationConfig: policiesv1alpha1.ValidationConfiguration{Required: required},
-		verifications:    verifications,
-	}
+	}, verifications
 }
 
 // The whole point of required: a policy can pass all of its CEL expressions
@@ -26,9 +25,9 @@ func policyWithVerifications(required *bool, recorded map[string]bool) *compiled
 // expression is a constant or tolerates a zero verification count.
 func TestEnforceRequired_DeniesImageThatWasNeverChecked(t *testing.T) {
 	t.Parallel()
-	c := policyWithVerifications(nil, nil)
+	c, verifications := policyWithVerifications(nil, nil)
 
-	err := c.EnforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"})
+	err := c.EnforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"}, verifications)
 
 	require.Error(t, err, "required defaults to true, so an unchecked image must be rejected")
 	assert.Contains(t, err.Error(), "ghcr.io/kyverno/test-verify-image:signed")
@@ -38,9 +37,9 @@ func TestEnforceRequired_DeniesImageThatWasNeverChecked(t *testing.T) {
 func TestEnforceRequired_DeniesImageThatFailedVerification(t *testing.T) {
 	t.Parallel()
 	image := "ghcr.io/kyverno/test-verify-image:unsigned"
-	c := policyWithVerifications(nil, map[string]bool{image: false})
+	c, verifications := policyWithVerifications(nil, map[string]bool{image: false})
 
-	err := c.EnforceRequired([]string{image})
+	err := c.EnforceRequired([]string{image}, verifications)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed signature or attestation verification",
@@ -50,18 +49,18 @@ func TestEnforceRequired_DeniesImageThatFailedVerification(t *testing.T) {
 func TestEnforceRequired_AllowsVerifiedImage(t *testing.T) {
 	t.Parallel()
 	image := "ghcr.io/kyverno/test-verify-image:signed"
-	c := policyWithVerifications(nil, map[string]bool{image: true})
+	c, verifications := policyWithVerifications(nil, map[string]bool{image: true})
 
-	assert.NoError(t, c.EnforceRequired([]string{image}))
+	assert.NoError(t, c.EnforceRequired([]string{image}, verifications))
 }
 
 // Opting out has to be honoured, otherwise existing policies that legitimately
 // only inspect image metadata would break.
 func TestEnforceRequired_DisabledSkipsTheCheck(t *testing.T) {
 	t.Parallel()
-	c := policyWithVerifications(ptr.To(false), nil)
+	c, verifications := policyWithVerifications(ptr.To(false), nil)
 
-	assert.NoError(t, c.EnforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"}))
+	assert.NoError(t, c.EnforceRequired([]string{"ghcr.io/kyverno/test-verify-image:signed"}, verifications))
 }
 
 // Every matched image must be verified, not just one of them, so a pod that
@@ -70,9 +69,9 @@ func TestEnforceRequired_DeniesWhenOnlySomeImagesAreVerified(t *testing.T) {
 	t.Parallel()
 	verified := "ghcr.io/kyverno/test-verify-image:signed"
 	unverified := "ghcr.io/kyverno/other:latest"
-	c := policyWithVerifications(nil, map[string]bool{verified: true})
+	c, verifications := policyWithVerifications(nil, map[string]bool{verified: true})
 
-	err := c.EnforceRequired([]string{verified, unverified})
+	err := c.EnforceRequired([]string{verified, unverified}, verifications)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), unverified)
@@ -83,7 +82,7 @@ func TestEnforceRequired_DeniesWhenOnlySomeImagesAreVerified(t *testing.T) {
 // nothing has nothing to require and must not deny.
 func TestEnforceRequired_NoMatchedImagesPasses(t *testing.T) {
 	t.Parallel()
-	c := policyWithVerifications(nil, nil)
+	c, verifications := policyWithVerifications(nil, nil)
 
-	assert.NoError(t, c.EnforceRequired(nil))
+	assert.NoError(t, c.EnforceRequired(nil, verifications))
 }

@@ -36,7 +36,7 @@ func newCELMutateURFromNamespacedPolicy(nmpol *policiesv1beta1.NamespacedMutatin
 	return ur
 }
 
-func (pc *policyController) newCELMutateURForTrigger(policyKey string, trigger *unstructured.Unstructured) (*kyvernov2.UpdateRequest, error) {
+func (pc *policyController) newCELMutateURForTrigger(policyKey string, trigger *unstructured.Unstructured, subresource string) (*kyvernov2.UpdateRequest, error) {
 	mapping, err := pc.restMapper.RESTMapping(trigger.GroupVersionKind().GroupKind(), trigger.GroupVersionKind().Version)
 	if err != nil {
 		return nil, err
@@ -60,9 +60,10 @@ func (pc *policyController) newCELMutateURForTrigger(policyKey string, trigger *
 					Resource: metav1.GroupVersionResource{
 						Group: mapping.Resource.Group, Version: mapping.Resource.Version, Resource: mapping.Resource.Resource,
 					},
-					Namespace: trigger.GetNamespace(),
-					Name:      trigger.GetName(),
-					Object:    runtime.RawExtension{Raw: raw},
+					SubResource: subresource,
+					Namespace:   trigger.GetNamespace(),
+					Name:        trigger.GetName(),
+					Object:      runtime.RawExtension{Raw: raw},
 				},
 			},
 		},
@@ -77,7 +78,7 @@ func (pc *policyController) createTriggerURs(policyKey string, matchConstraints 
 	triggers := filterTriggersByNamespace(pc.getGpolTriggers(matchConstraints), namespace)
 	var errs []error
 	for _, trigger := range triggers {
-		ur, err := pc.newCELMutateURForTrigger(policyKey, trigger)
+		ur, err := pc.newCELMutateURForTrigger(policyKey, trigger.Unstructured, trigger.SubResource)
 		if err == nil {
 			err = pc.submitUR(context.TODO(), ur)
 		}

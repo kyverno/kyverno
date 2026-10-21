@@ -13,6 +13,7 @@ import (
 	vpolvalidation "github.com/kyverno/kyverno/pkg/cel/policies/vpol"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/deprecations"
+	"github.com/kyverno/kyverno/pkg/deprecations/policywarnings"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -85,16 +86,30 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 	}
 
 	if pol := policy.AsKyvernoPolicy(); pol != nil {
+		// Subresource requests (e.g. /status) never touch spec, so there is nothing here to
+		// validate or warn about; short-circuit before policy validation and deprecation
+		// warnings, not just the legacy-policy block, so Kyverno's own controllers can manage
+		// status on legacy policies without tripping full re-validation on every reconcile.
+		// Kubernetes guarantees a status-subresource write cannot change spec, see:
+		// https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
+		if request.SubResource != "" {
+			return admissionutils.ResponseSuccess(request.UID)
+		}
+
 		var old kyvernov1.PolicyInterface
 		if oldPolicy != nil {
 			old = oldPolicy.AsKyvernoPolicy()
 		}
 
+		// The legacy write denial (create/update of this kind) now happens one layer up, at
+		// the route-level handlers.WithLegacyPolicyDenial() decorator (see
+		// pkg/deprecations.DenyLegacyWrite), so this method only runs on requests it already
+		// allowed through.
+		deprecatedMetric := metrics.GetDeprecatedAPIRequestMetrics()
 		warnings, err := policyvalidate.Validate(policy.AsKyvernoPolicy(), old, h.client, false, h.backgroundServiceAccountName, h.reportsServiceAccountName)
 		if err != nil {
 			logger.Error(err, "policy validation errors")
 		}
-		deprecatedMetric := metrics.GetDeprecatedAPIRequestMetrics()
 		if warning, ok := deprecations.BuildKindWarning(request.Kind.Group, request.Kind.Version, request.Kind.Kind); ok {
 			logger.V(2).Info(warning.Message, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
 			warnings = append(warnings, warning.Message)
@@ -102,7 +117,7 @@ func (h *policyHandlers) Validate(ctx context.Context, logger logr.Logger, reque
 				deprecatedMetric.Record(ctx, request.Namespace, warning.Group, warning.Version, warning.Kind, "")
 			}
 		}
-		for _, warning := range deprecations.PolicyFieldWarnings(pol) {
+		for _, warning := range policywarnings.PolicyFieldWarnings(pol) {
 			logger.V(2).Info(warning.Message, "field", warning.Field, "kind", request.Kind.Kind, "namespace", request.Namespace, "name", request.Name)
 			warnings = append(warnings, warning.Message)
 			if deprecatedMetric != nil {

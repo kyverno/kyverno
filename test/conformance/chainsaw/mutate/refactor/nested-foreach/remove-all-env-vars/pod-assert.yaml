@@ -3,6 +3,8 @@ kind: Pod
 metadata:
   name: busybox
 spec:
+  nodeSelector:
+    kyverno.io/test-node: nonexistent
   containers:
   - name: busybox-1
     image: public.ecr.aws/docker/library/busybox:1.35

@@ -11,11 +11,22 @@ inputs:
     description: 'needs context serialized as JSON (toJSON(needs))'
     required: false
     default: '{}'
+  labels:
+    description: 'Extra labels for the tracking issue, comma-separated, in addition to workflow-failure'
+    required: false
+    default: ''
+  note:
+    description: 'Extra markdown appended to the tracking issue body'
+    required: false
+    default: ''
 
 runs:
   using: composite
   steps:
     - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      env:
+        EXTRA_LABELS: ${{ inputs.labels }}
+        NOTE: ${{ inputs.note }}
       with:
         script: |
           const { owner, repo } = context.repo;
@@ -229,6 +240,10 @@ runs:
           const headSha = context.sha;
           const actor = context.actor;
           const label = 'workflow-failure';
+          // Extra labels let other automation select a subset of the tracking
+          // issues, e.g. the E2E gate reads the ones labelled e2e-failure.
+          const extraLabels = [...new Set((process.env.EXTRA_LABELS || '')
+            .split(',').map(l => l.trim()).filter(l => l && l !== label))];
           const issueId = `workflow-failure:${workflowName}:${branch}`;
           const listOptions = { owner, repo, state: 'open', per_page: 100 };
           const issues = await github.paginate(github.rest.issues.listForRepo, { ...listOptions, labels: label })
@@ -253,6 +268,7 @@ runs:
               `| **Conclusion** | \`${conclusion}\` |`,
               ...formatNeedsResultsTable(needs),
               ...failedJobsSection,
+              ...(process.env.NOTE && process.env.NOTE.trim() ? ['', process.env.NOTE.trim(), ''] : []),
               '---',
               '*This issue is maintained by the Workflow failure issue workflow. It will be closed when the workflow succeeds.*',
               '',
@@ -264,10 +280,22 @@ runs:
                 owner, repo, issue_number: existing.number, title, body
               });
               core.info(`Updated issue #${existing.number} for ${workflowName} (${branch}).`);
+              // An issue opened before the caller passed extra labels does not
+              // carry them yet. Add the missing ones rather than setting the
+              // full list, which would drop labels added by maintainers.
+              const current = existing.labels.map(l => (typeof l === 'string' ? l : l.name));
+              const missing = extraLabels.filter(l => !current.includes(l));
+              // Not caught: other automation selects issues by these labels,
+              // so failing to add one must fail the job rather than pass quietly.
+              if (missing.length > 0) {
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: existing.number, labels: missing
+                });
+              }
             } else {
               try {
                 const { data: issue } = await github.rest.issues.create({
-                  owner, repo, title, body, labels: label ? [label] : undefined
+                  owner, repo, title, body, labels: [label, ...extraLabels]
                 });
                 core.info(`Created issue #${issue.number}: ${issue.html_url}`);
               } catch (err) {
@@ -275,7 +303,21 @@ runs:
                   const { data: issue } = await github.rest.issues.create({
                     owner, repo, title, body
                   });
-                  core.warning(`Created issue #${issue.number} without label (create label "${label}" in repo to use it).`);
+                  // Later runs find the issue by its workflow-failure label, and
+                  // other automation by the extra ones, so an unlabelled issue
+                  // could never be closed. addLabels creates labels that do not
+                  // exist yet, which the create call above does not always do.
+                  try {
+                    await github.rest.issues.addLabels({
+                      owner, repo, issue_number: issue.number, labels: [label, ...extraLabels]
+                    });
+                    core.info(`Created issue #${issue.number}: ${issue.html_url}`);
+                  } catch (labelErr) {
+                    if (extraLabels.length > 0) {
+                      throw labelErr;
+                    }
+                    core.warning(`Created issue #${issue.number} without label (create label "${label}" in repo to use it).`);
+                  }
                 } else {
                   throw err;
                 }

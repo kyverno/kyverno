@@ -4,11 +4,9 @@
 package deprecations
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 var fieldIndexPattern = regexp.MustCompile(`\[\d+\]`)
@@ -31,7 +29,13 @@ type DeprecationWarning struct {
 	Version string
 	Kind    string
 	Field   string
-	Message string
+	// Replacement is the policies.kyverno.io equivalent(s) for the kind, on its
+	// own (for example "DeletingPolicy"), without the surrounding removal notice
+	// or migration URL. Callers that want a compact "kind -> target" rendering
+	// use this instead of parsing it back out of Message. Empty for field-level
+	// warnings.
+	Replacement string
+	Message     string
 }
 
 // Warning returns a deprecation warning for the given legacy kyverno.io kind,
@@ -57,9 +61,10 @@ func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
 		apiVersion = fmt.Sprintf("%s/%s", group, version)
 	}
 	return DeprecationWarning{
-		Group:   group,
-		Version: version,
-		Kind:    kind,
+		Group:       group,
+		Version:     version,
+		Kind:        kind,
+		Replacement: replacement,
 		Message: fmt.Sprintf(
 			"%s %s is deprecated and will be removed in a future release; migrate to %s (policies.kyverno.io), see %s",
 			apiVersion, kind, replacement, MigrationGuideURL,
@@ -67,59 +72,56 @@ func BuildKindWarning(group, version, kind string) (DeprecationWarning, bool) {
 	}, true
 }
 
-// PolicyFieldWarnings returns field-level deprecation warnings for legacy policy fields.
-func PolicyFieldWarnings(policy kyvernov1.PolicyInterface) []DeprecationWarning {
-	var warnings []DeprecationWarning
-	spec := policy.GetSpec()
-	seen := map[string]struct{}{}
-	add := func(fieldPath string) {
-		if _, ok := seen[fieldPath]; ok {
-			return
-		}
-		seen[fieldPath] = struct{}{}
-		warnings = append(warnings, DeprecationWarning{
-			Group:   "kyverno.io",
-			Version: policyVersion(policy),
-			Kind:    policy.GetKind(),
-			Field:   fieldPath,
-			Message: fmt.Sprintf("%s: Validation failure actions enforce/audit are deprecated, use Enforce/Audit instead.", fieldPath),
-		})
+// IsLegacyPolicyKind reports whether kind (in the given group) is one of the legacy
+// kyverno.io policy kinds subject to the 1.20 write-time block on legacy policy writes, which
+// covers creates and every top-level update, including unchanged-spec and metadata-only ones,
+// with only the narrow finalizer-removal and transitional status-subresource exceptions. It is an
+// allow-list, not an exclusion list: GlobalContextEntry, UpdateRequest, every policies.kyverno.io
+// kind, and every native Kubernetes kind are excluded by construction because they are simply
+// never in the replacements table, not because of any special-case check.
+func IsLegacyPolicyKind(group, kind string) bool {
+	if group != "kyverno.io" {
+		return false
 	}
-
-	if isDeprecatedValidationFailureAction(spec.ValidationFailureAction) {
-		add("spec.validationFailureAction")
-	}
-	for i, override := range spec.ValidationFailureActionOverrides {
-		if isDeprecatedValidationFailureAction(override.Action) {
-			add(fmt.Sprintf("spec.validationFailureActionOverrides[%d].action", i))
-		}
-	}
-	for i, rule := range spec.Rules {
-		if rule.Validation != nil && rule.Validation.FailureAction != nil && isDeprecatedValidationFailureAction(*rule.Validation.FailureAction) {
-			add(fmt.Sprintf("spec.rules[%d].validate.failureAction", i))
-		}
-		if rule.Validation != nil {
-			for j, override := range rule.Validation.FailureActionOverrides {
-				if isDeprecatedValidationFailureAction(override.Action) {
-					add(fmt.Sprintf("spec.rules[%d].validate.failureActionOverrides[%d].action", i, j))
-				}
-			}
-		}
-	}
-	return warnings
+	_, ok := replacements[kind]
+	return ok
 }
 
-func isDeprecatedValidationFailureAction(action kyvernov1.ValidationFailureAction) bool {
-	return action == "enforce" || action == "audit"
+// legacyPolicyBlockError marks an error returned by BuildKindError, so callers that otherwise treat
+// load/parse failures as soft/skippable (e.g. the CLI silently skipping a non-Kyverno YAML file) can
+// tell this one apart and surface it as a hard failure instead.
+type legacyPolicyBlockError struct{ error }
+
+func (e legacyPolicyBlockError) Unwrap() error { return e.error }
+
+// IsLegacyPolicyBlockError reports whether err is (or wraps) the hard error returned by BuildKindError,
+// as opposed to an unrelated YAML/parsing error.
+func IsLegacyPolicyBlockError(err error) bool {
+	var e legacyPolicyBlockError
+	return errors.As(err, &e)
+}
+
+// BuildKindError returns a hard error rejecting a create or spec-changing update of a legacy
+// kyverno.io policy kind, or false if the kind is not a legacy policy type. It reuses the same
+// replacements table and migration URL as BuildKindWarning so the two messages stay consistent.
+func BuildKindError(group, version, kind string) (error, bool) {
+	if group != "kyverno.io" {
+		return nil, false
+	}
+	replacement, ok := replacements[kind]
+	if !ok {
+		return nil, false
+	}
+	apiVersion := group
+	if version != "" {
+		apiVersion = fmt.Sprintf("%s/%s", group, version)
+	}
+	return legacyPolicyBlockError{fmt.Errorf(
+		"%s %s: Kyverno v1.20 removed execution of legacy kyverno.io policy types and no longer accepts create or update requests for them; the API remains available for read, list, export, and delete. Migrate to %s (policies.kyverno.io), see %s",
+		apiVersion, kind, replacement, MigrationGuideURL,
+	)}, true
 }
 
 func NormalizeFieldPath(field string) string {
 	return fieldIndexPattern.ReplaceAllString(field, "[]")
-}
-
-func policyVersion(policy kyvernov1.PolicyInterface) string {
-	if object, ok := policy.(interface{ GetObjectKind() schema.ObjectKind }); ok {
-		return object.GetObjectKind().GroupVersionKind().Version
-	}
-	return ""
 }

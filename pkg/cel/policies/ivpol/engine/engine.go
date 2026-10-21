@@ -3,16 +3,21 @@ package engine
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"strings"
+	"sync"
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	"github.com/kyverno/kyverno/pkg/cel/autogen/extract"
+	celcompiler "github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	"github.com/kyverno/kyverno/pkg/cel/libs/imageverify"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
@@ -24,7 +29,6 @@ import (
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -78,6 +82,11 @@ func NewEngine(
 }
 
 func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, error) {
+	// A shared CEL cost budget for every policy this call evaluates. Ensure is a no-op if
+	// an outer scope already set one, so this only matters for an entry point that does
+	// not go through the webhook handler or the reports scanner. Every other family does
+	// this in its own engine; without it ivpol was the one asymmetric family.
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response eval.ImageVerifyEngineResponse
 	// fetch compiled policies
 	policies, err := e.provider.Fetch(ctx)
@@ -161,6 +170,11 @@ func (e *engineImpl) HandleValidating(ctx context.Context, request EngineRequest
 // (pkg/engine/internal/imageverifier.go). Failing open here would silently admit
 // unpinned images, which is the very problem this handler exists to fix.
 func (e *engineImpl) HandleMutating(ctx context.Context, request EngineRequest, predicate Predicate) (eval.ImageVerifyEngineResponse, []jsonpatch.JsonPatchOperation, error) {
+	// A shared CEL cost budget for every policy this call evaluates. Ensure is a no-op if
+	// an outer scope already set one, so this only matters for an entry point that does
+	// not go through the webhook handler or the reports scanner. Every other family does
+	// this in its own engine; without it ivpol was the one asymmetric family.
+	ctx, _ = requestbudget.Ensure(ctx)
 	var response eval.ImageVerifyEngineResponse
 	// load objects
 	object, oldObject, err := admissionutils.ExtractResources(nil, request.Request)
@@ -235,7 +249,13 @@ func (e *engineImpl) handleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-	c := eval.NewCompiler(ictx, e.lister, request.RequestResource, imageverifycache.DisabledImageVerifyCache())
+
+	// Built at most once for the whole loop, lazily: matching happens per policy
+	// inside the loop below (matchPolicy), before MutateDigest is ever called, so
+	// a request whose policies all fail to match never pays this cost.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildRawRequestMap(request)
+	})
 
 	var patches []jsonpatch.JsonPatchOperation
 	var responses []eval.ImageVerifyPolicyResponse
@@ -270,12 +290,17 @@ func (e *engineImpl) handleMutation(
 		}
 		// digest mutation performs no verification, so it takes no part in the
 		// request-scoped verification results
-		compiled, errList := c.Compile(ivpol.Policy, ivpol.Exceptions, nil)
-		if errList != nil {
-			// compile errors are surfaced by the validating webhook, skip mutation
+		compiled := ivpol.CompiledPolicy
+		if compiled == nil {
+			responses = append(responses, eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+				Result:     *engineapi.RuleError("mutateDigest", engineapi.ImageVerify, "failed to update digest", fmt.Errorf("compiled policy is missing"), nil),
+			})
 			continue
 		}
-		polPatches, err := compiled.MutateDigest(ctx, ictx, attr, request, namespace, resource, e.configuration)
+		polPatches, err := compiled.MutateDigest(ctx, ictx, imageverifycache.DisabledImageVerifyCache(), nil, attr, request, namespace, resource, requestMapFn, e.configuration, libctx)
 		if err != nil {
 			// Record the failure as a policy result and carry on with the remaining
 			// policies rather than returning an error, which would abandon their
@@ -317,7 +342,9 @@ func (e *engineImpl) handleMutation(
 func (e *engineImpl) evaluateExtractedIv(
 	ctx context.Context,
 	compiled eval.CompiledPolicy,
-	ictx imagedataloader.ImageContext,
+	imgCtx imagedataloader.ImageContext,
+	cache imageverifycache.Client,
+	results *imageverify.ImageVerificationResults,
 	attr admission.Attributes,
 	request interface{},
 	namespace runtime.Object,
@@ -355,6 +382,10 @@ func (e *engineImpl) evaluateExtractedIv(
 		last             *eval.EvaluationResult
 		allExceptions    []*policiesv1beta1.PolicyException
 		allMatchedImages []string
+		// lastSkipped and lastExempt keep, with tracing on, the trace of the latest template a
+		// match condition skipped or an exception exempted, so it is not lost if no template is
+		// evaluated
+		lastSkipped, lastExempt *eval.EvaluationResult
 	)
 	for _, tpl := range templates {
 		var otherTpl *extract.Extracted
@@ -371,11 +402,26 @@ func (e *engineImpl) evaluateExtractedIv(
 		}
 		originalRequest, _ := request.(*admissionv1.AdmissionRequest)
 		synthRequest := extract.SynthesizePodAdmissionRequest(originalRequest, synthAttr)
-		result, err := compiled.Evaluate(ctx, ictx, synthAttr, synthRequest, namespace, true, libctx)
+		// nil requestMapFn: the synthesized request embeds a different
+		// object/oldObject than the outer hoisted map, so it must be rebuilt from
+		// scratch for each synthetic Pod (see prepareK8sData's nil-fallback). This
+		// is still exactly one build per template -- Evaluate calls prepareK8sData
+		// once per call -- not one per (matchConditions + exceptions) as it would
+		// be if match still assembled its own data.
+		result, err := compiled.Evaluate(ctx, imgCtx, cache, results, synthAttr, synthRequest, namespace, true, nil, libctx)
 		if err != nil {
-			return nil, fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			err = fmt.Errorf("pod template at %s: %w", tpl.Path, err)
+			// result is nil here unless tracing is on, in which case it carries what was traced
+			// before the failure; pass it up with the error, labelled with the template path
+			if result != nil && result.Trace != nil {
+				result.Trace.Verdict.Message = err.Error()
+			}
+			return result, err
 		}
-		if result == nil {
+		if result == nil || result.Skipped {
+			if result != nil && result.Trace != nil {
+				lastSkipped = result
+			}
 			continue
 		}
 		// A policy-exception match is a per-template skip, not a failure - it
@@ -383,6 +429,7 @@ func (e *engineImpl) evaluateExtractedIv(
 		// template later in the list would go unevaluated.
 		if len(result.Exceptions) > 0 {
 			allExceptions = append(allExceptions, result.Exceptions...)
+			lastExempt = result
 			continue
 		}
 		allMatchedImages = append(allMatchedImages, result.MatchedImages...)
@@ -393,6 +440,13 @@ func (e *engineImpl) evaluateExtractedIv(
 			if result.Error != nil {
 				result.Error = fmt.Errorf("%w (pod template at %s)", result.Error, tpl.Path)
 			}
+			if result.Trace != nil {
+				if result.Error != nil {
+					result.Trace.Verdict.Message = result.Error.Error()
+				} else {
+					result.Trace.Verdict.Message = result.Message
+				}
+			}
 			result.MatchedImages = allMatchedImages
 			return result, nil
 		}
@@ -400,7 +454,14 @@ func (e *engineImpl) evaluateExtractedIv(
 	}
 	if last == nil {
 		if len(allExceptions) > 0 {
-			return &eval.EvaluationResult{Exceptions: allExceptions, MatchedImages: allMatchedImages}, nil
+			exempt := &eval.EvaluationResult{Exceptions: allExceptions, MatchedImages: allMatchedImages}
+			if lastExempt != nil {
+				exempt.Trace = lastExempt.Trace
+			}
+			return exempt, nil
+		}
+		if lastSkipped != nil {
+			return lastSkipped, nil
 		}
 		return nil, nil
 	}
@@ -436,9 +497,9 @@ func (e *engineImpl) handleValidation(
 	namespace runtime.Object,
 	libctx libs.Context,
 ) ([]eval.ImageVerifyPolicyResponse, error) {
-	responses, filteredPolicies := e.filterPolicies(policies, attr, namespace, false)
+	responses, filteredPolicies, scopes := e.filterPolicies(policies, attr, namespace, false)
 	var err error
-	responses, err = e.evaluatePolicies(ctx, filteredPolicies, attr, request, namespace, libctx, request.RequestResource, responses)
+	responses, err = e.evaluatePolicies(ctx, filteredPolicies, attr, request, namespace, libctx, responses, scopes)
 	if err != nil {
 		return nil, err
 	}
@@ -450,11 +511,17 @@ func (e *engineImpl) filterPolicies(
 	attr admission.Attributes,
 	namespace runtime.Object,
 	includeUnmatched bool,
-) (map[string]eval.ImageVerifyPolicyResponse, []Policy) {
+) (map[string]eval.ImageVerifyPolicyResponse, []Policy, []trace.ScopeTrace) {
 	results := make(map[string]eval.ImageVerifyPolicyResponse, len(policies))
 	filtered := make([]Policy, 0, len(policies))
+	// scopes is index-aligned with filtered: why each policy that is evaluated applied. It is
+	// kept per policy, not per name, because a policy's autogen variants share its name.
+	scopes := make([]trace.ScopeTrace, 0, len(policies))
 	if e.matcher == nil {
-		return results, policies
+		for range policies {
+			scopes = append(scopes, trace.ScopeTrace{Applied: true, Reason: "evaluated without a matcher, so matchConstraints were not checked here"})
+		}
+		return results, policies, scopes
 	}
 	for _, pol := range policies {
 		matches, err := e.matchPolicy(pol, attr, namespace)
@@ -463,20 +530,71 @@ func (e *engineImpl) filterPolicies(
 			Actions:    pol.Actions,
 			Exceptions: pol.Exceptions,
 		}
+		traced := tracing(pol)
+		var scope trace.ScopeTrace
+		if traced {
+			scope = trace.ScopeTrace{Applied: matches && err == nil, Reason: matching.Explain(pol.Policy.GetSpec().MatchConstraints, attr, namespace, matches)}
+		}
 		if err != nil {
 			response.Result = *engineapi.RuleError("match", engineapi.ImageVerify, "failed to execute matching", err, nil)
+			if traced {
+				response.Trace = withTraceHeader(&trace.Decision{
+					Scope:   trace.ScopeTrace{Reason: "failed to evaluate matchConstraints: " + err.Error()},
+					Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: err.Error()},
+				}, pol, attr)
+			}
 			results[pol.Policy.GetName()] = response
 			continue
 		}
 		if matches {
 			filtered = append(filtered, pol)
+			scopes = append(scopes, scope)
 			continue
 		}
 		if includeUnmatched {
 			results[pol.Policy.GetName()] = response
+		} else if traced {
+			// a traced policy that did not apply is kept, with an empty Result, for its trace. Its
+			// autogen variants share its name and come after it, so keep the first: the policy as
+			// written, not a generated variant; an evaluated variant replaces it below.
+			if _, seen := results[pol.Policy.GetName()]; !seen {
+				response.Trace = withTraceHeader(&trace.Decision{
+					Scope:   scope,
+					Verdict: trace.VerdictTrace{Status: trace.VerdictSkip, Message: "the policy does not apply to this resource"},
+				}, pol, attr)
+				results[pol.Policy.GetName()] = response
+			}
 		}
 	}
-	return results, filtered
+	return results, filtered, scopes
+}
+
+// tracing reports whether the policy was compiled with tracing on.
+func tracing(pol Policy) bool {
+	return pol.CompiledPolicy != nil && pol.CompiledPolicy.Tracing()
+}
+
+// withTraceHeader fills in the policy and resource the trace is about; the compiled policy cannot
+// know them. A nil trace stays nil.
+func withTraceHeader(d *trace.Decision, pol Policy, attr admission.Attributes) *trace.Decision {
+	if d == nil {
+		return nil
+	}
+	d.PolicyName = pol.Policy.GetName()
+	d.PolicyKind = pol.Policy.GetKind()
+	if d.PolicyKind == "" {
+		d.PolicyKind = "ImageValidatingPolicy"
+	}
+	resource, _ := attr.GetObject().(*unstructured.Unstructured)
+	if resource == nil || len(resource.Object) == 0 {
+		resource, _ = attr.GetOldObject().(*unstructured.Unstructured)
+	}
+	if resource != nil {
+		d.ResourceKind = resource.GetKind()
+		d.ResourceName = resource.GetName()
+		d.ResourceNamespace = resource.GetNamespace()
+	}
+	return d
 }
 
 func (e *engineImpl) evaluatePolicies(
@@ -486,59 +604,140 @@ func (e *engineImpl) evaluatePolicies(
 	request *admissionv1.AdmissionRequest,
 	namespace runtime.Object,
 	libctx libs.Context,
-	requestResource *metav1.GroupVersionResource,
 	responses map[string]eval.ImageVerifyPolicyResponse,
+	scopes []trace.ScopeTrace,
 ) (map[string]eval.ImageVerifyPolicyResponse, error) {
-	// leave remote and name options blank, each compiled policy will provide
-	// its own credentials or the default global ones.
-	ictx, err := e.newImageContext()
-	if err != nil {
-		return nil, err
-	}
-	c := eval.NewCompiler(ictx, e.lister, requestResource, e.ivCache)
-	// Extraction-mode policies are evaluated against a synthesized v1/Pod,
-	// not the real admitted resource (a custom workload CRD) - and their
-	// Spec is never rewritten, so they rely on the default Pod image
-	// extractors rather than declaring their own. Compiling them with the
-	// request's own (non-Pod) GVR would make CompileImageExtractors find no
-	// match and inject none at all, breaking images.containers/initContainers.
-	podRequestResource := &metav1.GroupVersionResource{Version: "v1", Resource: "pods"}
-	podCompiler := eval.NewCompiler(ictx, e.lister, podRequestResource, e.ivCache)
-	// shared by every policy compiled below, so required sees cross-policy evidence
+	// Built at most once for the whole evaluation: the thunk is only invoked
+	// when a policy's Evaluate reaches prepareK8sData, and memoized so every
+	// policy after the first reuses the same map.
+	requestMapFn := sync.OnceValues(func() (map[string]any, error) {
+		return celcompiler.BuildRawRequestMap(request)
+	})
+	// Shared by every policy evaluated below, so required sees cross-policy evidence.
 	verifications := imageverify.NewImageVerificationResults()
-	// resolved after the loop: evidence may come from a policy evaluated later
-	var pendingRequired []pendingRequiredCheck
-	for _, ivpol := range policies {
-		response := eval.ImageVerifyPolicyResponse{
-			Policy:     ivpol.Policy,
-			Actions:    ivpol.Actions,
-			Exceptions: ivpol.Exceptions,
-		}
-		startTime := time.Now()
-		compilerFor := c
-		if ivpol.ExtractionMode {
-			compilerFor = podCompiler
-		}
-		compiled, errList := compilerFor.Compile(ivpol.Policy, ivpol.Exceptions, verifications)
-		if errList != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to compile policy", errList.ToAggregate(), nil)
-			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
-			responses[ivpol.Policy.GetName()] = response
-			continue
-		}
-		var result *eval.EvaluationResult
-		if ivpol.ExtractionMode {
-			result, err = e.evaluateExtractedIv(ctx, compiled, ictx, attr, request, namespace, libctx)
-		} else {
-			result, err = compiled.Evaluate(ctx, ictx, attr, request, namespace, true, libctx)
-		}
+
+	type evaluation struct {
+		response  eval.ImageVerifyPolicyResponse
+		compiled  eval.CompiledPolicy
+		result    *eval.EvaluationResult
+		err       error
+		startTime time.Time
+	}
+
+	results := make([]evaluation, len(policies))
+
+	// Each policy gets its own image context. The context caches the fetched
+	// image data and the verifiers mutate that data in place (for example
+	// ImageData.AddVerifiedIntotoPayloads), so sharing one context across the
+	// goroutines below would race on, and corrupt, the cached data when several
+	// policies verify the same image. The contexts are built here, before
+	// evaluation starts, so a construction failure is still returned as a
+	// request-level error, which rejects the request, rather than being
+	// downgraded to a per-policy result that a Warn or Audit policy would admit.
+	// Credentials and name options are left blank; each compiled policy supplies
+	// its own or the default global ones.
+	imageContexts := make([]imagedataloader.ImageContext, len(policies))
+	for i := range policies {
+		ictx, err := e.newImageContext()
 		if err != nil {
-			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", err, nil)
+			return nil, err
+		}
+		imageContexts[i] = ictx
+	}
+
+	// Evaluate all already-compiled policies concurrently.
+	//
+	// Each policy gets its own result slot. Responses and pendingRequired are
+	// processed sequentially below to preserve deterministic ordering and map
+	// writes.
+	var wg sync.WaitGroup
+
+	for i, ivpol := range policies {
+		results[i] = evaluation{
+			response: eval.ImageVerifyPolicyResponse{
+				Policy:     ivpol.Policy,
+				Actions:    ivpol.Actions,
+				Exceptions: ivpol.Exceptions,
+			},
+			compiled:  ivpol.CompiledPolicy,
+			startTime: time.Now(),
+		}
+
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			ivpol := policies[i]
+			evaluation := &results[i]
+
+			// An unrecovered panic in this goroutine would terminate the whole
+			// process, not just this request. Record it as this policy's
+			// evaluation error instead, so it is reported like any other failure
+			// to evaluate the policy and the other policies keep their results.
+			defer func() {
+				if r := recover(); r != nil {
+					evaluation.err = fmt.Errorf("panic while evaluating policy: %v", r)
+					logging.WithName("ivpol/evaluatePolicies").Error(evaluation.err, "recovered from a panic", "policy", ivpol.Policy.GetName(), "stack", string(debug.Stack()))
+				}
+			}()
+
+			if evaluation.compiled == nil {
+				evaluation.err = fmt.Errorf("compiled policy is missing")
+				return
+			}
+
+			ictx := imageContexts[i]
+
+			if ivpol.ExtractionMode {
+				evaluation.result, evaluation.err = e.evaluateExtractedIv(ctx, evaluation.compiled, ictx, e.ivCache, verifications, attr, request, namespace, libctx)
+			} else {
+				evaluation.result, evaluation.err = evaluation.compiled.Evaluate(ctx, ictx, e.ivCache, verifications, attr, request, namespace, true, requestMapFn, libctx)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// Process results sequentially so response ordering and map writes remain
+	// deterministic, and required enforcement happens only after every policy
+	// has contributed its verification evidence.
+	var pendingRequired []pendingRequiredCheck
+	for i, ivpol := range policies {
+		evaluation := results[i]
+		response := evaluation.response
+		startTime := evaluation.startTime
+		traced := tracing(ivpol)
+		// attach puts the evaluation's trace, with its scope and header, on the response
+		attach := func(d *trace.Decision) {
+			if !traced || d == nil {
+				return
+			}
+			if i < len(scopes) {
+				d.Scope = scopes[i]
+			}
+			response.Trace = withTraceHeader(d, ivpol, attr)
+		}
+
+		if evaluation.err != nil {
+			response.Result = *engineapi.RuleError("evaluation", engineapi.ImageVerify, "failed to evaluate policy", evaluation.err, nil)
 			response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
+			if evaluation.result != nil && evaluation.result.Trace != nil {
+				// Evaluate failed partway but kept what it traced
+				attach(evaluation.result.Trace)
+			} else {
+				attach(&trace.Decision{Verdict: trace.VerdictTrace{Status: trace.VerdictError, Message: evaluation.err.Error()}})
+			}
 			responses[ivpol.Policy.GetName()] = response
 			continue
 		}
+		result := evaluation.result
 		if result == nil {
+			continue
+		}
+		if result.Skipped {
+			// only returned with tracing on: a match condition excluded the resource. It has no
+			// Result, exactly like the nil case, and is kept only for its trace.
+			attach(result.Trace)
+			responses[ivpol.Policy.GetName()] = response
 			continue
 		}
 		if len(result.Exceptions) > 0 {
@@ -556,6 +755,13 @@ func (e *engineImpl) evaluatePolicies(
 			if response.Result.Name() == "" {
 				response.Result = *engineapi.RuleSkip("exception", engineapi.Validation, "rule is skipped due to policy exception: "+strings.Join(keys, ", "), nil).WithExceptions(exceptions)
 			}
+			if result.Trace != nil {
+				// the verdict follows the rule reported above
+				result.Trace.Verdict = trace.VerdictTrace{Status: trace.VerdictSkip, Message: response.Result.Message()}
+				if response.Result.Status() == engineapi.RuleStatusError {
+					result.Trace.Verdict.Status = trace.VerdictError
+				}
+			}
 		} else {
 			ruleName := ivpol.Policy.GetName()
 			if result.Error != nil {
@@ -564,7 +770,7 @@ func (e *engineImpl) evaluatePolicies(
 				response.Result = *engineapi.RulePass(ruleName, engineapi.ImageVerify, "success", result.AuditAnnotations)
 				pendingRequired = append(pendingRequired, pendingRequiredCheck{
 					name:             ivpol.Policy.GetName(),
-					compiled:         compiled,
+					compiled:         evaluation.compiled,
 					images:           result.MatchedImages,
 					auditAnnotations: result.AuditAnnotations,
 					startTime:        startTime,
@@ -573,10 +779,11 @@ func (e *engineImpl) evaluatePolicies(
 				response.Result = *engineapi.RuleFail(ruleName, engineapi.ImageVerify, result.Message, result.AuditAnnotations)
 			}
 		}
+		attach(result.Trace)
 		response.Result = response.Result.WithStats(engineapi.NewExecutionStats(startTime, time.Now()))
 		responses[ivpol.Policy.GetName()] = response
 	}
-	enforceRequired(pendingRequired, responses)
+	enforceRequired(pendingRequired, responses, verifications)
 	return responses, nil
 }
 
@@ -592,9 +799,9 @@ type pendingRequiredCheck struct {
 
 // enforceRequired turns a policy that passed its validations into a failure when
 // one of the images it matched was never verified, by any policy in the request.
-func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.ImageVerifyPolicyResponse) {
+func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.ImageVerifyPolicyResponse, verifications *imageverify.ImageVerificationResults) {
 	for _, check := range checks {
-		err := check.compiled.EnforceRequired(check.images)
+		err := check.compiled.EnforceRequired(check.images, verifications)
 		if err == nil {
 			continue
 		}
@@ -604,6 +811,14 @@ func enforceRequired(checks []pendingRequiredCheck, responses map[string]eval.Im
 		}
 		result := *engineapi.RuleFail(check.name, engineapi.ImageVerify, err.Error(), check.auditAnnotations)
 		response.Result = result.WithStats(engineapi.NewExecutionStats(check.startTime, time.Now()))
+		if response.Trace != nil {
+			// the validations passed, then required turned the result into a failure; no single
+			// expression decided that, so the verdict carries only the message
+			response.Trace.Verdict = trace.VerdictTrace{
+				Status:  trace.VerdictFail,
+				Message: "every validation passed, but validationConfigurations.required failed: " + err.Error(),
+			}
+		}
 		responses[check.name] = response
 	}
 }

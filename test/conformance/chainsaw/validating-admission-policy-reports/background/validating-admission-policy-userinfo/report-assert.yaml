@@ -7,7 +7,7 @@ metadata:
     name: deployment-userinfo
 summary:
   error: 0
-  fail: 1
-  pass: 0
+  fail: 0
+  pass: 1
   skip: 0
   warn: 0

@@ -25,22 +25,23 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-    - uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
-      with:
-        android: true
-        docker-images: false
-        dotnet: false
-        haskell: false
-        large-packages: false
-        swap-storage: false
-        tool-cache: false
+    - name: Record initial disk headroom
+      run: |
+        echo '### Disk before Go setup' >> "$GITHUB_STEP_SUMMARY"
+        df -h . /tmp | tee -a "$GITHUB_STEP_SUMMARY"
     - name: Setup Go
       id: setup-go
       uses: ./.github/actions/go/setup
       with:
         gobuild-cache-prefix: gobuild-unit-tests
+        gobuild-cache-include-run-id: 'true'
     - name: Unit test
       run: make test-unit
+    - name: Record final disk headroom
+      if: always()
+      run: |
+        echo '### Disk after unit tests' >> "$GITHUB_STEP_SUMMARY"
+        df -h . /tmp | tee -a "$GITHUB_STEP_SUMMARY"
     - name: Save gobuild cache
       if: |
         github.event_name == 'push' &&
@@ -49,6 +50,7 @@ jobs:
       with:
         path: ${{ steps.setup-go.outputs.gobuild-cache }}
         cache-prefix: gobuild-unit-tests
+        include-run-id: 'true'
     - name: Upload coverage
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
@@ -72,7 +74,7 @@ jobs:
       with:
         name: coverage.out
     - name: Upload Report to Codecov
-      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6.0.2
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
       with:
         files: ./coverage.out
         fail_ci_if_error: true
