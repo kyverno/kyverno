@@ -344,6 +344,9 @@ func (s *spyContextProvider) SetGenerateContext(polName, policyNamespace, trigge
 }
 
 func Test_ApplyPoliciesOnResource_ReusesPrebuiltProviders(t *testing.T) {
+	prevLibraryContext := libs.LibraryContext
+	t.Cleanup(func() { libs.LibraryContext = prevLibraryContext })
+
 	t.Run("VpolProvider reuse across resources", func(t *testing.T) {
 		vpolYAML := []byte(`
 apiVersion: policies.kyverno.io/v1
@@ -663,6 +666,9 @@ spec:
 }
 
 func Test_ApplyPoliciesOnResource_MemoizedProviderErrors(t *testing.T) {
+	prevLibraryContext := libs.LibraryContext
+	t.Cleanup(func() { libs.LibraryContext = prevLibraryContext })
+
 	podList, err := resource.GetUnstructuredResources([]byte(`
 apiVersion: v1
 kind: Pod
