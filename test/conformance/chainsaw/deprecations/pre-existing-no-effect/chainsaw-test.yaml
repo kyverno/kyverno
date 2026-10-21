@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: pre-existing-no-effect
+spec:
+  description: >
+    A legacy ClusterPolicy that ends up stored in etcd by any means other than the admission
+    path (e.g. it predates Kyverno's install, or was restored from a backup) has no admission
+    effect: 1.20 never executes legacy kyverno.io policy content, independent of write-time
+    denial. Simulated here by removing the policy webhook configuration so the ClusterPolicy can
+    be created, then letting the running controller recreate it, and checking a policy-violating
+    Pod is still admitted.
+  concurrent: false
+  steps:
+  - name: remove-policy-webhook-configuration
+    try:
+    - delete:
+        ref:
+          apiVersion: admissionregistration.k8s.io/v1
+          kind: ValidatingWebhookConfiguration
+          name: kyverno-policy-validating-webhook-cfg
+  - name: create-cluster-policy-while-ungated
+    try:
+    - apply:
+        file: cluster-policy-v1.yaml
+    - assert:
+        resource:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          metadata:
+            name: deprecations-pre-existing-no-effect
+  - name: wait-policy-webhook-configuration-restored
+    try:
+    - assert:
+        resource:
+          apiVersion: admissionregistration.k8s.io/v1
+          kind: ValidatingWebhookConfiguration
+          metadata:
+            name: kyverno-policy-validating-webhook-cfg
+  - name: violating-pod-still-admitted
+    try:
+    - apply:
+        file: violating-pod.yaml
+    - assert:
+        file: violating-pod.yaml
+  - name: cleanup
+    try:
+    - delete:
+        ref:
+          apiVersion: kyverno.io/v1
+          kind: ClusterPolicy
+          name: deprecations-pre-existing-no-effect
+    - delete:
+        ref:
+          apiVersion: v1
+          kind: Pod
+          name: deprecations-pre-existing-no-effect
+          namespace: default
