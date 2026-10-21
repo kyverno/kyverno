@@ -3,6 +3,7 @@ package libs
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func generateTestRESTMapper() meta.RESTMapper {
@@ -34,6 +36,31 @@ func clusterRoleBinding() map[string]any {
 		"apiVersion": "rbac.authorization.k8s.io/v1",
 		"kind":       "ClusterRoleBinding",
 		"metadata":   map[string]any{"name": "escalate"},
+	}
+}
+
+// Object names can be up to 253 characters but label values only 63, so the trigger name must
+// be shortened before it becomes the trigger-name label, or the API server rejects every
+// resource generated for a trigger with a long name. The shortened value must also stay a valid
+// label value, which cannot end in '-', '_' or '.'.
+func TestAddGenerateLabels_LongTriggerNameIsValidLabelValue(t *testing.T) {
+	for _, triggerName := range []string{
+		strings.Repeat("a", 100),
+		strings.Repeat("a", 62) + "-" + strings.Repeat("b", 20),
+		"short-trigger",
+	} {
+		cp := &contextProvider{}
+		cp.SetGenerateContext("test-gpol", "", triggerName, "tenant-ns", "v1", "", "ConfigMap", "trigger-uid", false, false)
+
+		obj := &unstructured.Unstructured{}
+		cp.addGenerateLabels(obj)
+
+		got := obj.GetLabels()[common.GenerateTriggerNameLabel]
+		assert.Empty(t, validation.IsValidLabelValue(got), "trigger-name label for %q must be a valid label value, got %q", triggerName, got)
+		assert.True(t, strings.HasPrefix(triggerName, got), "trigger-name label %q must be a prefix of %q", got, triggerName)
+		if len(triggerName) <= validation.LabelValueMaxLength {
+			assert.Equal(t, triggerName, got, "a short trigger name must be kept as is")
+		}
 	}
 }
 
