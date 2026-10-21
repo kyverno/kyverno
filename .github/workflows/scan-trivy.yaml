@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
+      packages: read # Required for the GHCR Trivy database pull.
       security-events: write
     steps:
       - name: Checkout
