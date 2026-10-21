@@ -9,17 +9,14 @@ Most controllers code can be found under `pkg/controllers` except for some legac
 | `certmanager-controller`         | :heavy_check_mark: | Manages TLS certificates                                      |
 | `config-controller`              |                    | Watches config map and reloads config on changes              |
 | `openapi-controller`             |                    | Polls discovery API and maintains APIs schemas                |
-| [`policycache-controller`]       |                    | Maintains an up to date policy cache                          |
 | `webhook-controller`             | :heavy_check_mark: | Configures webhooks                                           |
 | `admission-report-controller`    | :heavy_check_mark: | Cleans up admission reports                                   |
 | `aggregate-report-controller`    | :heavy_check_mark: | Aggregates reports                                            |
 | `background-scan-controller`     | :heavy_check_mark: | Manages background scans reports                              |
 | `resource-report-controller`     | :heavy_check_mark: | Watches resources that participate in reports                 |
-| `cleanup-controller`             | :heavy_check_mark: | Reconciles cleanup policies and associated cron jobs          |
+| `cleanup-controller`             | :heavy_check_mark: | Runs CEL `DeletingPolicy`/`NamespacedDeletingPolicy` and TTL cleanup; no longer reconciles legacy `CleanupPolicy`/`ClusterCleanupPolicy` |
 | `policy-controller`              | :heavy_check_mark: | Manages mutation of existing resources                        |
 | `update-request-controller`      |                    | Manages generate policy and its generated resources lifecycle |
-
-[`policycache-controller`]: ./policycache.md
 
 ## Controller Internals
 
@@ -85,23 +82,23 @@ This component aggregates both the background and admission intermediary reports
 
 ### Cleanup Controller
 
-The Cleanup Controller performs all the cleanup (deletion) tasks as a result of a `CleanupPolicy` or `ClusterCleanupPolicy`. It is the only other controller aside from the Admission Controller which uses and manages webhooks.
+The Cleanup Controller runs CEL `DeletingPolicy`/`NamespacedDeletingPolicy` cleanup and TTL-annotated resource deletion. It no longer reconciles the legacy `CleanupPolicy`/`ClusterCleanupPolicy` CronJob-based deletion flow, which was removed along with the rest of legacy policy execution. It still uses and manages webhooks, so its webhook validation rejects any new `CleanupPolicy`/`ClusterCleanupPolicy` write unconditionally.
 
 #### Webhook Server
 
-This component validates `CleanupPolicy` and `ClusterCleanupPolicy` resources and serves as the endpoint for CronJobs to invoke the cleanup handler.
+This component serves the webhook route that unconditionally denies writes to the legacy `CleanupPolicy` and `ClusterCleanupPolicy` kinds. See [pkg/deprecations/AGENTS.md](../../pkg/deprecations/AGENTS.md) for the denial mechanism.
 
 #### Webhook Controller
 
 The webhook controller updates the webhook used by the cleanup controller when the Secret changes. This component also uses leader election.
 
-#### Cleanup Handler
+#### Deleting Policy Controller
 
-The cleanup handler deletes resources which match cleanup policies in response to being invoked by a CronJob.
+This component (`pkg/controllers/deleting`) reconciles CEL `DeletingPolicy`/`NamespacedDeletingPolicy` resources and performs the scheduled resource deletion they describe. It requires leader election.
 
-#### CronJob Controller
+#### TTL Controller
 
-In the cleanup process, the CronJob controller reconciles cleanup policies and existing CronJobs from installed cleanup policies. It requires leader election.
+This component deletes TTL-annotated expired resources using a metadata-only client. It requires leader election.
 
 #### Cert Renewer
 

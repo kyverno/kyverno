@@ -40,17 +40,15 @@ allowance in the same commit:
 
 | Allowance | Registered from | Deleted by |
 |---|---|---|
-| Escape hatch (kyverno) | `pkg/webhooks/resource/legacy_hatch.go`, from `NewHandlers` over `policycache.Cache` | Removing the policy cache or the legacy branch |
-| Escape hatch (cleanup) | `pkg/controllers/cleanup/legacy_hatch.go`, from `NewController` | Removing the legacy cleanup scheduler |
 | `status` subresource | The three `legacy_status.go` files holding Kyverno's own legacy status writers | Deleting those writers |
 
-**Do not move a registration to a file that is not itself legacy execution.** An earlier design
-registered the hatch from the typed validation handlers; those are not execution, so a tree could
-compile with execution removed and the hatch still honouring `FLAG_BLOCK_LEGACY_POLICY_APIS=false`.
-That is the forbidden state.
-
-When #17710 removes legacy execution, verify the registrations disappear with it rather than
-deleting these functions outright.
+#17710 deleted both escape-hatch registration sites (`pkg/webhooks/resource/legacy_hatch.go`,
+registered from `NewHandlers` over the now-deleted `policycache.Cache`, and
+`pkg/controllers/cleanup/legacy_hatch.go`, registered from `NewController` in the now-deleted
+`pkg/controllers/cleanup`) along with the legacy execution they guarded. `RegisterLegacyExecutionEscapeHatch`
+itself stays in `block.go` as a documented, currently-unused hook — nothing in the tree calls it, so
+the write-time denial is unconditional. Do not reintroduce a call to it outside genuinely restored
+legacy execution code.
 
 ## Keep this package's own source type-free
 
