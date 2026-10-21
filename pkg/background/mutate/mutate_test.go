@@ -230,7 +230,7 @@ func TestApplyMutations_SkipsSettledTargets(t *testing.T) {
 	client, updates := newTargetClient([]*unstructured.Unstructured{a, b}, nil, nil)
 	c := &mutateExistingController{client: client}
 
-	only := map[string]struct{}{responseID("register", 1, b, ""): {}}
+	only := map[string]int{responseID("register", b, ""): 1}
 	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a, b), only, nil)
 
 	assert.NoError(t, conflict)
@@ -486,4 +486,42 @@ func TestMutateWithRetry_EarlierSkipKeepsTheConflictedResponse(t *testing.T) {
 	assert.Empty(t, errs)
 	assert.Len(t, reports, 2)
 	assert.Equal(t, 3, updates["a"], "the conflicted response is still applied on the retry")
+}
+
+// Targets matched by a selector can come back in another order, or with one gone; the conflicted target is still retried.
+func TestMutateWithRetry_ConflictedTargetSurvivesAChangedTargetList(t *testing.T) {
+	t.Parallel()
+
+	a, b := configMap("a"), configMap("b")
+	client, updates := newTargetClient([]*unstructured.Unstructured{a, b}, map[string]int{"a": 1}, conflictErr("a"))
+	retryResponse := mutationResponse(a)
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(b, a), retryResponse: &retryResponse}}
+
+	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Empty(t, errs)
+	assert.Len(t, reports, 2)
+	assert.Equal(t, 1, updates["b"])
+	assert.Equal(t, 2, updates["a"], "the conflicted target is applied on the retry although its position changed")
+}
+
+// Of two entries patching one object, the second conflicts behind the first's write; the retry must apply the second, not repeat the first.
+func TestMutateWithRetry_RetryAppliesTheConflictedDuplicate(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, _ := newTargetClientFailing([]*unstructured.Unstructured{a}, secondUpdateConflicts, conflictErr("a"))
+	first, second := a.DeepCopy(), a.DeepCopy()
+	first.Object["data"] = map[string]interface{}{"registered": "first"}
+	second.Object["data"] = map[string]interface{}{"registered": "second"}
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: ruleResponse(passOn("register", first), passOn("register", second))}}
+
+	_, _, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Empty(t, errs)
+	got, getErr := client.GetResource(context.TODO(), "v1", "ConfigMap", "default", "a")
+	assert.NoError(t, getErr)
+	assert.Equal(t, "second", got.Object["data"].(map[string]interface{})["registered"])
 }
