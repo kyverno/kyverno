@@ -22,14 +22,12 @@ func (pc *controller) registerPolicyChangesMetricUpdatePolicy(ctx context.Contex
 	if datautils.DeepEqual(oldSpec, curSpec) {
 		return
 	}
-	err := policyChangesMetric.RegisterPolicy(ctx, oldP, policyChangesMetric.PolicyUpdated)
-	if err != nil {
+	if err := policyChangesMetric.RegisterPolicy(ctx, oldP, policyChangesMetric.PolicyUpdated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", oldP.GetName())
 	}
 	// curP will require a new kyverno_policy_changes_total metric if the above update involved change in the following fields:
 	if curSpec.BackgroundProcessingEnabled() != oldSpec.BackgroundProcessingEnabled() || curSpec.ValidationFailureAction.Enforce() != oldSpec.ValidationFailureAction.Enforce() {
-		err = policyChangesMetric.RegisterPolicy(ctx, curP, policyChangesMetric.PolicyUpdated)
-		if err != nil {
+		if err := policyChangesMetric.RegisterPolicy(ctx, curP, policyChangesMetric.PolicyUpdated); err != nil {
 			logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", curP.GetName())
 		}
 	}
