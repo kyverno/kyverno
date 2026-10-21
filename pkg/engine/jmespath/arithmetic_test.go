@@ -613,6 +613,8 @@ func Test_Divide(t *testing.T) {
 	}
 }
 
+// Test_DivideQuantityByScalar checks quantity precision and rounding across
+// equivalent spellings, signed operands, and fractional results.
 func Test_DivideQuantityByScalar(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -177,6 +177,8 @@ func (op1 scalar) Multiply(op2 interface{}) (interface{}, error) {
 // Scalar   / Quantity			-> error
 // Scalar   / Duration			-> error
 
+// Divide returns a scalar for quantity divisors and a quantity for scalar
+// divisors, rounding quantity results away from zero to nano precision.
 func (op1 quantity) Divide(op2 interface{}) (interface{}, error) {
 	switch v := op2.(type) {
 	case quantity:
