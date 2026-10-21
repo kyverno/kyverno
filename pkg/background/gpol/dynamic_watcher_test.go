@@ -17,6 +17,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -65,6 +66,7 @@ type MockClient struct {
 	err      error
 	deleteFn func(ctx context.Context, apiVersion, kind, namespace, name string, dryRun bool, options metav1.DeleteOptions) error
 	createFn func(ctx context.Context, apiVersion, kind, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	getFn    func(ctx context.Context, apiVersion, kind, namespace, name string) (*unstructured.Unstructured, error)
 	updateFn func(obj interface{})
 	applied  []string
 	applyFn  func(fieldManager string, obj interface{})
@@ -92,6 +94,9 @@ func (m *MockClient) RawAbsPath(ctx context.Context, path string, method string,
 	return nil, nil
 }
 func (m *MockClient) GetResource(ctx context.Context, apiVersion string, kind string, namespace, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	if m.getFn != nil {
+		return m.getFn(ctx, apiVersion, kind, namespace, name)
+	}
 	return nil, nil
 }
 func (m *MockClient) PatchResource(ctx context.Context, apiVersion string, kind string, namespace, name string, path []byte) (*unstructured.Unstructured, error) {
@@ -505,6 +510,7 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			Name:      obj.GetName(),
 			Namespace: obj.GetNamespace(),
 			Labels:    obj.GetLabels(),
+			Hash:      "kept",
 			Data:      obj,
 		}
 	}
@@ -751,6 +757,23 @@ func TestDeleteDownstreams(t *testing.T) {
 			wantDeleted:    []string{"Pod/ns1/res1"},
 			wantCacheSizes: map[schema.GroupVersionResource]int{gvr1: 1},
 		},
+		{
+			name:       "not found drops the cache entry",
+			policyName: "p1",
+			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
+			clientErr:  apierrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "res1"),
+			dynamicW: map[schema.GroupVersionResource]*watcher{
+				gvr1: {metadataCache: map[types.UID]Resource{
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
+						common.GeneratePolicyLabel: "p1",
+					}), map[string]string{
+						common.GeneratePolicyLabel: "p1",
+					}),
+				}},
+			},
+			wantDeleted:    []string{"Pod/ns1/res1"},
+			wantCacheSizes: map[schema.GroupVersionResource]int{gvr1: 0},
+		},
 	}
 
 	for _, tt := range tests {
@@ -867,6 +890,57 @@ func TestCleanupStaleDownstreams(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCleanupStaleDownstreams_NotFoundDropsCache(t *testing.T) {
+	gvr1 := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	labels := map[string]string{
+		common.GeneratePolicyLabel:     "p1",
+		common.GenerateTriggerUIDLabel: "trigger-123",
+	}
+	obj := makeUnstructured("", "", "v1", "ConfigMap", "cm-old", "ns1", "uid1", labels)
+	wm := &WatchManager{
+		log: logging.WithName("test"),
+		client: &MockClient{
+			err: apierrors.NewNotFound(schema.GroupResource{Resource: "configmaps"}, "cm-old"),
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr1: {metadataCache: map[types.UID]Resource{
+				"uid1": {
+					Name:      obj.GetName(),
+					Namespace: obj.GetNamespace(),
+					Labels:    labels,
+					Data:      obj,
+				},
+			}},
+		},
+	}
+
+	wm.CleanupStaleDownstreams("p1", &v1.ResourceSpec{UID: "trigger-123"}, nil)
+
+	assert.Empty(t, wm.dynamicWatchers[gvr1].metadataCache)
+}
+
+func TestGetDownstreamsSkipsEmptyHash(t *testing.T) {
+	gvr1 := schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res1"}
+	labels := map[string]string{common.GeneratePolicyLabel: "p1"}
+	live := makeUnstructured("", "apps", "v1", "Pod", "live", "ns1", "uid1", labels)
+	retired := makeUnstructured("", "apps", "v1", "Pod", "retired", "ns1", "uid2", labels)
+	wm := &WatchManager{
+		log:        logging.WithName("test"),
+		policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			gvr1: {metadataCache: map[types.UID]Resource{
+				"uid1": {Name: live.GetName(), Namespace: live.GetNamespace(), Labels: labels, Hash: "kept", Data: live},
+				"uid2": {Name: retired.GetName(), Namespace: retired.GetNamespace(), Labels: labels, Hash: "", Data: retired},
+			}},
+		},
+	}
+
+	got := wm.GetDownstreams("p1")
+	require.Len(t, got, 1)
+	assert.Equal(t, "live", got[0].GetName())
 }
 
 func TestRemoveWatchersForPolicy(t *testing.T) {
@@ -1112,6 +1186,11 @@ func TestHandleDelete_SourceDeleted(t *testing.T) {
 			deleteErr:     fmt.Errorf("permission denied"),
 			wantCacheSize: 1,
 		},
+		{
+			name:          "delete not found: downstream removed from cache",
+			deleteErr:     apierrors.NewNotFound(schema.GroupResource{Resource: "networkpolicies"}, "np-default"),
+			wantCacheSize: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1308,6 +1387,45 @@ func TestHandleDelete_DownstreamRecreatedAfterRepeatedDeletions(t *testing.T) {
 
 		wm.handleDelete(downstream, gvr)
 		assert.Contains(t, cache, types.UID("uid-1"), "cache entry must be kept when recreation fails")
+	})
+
+	t.Run("missing namespace drops the cache entry", func(t *testing.T) {
+		client := &MockClient{
+			createFn: func(_ context.Context, _, _, _ string, _ interface{}, _ bool) (*unstructured.Unstructured, error) {
+				return nil, fmt.Errorf("namespace is gone")
+			},
+			getFn: func(_ context.Context, _, kind, _, name string) (*unstructured.Unstructured, error) {
+				return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "namespaces"}, name)
+			},
+		}
+		wm := newWatchManager(client, seedCache())
+		cache := wm.dynamicWatchers[gvr].metadataCache
+
+		wm.handleDelete(downstream, gvr)
+		assert.NotContains(t, cache, types.UID("uid-1"))
+	})
+
+	t.Run("cluster scoped create failure keeps the cache entry", func(t *testing.T) {
+		cluster := downstream.DeepCopy()
+		cluster.SetNamespace("")
+		client := &MockClient{
+			createFn: func(_ context.Context, _, _, _ string, _ interface{}, _ bool) (*unstructured.Unstructured, error) {
+				return nil, apierrors.NewNotFound(schema.GroupResource{Resource: "namespaces"}, "default")
+			},
+		}
+		cache := map[types.UID]Resource{
+			cluster.GetUID(): {
+				Name:      cluster.GetName(),
+				Namespace: "",
+				Labels:    cluster.GetLabels(),
+				Hash:      reportutils.CalculateResourceHash(*cluster),
+				Data:      cluster,
+			},
+		}
+		wm := newWatchManager(client, cache)
+
+		wm.handleDelete(cluster, gvr)
+		assert.Contains(t, wm.dynamicWatchers[gvr].metadataCache, cluster.GetUID())
 	})
 
 	t.Run("nil created object keeps the cache entry under the old UID", func(t *testing.T) {
