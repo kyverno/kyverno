@@ -71,18 +71,12 @@ func (l erroringCpolLister) Get(string) (*kyvernov1.ClusterPolicy, error) {
 	if l.getErr != nil {
 		return nil, l.getErr
 	}
-	if l.ClusterPolicyLister != nil {
-		return l.ClusterPolicyLister.Get("")
-	}
 	return nil, nil
 }
 
 func (l erroringCpolLister) List(labels.Selector) ([]*kyvernov1.ClusterPolicy, error) {
 	if l.listErr != nil {
 		return nil, l.listErr
-	}
-	if l.ClusterPolicyLister != nil {
-		return l.ClusterPolicyLister.List(labels.Everything())
 	}
 	return nil, nil
 }
