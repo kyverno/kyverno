@@ -92,6 +92,80 @@ func TestEnqueueCELExceptionContinuesOnMissingPolicy(t *testing.T) {
 	assert.True(t, enqueuedPolicies["MutatingPolicy/mpol-1"], "mpol-1 should be enqueued despite mpol-missing error")
 }
 
+// delayRecorder wraps a real queue and records every AddAfter call, so a test can check what
+// the controller scheduled without waiting for the delay to pass.
+type delayRecorder struct {
+	workqueue.TypedRateLimitingInterface[any]
+	delays map[any]time.Duration
+}
+
+func (r *delayRecorder) AddAfter(item any, delay time.Duration) {
+	r.delays[item] = delay
+	r.TypedRateLimitingInterface.AddAfter(item, delay)
+}
+
+// TestEnqueueCELExceptionRequeuesPoliciesAtExpiry verifies that the policies an exception
+// references are reconciled again when it expires. getCELExceptions drops expired exceptions,
+// but only when generation runs; nothing else enqueues the policy at the deadline, so without
+// this requeue a generated VAP/MAP would keep the exception's negated match conditions after it
+// expired. Exceptions without expiresAt, or already expired, schedule nothing extra.
+func TestEnqueueCELExceptionRequeuesPoliciesAtExpiry(t *testing.T) {
+	tests := []struct {
+		name      string
+		expiresAt *metav1.Time
+		wantDelay bool
+	}{
+		{name: "expires in the future", expiresAt: &metav1.Time{Time: time.Now().Add(time.Hour)}, wantDelay: true},
+		{name: "no expiry", expiresAt: nil},
+		{name: "already expired", expiresAt: &metav1.Time{Time: time.Now().Add(-time.Hour)}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			mpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			assert.NoError(t, vpolIndexer.Add(&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "vpol-1"}}))
+			assert.NoError(t, mpolIndexer.Add(&policiesv1beta1.MutatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "mpol-1"}}))
+
+			queue := &delayRecorder{
+				TypedRateLimitingInterface: workqueue.NewTypedRateLimitingQueueWithConfig(
+					workqueue.DefaultTypedControllerRateLimiter[any](),
+					workqueue.TypedRateLimitingQueueConfig[any]{Name: "test"},
+				),
+				delays: map[any]time.Duration{},
+			}
+			defer queue.ShutDown()
+			c := &controller{
+				vpolLister: policiesv1beta1listers.NewValidatingPolicyLister(vpolIndexer),
+				mpolLister: policiesv1beta1listers.NewMutatingPolicyLister(mpolIndexer),
+				queue:      queue,
+			}
+
+			c.addCELException(&policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Name: "exception", Namespace: "default"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					PolicyRefs: []policiesv1beta1.PolicyRef{
+						{Name: "vpol-1", Kind: "ValidatingPolicy"},
+						{Name: "mpol-1", Kind: "MutatingPolicy"},
+					},
+					ExpiresAt: tt.expiresAt,
+				},
+			})
+
+			assert.Equal(t, 2, queue.Len(), "both policies are enqueued immediately in every case")
+			if !tt.wantDelay {
+				assert.Empty(t, queue.delays, "nothing may be scheduled for later")
+				return
+			}
+			for _, key := range []string{"ValidatingPolicy/vpol-1", "MutatingPolicy/mpol-1"} {
+				delay, ok := queue.delays[key]
+				if assert.True(t, ok, "%s must be requeued at expiry", key) {
+					assert.InDelta(t, time.Hour, delay, float64(time.Minute), "%s must be requeued when the exception expires", key)
+				}
+			}
+		})
+	}
+}
+
 // TestGetCELExceptionsIgnoresExpired is a regression guard for the expiry gate, which
 // already worked correctly before the exception-gating change. Its fixtures deliberately
 // share the same kind and name, differing only in ExpiresAt, so it keeps testing expiry
