@@ -1,0 +1,31 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: autogen-daemonset-background
+spec:
+  evaluation:
+    admission:
+      enabled: false
+    background:
+      enabled: true
+  validationActions:
+  - Audit
+  autogen:
+    podControllers:
+      controllers:
+      - daemonsets
+  matchConstraints:
+    resourceRules:
+    - apiGroups:   [""]
+      apiVersions: [v1]
+      operations:  [CREATE, UPDATE]
+      resources:   ["pods"]
+  variables:
+    - name: privileged
+      expression: >-
+        object.spec.containers.exists(c, has(c.securityContext) &&
+        has(c.securityContext.allowPrivilegeEscalation) &&
+        c.securityContext.allowPrivilegeEscalation == true)
+  validations:
+    - expression: "variables.privileged == false"
+      message: "containers must not allow privilege escalation"

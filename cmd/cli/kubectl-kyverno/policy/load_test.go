@@ -371,7 +371,7 @@ spec:
 
 			_, err := Load(nil, "", false, path)
 			require.Error(t, err, "expected the legacy-policy block to fire")
-			assert.Contains(t, err.Error(), "is no longer accepted")
+			assert.Contains(t, err.Error(), "removed execution")
 
 			_, err = Load(nil, "", true, path)
 			require.NoError(t, err, "expected allowLegacyPolicies=true to bypass the block")
@@ -385,7 +385,7 @@ func TestLoad_BlocksMalformedLegacyClusterPolicy(t *testing.T) {
 	// so the block must fire instead of surfacing only the generic schema error.
 	_, err := Load(nil, "", false, "../_testdata/policies/invalid-schema.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 
 	_, err = Load(nil, "", true, "../_testdata/policies/invalid-schema.yaml")
 	require.Error(t, err)
@@ -399,7 +399,7 @@ func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T)
 	// (unrelated, non-fatal-by-comparison) "unsupported kind" error.
 	_, err := Load(nil, "", false, "testdata/configmap-then-legacy-clusterpolicy.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 
 	// With the block bypassed, the ConfigMap's own "unsupported kind" problem is still a real,
 	// pre-existing error the loader must surface (not silently swallow), same as before this PR.
@@ -413,7 +413,7 @@ func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
 	// v1 List; the block must fire for a List item exactly as it does for a standalone manifest.
 	_, err := Load(nil, "", false, "testdata/list-single-clusterpolicy.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 
 	results, err := Load(nil, "", true, "testdata/list-single-clusterpolicy.yaml")
 	require.NoError(t, err)
@@ -496,5 +496,102 @@ func TestLoadHTTPTimeout(t *testing.T) {
 			continue
 		}
 		t.Fatalf("expected timeout error, got: %v", err)
+	}
+}
+
+func TestLoad_CELExceptionVersions(t *testing.T) {
+	manifests := []struct {
+		version string
+		content string
+	}{
+		{
+			version: "v1alpha1",
+			content: `
+apiVersion: policies.kyverno.io/v1alpha1
+kind: PolicyException
+metadata:
+  name: test-exception-v1alpha1
+spec:
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`,
+		},
+		{
+			version: "v1beta1",
+			content: `
+apiVersion: policies.kyverno.io/v1beta1
+kind: PolicyException
+metadata:
+  name: test-exception-v1beta1
+spec:
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`,
+		},
+		{
+			version: "v1",
+			content: `
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: test-exception-v1
+spec:
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`,
+		},
+	}
+
+	for _, m := range manifests {
+		t.Run(m.version, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "exception.yaml")
+			require.NoError(t, os.WriteFile(path, []byte(m.content), 0o600))
+
+			res, err := Load(nil, "", false, path)
+			require.NoError(t, err)
+			require.NotNil(t, res)
+			require.Len(t, res.PolicyCelExceptions, 1)
+			assert.Equal(t, "test-exception-"+m.version, res.PolicyCelExceptions[0].GetName())
+		})
+	}
+}
+
+func TestLoad_CELExceptionUnknownField(t *testing.T) {
+	manifest := `
+apiVersion: policies.kyverno.io/v1
+kind: PolicyException
+metadata:
+  name: test-exception-unknown-field
+spec:
+  unknownField: invalid
+  policyRefs:
+  - name: check-deployment-labels
+    kind: ValidatingPolicy
+  matchConditions:
+  - name: check-namespace
+    expression: "object.metadata.namespace == 'test-ns'"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "exception.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(manifest), 0o600))
+
+	res, err := Load(nil, "", false, path)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid value: value provided for unknown field")
+	if res != nil {
+		assert.Empty(t, res.PolicyCelExceptions)
 	}
 }

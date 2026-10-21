@@ -10,11 +10,24 @@ spec:
     try:
     - apply:
         file: policy.yaml
-  - name: create-pod
-    try:
-    - apply:
-        file: pod.yaml
-  - name: verify-image-rewritten
+  - name: wait-for-webhook
     try:
     - assert:
-        file: assert.yaml
+        resource:
+          apiVersion: policies.kyverno.io/v1
+          kind: MutatingPolicy
+          metadata:
+            name: rewrite-image-registry
+          status:
+            conditionStatus:
+              (conditions[?type == 'WebhookConfigured']):
+              - status: "True"
+  - name: verify-image-rewritten
+    try:
+    # A server-side dry run still goes through the mutating webhook, so the rewrite is
+    # checked without creating a pod whose rewritten image can never be pulled.
+    - script:
+        content: kubectl create -n $NAMESPACE -f pod.yaml --dry-run=server -o jsonpath='{.spec.containers[0].image}'
+        check:
+          ($error == null): true
+          ($stdout): myregistry.io/nginx:latest
