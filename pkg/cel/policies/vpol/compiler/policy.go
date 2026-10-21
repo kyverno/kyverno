@@ -111,6 +111,7 @@ func (p *Policy) evaluateWithData(
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
 	}
+	libs.BindRequestContext(ctx, data.Context, dataNew)
 	// check if the resource matches an exception
 	var refused *RefusedException
 	if len(p.exceptions) > 0 {

@@ -11,4 +11,4 @@ spec:
   namespace:
     fastDelete: true
   timeouts:
-    apply: 30s
+    apply: 60s
