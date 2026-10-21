@@ -11,6 +11,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -41,6 +42,8 @@ func TestNewBackgroundContextOperation(t *testing.T) {
 			storedOperation: admissionv1.Create,
 			admissionRequest: &admissionv1.AdmissionRequest{
 				Operation: admissionv1.Update,
+				Kind:      metav1.GroupVersionKind{Version: "v1", Kind: "Secret"},
+				Namespace: "repro",
 				Object:    runtime.RawExtension{Raw: []byte("{\"apiVersion\":\"v1\",\"kind\":\"Secret\",\"metadata\":{\"name\":\"trigger-secret\",\"namespace\":\"repro\"}}")},
 			},
 			wantOperation: kyvernov1.Update,
