@@ -84,21 +84,6 @@ func newClientConfig(server string, servicePort int32, caBundle []byte, path str
 	return clientConfig
 }
 
-func webhookNameAndPath(wh webhook, baseName, basePath string) (name string, path string) {
-	if wh.failurePolicy == ignore {
-		name = baseName + "-ignore"
-		path = basePath + "/ignore"
-	} else {
-		name = baseName + "-fail"
-		path = basePath + "/fail"
-	}
-	if wh.policyMeta.Name != "" {
-		name = name + "-finegrained-" + wh.key("-")
-		path = path + config.FineGrainedWebhookPath + "/" + wh.key("/")
-	}
-	return name, path
-}
-
 func less[T cmp.Ordered](a []T, b []T) int {
 	if x := cmp.Compare(len(a), len(b)); x != 0 {
 		return x
