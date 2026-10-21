@@ -1266,7 +1266,8 @@ wait_for_annotate_denied "A4 policy metadata patch denied" "policies.kyverno.io"
 # --- A4, other two handlers -------------------------------------------------
 # Same three assertions, against the other two ShouldBlock call sites. The
 # CleanupPolicy/ClusterCleanupPolicy pair matters most: the cleanup
-# controller is a separate binary with its own --blockLegacyPolicyAPIs.
+# controller is a separate binary with its own independent wiring of the
+# unconditional write-time block.
 log "A4: asserting the CleanupPolicy, ClusterCleanupPolicy, and PolicyException handlers block writes too"
 
 POST_UPGRADE_CLEANUP_POLICY_HASH="$(namespaced_spec_hash cleanuppolicy "${CLEANUP_POLICY_NAME}")"

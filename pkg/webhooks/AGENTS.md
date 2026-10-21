@@ -4,27 +4,29 @@ The actual `AdmissionReview` HTTP handlers. No package doc comments exist here �
 one. See [ARCHITECTURE.md](../../ARCHITECTURE.md) for how this fits between `pkg/engine`/`pkg/cel` and
 `pkg/background`.
 
-## What actually makes a rule synchronous vs. queued as an UpdateRequest
+## Routing is per CEL policy kind, each with its own webhook handler
 
-It's **rule type**, not enforce/audit mode:
+Since 1.20 removed legacy `kyverno.io` execution (#17710), there is no single shared admission
+dispatcher for resource requests. Each CEL policy kind is served from its own route in `server.go`
+by its own handler package under `pkg/webhooks/resource/`:
 
-- For non-dry-run requests, `generate` and `mutateExisting` rules are routed to `handleBackgroundApplies` →
-  `pkg/webhooks/updaterequest.go`, regardless of enforce/audit (`pkg/webhooks/resource/handlers.go`'s
-  `if !admissionutils.IsDryRun(request.AdmissionRequest)` guard — a dry-run admission request skips this path
-  entirely, so no `UpdateRequest` is created for it). See [pkg/background/AGENTS.md](../background/AGENTS.md)
-  for what happens after the `UpdateRequest` is created.
-- Plain `validate` rules are evaluated inline. Enforce-mode and audit-mode-with-`emitWarning` (`ValidateAuditWarn`)
-  run synchronously inside the same `wait.Group` that produces the admission decision — a resource can be
-  `Allowed: true` and still carry a `Warning` from a mixed policy (see `handlers_test.go`'s
-  `Test_ValidateAuditWarn_MixedAuditEnforcePolicy`). Plain audit-mode validate (no warning) runs on a **separate,
-  bounded worker pool** (`auditPool`, a `pond.Pool`) purely to produce Events/PolicyReport data — this never affects
-  the already-returned admission response.
-- Background applies for generate/mutateExisting are fired in parallel with the enforce-validation wait group but
-  **not awaited** — the admission response returns as soon as enforce validation finishes, without waiting for
-  background work.
-- Mutate rules (non-`mutateExisting`) apply inline; if image-verify rules also match, the request is re-patched and
-  the `PolicyContext` rebuilt *before* image verification runs — image-verify always sees the post-mutation
-  resource, never the original.
+- `pkg/webhooks/resource/vpol` — `ValidatingPolicy`/`NamespacedValidatingPolicy`, served at
+  `/vpol/*policies` / `/nvpol/*policies`, evaluated synchronously inside a `wait.Group`.
+- `pkg/webhooks/resource/ivpol` — `ImageValidatingPolicy`/`NamespacedImageValidatingPolicy`,
+  served at `/ivpol/{validate,mutate}/*policies` / `/nivpol/{validate,mutate}/*policies`.
+- `pkg/webhooks/resource/mpol` — `MutatingPolicy`/`NamespacedMutatingPolicy`, served at
+  `/mpol/*policies` / `/nmpol/*policies`.
+- `pkg/webhooks/resource/gpol` — `GeneratingPolicy`/`NamespacedGeneratingPolicy`, served at
+  `/gpol/*policies` / `/ngpol/*policies`. For non-dry-run requests it calls `h.urGenerator.Apply`
+  (`pkg/webhooks/updaterequest/generator.go`) to queue background generation as an `UpdateRequest`;
+  a dry-run request returns immediately with no `UpdateRequest` created
+  (`admissionutils.IsDryRun(request.AdmissionRequest)` guard). See
+  [pkg/background/AGENTS.md](../background/AGENTS.md) for what happens after the `UpdateRequest` is
+  created.
+
+`pkg/webhooks/resource/validation/utils.go`'s `NeedsReports` is the one piece of the former shared
+resource-admission package kept across the deletion; it's still imported by the surviving CEL
+handlers.
 
 ## `updaterequest.go` only ever creates a marker CR — it never performs the mutation itself
 

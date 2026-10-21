@@ -62,8 +62,8 @@ longer exist); `pkg/sigstoretuf` handles TUF trust-root management for the cosig
 [pkg/image/AGENTS.md](pkg/image/AGENTS.md).
 
 **Policy lifecycle / admission:** `pkg/policy`, `pkg/validation`, `pkg/exceptions` (`PolicyException` matching),
-`pkg/policycache` (informer-driven in-memory cache read at webhook time), `pkg/globalcontext` (`GlobalContextEntry`
-caching for JMESPath/CEL context). `pkg/webhooks` holds the actual `AdmissionReview` HTTP handlers — the
+`pkg/globalcontext` (`GlobalContextEntry` caching for JMESPath/CEL context). `pkg/webhooks` holds the actual
+`AdmissionReview` HTTP handlers — the
 synchronous validate/mutate path returns immediately, while generate/mutate-existing rules are queued as
 `UpdateRequest`s for `pkg/background` to process asynchronously. See [pkg/webhooks/AGENTS.md](pkg/webhooks/AGENTS.md)
 and [pkg/background/AGENTS.md](pkg/background/AGENTS.md). `pkg/controllers/*` wires all of the above into

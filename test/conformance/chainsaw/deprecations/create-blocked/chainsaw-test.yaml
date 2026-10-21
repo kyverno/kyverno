@@ -5,8 +5,8 @@ metadata:
   name: create-blocked
 spec:
   description: >
-    Under the 1.20 default (features.blockLegacyPolicyAPIs.enabled=true), creating any legacy
-    kyverno.io policy kind, in any served version, is hard-denied at admission. This exercises
+    Starting in 1.20, creating any legacy kyverno.io policy kind, in any served version, is
+    unconditionally hard-denied at admission; there is no opt-out. This exercises
     every legacy kind/version pair, including the storage versions (kyverno.io/v2 for
     CleanupPolicy/ClusterCleanupPolicy/PolicyException) that previously bypassed the admission
     webhook entirely because the webhook rules only listed v2beta1 (see #17483).

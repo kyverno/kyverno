@@ -31,13 +31,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/admissionpolicygenerator"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
-	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
-	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	updaterequestmetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/updaterequest"
-	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	policystatuscontroller "github.com/kyverno/kyverno/pkg/controllers/policystatus"
 	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	"github.com/kyverno/kyverno/pkg/deprecations"
@@ -50,24 +47,24 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookscelexception "github.com/kyverno/kyverno/pkg/webhooks/celexception"
-	webhooksexception "github.com/kyverno/kyverno/pkg/webhooks/exception"
 	webhooksglobalcontext "github.com/kyverno/kyverno/pkg/webhooks/globalcontext"
+	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
-	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/gpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/ivpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mpol"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/vpol"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -114,28 +111,6 @@ func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient, "clusterpolicies.kyverno.io", "policies.kyverno.io")
 }
 
-func createNonLeaderControllers(
-	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-	dynamicClient dclient.Interface,
-	policyCache policycache.Cache,
-) ([]internal.Controller, func(context.Context) error) {
-	policyCacheController := policycachecontroller.NewController(
-		dynamicClient,
-		policyCache,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-	)
-	return []internal.Controller{
-			internal.NewController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
-		},
-		func(ctx context.Context) error {
-			if err := policyCacheController.WarmUp(); err != nil {
-				return err
-			}
-			return nil
-		}
-}
-
 func createrLeaderControllers(
 	admissionReports bool,
 	serverIP string,
@@ -179,8 +154,6 @@ func createrLeaderControllers(
 		kyvernoClient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
 		kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 		kyvernoInformer.Policies().V1beta1().GeneratingPolicies(),
@@ -346,12 +319,10 @@ func createrLeaderControllers(
 			kubeClient,
 			kyvernoClient,
 			dynamicClient.Discovery(),
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 			kyvernoInformer.Policies().V1beta1().ValidatingPolicies(),
 			kyvernoInformer.Policies().V1beta1().NamespacedValidatingPolicies(),
 			kyvernoInformer.Policies().V1beta1().MutatingPolicies(),
 			kyvernoInformer.Policies().V1beta1().NamespacedMutatingPolicies(),
-			kyvernoInformer.Kyverno().V2().PolicyExceptions(),
 			kyvernoInformer.Policies().V1beta1().PolicyExceptions(),
 			vapInformer,
 			vapBindingInformer,
@@ -384,6 +355,7 @@ func main() {
 		webhookRegistrationTimeout      time.Duration
 		admissionReports                bool
 		dumpPayload                     bool
+		enableDecisionTraces            bool
 		servicePort                     int
 		webhookServerHost               string
 		webhookServerPort               int
@@ -392,8 +364,6 @@ func main() {
 		maxAPICallResponseLength        int64
 		apiCallTimeout                  time.Duration
 		renewBefore                     time.Duration
-		maxAuditWorkers                 int
-		maxAuditCapacity                int
 		maxAdmissionReports             int
 		maxGlobalContextEntries         int
 		controllerRuntimeMetricsAddress string
@@ -401,6 +371,7 @@ func main() {
 	)
 	flagset := flag.NewFlagSet("kyverno", flag.ExitOnError)
 	flagset.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
+	flagset.BoolVar(&enableDecisionTraces, "enableDecisionTraces", false, "Set this flag to 'true' to log a decision trace for every ValidatingPolicy and MutatingPolicy admission decision: which expressions ran and what they resolved to. This is a debug mode: every expression is evaluated a second time to explain it, and the trace contains values read from the admitted resource (no values are logged for Secrets).")
 	flagset.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations (number of seconds, integer).")
 	flagset.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flagset.StringVar(&omitEvents, "omitEvents", "", "Set this flag to a comma sperated list of PolicyViolation, PolicyApplied, PolicyError, PolicySkipped to disable events, e.g. --omitEvents=PolicyApplied,PolicyViolation")
@@ -416,7 +387,6 @@ func main() {
 	flagset.Func(toggle.AllowHTTPInNamespacedPoliciesFlagName, toggle.AllowHTTPInNamespacedPoliciesDescription, toggle.AllowHTTPInNamespacedPolicies.Parse)
 	flagset.Func(toggle.HTTPBlocklistFlagName, toggle.HTTPBlocklistDescription, toggle.HTTPBlocklist.Parse)
 	flagset.Func(toggle.HTTPAllowlistFlagName, toggle.HTTPAllowlistDescription, toggle.HTTPAllowlist.Parse)
-	flagset.Func(toggle.BlockLegacyPolicyAPIsFlagName, toggle.BlockLegacyPolicyAPIsDescription, toggle.BlockLegacyPolicyAPIs.Parse)
 	flagset.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flagset.IntVar(&servicePort, "servicePort", 443, "Port used by the Kyverno Service resource and for webhook configurations.")
 	flagset.StringVar(&webhookServerHost, "webhookServerHost", "", "Host used by the webhook server. If not set, it will default to [::] for IPv6 or 0.0.0.0 for IPv4.")
@@ -429,8 +399,6 @@ func main() {
 	flagset.Int64Var(&maxAPICallResponseLength, "maxAPICallResponseLength", 10*1000*1000, "Configure the value of maximum allowed GET response size from API Calls")
 	flagset.DurationVar(&apiCallTimeout, "apiCallTimeout", 30*time.Second, "Timeout for HTTP API calls made by policies. A value of 0 means no timeout.")
 	flagset.DurationVar(&renewBefore, "renewBefore", 15*24*time.Hour, "The certificate renewal time before expiration")
-	flagset.IntVar(&maxAuditWorkers, "maxAuditWorkers", 8, "Maximum number of workers for audit policy processing")
-	flagset.IntVar(&maxAuditCapacity, "maxAuditCapacity", 1000, "Maximum capacity of the audit policy task queue")
 	flagset.IntVar(&maxAdmissionReports, "maxAdmissionReports", 10000, "Maximum number of admission reports before we stop creating new ones")
 	flagset.IntVar(&maxGlobalContextEntries, "maxGlobalContextEntries", 0, "Maximum number of entries in the global context store. When the limit is reached, new entries are rejected and retried. A value of 0 means unbounded.")
 	flagset.StringVar(&controllerRuntimeMetricsAddress, "controllerRuntimeMetricsAddress", "", `Bind address for controller-runtime metrics server. It will be defaulted to ":8080" if unspecified. Set this to "0" to disable the metrics server.`)
@@ -532,7 +500,6 @@ func main() {
 			tlsSecretName,
 			keyAlgorithm,
 		)
-		policyCache := policycache.NewCache()
 		notifyChan := make(chan string)
 		stateRecorder := webhookcontroller.NewStateRecorder(notifyChan)
 		eventGenerator := event.NewEventGenerator(
@@ -561,17 +528,10 @@ func main() {
 			),
 			globalcontextcontroller.Workers,
 		)
-		polexCache, polexController := internal.NewExceptionSelector(setup.Logger, kyvernoInformer)
 		eventController := internal.NewController(
 			event.ControllerName,
 			eventGenerator,
 			event.Workers,
-		)
-		// this controller only subscribe to events, nothing is returned...
-		policymetricscontroller.NewController(
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V1().Policies(),
-			&wg,
 		)
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
@@ -600,19 +560,6 @@ func main() {
 			setup.Logger.V(2).Info("policy exceptions are disabled, skipping legacy PolicyException count for kyverno_legacy_policies_total")
 		}
 		legacypolicymetricscontroller.NewController(metrics.GetLegacyPolicyMetrics(), "kyverno.io", legacyPolicyCounters)
-		// log policy changes
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("policy"),
-			"Policy",
-			kyvernoInformer.Kyverno().V1().Policies(),
-			genericloggingcontroller.CheckGeneration,
-		)
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("cluster-policy"),
-			"ClusterPolicy",
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			genericloggingcontroller.CheckGeneration,
-		)
 		runtime := runtimeutils.NewRuntime(
 			setup.Logger.WithName("runtime-checks"),
 			serverIP,
@@ -620,37 +567,10 @@ func main() {
 			certRenewer,
 			informerHealth.Ready,
 		)
-		// engine
-		engine := internal.NewEngine(
-			signalCtx,
-			setup.Logger,
-			setup.Configuration,
-			setup.Jp,
-			setup.KyvernoDynamicClient,
-			setup.ImageVerifyCacheClient,
-			setup.KubeClient,
-			setup.KyvernoClient,
-			setup.RegistrySecretLister,
-			apicall.NewAPICallConfiguration(maxAPICallResponseLength, apiCallTimeout),
-			polexCache,
-			gcstore,
-		)
-		// create non leader controllers
-		nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
-			kyvernoInformer,
-			setup.KyvernoDynamicClient,
-			policyCache,
-		)
 		// start informers and wait for cache sync
 		if !internal.StartInformersAndWaitForCacheSync(signalCtx, setup.Logger, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 			setup.Logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			os.Exit(1)
-		}
-		// bootstrap non leader controllers
-		if nonLeaderBootstrap != nil {
-			if err := nonLeaderBootstrap(signalCtx); err != nil {
-				setup.Logger.Error(err, "warning: failed to bootstrap non leader controllers")
-			}
 		}
 		// setup leader election
 		le, err := leaderelection.New(
@@ -781,7 +701,9 @@ func main() {
 			// without the exception, and never gets retried.
 			celExceptionLister := celengine.NewManagerPolicyExceptionLister(mgr.GetClient(), internal.ExceptionNamespace())
 			// create compiler
-			compiler := vpolcompiler.NewCompiler()
+			// with --enableDecisionTraces the policies are compiled for tracing, and the vpol and mpol
+			// handlers log the trace of every decision
+			compiler := vpolcompiler.NewCompilerWithTrace(enableDecisionTraces)
 			// create vpolProvider
 			vpolProvider, err := vpolengine.NewKubeProvider(
 				compiler,
@@ -798,7 +720,7 @@ func main() {
 				setup.Logger.Error(err, "failed to create ivpol provider")
 				os.Exit(1)
 			}
-			mpolcompiler := mpolcompiler.NewCompiler()
+			mpolcompiler := mpolcompiler.NewCompilerWithTrace(enableDecisionTraces)
 			mpolProvider, typeConverter, err := mpolengine.NewKubeProvider(signalCtx, mpolcompiler, contextProvider, mgr, setup.KubeClient.Discovery().OpenAPIV3(), celExceptionLister, internal.PolicyExceptionEnabled())
 			if err != nil {
 				setup.Logger.Error(err, "failed to create mpol provider")
@@ -882,26 +804,6 @@ func main() {
 			}))
 		}
 
-		resourceHandlers := webhooksresource.NewHandlers(
-			engine,
-			setup.KyvernoDynamicClient,
-			setup.KyvernoClient,
-			setup.Configuration,
-			setup.MetricsManager,
-			policyCache,
-			nsLister,
-			kyvernoInformer.Kyverno().V2().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
-			kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-			kyvernoInformer.Kyverno().V1().Policies(),
-			urgen,
-			eventGenerator,
-			admissionReports,
-			backgroundServiceAccountName,
-			reportsServiceAccountName,
-			setup.Jp,
-			maxAuditWorkers,
-			maxAuditCapacity,
-		)
 		voplHandlers := vpol.New(
 			vpolEngine,
 			contextProvider,
@@ -917,10 +819,6 @@ func main() {
 			eventGenerator,
 		)
 		gpolHandlers := gpol.New(urgen, kyvernoInformer.Policies().V1beta1().GeneratingPolicies().Lister(), kyvernoInformer.Policies().V1beta1().NamespacedGeneratingPolicies().Lister(), backgroundServiceAccountName)
-		exceptionHandlers := webhooksexception.NewHandlers(exception.ValidationOptions{
-			Enabled:   internal.PolicyExceptionEnabled(),
-			Namespace: internal.ExceptionNamespace(),
-		})
 		mpolHandlers := mpol.New(contextProvider, mpolEngine, setup.KyvernoClient, setup.ReportingConfiguration, urgen, backgroundServiceAccountName, eventGenerator)
 		celExceptionHandlers := webhookscelexception.NewHandlers(exception.ValidationOptions{
 			Enabled:   internal.PolicyExceptionEnabled(),
@@ -934,21 +832,25 @@ func main() {
 				Validation: webhooks.HandlerFunc(policyHandlers.Validate),
 			},
 			webhooks.ResourceHandlers{
-				Mutation:                          webhooks.HandlerFunc(resourceHandlers.Mutate),
-				ImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.MutateClustered),
+				ImageVerificationPoliciesMutation:           webhooks.HandlerFunc(ivpolHandlers.MutateClustered),
 				NamespacedImageVerificationPoliciesMutation: webhooks.HandlerFunc(ivpolHandlers.MutateNamespaced),
-				MutatingPolicies:                    webhooks.HandlerFunc(mpolHandlers.MutateClustered),
-				NamespacedMutatingPolicies:          webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
-				Validation:                          webhooks.HandlerFunc(resourceHandlers.Validate),
-				ValidatingPolicies:                  webhooks.HandlerFunc(voplHandlers.ValidateClustered),
-				NamespacedValidatingPolicies:        webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
-				ImageVerificationPolicies:           webhooks.HandlerFunc(ivpolHandlers.ValidateClustered),
-				NamespacedImageVerificationPolicies: webhooks.HandlerFunc(ivpolHandlers.ValidateNamespaced),
-				GeneratingPolicies:                  webhooks.HandlerFunc(gpolHandlers.Generate),
-				NamespacedGeneratingPolicies:        webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
+				MutatingPolicies:                            webhooks.HandlerFunc(mpolHandlers.MutateClustered),
+				NamespacedMutatingPolicies:                  webhooks.HandlerFunc(mpolHandlers.MutateNamespaced),
+				ValidatingPolicies:                          webhooks.HandlerFunc(voplHandlers.ValidateClustered),
+				NamespacedValidatingPolicies:                webhooks.HandlerFunc(voplHandlers.ValidateNamespaced),
+				ImageVerificationPolicies:                   webhooks.HandlerFunc(ivpolHandlers.ValidateClustered),
+				NamespacedImageVerificationPolicies:         webhooks.HandlerFunc(ivpolHandlers.ValidateNamespaced),
+				GeneratingPolicies:                          webhooks.HandlerFunc(gpolHandlers.Generate),
+				NamespacedGeneratingPolicies:                webhooks.HandlerFunc(gpolHandlers.GenerateNamespaced),
 			},
+			// Legacy kyverno.io PolicyException writes are denied one layer up by
+			// handlers.WithLegacyPolicyDenial(); this inner handler only ever sees
+			// requests already allowed through (DELETE, finalizer-removal UPDATE), so it
+			// is success-only, same shape as policyHandlers.Mutate.
 			webhooks.ExceptionHandlers{
-				Validation: webhooks.HandlerFunc(exceptionHandlers.Validate),
+				Validation: webhooks.HandlerFunc(func(_ context.Context, _ logr.Logger, request handlers.AdmissionRequest, _ string, _ time.Time) admissionv1.AdmissionResponse {
+					return admissionutils.ResponseSuccess(request.UID)
+				}),
 			},
 			webhooks.CELExceptionHandlers{
 				Validation: webhooks.HandlerFunc(celExceptionHandlers.Validate),
@@ -991,12 +893,6 @@ func main() {
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
-		if polexController != nil {
-			polexController.Run(signalCtx, setup.Logger, &wg)
-		}
-		for _, controller := range nonLeaderControllers {
-			controller.Run(signalCtx, setup.Logger.WithName("controllers"), &wg)
-		}
 		// start leader election
 		le.Run(signalCtx)
 	}()
