@@ -187,12 +187,25 @@ runs:
 
           stage="pushing $pr_branch_name (workflow changes require Workflows: write)"
           # Require the branch to be absent, including if another run raced us.
-          git push --force-with-lease="refs/heads/$pr_branch_name:" origin "refs/heads/$pr_branch_name:refs/heads/$pr_branch_name"
+          if ! git push --force-with-lease="refs/heads/$pr_branch_name:" origin "refs/heads/$pr_branch_name:refs/heads/$pr_branch_name" > "$cherry_pick_log" 2>&1; then
+            printf 'Failed while %s.\n' "$stage" >> "$git_logs"
+            tee -a "$git_logs" < "$cherry_pick_log"
+            success=false
+            continue
+          fi
+          cat "$cherry_pick_log"
           stage="creating PR for $target_branch"
-          pr_url="$(gh pr create \
+          if ! pr_url="$(gh pr create \
             "${pr_args[@]}" \
             --title "$SOURCE_PR_TITLE (Cherry-pick #$SOURCE_PR)" \
-            --body-file "$pr_body")"
+            --body-file "$pr_body" 2>"$cherry_pick_log")"; then
+            printf 'Failed while %s. Branch %s was preserved; open its PR manually.\n' "$stage" "$pr_branch_name" >> "$git_logs"
+            printf '%s\n' "$pr_url" >> "$git_logs"
+            tee -a "$git_logs" < "$cherry_pick_log"
+            success=false
+            continue
+          fi
+          cat "$cherry_pick_log"
           printf '%s%s\n' "$pr_url" "$resolution" | tee -a "$git_logs"
         done
         stage="finishing cherry-pick targets (see per-target results)"

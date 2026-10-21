@@ -56,7 +56,8 @@ jobs:
                os.environ["BASE_SHA"], os.environ["HEAD_SHA"], "--"],
               check=True, capture_output=True,
           ).stdout
-          markers = re.findall(rb"^\+(?:<{7,}(?: .*|)|={7,}|>{7,}(?: .*|))\r?$", diff, re.MULTILINE)
+          # Bare '=' separators are also valid Markdown Setext headings.
+          markers = re.findall(rb"^\+(?:<{7,}|>{7,}|\|{7,})(?: .*)?\r?$", diff, re.MULTILINE)
           if markers:
               print("::error::Unresolved conflict markers found. Resolve the committed cherry-pick conflicts before merging.")
               sys.exit(1)

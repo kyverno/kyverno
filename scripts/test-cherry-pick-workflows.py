@@ -351,10 +351,16 @@ class CherryPickTests(unittest.TestCase):
     def test_infrastructure_errors_preserve_failure_summary(self):
         for failure, stage in (("PUSH_ERROR", "pushing"), ("CREATE_ERROR", "creating PR")):
             with self.subTest(failure=failure):
-                result = self.shell(ACTION_STEPS[-1], **{failure: "1"})
+                before = len(self.calls())
+                result = self.shell(
+                    ACTION_STEPS[-1], TARGET_BRANCHES="release-1.19,release-1.20",
+                    **{failure: "1"},
+                )
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("success=false", (self.directory / "outputs").read_text())
                 self.assertIn(stage, (self.directory / "summary").read_text())
+                calls = self.calls()[before:]
+                self.assertEqual(len([call for call in calls if call[1] == "cherry-pick"]), 2)
 
     def test_missing_remote_branch_prevents_mutations(self):
         result = self.shell(ACTION_STEPS[-1], MISSING_BRANCH="1")
@@ -670,6 +676,22 @@ class CherryPickTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("PR head changed", result.stdout)
 
+    def test_conflict_guard_detects_diff3_without_rejecting_markdown(self):
+        git, _ = self.local_repository()
+        guard = CONFLICT_CHECK["jobs"]["check"]["steps"][-1]
+        base = git("rev-parse", "release-1.19")
+        resource = self.directory / "resource"
+        resource.write_text("||||||| merged common ancestors\nbase\n")
+        git("commit", "-qam", "Incomplete diff3 resolution")
+        git("push", "-q", "origin", "HEAD:refs/pull/42/head")
+        result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=git("rev-parse", "HEAD"))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Unresolved conflict markers", result.stdout)
+        resource.write_text("Legitimate Markdown heading\n=======\n")
+        git("commit", "-qam", "Use Setext heading")
+        git("push", "-q", "origin", "HEAD:refs/pull/42/head")
+        result = self.shell(guard, REAL_GIT="1", BASE_SHA=base, HEAD_SHA=git("rev-parse", "HEAD"))
+        self.assertEqual(result.returncode, 0, result.stderr)
 
 if __name__ == "__main__":
     unittest.main()
