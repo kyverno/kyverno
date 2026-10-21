@@ -611,6 +611,8 @@ func (c *ApplyCommandConfig) applyPolicies(
 				if !c.ContinueOnFail {
 					return &rc, resources, responses, err
 				}
+				log.Log.V(2).Info(fmt.Sprintf("failed to load CRDs from %s: %v", crdPath, err))
+				rc.IncrementError(1)
 				crdPreloaded = false
 				crdPreloadFailed = true
 				break
@@ -977,11 +979,6 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 		return nil, nil
 	}
 
-	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
-	if err != nil {
-		return nil, err
-	}
-
 	restMapper, err := utils.GetRESTMapper(dclient)
 	if err != nil {
 		return nil, err
@@ -997,6 +994,12 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 			rc.IncrementError(1)
 		}
 		return nil, nil
+	}
+
+	// Compilation captures the CLI library defaults, so initialize them first.
+	provider, err := dpolengine.NewProvider(dpolcompiler.NewCompilerWithTrace(c.Explain), dps, celExceptions)
+	if err != nil {
+		return nil, err
 	}
 
 	engine := dpolengine.NewEngine(namespaceProvider, restMapper, contextProvider, matching.NewMatcher())

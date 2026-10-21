@@ -550,7 +550,7 @@ spec:
 
 		spy := &spyMpolProvider{inner: provider}
 
-		for _, res := range resList {
+		for i, res := range resList {
 			rc := &ResultCounts{}
 			p := PolicyProcessor{
 				Store:            &store.Store{},
@@ -565,6 +565,11 @@ spec:
 			resp, err := p.ApplyPoliciesOnResource()
 			assert.NilError(t, err)
 			assert.Assert(t, len(resp) > 0)
+			if i == 0 {
+				assert.Equal(t, resp[0].PatchedResource.GetLabels()["managed"], "")
+			} else {
+				assert.Equal(t, resp[0].PatchedResource.GetLabels()["managed"], "true")
+			}
 		}
 
 		assert.Equal(t, spy.fetchCount, len(resList))

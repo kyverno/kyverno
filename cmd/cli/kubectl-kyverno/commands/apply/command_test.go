@@ -698,6 +698,7 @@ spec:
 		expectErr         bool
 		expectResponses   bool
 		expectNoResponses bool
+		expectRcError     bool
 	}{
 		{
 			name: "policy compilation failure without continue-on-fail fails fast",
@@ -782,6 +783,7 @@ spec:
 			},
 			expectErr:         false,
 			expectNoResponses: true,
+			expectRcError:     true,
 		},
 		{
 			name: "unused invalid CEL policy does not block HTTP-only evaluation",
@@ -800,7 +802,7 @@ spec:
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), io.Discard)
+			rc, _, _, responses, err := tc.config.applyCommandHelper(context.TODO(), io.Discard)
 			if tc.expectErr {
 				assert.Error(t, err)
 			} else {
@@ -811,6 +813,9 @@ spec:
 			}
 			if tc.expectNoResponses {
 				assert.Empty(t, responses, "missing CRD should prevent resource evaluation")
+			}
+			if tc.expectRcError {
+				assert.True(t, rc != nil && rc.Error > 0, "expected rc.Error > 0")
 			}
 		})
 	}
