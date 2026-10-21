@@ -977,7 +977,23 @@ func jpRound(arguments []any) (any, error) {
 		return nil, formatError(argOutOfBoundsError, round)
 	}
 	shift := math.Pow(10, float64(intLength))
+	if math.IsInf(shift, 0) {
+		return nil, formatError(
+			genericError,
+			round,
+			"precision exceeds the supported numeric range",
+		)
+	}
+
 	rounded := math.Round(op.Float()*shift) / shift
+	if math.IsNaN(rounded) || math.IsInf(rounded, 0) {
+		return nil, formatError(
+			genericError,
+			round,
+			"rounding produced a non-finite result",
+		)
+	}
+
 	return rounded, nil
 }
 
