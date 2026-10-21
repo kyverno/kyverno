@@ -3,6 +3,7 @@ package mutate
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -189,7 +190,7 @@ func (c *mutateExistingController) ProcessUR(ur *kyvernov2.UpdateRequest) error 
 	return updateURStatus(c.statusControl, *ur, err)
 }
 
-// mutateWithRetry recomputes the mutation on conflict and re-applies it only to the targets that conflicted, so no target is patched twice.
+// mutateWithRetry recomputes the mutation on conflict and re-applies only the rule responses that conflicted, so no patch is applied twice.
 func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName string, policyContext engineapi.PolicyContext) (er engineapi.EngineResponse, reports []targetMutation, errs []error, conflictErr error) {
 	var pending map[string]struct{}
 	var conflicted []targetMutation
@@ -200,7 +201,7 @@ func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName 
 		settled, settledErrs, toRetry, err := c.applyMutations(logger, ruleName, er, pending, ruleWide)
 		reports = append(reports, settled...)
 		errs = append(errs, settledErrs...)
-		conflicted, pending = toRetry, targetKeys(toRetry)
+		conflicted, pending = toRetry, mutationIDs(toRetry)
 		return err
 	})
 	// Conflicts that outlived the retries are terminal failures, reported like any other.
@@ -213,6 +214,7 @@ func (c *mutateExistingController) mutateWithRetry(logger logr.Logger, ruleName 
 
 // targetMutation is one target's outcome, held until the retry settles so a retried attempt does not emit duplicate events.
 type targetMutation struct {
+	id          string
 	err         error
 	target      *unstructured.Unstructured
 	subresource string
@@ -221,8 +223,11 @@ type targetMutation struct {
 // applyMutations applies er to its targets, skipping those outside only; conflicts come back for a retry, and ruleWide dedupes target-less failures across attempts.
 func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName string, er engineapi.EngineResponse, only map[string]struct{}, ruleWide map[string]int) (reports []targetMutation, errs []error, conflicted []targetMutation, conflict error) {
 	attempt := map[string]int{}
+	position := map[string]int{}
 	for _, r := range er.PolicyResponse.Rules {
 		patched, parentGVR, patchedSubresource := r.PatchedTarget()
+		id := responseID(r.Name(), position[r.Name()], patched, patchedSubresource)
+		position[r.Name()]++
 		if s := r.Status(); patched == nil && (s == engineapi.RuleStatusFail || s == engineapi.RuleStatusError || s == engineapi.RuleStatusWarn) {
 			// The engine recomputes these on every attempt, and one can belong to a conflicted target, so count rather than drop them on a retry.
 			key := strings.Join([]string{r.Name(), string(s), r.Message()}, "/")
@@ -237,7 +242,7 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 			if patched == nil {
 				continue
 			}
-			if _, ok := only[targetKey(patched, patchedSubresource)]; !ok {
+			if _, ok := only[id]; !ok {
 				continue
 			}
 		}
@@ -281,7 +286,7 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 			if apierrors.IsConflict(updateErr) {
 				logger.WithName(ruleName).V(3).Info("conflict updating target resource, recomputing the mutation and retrying",
 					"namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
-				conflicted = append(conflicted, targetMutation{err: updateErr, target: patched, subresource: patchedSubresource})
+				conflicted = append(conflicted, targetMutation{id: id, err: updateErr, target: patched, subresource: patchedSubresource})
 				if conflict == nil {
 					conflict = updateErr
 				}
@@ -300,19 +305,20 @@ func (c *mutateExistingController) applyMutations(logger logr.Logger, ruleName s
 	return reports, errs, conflicted, conflict
 }
 
-// targetKey identifies a target resource across attempts.
-func targetKey(target *unstructured.Unstructured, subresource string) string {
-	return strings.Join([]string{target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), subresource}, "/")
+// responseID identifies a rule response across attempts by its rule, its position within that rule and its target, so two patches to one object stay distinct.
+func responseID(rule string, position int, target *unstructured.Unstructured, subresource string) string {
+	if target == nil {
+		return ""
+	}
+	return strings.Join([]string{rule, strconv.Itoa(position), target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), subresource}, "/")
 }
 
-func targetKeys(mutations []targetMutation) map[string]struct{} {
-	keys := make(map[string]struct{}, len(mutations))
+func mutationIDs(mutations []targetMutation) map[string]struct{} {
+	ids := make(map[string]struct{}, len(mutations))
 	for _, m := range mutations {
-		if m.target != nil {
-			keys[targetKey(m.target, m.subresource)] = struct{}{}
-		}
+		ids[m.id] = struct{}{}
 	}
-	return keys
+	return ids
 }
 
 func (c *mutateExistingController) getPolicy(ur *kyvernov2.UpdateRequest) (policy kyvernov1.PolicyInterface, err error) {

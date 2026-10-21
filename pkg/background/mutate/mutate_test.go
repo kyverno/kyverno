@@ -123,6 +123,11 @@ func TestUpdateURStatus_FailedReturnsError(t *testing.T) {
 // named in conflicts fails its first n updates with a conflict. The returned map
 // counts update calls per target name.
 func newTargetClient(targets []*unstructured.Unstructured, conflicts map[string]int, failWith error) (dclient.Interface, map[string]int) {
+	return newTargetClientFailing(targets, func(name string, update int) bool { return update <= conflicts[name] }, failWith)
+}
+
+// newTargetClientFailing is newTargetClient with failWith returned whenever fails reports true for a target's nth update.
+func newTargetClientFailing(targets []*unstructured.Unstructured, fails func(name string, update int) bool, failWith error) (dclient.Interface, map[string]int) {
 	scheme := runtime.NewScheme()
 	gvk := targets[0].GroupVersionKind()
 	scheme.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
@@ -146,7 +151,7 @@ func newTargetClient(targets []*unstructured.Unstructured, conflicts map[string]
 	dyn.PrependReactor("update", "configmaps", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		name := action.(k8stesting.UpdateAction).GetObject().(*unstructured.Unstructured).GetName()
 		updates[name]++
-		if updates[name] <= conflicts[name] {
+		if fails(name, updates[name]) {
 			return true, nil, failWith
 		}
 		return false, nil, nil
@@ -225,7 +230,7 @@ func TestApplyMutations_SkipsSettledTargets(t *testing.T) {
 	client, updates := newTargetClient([]*unstructured.Unstructured{a, b}, nil, nil)
 	c := &mutateExistingController{client: client}
 
-	only := targetKeys([]targetMutation{{target: b}})
+	only := map[string]struct{}{responseID("register", 1, b, ""): {}}
 	reports, errs, conflicted, conflict := c.applyMutations(logr.Discard(), "register", mutationResponse(a, b), only, nil)
 
 	assert.NoError(t, conflict)
@@ -423,4 +428,62 @@ func TestMutateWithRetry_NewInstanceOfARuleWideFailureIsReported(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Len(t, errs, 2, "the conflicted target's own failure on retry is not mistaken for the earlier one")
+}
+
+// passOn is a passing rule response that patched target.
+func passOn(rule string, target *unstructured.Unstructured) *engineapi.RuleResponse {
+	return engineapi.RulePass(rule, engineapi.Mutation, "", nil).
+		WithPatchedTarget(target.DeepCopy(), metav1.GroupVersionResource{Version: "v1", Resource: "configmaps"}, "")
+}
+
+// secondUpdateConflicts makes only the second update of a conflict, as when a later response patches an object an earlier one just changed.
+func secondUpdateConflicts(name string, update int) bool { return update == 2 }
+
+// Two rules that patch the same object: a retry for the one that conflicted must not re-apply the one that succeeded.
+func TestMutateWithRetry_SucceededRuleOnASharedTargetIsNotReapplied(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, updates := newTargetClientFailing([]*unstructured.Unstructured{a}, secondUpdateConflicts, conflictErr("a"))
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: ruleResponse(passOn("first", a), passOn("second", a))}}
+
+	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "first", nil)
+
+	assert.NoError(t, err)
+	assert.Empty(t, errs)
+	assert.Len(t, reports, 2, "each rule response is reported once")
+	assert.Equal(t, 3, updates["a"], "only the conflicted rule response is applied again")
+}
+
+// Two target entries of one rule that resolve to the same object are distinct patches, so only the conflicted one is retried.
+func TestMutateWithRetry_OverlappingTargetEntriesAreRetriedSeparately(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, updates := newTargetClientFailing([]*unstructured.Unstructured{a}, secondUpdateConflicts, conflictErr("a"))
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(a, a)}}
+
+	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Empty(t, errs)
+	assert.Len(t, reports, 2)
+	assert.Equal(t, 3, updates["a"], "the entry that already succeeded is not applied again")
+}
+
+// An earlier response that now skips must not shift the conflicted response out of the retry.
+func TestMutateWithRetry_EarlierSkipKeepsTheConflictedResponse(t *testing.T) {
+	t.Parallel()
+
+	a := configMap("a")
+	client, updates := newTargetClientFailing([]*unstructured.Unstructured{a}, secondUpdateConflicts, conflictErr("a"))
+	retryResponse := ruleResponse(engineapi.RuleSkip("register", engineapi.Mutation, "no patches applied", nil), passOn("register", a))
+	c := &mutateExistingController{client: client, engine: &mutatingEngine{response: mutationResponse(a, a), retryResponse: &retryResponse}}
+
+	_, reports, errs, err := c.mutateWithRetry(logr.Discard(), "register", nil)
+
+	assert.NoError(t, err)
+	assert.Empty(t, errs)
+	assert.Len(t, reports, 2)
+	assert.Equal(t, 3, updates["a"], "the conflicted response is still applied on the retry")
 }
