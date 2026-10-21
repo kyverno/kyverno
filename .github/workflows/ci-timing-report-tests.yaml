@@ -1,0 +1,26 @@
+name: CI timing report tests
+
+on:
+  pull_request:
+    paths:
+      - scripts/ci-timing-report.py
+      - scripts/test-ci-timing-report.py
+      - .github/workflows/ci-timing-report-tests.yaml
+  push:
+    branches: [main]
+    paths:
+      - scripts/ci-timing-report.py
+      - scripts/test-ci-timing-report.py
+      - .github/workflows/ci-timing-report-tests.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Test collector and offline reporting
+        run: python3 scripts/test-ci-timing-report.py
