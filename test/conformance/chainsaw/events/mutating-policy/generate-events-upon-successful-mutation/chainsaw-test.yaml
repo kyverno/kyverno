@@ -28,9 +28,28 @@ spec:
           value: add-labels
   - name: step-03
     try:
+    # Policy status can become ready before the API server observes the webhook.
+    # Probe a different resource so its dry-run event cannot satisfy the assertion.
+    - script:
+        timeout: 45s
+        content: |
+          for i in $(seq 1 30); do
+            label=$(kubectl create configmap mutation-readiness-probe \
+              -n "$NAMESPACE" --from-literal=key=probe --dry-run=server \
+              --request-timeout=5s -o jsonpath='{.metadata.labels.foo}') || exit 1
+            if [ "$label" = "bar" ]; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "MutatingPolicy add-labels is not yet mutating ConfigMaps"
+          exit 1
     - apply:
         file: resource.yaml
+    - assert:
+        file: resource-assert.yaml
   - name: step-04
     try:
     - assert:
         file: event-assert.yaml
+        template: true
