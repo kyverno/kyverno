@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -72,4 +73,35 @@ func TestReconcile_RequeuesInsteadOfPublishingEmptyWebhooksWhenWatchdogUnhealthy
 		"unhealthy reconcile should requeue the mutating resource webhook, not rebuild it")
 	assert.Contains(t, q.added, config.ValidatingWebhookConfigurationName,
 		"unhealthy reconcile should requeue the validating resource webhook, not rebuild it")
+}
+
+// TestDefaultResourceWebhookConfigurations_NoLegacyCatchAll is a 1.20 regression
+// guard: the static (autoUpdateWebhooks=false) default resource webhook
+// configurations must never register a webhook targeting the removed legacy
+// "/validate" or "/mutate" catch-all routes. Those routes no longer exist on the
+// server mux, so a webhook pointed at them would make every create/update/delete
+// of every resource fail (FailurePolicy: Fail) or silently no-op (Ignore).
+func TestDefaultResourceWebhookConfigurations_NoLegacyCatchAll(t *testing.T) {
+	c := &controller{
+		defaultTimeout:    10,
+		servicePort:       443,
+		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+	}
+	cfg := config.NewDefaultConfiguration(false)
+
+	mwc, err := c.buildDefaultResourceMutatingWebhookConfiguration(context.Background(), cfg, nil)
+	require.NoError(t, err)
+	for _, w := range mwc.Webhooks {
+		require.NotNil(t, w.ClientConfig.Service)
+		assert.NotEqual(t, config.MutatingWebhookServicePath, *w.ClientConfig.Service.Path,
+			"default mutating webhook configuration must not target the legacy /mutate catch-all: %s", w.Name)
+	}
+
+	vwc, err := c.buildDefaultResourceValidatingWebhookConfiguration(context.Background(), cfg, nil)
+	require.NoError(t, err)
+	for _, w := range vwc.Webhooks {
+		require.NotNil(t, w.ClientConfig.Service)
+		assert.NotEqual(t, config.ValidatingWebhookServicePath, *w.ClientConfig.Service.Path,
+			"default validating webhook configuration must not target the legacy /validate catch-all: %s", w.Name)
+	}
 }
