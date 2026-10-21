@@ -15,6 +15,13 @@ type Exception struct {
 	Validations     []Validation
 }
 
+// IsExpired rechecks a compiled exception at evaluation time. A cached compiled
+// policy may outlive spec.expiresAt without any informer event to recompile it.
+// A nil exception is left to the compiler's existing input validation path.
+func (e Exception) IsExpired() bool {
+	return e.Exception != nil && e.Exception.IsExpired()
+}
+
 // CompileExceptionsWithValidations compiles each exception's match conditions and compensating
 // controls, sorted by namespace/name: informer order is not guaranteed, and the first refusal
 // supplies the reported message, so an unsorted list would vary that message between requests.
