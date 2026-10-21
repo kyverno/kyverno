@@ -3,6 +3,8 @@ kind: Pod
 metadata:
   name: pod
 spec:
+  nodeSelector:
+    kyverno.io/test-node: nonexistent
   containers:
     - name: container
       image: public.ecr.aws/docker/library/nginx:latest
