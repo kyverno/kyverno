@@ -92,7 +92,7 @@ To reduce the computation power needed, especially when resources change frequen
 - Put the namespace of the report in the queue (`""` if the report is clustered) with a delay of `30s`
 - The queue guarantees that only a single worker will process an item at the same time
 - When the worker gets the namespace from the queue it lists all admission reports and background scan reports for that particular namespace, aggregates them together and reconciles the existing policy reports
-- The aggregator drops any result whose policy no longer exists, and it reconciles every existing policy report once on each leader start to prune reports that would otherwise never see another event
+- The aggregator drops any result whose policy no longer exists; if legacy `ClusterPolicy`/`Policy` are still present, it also reconciles every existing policy report once on leader start, to prune reports that would otherwise never see another event
 
 This process can have a significant impact on the number of API calls and the memory footprint, especially when we have large reports.
 To mitigate this, we use LIST api calls with pagination and reports are aggregated before loading the next page.

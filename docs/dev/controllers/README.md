@@ -85,7 +85,7 @@ This component takes the synchronously-generated AdmissionReport resources from 
 
 #### Policy Report Aggregator
 
-This component aggregates both the background and admission intermediary reports into the final resources `PolicyReport` and `ClusterPolicyReport`. On each leader start, it reconciles every existing report once and drops any result whose policy no longer exists.
+This component aggregates both the background and admission intermediary reports into the final resources `PolicyReport` and `ClusterPolicyReport`, and drops any result whose policy no longer exists. If legacy `ClusterPolicy`/`Policy` are still present on the cluster, it also reconciles every existing report once on leader start to prune their legacy results.
 
 ### Cleanup Controller
 
