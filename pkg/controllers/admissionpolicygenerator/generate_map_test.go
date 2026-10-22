@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/admissionpolicy"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -155,6 +156,26 @@ func TestMapGenerationSkipReason(t *testing.T) {
 				},
 			},
 			wantSkip: false,
+		},
+		{
+			name: "admission disabled must not generate native MAP",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				AutogenConfiguration: mapGenEnabled(),
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{
+					Admission: &policiesv1alpha1.AdmissionConfiguration{Enabled: ptr.To(false)},
+				},
+			}},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: admission evaluation is disabled.",
+		},
+		{
+			name: "JSON evaluation cannot generate native MAP",
+			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				AutogenConfiguration: mapGenEnabled(),
+				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "JSON"},
+			}},
+			wantSkip:   true,
+			wantReason: "skip generating MutatingAdmissionPolicy: only Kubernetes evaluation mode is supported.",
 		},
 		{
 			name: "generation enabled with useServerSideApply",
