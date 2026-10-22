@@ -11,6 +11,7 @@ import (
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -31,10 +32,78 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+type generationProtectionToggles struct {
+	forceFailurePolicyIgnore bool
+}
+
+func (t generationProtectionToggles) ProtectManagedResources() bool {
+	return false
+}
+
+func (t generationProtectionToggles) ForceFailurePolicyIgnore() bool {
+	return t.forceFailurePolicyIgnore
+}
+
+func (t generationProtectionToggles) EnableDeferredLoading() bool {
+	return false
+}
+
+func (t generationProtectionToggles) GenerateValidatingAdmissionPolicy() bool {
+	return false
+}
+
+func (t generationProtectionToggles) GenerateMutatingAdmissionPolicy() bool {
+	return false
+}
+
+func (t generationProtectionToggles) DumpMutatePatches() bool {
+	return false
+}
+
+func (t generationProtectionToggles) AllowHTTPInNamespacedPolicies() bool {
+	return false
+}
+
+func TestGenerationLabelProtectionFailurePolicy(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		forceIgnore bool
+		want        admissionregistrationv1.FailurePolicyType
+	}{
+		{
+			name: "default fail policy",
+			want: admissionregistrationv1.Fail,
+		},
+		{
+			name:        "forced ignore policy",
+			forceIgnore: true,
+			want:        admissionregistrationv1.Ignore,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			ctx := toggle.NewContext(context.Background(), generationProtectionToggles{
+				forceFailurePolicyIgnore: test.forceIgnore,
+			})
+
+			c := &controller{defaultTimeout: 10, servicePort: 443}
+			webhook := c.buildGenerationLabelProtectionWebhook(ctx, nil)
+
+			require.NotNil(t, webhook.FailurePolicy)
+			assert.Equal(t, test.want, *webhook.FailurePolicy)
+		})
+	}
+}
+
 func TestGenerationLabelProtectionObjectSelector(t *testing.T) {
 	t.Parallel()
 	c := &controller{defaultTimeout: 10, servicePort: 443}
-	webhook := c.buildGenerationLabelProtectionWebhook(nil)
+	webhook := c.buildGenerationLabelProtectionWebhook(context.Background(), nil)
 	accessor := webhookaccessor.NewValidatingWebhookAccessor("protection", config.ValidatingWebhookConfigurationName, &webhook)
 	matcher := &object.Matcher{}
 	resource := func(content map[string]any) runtime.Object {
@@ -193,7 +262,7 @@ func TestGenerationLabelProtectionManualRoutingUpgrade(t *testing.T) {
 			assert.Equal(t, observed.OwnerReferences, updated.OwnerReferences)
 			require.Len(t, updated.Webhooks, 2)
 			assert.Equal(t, manual, updated.Webhooks[0])
-			assert.Equal(t, c.buildGenerationLabelProtectionWebhook([]byte("ca")), updated.Webhooks[1])
+			assert.Equal(t, c.buildGenerationLabelProtectionWebhook(ctx, []byte("ca")), updated.Webhooks[1])
 			assertGenerationBootstrapAdmission(t, updated.Webhooks[1], true)
 			require.NoError(t, webhooks.Update(updated))
 			client.ClearActions()
@@ -210,6 +279,71 @@ func TestGenerationLabelProtectionManualRoutingUpgrade(t *testing.T) {
 			assertGenerationBootstrapAdmission(t, updated.Webhooks[1], false)
 		})
 	}
+}
+
+func TestGenerationLabelProtectionReconciliationHonorsForceFailurePolicyIgnore(t *testing.T) {
+	t.Parallel()
+
+	ctx := toggle.NewContext(context.Background(), generationProtectionToggles{
+		forceFailurePolicyIgnore: true,
+	})
+
+	observed := &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: config.ValidatingWebhookConfigurationName,
+		},
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{
+			{Name: "user-managed.example.com"},
+		},
+	}
+
+	client := kubefake.NewClientset(observed.DeepCopy())
+
+	webhooks := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, webhooks.Add(observed))
+
+	secrets := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	require.NoError(t, secrets.Add(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ca",
+			Namespace: config.KyvernoNamespace(),
+		},
+		Data: map[string][]byte{
+			corev1.TLSCertKey: []byte("ca"),
+		},
+	}))
+
+	c := &controller{
+		defaultTimeout:    10,
+		servicePort:       443,
+		caSecretName:      "ca",
+		configuration:     config.NewDefaultConfiguration(false),
+		vwcClient:         client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		vwcLister:         admissionregistrationv1listers.NewValidatingWebhookConfigurationLister(webhooks),
+		secretLister:      corev1listers.NewSecretLister(secrets),
+		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+	}
+
+	require.NoError(t, c.reconcileResourceValidatingWebhookConfiguration(ctx))
+
+	updated, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+		ctx,
+		observed.Name,
+		metav1.GetOptions{},
+	)
+	require.NoError(t, err)
+
+	var protection *admissionregistrationv1.ValidatingWebhook
+	for i := range updated.Webhooks {
+		if updated.Webhooks[i].Name == config.GenerationLabelProtectionWebhookName {
+			protection = &updated.Webhooks[i]
+			break
+		}
+	}
+
+	require.NotNil(t, protection, "generation-label protection webhook should be reconciled")
+	require.NotNil(t, protection.FailurePolicy)
+	assert.Equal(t, admissionregistrationv1.Ignore, *protection.FailurePolicy)
 }
 
 // Check admission decisions from the emitted conditions, including resources
