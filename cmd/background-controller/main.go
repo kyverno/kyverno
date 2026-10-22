@@ -99,7 +99,6 @@ func createrLeaderControllers(
 		kyvernoClient,
 		dynamicClient,
 		kyvernoInformer.Kyverno().V2().UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
 		context,
 		gpolEngine,
 		gpolProvider,

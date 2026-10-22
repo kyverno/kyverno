@@ -24,8 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	corev1informers "k8s.io/client-go/informers/core/v1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -49,7 +47,6 @@ type controller struct {
 
 	// listers
 	urLister kyvernov2listers.UpdateRequestNamespaceLister
-	nsLister corev1listers.NamespaceLister
 
 	informersSynced []cache.InformerSynced
 
@@ -72,7 +69,6 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
 	urInformer kyvernov2informers.UpdateRequestInformer,
-	namespaceInformer corev1informers.NamespaceInformer,
 	context libs.Context,
 	gpolEngine gpolengine.Engine,
 	gpolProvider gpolengine.Provider,
@@ -88,7 +84,6 @@ func NewController(
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		urLister:      urLister,
-		nsLister:      namespaceInformer.Lister(),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
 			workqueue.TypedRateLimitingQueueConfig[any]{Name: "background"},
@@ -107,7 +102,7 @@ func NewController(
 		UpdateFunc: c.updateUR,
 	})
 
-	c.informersSynced = []cache.InformerSynced{urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
+	c.informersSynced = []cache.InformerSynced{urInformer.Informer().HasSynced}
 
 	return &c
 }
