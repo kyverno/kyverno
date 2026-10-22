@@ -14,6 +14,7 @@ on:
       - .github/workflows/comment-cherry-pick.yaml
       - .github/workflows/cherry-pick-on-merge.yaml
       - .github/workflows/check-cherry-pick-workflows.yaml
+      - .github/workflows/check-cherry-pick-conflicts.yaml
       - scripts/test-cherry-pick-workflows.py
   push:
     branches:
@@ -24,6 +25,7 @@ on:
       - .github/workflows/comment-cherry-pick.yaml
       - .github/workflows/cherry-pick-on-merge.yaml
       - .github/workflows/check-cherry-pick-workflows.yaml
+      - .github/workflows/check-cherry-pick-conflicts.yaml
       - scripts/test-cherry-pick-workflows.py
 
 concurrency:

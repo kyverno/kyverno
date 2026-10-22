@@ -1,7 +1,0 @@
-apiVersion: v1
-data:
-  fookey: bar
-kind: ConfigMap
-metadata:
-  name: mycm
-  namespace: foo
