@@ -195,24 +195,6 @@ jobs:
           shard-index: ${{ matrix.shard-index }}
           shard-count: 6
 
-<<<<<<< HEAD
-=======
-  deprecations:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        k8s-version: [v1.33.7, v1.34.3, v1.35.1, v1.36.1]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: ./.github/actions/tests/conformance/run
-        with:
-          k8s-version: ${{ matrix.k8s-version }}
-          kyverno-configs: standard
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tests-path: deprecations
-
->>>>>>> 26954c964 (ci: add k8s 1.36 to the conformance matrix (#17781))
   events:
     runs-on: ubuntu-latest
     strategy:
@@ -714,12 +696,8 @@ jobs:
       - uses: ./.github/actions/tests/conformance/run
         with:
           k8s-version: ${{ matrix.k8s-version }}
-<<<<<<< HEAD
           kind-config: ./scripts/config/kind/vap-v1beta1.yaml
           kyverno-configs: standard,sigstore-custom-tuf
-=======
-          kyverno-configs: standard,sigstore-custom-tuf,legacy-policies
->>>>>>> 26954c964 (ci: add k8s 1.36 to the conformance matrix (#17781))
           token: ${{ secrets.GITHUB_TOKEN }}
           tests-path: sigstore-custom-tuf
 
