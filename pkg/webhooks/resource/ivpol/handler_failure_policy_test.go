@@ -177,3 +177,52 @@ func TestMutationResponse_FailurePolicy(t *testing.T) {
 		assert.True(t, resp.Allowed)
 	})
 }
+
+func TestIsBlocked_FailurePolicy(t *testing.T) {
+	t.Parallel()
+	fail := admissionregistrationv1.Fail
+	ignore := admissionregistrationv1.Ignore
+	deny := []admissionregistrationv1.ValidationAction{admissionregistrationv1.Deny}
+	auditOnly := []admissionregistrationv1.ValidationAction{admissionregistrationv1.Audit}
+	errored := *engineapi.RuleError("verification", engineapi.ImageVerify, "error", errors.New("connection timed out"), nil)
+	failed := *engineapi.RuleFail("verification", engineapi.ImageVerify, "signature invalid", nil)
+	refusedException := *engineapi.RuleError("verification", engineapi.ImageVerify, "exception refused", errors.New("bad exception"), nil).
+		WithExceptions([]engineapi.GenericException{engineapi.NewCELPolicyException(&policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Name: "polex", Namespace: "default"}})})
+
+	t.Run("fail blocks on error", func(t *testing.T) {
+		t.Parallel()
+		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &fail, deny, errored)}}
+		assert.True(t, isBlocked(context.Background(), response))
+	})
+
+	t.Run("ignore does not block on runtime error", func(t *testing.T) {
+		t.Parallel()
+		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &ignore, deny, errored)}}
+		assert.False(t, isBlocked(context.Background(), response))
+	})
+
+	t.Run("ignore still blocks on verification failure", func(t *testing.T) {
+		t.Parallel()
+		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &ignore, deny, failed)}}
+		assert.True(t, isBlocked(context.Background(), response))
+	})
+
+	t.Run("ignore still blocks on refused exception error", func(t *testing.T) {
+		t.Parallel()
+		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &ignore, deny, refusedException)}}
+		assert.True(t, isBlocked(context.Background(), response))
+	})
+
+	t.Run("forceIgnore does not block on error", func(t *testing.T) {
+		t.Parallel()
+		ctx := toggle.NewContext(context.Background(), forceIgnoreToggles{toggle.FromContext(context.Background())})
+		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &fail, deny, errored)}}
+		assert.False(t, isBlocked(ctx, response))
+	})
+
+	t.Run("audit action only does not block", func(t *testing.T) {
+		t.Parallel()
+		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &fail, auditOnly, errored)}}
+		assert.False(t, isBlocked(context.Background(), response))
+	})
+}

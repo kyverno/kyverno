@@ -117,9 +117,26 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 	return h.validationResponse(ctx, request, response)
 }
 
-// an error carrying a refused exception means the policy itself failed, so it blocks regardless
 func errorBlocks(rule engineapi.RuleResponse, failurePolicy admissionregistrationv1.FailurePolicyType) bool {
 	return failurePolicy == admissionregistrationv1.Fail || len(rule.Exceptions()) > 0
+}
+
+func isBlocked(ctx context.Context, response eval.ImageVerifyEngineResponse) bool {
+	for _, policy := range response.Policies {
+		if !policy.Actions.Has(admissionregistrationv1.Deny) {
+			continue
+		}
+		switch policy.Result.Status() {
+		case engineapi.RuleStatusFail:
+			return true
+		case engineapi.RuleStatusError:
+			failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
+			if errorBlocks(policy.Result, failurePolicy) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (h *handler) mutationResponse(ctx context.Context, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse, rawPatches []byte) handlers.AdmissionResponse {
@@ -154,15 +171,6 @@ func (h *handler) mutationResponse(ctx context.Context, request celengine.Engine
 	return admissionutils.MutationResponse(request.AdmissionRequest().UID, rawPatches, warnings...)
 }
 
-// mutationEvents reports digest pinning failures as events against the policy and the resource.
-// Only failures reach it: handleMutation records a policy result solely when a policy errors, so a
-// mutation that pins every image (or has nothing to pin) is silent.
-//
-// Unlike the validating phase this deliberately creates no admission report. When the failure is not
-// blocking, the request carries on to the validating webhook, which evaluates the same policies and
-// reports against them, so reporting here as well would duplicate that. When it is blocking the
-// request is rejected outright and no report is produced, matching ClusterPolicy, which likewise
-// skips handleAudit for a blocked request (pkg/webhooks/resource/imageverification/handler.go).
 func (h *handler) mutationEvents(ctx context.Context, response eval.ImageVerifyEngineResponse, blocked bool) {
 	if len(response.Policies) == 0 || response.Resource == nil {
 		return
@@ -208,13 +216,7 @@ func (h *handler) validationResponse(ctx context.Context, request celengine.Engi
 }
 
 func (h *handler) audit(ctx context.Context, logger logr.Logger, admissionRequest handlers.AdmissionRequest, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) {
-	blocked := false
-	for _, p := range response.Policies {
-		if p.Actions.Has(admissionregistrationv1.Deny) {
-			blocked = true
-			break
-		}
-	}
+	blocked := isBlocked(ctx, response)
 
 	allEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
 	reportableEngineResponses := make([]engineapi.EngineResponse, 0, len(response.Policies))
