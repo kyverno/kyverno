@@ -335,6 +335,38 @@ func TestCanGenerateNativeMutatingPolicyExpressions(t *testing.T) {
 	}
 }
 
+func TestCanGenerateNativeMutatingPolicyExpressions_MatchConditionVariables(t *testing.T) {
+	tests := []struct {
+		name string
+		expression string
+		want bool
+	}{
+		{name: "global variable selection", expression: "variables.allowed", want: false},
+		{name: "global variable identifier", expression: "variables == null", want: false},
+		{name: "absolute global variable", expression: ".variables.allowed", want: false},
+		{name: "nested global use", expression: "variables.allowed.exists(x, x)", want: false},
+		{name: "ordinary match condition", expression: "object.metadata.name == 'example'", want: true},
+		{name: "quoted identifier", expression: "'variables.allowed' == 'variables.allowed'", want: true},
+		{name: "similarly named resource field", expression: "object.variables.allowed == 'example'", want: true},
+		{name: "local comprehension variable", expression: "object.items.all(variables, variables != null)", want: true},
+		{name: "local binding", expression: "cel.bind(variables, object, variables.metadata.name)", want: true},
+		{name: "global range with local binding", expression: "variables.allowed.all(variables, variables != null)", want: false},
+		{name: "invalid CEL rejected", expression: "variables.allowed[", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
+				MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "test", Expression: tt.expression}},
+			}}
+			got, reason := CanGenerateNativeMutatingPolicyExpressions(policy)
+			assert.Equal(t, tt.want, got)
+			if !tt.want {
+				assert.Assert(t, reason != "")
+			}
+		})
+	}
+}
+
 func TestCanGenerateNativeMutatingPolicyExpressions_UnsupportedNativeFields(t *testing.T) {
 	selectEverything := &metav1.LabelSelector{MatchLabels: map[string]string{"team": "platform"}}
 	equivalent := admissionregistrationv1.Equivalent
