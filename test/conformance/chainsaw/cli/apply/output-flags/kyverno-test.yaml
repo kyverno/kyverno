@@ -1,0 +1,16 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: output-flags
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - isMutatingPolicy: true
+    policy: add-output-label
+    kind: ConfigMap
+    resources:
+      - default/output-example
+    patchedResources: patched-resource.yaml
+    result: pass
