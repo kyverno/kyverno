@@ -206,6 +206,22 @@ func TestAnyNotInHandler_Evaluate(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "key is a list and in a range with a negative lower bound",
+			args: args{
+				key:   []interface{}{5},
+				value: "-10-10",
+			},
+			want: false,
+		},
+		{
+			name: "key is a list and not in a range with a negative lower bound",
+			args: args{
+				key:   []interface{}{50},
+				value: "-10-10",
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
