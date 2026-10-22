@@ -433,6 +433,21 @@ func TestCanGenerateNativeValidatingPolicyExpressions(t *testing.T) {
 		want       bool
 	}{
 		{name: "standard policy", want: true},
+		{name: "match condition cannot reference native variables", spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "bad", Expression: "variables.test == true"}},
+		}},
+		{name: "match condition bare variables reference rejected", spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "bad", Expression: "variables == null"}},
+		}},
+		{name: "match condition string literal remains safe", spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "ok", Expression: "'variables.test' == 'variables.test'"}},
+		}, want: true},
+		{name: "local variables binding captures generated image variable", spec: policiesv1beta1.ValidatingPolicySpec{
+			Validations: []admissionregistrationv1.Validation{{Expression: "object.items.all(variables, exceptions.allowedImages.size() > 0)"}},
+		}},
+		{name: "local variables binding captures generated value variable", spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{Name: "x", Expression: "cel.bind(variables, object, exceptions.allowedValues.size())"}},
+		}},
 		{name: "exact variable cap", spec: policiesv1beta1.ValidatingPolicySpec{
 			Variables: makeVars(63),
 		}, exceptions: []policiesv1beta1.PolicyException{{Spec: policiesv1beta1.PolicyExceptionSpec{
