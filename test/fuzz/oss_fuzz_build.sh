@@ -4,6 +4,7 @@
 # OSS-Fuzz uses this script to compile kyvernos fuzzers
 
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/utils/api FuzzJmespath FuzzJmespath
+compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/cel/policies/vpol FuzzValidateValidatingPolicy FuzzValidateValidatingPolicy
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/anchor FuzzAnchorParseTest FuzzAnchorParseTest
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/api FuzzEngineResponse FuzzEngineResponse
 
