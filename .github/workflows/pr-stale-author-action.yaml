@@ -178,10 +178,14 @@ jobs:
           stale_head() {
             local marked
             marked=$(jq -r '[.[] | select(.t == "Bot") | .body
-              | try capture("<!-- pr-stale-author-action: stale [0-9]+ (?<head>[0-9a-f]+) -->").head catch empty]
+              | try capture("<!-- pr-stale-author-action: stale [0-9]+ (?<head>[0-9a-f]+|null) -->").head catch empty]
               | map(select(. != "")) | last // ""' issue-comments.json) || return 1
             if [[ -n "$marked" ]]; then
               printf '%s' "$marked"
+              return 0
+            fi
+            if [[ "$(jq -r '.headRefOid' pr.json)" == "null" ]]; then
+              printf 'null'
               return 0
             fi
             jq -r '
@@ -243,7 +247,7 @@ jobs:
             [[ "$stale_at" -eq 0 ]] && { echo "::warning::PR #$n: stale label time not found — skipping."; return 0; }
             if ! has_label needs-author-action || has_label no-stale || [[ "$last" -gt "$stale_at" ]] \
               || force_push_after "$stale_at" \
-              || { [[ -n "$recorded_head" ]] && [[ "$head" != "$recorded_head" ]]; }; then
+              || { [[ "$head" != "null" && -n "$recorded_head" ]] && [[ "$head" != "$recorded_head" ]]; }; then
               echo "PR #$n: no longer stale — removing the label."
               act gh pr edit "$n" --repo "$repo" --remove-label stale || return 1
             fi
@@ -300,7 +304,8 @@ jobs:
             # A new commit or force-push after stale marking resets the cycle; merge-conflict time only affects idle.
             [[ "$stale_at" -eq 0 || "$last_commit_at" -gt "$stale_at" ]] && return 0
             force_push_after "$stale_at" && return 0
-            [[ -z "$recorded_head" || "$head" != "$recorded_head" ]] && return 0
+            [[ -z "$recorded_head" ]] && return 0
+            [[ "$head" != "null" && "$head" != "$recorded_head" ]] && return 0
             idle=$((now - last))
             [[ "$idle" -lt "$close_secs" ]] && return 0
 
