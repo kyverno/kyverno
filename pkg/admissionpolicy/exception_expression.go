@@ -132,6 +132,28 @@ func referencesGlobalIdentifier(expression, name string) (bool, error) {
 	return false, nil
 }
 
+// declaresLocalIdentifier is used on original CEL expressions to detect a
+// variable binding that could capture a generated root reference.
+func declaresLocalVariables(expression string) (bool, error) {
+	if !strings.Contains(expression, "variables") {
+		return false, nil
+	}
+	p, err := parser.NewParser(parser.EnableOptionalSyntax(true))
+	if err != nil {
+		return false, err
+	}
+	parsed, parseErrors := p.Parse(common.NewTextSource(expression))
+	if len(parseErrors.GetErrors()) != 0 {
+		return false, fmt.Errorf("failed to parse variables expression: %s", parseErrors.ToDisplayString())
+	}
+	for _, node := range celast.MatchDescendants(celast.NavigateAST(parsed), celast.KindMatcher(celast.IdentKind)) {
+		if node.AsIdent() == "variables" && declaresLocalIdentifier(node, "variables") {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func declaresLocalIdentifier(node celast.NavigableExpr, name string) bool {
 	parent, ok := node.Parent()
 	if !ok || parent.Kind() != celast.CallKind {
