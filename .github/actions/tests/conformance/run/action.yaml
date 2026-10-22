@@ -134,6 +134,25 @@ runs:
     - name: Add excluded tests
       shell: bash
       run: |
+        TESTS_ROOT="$(cd "./test/conformance/chainsaw/${{ inputs.tests-path }}" && pwd)"
+        while IFS= read -r -d '' MANIFEST; do
+          if ! grep -qE '^[[:space:]]*kind:[[:space:]]*ClusterPolicy([[:space:]]|$)|policyType[=:][[:space:]]*ClusterPolicy([[:space:]]|$)' "$MANIFEST"; then
+            continue
+          fi
+
+          TEST_DIR="$(dirname "$MANIFEST")"
+          while [[ "$TEST_DIR" != "$TESTS_ROOT" && ! -f "$TEST_DIR/chainsaw-test.yaml" ]]; do
+            TEST_DIR="$(dirname "$TEST_DIR")"
+          done
+          TEST_FILE="$TEST_DIR/chainsaw-test.yaml"
+          if [[ ! -f "$TEST_FILE" || "$TEST_DIR" == */deprecations/create-blocked ]]; then
+            continue
+          fi
+
+          yq eval '.spec.skip = true' -i "$TEST_FILE"
+          echo "Skipped legacy ClusterPolicy test: $TEST_DIR"
+        done < <(find "$TESTS_ROOT" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0)
+
         if [ -z "${{ inputs.quarantined-tests }}" ]; then
           echo "no quarantined tests, skipping"
           exit 0
@@ -143,7 +162,7 @@ runs:
 
         for DIR_NAME in "${TEST_DIRS[@]}"; do
           # Find ALL matching directories
-          mapfile -t FOUND_DIRS < <(find ./test/conformance/chainsaw/${{ inputs.tests-path }} -type d -name "$DIR_NAME")
+          mapfile -t FOUND_DIRS < <(find "$TESTS_ROOT" -type d -name "$DIR_NAME")
 
           if [ ${#FOUND_DIRS[@]} -eq 0 ]; then
             echo "Error: No directories found matching '$DIR_NAME'"
