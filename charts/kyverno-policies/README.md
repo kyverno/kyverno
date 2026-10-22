@@ -6,6 +6,13 @@ Kubernetes Pod Security Standards implemented as Kyverno policies
 
 ## About
 
+**1.20 notice.** This chart's templates render `kyverno.io/v1` `ClusterPolicy` resources, the
+legacy policy type. Starting with Kyverno 1.20, Kyverno no longer executes legacy `kyverno.io`
+policies and rejects their create and update requests: installing or upgrading this chart against
+a 1.20 or later Kyverno cluster fails instead of storing unenforced `ClusterPolicy` objects. Wait
+for this chart to migrate its templates to the `policies.kyverno.io` policy types before relying
+on it for enforcement on a 1.20 cluster; track the migration at https://github.com/kyverno/kyverno.
+
 This chart contains Kyverno's implementation of the Kubernetes Pod Security Standards (PSS) as documented at https://kubernetes.io/docs/concepts/security/pod-security-standards/ and are a Helm packaged version of those found at https://github.com/kyverno/policies/tree/main/pod-security. The goal of the PSS controls is to provide a good starting point for general Kubernetes cluster operational security. These controls are broken down into two categories, Baseline and Restricted. Baseline policies implement the most basic of Pod security controls while Restricted implements more strict controls. Restricted is cumulative and encompasses those listed in Baseline.
 
 The following policies are included in each profile.
@@ -16,6 +23,7 @@ The following policies are included in each profile.
 * disallow-host-namespaces
 * disallow-host-path
 * disallow-host-ports
+* disallow-host-probes
 * disallow-host-process
 * disallow-privileged-containers
 * disallow-proc-mount
@@ -28,6 +36,7 @@ The following policies are included in each profile.
 
 * disallow-capabilities-strict
 * disallow-privilege-escalation
+* disallow-proc-mount-strict
 * require-run-as-non-root-user
 * require-run-as-nonroot
 * restrict-seccomp-strict
@@ -73,12 +82,13 @@ The command removes all the Kubernetes components associated with the chart and 
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies |
-| policyType | string | `"ClusterPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) Set to `ValidatingPolicy` to use CEL-based policies (requires Kyverno 1.17+) ClusterPolicy will be deprecated in Kyverno 1.17 Default: ClusterPolicy (for backward compatibility) |
+| policyKind | string | `"ClusterPolicy"` | Policy kind (`ClusterPolicy`, `Policy`) Set to `Policy` if you need namespaced policies and not cluster policies. Only used when `policyType` is `ClusterPolicy` (the legacy kyverno.io types); with the default `policyType: ValidatingPolicy` cluster-wide CEL policies are installed. |
+| policyType | string | `"ValidatingPolicy"` | Policy engine type (`ClusterPolicy`, `ValidatingPolicy`) `ValidatingPolicy` installs CEL-based policies (policies.kyverno.io, requires Kyverno 1.17+). Set to `ClusterPolicy` to keep installing the legacy kyverno.io policy types, which are deprecated and will be removed in a future release (see https://kyverno.io/docs/guides/migration-to-cel/). |
 | podSecurityStandard | string | `"baseline"` | Pod Security Standard profile (`baseline`, `restricted`, `privileged`, `custom`). For more info https://kyverno.io/policies/pod-security. |
 | podSecuritySeverity | string | `"medium"` | Pod Security Standard severity (`low`, `medium`, `high`). |
 | podSecuritySeverityByPolicy | object | `{}` | Define podSecuritySeverity overrides for specific policies. Override the global `podSecuritySeverity` with an individual severity for individual policies. An empty string per-policy entry suppresses the annotation entirely. |
 | podSecurityPolicies | list | `[]` | Policies to include when `podSecurityStandard` is `custom`. |
+| podSecurityUserNamespaces | bool | `false` | Enable the Kubernetes Pod Security Admission relaxation for user namespace pods for ValidatingPolicy templates only. When `true`, the `disallow-proc-mount` (Baseline), `require-run-as-nonroot` and `require-run-as-non-root-user` (Restricted) ValidatingPolicies skip Pods that explicitly set `spec.hostUsers` to `false`. A Pod that omits `hostUsers` or sets it to `true` is always checked. The Restricted `disallow-proc-mount-strict` ValidatingPolicy never relaxes, and neither does `disallow-proc-mount` when the Restricted profile is installed. This setting has no effect on legacy `ClusterPolicy` templates. |
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | includeRestrictedPolicies | list | `[]` | Additional policies to include from `restricted`. |
 | customPolicies | list | `[]` | Additional custom policies to include. Can be a list or a map (useful for Helm/ArgoCD value merging). |

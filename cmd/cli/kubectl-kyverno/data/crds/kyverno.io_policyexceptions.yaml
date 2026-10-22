@@ -4,6 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: (devel)
+    helm.sh/resource-policy: keep
   name: policyexceptions.kyverno.io
 spec:
   group: kyverno.io
@@ -18,7 +19,10 @@ spec:
     singular: policyexception
   scope: Namespaced
   versions:
-  - name: v2
+  - deprecated: true
+    deprecationWarning: kyverno.io/v2 PolicyException is deprecated and will be removed
+      in a future release; migrate to PolicyException (policies.kyverno.io), see https://kyverno.io/docs/guides/migration-to-cel/
+    name: v2
     schema:
       openAPIV3Schema:
         description: PolicyException declares resources to be excluded from specified
@@ -659,6 +663,9 @@ spec:
     served: true
     storage: true
   - deprecated: true
+    deprecationWarning: kyverno.io/v2beta1 PolicyException is deprecated and will
+      be removed in a future release; migrate to PolicyException (policies.kyverno.io),
+      see https://kyverno.io/docs/guides/migration-to-cel/
     name: v2beta1
     schema:
       openAPIV3Schema:

@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -138,6 +140,207 @@ func TestGetGpolTriggers_WildcardAPIVersions(t *testing.T) {
 	assert.Equal(t, 1, got["cert-b"])
 }
 
+func TestGetGpolTriggers_SubresourceTrigger(t *testing.T) {
+	groupResources := []*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name:             "",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {
+					{Name: "pods", Namespaced: true, Kind: "Pod"},
+				},
+			},
+		},
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
+	scheme := runtime.NewScheme()
+	gvrPods := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		gvrPods: "PodList",
+	}
+
+	pod := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name":      "my-pod",
+			"namespace": "default",
+		},
+	}}
+
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, pod)
+	assert.NoError(t, err)
+
+	disco := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{gvrPods})
+	disco.AddGVRToGVKMapping(
+		gvrPods,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+	)
+	fakeClient.SetDiscovery(disco)
+
+	pc := &policyController{
+		client:     fakeClient,
+		restMapper: restMapper,
+		log:        logr.Discard(),
+	}
+
+	match := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods/status"},
+					},
+				},
+			},
+		},
+	}
+
+	triggers := pc.getGpolTriggers(match)
+	assert.Len(t, triggers, 1)
+	assert.Equal(t, "status", triggers[0].SubResource)
+}
+
+func TestGetGpolTriggers_WildcardAPIVersions_Subresource(t *testing.T) {
+	groupResources := []*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name:             "",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {
+					{Name: "pods", Namespaced: true, Kind: "Pod"},
+				},
+			},
+		},
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
+	scheme := runtime.NewScheme()
+	gvrPods := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		gvrPods: "PodList",
+	}
+
+	pod := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name":      "my-pod",
+			"namespace": "default",
+		},
+	}}
+
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, pod)
+	assert.NoError(t, err)
+
+	disco := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{gvrPods})
+	disco.AddGVRToGVKMapping(
+		gvrPods,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+	)
+	fakeClient.SetDiscovery(disco)
+
+	pc := &policyController{
+		client:     fakeClient,
+		restMapper: restMapper,
+		log:        logr.Discard(),
+	}
+
+	match := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"*"},
+						Resources:   []string{"pods/status"},
+					},
+				},
+			},
+		},
+	}
+
+	triggers := pc.getGpolTriggers(match)
+	assert.Len(t, triggers, 1)
+	assert.Equal(t, "status", triggers[0].SubResource)
+	assert.Equal(t, "my-pod", triggers[0].GetName())
+}
+
+func TestGetGpolTriggers_DeduplicateTriggers(t *testing.T) {
+	groupResources := []*restmapper.APIGroupResources{
+		{
+			Group: metav1.APIGroup{
+				Name:             "",
+				Versions:         []metav1.GroupVersionForDiscovery{{GroupVersion: "v1", Version: "v1"}},
+				PreferredVersion: metav1.GroupVersionForDiscovery{GroupVersion: "v1", Version: "v1"},
+			},
+			VersionedResources: map[string][]metav1.APIResource{
+				"v1": {
+					{Name: "pods", Namespaced: true, Kind: "Pod"},
+				},
+			},
+		},
+	}
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+
+	scheme := runtime.NewScheme()
+	gvrPods := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		gvrPods: "PodList",
+	}
+
+	pod := &unstructured.Unstructured{Object: map[string]interface{}{
+		"apiVersion": "v1",
+		"kind":       "Pod",
+		"metadata": map[string]interface{}{
+			"name":      "my-pod",
+			"namespace": "default",
+		},
+	}}
+
+	fakeClient, err := dclient.NewFakeClient(scheme, gvrToListKind, pod)
+	assert.NoError(t, err)
+
+	disco := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{gvrPods})
+	disco.AddGVRToGVKMapping(
+		gvrPods,
+		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+	)
+	fakeClient.SetDiscovery(disco)
+
+	pc := &policyController{
+		client:     fakeClient,
+		restMapper: restMapper,
+		log:        logr.Discard(),
+	}
+
+	match := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods", "pods/status"},
+					},
+				},
+			},
+		},
+	}
+
+	triggers := pc.getGpolTriggers(match)
+	assert.Len(t, triggers, 1, "expected duplicate triggers from pods and pods/status to be deduplicated")
+}
+
 func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
 	groupResources := []*restmapper.APIGroupResources{newFakeRESTMapper(t)}
 	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
@@ -191,4 +394,80 @@ func TestGetGpolTriggers_ConcreteAPIVersionUnaffected(t *testing.T) {
 	triggers := pc.getGpolTriggers(match)
 
 	assert.Len(t, triggers, 1)
+}
+
+func TestHandleGenerateExistingPropagatesSynchronization(t *testing.T) {
+	groupResources := []*restmapper.APIGroupResources{newFakeRESTMapper(t)}
+	restMapper := restmapper.NewDiscoveryRESTMapper(groupResources)
+	gvr := schema.GroupVersionResource{Group: "acm.services.k8s.aws", Version: "v1", Resource: "certificates"}
+	disco := dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{gvr})
+	disco.AddGVRToGVKMapping(gvr, schema.GroupVersionKind{Group: gvr.Group, Version: gvr.Version, Kind: "Certificate"})
+	certificate := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "acm.services.k8s.aws/v1",
+		"kind":       "Certificate",
+		"metadata": map[string]any{
+			"name":      "cert-a",
+			"namespace": "team-a",
+		},
+	}}
+	matchConstraints := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{
+			RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+				Rule: admissionregistrationv1.Rule{
+					APIGroups:   []string{"acm.services.k8s.aws"},
+					APIVersions: []string{"v1"},
+					Resources:   []string{"certificates"},
+				},
+			},
+		}},
+	}
+	tests := []struct {
+		name        string
+		namespaced  bool
+		synchronize bool
+	}{
+		{"generating policy synchronization enabled", false, true},
+		{"generating policy synchronization disabled", false, false},
+		{"namespaced generating policy synchronization enabled", true, true},
+		{"namespaced generating policy synchronization disabled", true, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fakeClient, err := dclient.NewFakeClient(runtime.NewScheme(), map[schema.GroupVersionResource]string{gvr: "CertificateList"}, certificate)
+			require.NoError(t, err)
+			fakeClient.SetDiscovery(disco)
+
+			generator := &captureURGenerator{}
+			controller := &policyController{
+				client:      fakeClient,
+				restMapper:  restMapper,
+				urGenerator: generator,
+				log:         logr.Discard(),
+			}
+
+			spec := policiesv1beta1.GeneratingPolicySpec{
+				MatchConstraints: matchConstraints,
+				EvaluationConfiguration: &policiesv1beta1.GeneratingPolicyEvaluationConfiguration{
+					SynchronizationConfiguration: &policiesv1beta1.SynchronizationConfiguration{Enabled: new(tc.synchronize)},
+				},
+			}
+
+			if tc.namespaced {
+				err = controller.handleNamespacedGenerateExisting(&policiesv1beta1.NamespacedGeneratingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "team-a"},
+					Spec:       spec,
+				})
+			} else {
+				err = controller.handleGenerateExisting(&policiesv1beta1.GeneratingPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "test"},
+					Spec:       spec,
+				})
+			}
+
+			require.NoError(t, err)
+			require.Len(t, generator.captured, 1)
+			require.Len(t, generator.captured[0].Spec.RuleContext, 1)
+			assert.Equal(t, tc.synchronize, generator.captured[0].Spec.RuleContext[0].Synchronize)
+		})
+	}
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/openreports"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -309,109 +309,110 @@ func TestLoadTest(t *testing.T) {
 		path    string
 		want    TestCase
 		wantErr bool
-	}{{
-		name:    "empty",
-		path:    "",
-		wantErr: true,
-	}, {
-		name: "ok",
-		path: "../_testdata/tests/test-1/kyverno-test.yaml",
-		want: TestCase{
-			Path: "../_testdata/tests/test-1/kyverno-test.yaml",
-			Test: &v1alpha1.Test{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "cli.kyverno.io/v1alpha1",
-					Kind:       "Test",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-registry",
-				},
-				Policies:  []string{"image-example.yaml"},
-				Resources: []string{"resources.yaml"},
-				Results: []v1alpha1.TestResult{{
-					TestResultBase: v1alpha1.TestResultBase{
-						Kind:   "Pod",
-						Policy: "images",
-						Result: openreports.StatusPass,
-						Rule:   "only-allow-trusted-images",
+	}{
+		{
+			name:    "empty",
+			path:    "",
+			wantErr: true,
+		}, {
+			name: "ok",
+			path: "../_testdata/tests/test-1/kyverno-test.yaml",
+			want: TestCase{
+				Path: "../_testdata/tests/test-1/kyverno-test.yaml",
+				Test: &v1alpha1.Test{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cli.kyverno.io/v1alpha1",
+						Kind:       "Test",
 					},
-					TestResultData: v1alpha1.TestResultData{
-						Resources: []string{
-							"test-pod-with-non-root-user-image",
-							"test-pod-with-trusted-registry",
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-registry",
+					},
+					Policies:  []string{"image-example.yaml"},
+					Resources: []string{"resources.yaml"},
+					Results: []v1alpha1.TestResult{{
+						TestResultBase: v1alpha1.TestResultBase{
+							Kind:   "Pod",
+							Policy: "images",
+							Result: openreports.StatusPass,
+							Rule:   "only-allow-trusted-images",
 						},
-					},
-				}},
-			},
-		},
-	}, {
-		name: "ok (billy)",
-		path: "kyverno-test.yaml",
-		want: TestCase{
-			Path: "kyverno-test.yaml",
-			Test: &v1alpha1.Test{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "cli.kyverno.io/v1alpha1",
-					Kind:       "Test",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-registry",
-				},
-				Policies:  []string{"image-example.yaml"},
-				Resources: []string{"resources.yaml"},
-				Results: []v1alpha1.TestResult{{
-					TestResultBase: v1alpha1.TestResultBase{
-						Kind:   "Pod",
-						Policy: "images",
-						Result: openreports.StatusPass,
-						Rule:   "only-allow-trusted-images",
-					},
-					TestResultData: v1alpha1.TestResultData{
-						Resources: []string{
-							"test-pod-with-non-root-user-image",
-							"test-pod-with-trusted-registry",
+						TestResultData: v1alpha1.TestResultData{
+							Resources: []string{
+								"test-pod-with-non-root-user-image",
+								"test-pod-with-trusted-registry",
+							},
 						},
-					},
-				}},
+					}},
+				},
 			},
+		}, {
+			name: "ok (billy)",
+			path: "kyverno-test.yaml",
+			want: TestCase{
+				Path: "kyverno-test.yaml",
+				Test: &v1alpha1.Test{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "cli.kyverno.io/v1alpha1",
+						Kind:       "Test",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-registry",
+					},
+					Policies:  []string{"image-example.yaml"},
+					Resources: []string{"resources.yaml"},
+					Results: []v1alpha1.TestResult{{
+						TestResultBase: v1alpha1.TestResultBase{
+							Kind:   "Pod",
+							Policy: "images",
+							Result: openreports.StatusPass,
+							Rule:   "only-allow-trusted-images",
+						},
+						TestResultData: v1alpha1.TestResultData{
+							Resources: []string{
+								"test-pod-with-non-root-user-image",
+								"test-pod-with-trusted-registry",
+							},
+						},
+					}},
+				},
+			},
+			fs: func() billy.Filesystem {
+				f := memfs.New()
+				file, err := f.Create("kyverno-test.yaml")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer file.Close()
+				if _, err := file.Write(mustReadFile("../_testdata/tests/test-1/kyverno-test.yaml")); err != nil {
+					t.Fatal(err)
+				}
+				return f
+			}(),
+		}, {
+			name: "bad file (billy)",
+			path: "kyverno-test-bad.yaml",
+			fs: func() billy.Filesystem {
+				f := memfs.New()
+				file, err := f.Create("kyverno-test.yaml")
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer file.Close()
+				if _, err := file.Write(mustReadFile("../_testdata/tests/test-1/kyverno-test.yaml")); err != nil {
+					t.Fatal(err)
+				}
+				return f
+			}(),
+			want: TestCase{
+				Path: "kyverno-test-bad.yaml",
+			},
+			wantErr: true,
+		}, {
+			name:    "deprecated schema - missing apiVersion and kind",
+			path:    "../_testdata/tests/test-deprecated/kyverno-test.yaml",
+			want:    TestCase{Path: "../_testdata/tests/test-deprecated/kyverno-test.yaml"},
+			wantErr: true,
 		},
-		fs: func() billy.Filesystem {
-			f := memfs.New()
-			file, err := f.Create("kyverno-test.yaml")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer file.Close()
-			if _, err := file.Write(mustReadFile("../_testdata/tests/test-1/kyverno-test.yaml")); err != nil {
-				t.Fatal(err)
-			}
-			return f
-		}(),
-	}, {
-		name: "bad file (billy)",
-		path: "kyverno-test-bad.yaml",
-		fs: func() billy.Filesystem {
-			f := memfs.New()
-			file, err := f.Create("kyverno-test.yaml")
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer file.Close()
-			if _, err := file.Write(mustReadFile("../_testdata/tests/test-1/kyverno-test.yaml")); err != nil {
-				t.Fatal(err)
-			}
-			return f
-		}(),
-		want: TestCase{
-			Path: "kyverno-test-bad.yaml",
-		},
-		wantErr: true,
-	}, {
-		name:    "deprecated schema - missing apiVersion and kind",
-		path:    "../_testdata/tests/test-deprecated/kyverno-test.yaml",
-		want:    TestCase{Path: "../_testdata/tests/test-deprecated/kyverno-test.yaml"},
-		wantErr: true,
-	},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

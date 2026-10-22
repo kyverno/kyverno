@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/sdk/extensions/registryclient"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 )
@@ -35,12 +36,11 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 
 	// the policy contains extra credentials apart from whats passed in imagePullSecrets
 	if creds != nil {
-		// turn the array of providers to a single comma separated string
-		strs := make([]string, len(creds.Providers))
+		// turn the array of providers into a slice of credential helper names
+		providers := make([]string, len(creds.Providers))
 		for i, p := range creds.Providers {
-			strs[i] = string(p)
+			providers[i] = string(p)
 		}
-		providers := strings.Join(strs, ",")
 
 		// create an array of secret names where we will accumulate whats in creds and imagePullSecrets
 		// creds.Secrets default to the Kyverno namespace, imagePullSecrets default to the resource namespace,
@@ -53,14 +53,23 @@ func (f *registryClientFactory) GetClient(ctx context.Context, creds *kyvernov1.
 			secrets = append(secrets, prefixSecretNamespaces(imagePullSecrets, resourceNamespace)...)
 		}
 
-		secretsJoined := strings.Join(secrets, ",")
-		client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, providers, creds.AllowInsecureRegistry)
+		client := registryclient.New(
+			registryclient.WithSecretLister(f.secretsLister, resourceNamespace),
+			registryclient.WithImagePullSecrets(secrets...),
+			registryclient.WithCredentialHelpers(providers...),
+			registryclient.WithAllowInsecureRegistry(creds.AllowInsecureRegistry),
+			registryclient.WithLogger(logging.GlobalLogger()),
+		)
 		return adapters.RegistryClient(client), nil
 	}
 
 	// creds is nil. create a registry client with only the imagePullSecrets and no providers
-	secretsJoined := strings.Join(prefixSecretNamespaces(imagePullSecrets, resourceNamespace), ",")
-	client := registryclient.New(f.secretsLister, resourceNamespace, secretsJoined, "", false)
+	secrets := prefixSecretNamespaces(imagePullSecrets, resourceNamespace)
+	client := registryclient.New(
+		registryclient.WithSecretLister(f.secretsLister, resourceNamespace),
+		registryclient.WithImagePullSecrets(secrets...),
+		registryclient.WithLogger(logging.GlobalLogger()),
+	)
 	return adapters.RegistryClient(client), nil
 }
 

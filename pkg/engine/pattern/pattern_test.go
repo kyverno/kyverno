@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func TestValidateValueWithFloatPattern_FloatValue(t *testing.T) {

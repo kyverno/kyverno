@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -129,7 +128,9 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 			return nil, err
 		}
 		if out != nil {
-			return *out, nil
+			// Return the map form: since cel-go v0.31 (#17067) NativeToValue only converts
+			// registered native types, and unstructured.Unstructured is not one.
+			return out.UnstructuredContent(), nil
 		} else {
 			return nil, errors.New("failed to convert to Unstructured")
 		}
@@ -139,6 +140,10 @@ func (cp *contextProvider) GetGlobalReference(name, projection string) (any, err
 }
 
 func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option) (map[string]any, error) {
+	return cp.GetImageDataContext(context.TODO(), image, remoteOpts)
+}
+
+func (cp *contextProvider) GetImageDataContext(ctx context.Context, image string, remoteOpts []remote.Option) (map[string]any, error) {
 	// NOTE: we deliberately not pass name options here because there is currently only one
 	// name option we build, which is name.Insecure. This option already gets build and passed
 	// during the fetching of the global registry client options and then building the image data
@@ -146,7 +151,7 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 	// the current state means we are using the flags of the registry client to denote whether we use the name insecure option here
 	// so we aren't honoring it per policy. but if we did per policy, then a policy without anything wouldn't pass this opt
 	// but the if the flag is set, the registry client opts will come with the name insecure option
-	data, err := cp.imagedata.FetchImageData(context.TODO(), image, remoteOpts, nil)
+	data, err := cp.imagedata.FetchImageData(ctx, image, remoteOpts, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -154,10 +159,24 @@ func (cp *contextProvider) GetImageData(image string, remoteOpts []remote.Option
 }
 
 func (cp *contextProvider) ListResources(apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
+	return cp.ListResourcesContext(context.TODO(), apiVersion, resource, namespace, l)
+}
+
+func (cp *contextProvider) ListResourcesContext(ctx context.Context, apiVersion, resource, namespace string, l map[string]string) (*unstructured.UnstructuredList, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
 	}
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	if err := validatePathSegment("resource", resource); err != nil {
+		return nil, err
+	}
+
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 
 	labelSelector := labels.Everything()
@@ -165,22 +184,36 @@ func (cp *contextProvider) ListResources(apiVersion, resource, namespace string,
 		labelSelector = labels.SelectorFromSet(l)
 	}
 
-	return resourceInteface.List(context.TODO(), metav1.ListOptions{
+	return resourceInteface.List(ctx, metav1.ListOptions{
 		LabelSelector: labelSelector.String(),
 	})
 }
 
 func (cp *contextProvider) GetResource(apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
+	return cp.GetResourceContext(context.TODO(), apiVersion, resource, namespace, name)
+}
+
+func (cp *contextProvider) GetResourceContext(ctx context.Context, apiVersion, resource, namespace, name string) (*unstructured.Unstructured, error) {
 	groupVersion, err := schema.ParseGroupVersion(apiVersion)
 	if err != nil {
 		return nil, err
 	}
-	parts := strings.Split(resource, "/")
-	resource = parts[0]
-	subresources := parts[1:]
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	resource, subresources, err := splitResourcePath(resource)
+	if err != nil {
+		return nil, err
+	}
+	if err := validatePathSegment("name", name); err != nil {
+		return nil, err
+	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
-	return resourceInteface.Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
+	return resourceInteface.Get(ctx, name, metav1.GetOptions{}, subresources...)
 }
 
 func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, data map[string]any) (*unstructured.Unstructured, error) {
@@ -188,9 +221,16 @@ func (cp *contextProvider) PostResource(apiVersion, resource, namespace string, 
 	if err != nil {
 		return nil, err
 	}
-	parts := strings.Split(resource, "/")
-	resource = parts[0]
-	subresources := parts[1:]
+	if err := validateGroupVersion(groupVersion); err != nil {
+		return nil, err
+	}
+	if err := validateNamespaceSegment(namespace); err != nil {
+		return nil, err
+	}
+	resource, subresources, err := splitResourcePath(resource)
+	if err != nil {
+		return nil, err
+	}
 
 	resourceInteface := cp.getResourceClient(groupVersion, resource, namespace)
 	return resourceInteface.Create(context.TODO(), &unstructured.Unstructured{Object: data}, metav1.CreateOptions{}, subresources...)
@@ -316,7 +356,13 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 			// the resource already exists and is managed by this policy
 			// (e.g. a resync, a retry, or a cacheRestore pass over a
 			// resource generated by an earlier UR).
-			if cp.genCtx.useServerSideApply && !cp.genCtx.restoreCache {
+			if cp.genCtx.restoreCache {
+				// Report existing generated resource so callers relying on the generated
+				// resources list (e.g. WatchManager.SyncWatchers) keep the watcher/cache.
+				cp.generatedResources = append(cp.generatedResources, existing)
+				continue
+			}
+			if cp.genCtx.useServerSideApply {
 				generatedRes, err := cp.client.ApplyResource(
 					context.TODO(),
 					item.GetAPIVersion(),
@@ -333,9 +379,24 @@ func (cp *contextProvider) GenerateResources(namespace string, dataList []map[st
 				cp.generatedResources = append(cp.generatedResources, generatedRes)
 				continue
 			}
-			// Report existing generated resource so callers relying on the generated
-			// resources list (e.g. WatchManager.SyncWatchers) keep the watcher/cache.
-			cp.generatedResources = append(cp.generatedResources, existing)
+			// Update the downstream resource in place with the newly rendered
+			// content so trigger updates are propagated without deleting and
+			// recreating it. The UPDATE API requires UID and resourceVersion to
+			// match the existing object; copy them from the fetched resource.
+			item.SetUID(existing.GetUID())
+			item.SetResourceVersion(existing.GetResourceVersion())
+			generatedRes, err := cp.client.UpdateResource(
+				context.TODO(),
+				item.GetAPIVersion(),
+				item.GetKind(),
+				targetNamespace,
+				item,
+				false,
+			)
+			if err != nil {
+				return err
+			}
+			cp.generatedResources = append(cp.generatedResources, generatedRes)
 		}
 	}
 	return nil

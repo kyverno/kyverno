@@ -44,11 +44,12 @@ type MetricsConfig struct {
 	cleanupMetrics       *cleanupMetrics
 	deletingMetrics      *deletingMetrics
 	updateRequestMetrics *updateRequestMetrics
-	policyRuleMetrics    *policyRuleMetrics
 	ttlInfoMetrics       *ttlInfoMetrics
 	policyEngineMetrics  *policyEngineMetrics
 	eventMetrics         *eventMetrics
 	admissionMetrics     *admissionMetrics
+	deprecatedMetrics    *deprecatedAPIRequestMetrics
+	legacyPolicyMetrics  *legacyPolicyMetrics
 	httpMetrics          *httpMetrics
 	vpolMetrics          *validatingMetrics
 	ivpolMetrics         *imageValidatingMetrics
@@ -69,11 +70,12 @@ type MetricsConfigManager interface {
 	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
 	UpdateRequestMetrics() UpdateRequestMetrics
-	PolicyRuleMetrics() PolicyRuleMetrics
 	TTLInfoMetrics() TTLInfoMetrics
 	PolicyEngineMetrics() PolicyEngineMetrics
 	EventMetrics() EventMetrics
 	AdmissionMetrics() AdmissionMetrics
+	DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics
+	LegacyPolicyMetrics() LegacyPolicyMetrics
 	HTTPMetrics() HTTPMetrics
 	VPOLMetrics() ValidatingMetrics
 	IVPOLMetrics() ImageValidatingMetrics
@@ -105,10 +107,6 @@ func (m *MetricsConfig) UpdateRequestMetrics() UpdateRequestMetrics {
 	return m.updateRequestMetrics
 }
 
-func (m *MetricsConfig) PolicyRuleMetrics() PolicyRuleMetrics {
-	return m.policyRuleMetrics
-}
-
 func (m *MetricsConfig) TTLInfoMetrics() TTLInfoMetrics {
 	return m.ttlInfoMetrics
 }
@@ -123,6 +121,14 @@ func (m *MetricsConfig) EventMetrics() EventMetrics {
 
 func (m *MetricsConfig) AdmissionMetrics() AdmissionMetrics {
 	return m.admissionMetrics
+}
+
+func (m *MetricsConfig) DeprecatedAPIRequestMetrics() DeprecatedAPIRequestMetrics {
+	return m.deprecatedMetrics
+}
+
+func (m *MetricsConfig) LegacyPolicyMetrics() LegacyPolicyMetrics {
+	return m.legacyPolicyMetrics
 }
 
 func (m *MetricsConfig) HTTPMetrics() HTTPMetrics {
@@ -175,11 +181,12 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.cleanupMetrics.init(meter)
 	m.deletingMetrics.init(meter)
 	m.updateRequestMetrics.init(meter)
-	m.policyRuleMetrics.init(meter)
 	m.ttlInfoMetrics.init(meter)
 	m.policyEngineMetrics.init(meter)
 	m.eventMetrics.init(meter)
 	m.admissionMetrics.init(meter)
+	m.deprecatedMetrics.init(meter)
+	m.legacyPolicyMetrics.init(meter)
 	m.httpMetrics.init(meter)
 	m.vpolMetrics.init(meter)
 	m.ivpolMetrics.init(meter)
@@ -338,11 +345,12 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		cleanupMetrics:       &cleanupMetrics{logger: logger.WithName("cleanup")},
 		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
 		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
-		policyRuleMetrics:    &policyRuleMetrics{logger: logger.WithName("policy-rule")},
 		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
 		policyEngineMetrics:  &policyEngineMetrics{logger: logger.WithName("policy-engine")},
 		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},
 		admissionMetrics:     &admissionMetrics{logger: logger.WithName("admission")},
+		deprecatedMetrics:    &deprecatedAPIRequestMetrics{logger: logger.WithName("deprecated-api-requests")},
+		legacyPolicyMetrics:  &legacyPolicyMetrics{logger: logger.WithName("legacy-policies")},
 		httpMetrics:          &httpMetrics{logger: logger.WithName("http")},
 		vpolMetrics:          &validatingMetrics{logger: logger.WithName("validating-policy")},
 		ivpolMetrics:         &imageValidatingMetrics{logger: logger.WithName("image-validating-policy")},

@@ -8,8 +8,8 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/cel/compiler"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
+	"github.com/kyverno/kyverno/pkg/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/globalcontext"
-	"github.com/kyverno/sdk/extensions/cel/libs/gzip"
 	"github.com/kyverno/sdk/extensions/cel/libs/hash"
 	"github.com/kyverno/sdk/extensions/cel/libs/http"
 	"github.com/kyverno/sdk/extensions/cel/libs/image"
@@ -35,10 +35,19 @@ type Compiler interface {
 }
 
 func NewCompiler() Compiler {
-	return &compilerImpl{}
+	return NewCompilerWithTrace(false)
 }
 
-type compilerImpl struct{}
+// NewCompilerWithTrace is NewCompiler with decision tracing optionally turned on: when trace is
+// true, conditions and variables are compiled with state tracking and keep their ASTs, so each
+// evaluation can record what every expression resolved to. It is a separate constructor rather
+// than a parameter on NewCompiler so the existing callers (controllers, CLI, tests) are untouched
+// and stay untraced.
+func NewCompilerWithTrace(trace bool) Compiler {
+	return &compilerImpl{trace: trace}
+}
+
+type compilerImpl struct{ trace bool }
 
 func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, exceptions []*policiesv1beta1.PolicyException) (*Policy, field.ErrorList) {
 	if policy == nil {
@@ -57,18 +66,20 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 	path := field.NewPath("spec")
 	// append a place holder error to the errors list to be displayed in case the error list was returned
 	allErrs = append(allErrs, field.InternalError(nil, fmt.Errorf(compileError, "failed to compile policy")))
-	variables, errs := compiler.CompileVariables(path.Child("variables"), env, variablesProvider, spec.Variables...)
+	variables, tracedVariables, errs := compiler.CompileVariablesWithTrace(path.Child("variables"), env, variablesProvider, c.trace, spec.Variables...)
 	if errs != nil {
 		return nil, append(allErrs, errs...)
 	}
 	conditions := make([]cel.Program, 0, len(spec.Conditions))
+	var tracedConditions []compiler.TracedProgram
 	{
 		path := path.Child("conditions")
-		programs, errs := compiler.CompileMatchConditions(path, env, spec.Conditions...)
+		programs, traced, errs := compiler.CompileMatchConditionsWithTrace(path, env, c.trace, spec.Conditions...)
 		if errs != nil {
 			return nil, append(allErrs, errs...)
 		}
 		conditions = append(conditions, programs...)
+		tracedConditions = traced
 	}
 	// exceptions' match conditions
 	compiledExceptions := make([]compiler.Exception, 0, len(exceptions))
@@ -88,6 +99,9 @@ func (c *compilerImpl) Compile(policy policiesv1beta1.DeletingPolicyLike, except
 		conditions:                conditions,
 		variables:                 variables,
 		exceptions:                compiledExceptions,
+		trace:                     c.trace,
+		tracedConditions:          tracedConditions,
+		tracedVariables:           tracedVariables,
 	}, nil
 }
 
@@ -122,7 +136,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 
 	libEnvOpts := []cel.EnvOption{
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			compiler.KyvernoVersion,
 		),
 		image.Lib(
@@ -165,7 +179,7 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 			compiler.KyvernoVersion,
 		),
 		gzip.Lib(
-			compiler.KyvernoVersion,
+			compiler.KyvernoVersion, 0,
 		),
 		http.Lib(
 			http.Context{ContextInterface: libs.NewMockAwareHTTPContext(compiler.NewLazyCELHTTPContext(namespace), libsctx.GetHTTPMocks())},
@@ -175,7 +189,8 @@ func (c *compilerImpl) createBaseDpolEnv(libsctx libs.Context, namespace string)
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	extendedBase, err := env.Extend(append(baseOpts, libEnvOpts...)...)
+	// compiler.NewEnv, not env.Extend: registers CostLib last (see pkg/cel/compiler/env.go).
+	extendedBase, err := compiler.NewEnv(append(baseOpts, libEnvOpts...)...)
 	if err != nil {
 		return nil, nil, err
 	}

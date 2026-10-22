@@ -30,7 +30,7 @@ var (
 	fuzzJp         = jmespath.New(fuzzCfg)
 
 	validateContext = context.Background()
-	regClient       = registryclient.New(nil, "", "", "", false)
+	regClient       = registryclient.New()
 	validateEngine  = NewEngine(
 		fuzzCfg,
 		fuzzJp,
@@ -118,7 +118,7 @@ func FuzzVerifyImageAndPatchTest(f *testing.F) {
 			fuzzCfg,
 			fuzzJp,
 			nil,
-			factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.New(nil, "", "", "", false)), nil),
+			factories.DefaultRegistryClientFactory(adapters.RegistryClient(registryclient.New()), nil),
 			imageverifycache.DisabledImageVerifyCache(),
 			factories.DefaultContextLoaderFactory(nil),
 			nil,

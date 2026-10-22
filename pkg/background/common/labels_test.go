@@ -143,6 +143,28 @@ func TestGenerateLabelsSet_HandlesComplexNamespace(t *testing.T) {
 	assert.Equal(t, "system-policy", result[kyvernov2.URGeneratePolicyLabel])
 }
 
+// TestPolicyInfo_AlwaysSetsGenerateRuleLabel pins that the legacy
+// kyverno.io/v1 generate path always writes GenerateRuleLabel. The
+// documented cleanup command for orphaned legacy-generated resources (see
+// #17707 release notes) selects on `generate.kyverno.io/rule-name`
+// specifically because this is the label that distinguishes legacy-managed
+// resources from CEL (gpol)-managed ones, which never carry it (see
+// TestAddGenerateLabels_NeverWritesLegacyOnlyLabels in pkg/cel/libs). If
+// this test starts failing, that selector would stop matching legacy
+// resources at all.
+func TestPolicyInfo_AlwaysSetsGenerateRuleLabel(t *testing.T) {
+	policy := &kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-labels"},
+	}
+	labels := make(map[string]string)
+
+	PolicyInfo(labels, policy, "check-team-label")
+
+	ruleLabel, ok := labels[GenerateRuleLabel]
+	assert.True(t, ok, "PolicyInfo must always set %s", GenerateRuleLabel)
+	assert.Equal(t, "check-team-label", ruleLabel)
+}
+
 func TestPolicyInfo_SetsLabelsForClusterPolicy(t *testing.T) {
 	policy := &kyvernov1.ClusterPolicy{
 		ObjectMeta: metav1.ObjectMeta{

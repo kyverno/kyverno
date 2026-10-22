@@ -1,0 +1,25 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: ClusterResource
+metadata:
+  name: cluster-resources
+spec:
+  crds:
+    - crds/teleportrolesv8.yaml
+    - crds/widgets.yaml
+  resources:
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: default
+    - apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: teleport
+    # One TeleportRoleV8 instance. resource.List("resources.teleport.dev/v1","teleportrolesv8","teleport")
+    # must return this — before the fix it returned [] because tracker.Add stored it under the
+    # heuristic plural "teleportrolev8s" instead of the CRD-declared plural "teleportrolesv8".
+    - apiVersion: resources.teleport.dev/v1
+      kind: TeleportRoleV8
+      metadata:
+        name: my-team-dev-role
+        namespace: teleport

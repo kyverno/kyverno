@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"path"
 	"regexp"
 
@@ -70,8 +71,18 @@ func (a *apiCall) Fetch(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", a.entry.Name, a.entry.APICall.URLPath, err)
 	}
 
+	// Decode percent-encoded characters (e.g., %2e%2e -> ..) before normalizing
+	// to prevent path traversal bypasses using encoded dot-segments.
+	unescapedPath, err := url.PathUnescape(call.APICall.URLPath)
+	if err != nil {
+		// If unescaping fails, use the original path for validation.
+		// The K8s API server will reject invalid encoding if present.
+		unescapedPath = call.APICall.URLPath
+	}
+	cleanPath := path.Clean(unescapedPath)
+
 	if a.policyNamespace != "" {
-		cleanPath := path.Clean(call.APICall.URLPath)
+		// Namespaced Policy: verify path accesses only the policy's namespace
 		if matches := namespacePathRegex.FindStringSubmatch(cleanPath); len(matches) > 2 {
 			ns := matches[2]
 			if ns != a.policyNamespace {
@@ -126,12 +137,16 @@ func (a *apiCall) transformAndStore(jsonData []byte) ([]byte, error) {
 		return jsonData, nil
 	}
 
-	path, err := variables.SubstituteAll(a.logger, a.jsonCtx, a.entry.APICall.JMESPath)
+	pathRaw, err := variables.SubstituteAll(a.logger, a.jsonCtx, a.entry.APICall.JMESPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context entry %s JMESPath %s: %w", a.entry.Name, a.entry.APICall.JMESPath, err)
 	}
+	path, ok := pathRaw.(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: JMESPath did not resolve to a string (got %T)", a.entry.APICall.JMESPath, a.entry.Name, pathRaw)
+	}
 
-	results, err := a.applyJMESPathJSON(path.(string), jsonData)
+	results, err := a.applyJMESPathJSON(path, jsonData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to apply JMESPath %s for context entry %s: %w", path, a.entry.Name, err)
 	}

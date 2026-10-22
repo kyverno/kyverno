@@ -13,7 +13,6 @@ type Toggles interface {
 	GenerateValidatingAdmissionPolicy() bool
 	GenerateMutatingAdmissionPolicy() bool
 	DumpMutatePatches() bool
-	AutogenV2() bool
 	AllowHTTPInNamespacedPolicies() bool
 }
 
@@ -41,10 +40,6 @@ func (defaultToggles) GenerateMutatingAdmissionPolicy() bool {
 
 func (defaultToggles) DumpMutatePatches() bool {
 	return DumpMutatePatches.Enabled()
-}
-
-func (defaultToggles) AutogenV2() bool {
-	return AutogenV2.Enabled()
 }
 
 func (defaultToggles) AllowHTTPInNamespacedPolicies() bool {

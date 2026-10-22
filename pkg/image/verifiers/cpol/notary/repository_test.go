@@ -8,7 +8,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	notationregistry "github.com/notaryproject/notation-go/registry"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 var (

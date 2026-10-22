@@ -2,31 +2,24 @@ package webhook
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/ext/wildcard"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	policiesv1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policies.kyverno.io/v1beta1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
+	"github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	datautils "github.com/kyverno/kyverno/pkg/utils/data"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"go.uber.org/multierr"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -35,7 +28,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	coordinationv1informers "k8s.io/client-go/informers/coordination/v1"
@@ -46,8 +38,6 @@ import (
 	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 )
@@ -114,21 +104,20 @@ var (
 		APIGroups:   []string{"policies.kyverno.io"},
 		APIVersions: []string{"v1alpha1", "v1beta1", "v1"},
 	}
-	policyRule = admissionregistrationv1.Rule{
-		Resources:   []string{"clusterpolicies", "policies"},
-		APIGroups:   []string{"kyverno.io"},
-		APIVersions: []string{"v1", "v2beta1"},
-	}
+	// policyRule matches create and update requests for the legacy kyverno.io
+	// ClusterPolicy and Policy kinds. Keep APIVersions as "v1" and "v2beta1"
+	// unchanged in 1.20 so admission coverage of legacy writes is not altered;
+	// the engine returns the 1.20 hard error on those writes (see
+	// deprecations.BuildKindError and #17491). The legacy versions are removed
+	// in 1.21. Aliased to deprecations.LegacyPolicyRule, the single source of
+	// truth this value is pinned against (see legacy_apiversions_test.go),
+	// deliberately kept byte-identical rather than inlined so that guard keeps
+	// matching without edits.
+	policyRule = deprecations.LegacyPolicyRule
 	verifyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"leases"},
 		APIGroups:   []string{"coordination.k8s.io"},
 		APIVersions: []string{"v1"},
-	}
-	createUpdateDelete = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete}
-	allOperations      = []kyvernov1.AdmissionOperation{kyvernov1.Create, kyvernov1.Update, kyvernov1.Delete, kyvernov1.Connect}
-	defaultOperations  = map[bool][]kyvernov1.AdmissionOperation{
-		true:  allOperations,
-		false: {kyvernov1.Create, kyvernov1.Update},
 	}
 )
 
@@ -143,8 +132,6 @@ type controller struct {
 	// listers
 	mwcLister         admissionregistrationv1listers.MutatingWebhookConfigurationLister
 	vwcLister         admissionregistrationv1listers.ValidatingWebhookConfigurationLister
-	cpolLister        kyvernov1listers.ClusterPolicyLister
-	polLister         kyvernov1listers.PolicyLister
 	vpolLister        policiesv1beta1listers.ValidatingPolicyLister
 	nvpolLister       policiesv1beta1listers.NamespacedValidatingPolicyLister
 	gpolLister        policiesv1beta1listers.GeneratingPolicyLister
@@ -172,10 +159,6 @@ type controller struct {
 	configuration             config.Configuration
 	caSecretName              string
 
-	// state
-	lock        sync.Mutex
-	policyState map[string]sets.Set[string]
-
 	// stateRecorder records policies that are configured successfully in webhook object
 	stateRecorder StateRecorder
 
@@ -190,8 +173,6 @@ func NewController(
 	kyvernoClient versioned.Interface,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
-	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	polInformer kyvernov1informers.PolicyInformer,
 	vpolInformer policiesv1beta1informers.ValidatingPolicyInformer,
 	nvpolInformer policiesv1beta1informers.NamespacedValidatingPolicyInformer,
 	gpolInformer policiesv1beta1informers.GeneratingPolicyInformer,
@@ -227,8 +208,6 @@ func NewController(
 		kyvernoClient:             kyvernoClient,
 		mwcLister:                 mwcInformer.Lister(),
 		vwcLister:                 vwcInformer.Lister(),
-		cpolLister:                cpolInformer.Lister(),
-		polLister:                 polInformer.Lister(),
 		vpolLister:                vpolInformer.Lister(),
 		nvpolLister:               nvpolInformer.Lister(),
 		gpolLister:                gpolInformer.Lister(),
@@ -251,12 +230,11 @@ func NewController(
 		runtime:                   runtime,
 		configuration:             configuration,
 		caSecretName:              caSecretName,
-		policyState: map[string]sets.Set[string]{
-			config.MutatingWebhookConfigurationName:   sets.New[string](),
-			config.ValidatingWebhookConfigurationName: sets.New[string](),
-		},
-		stateRecorder:      stateRecorder,
-		celExpressionCache: NewExpressionCache(),
+		stateRecorder:             stateRecorder,
+		celExpressionCache:        NewExpressionCache(),
+	}
+	if !autoUpdateWebhooks {
+		logger.Info("autoUpdateWebhooks is disabled: CEL policy webhooks require either autoUpdateWebhooks=true or an externally managed webhook configuration")
 	}
 	// Set up the CRD change callback
 	c.discoveryClient.OnChanged(c.OnCRDChange)
@@ -283,22 +261,6 @@ func NewController(
 				c.enqueueAll()
 			}
 		},
-	); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, err := controllerutils.AddEventHandlers(
-		cpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-	); err != nil {
-		logger.Error(err, "failed to register event handlers")
-	}
-	if _, err := controllerutils.AddEventHandlers(
-		polInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
-		func(interface{}) { c.enqueueResourceWebhooks(0) },
 	); err != nil {
 		logger.Error(err, "failed to register event handlers")
 	}
@@ -501,23 +463,6 @@ func (c *controller) enqueueVerifyWebhook() {
 	c.queue.Add(config.VerifyMutatingWebhookConfigurationName)
 }
 
-func (c *controller) recordKyvernoPolicyState(webhookConfigurationName string, policies ...kyvernov1.PolicyInterface) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if _, ok := c.policyState[webhookConfigurationName]; !ok {
-		return
-	}
-	c.policyState[webhookConfigurationName] = sets.New[string]()
-	for _, policy := range policies {
-		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
-		if err != nil {
-			logger.Error(err, "failed to compute policy key", "policy", policy)
-		} else {
-			c.policyState[webhookConfigurationName].Insert(policyKey)
-		}
-	}
-}
-
 func (c *controller) recordPolicyState(policies ...engineapi.GenericPolicy) {
 	for _, policy := range policies {
 		if key := BuildRecorderKey(policy.GetKind(), policy.GetName(), policy.GetNamespace()); key != "" {
@@ -572,6 +517,14 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 		return err
 	}
 	if !autoUpdateWebhooks {
+		if desired.Name == config.ValidatingWebhookConfigurationName {
+			_, err := controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+				w.Webhooks = pruneLegacyWebhooks(w.Webhooks, config.ValidatingWebhookServicePath)
+				setGenerationLabelProtectionWebhook(w, c.buildGenerationLabelProtectionWebhook(caData))
+				return nil
+			})
+			return err
+		}
 		return nil
 	}
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
@@ -602,7 +555,11 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 		return err
 	}
 	if !autoUpdateWebhooks {
-		return nil
+		_, err := controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
+			w.Webhooks = pruneLegacyMutatingWebhooks(w.Webhooks, config.MutatingWebhookServicePath)
+			return nil
+		})
+		return err
 	}
 	_, err = controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
@@ -614,133 +571,63 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	return err
 }
 
-func (c *controller) updatePolicyStatuses(ctx context.Context, webhookType string) error {
-	// While webhook health is unknown/unhealthy (startup, leader change, a cluster
-	// resumed after an outage) the recorded webhook state has not been rebuilt from a
-	// confirmed-healthy reconcile. Do not downgrade policies to NotReady in that
-	// window: it evicts them from the policy cache and the handler then admits
-	// requests unmutated/unvalidated, silently skipping failurePolicy: Fail rules
-	// (#11560, #16281). Preserve the last known status; a healthy reconcile updates it.
-	if !c.watchdogCheck() {
-		return nil
-	}
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	policies, err := c.getAllPolicies()
-	if err != nil {
-		return err
-	}
-	updateStatusFunc := func(policy kyvernov1.PolicyInterface) error {
-		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
-		if err != nil {
-			return err
+// pruneLegacyWebhooks drops any validating webhook whose service path is servicePath or a servicePath/...
+// subpath. Used in the autoUpdateWebhooks=false branches, where a webhook configuration persisted by 1.19
+// (or managed externally) may still carry the removed legacy resource admission entries; matching by path
+// rather than name because operators own webhook names in this mode. Returns webhooks unchanged, same
+// slice value (nil included) when nothing matches servicePath: the lister's observed slice is nil for
+// an already-clean config (omitempty), and controllerutils.Update compares with reflect.DeepEqual, so
+// returning a freshly allocated empty slice here would differ from nil and write forever on an
+// autoUpdateWebhooks=false leader's 10s ticker.
+func pruneLegacyWebhooks(webhooks []admissionregistrationv1.ValidatingWebhook, servicePath string) []admissionregistrationv1.ValidatingWebhook {
+	var pruned []admissionregistrationv1.ValidatingWebhook
+	removed := false
+	for i, w := range webhooks {
+		if isLegacyWebhookPath(w.ClientConfig.Service, servicePath) {
+			if !removed {
+				pruned = append(pruned, webhooks[:i]...)
+				removed = true
+			}
+			continue
 		}
+		if removed {
+			pruned = append(pruned, w)
+		}
+	}
+	if !removed {
+		return webhooks
+	}
+	return pruned
+}
 
-		spec := policy.GetSpec()
-		if webhookType == config.MutatingWebhookConfigurationName {
-			if !(spec.HasMutateStandard() || spec.HasVerifyImages()) {
-				return nil
+// pruneLegacyMutatingWebhooks is pruneLegacyWebhooks for MutatingWebhook; see that function's comment.
+func pruneLegacyMutatingWebhooks(webhooks []admissionregistrationv1.MutatingWebhook, servicePath string) []admissionregistrationv1.MutatingWebhook {
+	var pruned []admissionregistrationv1.MutatingWebhook
+	removed := false
+	for i, w := range webhooks {
+		if isLegacyWebhookPath(w.ClientConfig.Service, servicePath) {
+			if !removed {
+				pruned = append(pruned, webhooks[:i]...)
+				removed = true
 			}
-		} else if webhookType == config.ValidatingWebhookConfigurationName {
-			if !(spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests()) {
-				return nil
-			}
+			continue
 		}
+		if removed {
+			pruned = append(pruned, w)
+		}
+	}
+	if !removed {
+		return webhooks
+	}
+	return pruned
+}
 
-		ready, message := true, "Ready"
-		if c.autoUpdateWebhooks {
-			if set, ok := c.policyState[webhookType]; ok {
-				if !set.Has(policyKey) {
-					ready, message = false, "Not Ready"
-				}
-			}
-		}
-		status := policy.GetStatus()
-		status.SetReady(ready, message)
-		status.Autogen.Rules = nil
-		rules := autogen.Default.ComputeRules(policy, "")
-		setRuleCount(rules, status)
-		for _, rule := range rules {
-			if strings.HasPrefix(rule.Name, "autogen-") {
-				status.Autogen.Rules = append(status.Autogen.Rules, rule)
-			}
-		}
-		return nil
+func isLegacyWebhookPath(service *admissionregistrationv1.ServiceReference, servicePath string) bool {
+	if service == nil || service.Path == nil {
+		return false
 	}
-	for _, policy := range policies {
-		if policy.GetNamespace() == "" {
-			err := controllerutils.UpdateStatus(
-				ctx,
-				policy.(*kyvernov1.ClusterPolicy),
-				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
-				func(policy *kyvernov1.ClusterPolicy) error {
-					return updateStatusFunc(policy)
-				},
-				func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
-					return datautils.DeepEqual(a.Status, b.Status)
-				},
-			)
-			if err != nil {
-				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					objNew, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().Get(ctx, policy.GetName(), metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					return controllerutils.UpdateStatus(
-						ctx,
-						objNew,
-						c.kyvernoClient.KyvernoV1().ClusterPolicies(),
-						func(policy *kyvernov1.ClusterPolicy) error {
-							return updateStatusFunc(policy)
-						},
-						func(a *kyvernov1.ClusterPolicy, b *kyvernov1.ClusterPolicy) bool {
-							return datautils.DeepEqual(a.Status, b.Status)
-						},
-					)
-				})
-				if retryErr != nil {
-					logger.Error(retryErr, "failed to update clusterpolicy status", "policy", policy.GetName())
-					continue
-				}
-			}
-		} else {
-			err := controllerutils.UpdateStatus(
-				ctx,
-				policy.(*kyvernov1.Policy),
-				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
-				func(policy *kyvernov1.Policy) error {
-					return updateStatusFunc(policy)
-				},
-				func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
-					return datautils.DeepEqual(a.Status, b.Status)
-				},
-			)
-			if err != nil {
-				retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-					objNew, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).Get(ctx, policy.GetName(), metav1.GetOptions{})
-					if err != nil {
-						return err
-					}
-					return controllerutils.UpdateStatus(
-						ctx,
-						objNew,
-						c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
-						func(policy *kyvernov1.Policy) error {
-							return updateStatusFunc(policy)
-						},
-						func(a *kyvernov1.Policy, b *kyvernov1.Policy) bool {
-							return datautils.DeepEqual(a.Status, b.Status)
-						},
-					)
-				})
-				if retryErr != nil {
-					logger.Error(retryErr, "failed to update policy status", "namespace", policy.GetNamespace(), "policy", policy.GetName())
-					continue
-				}
-			}
-		}
-	}
-	return nil
+	path := *service.Path
+	return path == servicePath || strings.HasPrefix(path, servicePath+"/")
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
@@ -759,9 +646,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				c.stateRecorder.Reset()
 				return err
 			}
-			if err := c.updatePolicyStatuses(ctx, config.MutatingWebhookConfigurationName); err != nil {
-				return err
-			}
 		}
 	case config.ValidatingWebhookConfigurationName:
 		if c.runtime.IsRollingUpdate() {
@@ -777,13 +661,6 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 				c.stateRecorder.Reset()
 				return err
 			}
-
-			var errs []error
-			if err := c.updatePolicyStatuses(ctx, config.ValidatingWebhookConfigurationName); err != nil {
-				errs = append(errs, fmt.Errorf("failed to update policy statuses: %w", err))
-			}
-
-			return multierr.Combine(errs...)
 		}
 	case config.PolicyValidatingWebhookConfigurationName:
 		return c.reconcilePolicyValidatingWebhookConfiguration(ctx)
@@ -913,6 +790,12 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
 					},
+				}, {
+					// Legacy ClusterPolicy/Policy status writes (Kyverno's own controllers,
+					// transitionally allowed by deprecations.AllowSubresourceForLegacyStatusWriter)
+					// must reach this same gate; policyRule above only matches the base resource.
+					Rule:       deprecations.LegacyPolicyStatusRule,
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Update},
 				}},
 				FailurePolicy:           &fail,
 				TimeoutSeconds:          &c.defaultTimeout,
@@ -924,51 +807,15 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(_ context.Context
 		nil
 }
 
-func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
+// buildDefaultResourceMutatingWebhookConfiguration is the static configuration used
+// when autoUpdateWebhooks is false. The legacy catch-all "/mutate" ignore/fail
+// webhooks are gone along with that route, so there is nothing resource-facing left
+// to register here; mutation is served entirely by the CEL (auto-updated) path and
+// the dedicated verify webhook.
+func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(_ context.Context, cfg config.Configuration, _ []byte) (*admissionregistrationv1.MutatingWebhookConfiguration, error) {
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
 			ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
-			Webhooks: []admissionregistrationv1.MutatingWebhook{{
-				Name:         config.MutatingWebhookName + "-ignore",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.MutatingWebhookServicePath+"/ignore"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-					},
-				}},
-				FailurePolicy:           &ignore,
-				SideEffects:             &noneOnDryRun,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				ReinvocationPolicy:      &ifNeeded,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}, {
-				Name:         config.MutatingWebhookName + "-fail",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.MutatingWebhookServicePath+"/fail"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-					},
-				}},
-				FailurePolicy:           &fail,
-				MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
-				SideEffects:             &noneOnDryRun,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				ReinvocationPolicy:      &ifNeeded,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}},
+			Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 		},
 		nil
 }
@@ -980,10 +827,6 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(ctx context.Conte
 	}
 
 	var errs []error
-	if err := c.buildForPoliciesMutation(ctx, cfg, caBundle, result); err != nil {
-		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
-	}
-
 	if err := c.buildForJSONPoliciesMutation(cfg, caBundle, result); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for imageverificationpolicies: %v", err))
 	}
@@ -1029,6 +872,9 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		caBundle,
 		nmpols,
 		c.celExpressionCache)...)
+	// Only the (namespaced) MutatingPolicy webhooks are reinvoked; the image
+	// verification webhooks below keep the API default.
+	mutatingPolicyWebhooks := len(validate)
 
 	ivpols, err := c.getImageValidatingPolicies()
 	if err != nil {
@@ -1051,7 +897,7 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 
 	validate = append(validate, buildWebhookRules(cfg,
 		c.server,
-		config.ImageValidatingPolicyMutateWebhookName,
+		config.NamespacedImageValidatingPolicyMutateWebhookName,
 		"/nivpol/mutate",
 		c.servicePort,
 		caBundle,
@@ -1059,7 +905,11 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 		c.celExpressionCache)...)
 
 	mutate := make([]admissionregistrationv1.MutatingWebhook, 0, len(validate))
-	for _, w := range validate {
+	for i, w := range validate {
+		var reinvocationPolicy *admissionregistrationv1.ReinvocationPolicyType
+		if i < mutatingPolicyWebhooks {
+			reinvocationPolicy = &ifNeeded
+		}
 		mutate = append(mutate, admissionregistrationv1.MutatingWebhook{
 			Name:                    w.Name,
 			ClientConfig:            w.ClientConfig,
@@ -1070,7 +920,9 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 			ObjectSelector:          w.ObjectSelector,
 			Rules:                   sortedRules(deDuplicatedRules(w.Rules)),
 			MatchConditions:         w.MatchConditions,
+			MatchPolicy:             w.MatchPolicy,
 			TimeoutSeconds:          w.TimeoutSeconds,
+			ReinvocationPolicy:      reinvocationPolicy,
 		})
 	}
 	result.Webhooks = append(result.Webhooks, mutate...)
@@ -1078,147 +930,14 @@ func (c *controller) buildForJSONPoliciesMutation(cfg config.Configuration, caBu
 	return nil
 }
 
-func (c *controller) buildForPoliciesMutation(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.MutatingWebhookConfiguration) error {
-	if c.watchdogCheck() {
-		webhookCfg := cfg.GetWebhook()
-		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
-		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
-		policies, err := c.getAllPolicies()
-		if err != nil {
-			return err
-		}
-		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
-		var readyPolicies []kyvernov1.PolicyInterface
-		// reset policy state set
-		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName)
-		for _, p := range policies {
-			if p.AdmissionProcessingEnabled() {
-				var ready bool
-				spec := p.GetSpec()
-				if spec.HasMutateStandard() || spec.HasVerifyImages() {
-					if spec.CustomWebhookMatchConditions() {
-						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-							ready = c.mergeWebhook(fineGrainedIgnore, p, false)
-							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
-						} else {
-							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-							ready = c.mergeWebhook(fineGrainedFail, p, false)
-							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
-						}
-					} else {
-						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							ready = c.mergeWebhook(ignoreWebhook, p, false)
-						} else {
-							ready = c.mergeWebhook(failWebhook, p, false)
-						}
-					}
-				}
-				if ready {
-					readyPolicies = append(readyPolicies, p)
-				}
-			} else {
-				readyPolicies = append(readyPolicies, p)
-			}
-		}
-		webhooks := make([]*webhook, 0, 2+len(fineGrainedIgnoreList)+len(fineGrainedFailList))
-		webhooks = append(webhooks, ignoreWebhook, failWebhook)
-		webhooks = append(webhooks, fineGrainedIgnoreList...)
-		webhooks = append(webhooks, fineGrainedFailList...)
-		result.Webhooks = c.buildResourceMutatingWebhookRules(caBundle, webhookCfg, &noneOnDryRun, webhooks)
-		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName, readyPolicies...)
-	} else {
-		c.recordKyvernoPolicyState(config.MutatingWebhookConfigurationName)
-	}
-	return nil
-}
-
-func (c *controller) buildResourceMutatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.MutatingWebhook {
-	mutatingWebhooks := make([]admissionregistrationv1.MutatingWebhook, 0, len(webhooks))
-	objectSelector := webhookCfg.ObjectSelector
-	if objectSelector == nil {
-		objectSelector = &metav1.LabelSelector{}
-	}
-	for _, webhook := range webhooks {
-		if webhook.isEmpty() {
-			continue
-		}
-		failurePolicy := webhook.failurePolicy
-		timeout := capTimeout(webhook.maxWebhookTimeout)
-		name, path := webhookNameAndPath(*webhook, config.MutatingWebhookName, config.MutatingWebhookServicePath)
-		mutatingWebhooks = append(
-			mutatingWebhooks,
-			admissionregistrationv1.MutatingWebhook{
-				Name:                    name,
-				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   sortedRules(deDuplicatedRules(webhook.buildRulesWithOperations())),
-				FailurePolicy:           &failurePolicy,
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				NamespaceSelector:       webhookCfg.NamespaceSelector,
-				ObjectSelector:          objectSelector,
-				TimeoutSeconds:          &timeout,
-				ReinvocationPolicy:      &ifNeeded,
-				MatchConditions:         webhook.matchConditions,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			},
-		)
-	}
-
-	return mutatingWebhooks
-}
-
+// buildDefaultResourceValidatingWebhookConfiguration is the static configuration used
+// when autoUpdateWebhooks is false. The legacy catch-all "/validate" ignore/fail
+// webhooks are gone along with that route; only the generation-label protection
+// webhook (unrelated to the removed catch-all) remains resource-facing here.
 func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(_ context.Context, cfg config.Configuration, caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
-	sideEffects := &none
-	if c.admissionReports {
-		sideEffects = &noneOnDryRun
-	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName, cfg.GetWebhookAnnotations(), cfg.GetWebhookLabels(), c.buildOwner()...),
-			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
-				Name:         config.ValidatingWebhookName + "-ignore",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-						admissionregistrationv1.Delete,
-						admissionregistrationv1.Connect,
-					},
-				}},
-				FailurePolicy:           &ignore,
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}, {
-				Name:         config.ValidatingWebhookName + "-fail",
-				ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.ValidatingWebhookServicePath+"/fail"),
-				Rules: []admissionregistrationv1.RuleWithOperations{{
-					Rule: admissionregistrationv1.Rule{
-						APIGroups:   []string{"*"},
-						APIVersions: []string{"*"},
-						Resources:   []string{"*/*"},
-					},
-					Operations: []admissionregistrationv1.OperationType{
-						admissionregistrationv1.Create,
-						admissionregistrationv1.Update,
-						admissionregistrationv1.Delete,
-						admissionregistrationv1.Connect,
-					},
-				}},
-				FailurePolicy:           &fail,
-				MatchConditions:         bootstrapExclusionMatchConditions(c.excludeBootstrapResources),
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				TimeoutSeconds:          &c.defaultTimeout,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			}},
+			Webhooks:   []admissionregistrationv1.ValidatingWebhook{c.buildGenerationLabelProtectionWebhook(caBundle)},
 		},
 		nil
 }
@@ -1230,19 +949,18 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(ctx context.Con
 	}
 
 	var errs []error
-	if err := c.buildForPoliciesValidation(ctx, cfg, caBundle, webhookConfig); err != nil {
-		errs = append(errs, fmt.Errorf("failed to build webhook rules for policies: %v", err))
-	}
-
 	if err := c.buildForJSONPoliciesValidation(cfg, caBundle, webhookConfig); err != nil {
 		errs = append(errs, fmt.Errorf("failed to build webhook rules for validatingpolicies: %v", err))
 	}
 
+	// Metadata protection is independent of policy selectors and applies the same
+	// configured bootstrap exclusion. Its association selector skips ordinary resources.
+	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
+	webhookConfig.Webhooks = append(webhookConfig.Webhooks, c.buildGenerationLabelProtectionWebhook(caBundle))
+
 	slices.SortFunc(webhookConfig.Webhooks, func(a, b admissionregistrationv1.ValidatingWebhook) int {
 		return strings.Compare(a.Name, b.Name)
 	})
-
-	excludeBootstrapResourcesFromValidatingWebhooks(webhookConfig.Webhooks, c.excludeBootstrapResources)
 
 	return webhookConfig, multierr.Combine(errs...)
 }
@@ -1348,7 +1066,7 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	}
 	result.Webhooks = append(result.Webhooks, buildWebhookRules(cfg,
 		c.server,
-		config.ImageValidatingPolicyValidateWebhookName,
+		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",
 		c.servicePort,
 		caBundle,
@@ -1362,121 +1080,6 @@ func (c *controller) buildForJSONPoliciesValidation(cfg config.Configuration, ca
 	policies = append(policies, nivpols...)
 	c.recordPolicyState(policies...)
 	return nil
-}
-
-func (c *controller) buildForPoliciesValidation(ctx context.Context, cfg config.Configuration, caBundle []byte, result *admissionregistrationv1.ValidatingWebhookConfiguration) error {
-	if c.watchdogCheck() {
-		webhookCfg := cfg.GetWebhook()
-		ignoreWebhook := newWebhook(c.defaultTimeout, ignore, cfg.GetMatchConditions())
-		failWebhook := newWebhook(c.defaultTimeout, fail, cfg.GetMatchConditions())
-		policies, err := c.getAllPolicies()
-		if err != nil {
-			return err
-		}
-
-		var fineGrainedIgnoreList, fineGrainedFailList []*webhook
-		var readyPolicies []kyvernov1.PolicyInterface
-		// reset policy state set
-		c.recordKyvernoPolicyState(config.ValidatingWebhookConfigurationName)
-		for _, p := range policies {
-			if p.AdmissionProcessingEnabled() {
-				var ready bool
-				spec := p.GetSpec()
-				if spec.HasValidate() || spec.HasGenerate() || spec.HasMutateExisting() || spec.HasVerifyImageChecks() || spec.HasVerifyManifests() {
-					if spec.CustomWebhookMatchConditions() {
-						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							fineGrainedIgnore := newWebhookPerPolicy(c.defaultTimeout, ignore, cfg.GetMatchConditions(), p)
-							ready = c.mergeWebhook(fineGrainedIgnore, p, true)
-							fineGrainedIgnoreList = append(fineGrainedIgnoreList, fineGrainedIgnore)
-						} else {
-							fineGrainedFail := newWebhookPerPolicy(c.defaultTimeout, fail, cfg.GetMatchConditions(), p)
-							ready = c.mergeWebhook(fineGrainedFail, p, true)
-							fineGrainedFailList = append(fineGrainedFailList, fineGrainedFail)
-						}
-					} else {
-						if spec.GetFailurePolicy(ctx) == kyvernov1.Ignore {
-							ready = c.mergeWebhook(ignoreWebhook, p, true)
-						} else {
-							ready = c.mergeWebhook(failWebhook, p, true)
-						}
-					}
-				}
-				if ready {
-					readyPolicies = append(readyPolicies, p)
-				}
-			} else {
-				readyPolicies = append(readyPolicies, p)
-			}
-		}
-		sideEffects := &none
-		if c.admissionReports {
-			sideEffects = &noneOnDryRun
-		}
-		webhooks := make([]*webhook, 0, 2+len(fineGrainedIgnoreList)+len(fineGrainedFailList))
-		webhooks = append(webhooks, ignoreWebhook, failWebhook)
-		webhooks = append(webhooks, fineGrainedIgnoreList...)
-		webhooks = append(webhooks, fineGrainedFailList...)
-		result.Webhooks = c.buildResourceValidatingWebhookRules(caBundle, webhookCfg, sideEffects, webhooks)
-		c.recordKyvernoPolicyState(config.ValidatingWebhookConfigurationName, readyPolicies...)
-	} else {
-		c.recordKyvernoPolicyState(config.ValidatingWebhookConfigurationName)
-	}
-	return nil
-}
-
-func (c *controller) buildResourceValidatingWebhookRules(caBundle []byte, webhookCfg config.WebhookConfig, sideEffects *admissionregistrationv1.SideEffectClass, webhooks []*webhook) []admissionregistrationv1.ValidatingWebhook {
-	validatingWebhooks := make([]admissionregistrationv1.ValidatingWebhook, 0, len(webhooks))
-	objectSelector := webhookCfg.ObjectSelector
-	if objectSelector == nil {
-		objectSelector = &metav1.LabelSelector{}
-	}
-	for _, webhook := range webhooks {
-		if webhook.isEmpty() {
-			continue
-		}
-		timeout := capTimeout(webhook.maxWebhookTimeout)
-		name, path := webhookNameAndPath(*webhook, config.ValidatingWebhookName, config.ValidatingWebhookServicePath)
-		failurePolicy := webhook.failurePolicy
-		validatingWebhooks = append(
-			validatingWebhooks,
-			admissionregistrationv1.ValidatingWebhook{
-				Name:                    name,
-				ClientConfig:            newClientConfig(c.server, c.servicePort, caBundle, path),
-				Rules:                   sortedRules(deDuplicatedRules(webhook.buildRulesWithOperations())),
-				FailurePolicy:           &failurePolicy,
-				SideEffects:             sideEffects,
-				AdmissionReviewVersions: []string{"v1"},
-				NamespaceSelector:       webhookCfg.NamespaceSelector,
-				ObjectSelector:          objectSelector,
-				TimeoutSeconds:          &timeout,
-				MatchConditions:         webhook.matchConditions,
-				MatchPolicy:             ptr.To(admissionregistrationv1.Equivalent),
-			},
-		)
-	}
-
-	return validatingWebhooks
-}
-
-func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, cpol := range cpols {
-			if !cpol.GetStatus().ValidatingAdmissionPolicy.Generated {
-				policies = append(policies, cpol)
-			}
-		}
-	}
-	if pols, err := c.polLister.List(labels.Everything()); err != nil {
-		return nil, err
-	} else {
-		for _, pol := range pols {
-			policies = append(policies, pol)
-		}
-	}
-	return policies, nil
 }
 
 func (c *controller) getValidatingPolicies() ([]engineapi.GenericPolicy, error) {
@@ -1564,8 +1167,15 @@ func (c *controller) getNamespacedImageValidatingPolicies() ([]engineapi.Generic
 }
 
 // ivpolsNeedingMutation filters ivpol/nivpol policies to those that actually
-// require a mutating webhook (i.e. MutateDigest or VerifyDigest is enabled).
-// Both fields default to true when nil, so an unset spec always qualifies.
+// require a mutating webhook, i.e. those with MutateDigest enabled (it defaults
+// to true when nil, so an unset spec always qualifies).
+//
+// VerifyDigest is deliberately not considered here: digest pinning is the only
+// mutation the ivpol mutating webhook performs. Asserting that an image carries
+// a digest is a validation concern handled by the validating webhook (mirroring
+// v1, where VerifyDigest is enforced in the validate_image handler), so a policy
+// with mutateDigest disabled and verifyDigest enabled would otherwise get a
+// mutating webhook that can never produce a patch.
 func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.GenericPolicy {
 	result := make([]engineapi.GenericPolicy, 0, len(policies))
 	for _, p := range policies {
@@ -1574,9 +1184,7 @@ func ivpolsNeedingMutation(policies []engineapi.GenericPolicy) []engineapi.Gener
 			continue
 		}
 		spec := ivpol.GetSpec()
-		mutateDigest := spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest
-		verifyDigest := spec.ValidationConfigurations.VerifyDigest == nil || *spec.ValidationConfigurations.VerifyDigest
-		if mutateDigest || verifyDigest {
+		if spec.ValidationConfigurations.MutateDigest == nil || *spec.ValidationConfigurations.MutateDigest {
 			result = append(result, p)
 		}
 	}
@@ -1613,141 +1221,6 @@ func (c *controller) getNamespacedMutatingPolicies() ([]engineapi.GenericPolicy,
 
 func (c *controller) getLease() (*coordinationv1.Lease, error) {
 	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno-health")
-}
-
-type groupVersionResourceSubresourceScope struct {
-	group       string
-	version     string
-	resource    string
-	subresource string
-	scope       admissionregistrationv1.ScopeType
-}
-
-type webhookConfig map[string]sets.Set[kyvernov1.AdmissionOperation]
-
-func (w webhookConfig) add(kind string, ops ...kyvernov1.AdmissionOperation) {
-	if len(ops) != 0 {
-		if w[kind] == nil {
-			w[kind] = sets.New[kyvernov1.AdmissionOperation]()
-		}
-		w[kind].Insert(ops...)
-	}
-}
-
-func (w webhookConfig) merge(other webhookConfig) {
-	for key, value := range other {
-		if w[key] == nil {
-			w[key] = value
-		} else {
-			w[key] = w[key].Union(value)
-		}
-	}
-}
-
-// mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) (ready bool) {
-	ready = true
-	matched := webhookConfig{}
-	for _, rule := range autogen.Default.ComputeRules(policy, "") {
-		// matching kinds in generate policies need to be added to both webhooks
-		if rule.HasGenerate() {
-			// all four operations including CONNECT are needed for generate.
-			// for example https://kyverno.io/policies/other/audit-event-on-exec/audit-event-on-exec/
-			matched.merge(collectResourceDescriptions(rule, allOperations...))
-			for _, g := range rule.Generation.ForEachGeneration {
-				if g.GeneratePattern.ResourceSpec.Kind != "" {
-					matched.add(g.GeneratePattern.ResourceSpec.Kind, createUpdateDelete...)
-				} else {
-					for _, kind := range g.GeneratePattern.CloneList.Kinds {
-						matched.add(kind, createUpdateDelete...)
-					}
-				}
-			}
-			if rule.Generation.ResourceSpec.Kind != "" {
-				matched.add(rule.Generation.ResourceSpec.Kind, createUpdateDelete...)
-			} else {
-				for _, kind := range rule.Generation.CloneList.Kinds {
-					matched.add(kind, createUpdateDelete...)
-				}
-			}
-		} else if (updateValidate && rule.HasValidate() || rule.HasVerifyImageChecks()) ||
-			(updateValidate && rule.HasMutateExisting()) ||
-			(!updateValidate && rule.HasMutateStandard()) ||
-			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasVerifyManifests()) {
-			matched.merge(collectResourceDescriptions(rule, defaultOperations[updateValidate]...))
-		}
-	}
-	for kind, ops := range matched {
-		var gvrsList []groupVersionResourceSubresourceScope
-		// NOTE: webhook stores GVR in its rules while policy stores GVK in its rules definition
-		group, version, kind, subresource := kubeutils.ParseKindSelector(kind)
-		// if kind or group is `*` we use the scope of the policy
-		policyScope := admissionregistrationv1.AllScopes
-		if policy.IsNamespaced() {
-			policyScope = admissionregistrationv1.NamespacedScope
-		}
-		// if kind is `*` no need to lookup resources
-		if kind == "*" && subresource == "*" {
-			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-				group:       group,
-				version:     version,
-				resource:    kind,
-				subresource: subresource,
-				scope:       policyScope,
-			})
-		} else if kind == "*" && subresource == "" {
-			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-				group:       group,
-				version:     version,
-				resource:    kind,
-				subresource: subresource,
-				scope:       policyScope,
-			})
-		} else if kind == "*" && subresource != "" {
-			gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-				group:       group,
-				version:     version,
-				resource:    kind,
-				subresource: subresource,
-				scope:       policyScope,
-			})
-		} else {
-			gvrss, err := c.discoveryClient.FindResources(group, version, kind, subresource)
-			if err != nil {
-				if errors.Is(err, dclient.ErrResourceNotFound) {
-					logger.Info("resource not found", "group", group, "version", version, "kind", kind, "subresource", subresource)
-				} else {
-					ready = false
-					logger.Error(err, "unable to find resource", "group", group, "version", version, "kind", kind, "subresource", subresource)
-				}
-				continue
-			}
-			for gvrs, resource := range gvrss {
-				resourceScope := admissionregistrationv1.AllScopes
-				if resource.Namespaced {
-					resourceScope = admissionregistrationv1.NamespacedScope
-				}
-				gvrsList = append(gvrsList, groupVersionResourceSubresourceScope{
-					group:       gvrs.GroupVersion.Group,
-					version:     gvrs.GroupVersion.Version,
-					resource:    gvrs.Resource,
-					subresource: gvrs.SubResource,
-					scope:       resourceScope,
-				})
-			}
-		}
-		for _, gvrs := range gvrsList {
-			dst.set(gvrs.group, gvrs.version, gvrs.resource, gvrs.subresource, gvrs.scope, ops.UnsortedList()...)
-		}
-	}
-	spec := policy.GetSpec()
-	webhookTimeoutSeconds := spec.GetWebhookTimeoutSeconds()
-	if webhookTimeoutSeconds != nil {
-		if dst.maxWebhookTimeout < *webhookTimeoutSeconds {
-			dst.maxWebhookTimeout = *webhookTimeoutSeconds
-		}
-	}
-	return ready
 }
 
 func (c *controller) buildOwner() []metav1.OwnerReference {

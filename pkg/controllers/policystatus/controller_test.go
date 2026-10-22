@@ -269,6 +269,62 @@ func TestReconcile_AllPolicyTypes(t *testing.T) {
 	}
 }
 
+// TestReconcileBeta1Conditions_WebhookConfiguredHealedWhenVAPGenerated verifies
+// that once a ValidatingAdmissionPolicy has been generated for a ValidatingPolicy
+// (status.generated=true), the WebhookConfigured condition is explicitly marked
+// satisfied rather than evaluated against Kyverno's own webhook state. Admission
+// for such a policy is enforced by the generated VAP, and the policy is
+// deliberately excluded from Kyverno's webhook rules, so its state-recorder entry
+// is stale (or, as reproduced here, left over as "false" from a prior Reset).
+// Explicitly setting the condition - rather than merely skipping the check - also
+// heals a policy whose status already carries a stale WebhookConfigured=False
+// condition from before the VAP was generated, since nothing else in the write
+// path ever clears it.
+func TestReconcileBeta1Conditions_WebhookConfiguredHealedWhenVAPGenerated(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	key := webhook.BuildRecorderKey(webhook.ValidatingPolicyType, "test-vpol", "")
+	rec := webhook.NewStateRecorder(nil)
+	// simulate a stale "not ready" entry left behind by a Reset() that occurred
+	// while the policy still had a webhook rule, before the VAP was generated.
+	rec.Record(key)
+	rec.Reset()
+
+	c := controller{
+		dclient:          dclient.NewEmptyFakeClient(),
+		client:           versionedfake.NewSimpleClientset(),
+		polStateRecorder: rec,
+	}
+
+	vpol := &policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-vpol"},
+		Spec:       policiesv1beta1.ValidatingPolicySpec{MatchConstraints: emptyMatchResources},
+		Status: policiesv1beta1.ValidatingPolicyStatus{
+			Generated: true,
+			ConditionStatus: policiesv1beta1.ConditionStatus{
+				// a condition already persisted as False from before the VAP was
+				// generated - this must be healed, not left stale.
+				Conditions: []metav1.Condition{
+					{
+						Type:               string(policiesv1beta1.PolicyConditionTypeWebhookConfigured),
+						Status:             metav1.ConditionFalse,
+						Reason:             "Failed",
+						Message:            "Policy is not configured in the webhook.",
+						LastTransitionTime: metav1.Now(),
+					},
+				},
+			},
+		},
+	}
+
+	status := c.reconcileBeta1Conditions(ctx, engineapi.NewValidatingPolicy(vpol))
+
+	cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeWebhookConfigured)
+	require.NotNil(t, cond, "WebhookConfigured condition should be set for a VAP-generated policy")
+	assert.Equal(t, metav1.ConditionTrue, cond.Status, "a stale False WebhookConfigured condition must be healed to True once the VAP is generated")
+}
+
 // boolPtr is a small helper for setting optional *bool spec fields.
 func boolPtr(b bool) *bool { return &b }
 
@@ -391,6 +447,102 @@ func TestReconcileBeta1Conditions_RBACGatedOnBackground(t *testing.T) {
 			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
 			assert.Equal(t, tt.wantRBAC, cond.Status, "RBACPermissionsGranted status")
 			assert.Contains(t, cond.Message, tt.wantMsgSubstr, "RBACPermissionsGranted message")
+		})
+	}
+}
+
+// TestReconcileBeta1Conditions_RBACChecksAutogenTargets verifies that the
+// RBACPermissionsGranted condition also covers autogen'd custom-CRD extraction
+// targets (Status.Autogen.Configs), not just the policy's own matchConstraints.
+// Before this, a policy autogen'd for e.g. Argo Rollout could show
+// RBACPermissionsGranted: True purely because its own matchConstraints target
+// "pods" (always readable), while the reports controller silently fails to
+// watch "rollouts" with a Forbidden error - this test pins the fix.
+func TestReconcileBeta1Conditions_RBACChecksAutogenTargets(t *testing.T) {
+	t.Parallel()
+
+	podsRule := &admissionregistrationv1.MatchResources{
+		ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+			{
+				RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+					Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				},
+			},
+		},
+	}
+	autogenForRollout := &policiesv1beta1.ValidatingPolicyAutogenConfiguration{
+		PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+			Controllers: []string{"rollouts.v1alpha1.argoproj.io"},
+		},
+	}
+
+	tests := []struct {
+		name         string
+		allowRollout bool
+		wantRBAC     metav1.ConditionStatus
+	}{
+		{
+			name:         "RBAC missing for the autogen'd custom CRD target: not ready",
+			allowRollout: false,
+			wantRBAC:     metav1.ConditionFalse,
+		},
+		{
+			name:         "RBAC granted for the autogen'd custom CRD target: ready",
+			allowRollout: true,
+			wantRBAC:     metav1.ConditionTrue,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+
+			dc := dclient.NewEmptyFakeClient()
+			// Allow "pods" (the policy's own matchConstraints) always; gate
+			// "rollouts" (the autogen'd extraction target) on tt.allowRollout.
+			kube := dc.GetKubeClient().(*kubefake.Clientset)
+			kube.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				sar := action.(k8stesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+				attrs := sar.Spec.ResourceAttributes
+				allowed := attrs.Resource == "pods" || (attrs.Resource == "rollouts" && tt.allowRollout)
+				return true, &authorizationv1.SubjectAccessReview{
+					Status: authorizationv1.SubjectAccessReviewStatus{Allowed: allowed, Reason: "test"},
+				}, nil
+			})
+
+			c := controller{
+				dclient:          dc,
+				client:           versionedfake.NewSimpleClientset(),
+				authChecker:      auth.NewSubjectChecker(dc.GetKubeClient().AuthorizationV1().SubjectAccessReviews(), "system:serviceaccount:kyverno:reports-controller", nil),
+				polStateRecorder: webhook.NewStateRecorder(nil),
+			}
+
+			vpol := &policiesv1beta1.ValidatingPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-vpol-autogen-crd"},
+				Spec: policiesv1beta1.ValidatingPolicySpec{
+					MatchConstraints:     podsRule,
+					AutogenConfiguration: autogenForRollout,
+					Validations: []admissionregistrationv1.Validation{
+						{Expression: "true"},
+					},
+				},
+			}
+
+			status := c.reconcileBeta1Conditions(ctx, engineapi.NewValidatingPolicy(vpol))
+
+			cond := findCondition(status.Conditions, policiesv1beta1.PolicyConditionTypeRBACPermissionsGranted)
+			require.NotNil(t, cond, "RBACPermissionsGranted condition should always be set")
+			assert.Equal(t, tt.wantRBAC, cond.Status, "RBACPermissionsGranted status")
+			if tt.wantRBAC == metav1.ConditionFalse {
+				assert.Contains(t, cond.Message, "missing permissions", "RBACPermissionsGranted message")
+				assert.Contains(t, cond.Message, "extraResources", "RBACPermissionsGranted message should point at the RBAC grant mechanism")
+			}
 		})
 	}
 }

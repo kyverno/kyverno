@@ -46,7 +46,7 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 	libEnvOpts := []cel.EnvOption{
 		cel.Variable(compiler.ExceptionsKey, types.NewObjectType("libs.Exception")),
 		globalcontext.Lib(
-			globalcontext.Context{ContextInterface: libsctx},
+			globalcontext.Context{ContextInterface: compiler.ConfineGlobalContext(libsctx, namespace)},
 			compiler.KyvernoVersion,
 		),
 		image.Lib(
@@ -99,5 +99,9 @@ func BuildMpolTargetEvalEnv(libsctx libs.Context, namespace string) (*cel.Env, e
 
 	// the custom types have to be registered after the decl options have been registered, because these are what allow
 	// go struct type resolution
-	return env.Extend(append(baseOpts, libEnvOpts...)...)
+	//
+	// compiler.NewEnv, not env.Extend: registers CostLib last (see pkg/cel/compiler/env.go)
+	// -- this is the real env targetExpression compiles and evaluates against, so this is
+	// where CostLib needs to be for the background mutate-existing path to be bounded too.
+	return compiler.NewEnv(append(baseOpts, libEnvOpts...)...)
 }

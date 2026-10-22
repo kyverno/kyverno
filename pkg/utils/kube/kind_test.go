@@ -3,7 +3,7 @@ package kube
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"gotest.tools/v3/assert"
 )
 
 func Test_GetKindFromGVK(t *testing.T) {
@@ -138,6 +138,15 @@ func TestParseKindSelector(t *testing.T) {
 	}, {
 		args: args{"v1/Pod"},
 		want: want{"*", "v1", "Pod", ""},
+	}, {
+		args: args{"v1beta10/Pod"},
+		want: want{"*", "v1beta10", "Pod", ""},
+	}, {
+		args: args{"storage.k8s.io/v1beta10/CSIDriver"},
+		want: want{"storage.k8s.io", "v1beta10", "CSIDriver", ""},
+	}, {
+		args: args{"v1alpha12/Pod/status"},
+		want: want{"*", "v1alpha12", "Pod", "status"},
 	}, {
 		args: args{"batch/*/CronJob"},
 		want: want{"batch", "*", "CronJob", ""},

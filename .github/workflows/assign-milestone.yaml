@@ -91,7 +91,7 @@ jobs:
           fi
           echo "Previous release tag: $previous_tag"
 
-          milestone_number=$(gh api "repos/${GITHUB_REPOSITORY}/milestones?state=all&per_page=100" \
+          milestone_number=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/milestones?state=all&per_page=100" \
             --jq ".[] | select(.title == \"${milestone_title}\") | .number" | head -n1)
 
           if [[ -z "$milestone_number" ]]; then
