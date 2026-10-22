@@ -220,6 +220,13 @@ func TestIsBlocked_FailurePolicy(t *testing.T) {
 		assert.False(t, isBlocked(ctx, response))
 	})
 
+	t.Run("forceIgnore still blocks on refused exception error", func(t *testing.T) {
+		t.Parallel()
+		ctx := toggle.NewContext(context.Background(), forceIgnoreToggles{toggle.FromContext(context.Background())})
+		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &fail, deny, refusedException)}}
+		assert.True(t, isBlocked(ctx, response))
+	})
+
 	t.Run("audit action only does not block", func(t *testing.T) {
 		t.Parallel()
 		response := eval.ImageVerifyEngineResponse{Policies: []eval.ImageVerifyPolicyResponse{testPolicy("p", &fail, auditOnly, errored)}}
