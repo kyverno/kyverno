@@ -464,8 +464,8 @@ func (c *controller) enqueueAllReports() {
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	// startup sweep: drop legacy-only results from existing reports (decision C2); fail open
-	// (sweep anyway) on an error determining legacy policy presence.
+	// startup sweep: drop legacy-only results from existing reports (decision C2).
+	// Fail closed when the legacy-policy presence check is indeterminate.
 	if present, err := c.legacyPoliciesPresent(ctx); err != nil {
 		// Fail closed: sweeping on an indeterminate result would add a cluster-wide read burst
 		// exactly when the API server is already unhealthy. The next leader start retries.
