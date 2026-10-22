@@ -58,6 +58,8 @@ jobs:
 
           [[ "$STALE_DAYS" =~ ^[0-9]+$ && "$CLOSE_DAYS" =~ ^[0-9]+$ && "$NUDGE_DAYS" =~ ^[0-9]+$ ]] \
             || { echo "::error::configured day values must be whole numbers."; exit 1; }
+          (( STALE_DAYS <= CLOSE_DAYS )) \
+            || { echo "::error::stale_days must not exceed close_days."; exit 1; }
 
           repo="${GITHUB_REPOSITORY}"
           now=$(date -u +%s)
@@ -81,7 +83,7 @@ jobs:
                   headRefOid
                   author { login }
                   labels(first: 100) { nodes { name } }
-                  commits(last: 100) { nodes { commit { committedDate } } }
+                  commits(last: 100) { nodes { commit { oid committedDate } } }
                   assignees(first: 20) { nodes { login } }
                   reviewRequests(first: 50) { nodes { requestedReviewer {
                     __typename
@@ -92,7 +94,14 @@ jobs:
                   } } }
                   comments(last: 100) { totalCount nodes { author { login __typename } createdAt body } }
                   reviews(last: 100) { totalCount nodes { author { login __typename } submittedAt } }
-                  timelineItems(last: 100, itemTypes: [LABELED_EVENT]) { nodes { ... on LabeledEvent { createdAt label { name } } } }
+                  timelineItems(last: 100, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT]) {
+                    nodes {
+                      __typename
+                      ... on LabeledEvent { createdAt label { name } }
+                      ... on UnlabeledEvent { createdAt label { name } }
+                      ... on HeadRefForcePushedEvent { createdAt }
+                    }
+                  }
                 }
               }
             }'
@@ -106,7 +115,7 @@ jobs:
             jq '.data.repository.pullRequest
               | {author: {login: (.author.login // "ghost")}, headRefOid,
                  labels: .labels.nodes,
-                 commits: [.commits.nodes[].commit | {committedDate}],
+                 commits: [.commits.nodes[].commit | {oid, committedDate}],
                  assignees: .assignees.nodes,
                  reviewRequests: [.reviewRequests.nodes[].requestedReviewer
                    | select(. != null and (.login or .combinedSlug))
@@ -119,8 +128,17 @@ jobs:
                  | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .submittedAt}]' \
               raw.json > reviews.json || return 1
             jq '[.data.repository.pullRequest.timelineItems.nodes[] | select(.label.name != null)
+                 | select(.__typename == "LabeledEvent")
                  | {l: .label.name, at: .createdAt}]' \
               raw.json > label-events.json || return 1
+            jq '[.data.repository.pullRequest.timelineItems.nodes[] | select(.label.name != null)
+                 | select(.__typename == "UnlabeledEvent")
+                 | {l: .label.name, at: .createdAt}]' \
+              raw.json > unlabel-events.json || return 1
+            jq '[.data.repository.pullRequest.timelineItems.nodes[]
+                 | select(.__typename == "HeadRefForcePushedEvent")
+                 | {at: .createdAt}]' \
+              raw.json > force-push-events.json || return 1
           }
 
           has_label() { jq -e --arg l "$1" 'any(.labels[]; .name == $l)' pr.json > /dev/null; }
@@ -137,10 +155,32 @@ jobs:
             jq '[.commits[].committedDate | fromdateiso8601] | max // 0' pr.json
           }
 
-          # Merge conflicts cannot be fixed by the author, so do not age the PR from before the conflict appeared.
+          latest_force_push() {
+            jq '[.[] | .at | fromdateiso8601] | max // 0' force-push-events.json
+          }
+
+          latest_stale_removal() {
+            jq '[.[] | select(.l == "stale") | .at | fromdateiso8601] | max // 0' unlabel-events.json
+          }
+
+          force_push_after() {
+            jq -e --argjson t "$1" 'any(.[]; (.at | fromdateiso8601) > $t)' force-push-events.json > /dev/null
+          }
+
+          stale_head() {
+            jq -r '[.[] | select(.t == "Bot") | .body
+              | try capture("<!-- pr-stale-author-action: stale [0-9]+ (?<head>[0-9a-f]+) -->").head catch empty]
+              | map(select(. != "")) | last // ""' issue-comments.json
+          }
+
+          # Use commit/force-push activity and stale-label removal to detect new pushes; conflicts reset the clock too.
           author_clock() {
-            local last conflicted
+            local last pushed removed conflicted
             last=$(last_commit) || return 1
+            pushed=$(latest_force_push) || return 1
+            [[ "$pushed" -gt "$last" ]] && last="$pushed"
+            removed=$(latest_stale_removal) || return 1
+            [[ "$removed" -gt "$last" ]] && last="$removed"
             if has_label merge-conflicts; then
               conflicted=$(label_time merge-conflicts) || return 1
               [[ "$conflicted" -gt "$last" ]] && last="$conflicted"
@@ -175,13 +215,17 @@ jobs:
           # PRs carrying `stale`: clear it once it no longer applies. Only a new commit counts: a reply (for example
           # "I can't continue") must not clear it.
           handle_stale_label() {
-            local n="$1" last stale_at
+            local n="$1" last stale_at head recorded_head
             fetch "$n" || return 1
             last=$(last_commit) || return 1
             stale_at=$(label_time stale) || return 1
+            head=$(jq -r '.headRefOid' pr.json)
+            recorded_head=$(stale_head) || return 1
             # Unknown when the label event is outside the fetched history; leave the label alone.
             [[ "$stale_at" -eq 0 ]] && { echo "::warning::PR #$n: stale label time not found — skipping."; return 0; }
-            if ! has_label needs-author-action || has_label no-stale || [[ "$last" -gt "$stale_at" ]]; then
+            if ! has_label needs-author-action || has_label no-stale || [[ "$last" -gt "$stale_at" ]] \
+              || force_push_after "$stale_at" \
+              || { [[ -n "$recorded_head" ]] && [[ "$head" != "$recorded_head" ]]; }; then
               echo "PR #$n: no longer stale — removing the label."
               act gh pr edit "$n" --repo "$repo" --remove-label stale || return 1
             fi
@@ -189,14 +233,15 @@ jobs:
 
           # needs-author-action PRs: mark stale after STALE_DAYS without a new commit.
           handle_needs_author() {
-            local n="$1" author last idle marker
+            local n="$1" author last idle marker head
             fetch "$n" || return 1
             author=$(jq -r '.author.login' pr.json)
             last=$(author_clock) || return 1
+            head=$(jq -r '.headRefOid' pr.json)
             idle=$((now - last))
             [[ "$idle" -lt "$stale_secs" ]] && return 0
 
-            marker="<!-- pr-stale-author-action: $last -->"
+            marker="<!-- pr-stale-author-action: stale $last $head -->"
             if ! has_marker "$marker"; then
               {
                 printf '%s\n' "$marker"
@@ -223,16 +268,21 @@ jobs:
 
           # Close a PR after CLOSE_DAYS total inactivity, once it has already been marked stale.
           handle_close() {
-            local n="$1" author last stale_at idle marker
+            local n="$1" author last last_commit_at stale_at idle marker head recorded_head
             fetch "$n" || return 1
             if ! has_label needs-author-action || ! has_label stale || has_label no-stale; then
               return 0
             fi
             author=$(jq -r '.author.login' pr.json)
+            last_commit_at=$(last_commit) || return 1
             last=$(author_clock) || return 1
             stale_at=$(label_time stale) || return 1
-            # Unknown label age or a commit after the stale label means the PR is not eligible for closure.
-            [[ "$stale_at" -eq 0 || "$last" -gt "$stale_at" ]] && return 0
+            head=$(jq -r '.headRefOid' pr.json)
+            recorded_head=$(stale_head) || return 1
+            # A new commit or force-push after stale marking resets the cycle; merge-conflict time only affects idle.
+            [[ "$stale_at" -eq 0 || "$last_commit_at" -gt "$stale_at" ]] && return 0
+            force_push_after "$stale_at" && return 0
+            [[ -n "$recorded_head" && "$head" != "$recorded_head" ]] && return 0
             idle=$((now - last))
             [[ "$idle" -lt "$close_secs" ]] && return 0
 
@@ -240,7 +290,7 @@ jobs:
             if ! has_marker "$marker"; then
               {
                 printf '%s\n' "$marker"
-                printf "@%s to help manage our PR queue we are closing PRs with no activity. This PR has had no new commit for %s days. A prior reminder was issued when the 'needs-author-action' label was added. If you would like to continue working on it, please address the flagged issues and reopen the PR. Thanks for your contributions and understanding!\n" \
+                printf '@%s to help manage our PR queue we are closing PRs with no activity. This PR has had no new commit for %s days. A prior reminder was issued when this PR was marked `stale`. If you would like to continue working on it, please address the flagged issues and reopen the PR. Thanks for your contributions and understanding!\n' \
                   "$author" "$((idle / 86400))"
               } > body.md
               [[ "$DRY_RUN" == "true" ]] && { echo "PR #$n would get:"; cat body.md; echo; }
