@@ -61,7 +61,13 @@ func replaceExpressions(expression string, replacements map[string]string) (stri
 	return parser.Unparse(parsed.Expr(), parsed.SourceInfo())
 }
 
+// shadowsExceptions preserves the original exception rewrite behavior while
+// sharing the lexical-scope inspection with native compatibility checks.
 func shadowsExceptions(node celast.NavigableExpr) bool {
+	return shadowsIdentifier(node, "exceptions")
+}
+
+func shadowsIdentifier(node celast.NavigableExpr, name string) bool {
 	for child := node; ; {
 		parent, ok := child.Parent()
 		if !ok {
@@ -72,13 +78,13 @@ func shadowsExceptions(node celast.NavigableExpr) bool {
 			args := call.Args()
 			switch call.FunctionName() {
 			case "all", "exists", "exists_one", "filter", "map":
-				if len(args) >= 2 && args[0].Kind() == celast.IdentKind && args[0].AsIdent() == "exceptions" &&
+				if len(args) >= 2 && args[0].Kind() == celast.IdentKind && args[0].AsIdent() == name &&
 					child.ID() != args[0].ID() && (!call.IsMemberFunction() || child.ID() != call.Target().ID()) {
 					return true
 				}
 			case "bind":
 				// cel.bind evaluates its initializer in the enclosing scope.
-				if len(args) == 3 && args[0].Kind() == celast.IdentKind && args[0].AsIdent() == "exceptions" && child.ID() == args[2].ID() {
+				if len(args) == 3 && args[0].Kind() == celast.IdentKind && args[0].AsIdent() == name && child.ID() == args[2].ID() {
 					return true
 				}
 			}
@@ -87,11 +93,22 @@ func shadowsExceptions(node celast.NavigableExpr) bool {
 	}
 }
 
-// referencesGlobalExceptions detects global CEL exception identifiers even when
-// they are used directly (e.g. "exceptions == null"), not just as field selectors.
-// Macro and cel.bind variables named exceptions are local and must not be flagged.
+// referencesGlobalExceptions detects Kyverno-only exceptions identifiers.
 func referencesGlobalExceptions(expression string) (bool, error) {
-	if !strings.Contains(expression, "exceptions") {
+	return referencesGlobalIdentifier(expression, "exceptions")
+}
+
+// referencesGlobalVariables detects native-incompatible variables references
+// in match conditions without rejecting string literals or locally shadowed names.
+func referencesGlobalVariables(expression string) (bool, error) {
+	return referencesGlobalIdentifier(expression, "variables")
+}
+
+// referencesGlobalIdentifier inspects the CEL AST rather than matching substrings:
+// object.variables, string literals, and local comprehension/bind identifiers
+// must not be mistaken for a reference to the policy-level global variable.
+func referencesGlobalIdentifier(expression, name string) (bool, error) {
+	if !strings.Contains(expression, name) {
 		return false, nil
 	}
 	p, err := parser.NewParser(parser.EnableOptionalSyntax(true))
@@ -100,13 +117,14 @@ func referencesGlobalExceptions(expression string) (bool, error) {
 	}
 	parsed, parseErrors := p.Parse(common.NewTextSource(expression))
 	if len(parseErrors.GetErrors()) != 0 {
-		return false, fmt.Errorf("failed to parse exception expression: %s", parseErrors.ToDisplayString())
+		return false, fmt.Errorf("failed to parse %s expression: %s", name, parseErrors.ToDisplayString())
 	}
 	for _, node := range celast.MatchDescendants(celast.NavigateAST(parsed), celast.KindMatcher(celast.IdentKind)) {
-		if node.AsIdent() != "exceptions" && node.AsIdent() != ".exceptions" {
+		identifier := node.AsIdent()
+		if identifier != name && identifier != "."+name {
 			continue
 		}
-		if node.AsIdent() == "exceptions" && (shadowsExceptions(node) || declaresLocalExceptions(node)) {
+		if identifier == name && (shadowsIdentifier(node, name) || declaresLocalIdentifier(node, name)) {
 			continue
 		}
 		return true, nil
@@ -114,14 +132,14 @@ func referencesGlobalExceptions(expression string) (bool, error) {
 	return false, nil
 }
 
-func declaresLocalExceptions(node celast.NavigableExpr) bool {
+func declaresLocalIdentifier(node celast.NavigableExpr, name string) bool {
 	parent, ok := node.Parent()
 	if !ok || parent.Kind() != celast.CallKind {
 		return false
 	}
 	call := parent.AsCall()
 	args := call.Args()
-	if len(args) == 0 || args[0].ID() != node.ID() {
+	if len(args) == 0 || args[0].ID() != node.ID() || node.AsIdent() != name {
 		return false
 	}
 	switch call.FunctionName() {
