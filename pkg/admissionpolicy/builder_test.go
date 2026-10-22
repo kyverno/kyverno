@@ -430,6 +430,41 @@ func TestNegateExceptionMatchConditions(t *testing.T) {
 	assert.Equal(t, `!(object.metadata.namespace == 'skip')`, got[1].Expression)
 }
 
+// An informer may return the same PolicyExceptions in any order. Native policy
+// generation must remain stable, including the full-exception short circuit.
+func TestNegateExceptionMatchConditions_DeterministicOrder(t *testing.T) {
+	first := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "first"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "first-condition", Expression: "true"}},
+		},
+	}
+	second := policiesv1beta1.PolicyException{
+		ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "second"},
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "second-condition", Expression: "false"}},
+		},
+	}
+	ordered := []policiesv1beta1.PolicyException{first, second}
+	reversed := []policiesv1beta1.PolicyException{second, first}
+	expected := negateExceptionMatchConditions(ordered)
+	assert.Equal(t, expected, negateExceptionMatchConditions(reversed))
+	assert.Equal(t, "first-condition", expected[0].Name)
+	assert.Equal(t, "second-condition", expected[1].Name)
+	// Neither the caller's ordering nor its backing slice may be modified.
+	assert.Equal(t, second, reversed[0])
+	assert.Equal(t, first, reversed[1])
+
+	fullA := policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Namespace: "a", Name: "global"}}
+	fullB := policiesv1beta1.PolicyException{ObjectMeta: metav1.ObjectMeta{Namespace: "b", Name: "global"}}
+	gotA := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{fullA, fullB})
+	gotB := negateExceptionMatchConditions([]policiesv1beta1.PolicyException{fullB, fullA})
+	require.Len(t, gotA, 1)
+	assert.Equal(t, gotA, gotB)
+	assert.Equal(t, "false", gotA[0].Expression)
+	assert.Equal(t, exceptionMatchConditionName(fullA), gotA[0].Name)
+}
+
 func TestBuildValidatingAdmissionPolicy_MultiConditionCELException(t *testing.T) {
 	policy := &policiesv1beta1.ValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "require-standard-labels", UID: "policy-uid"},
