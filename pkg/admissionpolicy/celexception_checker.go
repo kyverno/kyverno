@@ -100,6 +100,15 @@ func CanGenerateNativeMutatingPolicyExpressions(policy *policiesv1beta1.Mutating
 	}
 	var expressions []expression
 	for _, condition := range policy.Spec.MatchConditions {
+		// Native MAP evaluates matchConditions before spec.variables. Reject
+		// grandfathered policies that still reference those variables.
+		usesVariables, err := referencesGlobalVariables(condition.Expression)
+		if err != nil {
+			return false, fmt.Sprintf("cannot inspect matchCondition %s for native MutatingAdmissionPolicy generation: %v", condition.Name, err)
+		}
+		if usesVariables {
+			return false, fmt.Sprintf("matchCondition %s references variables, which native MutatingAdmissionPolicy matchConditions cannot evaluate", condition.Name)
+		}
 		expressions = append(expressions, expression{"matchCondition " + condition.Name, condition.Expression})
 	}
 	for _, variable := range policy.Spec.Variables {
