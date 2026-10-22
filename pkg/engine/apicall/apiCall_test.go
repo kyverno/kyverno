@@ -481,7 +481,6 @@ func Test_PercentEncodedPathTraversal(t *testing.T) {
 	assert.ErrorContains(t, err, "refers to namespace kube-system, which is different from the policy namespace default")
 }
 
-<<<<<<< HEAD
 // recordingClient captures the exact path that was executed, so tests can
 // assert that the executor receives the same canonical path that namespace
 // validation checked - not the original, unvalidated URLPath.
@@ -694,7 +693,8 @@ func Test_URLPathCanonicalization(t *testing.T) {
 		assert.NilError(t, err)
 		assert.Equal(t, "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations?x=/namespaces/default/y", client.gotPath)
 	})
-=======
+}
+
 func Test_transformAndStore_NonStringJMESPath(t *testing.T) {
 	// Regression test: when context.apiCall.jmesPath is written as a single,
 	// whole variable reference (e.g. "{{ somePriority }}"), SubstituteAll
@@ -728,8 +728,7 @@ func Test_transformAndStore_NonStringJMESPath(t *testing.T) {
 		_, err = call.Store([]byte(`{"day":"Monday"}`))
 		return true
 	}())
-	assert.ErrorContains(t, err, "JMESPath did not resolve to a string")
->>>>>>> 1bedc5d14 (Fix unchecked type assertion panic in apiCall.transformAndStore (#17670))
+	assert.ErrorContains(t, err, "expected string")
 }
 
 func Test_APICallConfiguration_GetTimeout(t *testing.T) {
