@@ -21,7 +21,7 @@ do not — both do their own minimal, standalone setup instead.
 | `kubectl-kyverno` | `cmd/cli/kubectl-kyverno/` | Offline CLI for applying/testing policies without a cluster. Built on library code in `pkg/cli` (distinct from the `cmd/cli` command tree itself). |
 | `cleanup-controller` | `cmd/cleanup-controller/` | Reconciles `CleanupPolicy`/`ClusterCleanupPolicy`, runs a cleanup-policy validation webhook, and handles CronJob-invoked cleanup plus the CEL `dpol` (DeletingPolicy) engine. |
 | `reports-controller` | `cmd/reports-controller/` | Produces and aggregates `PolicyReport`/`ClusterPolicyReport` from admission and background scans. |
-| `background-controller` | `cmd/background-controller/` | Processes `generate` and `mutate-existing` rules against already-existing resources via `UpdateRequest`s, plus the CEL `gpol`/`mpol` background paths. |
+| `background-controller` | `cmd/background-controller/` | Processes CEL `gpol` (generate) and `mpol` (mutate-existing) rules against already-existing resources via `UpdateRequest`s. Legacy `kyverno.io/v1` `generate`/`mutateExisting` execution was removed in #17710 PR 2; any pre-existing legacy `UpdateRequest` is deleted, not processed, on its first sync. |
 | `readiness-checker` | `cmd/readiness-checker/` | Small utility binary used by probes/Helm hooks: `check-endpoints`, `check-http`, `scale-deploy`, `delete-webhooks`. |
 
 ## Domain layering (`pkg/`)
@@ -64,8 +64,10 @@ longer exist); `pkg/sigstoretuf` handles TUF trust-root management for the cosig
 **Policy lifecycle / admission:** `pkg/policy`, `pkg/validation`, `pkg/exceptions` (`PolicyException` matching),
 `pkg/globalcontext` (`GlobalContextEntry` caching for JMESPath/CEL context). `pkg/webhooks` holds the actual
 `AdmissionReview` HTTP handlers — the
-synchronous validate/mutate path returns immediately, while generate/mutate-existing rules are queued as
-`UpdateRequest`s for `pkg/background` to process asynchronously. See [pkg/webhooks/AGENTS.md](pkg/webhooks/AGENTS.md)
+synchronous validate/mutate path returns immediately, while CEL `gpol`/`mpol` generate/mutate-existing rules are
+queued as `UpdateRequest`s for `pkg/background` to process asynchronously (legacy `kyverno.io/v1` generate/
+mutate-existing execution was removed from `pkg/background` in #17710 PR 2). See
+[pkg/webhooks/AGENTS.md](pkg/webhooks/AGENTS.md)
 and [pkg/background/AGENTS.md](pkg/background/AGENTS.md). `pkg/controllers/*` wires all of the above into
 controller-runtime-style reconcilers; see [pkg/controllers/AGENTS.md](pkg/controllers/AGENTS.md) for the
 subdirectory → responsibility → leader-election map.
