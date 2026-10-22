@@ -94,12 +94,13 @@ jobs:
                   } } }
                   comments(last: 100) { totalCount nodes { author { login __typename } createdAt body } }
                   reviews(last: 100) { totalCount nodes { author { login __typename } submittedAt } }
-                  timelineItems(last: 100, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT]) {
+                  timelineItems(last: 100, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, PULL_REQUEST_COMMIT]) {
                     nodes {
                       __typename
                       ... on LabeledEvent { createdAt label { name } }
                       ... on UnlabeledEvent { createdAt label { name } }
                       ... on HeadRefForcePushedEvent { createdAt }
+                      ... on PullRequestCommit { commit { oid committedDate } }
                     }
                   }
                 }
@@ -127,6 +128,13 @@ jobs:
             jq '[.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt != null)
                  | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .submittedAt}]' \
               raw.json > reviews.json || return 1
+            jq '[.data.repository.pullRequest.timelineItems.nodes[]
+                 | if .__typename == "LabeledEvent" then {kind: "label", l: .label.name, at: .createdAt}
+                   elif .__typename == "UnlabeledEvent" then {kind: "unlabel", l: .label.name, at: .createdAt}
+                   elif .__typename == "HeadRefForcePushedEvent" then {kind: "force-push", at: .createdAt}
+                   elif .__typename == "PullRequestCommit" then {kind: "commit", oid: .commit.oid, at: .commit.committedDate}
+                   else empty end]' \
+              raw.json > timeline-events.json || return 1
             jq '[.data.repository.pullRequest.timelineItems.nodes[] | select(.label.name != null)
                  | select(.__typename == "LabeledEvent")
                  | {l: .label.name, at: .createdAt}]' \
@@ -168,9 +176,19 @@ jobs:
           }
 
           stale_head() {
-            jq -r '[.[] | select(.t == "Bot") | .body
+            local marked
+            marked=$(jq -r '[.[] | select(.t == "Bot") | .body
               | try capture("<!-- pr-stale-author-action: stale [0-9]+ (?<head>[0-9a-f]+) -->").head catch empty]
-              | map(select(. != "")) | last // ""' issue-comments.json
+              | map(select(. != "")) | last // ""' issue-comments.json) || return 1
+            if [[ -n "$marked" ]]; then
+              printf '%s' "$marked"
+              return 0
+            fi
+            jq -r '
+              ([to_entries[] | select(.value.kind == "label" and .value.l == "stale") | .key] | last // -1) as $stale
+              | if $stale < 0 then ""
+                else ([to_entries[] | select(.key < $stale and .value.kind == "commit") | .value.oid] | last // "")
+                end' timeline-events.json
           }
 
           # Use commit/force-push activity and stale-label removal to detect new pushes; conflicts reset the clock too.
@@ -282,7 +300,7 @@ jobs:
             # A new commit or force-push after stale marking resets the cycle; merge-conflict time only affects idle.
             [[ "$stale_at" -eq 0 || "$last_commit_at" -gt "$stale_at" ]] && return 0
             force_push_after "$stale_at" && return 0
-            [[ -n "$recorded_head" && "$head" != "$recorded_head" ]] && return 0
+            [[ -z "$recorded_head" || "$head" != "$recorded_head" ]] && return 0
             idle=$((now - last))
             [[ "$idle" -lt "$close_secs" ]] && return 0
 
