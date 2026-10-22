@@ -2,7 +2,6 @@ package cosign
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +13,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -42,10 +40,6 @@ type testReferrer struct {
 	layerData              []byte
 	// skipLayerUpload leaves the layer blob out of the registry, so reading it fails
 	skipLayerUpload bool
-	// descriptorSize overrides the manifest size in the fallback tag index entry
-	descriptorSize int64
-	// manifestPadding adds an annotation of this many bytes to the manifest
-	manifestPadding int
 }
 
 // pushReferrer pushes a single-layer manifest and returns its descriptor for the fallback index.
@@ -74,17 +68,11 @@ func pushReferrer(t *testing.T, repo name.Repository, r testReferrer) v1.Descrip
 	if r.manifestArtifactType != "" {
 		manifest["artifactType"] = r.manifestArtifactType
 	}
-	if r.manifestPadding > 0 {
-		manifest["annotations"] = map[string]string{"padding": strings.Repeat("x", r.manifestPadding)}
-	}
 	body, err := json.Marshal(manifest)
 	assert.NilError(t, err)
 	digest, size, err := v1.SHA256(bytes.NewReader(body))
 	assert.NilError(t, err)
 	assert.NilError(t, remote.Put(repo.Digest(digest.String()), rawManifest{body: body, mediaType: types.OCIManifestSchema1}))
-	if r.descriptorSize != 0 {
-		size = r.descriptorSize
-	}
 	return v1.Descriptor{
 		MediaType:    types.OCIManifestSchema1,
 		Digest:       digest,
@@ -124,15 +112,11 @@ func setupFallbackRegistry(t *testing.T, referrers []testReferrer) name.Referenc
 	return ref
 }
 
-// anonymous resolves every registry to anonymous access, so tests use the bounded manifest request.
-var anonymous = authn.NewMultiKeychain()
-
 func TestFetchBundlesFallbackTag(t *testing.T) {
 	t.Parallel()
 	bundleJSON, err := os.ReadFile("testdata/bundle.json")
 	assert.NilError(t, err)
 	bundleMediaType := "application/vnd.dev.sigstore.bundle.v0.3+json"
-	tooLarge := append(bytes.Clone(bundleJSON), bytes.Repeat([]byte(" "), int(maxProbeLayerSize))...)
 
 	tests := []struct {
 		name     string
@@ -155,53 +139,10 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 		},
 		want: 1,
 	}, {
-		name: "untyped layer resolved by parsing the bundle",
+		name: "untyped referrer without a bundle type is skipped",
 		referrer: testReferrer{
 			layerMediaType: "application/json",
 			layerData:      bundleJSON,
-		},
-		want: 1,
-	}, {
-		name: "untyped layer that is not a bundle is skipped",
-		referrer: testReferrer{
-			layerMediaType: "application/json",
-			layerData:      []byte(`{"hello":"world"}`),
-		},
-	}, {
-		name: "known non-bundle layer type is skipped without probing",
-		referrer: testReferrer{
-			layerMediaType: "application/vnd.oci.image.layer.v1.tar",
-			layerData:      bundleJSON,
-		},
-	}, {
-		name: "untyped layer over the probe size limit is skipped",
-		referrer: testReferrer{
-			layerMediaType: "application/json",
-			layerData:      tooLarge,
-		},
-	}, {
-		name: "untyped manifest over the probe size limit is skipped without fetching it",
-		referrer: testReferrer{
-			manifestArtifactType: bundleMediaType,
-			layerMediaType:       bundleMediaType,
-			layerData:            bundleJSON,
-			descriptorSize:       maxProbeManifestSize + 1,
-		},
-	}, {
-		name: "manifest larger than its understated index size is skipped without downloading it",
-		referrer: testReferrer{
-			manifestArtifactType: bundleMediaType,
-			layerMediaType:       bundleMediaType,
-			layerData:            bundleJSON,
-			descriptorSize:       100,
-			manifestPadding:      int(maxProbeManifestSize),
-		},
-	}, {
-		name: "layer typed as a bundle that does not parse as one is skipped",
-		referrer: testReferrer{
-			manifestArtifactType: bundleMediaType,
-			layerMediaType:       bundleMediaType,
-			layerData:            []byte(`{"hello":"world"}`),
 		},
 	}, {
 		name: "typed descriptor of another artifact is skipped",
@@ -216,7 +157,7 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			ref := setupFallbackRegistry(t, []testReferrer{tt.referrer})
-			bundles, desc, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
+			bundles, desc, err := fetchBundles(ref, attestationlimit, "", nil)
 			assert.NilError(t, err)
 			assert.Assert(t, desc != nil)
 			assert.Equal(t, len(bundles), tt.want)
@@ -224,92 +165,15 @@ func TestFetchBundlesFallbackTag(t *testing.T) {
 	}
 }
 
-func TestFetchBundlesFallbackProbeBudget(t *testing.T) {
-	t.Parallel()
-	bundleJSON, err := os.ReadFile("testdata/bundle.json")
-	assert.NilError(t, err)
-	// each untyped layer is just under the per-layer limit, so the shared budget runs out first
-	padded := append(bytes.Clone(bundleJSON), bytes.Repeat([]byte(" "), int(maxProbeLayerSize)-len(bundleJSON)-1)...)
-	count := int(maxProbeTotalSize/maxProbeLayerSize) + 2
-	referrers := make([]testReferrer, count)
-	for i := range referrers {
-		referrers[i] = testReferrer{layerMediaType: "application/json", layerData: padded}
-	}
-	ref := setupFallbackRegistry(t, referrers)
-	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
-	assert.NilError(t, err)
-	// manifests are charged to the budget too, so the last layer that would just fit is skipped
-	fit := int(maxProbeTotalSize / int64(len(padded)))
-	assert.Assert(t, len(bundles) >= fit-1 && len(bundles) <= fit, "got %d bundles, want %d or %d", len(bundles), fit-1, fit)
-}
-
-func TestFetchBundlesFallbackTypedReferrersShareBudget(t *testing.T) {
-	t.Parallel()
-	bundleJSON, err := os.ReadFile("testdata/bundle.json")
-	assert.NilError(t, err)
-	// referrers recognized by their media type are read within the shared probe budget too
-	padded := append(bytes.Clone(bundleJSON), bytes.Repeat([]byte(" "), int(maxProbeLayerSize)-len(bundleJSON)-1)...)
-	count := int(maxProbeTotalSize/maxProbeLayerSize) + 2
-	referrers := make([]testReferrer, count)
-	for i := range referrers {
-		referrers[i] = testReferrer{
-			manifestArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
-			layerMediaType:       "application/json",
-			layerData:            padded,
-		}
-	}
-	ref := setupFallbackRegistry(t, referrers)
-	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
-	assert.NilError(t, err)
-	fit := int(maxProbeTotalSize / int64(len(padded)))
-	assert.Assert(t, len(bundles) >= fit-1 && len(bundles) <= fit, "got %d bundles, want %d or %d", len(bundles), fit-1, fit)
-}
-
-func TestReadLayerLimits(t *testing.T) {
-	t.Parallel()
-	data := []byte("0123456789")
-	got, err := readLayer(static.NewLayer(data, types.MediaType("application/json")), int64(len(data)))
-	assert.NilError(t, err)
-	assert.DeepEqual(t, got, data)
-
-	// the size check rejects the layer before reading
-	_, err = readLayer(static.NewLayer(data, types.MediaType("application/json")), int64(len(data))-1)
-	assert.ErrorContains(t, err, "exceeds")
-
-	// a layer whose uncompressed content is larger than its size is cut off, and what was read is returned
-	limit := int64(4)
-	got, err = readLayer(understatedLayer{Layer: static.NewLayer(data, types.MediaType("application/json"))}, limit)
-	assert.ErrorContains(t, err, "uncompressed layer size exceeds")
-	assert.Equal(t, int64(len(got)), limit+1)
-}
-
-// Without the client's keychain no bounded manifest read is possible, so untyped referrers are not probed.
-func TestFetchBundlesFallbackWithoutKeychain(t *testing.T) {
-	t.Parallel()
-	bundleJSON, err := os.ReadFile("testdata/bundle.json")
-	assert.NilError(t, err)
-	ref := setupFallbackRegistry(t, []testReferrer{{
-		layerMediaType: "application/json",
-		layerData:      bundleJSON,
-	}, {
-		descriptorArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
-		layerMediaType:         "application/vnd.dev.sigstore.bundle.v0.3+json",
-		layerData:              bundleJSON,
-	}})
-	bundles, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", nil, nil)
-	assert.NilError(t, err)
-	// only the referrer typed in the index is used
-	assert.Equal(t, len(bundles), 1)
-}
-
 func TestFetchBundlesFallbackLayerFetchError(t *testing.T) {
 	t.Parallel()
 	ref := setupFallbackRegistry(t, []testReferrer{{
-		layerMediaType:  "application/json",
-		layerData:       []byte(`{"hello":"world"}`),
-		skipLayerUpload: true,
+		manifestArtifactType: "application/vnd.dev.sigstore.bundle.v0.3+json",
+		layerMediaType:       "application/json",
+		layerData:            []byte(`{"hello":"world"}`),
+		skipLayerUpload:      true,
 	}})
-	_, _, err := fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
+	_, _, err := fetchBundles(ref, attestationlimit, "", nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer")
 }
 
@@ -347,13 +211,6 @@ func TestFetchBundlesFallbackFetchError(t *testing.T) {
 	digest := desc.Digest.String()
 	blocked.Store(&digest)
 
-	_, _, err = fetchBundles(context.Background(), ref, attestationlimit, "", anonymous, nil)
+	_, _, err = fetchBundles(ref, attestationlimit, "", nil)
 	assert.ErrorContains(t, err, "failed to fetch referrer image")
 }
-
-// understatedLayer reports a zero size, like a referrer whose descriptor does not bound its content.
-type understatedLayer struct {
-	v1.Layer
-}
-
-func (understatedLayer) Size() (int64, error) { return 0, nil }
