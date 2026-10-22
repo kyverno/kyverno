@@ -1,6 +1,7 @@
 package background
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -426,4 +427,26 @@ func TestAddUR_EnqueuesUpdateRequest(t *testing.T) {
 func TestMaxRetries_Constant(t *testing.T) {
 	// Verify maxRetries constant is set to expected value
 	assert.Equal(t, 10, maxRetries)
+}
+
+// TestProcessUR_UnsupportedTypeFails verifies that processUR's default case
+// (an unrecognized request type reaching the CELGenerate/CELMutate switch)
+// sets the UR to Failed with a message, rather than silently succeeding or
+// panicking. Legacy mutate/generate types never reach this switch; they are
+// routed to dropLegacyUpdateRequest earlier in syncUpdateRequest.
+func TestProcessUR_UnsupportedTypeFails(t *testing.T) {
+	ur := newTestUpdateRequest("unsupported-ur", kyvernov2.Pending, kyvernov2.RequestType("bogus"))
+	fakeClient := fake.NewSimpleClientset(ur)
+
+	c := &controller{
+		kyvernoClient: fakeClient,
+	}
+
+	err := c.processUR(ur)
+	assert.NoError(t, err)
+
+	updated, getErr := fakeClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
+	assert.NoError(t, getErr)
+	assert.Equal(t, kyvernov2.Failed, updated.Status.State)
+	assert.Contains(t, updated.Status.Message, "unsupported update request type")
 }

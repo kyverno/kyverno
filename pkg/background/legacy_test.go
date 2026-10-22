@@ -87,7 +87,7 @@ func TestDropLegacyUpdateRequest_PropagatesOtherErrors(t *testing.T) {
 // mutate/generate URs are deleted regardless of their status state, i.e. the
 // dispatch happens before the Pending gate in syncUpdateRequest.
 func TestSyncUpdateRequest_DropsLegacyBeforePendingCheck(t *testing.T) {
-	for _, state := range []kyvernov2.UpdateRequestState{kyvernov2.Failed, kyvernov2.Completed, kyvernov2.Skip} {
+	for _, state := range []kyvernov2.UpdateRequestState{kyvernov2.Pending, kyvernov2.Failed, kyvernov2.Completed, kyvernov2.Skip} {
 		t.Run(string(state), func(t *testing.T) {
 			ur := newLegacyUR("legacy-ur-"+string(state), kyvernov2.Generate, state)
 			fakeClient := fake.NewSimpleClientset(ur)
