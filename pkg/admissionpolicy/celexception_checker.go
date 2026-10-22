@@ -159,11 +159,11 @@ func canGenerateWithMatchConditionLimit(kind string, exceptions []policiesv1beta
 // exception rewriting and the generated variable limit before creating a VAP.
 func CanGenerateNativeValidatingPolicyExpressions(policy *policiesv1beta1.ValidatingPolicy, exceptions []policiesv1beta1.PolicyException) (bool, string) {
 	type expression struct {
-		source string
-		value  string
+		source           string
+		value            string
 		requiresVariable bool
 	}
-	var expressions []expression
+	expressions := make([]expression, 0, len(policy.Spec.MatchConditions)+len(policy.Spec.Variables)+2*len(policy.Spec.Validations)+len(policy.Spec.AuditAnnotations))
 	for _, condition := range policy.Spec.MatchConditions {
 		expressions = append(expressions, expression{"matchCondition " + condition.Name, condition.Expression, false})
 	}

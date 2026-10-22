@@ -109,9 +109,9 @@ func TestReplaceExpressions_RejectsInvalidCEL(t *testing.T) {
 
 func TestReferencesGlobalExceptions(t *testing.T) {
 	tests := []struct {
-		name string
+		name       string
 		expression string
-		want bool
+		want       bool
 	}{
 		{"bare identifier", "exceptions == null", true},
 		{"supported global field", "exceptions.allowedImages.size() > 0", true},

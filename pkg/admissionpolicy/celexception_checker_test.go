@@ -395,10 +395,10 @@ func TestCanGenerateNativeValidatingPolicyExpressions(t *testing.T) {
 		return vars
 	}
 	tests := []struct {
-		name string
-		spec policiesv1beta1.ValidatingPolicySpec
+		name       string
+		spec       policiesv1beta1.ValidatingPolicySpec
 		exceptions []policiesv1beta1.PolicyException
-		want bool
+		want       bool
 	}{
 		{name: "standard policy", want: true},
 		{name: "exact variable cap", spec: policiesv1beta1.ValidatingPolicySpec{
@@ -409,7 +409,7 @@ func TestCanGenerateNativeValidatingPolicyExpressions(t *testing.T) {
 		{name: "generated variable count exceeds limit", spec: policiesv1beta1.ValidatingPolicySpec{
 			Variables: makeVars(63),
 		}, exceptions: []policiesv1beta1.PolicyException{{Spec: policiesv1beta1.PolicyExceptionSpec{
-			Images: []string{"example.io/test:v1"},
+			Images:        []string{"example.io/test:v1"},
 			AllowedValues: []string{"hello"},
 		}}}},
 		{name: "valid images and values under cap", spec: policiesv1beta1.ValidatingPolicySpec{
@@ -418,7 +418,7 @@ func TestCanGenerateNativeValidatingPolicyExpressions(t *testing.T) {
 			Images: []string{"example.io/test:v1"}, AllowedValues: []string{"ok"},
 		}}}, want: true},
 		{name: "variable reference creates generated variable", spec: policiesv1beta1.ValidatingPolicySpec{
-			Variables: makeVars(64),
+			Variables:   makeVars(64),
 			Validations: []admissionregistrationv1.Validation{{Expression: "exceptions.allowedImages.size() > 0"}},
 		}},
 		{name: "bare exceptions fails closed", spec: policiesv1beta1.ValidatingPolicySpec{
