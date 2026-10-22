@@ -2,6 +2,7 @@ package admissionpolicy
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -165,6 +166,44 @@ func Test_CanGenerateNativeMutatingPolicy(t *testing.T) {
 			got, reason := CanGenerateNativeMutatingPolicy(tc.exceptions)
 			assert.Equal(t, tc.want, got)
 			assert.Equal(t, tc.wantReason, reason)
+		})
+	}
+}
+
+func Test_CanGenerateNativePolicies_PassReportResults(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		reportResult string
+		want bool
+	}{
+		{name: "default skip", reportResult: "", want: true},
+		{name: "explicit skip", reportResult: "skip", want: true},
+		{name: "explicit pass", reportResult: "pass", want: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ex := policiesv1beta1.PolicyException{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "reporting-exception"},
+				Spec: policiesv1beta1.PolicyExceptionSpec{
+					ReportResult: tt.reportResult,
+					MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "test", Expression: "true"}},
+				},
+			}
+			for _, check := range []struct {
+				name string
+				fn func([]policiesv1beta1.PolicyException) (bool, string)
+			}{
+				{name: "validating", fn: CanGenerateNativePolicy},
+				{name: "mutating", fn: CanGenerateNativeMutatingPolicy},
+			} {
+				t.Run(check.name, func(t *testing.T) {
+					ok, reason := check.fn([]policiesv1beta1.PolicyException{ex})
+					assert.Equal(t, tt.want, ok)
+					if !tt.want {
+						assert.Assert(t, strings.Contains(reason, "spec.reportResult=pass"))
+						assert.Assert(t, strings.Contains(reason, "default/reporting-exception"))
+					}
+				})
+			}
 		})
 	}
 }
