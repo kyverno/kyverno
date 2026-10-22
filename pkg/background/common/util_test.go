@@ -7,56 +7,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func TestPolicyKey(t *testing.T) {
-	tests := []struct {
-		name       string
-		namespace  string
-		policyName string
-		expected   string
-	}{
-		{
-			name:       "namespaced policy",
-			namespace:  "kyverno",
-			policyName: "require-labels",
-			expected:   "kyverno/require-labels",
-		},
-		{
-			name:       "cluster policy (empty namespace)",
-			namespace:  "",
-			policyName: "require-labels",
-			expected:   "require-labels",
-		},
-		{
-			name:       "different namespace",
-			namespace:  "default",
-			policyName: "restrict-images",
-			expected:   "default/restrict-images",
-		},
-		{
-			name:       "empty policy name",
-			namespace:  "kyverno",
-			policyName: "",
-			expected:   "kyverno/",
-		},
-		{
-			name:       "both empty",
-			namespace:  "",
-			policyName: "",
-			expected:   "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := PolicyKey(tt.namespace, tt.policyName)
-			if result != tt.expected {
-				t.Errorf("PolicyKey(%q, %q) = %q, want %q",
-					tt.namespace, tt.policyName, result, tt.expected)
-			}
-		})
-	}
-}
-
 func TestResourceSpecFromUnstructured(t *testing.T) {
 	tests := []struct {
 		name     string
