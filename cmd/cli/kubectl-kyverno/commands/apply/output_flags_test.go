@@ -121,6 +121,8 @@ func TestOutputFormatTable(t *testing.T) {
 		assert.Contains(t, outputStr, "POLICY", "table header should be printed")
 		assert.Contains(t, outputStr, "RESOURCE", "table header should be printed")
 		assert.Contains(t, outputStr, "RESULT", "table header should be printed")
+		assert.NotContains(t, outputStr, "Mutation has been applied successfully")
+		assert.NotContains(t, outputStr, "kind: Pod")
 	}
 }
 
@@ -196,6 +198,28 @@ func TestOutputFormatConflicts(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot use both --output and --output-dir")
 	})
+
+	t.Run("table output with stdin", func(t *testing.T) {
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-i", "-t"})
+		err := cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "table output format cannot be used with -i/--stdin")
+	})
+
+	t.Run("policy report with generate exceptions", func(t *testing.T) {
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-p", "--generate-exceptions"})
+		err := cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "-p/--policy-report and --generate-exceptions are mutually exclusive")
+	})
 }
 
 func TestOutputFormatWarningWithoutReport(t *testing.T) {
@@ -234,6 +258,19 @@ spec:
   - expression: "object.metadata.name == 'pod'"
 `
 
+const outputTestFailingPod = `
+apiVersion: v1
+kind: Pod
+metadata:
+  name: not-the-pod
+  namespace: default
+  annotations: {}
+spec:
+  containers:
+  - name: c
+    image: nginx:latest
+`
+
 func TestPolicyReportOutputFormatSerialization(t *testing.T) {
 	dir := t.TempDir()
 	policyPath := filepath.Join(dir, "policy.yaml")
@@ -255,6 +292,40 @@ func TestPolicyReportOutputFormatSerialization(t *testing.T) {
 		require.NoError(t, err, "output should be valid JSON: %s", out.String())
 		assert.NotEmpty(t, parsed["kind"])
 		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
+	})
+
+	t.Run("policy report in json format with failing policy result", func(t *testing.T) {
+		failingResourcePath := filepath.Join(dir, "failing_resource.yaml")
+		require.NoError(t, os.WriteFile(failingResourcePath, []byte(outputTestFailingPod), 0o600))
+
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", failingResourcePath, "-p", "--output-format", "json"})
+		err := cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exit as there are policy violations")
+
+		var parsed map[string]interface{}
+		err = json.Unmarshal(out.Bytes(), &parsed)
+		require.NoError(t, err, "output should be valid JSON: %s", out.String())
+		assert.NotEmpty(t, parsed["kind"])
+		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
+
+		// Assert summary has 1 failure
+		summary, ok := parsed["summary"].(map[string]interface{})
+		require.True(t, ok, "summary should be a map")
+		assert.Equal(t, float64(1), summary["fail"])
+
+		// Assert results contain the failed policy result
+		results, ok := parsed["results"].([]interface{})
+		require.True(t, ok, "results should be a list")
+		require.NotEmpty(t, results)
+		firstResult, ok := results[0].(map[string]interface{})
+		require.True(t, ok, "result item should be a map")
+		assert.Equal(t, "fail", firstResult["result"])
+		assert.Equal(t, "check-pod", firstResult["policy"])
 	})
 
 	t.Run("policy report in yaml format", func(t *testing.T) {

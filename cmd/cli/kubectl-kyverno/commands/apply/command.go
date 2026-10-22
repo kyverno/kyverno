@@ -179,6 +179,13 @@ func Command() *cobra.Command {
 				if applyCommandConfig.GenerateExceptions {
 					return fmt.Errorf("table output format cannot be used with --generate-exceptions")
 				}
+				if applyCommandConfig.Stdin {
+					return fmt.Errorf("table output format cannot be used with -i/--stdin")
+				}
+			}
+
+			if applyCommandConfig.PolicyReport && applyCommandConfig.GenerateExceptions {
+				return fmt.Errorf("-p/--policy-report and --generate-exceptions are mutually exclusive")
 			}
 
 			if (applyCommandConfig.OutputFormat == "json" || applyCommandConfig.OutputFormat == "yaml") && !applyCommandConfig.PolicyReport && !applyCommandConfig.GenerateExceptions {
@@ -585,6 +592,10 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for i, p := range parameterResources {
 		params[i] = p
 	}
+	processorOut := out
+	if c.OutputFormat == "table" {
+		processorOut = io.Discard
+	}
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
@@ -613,7 +624,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
-			Out:                               out,
+			Out:                               processorOut,
 			CrdPaths:                          c.CrdPaths,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
@@ -652,7 +663,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 			AuditWarn:                         c.AuditWarn,
 			Explain:                           c.Explain,
 			Subresources:                      vars.Subresources(),
-			Out:                               out,
+			Out:                               processorOut,
 			CrdPaths:                          c.CrdPaths,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
