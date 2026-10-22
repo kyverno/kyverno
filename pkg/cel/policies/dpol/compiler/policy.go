@@ -37,6 +37,7 @@ func (p *Policy) Evaluate(ctx context.Context, object unstructured.Unstructured,
 		compiler.ObjectKey:          object.UnstructuredContent(),
 		compiler.ResourceKey:        resource.Context{ContextInterface: context},
 		compiler.VariablesKey:       vars,
+		compiler.ImageDataKey:       libs.ImageDataContext(ctx, context),
 	}
 	for name, variable := range p.variables {
 		vars.Append(name, func(*lazy.MapValue) ref.Val {

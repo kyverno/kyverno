@@ -111,6 +111,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 		return false
 	}
 
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
 	p.appendVariables(ctx, data)
 
 	result, err := p.match(ctx, data, p.matchConditions)
@@ -127,7 +128,7 @@ func (p *Policy) MatchesConditions(ctx context.Context, attr admission.Attribute
 // mpol (processor.Process -> GetPolicy), so this is genuinely single-shot,
 // not a per-policy loop. There is no hoist benefit; building the request
 // map locally is correct here.
-func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace) (map[string]interface{}, error) {
+func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.Attributes, request *admissionv1.AdmissionRequest, namespace *corev1.Namespace, contextProvider libs.Context) (map[string]interface{}, error) {
 	if p.targetExpression == nil {
 		return nil, nil
 	}
@@ -135,6 +136,7 @@ func (p *Policy) EvaluateTargetExpression(ctx context.Context, attr admission.At
 	if err != nil {
 		return nil, err
 	}
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
 	p.appendVariables(ctx, data)
 	out, _, err := p.targetExpression.ContextEval(ctx, data)
 	if err != nil {
@@ -152,7 +154,7 @@ func (p *Policy) Evaluate(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, false)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, false)
 }
 
 func (p *Policy) EvaluateTarget(
@@ -164,7 +166,7 @@ func (p *Policy) EvaluateTarget(
 	requestMapFn func() (map[string]any, error),
 	contextProvider libs.Context,
 ) *EvaluationResult {
-	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, true)
+	return p.evaluate(ctx, attr, namespace, request, tcm, requestMapFn, contextProvider, true)
 }
 
 func (p *Policy) evaluate(
@@ -174,6 +176,7 @@ func (p *Policy) evaluate(
 	request admissionv1.AdmissionRequest,
 	tcm TypeConverterManager,
 	requestMapFn func() (map[string]any, error),
+	contextProvider libs.Context,
 	target bool,
 ) *EvaluationResult {
 	versionedAttributes := &admission.VersionedAttributes{
@@ -185,6 +188,8 @@ func (p *Policy) evaluate(
 	if err != nil {
 		return &EvaluationResult{Error: err}
 	}
+
+	data[compiler.ImageDataKey] = libs.ImageDataContext(ctx, contextProvider)
 
 	allowedImages := make([]string, 0)
 	allowedValues := make([]string, 0)
