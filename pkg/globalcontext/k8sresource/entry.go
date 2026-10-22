@@ -181,8 +181,8 @@ func New(
 	return e, nil
 }
 
-// listObjects retrieves all objects from the lister and returns them as a slice of map[string]interface{}
-// Since we use DynamicInformer, objects are *unstructured.Unstructured and can be used directly
+// listObjects retrieves independent snapshots of the objects from the lister.
+// Informer cache objects are shared and must not be exposed to callers.
 func (e *entry) listObjects() ([]interface{}, error) {
 	objs, err := e.lister.List(labels.Everything())
 	if err != nil {
@@ -191,10 +191,10 @@ func (e *entry) listObjects() ([]interface{}, error) {
 
 	list := make([]interface{}, 0, len(objs))
 	for _, obj := range objs {
-		// DynamicInformer returns *unstructured.Unstructured
-		// We can use its Object field directly which is already map[string]interface{}
+		// Copy the shared informer object before exposing it to policy evaluation.
+		// This prevents callers from mutating the cache through the returned map.
 		if u, ok := obj.(*unstructured.Unstructured); ok {
-			list = append(list, u.Object)
+			list = append(list, u.DeepCopy().Object)
 		}
 	}
 	return list, nil

@@ -84,7 +84,13 @@ func New(
 		caller := apicall.NewExecutor(logger, "globalcontext", client, config)
 
 		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			if data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit); err != nil {
+			data, err := doCall(ctx, caller, call, gce.Spec.APICall.RetryLimit)
+			// A stopped entry must not publish failures or fresh data from
+			// a poll that completed during teardown.
+			if ctx.Err() != nil {
+				return
+			}
+			if err != nil {
 				e.setData(nil, err)
 
 				logger.Error(err, "failed to get data from api caller")
@@ -176,8 +182,12 @@ func doCall(ctx context.Context, caller apicall.Executor, call kyvernov1.APICall
 	}
 
 	retryError := retry.OnError(backoff, func(err error) bool {
-		return err != nil
+		// Do not retry cancellation failures during entry teardown.
+		return err != nil && ctx.Err() == nil
 	}, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var exeErr error
 		result, exeErr = caller.Execute(ctx, &call)
 		return exeErr
