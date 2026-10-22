@@ -172,9 +172,9 @@ func Test_CanGenerateNativeMutatingPolicy(t *testing.T) {
 
 func Test_CanGenerateNativePolicies_PassReportResults(t *testing.T) {
 	for _, tt := range []struct {
-		name string
+		name         string
 		reportResult string
-		want bool
+		want         bool
 	}{
 		{name: "default skip", reportResult: "", want: true},
 		{name: "explicit skip", reportResult: "skip", want: true},
@@ -184,13 +184,13 @@ func Test_CanGenerateNativePolicies_PassReportResults(t *testing.T) {
 			ex := policiesv1beta1.PolicyException{
 				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "reporting-exception"},
 				Spec: policiesv1beta1.PolicyExceptionSpec{
-					ReportResult: tt.reportResult,
+					ReportResult:    tt.reportResult,
 					MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "test", Expression: "true"}},
 				},
 			}
 			for _, check := range []struct {
 				name string
-				fn func([]policiesv1beta1.PolicyException) (bool, string)
+				fn   func([]policiesv1beta1.PolicyException) (bool, string)
 			}{
 				{name: "validating", fn: CanGenerateNativePolicy},
 				{name: "mutating", fn: CanGenerateNativeMutatingPolicy},
