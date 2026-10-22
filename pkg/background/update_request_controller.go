@@ -67,7 +67,7 @@ type controller struct {
 	configuration config.Configuration
 }
 
-// NewController returns an instance of the Generate-Request Controller
+// NewController returns an instance of the UpdateRequest controller
 func NewController(
 	kyvernoClient versioned.Interface,
 	client dclient.Interface,
@@ -222,6 +222,18 @@ func (c *controller) addUR(obj interface{}) {
 
 func (c *controller) updateUR(_, cur interface{}) {
 	curUr := cur.(*kyvernov2.UpdateRequest)
+	switch curUr.Spec.GetRequestType() {
+	case kyvernov2.Mutate, kyvernov2.Generate:
+		// dropLegacyUpdateRequest runs before the Pending check in
+		// syncUpdateRequest and deletes regardless of state, so a legacy UR
+		// must always re-enqueue here too - including Skip/Completed, which
+		// the state filter below would otherwise drop. Without this, a
+		// legacy UR whose delete attempt exhausted maxRetries would only be
+		// retried on controller restart, since resyncs arrive as Update
+		// events and would hit that filter.
+		c.enqueueUpdateRequest(curUr)
+		return
+	}
 	if curUr.Status.State == kyvernov2.Skip || curUr.Status.State == kyvernov2.Completed {
 		return
 	}

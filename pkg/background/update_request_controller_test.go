@@ -321,7 +321,9 @@ func TestUpdateUR_SkipsCompletedState(t *testing.T) {
 		queue: newTestQueue(),
 	}
 
-	completedUR := newTestUpdateRequest("completed-ur", kyvernov2.Completed, kyvernov2.Generate)
+	// A CEL type, not a legacy one: legacy mutate/generate URs always
+	// re-enqueue regardless of state (see TestUpdateUR_LegacyAlwaysReenqueuesRegardlessOfState).
+	completedUR := newTestUpdateRequest("completed-ur", kyvernov2.Completed, kyvernov2.CELGenerate)
 
 	// updateUR should not enqueue completed URs
 	c.updateUR(nil, completedUR)
@@ -335,7 +337,9 @@ func TestUpdateUR_SkipsSkipState(t *testing.T) {
 		queue: newTestQueue(),
 	}
 
-	skipUR := newTestUpdateRequest("skip-ur", kyvernov2.Skip, kyvernov2.Generate)
+	// A CEL type, not a legacy one: legacy mutate/generate URs always
+	// re-enqueue regardless of state (see TestUpdateUR_LegacyAlwaysReenqueuesRegardlessOfState).
+	skipUR := newTestUpdateRequest("skip-ur", kyvernov2.Skip, kyvernov2.CELGenerate)
 
 	// updateUR should not enqueue skip URs
 	c.updateUR(nil, skipUR)
@@ -349,7 +353,7 @@ func TestUpdateUR_EnqueuesPendingState(t *testing.T) {
 		queue: newTestQueue(),
 	}
 
-	pendingUR := newTestUpdateRequest("pending-ur", kyvernov2.Pending, kyvernov2.Generate)
+	pendingUR := newTestUpdateRequest("pending-ur", kyvernov2.Pending, kyvernov2.CELGenerate)
 
 	// updateUR should enqueue pending URs
 	c.updateUR(nil, pendingUR)
@@ -363,7 +367,7 @@ func TestUpdateUR_RequeuesFailedStateAfterBackoff(t *testing.T) {
 		queue: newTestQueue(),
 	}
 
-	failedUR := newTestUpdateRequest("failed-ur", kyvernov2.Failed, kyvernov2.Generate)
+	failedUR := newTestUpdateRequest("failed-ur", kyvernov2.Failed, kyvernov2.CELGenerate)
 	failedUR.Status.RetryCount = 1
 
 	// A Failed UR whose flip back to Pending did not happen (e.g. the status
@@ -379,7 +383,7 @@ func TestUpdateUR_RequeuesRetriedPendingStateAfterBackoff(t *testing.T) {
 		queue: newTestQueue(),
 	}
 
-	pendingUR := newTestUpdateRequest("retried-ur", kyvernov2.Pending, kyvernov2.Generate)
+	pendingUR := newTestUpdateRequest("retried-ur", kyvernov2.Pending, kyvernov2.CELGenerate)
 	pendingUR.Status.RetryCount = 2
 
 	// A UR flipped back to Pending after a failure carries its retry count and
@@ -388,6 +392,33 @@ func TestUpdateUR_RequeuesRetriedPendingStateAfterBackoff(t *testing.T) {
 
 	assert.Equal(t, 0, c.queue.Len(), "a retry should wait for its backoff")
 	assert.Eventually(t, func() bool { return c.queue.Len() == 1 }, 10*time.Second, 20*time.Millisecond)
+}
+
+// TestUpdateUR_LegacyAlwaysReenqueuesRegardlessOfState covers the gap where a
+// legacy mutate/generate UR in Completed or Skip state would otherwise be
+// dropped by the state filter above, forgotten until controller restart if
+// its earlier delete attempt (via dropLegacyUpdateRequest) exhausted
+// maxRetries. Legacy URs must always re-enqueue so the next resync retries
+// the delete.
+func TestUpdateUR_LegacyAlwaysReenqueuesRegardlessOfState(t *testing.T) {
+	for _, tt := range []struct {
+		requestType kyvernov2.RequestType
+		state       kyvernov2.UpdateRequestState
+	}{
+		{kyvernov2.Generate, kyvernov2.Completed},
+		{kyvernov2.Generate, kyvernov2.Skip},
+		{kyvernov2.Mutate, kyvernov2.Completed},
+		{kyvernov2.Mutate, kyvernov2.Skip},
+	} {
+		t.Run(fmt.Sprintf("%s/%s", tt.requestType, tt.state), func(t *testing.T) {
+			c := &controller{queue: newTestQueue()}
+			ur := newTestUpdateRequest("legacy-ur", tt.state, tt.requestType)
+
+			c.updateUR(nil, ur)
+
+			assert.Equal(t, 1, c.queue.Len(), "a legacy UR must re-enqueue even in state %q", tt.state)
+		})
+	}
 }
 
 func TestDefaultRetryBackoff(t *testing.T) {
