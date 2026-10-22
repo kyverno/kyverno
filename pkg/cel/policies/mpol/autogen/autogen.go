@@ -251,18 +251,20 @@ func blockCommentEnd(expression string, i int) (int, bool) {
 	return len(expression), true
 }
 
-// stringLiteralAt returns the start and end offsets of the CEL string or bytes
-// literal whose opening quote is at quote. The start offset includes the optional
-// b/B and r/R prefixes. CEL supports single, double and triple quoted literals,
-// with escapes in non-raw literals and no escape handling in raw literals.
+// stringLiteralAt returns the start and end offsets of the CEL string, bytes or
+// backtick-delimited literal whose opening quote is at quote. The start offset
+// includes the optional b/B and r/R prefixes for quoted literals. CEL supports
+// single, double and triple quoted literals, with escapes in non-raw literals;
+// r/R prefixed and backtick-delimited literals do not process escapes.
 func stringLiteralAt(expression string, quote int) (int, int, bool) {
-	if expression[quote] != '"' && expression[quote] != '\'' {
+	quoteChar := expression[quote]
+	if quoteChar != '"' && quoteChar != '\'' && quoteChar != '`' {
 		return 0, 0, false
 	}
 
 	start := quote
-	raw := false
-	if quote > 0 {
+	raw := quoteChar == '`'
+	if !raw && quote > 0 {
 		switch expression[quote-1] {
 		case 'r', 'R':
 			raw = true
@@ -280,8 +282,7 @@ func stringLiteralAt(expression string, quote int) (int, int, bool) {
 		}
 	}
 
-	quoteChar := expression[quote]
-	triple := quote+2 < len(expression) && expression[quote+1] == quoteChar && expression[quote+2] == quoteChar
+	triple := quoteChar != '`' && quote+2 < len(expression) && expression[quote+1] == quoteChar && expression[quote+2] == quoteChar
 	i := quote + 1
 	if triple {
 		i = quote + 3
