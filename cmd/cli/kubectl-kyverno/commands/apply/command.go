@@ -153,6 +153,38 @@ func Command() *cobra.Command {
 			out := cmd.OutOrStdout()
 			color.Init(removeColor)
 			applyCommandConfig.PolicyPaths = args
+
+			if cmd.Flags().Changed("output") && cmd.Flags().Changed("output-dir") {
+				return fmt.Errorf("cannot use both --output and --output-dir")
+			}
+
+			if table {
+				if applyCommandConfig.OutputFormat == "" {
+					applyCommandConfig.OutputFormat = "table"
+				} else if applyCommandConfig.OutputFormat != "table" {
+					return fmt.Errorf("conflicting output formats: --table and --output-format %s cannot be used together", applyCommandConfig.OutputFormat)
+				}
+			}
+
+			switch applyCommandConfig.OutputFormat {
+			case "", "table", "json", "yaml":
+			default:
+				return fmt.Errorf("invalid output format %q (valid formats: table, json, yaml)", applyCommandConfig.OutputFormat)
+			}
+
+			if applyCommandConfig.OutputFormat == "table" {
+				if applyCommandConfig.PolicyReport {
+					return fmt.Errorf("table output format cannot be used with -p/--policy-report")
+				}
+				if applyCommandConfig.GenerateExceptions {
+					return fmt.Errorf("table output format cannot be used with --generate-exceptions")
+				}
+			}
+
+			if (applyCommandConfig.OutputFormat == "json" || applyCommandConfig.OutputFormat == "yaml") && !applyCommandConfig.PolicyReport && !applyCommandConfig.GenerateExceptions {
+				fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: --output-format %s has no effect without -p/--policy-report or --generate-exceptions\n", applyCommandConfig.OutputFormat)
+			}
+
 			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
 			if err != nil {
 				return err
@@ -160,10 +192,18 @@ func Command() *cobra.Command {
 			cmd.SilenceErrors = true
 			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
-				printReports(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat)
+				format := applyCommandConfig.OutputFormat
+				if format == "" {
+					format = "yaml"
+				}
+				printReports(out, responses, applyCommandConfig.AuditWarn, format)
 			} else if applyCommandConfig.GenerateExceptions {
-				printExceptions(out, responses, applyCommandConfig.AuditWarn, applyCommandConfig.OutputFormat, applyCommandConfig.GeneratedExceptionTTL)
-			} else if table {
+				format := applyCommandConfig.OutputFormat
+				if format == "" {
+					format = "yaml"
+				}
+				printExceptions(out, responses, applyCommandConfig.AuditWarn, format, applyCommandConfig.GeneratedExceptionTTL)
+			} else if applyCommandConfig.OutputFormat == "table" {
 				printTable(out, detailedResults, applyCommandConfig.AuditWarn, responses...)
 			} else {
 				for _, response := range responses {
@@ -222,14 +262,16 @@ func Command() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resource", "", []string{}, "Path to individual files containing target resources files for policies that have mutate existing")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.TargetResourcePaths, "target-resources", "", []string{}, "Path to a directory containing target resources files for policies that have mutate existing")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
-	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Prints the mutated/generated resources in provided file/directory")
+	cmd.Flags().StringVar(&applyCommandConfig.MutateLogPath, "output-dir", "", "Prints the mutated/generated resources in provided file/directory")
+	cmd.Flags().StringVarP(&applyCommandConfig.MutateLogPath, "output", "o", "", "Deprecated: use --output-dir instead")
+	_ = cmd.Flags().MarkDeprecated("output", "use --output-dir instead")
 	// currently `set` flag supports variable for single policy applied on single resource
 	cmd.Flags().StringVarP(&applyCommandConfig.UserInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringSliceVarP(&applyCommandConfig.Variables, "set", "s", nil, "Variables that are required")
 	cmd.Flags().StringVarP(&applyCommandConfig.ValuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().StringVarP(&applyCommandConfig.ContextPath, "context-file", "", "", "File containing context data for CEL policies")
 	cmd.Flags().BoolVarP(&applyCommandConfig.PolicyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
-	cmd.Flags().StringVarP(&applyCommandConfig.OutputFormat, "output-format", "", "yaml", "Specifies the policy report format (json or yaml). Default: yaml.")
+	cmd.Flags().StringVar(&applyCommandConfig.OutputFormat, "output-format", "", "Specifies the output format (table, json, yaml)")
 	cmd.Flags().StringVarP(&applyCommandConfig.Namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&applyCommandConfig.Stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVar(&applyCommandConfig.RegistryAccess, "registry", false, "If set to true, access the image registry using local docker credentials to populate external data")
@@ -1182,6 +1224,11 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	c.CrdPaths = normalized
 	if len(c.CrdPaths) != 0 && strings.TrimSpace(c.KubeConfig) != "" {
 		return fmt.Errorf("crd-paths and kubeconfig flags are mutually exclusive, please use only one of them")
+	}
+	cleanedMutateLogPath := filepath.Clean(c.MutateLogPath)
+	switch cleanedMutateLogPath {
+	case "json", "yaml", "yml", "table", "markdown", "junit":
+		return fmt.Errorf("invalid path %q: did you mean --output-format %s? Use --output-dir to specify a file or directory for mutated resources", c.MutateLogPath, c.MutateLogPath)
 	}
 	return nil
 }
