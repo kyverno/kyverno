@@ -170,6 +170,12 @@ func mapGenerationSkipReason(mpol *policiesv1beta1.MutatingPolicy) (string, erro
 	if !mpol.GetSpec().GenerateMutatingAdmissionPolicyEnabled() {
 		return "skip generating MutatingAdmissionPolicy: not enabled.", nil
 	}
+	if !mpol.Spec.AdmissionEnabled() {
+		return "skip generating MutatingAdmissionPolicy: admission evaluation is disabled.", nil
+	}
+	if mpol.Spec.EvaluationMode() != "Kubernetes" {
+		return "skip generating MutatingAdmissionPolicy: only Kubernetes evaluation mode is supported.", nil
+	}
 	if ec := mpol.GetSpec().EvaluationConfiguration; ec != nil && ec.UseServerSideApply {
 		return "skip generating MutatingAdmissionPolicy: useServerSideApply is enabled, which mutates atomic fields that a native MutatingAdmissionPolicy rejects.", nil
 	}
