@@ -34,7 +34,7 @@ leader-elected = created before/outside that block, so it runs on every replica.
 | `metrics/legacypolicy` | Reports the `kyverno_legacy_policies_total` gauge at scrape time, from counters the admission and cleanup controllers each supply for the legacy kinds they natively watch | No (scrape-time callback, no queue) |
 | `metrics/updaterequest` | Updates `UpdateRequest` count/status metrics from informer events | No (event-driven, no queue) |
 | `policystatus` | Aggregates and writes `.status` for CEL policy kinds | Yes |
-| `report/aggregate` | Aggregates intermediary Admission/BackgroundScan reports into final `PolicyReport`/`ClusterPolicyReport`; uses two separate queues (front/back) | Yes |
+| `report/aggregate` | Aggregates intermediary Admission/BackgroundScan reports into final `PolicyReport`/`ClusterPolicyReport`, dropping results whose policy no longer exists and every legacy `source: kyverno` result; uses two separate queues (front/back) and, while legacy `ClusterPolicy`/`Policy` are still present, runs a one-time startup sweep over every existing report | Yes |
 | `report/background` | Periodic background policy scans producing `BackgroundScanReport`/`ClusterBackgroundScanReport` | Yes |
 | `report/resource` | Tracks which cluster resources participate in reports | Yes |
 | `report/utils` | Shared helpers for the three `report/*` controllers, not a controller itself | n/a |
