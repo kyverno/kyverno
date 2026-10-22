@@ -44,7 +44,6 @@ type MetricsConfig struct {
 	cleanupMetrics       *cleanupMetrics
 	deletingMetrics      *deletingMetrics
 	updateRequestMetrics *updateRequestMetrics
-	policyRuleMetrics    *policyRuleMetrics
 	ttlInfoMetrics       *ttlInfoMetrics
 	policyEngineMetrics  *policyEngineMetrics
 	eventMetrics         *eventMetrics
@@ -71,7 +70,6 @@ type MetricsConfigManager interface {
 	CleanupMetrics() CleanupMetrics
 	DeletingMetrics() DeletingMetrics
 	UpdateRequestMetrics() UpdateRequestMetrics
-	PolicyRuleMetrics() PolicyRuleMetrics
 	TTLInfoMetrics() TTLInfoMetrics
 	PolicyEngineMetrics() PolicyEngineMetrics
 	EventMetrics() EventMetrics
@@ -107,10 +105,6 @@ func (m *MetricsConfig) DeletingMetrics() DeletingMetrics {
 
 func (m *MetricsConfig) UpdateRequestMetrics() UpdateRequestMetrics {
 	return m.updateRequestMetrics
-}
-
-func (m *MetricsConfig) PolicyRuleMetrics() PolicyRuleMetrics {
-	return m.policyRuleMetrics
 }
 
 func (m *MetricsConfig) TTLInfoMetrics() TTLInfoMetrics {
@@ -187,7 +181,6 @@ func (m *MetricsConfig) initializeMetrics(meterProvider metric.MeterProvider) er
 	m.cleanupMetrics.init(meter)
 	m.deletingMetrics.init(meter)
 	m.updateRequestMetrics.init(meter)
-	m.policyRuleMetrics.init(meter)
 	m.ttlInfoMetrics.init(meter)
 	m.policyEngineMetrics.init(meter)
 	m.eventMetrics.init(meter)
@@ -352,7 +345,6 @@ func NewMetricsConfigManager(logger logr.Logger, metricsConfiguration kconfig.Me
 		cleanupMetrics:       &cleanupMetrics{logger: logger.WithName("cleanup")},
 		deletingMetrics:      &deletingMetrics{logger: logger.WithName("deleting")},
 		updateRequestMetrics: &updateRequestMetrics{logger: logger.WithName("updaterequest")},
-		policyRuleMetrics:    &policyRuleMetrics{logger: logger.WithName("policy-rule")},
 		ttlInfoMetrics:       &ttlInfoMetrics{logger: logger.WithName("ttl-info")},
 		policyEngineMetrics:  &policyEngineMetrics{logger: logger.WithName("policy-engine")},
 		eventMetrics:         &eventMetrics{logger: logger.WithName("event")},

@@ -36,3 +36,25 @@ verify kyverno-prod release-ns workload-ns kyverno-prod --set namespaceOverride=
 verify kyverno-prod release-ns release-ns custom-kyverno --set fullnameOverride=custom-kyverno
 verify kyverno-prod release-ns workload-ns custom-kyverno --set namespaceOverride=workload-ns --set fullnameOverride=custom-kyverno
 printf 'Scale-to-zero release scope verified\n'
+
+verify_image_registry() {
+  local release="$1" expected_image="$2"
+  shift 2
+  local render image
+  render="$("${HELM}" template "${release}" "${ROOT_DIR}/charts/kyverno" \
+    --namespace kyverno --kube-version "${KUBE_VERSION}" \
+    --show-only templates/hooks/pre-delete-scale-to-zero.yaml "$@")"
+  image="$(grep -m1 '^\s*image:' <<< "${render}" | sed -E 's/^[[:space:]]*image:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')"
+  if [[ "${image}" != "${expected_image}" ]]; then
+    printf 'Unexpected webhooksCleanup hook image for %s: got %q want %q\n' "${release}" "${image}" "${expected_image}" >&2
+    return 1
+  fi
+}
+
+verify_image_registry kyverno "ghcr.io/kyverno/readiness-checker:latest"
+verify_image_registry kyverno "my-mirror.example.com/kyverno/readiness-checker:latest" \
+  --set global.image.registry=my-mirror.example.com
+verify_image_registry kyverno "explicit.example.com/kyverno/readiness-checker:latest" \
+  --set global.image.registry=my-mirror.example.com \
+  --set webhooksCleanup.image.registry=explicit.example.com
+printf 'Webhooks-cleanup image registry propagation verified\n'
