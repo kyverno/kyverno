@@ -499,7 +499,7 @@ func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
 
 		// warn on wildcard kinds since they can heavily impact performance
-		if warningMsg, ok := hasWildcard(rule); ok {
+		if warningMsg, ok := hasWildcard(rule, policy.IsNamespaced()); ok {
 			warnings = append(warnings, warningMsg)
 		}
 	}
@@ -1897,10 +1897,11 @@ func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) 
 
 // hasWildcard returns a warning message and true if the rule's match block targets all
 // resource kinds ("*"). Exclude blocks are ignored: a wildcard there only removes resources
-// from the match set and does not widen what the webhook intercepts.
-func hasWildcard(rule kyvernov1.Rule) (string, bool) {
+// from the match set and does not widen what the webhook intercepts. Rules of a namespaced
+// Policy are always confined to the policy's namespace.
+func hasWildcard(rule kyvernov1.Rule, namespacedPolicy bool) (string, bool) {
 	match := rule.MatchResources
-	rootScoped := isNamespaceScoped(match.ResourceDescription)
+	rootScoped := namespacedPolicy || isNamespaceScoped(match.ResourceDescription)
 	found, unscoped := false, false
 	// root and match.any: the rule is unscoped if any wildcard filter is unscoped
 	if slices.Contains(match.Kinds, "*") {

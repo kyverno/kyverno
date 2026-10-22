@@ -3914,11 +3914,24 @@ func TestSelectorMatchLabelsGlobLengthLimit(t *testing.T) {
 
 func Test_HasWildcardSeverityTiers(t *testing.T) {
 	testCases := []struct {
-		name            string
-		rule            kyverno.Rule
-		expectWarning   bool
-		expectedContent string
+		name             string
+		rule             kyverno.Rule
+		namespacedPolicy bool
+		expectWarning    bool
+		expectedContent  string
 	}{
+		{
+			name: "Namespaced Policy Wildcard Tier 2",
+			rule: kyverno.Rule{
+				Name: "namespaced-policy",
+				MatchResources: kyverno.MatchResources{
+					ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"*"}},
+				},
+			},
+			namespacedPolicy: true,
+			expectWarning:    true,
+			expectedContent:  "within a restricted namespace scope",
+		},
 		{
 			name: "Global Wildcard Tier 1",
 			rule: kyverno.Rule{
@@ -4091,7 +4104,7 @@ func Test_HasWildcardSeverityTiers(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			msg, found := hasWildcard(tc.rule)
+			msg, found := hasWildcard(tc.rule, tc.namespacedPolicy)
 			if found != tc.expectWarning {
 				t.Fatalf("expected warning found to be %v, got %v", tc.expectWarning, found)
 			}
