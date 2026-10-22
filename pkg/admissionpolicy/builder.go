@@ -351,10 +351,19 @@ func mutatingPolicyOwnerRef(mp *policiesv1beta1.MutatingPolicy) []metav1.OwnerRe
 // applies only when all its match conditions evaluate to true, so the generated policy must exclude
 // their conjunction as a single condition.
 func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException) []admissionregistrationv1.MatchCondition {
+	// Informer-backed exception lists have no stable order. Sort a local copy so
+	// generated native policy specs do not change across identical reconciliations.
+	orderedExceptions := slices.Clone(exceptions)
+	slices.SortFunc(orderedExceptions, func(a, b policiesv1beta1.PolicyException) int {
+		if byNamespace := strings.Compare(a.Namespace, b.Namespace); byNamespace != 0 {
+			return byNamespace
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
 	// A global exception with no conditions applies to every request. One false condition
 	// is sufficient to disable native policy enforcement, and avoids exceeding Kubernetes'
 	// match-condition limit when several such exceptions exist.
-	for _, exception := range exceptions {
+	for _, exception := range orderedExceptions {
 		if len(exception.Spec.MatchConditions) == 0 &&
 			len(exception.Spec.Images) == 0 &&
 			len(exception.Spec.AllowedValues) == 0 {
@@ -366,7 +375,7 @@ func negateExceptionMatchConditions(exceptions []policiesv1beta1.PolicyException
 	}
 
 	var result []admissionregistrationv1.MatchCondition
-	for _, exception := range exceptions {
+	for _, exception := range orderedExceptions {
 		conditions := exception.Spec.MatchConditions
 		if len(conditions) == 0 {
 			// Image/value-scoped exceptions without conditions apply on every request;
