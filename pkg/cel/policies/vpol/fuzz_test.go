@@ -13,9 +13,14 @@ func FuzzValidateValidatingPolicy(f *testing.F) {
 		policy := &policiesv1beta1.ValidatingPolicy{}
 		_ = fuzz.NewConsumer(data).GenerateStruct(policy)
 		_, _ = Validate(policy)
+	})
+}
 
-		namespacedPolicy := &policiesv1beta1.NamespacedValidatingPolicy{}
-		_ = fuzz.NewConsumer(data).GenerateStruct(namespacedPolicy)
-		_, _ = Validate(namespacedPolicy)
+func FuzzValidateNamespacedValidatingPolicy(f *testing.F) {
+	f.Add([]byte("{}"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		policy := &policiesv1beta1.NamespacedValidatingPolicy{}
+		_ = fuzz.NewConsumer(data).GenerateStruct(policy)
+		_, _ = Validate(policy)
 	})
 }
