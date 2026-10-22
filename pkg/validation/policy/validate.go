@@ -1895,79 +1895,44 @@ func checkForDeprecatedOperatorsInRule(rule kyvernov1.Rule, warnings *[]string) 
 	}
 }
 
-// hasWildcard returns the appropriate warning message and true if any kind in the rule is a wildcard "*"
-// hasWildcard traverses root, any, and all blocks across Match and Exclude requirements
-// to look for a wildcard "*". It returns the appropriate tiered warning message if found.
+// hasWildcard returns a warning message and true if the rule's match block targets all
+// resource kinds ("*"). Exclude blocks are ignored: a wildcard there only removes resources
+// from the match set and does not widen what the webhook intercepts.
 func hasWildcard(rule kyvernov1.Rule) (string, bool) {
-	// 1. Check match root constraints
-	for _, kind := range rule.MatchResources.Kinds {
-		if kind == "*" {
-			return checkWildcardSeverity(rule, rule.MatchResources.ResourceDescription), true
+	match := rule.MatchResources
+	rootScoped := isNamespaceScoped(match.ResourceDescription)
+	found, unscoped := false, false
+	// root and match.any: the rule is unscoped if any wildcard filter is unscoped
+	if slices.Contains(match.Kinds, "*") {
+		found = true
+		unscoped = unscoped || !rootScoped
+	}
+	for _, filter := range match.Any {
+		if slices.Contains(filter.Kinds, "*") {
+			found = true
+			unscoped = unscoped || (!rootScoped && !isNamespaceScoped(filter.ResourceDescription))
 		}
 	}
-
-	// 2. Check match.any blocks
-	for _, filter := range rule.MatchResources.Any {
-		for _, kind := range filter.Kinds {
-			if kind == "*" {
-				return checkWildcardSeverity(rule, filter.ResourceDescription), true
-			}
-		}
+	// match.all: filters are combined, so one namespace-scoped filter scopes the whole match
+	allWildcard, allScoped := false, false
+	for _, filter := range match.All {
+		allWildcard = allWildcard || slices.Contains(filter.Kinds, "*")
+		allScoped = allScoped || isNamespaceScoped(filter.ResourceDescription)
 	}
-
-	// 3. Check match.all blocks
-	for _, filter := range rule.MatchResources.All {
-		for _, kind := range filter.Kinds {
-			if kind == "*" {
-				return checkWildcardSeverity(rule, filter.ResourceDescription), true
-			}
-		}
+	if allWildcard {
+		found = true
+		unscoped = unscoped || (!rootScoped && !allScoped)
 	}
-
-	// 4. Check exclude constraints safely (guarding against a nil pointer panic)
-	if rule.ExcludeResources != nil {
-		for _, kind := range rule.ExcludeResources.Kinds {
-			if kind == "*" {
-				return checkWildcardSeverity(rule, rule.ExcludeResources.ResourceDescription), true
-			}
-		}
-		for _, filter := range rule.ExcludeResources.Any {
-			for _, kind := range filter.Kinds {
-				if kind == "*" {
-					return checkWildcardSeverity(rule, filter.ResourceDescription), true
-				}
-			}
-		}
-		for _, filter := range rule.ExcludeResources.All {
-			for _, kind := range filter.Kinds {
-				if kind == "*" {
-					return checkWildcardSeverity(rule, filter.ResourceDescription), true
-				}
-			}
-		}
+	if !found {
+		return "", false
 	}
-
-	return "", false
+	if unscoped {
+		return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') globally with no namespace isolation. This forces Kyverno to evaluate every API server request across the cluster and can degrade control-plane performance. Consider specifying explicit resource kinds or adding explicit scoping.", rule.Name), true
+	}
+	return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') within a restricted namespace scope. Intercepting all resource types here still impacts admission control latency; consider specifying explicit resource kinds if possible.", rule.Name), true
 }
 
-// checkWildcardSeverity determines if a wildcard policy is globally unconstrained or isolated by a namespace.
-// It checks namespace scoping at both the parent rule level and the local block level where the wildcard was matched.
-func checkWildcardSeverity(rule kyvernov1.Rule, desc kyvernov1.ResourceDescription) string {
-	// Check if root match block is namespace-scoped
-	isRootMatchScoped := len(rule.MatchResources.Namespaces) > 0 || rule.MatchResources.NamespaceSelector != nil
-
-	// Check if root exclude block is namespace-scoped
-	isRootExcludeScoped := rule.ExcludeResources != nil && (len(rule.ExcludeResources.Namespaces) > 0 || rule.ExcludeResources.NamespaceSelector != nil)
-
-	// Check if the specific nested block where the wildcard was found is namespace-scoped
-	isLocalBlockScoped := len(desc.Namespaces) > 0 || desc.NamespaceSelector != nil
-
-	// If scoped anywhere up the inheritance chain or locally, flag as Tier 2
-	if isRootMatchScoped || isRootExcludeScoped || isLocalBlockScoped {
-		// Tier 2: Lighter informational warning for restricted scopes
-		return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') within a restricted namespace scope. Intercepting all resource types here still impacts admission control latency; consider specifying explicit resource kinds if possible.", rule.Name)
-	}
-
-	// Tier 1: Strong warning for cluster-wide unconstrained wildcards
-	return fmt.Sprintf("Rule '%s' targets all resource kinds ('*') globally with no namespace isolation. This forces Kyverno to evaluate every API server request across the cluster and can degrade control-plane performance. Consider specifying explicit resource kinds or adding explicit scoping.", rule.Name)
+// isNamespaceScoped reports whether a resource description restricts matching to specific namespaces.
+func isNamespaceScoped(desc kyvernov1.ResourceDescription) bool {
+	return (len(desc.Namespaces) > 0 && !slices.Contains(desc.Namespaces, "*")) || desc.NamespaceSelector != nil
 }
