@@ -50,7 +50,7 @@ func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
 	policy := &Policy{
 		exceptions: []celcompiler.Exception{{
 			Exception: exception,
-			Now: func() time.Time { return now },
+			Now:       func() time.Time { return now },
 		}},
 		patchers: []Patcher{&fakePatcher{retVal: &unstructured.Unstructured{}}},
 	}

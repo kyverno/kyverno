@@ -110,16 +110,16 @@ func TestCachedImageValidationExceptionExpiryAcrossEvaluations(t *testing.T) {
 	policy := &policiesv1beta1.ImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-cached-expiry"},
 		Spec: policiesv1beta1.ImageValidatingPolicySpec{
-			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			EvaluationConfiguration:  &policiesv1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
 			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{VerifyDigest: func() *bool { b := false; return &b }()},
-			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
-			ImageExtractors: []policiesv1beta1.ImageExtractor{{Name: "bar", Expression: "object.foo.bar"}},
-			Validations: []admissionregistrationv1.Validation{{Expression: "false", Message: "deny"}},
+			MatchImageReferences:     []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			ImageExtractors:          []policiesv1beta1.ImageExtractor{{Name: "bar", Expression: "object.foo.bar"}},
+			Validations:              []admissionregistrationv1.Validation{{Expression: "false", Message: "deny"}},
 		},
 	}
 	exception := &policiesv1beta1.PolicyException{
 		Spec: policiesv1beta1.PolicyExceptionSpec{
-			ExpiresAt: &deadline,
+			ExpiresAt:  &deadline,
 			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: policy.Name, Kind: "ImageValidatingPolicy"}},
 		},
 	}

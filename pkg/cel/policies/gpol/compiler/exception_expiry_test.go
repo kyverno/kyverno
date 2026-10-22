@@ -43,7 +43,7 @@ func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
 	exception := &policiesv1beta1.PolicyException{Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &deadline}}
 	policy := &Policy{exceptions: []celcompiler.Exception{{
 		Exception: exception,
-		Now: func() time.Time { return now },
+		Now:       func() time.Time { return now },
 	}}}
 	before, err := policy.Evaluate(context.Background(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 	if err != nil || before == nil || len(before.Exceptions) != 1 {
