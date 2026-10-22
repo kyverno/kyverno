@@ -16,8 +16,12 @@ func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool
 	var reasons []string
 	var offendingValidations []string
 	var offendingScopedConditions []string
+	var offendingPassResults []string
 	for _, exception := range exceptions {
 		name := cache.MetaObjectToName(&exception).String()
+		if exception.Spec.ReportResult == "pass" {
+			offendingPassResults = append(offendingPassResults, name)
+		}
 		if len(exception.Spec.Validations) > 0 {
 			offendingValidations = append(offendingValidations, name)
 		}
@@ -38,6 +42,12 @@ func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool
 			strings.Join(offendingScopedConditions, ", "),
 		))
 	}
+	if len(offendingPassResults) > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			"policy exception(s) %s set spec.reportResult=pass, which a generated ValidatingAdmissionPolicy cannot report",
+			strings.Join(offendingPassResults, ", "),
+		))
+	}
 	if len(reasons) > 0 {
 		return false, strings.Join(reasons, "; ")
 	}
@@ -49,20 +59,34 @@ func CanGenerateNativePolicy(exceptions []policiesv1beta1.PolicyException) (bool
 // image/value scopes or apply PolicyException compensating validations.
 func CanGenerateNativeMutatingPolicy(exceptions []policiesv1beta1.PolicyException) (bool, string) {
 	var offending []string
+	var offendingPassResults []string
 	for _, exception := range exceptions {
+		if exception.Spec.ReportResult == "pass" {
+			offendingPassResults = append(offendingPassResults, cache.MetaObjectToName(&exception).String())
+		}
 		if len(exception.Spec.Images) > 0 ||
 			len(exception.Spec.AllowedValues) > 0 ||
 			len(exception.Spec.Validations) > 0 {
 			offending = append(offending, cache.MetaObjectToName(&exception).String())
 		}
 	}
-	if len(offending) == 0 {
-		return true, ""
+	var reasons []string
+	if len(offending) > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			"policy exception(s) %s use image/value scopes or compensating controls, which a generated MutatingAdmissionPolicy cannot evaluate",
+			strings.Join(offending, ", "),
+		))
 	}
-	return false, fmt.Sprintf(
-		"policy exception(s) %s use image/value scopes or compensating controls, which a generated MutatingAdmissionPolicy cannot evaluate",
-		strings.Join(offending, ", "),
-	)
+	if len(offendingPassResults) > 0 {
+		reasons = append(reasons, fmt.Sprintf(
+			"policy exception(s) %s set spec.reportResult=pass, which a generated MutatingAdmissionPolicy cannot report",
+			strings.Join(offendingPassResults, ", "),
+		))
+	}
+	if len(reasons) > 0 {
+		return false, strings.Join(reasons, "; ")
+	}
+	return true, ""
 }
 
 // CanGenerateNativeMutatingPolicyExpressions rejects Kyverno-only exception variables
