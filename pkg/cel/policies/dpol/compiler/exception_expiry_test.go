@@ -38,3 +38,27 @@ func TestCachedPolicyExceptionExpiry(t *testing.T) {
 		})
 	}
 }
+
+// A cached deleting policy must stop honoring the same exception when time,
+// rather than the exception object, advances beyond the unchanged deadline.
+func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
+	now := time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC)
+	deadline := metav1.NewTime(now.Add(time.Minute))
+	exception := &policiesv1beta1.PolicyException{Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &deadline}}
+	policy := &Policy{exceptions: []celcompiler.Exception{{
+		Exception: exception,
+		Now: func() time.Time { return now },
+	}}}
+	before, err := policy.Evaluate(context.Background(), unstructured.Unstructured{}, &unstructured.Unstructured{}, &libs.FakeContextProvider{})
+	if err != nil || before == nil || len(before.Exceptions) != 1 {
+		t.Fatalf("active exception not honored: result=%#v err=%v", before, err)
+	}
+	now = now.Add(2 * time.Minute)
+	after, err := policy.Evaluate(context.Background(), unstructured.Unstructured{}, &unstructured.Unstructured{}, &libs.FakeContextProvider{})
+	if err != nil || after == nil {
+		t.Fatalf("evaluation after expiry failed: result=%#v err=%v", after, err)
+	}
+	if len(after.Exceptions) != 0 || !after.Result {
+		t.Fatalf("expired cached exception prevented deletion: %#v", after)
+	}
+}

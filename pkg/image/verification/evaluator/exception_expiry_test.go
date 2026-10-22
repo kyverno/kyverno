@@ -63,7 +63,8 @@ func TestMutateDigestCachedPolicyExceptionExpiry(t *testing.T) {
 			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "example.com/*"}},
 		},
 	}
-	expiresAt := metav1.NewTime(time.Now().Add(time.Hour))
+	now := time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC)
+	expiresAt := metav1.NewTime(now.Add(time.Minute))
 	exception := &policiesv1beta1.PolicyException{
 		ObjectMeta: metav1.ObjectMeta{Name: "expiring-digest-exemption"},
 		Spec: policiesv1beta1.PolicyExceptionSpec{
@@ -76,6 +77,7 @@ func TestMutateDigestCachedPolicyExceptionExpiry(t *testing.T) {
 	}
 	compiled, errs := NewCompiler(nil).Compile(policy, []*policiesv1beta1.PolicyException{exception})
 	require.Empty(t, errs)
+	compiled.(*compiledPolicy).exceptions[0].Now = func() time.Time { return now }
 	request, attr, pod := buildRequestMapHoistRequestAndAttr(t, admissionv1.Create)
 	require.NoError(t, unstructured.SetNestedSlice(
 		pod.Object, []any{map[string]any{
@@ -96,6 +98,46 @@ func TestMutateDigestCachedPolicyExceptionExpiry(t *testing.T) {
 	require.Equal(t, 0, mutate(), "active full exception should skip digest mutation")
 
 	// Cached compiled policy is deliberately reused without recompilation.
-	expiresAt.Time = time.Now().Add(-time.Hour)
+	now = now.Add(2 * time.Minute)
 	require.Equal(t, 1, mutate(), "expired exception must not suppress digest mutation")
+}
+
+// Reuse the same compiled image-validating policy and unchanged exception,
+// advancing only the evaluation clock across the expiry boundary.
+func TestCachedImageValidationExceptionExpiryAcrossEvaluations(t *testing.T) {
+	now := time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC)
+	deadline := metav1.NewTime(now.Add(time.Minute))
+	policy := &policiesv1beta1.ImageValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "ivpol-cached-expiry"},
+		Spec: policiesv1beta1.ImageValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1beta1.EvaluationConfiguration{Mode: policieskyvernoio.EvaluationModeJSON},
+			ValidationConfigurations: policiesv1alpha1.ValidationConfiguration{VerifyDigest: func() *bool { b := false; return &b }()},
+			MatchImageReferences: []policiesv1beta1.MatchImageReference{{Glob: "ghcr.io/*"}},
+			ImageExtractors: []policiesv1beta1.ImageExtractor{{Name: "bar", Expression: "object.foo.bar"}},
+			Validations: []admissionregistrationv1.Validation{{Expression: "false", Message: "deny"}},
+		},
+	}
+	exception := &policiesv1beta1.PolicyException{
+		Spec: policiesv1beta1.PolicyExceptionSpec{
+			ExpiresAt: &deadline,
+			PolicyRefs: []policiesv1beta1.PolicyRef{{Name: policy.Name, Kind: "ImageValidatingPolicy"}},
+		},
+	}
+	compiled, errs := NewCompiler(nil).Compile(policy, []*policiesv1beta1.PolicyException{exception})
+	require.Empty(t, errs)
+	compiled.(*compiledPolicy).exceptions[0].Now = func() time.Time { return now }
+	evaluate := func() *EvaluationResult {
+		t.Helper()
+		result, err := compiled.Evaluate(context.Background(), nil, nil, nil, nil, multiImageObj(unsignedImage), nil, false, nil, nil)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		return result
+	}
+	before := evaluate()
+	require.Len(t, before.Exceptions, 1, "active exception must be honored")
+	now = now.Add(2 * time.Minute)
+	after := evaluate()
+	require.Empty(t, after.Exceptions, "expired exception must not be retained")
+	require.False(t, after.Result, "expired exception must not bypass validation")
+	require.Equal(t, "deny", after.Message)
 }

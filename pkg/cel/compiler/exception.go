@@ -3,6 +3,7 @@ package compiler
 import (
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/google/cel-go/cel"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
@@ -13,13 +14,23 @@ type Exception struct {
 	Exception       *policiesv1beta1.PolicyException
 	MatchConditions []cel.Program
 	Validations     []Validation
+	// Now is an optional evaluation clock, used by deterministic cache-expiry
+	// tests. Production compilation leaves it nil and uses the API's clock.
+	Now func() time.Time
 }
 
 // IsExpired rechecks a compiled exception at evaluation time. A cached compiled
 // policy may outlive spec.expiresAt without any informer event to recompile it.
 // A nil exception is left to the compiler's existing input validation path.
 func (e Exception) IsExpired() bool {
-	return e.Exception != nil && e.Exception.IsExpired()
+	if e.Exception == nil {
+		return false
+	}
+	if e.Now == nil {
+		return e.Exception.IsExpired()
+	}
+	expiresAt := e.Exception.Spec.ExpiresAt
+	return expiresAt != nil && e.Now().After(expiresAt.Time)
 }
 
 // CompileExceptionsWithValidations compiles each exception's match conditions and compensating

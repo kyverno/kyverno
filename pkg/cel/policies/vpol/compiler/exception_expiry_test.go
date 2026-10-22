@@ -52,12 +52,13 @@ func TestCachedPolicyExceptionExpiry(t *testing.T) {
 // TestCachedPolicyExceptionExpiryAcrossEvaluations reuses the same compiled
 // policy while its referenced PolicyException crosses the expiry boundary.
 func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
-	expiry := metav1.NewTime(time.Now().Add(time.Hour))
+	now := time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC)
+	expiry := metav1.NewTime(now.Add(time.Minute))
 	exception := &policiesv1beta1.PolicyException{
 		Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &expiry},
 	}
 	policy := &Policy{
-		exceptions: []celcompiler.Exception{{Exception: exception}},
+		exceptions: []celcompiler.Exception{{Exception: exception, Now: func() time.Time { return now }}},
 		validations: []celcompiler.Validation{{
 			Program: &mockVpolProgram{retVal: types.Bool(false)},
 			Message: "deny",
@@ -68,7 +69,7 @@ func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
 		t.Fatalf("active exception not honored: result=%#v err=%v", before, err)
 	}
 	// No compilation or informer update occurs before the second evaluation.
-	expiry.Time = time.Now().Add(-time.Hour)
+	now = now.Add(2 * time.Minute)
 	after, err := policy.evaluateWithData(context.Background(), evaluationData{})
 	if err != nil || after == nil {
 		t.Fatalf("evaluation after expiration failed: result=%#v err=%v", after, err)

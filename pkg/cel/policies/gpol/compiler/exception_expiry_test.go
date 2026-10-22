@@ -34,3 +34,24 @@ func TestCachedPolicyExceptionExpiry(t *testing.T) {
 		})
 	}
 }
+
+// The same compiled generating policy is evaluated on both sides of a fixed
+// deadline; only the injected evaluation time changes.
+func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
+	now := time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC)
+	deadline := metav1.NewTime(now.Add(time.Minute))
+	exception := &policiesv1beta1.PolicyException{Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &deadline}}
+	policy := &Policy{exceptions: []celcompiler.Exception{{
+		Exception: exception,
+		Now: func() time.Time { return now },
+	}}}
+	before, err := policy.Evaluate(context.Background(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+	if err != nil || before == nil || len(before.Exceptions) != 1 {
+		t.Fatalf("active exception not honored: result=%#v err=%v", before, err)
+	}
+	now = now.Add(2 * time.Minute)
+	after, err := policy.Evaluate(context.Background(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
+	if err != nil || after == nil || len(after.Exceptions) != 0 {
+		t.Fatalf("expired cached generation exception still honored: result=%#v err=%v", after, err)
+	}
+}
