@@ -89,6 +89,7 @@ func jpTimeToCron(arguments []interface{}) (interface{}, error) {
 	if t, err := getTimeArg(timeToCron, arguments, 0); err != nil {
 		return nil, err
 	} else {
+		t = t.UTC()
 		var cron string = ""
 		cron += strconv.Itoa(t.Minute()) + " "
 		cron += strconv.Itoa(t.Hour()) + " "
