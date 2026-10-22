@@ -47,6 +47,11 @@ spec:
                 items:
                   type: string
                 type: array
+              background:
+                description: |-
+                  Background controls if exceptions are applied to existing policies during a background scan.
+                  Optional. Default value is "true".
+                type: boolean
               evaluationMode:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
@@ -74,7 +79,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -90,7 +95,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -152,7 +157,7 @@ spec:
                     to apply the validation.
                   properties:
                     expression:
-                      description: "expression represents the expression which will
+                      description: "Expression represents the expression which will
                         be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                         expressions have access to the contents of the API request/response,
                         organized into CEL variables as well as some other useful
@@ -204,7 +209,7 @@ spec:
                       type: string
                     message:
                       description: |-
-                        message represents the message displayed when validation fails. The message is required if the Expression contains
+                        Message represents the message displayed when validation fails. The message is required if the Expression contains
                         line breaks. The message must not contain line breaks.
                         If unset, the message is "failed rule: {Rule}".
                         e.g. "must be a URL with the host matching spec.host"
@@ -227,7 +232,7 @@ spec:
                       type: string
                     reason:
                       description: |-
-                        reason represents a machine-readable description of why this validation failed.
+                        Reason represents a machine-readable description of why this validation failed.
                         If this is the first validation in the list to fail, this reason, as well as the
                         corresponding HTTP response code, are used in the
                         HTTP response to the client.
@@ -281,6 +286,11 @@ spec:
                 items:
                   type: string
                 type: array
+              background:
+                description: |-
+                  Background controls if exceptions are applied to existing policies during a background scan.
+                  Optional. Default value is "true".
+                type: boolean
               evaluationMode:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
@@ -308,7 +318,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -324,7 +334,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -386,7 +396,7 @@ spec:
                     to apply the validation.
                   properties:
                     expression:
-                      description: "expression represents the expression which will
+                      description: "Expression represents the expression which will
                         be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                         expressions have access to the contents of the API request/response,
                         organized into CEL variables as well as some other useful
@@ -438,7 +448,7 @@ spec:
                       type: string
                     message:
                       description: |-
-                        message represents the message displayed when validation fails. The message is required if the Expression contains
+                        Message represents the message displayed when validation fails. The message is required if the Expression contains
                         line breaks. The message must not contain line breaks.
                         If unset, the message is "failed rule: {Rule}".
                         e.g. "must be a URL with the host matching spec.host"
@@ -461,7 +471,7 @@ spec:
                       type: string
                     reason:
                       description: |-
-                        reason represents a machine-readable description of why this validation failed.
+                        Reason represents a machine-readable description of why this validation failed.
                         If this is the first validation in the list to fail, this reason, as well as the
                         corresponding HTTP response code, are used in the
                         HTTP response to the client.
@@ -514,6 +524,11 @@ spec:
                 items:
                   type: string
                 type: array
+              background:
+                description: |-
+                  Background controls if exceptions are applied to existing policies during a background scan.
+                  Optional. Default value is "true".
+                type: boolean
               evaluationMode:
                 description: Evaluation mode denotes which controller is in charge
                   of compiling and handling this exception.
@@ -541,7 +556,7 @@ spec:
                   properties:
                     expression:
                       description: |-
-                        expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
+                        Expression represents the expression which will be evaluated by CEL. Must evaluate to bool.
                         CEL expressions have access to the contents of the AdmissionRequest and Authorizer, organized into CEL variables:
 
                         'object' - The object from the incoming request. The value is null for DELETE requests.
@@ -557,7 +572,7 @@ spec:
                       type: string
                     name:
                       description: |-
-                        name is an identifier for this match condition, used for strategic merging of MatchConditions,
+                        Name is an identifier for this match condition, used for strategic merging of MatchConditions,
                         as well as providing an identifier for logging purposes. A good name should be descriptive of
                         the associated expression.
                         Name must be a qualified name consisting of alphanumeric characters, '-', '_' or '.', and
@@ -619,7 +634,7 @@ spec:
                     to apply the validation.
                   properties:
                     expression:
-                      description: "expression represents the expression which will
+                      description: "Expression represents the expression which will
                         be evaluated by CEL.\nref: https://github.com/google/cel-spec\nCEL
                         expressions have access to the contents of the API request/response,
                         organized into CEL variables as well as some other useful
@@ -671,7 +686,7 @@ spec:
                       type: string
                     message:
                       description: |-
-                        message represents the message displayed when validation fails. The message is required if the Expression contains
+                        Message represents the message displayed when validation fails. The message is required if the Expression contains
                         line breaks. The message must not contain line breaks.
                         If unset, the message is "failed rule: {Rule}".
                         e.g. "must be a URL with the host matching spec.host"
@@ -694,7 +709,7 @@ spec:
                       type: string
                     reason:
                       description: |-
-                        reason represents a machine-readable description of why this validation failed.
+                        Reason represents a machine-readable description of why this validation failed.
                         If this is the first validation in the list to fail, this reason, as well as the
                         corresponding HTTP response code, are used in the
                         HTTP response to the client.

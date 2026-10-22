@@ -424,7 +424,13 @@ func FetchCELPolicyExceptions(celexLister celengine.PolicyExceptionLister) ([]*p
 		return nil, err
 	}
 
-	return exceptions, nil
+	var filtered []*policiesv1beta1.PolicyException
+	for _, polex := range exceptions {
+		if polex.BackgroundProcessingEnabled() {
+			filtered = append(filtered, polex)
+		}
+	}
+	return filtered, nil
 }
 
 func getExcludeReportingLabelRequirement() (*labels.Requirement, error) {

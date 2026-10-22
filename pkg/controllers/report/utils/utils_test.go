@@ -4,12 +4,14 @@ import (
 	"testing"
 
 	"github.com/go-logr/logr"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/openreports"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -358,6 +360,101 @@ func TestRemoveNonBackgroundPolicies(t *testing.T) {
 			result := RemoveNonBackgroundPolicies(tt.policies...)
 			if len(result) != tt.wantLen {
 				t.Errorf("RemoveNonBackgroundPolicies() returned %d policies, want %d", len(result), tt.wantLen)
+			}
+		})
+	}
+}
+
+type fakeCELPolicyExceptionLister struct {
+	exceptions []*policiesv1beta1.PolicyException
+	err        error
+}
+
+func (f *fakeCELPolicyExceptionLister) List(labels.Selector) ([]*policiesv1beta1.PolicyException, error) {
+	return f.exceptions, f.err
+}
+
+func TestFetchCELPolicyExceptions(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+
+	tests := []struct {
+		name       string
+		exceptions []*policiesv1beta1.PolicyException
+		err        error
+		wantCount  int
+		wantErr    bool
+	}{
+		{
+			name: "all exceptions enabled or default",
+			exceptions: []*policiesv1beta1.PolicyException{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-default"},
+					Spec:       policiesv1beta1.PolicyExceptionSpec{},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-explicit-true"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Background: &boolTrue,
+					},
+				},
+			},
+			wantCount: 2,
+		},
+		{
+			name: "filters out exceptions with background false",
+			exceptions: []*policiesv1beta1.PolicyException{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-default"},
+					Spec:       policiesv1beta1.PolicyExceptionSpec{},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-disabled"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Background: &boolFalse,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-explicit-true"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Background: &boolTrue,
+					},
+				},
+			},
+			wantCount: 2,
+		},
+		{
+			name: "all exceptions disabled",
+			exceptions: []*policiesv1beta1.PolicyException{
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-disabled-1"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Background: &boolFalse,
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Name: "polex-disabled-2"},
+					Spec: policiesv1beta1.PolicyExceptionSpec{
+						Background: &boolFalse,
+					},
+				},
+			},
+			wantCount: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lister := &fakeCELPolicyExceptionLister{
+				exceptions: tt.exceptions,
+				err:        tt.err,
+			}
+			result, err := FetchCELPolicyExceptions(lister)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, result, tt.wantCount)
 			}
 		})
 	}
