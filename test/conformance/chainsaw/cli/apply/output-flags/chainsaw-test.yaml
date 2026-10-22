@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/kyverno/chainsaw/main/.schemas/json/test-chainsaw-v1alpha1.json
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: apply-output-flags
+spec:
+  concurrent: false
+  steps:
+    - name: table-format
+      try:
+        - command:
+            entrypoint: kyverno
+            args: [apply, policy.yaml, -r, resource.yaml, --output-format, table, --remove-color]
+            check:
+              ($error): null
+              (contains($stdout, 'add-output-label')): true
+              (contains($stdout, 'Pass')): true
+    - name: resource-destinations
+      try:
+        - script:
+            content: |
+              set -eu
+              output_root=$(mktemp -d)
+              trap 'rm -rf "$output_root"' EXIT
+              kyverno apply policy.yaml -r resource.yaml --output-dir "$output_root/directory.yaml"
+              kyverno apply policy.yaml -r resource.yaml --output-file "$output_root/file"
+              kyverno apply policy.yaml -r resource.yaml -o "$output_root/legacy.yaml" 2> "$output_root/warnings"
+              cmp "$output_root/directory.yaml/output-example-mutated.yaml" "$output_root/file"
+              cmp "$output_root/file" "$output_root/legacy.yaml"
+              grep -q 'deprecated' "$output_root/warnings"
+            check:
+              ($error): null
+    - name: ignored-format-warning
+      try:
+        - command:
+            entrypoint: kyverno
+            args: [apply, policy.yaml, -r, resource.yaml, --output-format, json]
+            check:
+              ($error): null
+              (contains($stderr, 'has no effect without --policy-report')): true
