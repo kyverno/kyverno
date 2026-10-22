@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
+	"go.uber.org/multierr"
 )
 
 func Test_validateAnchorError_Error(t *testing.T) {
@@ -287,5 +289,23 @@ func TestIsGlobalAnchorError(t *testing.T) {
 				t.Errorf("IsGlobalAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestAnchorErrorsInCombinedErrors(t *testing.T) {
+	conditional := newConditionalAnchorError("cond")
+	global := newGlobalAnchorError("global")
+	combined := multierr.Combine(conditional, global)
+	wrapped := fmt.Errorf("wrapped: %w", multierr.Combine(global, conditional))
+	for _, err := range []error{combined, wrapped} {
+		if !IsConditionalAnchorError(err) {
+			t.Errorf("IsConditionalAnchorError(%v) = false, want true", err)
+		}
+		if !IsGlobalAnchorError(err) {
+			t.Errorf("IsGlobalAnchorError(%v) = false, want true", err)
+		}
+		if IsNegationAnchorError(err) {
+			t.Errorf("IsNegationAnchorError(%v) = true, want false", err)
+		}
 	}
 }

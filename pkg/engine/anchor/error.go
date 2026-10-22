@@ -1,7 +1,6 @@
 package anchor
 
 import (
-	"errors"
 	"fmt"
 )
 
@@ -60,13 +59,24 @@ func newGlobalAnchorError(msg string) validateAnchorError {
 	return newValidateAnchorError(globalAnchorErr, globalAnchorErrMsg, msg)
 }
 
-// isError checks if error matches the given error type by unwrapping the
-// error chain using errors.As, which correctly handles wrapped errors
-// (e.g., via fmt.Errorf with %w, multierr, or custom Unwrap methods).
+// isError checks if any error in err's tree is an anchor error with the given code.
+// It walks every branch (fmt.Errorf with %w, multierr, custom Unwrap methods) rather
+// than stopping at the first anchor error, since combined errors can hold several.
 func isError(err error, code anchorError) bool {
-	var target validateAnchorError
-	if errors.As(err, &target) {
-		return target.err == code
+	switch e := err.(type) {
+	case nil:
+		return false
+	case validateAnchorError:
+		return e.err == code
+	case interface{ Unwrap() []error }:
+		for _, err := range e.Unwrap() {
+			if isError(err, code) {
+				return true
+			}
+		}
+		return false
+	case interface{ Unwrap() error }:
+		return isError(e.Unwrap(), code)
 	}
 	return false
 }
