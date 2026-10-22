@@ -195,6 +195,15 @@ func CanGenerateNativeValidatingPolicyExpressions(policy *policiesv1beta1.Valida
 		needsValues = needsValues || len(exception.Spec.AllowedValues) > 0
 	}
 	for _, item := range expressions {
+		if !item.requiresVariable {
+			usesVariables, err := referencesGlobalVariables(item.value)
+			if err != nil {
+				return false, fmt.Sprintf("cannot inspect %s for native ValidatingAdmissionPolicy generation: %v", item.source, err)
+			}
+			if usesVariables {
+				return false, fmt.Sprintf("%s references variables, which native ValidatingAdmissionPolicy matchConditions cannot evaluate", item.source)
+			}
+		}
 		// Only these two exception fields can be represented in generated CEL.
 		for field, replacement := range map[string]string{
 			"exceptions.allowedImages": "[]",
@@ -218,6 +227,15 @@ func CanGenerateNativeValidatingPolicyExpressions(policy *policiesv1beta1.Valida
 		})
 		if err != nil {
 			return false, fmt.Sprintf("cannot inspect %s for native ValidatingAdmissionPolicy generation: %v", item.source, err)
+		}
+		if item.requiresVariable && rewritten != item.value {
+			shadows, err := declaresLocalVariables(item.value)
+			if err != nil {
+				return false, fmt.Sprintf("cannot inspect %s for native ValidatingAdmissionPolicy generation: %v", item.source, err)
+			}
+			if shadows {
+				return false, fmt.Sprintf("%s binds a local variables identifier that would capture generated native exception variables", item.source)
+			}
 		}
 		unsupported, err := referencesGlobalExceptions(rewritten)
 		if err != nil {
