@@ -1227,8 +1227,12 @@ func (c *ApplyCommandConfig) checkArguments() error {
 	}
 	cleanedMutateLogPath := filepath.Clean(c.MutateLogPath)
 	switch cleanedMutateLogPath {
-	case "json", "yaml", "yml", "table", "markdown", "junit":
-		return fmt.Errorf("invalid path %q: did you mean --output-format %s? Use --output-dir to specify a file or directory for mutated resources", c.MutateLogPath, c.MutateLogPath)
+	case "json", "yaml", "table":
+		return fmt.Errorf("invalid path %q: did you mean --output-format %s? Use --output-dir to specify a file or directory for mutated resources", c.MutateLogPath, cleanedMutateLogPath)
+	case "yml":
+		return fmt.Errorf("invalid path %q: did you mean --output-format yaml? Use --output-dir to specify a file or directory for mutated resources", c.MutateLogPath)
+	case "markdown", "junit":
+		return fmt.Errorf("invalid path %q: use --output-format for report output, or --output-dir to specify a file or directory for mutated resources", c.MutateLogPath)
 	}
 	return nil
 }

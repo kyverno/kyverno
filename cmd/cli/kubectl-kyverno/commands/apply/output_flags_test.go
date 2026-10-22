@@ -2,6 +2,7 @@ package apply
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
 )
 
 func TestRejectFormatKeywordsAsOutputPath(t *testing.T) {
@@ -25,37 +27,48 @@ func TestRejectFormatKeywordsAsOutputPath(t *testing.T) {
 	require.NoError(t, os.WriteFile(policyPath, []byte(fmt.Sprintf(outputTestMutatingPolicy, `"team-a"`)), 0o600))
 	require.NoError(t, os.WriteFile(resourcePath, []byte(outputTestPod), 0o600))
 
-	formatKeywords := []string{"json", "yaml", "yml", "table"}
-	for _, kw := range formatKeywords {
-		t.Run("flag -o "+kw, func(t *testing.T) {
+	testCases := []struct {
+		keyword     string
+		expectedErr string
+	}{
+		{keyword: "json", expectedErr: `invalid path "json": did you mean --output-format json? Use --output-dir to specify a file or directory for mutated resources`},
+		{keyword: "yaml", expectedErr: `invalid path "yaml": did you mean --output-format yaml? Use --output-dir to specify a file or directory for mutated resources`},
+		{keyword: "yml", expectedErr: `invalid path "yml": did you mean --output-format yaml? Use --output-dir to specify a file or directory for mutated resources`},
+		{keyword: "table", expectedErr: `invalid path "table": did you mean --output-format table? Use --output-dir to specify a file or directory for mutated resources`},
+		{keyword: "markdown", expectedErr: `invalid path "markdown": use --output-format for report output, or --output-dir to specify a file or directory for mutated resources`},
+		{keyword: "junit", expectedErr: `invalid path "junit": use --output-format for report output, or --output-dir to specify a file or directory for mutated resources`},
+	}
+
+	for _, tc := range testCases {
+		t.Run("flag -o "+tc.keyword, func(t *testing.T) {
 			cmd := Command()
 			out := &bytes.Buffer{}
 			cmd.SetOut(out)
 			cmd.SetErr(out)
-			cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-o", kw})
+			cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-o", tc.keyword})
 
 			err := cmd.Execute()
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("invalid path %q: did you mean --output-format %s?", kw, kw))
+			assert.Contains(t, err.Error(), tc.expectedErr)
 
-			// Crucial check: verify no directory or file named kw was created
-			_, statErr := os.Stat(filepath.Join(tempDir, kw))
-			assert.True(t, os.IsNotExist(statErr), "file or directory %q should not have been created on disk", kw)
+			// Crucial check: verify no directory or file named keyword was created
+			_, statErr := os.Stat(filepath.Join(tempDir, tc.keyword))
+			assert.True(t, os.IsNotExist(statErr), "file or directory %q should not have been created on disk", tc.keyword)
 		})
 
-		t.Run("flag --output-dir "+kw, func(t *testing.T) {
+		t.Run("flag --output-dir "+tc.keyword, func(t *testing.T) {
 			cmd := Command()
 			out := &bytes.Buffer{}
 			cmd.SetOut(out)
 			cmd.SetErr(out)
-			cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--output-dir", kw})
+			cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--output-dir", tc.keyword})
 
 			err := cmd.Execute()
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), fmt.Sprintf("invalid path %q: did you mean --output-format %s?", kw, kw))
+			assert.Contains(t, err.Error(), tc.expectedErr)
 
-			_, statErr := os.Stat(filepath.Join(tempDir, kw))
-			assert.True(t, os.IsNotExist(statErr), "file or directory %q should not have been created on disk", kw)
+			_, statErr := os.Stat(filepath.Join(tempDir, tc.keyword))
+			assert.True(t, os.IsNotExist(statErr), "file or directory %q should not have been created on disk", tc.keyword)
 		})
 	}
 }
@@ -203,4 +216,76 @@ func TestOutputFormatWarningWithoutReport(t *testing.T) {
 
 	assert.Contains(t, stderr.String(), "WARNING: --output-format json has no effect without -p/--policy-report or --generate-exceptions")
 	assert.Contains(t, stdout.String(), "pass: 1, fail: 0, warn: 0, error: 0, skip: 0")
+}
+
+const outputTestValidatingPolicy = `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-pod
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  validations:
+  - expression: "object.metadata.name == 'pod'"
+`
+
+func TestPolicyReportOutputFormatSerialization(t *testing.T) {
+	dir := t.TempDir()
+	policyPath := filepath.Join(dir, "policy.yaml")
+	resourcePath := filepath.Join(dir, "resource.yaml")
+	require.NoError(t, os.WriteFile(policyPath, []byte(outputTestValidatingPolicy), 0o600))
+	require.NoError(t, os.WriteFile(resourcePath, []byte(outputTestPod), 0o600))
+
+	t.Run("policy report in json format", func(t *testing.T) {
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-p", "--output-format", "json"})
+		err := cmd.Execute()
+		require.NoError(t, err)
+
+		var parsed map[string]interface{}
+		err = json.Unmarshal(out.Bytes(), &parsed)
+		require.NoError(t, err, "output should be valid JSON: %s", out.String())
+		assert.NotEmpty(t, parsed["kind"])
+		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
+	})
+
+	t.Run("policy report in yaml format", func(t *testing.T) {
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-p", "--output-format", "yaml"})
+		err := cmd.Execute()
+		require.NoError(t, err)
+
+		var parsed map[string]interface{}
+		err = yaml.Unmarshal(out.Bytes(), &parsed)
+		require.NoError(t, err, "output should be valid YAML: %s", out.String())
+		assert.NotEmpty(t, parsed["kind"])
+		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
+	})
+
+	t.Run("policy report defaults to yaml format when output-format is omitted", func(t *testing.T) {
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-p"})
+		err := cmd.Execute()
+		require.NoError(t, err)
+
+		var parsed map[string]interface{}
+		err = yaml.Unmarshal(out.Bytes(), &parsed)
+		require.NoError(t, err, "output should be valid YAML: %s", out.String())
+		assert.NotEmpty(t, parsed["kind"])
+		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
+	})
 }
