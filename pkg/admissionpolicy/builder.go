@@ -436,6 +436,9 @@ func reserveUniqueConditionName(name string, used map[string]struct{}) string {
 	// A match-condition name is a qualified name: only the segment after
 	// the optional DNS prefix is limited to 63 characters.
 	prefix, segment, qualified := strings.Cut(name, "/")
+	if !qualified {
+		segment = prefix
+	}
 	for suffix := 2; ; suffix++ {
 		suffixText := fmt.Sprintf("-%d", suffix)
 		base := segment
