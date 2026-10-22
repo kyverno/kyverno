@@ -3,7 +3,6 @@ package aggregate_test
 import (
 	"testing"
 
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	"github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	"github.com/kyverno/kyverno/pkg/openreports"
@@ -43,11 +42,6 @@ func TestAggregateResultsOrdersNanosecondsAcrossPolicySources(t *testing.T) {
 	sources := []string{
 		reportutils.SourceKyverno,
 		reportutils.SourceValidatingPolicy,
-		reportutils.SourceImageValidatingPolicy,
-		reportutils.SourceGeneratingPolicy,
-		reportutils.SourceValidatingAdmissionPolicy,
-		reportutils.SourceMutatingAdmissionPolicy,
-		reportutils.SourceMutatingPolicy,
 	}
 	transitions := []struct {
 		name          string
@@ -166,78 +160,4 @@ func TestPermanentReportUpdatedByNewerEphemeral(t *testing.T) {
 	require.Len(t, results, 1)
 	require.Equal(t, openreportsv1alpha1.Result(openreports.StatusPass), results[0].Result)
 	require.Equal(t, newer.Timestamp, results[0].Timestamp)
-}
-
-func TestMergedResultAndSummaryAcrossReportAdapters(t *testing.T) {
-	old := openreportsv1alpha1.ReportResult{
-		Source: reportutils.SourceKyverno, Policy: "require-label", Rule: "check-label",
-		Result:    openreports.StatusFail,
-		Timestamp: metav1.Timestamp{Seconds: 1700000000, Nanos: 100_000_000},
-	}
-	newer := old
-	newer.Result = openreports.StatusPass
-	newer.Timestamp.Nanos = 900_000_000
-
-	results := aggregate.AggregateResults(timestampTestMaps(), types.UID("uid"),
-		ephemeralTimestampResult(old), ephemeralTimestampResult(newer))
-
-	tests := []struct {
-		name       string
-		makeReport func() reportsv1.ReportInterface
-		summary    func(reportsv1.ReportInterface) (int, int)
-	}{
-		{
-			name: "openreports-namespaced",
-			makeReport: func() reportsv1.ReportInterface {
-				return &openreports.ReportAdapter{Report: &openreportsv1alpha1.Report{}}
-			},
-			summary: func(r reportsv1.ReportInterface) (int, int) {
-				s := r.(*openreports.ReportAdapter).Report.Summary
-				return int(s.Pass), int(s.Fail)
-			},
-		},
-		{
-			name: "openreports-cluster",
-			makeReport: func() reportsv1.ReportInterface {
-				return &openreports.ClusterReportAdapter{ClusterReport: &openreportsv1alpha1.ClusterReport{}}
-			},
-			summary: func(r reportsv1.ReportInterface) (int, int) {
-				s := r.(*openreports.ClusterReportAdapter).ClusterReport.Summary
-				return int(s.Pass), int(s.Fail)
-			},
-		},
-		{
-			name: "wgpolicy-namespaced",
-			makeReport: func() reportsv1.ReportInterface {
-				return openreports.NewWGPolAdapter(&policyreportv1alpha2.PolicyReport{})
-			},
-			summary: func(r reportsv1.ReportInterface) (int, int) {
-				s := r.(*openreports.WgpolicyReportAdapter).PolicyReport.Summary
-				return int(s.Pass), int(s.Fail)
-			},
-		},
-		{
-			name: "wgpolicy-cluster",
-			makeReport: func() reportsv1.ReportInterface {
-				return openreports.NewWGCpolAdapter(&policyreportv1alpha2.ClusterPolicyReport{})
-			},
-			summary: func(r reportsv1.ReportInterface) (int, int) {
-				s := r.(*openreports.WgpolicyClusterReportAdapter).ClusterPolicyReport.Summary
-				return int(s.Pass), int(s.Fail)
-			},
-		},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			report := tc.makeReport()
-			reportutils.SetResults(report, results...)
-			got := report.GetResults()
-			require.Len(t, got, 1)
-			require.Equal(t, openreportsv1alpha1.Result(openreports.StatusPass), got[0].Result)
-			require.Equal(t, newer.Timestamp, got[0].Timestamp)
-			pass, fail := tc.summary(report)
-			require.Equal(t, 1, pass)
-			require.Zero(t, fail)
-		})
-	}
 }

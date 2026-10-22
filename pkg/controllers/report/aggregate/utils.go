@@ -31,9 +31,9 @@ type Maps struct {
 	Mpol   sets.Set[string]
 }
 
-// mergeLatestResult keeps the latest recorded timestamp for a report key.
-// Exact ties keep the existing value: report iteration order is not reliable
-// evidence of evaluation order, especially for second-precision legacy data.
+// mergeLatestResult keeps the latest recorded (Seconds, Nanos) timestamp.
+// Exact ties keep the first-seen value. Legacy timestamps with Nanos=0
+// may have lost precision, so actual evaluation order may be unknowable.
 func mergeLatestResult(accumulator map[string]openreportsv1alpha1.ReportResult, key string, result openreportsv1alpha1.ReportResult) {
 	old, exists := accumulator[key]
 	if !exists ||
@@ -44,12 +44,9 @@ func mergeLatestResult(accumulator map[string]openreportsv1alpha1.ReportResult, 
 }
 
 // MergeReports merges the results of the given reports into accumulator, keyed
-// by (source, policy, [rule], uid). On a key collision it keeps the result with
-// the later (Seconds, Nanos) timestamp, dropping results whose policy is not
-// present in maps. Exactly equal timestamps keep the first-seen result.
-// Legacy second-precision timestamps have Nanos=0; when old and new
-// precisions are mixed, this orders the recorded values and cannot prove
-// their true evaluation chronology.
+// by (source, policy, [rule], uid). On a key collision it keeps the result
+// with the later recorded (Seconds, Nanos) timestamp, dropping results whose
+// policy is not present in maps.
 //
 // accumulator must be non-nil.
 // Pure: no I/O, no clients, no clock.
