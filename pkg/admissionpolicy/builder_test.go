@@ -426,8 +426,8 @@ func TestNegateExceptionMatchConditions(t *testing.T) {
 	}
 	got = negateExceptionMatchConditions([]policiesv1beta1.PolicyException{multi, other})
 	require.Len(t, got, 2)
-	assert.Equal(t, `!((request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, got[0].Expression)
-	assert.Equal(t, `!(object.metadata.namespace == 'skip')`, got[1].Expression)
+	assert.Equal(t, `!(object.metadata.namespace == 'skip')`, got[0].Expression)
+	assert.Equal(t, `!((request.userInfo.username != '') && (request.resource.resource == "accessentries"))`, got[1].Expression)
 }
 
 // An informer may return the same PolicyExceptions in any order. Native policy
