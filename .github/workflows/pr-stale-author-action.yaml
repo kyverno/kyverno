@@ -73,9 +73,8 @@ jobs:
             if [[ "$DRY_RUN" == "true" ]]; then echo "[dry-run] $*"; else "$@" && sleep 1; fi
           }
 
-          # One GraphQL call per PR, normalised into small files (PR data is arbitrary text, so never bash variables).
-          # Only the newest 100 commits, comments, reviews and label events are read, which is enough for the
-          # newest-activity clocks. Helpers return non-zero on failure.
+          # PR data is arbitrary text, so normalise it into small files rather than bash variables.
+          # Helpers return non-zero on failure.
           pr_query='
             query($owner: String!, $name: String!, $number: Int!) {
               repository(owner: $owner, name: $name) {
@@ -95,6 +94,7 @@ jobs:
                   comments(last: 100) { totalCount nodes { author { login __typename } createdAt body } }
                   reviews(last: 100) { totalCount nodes { author { login __typename } submittedAt } }
                   timelineItems(last: 100, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, PULL_REQUEST_COMMIT]) {
+                    pageInfo { hasPreviousPage startCursor }
                     nodes {
                       __typename
                       ... on LabeledEvent { createdAt label { name } }
@@ -128,25 +128,74 @@ jobs:
             jq '[.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt != null)
                  | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .submittedAt}]' \
               raw.json > reviews.json || return 1
+            jq -n '[.[]]' > timeline-pages.json
+            jq '.data.repository.pullRequest.timelineItems.pageInfo' raw.json > timeline-page-info.json || return 1
+            append_timeline_page raw.json || return 1
+            while needs_timeline_history; do
+              local cursor
+              cursor=$(jq -r '.startCursor' timeline-page-info.json)
+              gh api graphql -f query="$timeline_query" -f owner="${repo%/*}" -f name="${repo#*/}" \
+                -F number="$1" -f cursor="$cursor" > timeline-page.json || return 1
+              jq '.data.repository.pullRequest.timelineItems.pageInfo' timeline-page.json > timeline-page-info.json || return 1
+              append_timeline_page timeline-page.json || return 1
+            done
+            jq '[.[] | select(.kind == "label") | {l, at}]' timeline-events.json > label-events.json || return 1
+            jq '[.[] | select(.kind == "unlabel") | {l, at}]' timeline-events.json > unlabel-events.json || return 1
+            jq '[.[] | select(.kind == "force-push") | {at}]' timeline-events.json > force-push-events.json || return 1
+          }
+
+          timeline_query='
+            query($owner: String!, $name: String!, $number: Int!, $cursor: String!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  timelineItems(last: 100, before: $cursor, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, PULL_REQUEST_COMMIT]) {
+                    pageInfo { hasPreviousPage startCursor }
+                    nodes {
+                      __typename
+                      ... on LabeledEvent { createdAt label { name } }
+                      ... on UnlabeledEvent { createdAt label { name } }
+                      ... on HeadRefForcePushedEvent { createdAt }
+                      ... on PullRequestCommit { commit { oid committedDate } }
+                    }
+                  }
+                }
+              }
+            }'
+
+          append_timeline_page() {
+            local page="$1"
             jq '[.data.repository.pullRequest.timelineItems.nodes[]
                  | if .__typename == "LabeledEvent" then {kind: "label", l: .label.name, at: .createdAt}
                    elif .__typename == "UnlabeledEvent" then {kind: "unlabel", l: .label.name, at: .createdAt}
                    elif .__typename == "HeadRefForcePushedEvent" then {kind: "force-push", at: .createdAt}
                    elif .__typename == "PullRequestCommit" then {kind: "commit", oid: .commit.oid, at: .commit.committedDate}
-                   else empty end]' \
-              raw.json > timeline-events.json || return 1
-            jq '[.data.repository.pullRequest.timelineItems.nodes[] | select(.label.name != null)
-                 | select(.__typename == "LabeledEvent")
-                 | {l: .label.name, at: .createdAt}]' \
-              raw.json > label-events.json || return 1
-            jq '[.data.repository.pullRequest.timelineItems.nodes[] | select(.label.name != null)
-                 | select(.__typename == "UnlabeledEvent")
-                 | {l: .label.name, at: .createdAt}]' \
-              raw.json > unlabel-events.json || return 1
-            jq '[.data.repository.pullRequest.timelineItems.nodes[]
-                 | select(.__typename == "HeadRefForcePushedEvent")
-                 | {at: .createdAt}]' \
-              raw.json > force-push-events.json || return 1
+                   else empty end]' "$page" > timeline-current-page.json || return 1
+            jq --slurpfile page timeline-current-page.json '. + [$page[0]]' \
+              timeline-pages.json > timeline-pages-next.json || return 1
+            mv timeline-pages-next.json timeline-pages.json
+            jq 'reverse | add // []' timeline-pages.json > timeline-events.json || return 1
+          }
+
+          needs_timeline_history() {
+            [[ "$(jq -r '.hasPreviousPage' timeline-page-info.json)" == "true" ]] || return 1
+            local labels
+            labels=$(jq -r '[.labels[].name] | join(",")' pr.json)
+            for label in needs-author-action stale ready-for-review merge-conflicts; do
+              if [[ ",$labels," == *",$label,"* ]] \
+                && ! jq -e --arg l "$label" 'any(.[]; .kind == "label" and .l == $l)' timeline-events.json > /dev/null; then
+                return 0
+              fi
+            done
+            if [[ ",$labels," == *",stale,"* ]] \
+              && [[ "$(jq -r '.headRefOid' pr.json)" != "null" ]] \
+              && ! has_marker 'pr-stale-author-action: stale ' \
+              && ! jq -e '
+                ([to_entries[] | select(.value.kind == "label" and .value.l == "stale") | .key] | last // -1) as $stale
+                | any(to_entries[]; .key < $stale and .value.kind == "commit")
+              ' timeline-events.json > /dev/null; then
+              return 0
+            fi
+            return 1
           }
 
           has_label() { jq -e --arg l "$1" 'any(.labels[]; .name == $l)' pr.json > /dev/null; }
@@ -169,6 +218,42 @@ jobs:
 
           latest_stale_removal() {
             jq '[.[] | select(.l == "stale") | .at | fromdateiso8601] | max // 0' unlabel-events.json
+          }
+
+          commit_after_label() {
+            jq -e --arg l "$1" '
+              ([to_entries[] | select(.value.kind == "label" and .value.l == $l) | .key] | last // -1) as $label_index
+              | any(to_entries[]; .key > $label_index and .value.kind == "commit")
+            ' timeline-events.json > /dev/null
+          }
+
+          late_commit_oid() {
+            jq -r '
+              ([to_entries[] | select(.value.kind == "label" and .value.l == "needs-author-action") | .key] | last // -1) as $label_index
+              | [to_entries[] | select(.key > $label_index and .value.kind == "commit") | .value.oid]
+              | last // ""
+            ' timeline-events.json
+          }
+
+          # GitHub does not expose ordinary push times; persist when this workflow first sees a commit added after the label.
+          late_commit_observed_at() {
+            local n="$1"
+            local oid observed marker
+            oid=$(late_commit_oid) || return 1
+            [[ -z "$oid" ]] && { printf '0'; return 0; }
+            observed=$(jq -r --arg oid "$oid" '
+              [.[] | select(.t == "Bot") | .body
+               | try capture("<!-- pr-stale-author-action: observed (?<oid>[0-9a-f]+) (?<at>[0-9]+) -->") catch empty
+               | select(.oid == $oid) | .at] | last // ""
+            ' issue-comments.json) || return 1
+            if [[ -n "$observed" ]]; then
+              printf '%s' "$observed"
+              return 0
+            fi
+            marker="<!-- pr-stale-author-action: observed $oid $now -->"
+            printf '%s\n' "$marker" > body.md
+            act gh pr comment "$n" --repo "$repo" --body-file body.md >&2 || return 1
+            printf '%s' "$now"
           }
 
           force_push_after() {
@@ -195,9 +280,9 @@ jobs:
                 end' timeline-events.json
           }
 
-          # Use commit/force-push activity and stale-label removal to detect new pushes; conflicts reset the clock too.
+          # Use commit/force-push activity and stale-label removal; undated late pushes start a conservative clock.
           author_clock() {
-            local last pushed removed conflicted
+            local n="$1" last pushed removed conflicted observed
             last=$(last_commit) || return 1
             pushed=$(latest_force_push) || return 1
             [[ "$pushed" -gt "$last" ]] && last="$pushed"
@@ -207,6 +292,8 @@ jobs:
               conflicted=$(label_time merge-conflicts) || return 1
               [[ "$conflicted" -gt "$last" ]] && last="$conflicted"
             fi
+            observed=$(late_commit_observed_at "$n") || return 1
+            [[ "$observed" -gt "$last" ]] && last="$observed"
             printf '%s' "$last"
           }
 
@@ -246,6 +333,7 @@ jobs:
             # Unknown when the label event is outside the fetched history; leave the label alone.
             [[ "$stale_at" -eq 0 ]] && { echo "::warning::PR #$n: stale label time not found — skipping."; return 0; }
             if ! has_label needs-author-action || has_label no-stale || [[ "$last" -gt "$stale_at" ]] \
+              || commit_after_label stale \
               || force_push_after "$stale_at" \
               || { [[ "$head" != "null" && -n "$recorded_head" ]] && [[ "$head" != "$recorded_head" ]]; }; then
               echo "PR #$n: no longer stale — removing the label."
@@ -255,10 +343,12 @@ jobs:
 
           # needs-author-action PRs: mark stale after STALE_DAYS without a new commit.
           handle_needs_author() {
-            local n="$1" author last idle marker head
+            local n="$1" author last idle marker head needs_author_at
             fetch "$n" || return 1
             author=$(jq -r '.author.login' pr.json)
-            last=$(author_clock) || return 1
+            needs_author_at=$(label_time needs-author-action) || return 1
+            [[ "$needs_author_at" -eq 0 ]] && { echo "::warning::PR #$n: needs-author-action label time not found — skipping."; return 0; }
+            last=$(author_clock "$n") || return 1
             head=$(jq -r '.headRefOid' pr.json)
             idle=$((now - last))
             [[ "$idle" -lt "$stale_secs" ]] && return 0
@@ -297,12 +387,13 @@ jobs:
             fi
             author=$(jq -r '.author.login' pr.json)
             last_commit_at=$(last_commit) || return 1
-            last=$(author_clock) || return 1
+            last=$(author_clock "$n") || return 1
             stale_at=$(label_time stale) || return 1
             head=$(jq -r '.headRefOid' pr.json)
             recorded_head=$(stale_head) || return 1
             # A new commit or force-push after stale marking resets the cycle; merge-conflict time only affects idle.
             [[ "$stale_at" -eq 0 || "$last_commit_at" -gt "$stale_at" ]] && return 0
+            commit_after_label stale && return 0
             force_push_after "$stale_at" && return 0
             [[ -z "$recorded_head" ]] && return 0
             [[ "$head" != "null" && "$head" != "$recorded_head" ]] && return 0
