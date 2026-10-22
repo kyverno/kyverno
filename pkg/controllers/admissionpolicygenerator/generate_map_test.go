@@ -365,5 +365,5 @@ func TestHandleMAPGeneration_SkipsUndeclaredExceptionReferences(t *testing.T) {
 	updated, err := kyvernoClient.PoliciesV1beta1().MutatingPolicies().Get(ctx, mpol.GetName(), metav1.GetOptions{})
 	require.NoError(t, err)
 	assert.False(t, updated.Status.Generated)
-	assert.Contains(t, updated.Status.GetConditionStatus().Message, "exceptions.allowedImages")
+	assert.Contains(t, updated.Status.GetConditionStatus().Message, "Kyverno-only exceptions variable")
 }
