@@ -146,12 +146,6 @@ func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.
 	for _, warning := range deprecations.PolicyFieldWarnings(policy) {
 		warnings = append(warnings, warning.Message)
 	}
-	for _, rule := range spec.Rules {
-		// Check for wildcard in rule and if found add warning message since it can heavily impact performance
-		if warningMsg, ok := hasWildcard(rule); ok {
-			warnings = append(warnings, warningMsg)
-		}
-	}
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
@@ -503,6 +497,11 @@ func validatePolicy(policy, oldPolicy kyvernov1.PolicyInterface, client dclient.
 		}
 
 		checkForDeprecatedOperatorsInRule(rule, &warnings)
+
+		// warn on wildcard kinds since they can heavily impact performance
+		if warningMsg, ok := hasWildcard(rule); ok {
+			warnings = append(warnings, warningMsg)
+		}
 	}
 
 	// check for CEL expression warnings in case of CEL subrules
