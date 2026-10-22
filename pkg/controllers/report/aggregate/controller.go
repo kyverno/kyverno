@@ -96,12 +96,9 @@ type controller struct {
 	backQueue  workqueue.TypedRateLimitingInterface[any]
 }
 
-// PolicyMapEntry holds an active traditional policy and its (autogen-expanded)
-// rule names. MergeReports reads only Rules; Policy is retained for caller
-// reference.
+// PolicyMapEntry holds the (autogen-expanded) rule names of an active policy.
 type PolicyMapEntry struct {
-	Policy kyvernov1.PolicyInterface
-	Rules  sets.Set[string]
+	Rules sets.Set[string]
 }
 
 func NewController(
@@ -431,9 +428,7 @@ func (c *controller) legacyPoliciesPresent(ctx context.Context) (bool, error) {
 		gvr := kyvernov1.SchemeGroupVersion.WithResource(resource)
 		list, err := c.metaClient.Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
 		if err != nil {
-			// CRD gone or RBAC no longer grants list: treat as absent, since failing open
-			// here would make the sweep unconditional on every leader start.
-			if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
+			if apierrors.IsNotFound(err) {
 				continue
 			}
 			return false, err
@@ -472,8 +467,9 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	// startup sweep: drop legacy-only results from existing reports (decision C2); fail open
 	// (sweep anyway) on an error determining legacy policy presence.
 	if present, err := c.legacyPoliciesPresent(ctx); err != nil {
-		logger.Error(err, "failed to check for legacy policies, sweeping reports anyway")
-		c.enqueueAllReports()
+		// Fail closed: sweeping on an indeterminate result would add a cluster-wide read burst
+		// exactly when the API server is already unhealthy. The next leader start retries.
+		logger.Error(err, "could not determine whether legacy policies exist; skipping startup report sweep")
 	} else if present {
 		logger.V(2).Info("legacy kyverno.io policies present; sweeping every report once to prune legacy results")
 		c.enqueueAllReports()

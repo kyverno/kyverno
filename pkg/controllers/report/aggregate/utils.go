@@ -21,9 +21,9 @@ import (
 // active is dropped). Fields are exported so callers outside this package (the
 // integration test framework) can build a Maps and run the real merge via
 // MergeReports / AggregateResults.
-// Pol is retained for external callers (PolicyMapEntry is still exported) but
-// is no longer populated by this controller: legacy kyverno.io results are
-// now dropped during merge instead of matched against active legacy policies.
+// Pol is retained for external callers but is no longer populated by this
+// controller: legacy kyverno.io results are now dropped during merge instead
+// of matched against active legacy policies.
 type Maps struct {
 	Pol    map[string]PolicyMapEntry
 	Vap    sets.Set[string]

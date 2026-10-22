@@ -2,12 +2,14 @@ package aggregate
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
@@ -15,8 +17,11 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	metafake "k8s.io/client-go/metadata/fake"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 )
@@ -191,4 +196,72 @@ func TestBackReconcile_WithEphemeralReport_StillWrites(t *testing.T) {
 		}
 	}
 	assert.True(t, sawUpdate, "expected an update even though the merged result matches the stored one, because an ephemeral report was present")
+}
+
+// TestLegacyPoliciesPresent covers every branch of the startup-sweep gate. Run
+// sweeps only on (true, nil); a non-nil error must close the gate, not open it.
+// In-package because legacyPoliciesPresent is unexported.
+func TestLegacyPoliciesPresent(t *testing.T) {
+	legacyGVR := kyvernov1.SchemeGroupVersion.WithResource("clusterpolicies")
+	cpol := &metav1.PartialObjectMetadata{
+		TypeMeta:   metav1.TypeMeta{APIVersion: "kyverno.io/v1", Kind: "ClusterPolicy"},
+		ObjectMeta: metav1.ObjectMeta{Name: "require-labels"},
+	}
+
+	tests := []struct {
+		name        string
+		seed        bool
+		reactor     func() (bool, runtime.Object, error)
+		wantPresent bool
+		wantErr     bool
+	}{{
+		name:        "a legacy policy exists",
+		seed:        true,
+		wantPresent: true,
+	}, {
+		name:        "no legacy policies exist",
+		wantPresent: false,
+	}, {
+		name: "the CRD is gone",
+		reactor: func() (bool, runtime.Object, error) {
+			return true, nil, apierrors.NewNotFound(legacyGVR.GroupResource(), "")
+		},
+	}, {
+		name: "listing is forbidden",
+		reactor: func() (bool, runtime.Object, error) {
+			return true, nil, apierrors.NewForbidden(legacyGVR.GroupResource(), "", errors.New("no list verb"))
+		},
+		wantErr: true,
+	}, {
+		name:    "the API server is unavailable",
+		reactor: func() (bool, runtime.Object, error) { return true, nil, errors.New("connection refused") },
+		wantErr: true,
+	}}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := metafake.NewTestScheme()
+			metav1.AddMetaToScheme(s)
+			var objects []runtime.Object
+			if tt.seed {
+				objects = append(objects, cpol)
+			}
+			client := metafake.NewSimpleMetadataClient(s, objects...)
+			if tt.reactor != nil {
+				client.PrependReactor("list", "clusterpolicies", func(k8stesting.Action) (bool, runtime.Object, error) {
+					return tt.reactor()
+				})
+			}
+
+			present, err := (&controller{metaClient: client}).legacyPoliciesPresent(context.TODO())
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.False(t, present, "an indeterminate gate must never report present")
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantPresent, present)
+		})
+	}
 }
