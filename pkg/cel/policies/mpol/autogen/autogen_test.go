@@ -773,7 +773,7 @@ func TestAutogenGeneratedExpressionsCompile(t *testing.T) {
 			},
 			Mutations: []admissionregistrationv1alpha1.Mutation{
 				{
-					PatchType:          admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
+					PatchType: admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
 					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
 						Expression: `Object{metadata: Object.metadata{labels: Object.metadata.labels{note: "Object.metadata"}}}`,
 					},
@@ -799,8 +799,15 @@ func TestAutogenGeneratedExpressionsCompile(t *testing.T) {
 
 			expression := generated.Spec.Mutations[0].ApplyConfiguration.Expression
 			assert.Contains(t, expression, `"Object.metadata"`)
-			assert.NotContains(t, expression, `"Object.spec.template.metadata"`)
-			assert.NotContains(t, expression, `"Object.spec.jobTemplate.spec.template.metadata"`)
+
+			switch name {
+			case "deployments":
+				assert.Contains(t, expression, "Object.spec.template.metadata")
+				assert.NotContains(t, expression, "Object.spec.jobTemplate.spec.template.metadata")
+			case "cronjobs":
+				assert.Contains(t, expression, "Object.spec.jobTemplate.spec.template.metadata")
+				assert.NotContains(t, expression, "Object.spec.template.metadata")
+			}
 		})
 	}
 }
