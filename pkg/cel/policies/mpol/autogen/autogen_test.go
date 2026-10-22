@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	mpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/mpol/compiler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -696,6 +697,109 @@ func TestMutationConversionEdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := convertPodToTemplateExpression(tt.input, tt.config)
 			assert.Equal(t, normalize(tt.expected), normalize(result))
+		})
+	}
+}
+
+func TestConvertPodToTemplateExpressionPreservesStringLiterals(t *testing.T) {
+	tests := []struct {
+		name     string
+		config   string
+		input    string
+		expected string
+	}{
+		{
+			name:     "deployment string values are not rewritten",
+			config:   "deployments",
+			input:    `Object{metadata: Object.metadata{labels: Object.metadata.labels{note: "Object.metadata", spec: 'object.spec.containers', labels: "Object.metadata.labels", annotations: "Object.metadata.annotations"}}}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{metadata: Object.spec.template.metadata{labels: Object.spec.template.metadata.labels{note: "Object.metadata", spec: 'object.spec.containers', labels: "Object.metadata.labels", annotations: "Object.metadata.annotations"}}}}}`,
+		},
+		{
+			name:     "escaped quoted raw triple and bytes literals are not rewritten",
+			config:   "deployments",
+			input:    `Object{metadata: Object.metadata{labels: Object.metadata.labels{escaped: "say \"Object.metadata\"", raw: r"Object.metadata", triple: '''Object.spec.containers''', rawTriple: r"""Object.metadata""", bytes: b"Object.metadata"}}}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{metadata: Object.spec.template.metadata{labels: Object.spec.template.metadata.labels{escaped: "say \"Object.metadata\"", raw: r"Object.metadata", triple: '''Object.spec.containers''', rawTriple: r"""Object.metadata""", bytes: b"Object.metadata"}}}}}`,
+		},
+		{
+			name:     "braces inside string values do not affect the wrapper",
+			config:   "deployments",
+			input:    `Object{metadata: Object.metadata{labels: Object.metadata.labels{note: "literal { \"Object.metadata\" }"}}}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{metadata: Object.spec.template.metadata{labels: Object.spec.template.metadata.labels{note: "literal { \"Object.metadata\" }"}}}}}`,
+		},
+		{
+			name:     "lowercase and oldObject accesses and strings are unchanged",
+			config:   "deployments",
+			input:    `object.metadata.namespace == oldObject.metadata.namespace && "Object.metadata" == 'Object.spec'`,
+			expected: `object.metadata.namespace == oldObject.metadata.namespace && "Object.metadata" == 'Object.spec'`,
+		},
+		{
+			name:     "cronjob nested paths preserve string values",
+			config:   "cronjobs",
+			input:    `Object{metadata: Object.metadata{labels: Object.metadata.labels{note: "Object.metadata", path: "Object.spec.jobTemplate.spec.template.metadata"}}}`,
+			expected: `Object{spec: Object.spec{jobTemplate: Object.spec.jobTemplate{spec: Object.spec.jobTemplate.spec{template: Object.spec.jobTemplate.spec.template{metadata: Object.spec.jobTemplate.spec.template.metadata{labels: Object.spec.jobTemplate.spec.template.metadata.labels{note: "Object.metadata", path: "Object.spec.jobTemplate.spec.template.metadata"}}}}}}}`,
+		},
+		{
+			name:     "slashes inside string are preserved",
+			config:   "deployments",
+			input:    `Object{metadata: Object.metadata{labels: {"note": "a // b"}}}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{metadata: Object.spec.template.metadata{labels: {"note": "a // b"}}}}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertPodToTemplateExpression(tt.input, tt.config)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestAutogenGeneratedExpressionsCompile(t *testing.T) {
+	policy := &policiesv1beta1.MutatingPolicy{
+		Spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+							Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create},
+						},
+					},
+				},
+			},
+			Mutations: []admissionregistrationv1alpha1.Mutation{
+				{
+					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
+						Expression: `Object{metadata: Object.metadata{labels: Object.metadata.labels{note: "Object.metadata"}}}`,
+					},
+				},
+			},
+		},
+	}
+	policy.Spec.AutogenConfiguration = &policiesv1beta1.MutatingPolicyAutogenConfiguration{
+		PodControllers: &policiesv1beta1.PodControllersGenerationConfiguration{
+			Controllers: []string{"deployments", "cronjobs"},
+		},
+	}
+
+	result, err := Autogen(policy)
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+
+	for name, autogen := range result {
+		t.Run(name, func(t *testing.T) {
+			generated := &policiesv1beta1.MutatingPolicy{Spec: *autogen.Spec}
+			_, errs := mpolcompiler.NewCompiler().Compile(generated, nil)
+			require.Empty(t, errs)
+
+			expression := generated.Spec.Mutations[0].ApplyConfiguration.Expression
+			assert.Contains(t, expression, `"Object.metadata"`)
+			assert.NotContains(t, expression, `"Object.spec.template.metadata"`)
+			assert.NotContains(t, expression, `"Object.spec.jobTemplate.spec.template.metadata"`)
 		})
 	}
 }
