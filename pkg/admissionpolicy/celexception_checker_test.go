@@ -5,11 +5,13 @@ import (
 	"strings"
 	"testing"
 
+	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1alpha1 "k8s.io/api/admissionregistration/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func exception(namespace, name string, validations ...string) policiesv1beta1.PolicyException {
@@ -472,6 +474,17 @@ func TestCanGenerateNativeValidatingPolicyExpressions(t *testing.T) {
 		want       bool
 	}{
 		{name: "standard policy", want: true},
+		{name: "disabled admission cannot generate native VAP", spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{
+				Admission: &policiesv1alpha1.AdmissionConfiguration{Enabled: ptr.To(false)},
+			},
+		}},
+		{name: "HTTP evaluation cannot generate native VAP", spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{Mode: "HTTP"},
+		}},
+		{name: "Envoy evaluation cannot generate native VAP", spec: policiesv1beta1.ValidatingPolicySpec{
+			EvaluationConfiguration: &policiesv1alpha1.EvaluationConfiguration{Mode: "Envoy"},
+		}},
 		{name: "match condition cannot reference native variables", spec: policiesv1beta1.ValidatingPolicySpec{
 			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "bad", Expression: "variables.test == true"}},
 		}},
