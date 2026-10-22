@@ -191,6 +191,12 @@ func canGenerateWithMatchConditionLimit(kind string, exceptions []policiesv1beta
 // CanGenerateNativeValidatingPolicyExpressions checks expressions that need
 // exception rewriting and the generated variable limit before creating a VAP.
 func CanGenerateNativeValidatingPolicyExpressions(policy *policiesv1beta1.ValidatingPolicy, exceptions []policiesv1beta1.PolicyException) (bool, string) {
+	if !policy.Spec.AdmissionEnabled() {
+		return false, "admission evaluation is disabled"
+	}
+	if policy.Spec.EvaluationMode() != "Kubernetes" {
+		return false, "only Kubernetes evaluation mode is supported by native ValidatingAdmissionPolicy"
+	}
 	type expression struct {
 		source           string
 		value            string
