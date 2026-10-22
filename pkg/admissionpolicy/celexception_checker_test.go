@@ -334,3 +334,114 @@ func TestCanGenerateNativeMutatingPolicyExpressions(t *testing.T) {
 		})
 	}
 }
+
+func TestCanGenerateNativeMutatingPolicyExpressions_UnsupportedNativeFields(t *testing.T) {
+	selectEverything := &metav1.LabelSelector{MatchLabels: map[string]string{"team": "platform"}}
+	equivalent := admissionregistrationv1.Equivalent
+	tests := []struct {
+		name string
+		spec policiesv1beta1.MutatingPolicySpec
+		want bool
+	}{
+		{name: "resource rules remain supported", spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{}},
+			},
+		}, want: true},
+		{name: "namespace selector changes scope", spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{NamespaceSelector: selectEverything},
+		}},
+		{name: "object selector changes scope", spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{ObjectSelector: selectEverything},
+		}},
+		{name: "explicit match policy is not copied", spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{MatchPolicy: &equivalent},
+		}},
+		{name: "excluded resources must not be dropped", spec: policiesv1beta1.MutatingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ExcludeResourceRules: []admissionregistrationv1.NamedRuleWithOperations{{}},
+			},
+		}},
+		{name: "audit annotations are not copied", spec: policiesv1beta1.MutatingPolicySpec{
+			AuditAnnotations: []admissionregistrationv1.AuditAnnotation{{Key: "audit.kyverno.io/test", ValueExpression: "'x'"}},
+		}},
+		{name: "bare exceptions reference", spec: policiesv1beta1.MutatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{Name: "x", Expression: "exceptions == null"}},
+		}},
+		{name: "unknown global exceptions field", spec: policiesv1beta1.MutatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{Name: "x", Expression: "exceptions.otherField"}},
+		}},
+		{name: "local exceptions binding stays supported", spec: policiesv1beta1.MutatingPolicySpec{
+			Variables: []admissionregistrationv1.Variable{{Name: "x", Expression: "object.items.all(exceptions, exceptions != null)"}},
+		}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ok, reason := CanGenerateNativeMutatingPolicyExpressions(&policiesv1beta1.MutatingPolicy{Spec: tt.spec})
+			assert.Equal(t, tt.want, ok)
+			if !tt.want {
+				assert.Assert(t, reason != "")
+			}
+		})
+	}
+}
+
+func TestCanGenerateNativeValidatingPolicyExpressions(t *testing.T) {
+	makeVars := func(n int) []admissionregistrationv1.Variable {
+		vars := make([]admissionregistrationv1.Variable, n)
+		for i := range vars {
+			vars[i] = admissionregistrationv1.Variable{Name: fmt.Sprintf("v%d", i), Expression: "true"}
+		}
+		return vars
+	}
+	tests := []struct {
+		name string
+		spec policiesv1beta1.ValidatingPolicySpec
+		exceptions []policiesv1beta1.PolicyException
+		want bool
+	}{
+		{name: "standard policy", want: true},
+		{name: "exact variable cap", spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: makeVars(63),
+		}, exceptions: []policiesv1beta1.PolicyException{{Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"example.io/test:v1"},
+		}}}, want: true},
+		{name: "generated variable count exceeds limit", spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: makeVars(63),
+		}, exceptions: []policiesv1beta1.PolicyException{{Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"example.io/test:v1"},
+			AllowedValues: []string{"hello"},
+		}}}},
+		{name: "valid images and values under cap", spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: makeVars(62),
+		}, exceptions: []policiesv1beta1.PolicyException{{Spec: policiesv1beta1.PolicyExceptionSpec{
+			Images: []string{"example.io/test:v1"}, AllowedValues: []string{"ok"},
+		}}}, want: true},
+		{name: "variable reference creates generated variable", spec: policiesv1beta1.ValidatingPolicySpec{
+			Variables: makeVars(64),
+			Validations: []admissionregistrationv1.Validation{{Expression: "exceptions.allowedImages.size() > 0"}},
+		}},
+		{name: "bare exceptions fails closed", spec: policiesv1beta1.ValidatingPolicySpec{
+			Validations: []admissionregistrationv1.Validation{{Expression: "exceptions == null"}},
+		}},
+		{name: "unsupported field fails closed", spec: policiesv1beta1.ValidatingPolicySpec{
+			MatchConditions: []admissionregistrationv1.MatchCondition{{Name: "bad", Expression: "exceptions.otherField.size() == 0"}},
+		}},
+		{name: "string literal is not global reference", spec: policiesv1beta1.ValidatingPolicySpec{
+			Validations: []admissionregistrationv1.Validation{{Expression: "'exceptions' == 'exceptions'"}},
+		}, want: true},
+		{name: "locally scoped exceptions is not global", spec: policiesv1beta1.ValidatingPolicySpec{
+			Validations: []admissionregistrationv1.Validation{{Expression: "object.items.all(exceptions, exceptions != null)"}},
+		}, want: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ok, reason := CanGenerateNativeValidatingPolicyExpressions(
+				&policiesv1beta1.ValidatingPolicy{Spec: tt.spec}, tt.exceptions)
+			assert.Equal(t, tt.want, ok)
+			if !tt.want {
+				assert.Assert(t, reason != "")
+			}
+		})
+	}
+}

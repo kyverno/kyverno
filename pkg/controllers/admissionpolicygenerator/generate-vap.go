@@ -62,6 +62,9 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		} else if ok, msg := admissionpolicy.CanGenerateNativePolicyWithMatchConditions(celexceptions, len(pol.Spec.MatchConditions)); !ok {
 			shouldDelete = true
 			reason = "skip generating ValidatingAdmissionPolicy: " + msg
+		} else if ok, msg := admissionpolicy.CanGenerateNativeValidatingPolicyExpressions(pol, celexceptions); !ok {
+			shouldDelete = true
+			reason = "skip generating ValidatingAdmissionPolicy: " + msg
 		}
 	} else {
 		reason = "skip generating ValidatingAdmissionPolicy: not enabled."

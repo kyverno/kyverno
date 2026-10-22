@@ -80,6 +80,20 @@ func CanGenerateNativeMutatingPolicyExpressions(policy *policiesv1beta1.Mutating
 	if policy.Spec.TargetMatchConstraints != nil {
 		return false, "targetMatchConstraints cannot be represented by a native MutatingAdmissionPolicy"
 	}
+	// The native builders currently copy ResourceRules, but omit the other
+	// MatchResources selectors and exclusions. Do not broaden mutation scope.
+	if constraints := policy.Spec.MatchConstraints; constraints != nil {
+		if constraints.NamespaceSelector != nil ||
+			constraints.ObjectSelector != nil ||
+			constraints.MatchPolicy != nil ||
+			len(constraints.ExcludeResourceRules) > 0 {
+			return false, "matchConstraints selectors, matchPolicy and excludeResourceRules cannot be represented by the native MutatingAdmissionPolicy builder"
+		}
+	}
+	// The generated native MAP does not copy Kyverno audit annotations.
+	if len(policy.Spec.AuditAnnotations) > 0 {
+		return false, "auditAnnotations cannot be represented by the native MutatingAdmissionPolicy builder"
+	}
 	type expression struct {
 		source string
 		value  string
@@ -100,17 +114,13 @@ func CanGenerateNativeMutatingPolicyExpressions(policy *policiesv1beta1.Mutating
 		}
 	}
 
-	replacements := map[string]string{
-		"exceptions.allowedImages": "[]",
-		"exceptions.allowedValues": "[]",
-	}
 	for _, item := range expressions {
-		rewritten, err := replaceExpressions(item.value, replacements)
+		usesExceptions, err := referencesGlobalExceptions(item.value)
 		if err != nil {
 			return false, fmt.Sprintf("cannot inspect %s for native MutatingAdmissionPolicy generation: %v", item.source, err)
 		}
-		if rewritten != item.value {
-			return false, fmt.Sprintf("%s references exceptions.allowedImages or exceptions.allowedValues, which a native MutatingAdmissionPolicy cannot evaluate", item.source)
+		if usesExceptions {
+			return false, fmt.Sprintf("%s references the Kyverno-only exceptions variable, which a native MutatingAdmissionPolicy cannot evaluate", item.source)
 		}
 	}
 	return true, ""
@@ -141,6 +151,83 @@ func canGenerateWithMatchConditionLimit(kind string, exceptions []policiesv1beta
 			"generated %s would contain %d matchConditions; Kubernetes allows at most %d",
 			kind, combinedCount, maxMatchConditions,
 		)
+	}
+	return true, ""
+}
+
+// CanGenerateNativeValidatingPolicyExpressions checks expressions that need
+// exception rewriting and the generated variable limit before creating a VAP.
+func CanGenerateNativeValidatingPolicyExpressions(policy *policiesv1beta1.ValidatingPolicy, exceptions []policiesv1beta1.PolicyException) (bool, string) {
+	type expression struct {
+		source string
+		value  string
+		requiresVariable bool
+	}
+	var expressions []expression
+	for _, condition := range policy.Spec.MatchConditions {
+		expressions = append(expressions, expression{"matchCondition " + condition.Name, condition.Expression, false})
+	}
+	for _, variable := range policy.Spec.Variables {
+		expressions = append(expressions, expression{"variable " + variable.Name, variable.Expression, true})
+	}
+	for i, validation := range policy.Spec.Validations {
+		expressions = append(expressions,
+			expression{fmt.Sprintf("validation %d", i), validation.Expression, true},
+			expression{fmt.Sprintf("validation %d message", i), validation.MessageExpression, true},
+		)
+	}
+	for _, annotation := range policy.Spec.AuditAnnotations {
+		expressions = append(expressions, expression{"auditAnnotation " + annotation.Key, annotation.ValueExpression, true})
+	}
+
+	needsImages, needsValues := false, false
+	for _, exception := range exceptions {
+		needsImages = needsImages || len(exception.Spec.Images) > 0
+		needsValues = needsValues || len(exception.Spec.AllowedValues) > 0
+	}
+	for _, item := range expressions {
+		// Only these two exception fields can be represented in generated CEL.
+		for field, replacement := range map[string]string{
+			"exceptions.allowedImages": "[]",
+			"exceptions.allowedValues": "[]",
+		} {
+			rewritten, err := replaceExpressions(item.value, map[string]string{field: replacement})
+			if err != nil {
+				return false, fmt.Sprintf("cannot inspect %s for native ValidatingAdmissionPolicy generation: %v", item.source, err)
+			}
+			if item.requiresVariable && rewritten != item.value {
+				if field == "exceptions.allowedImages" {
+					needsImages = true
+				} else {
+					needsValues = true
+				}
+			}
+		}
+		rewritten, err := replaceExpressions(item.value, map[string]string{
+			"exceptions.allowedImages": "[]",
+			"exceptions.allowedValues": "[]",
+		})
+		if err != nil {
+			return false, fmt.Sprintf("cannot inspect %s for native ValidatingAdmissionPolicy generation: %v", item.source, err)
+		}
+		unsupported, err := referencesGlobalExceptions(rewritten)
+		if err != nil {
+			return false, fmt.Sprintf("cannot inspect %s for native ValidatingAdmissionPolicy generation: %v", item.source, err)
+		}
+		if unsupported {
+			return false, fmt.Sprintf("%s references an unsupported exceptions expression in native ValidatingAdmissionPolicy generation", item.source)
+		}
+	}
+	const maxVariables = 64
+	count := len(policy.Spec.Variables)
+	if needsImages {
+		count++
+	}
+	if needsValues {
+		count++
+	}
+	if count > maxVariables {
+		return false, fmt.Sprintf("generated ValidatingAdmissionPolicy would contain %d variables; Kubernetes allows at most %d", count, maxVariables)
 	}
 	return true, ""
 }

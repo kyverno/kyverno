@@ -86,3 +86,47 @@ func shadowsExceptions(node celast.NavigableExpr) bool {
 		child = parent
 	}
 }
+
+// referencesGlobalExceptions detects global CEL exception identifiers even when
+// they are used directly (e.g. "exceptions == null"), not just as field selectors.
+// Macro and cel.bind variables named exceptions are local and must not be flagged.
+func referencesGlobalExceptions(expression string) (bool, error) {
+	if !strings.Contains(expression, "exceptions") {
+		return false, nil
+	}
+	p, err := parser.NewParser(parser.EnableOptionalSyntax(true))
+	if err != nil {
+		return false, err
+	}
+	parsed, parseErrors := p.Parse(common.NewTextSource(expression))
+	if len(parseErrors.GetErrors()) != 0 {
+		return false, fmt.Errorf("failed to parse exception expression: %s", parseErrors.ToDisplayString())
+	}
+	for _, node := range celast.MatchDescendants(celast.NavigateAST(parsed), celast.KindMatcher(celast.IdentKind)) {
+		if node.AsIdent() != "exceptions" && node.AsIdent() != ".exceptions" {
+			continue
+		}
+		if node.AsIdent() == "exceptions" && (shadowsExceptions(node) || declaresLocalExceptions(node)) {
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
+}
+
+func declaresLocalExceptions(node celast.NavigableExpr) bool {
+	parent, ok := node.Parent()
+	if !ok || parent.Kind() != celast.CallKind {
+		return false
+	}
+	call := parent.AsCall()
+	args := call.Args()
+	if len(args) == 0 || args[0].ID() != node.ID() {
+		return false
+	}
+	switch call.FunctionName() {
+	case "all", "exists", "exists_one", "filter", "map", "bind":
+		return true
+	}
+	return false
+}

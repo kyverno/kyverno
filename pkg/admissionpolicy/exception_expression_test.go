@@ -106,3 +106,33 @@ func TestReplaceExpressions_RejectsInvalidCEL(t *testing.T) {
 	_, err := replaceExpressions("exceptions.allowedImages[", map[string]string{"exceptions.allowedImages": "[]"})
 	require.ErrorContains(t, err, "failed to parse exception expression")
 }
+
+func TestReferencesGlobalExceptions(t *testing.T) {
+	tests := []struct {
+		name string
+		expression string
+		want bool
+	}{
+		{"bare identifier", "exceptions == null", true},
+		{"supported global field", "exceptions.allowedImages.size() > 0", true},
+		{"unknown global field", "exceptions.otherField", true},
+		{"absolute identifier", ".exceptions.allowedValues", true},
+		{"member call on global", "exceptions.size()", true},
+		{"shadowed comprehension", "object.items.all(exceptions, exceptions != null)", false},
+		{"shadowed field", "object.items.all(exceptions, exceptions.allowedImages.size() > 0)", false},
+		{"global range with shadowed body", "exceptions.allowedImages.all(exceptions, exceptions != null)", true},
+		{"local binding", "cel.bind(exceptions, object, exceptions.allowedImages)", false},
+		{"initializer sees global", "cel.bind(exceptions, exceptions.allowedImages, exceptions)", true},
+		{"string literal", "'exceptions.allowedImages'", false},
+		{"resource field", "object.exceptions.allowedImages", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := referencesGlobalExceptions(tt.expression)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+	_, err := referencesGlobalExceptions("exceptions[")
+	require.Error(t, err)
+}
