@@ -222,14 +222,31 @@ func findMatchingBrace(content string) int {
 	return 0
 }
 
-// commentEnd returns the end offset of the CEL line comment starting at i.
-// Comments run from "//" to the end of the line.
+// commentEnd returns the end offset of the CEL comment starting at i.
+// Line comments run from "//" to the end of the line and block comments run
+// from "/*" through the closing "*/". Unterminated comments extend to the end
+// of the expression.
 func commentEnd(expression string, i int) (int, bool) {
+	if end, ok := blockCommentEnd(expression, i); ok {
+		return end, true
+	}
 	if i+1 >= len(expression) || expression[i] != '/' || expression[i+1] != '/' {
 		return 0, false
 	}
 	if offset := strings.IndexByte(expression[i+2:], '\n'); offset >= 0 {
 		return i + 2 + offset, true
+	}
+	return len(expression), true
+}
+
+// blockCommentEnd returns the end offset of the CEL block comment starting at
+// i. The end offset includes the closing delimiter.
+func blockCommentEnd(expression string, i int) (int, bool) {
+	if i+1 >= len(expression) || expression[i] != '/' || expression[i+1] != '*' {
+		return 0, false
+	}
+	if offset := strings.Index(expression[i+2:], "*/"); offset >= 0 {
+		return i + 2 + offset + 2, true
 	}
 	return len(expression), true
 }

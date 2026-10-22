@@ -744,6 +744,18 @@ func TestConvertPodToTemplateExpressionPreservesStringLiterals(t *testing.T) {
 			input:    `Object{metadata: Object.metadata{labels: {"note": "a // b"}}}`,
 			expected: `Object{spec: Object.spec{template: Object.spec.template{metadata: Object.spec.template.metadata{labels: {"note": "a // b"}}}}}`,
 		},
+		{
+			name:     "block comments are preserved while surrounding code is rewritten",
+			config:   "deployments",
+			input:    `Object{/* Object.metadata */ metadata: Object.metadata{labels: Object.metadata.labels{note: "Object.metadata" /* Object.metadata.labels */}}}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{/* Object.metadata */ metadata: Object.spec.template.metadata{labels: Object.spec.template.metadata.labels{note: "Object.metadata" /* Object.metadata.labels */}}}}}`,
+		},
+		{
+			name:     "braces inside block comments do not affect the wrapper",
+			config:   "deployments",
+			input:    `Object{metadata: Object.metadata{labels: Object.metadata.labels{note: "value" /* } Object.metadata */, annotations: Object.metadata.annotations{key: "value"}}}}`,
+			expected: `Object{spec: Object.spec{template: Object.spec.template{metadata: Object.spec.template.metadata{labels: Object.spec.template.metadata.labels{note: "value" /* } Object.metadata */, annotations: Object.spec.template.metadata.annotations{key: "value"}}}}}}`,
+		},
 	}
 
 	for _, tt := range tests {
