@@ -54,11 +54,10 @@ func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
 	if errs != nil {
 		t.Fatalf("compiling generation with exception: %v", errs)
 	}
-	compiled := policy.(*Policy)
-	if len(compiled.exceptions) != 1 {
-		t.Fatalf("expected one compiled exception, got %d", len(compiled.exceptions))
+	if len(policy.exceptions) != 1 {
+		t.Fatalf("expected one compiled exception, got %d", len(policy.exceptions))
 	}
-	compiled.exceptions[0].Now = func() time.Time { return now }
+	policy.exceptions[0].Now = func() time.Time { return now }
 	before, err := policy.Evaluate(context.Background(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
 	if err != nil || before == nil || len(before.Exceptions) != 1 || len(before.GeneratedResources) != 0 {
 		t.Fatalf("active exception unexpectedly allowed generation: result=%#v err=%v", before, err)
