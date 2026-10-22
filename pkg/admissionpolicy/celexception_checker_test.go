@@ -337,9 +337,9 @@ func TestCanGenerateNativeMutatingPolicyExpressions(t *testing.T) {
 
 func TestCanGenerateNativeMutatingPolicyExpressions_MatchConditionVariables(t *testing.T) {
 	tests := []struct {
-		name string
+		name       string
 		expression string
-		want bool
+		want       bool
 	}{
 		{name: "global variable selection", expression: "variables.allowed", want: false},
 		{name: "global variable identifier", expression: "variables == null", want: false},
