@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
 	"github.com/kyverno/kyverno/pkg/event"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -84,7 +85,7 @@ func (h *handler) mutate(ctx context.Context, admissionRequest handlers.Admissio
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
 	rawPatches := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
-	admissionResponse := h.mutationResponse(request, response, rawPatches)
+	admissionResponse := h.mutationResponse(ctx, request, response, rawPatches)
 	h.mutationEvents(ctx, response, !admissionResponse.Allowed)
 	return admissionResponse
 }
@@ -113,19 +114,27 @@ func (h *handler) validate(ctx context.Context, logger logr.Logger, admissionReq
 	group.Start(func() {
 		h.audit(ctx, logger, admissionRequest, request, response)
 	})
-	return h.validationResponse(request, response)
+	return h.validationResponse(ctx, request, response)
 }
 
-func (h *handler) mutationResponse(request celengine.EngineRequest, response eval.ImageVerifyEngineResponse, rawPatches []byte) handlers.AdmissionResponse {
+// an error carrying a refused exception means the policy itself failed, so it blocks regardless
+func errorBlocks(rule engineapi.RuleResponse, failurePolicy admissionregistrationv1.FailurePolicyType) bool {
+	return failurePolicy == admissionregistrationv1.Fail || len(rule.Exceptions()) > 0
+}
+
+func (h *handler) mutationResponse(ctx context.Context, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse, rawPatches []byte) handlers.AdmissionResponse {
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
+		failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
 			switch policy.Result.Status() {
 			case engineapi.RuleStatusFail:
 				errs = append(errs, fmt.Errorf("Policy %s failed: %s", policy.Policy.GetName(), policy.Result.Message()))
 			case engineapi.RuleStatusError:
-				errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				if errorBlocks(policy.Result, failurePolicy) {
+					errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				}
 			}
 		}
 
@@ -171,16 +180,19 @@ func (h *handler) mutationEvents(ctx context.Context, response eval.ImageVerifyE
 	h.admissionEvent(ctx, responses, blocked)
 }
 
-func (h *handler) validationResponse(request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) handlers.AdmissionResponse {
+func (h *handler) validationResponse(ctx context.Context, request celengine.EngineRequest, response eval.ImageVerifyEngineResponse) handlers.AdmissionResponse {
 	var errs []error
 	var warnings []string
 	for _, policy := range response.Policies {
+		failurePolicy := policy.Policy.GetFailurePolicy(toggle.FromContext(ctx).ForceFailurePolicyIgnore())
 		if policy.Actions.Has(admissionregistrationv1.Deny) {
 			switch policy.Result.Status() {
 			case engineapi.RuleStatusFail:
 				errs = append(errs, fmt.Errorf("Policy %s failed: %s", policy.Policy.GetName(), policy.Result.Message()))
 			case engineapi.RuleStatusError:
-				errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				if errorBlocks(policy.Result, failurePolicy) {
+					errs = append(errs, fmt.Errorf("Policy %s error: %s", policy.Policy.GetName(), policy.Result.Message()))
+				}
 			}
 		}
 		if policy.Actions.Has(admissionregistrationv1.Warn) {
