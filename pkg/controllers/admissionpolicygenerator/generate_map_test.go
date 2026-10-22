@@ -171,7 +171,7 @@ func TestMapGenerationSkipReason(t *testing.T) {
 		{
 			name: "JSON evaluation cannot generate native MAP",
 			policy: &policiesv1beta1.MutatingPolicy{Spec: policiesv1beta1.MutatingPolicySpec{
-				AutogenConfiguration: mapGenEnabled(),
+				AutogenConfiguration:    mapGenEnabled(),
 				EvaluationConfiguration: &policiesv1beta1.MutatingPolicyEvaluationConfiguration{Mode: "JSON"},
 			}},
 			wantSkip:   true,

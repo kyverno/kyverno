@@ -837,6 +837,22 @@ func TestEnsureUniqueExceptionMatchConditionNames(t *testing.T) {
 	assert.Equal(t, strings.Repeat("a", 61)+"-2", got[0].Name)
 }
 
+func TestEnsureUniqueExceptionMatchConditionNames_QualifiedName(t *testing.T) {
+	prefix := strings.Repeat("a", 60)
+	name := prefix + "/" + strings.Repeat("b", 63)
+	generated := []admissionregistrationv1.MatchCondition{
+		{Name: name, Expression: "false"},
+		{Name: name, Expression: "true"},
+	}
+	existing := []admissionregistrationv1.MatchCondition{{Name: name, Expression: "true"}}
+
+	got := ensureUniqueExceptionMatchConditionNames(generated, existing)
+	require.Len(t, got, 2)
+	assert.Equal(t, prefix+"/"+strings.Repeat("b", 61)+"-2", got[0].Name)
+	assert.Equal(t, prefix+"/"+strings.Repeat("b", 61)+"-3", got[1].Name)
+	assert.Equal(t, name, existing[0].Name)
+}
+
 func TestEnsureUniqueExceptionMatchConditionNames_MaxLength(t *testing.T) {
 	longName := strings.Repeat("a", 63)
 	existing := []admissionregistrationv1.MatchCondition{{Name: longName, Expression: "true"}}
