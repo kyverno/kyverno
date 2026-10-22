@@ -370,8 +370,6 @@ var (
 		}
 	}`
 
-	// Policy whose message is a single variable reference to a non-string
-	// field, so substitution resolves to the raw value rather than a string.
 	validateNonStringMessagePolicy = `{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
@@ -395,6 +393,26 @@ var (
 		}
 	}`
 
+	validateNonStringMessageAnyPatternPolicy = `{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test-non-string-message-anypattern"},
+		"spec": {
+			"rules": [{
+				"name": "require-size-label",
+				"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+				"validate": {
+					"failureAction": "Enforce",
+					"message": "{{ request.object.metadata.generation }}",
+					"anyPattern": [
+						{"metadata": {"labels": {"size": "small"}}},
+						{"metadata": {"labels": {"size": "large"}}}
+					]
+				}
+			}]
+		}
+	}`
+
 	resourceWithNumericGeneration = `{
 		"apiVersion": "v1",
 		"kind": "Pod",
@@ -408,25 +426,26 @@ var (
 	}`
 )
 
-// buildErrorMessage and buildAnyPatternErrorMessage substitute the rule's
-// message template and previously asserted the result directly to a string.
-// A message consisting of exactly one variable reference (no surrounding
-// text) substitutes to the *raw* resolved value instead, so a reference to
-// a non-string field such as metadata.generation used to panic here.
 func Test_validateMessage_NonStringSubstitution_DoesNotPanic(t *testing.T) {
 	mockCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
 		return nil
 	}
 
-	policyContext := buildContext(t, kyvernov1.Create, validateNonStringMessagePolicy, resourceWithNumericGeneration, "")
-	rule := policyContext.Policy().GetSpec().Rules[0]
-	v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+	for name, policy := range map[string]string{
+		"pattern":    validateNonStringMessagePolicy,
+		"anyPattern": validateNonStringMessageAnyPatternPolicy,
+	} {
+		t.Run(name, func(t *testing.T) {
+			policyContext := buildContext(t, kyvernov1.Create, policy, resourceWithNumericGeneration, "")
+			rule := policyContext.Policy().GetSpec().Rules[0]
+			v := newValidator(logr.Discard(), mockCL, policyContext, rule)
 
-	ctx := context.TODO()
-	assert.NotPanics(t, func() {
-		resp := v.validate(ctx)
-		assert.NotNil(t, resp)
-		assert.Equal(t, api.RuleStatusFail, resp.Status())
-		assert.NotEmpty(t, resp.Message())
-	})
+			assert.NotPanics(t, func() {
+				resp := v.validate(context.TODO())
+				assert.NotNil(t, resp)
+				assert.Equal(t, api.RuleStatusFail, resp.Status())
+				assert.Contains(t, resp.Message(), "5")
+			})
+		})
+	}
 }
