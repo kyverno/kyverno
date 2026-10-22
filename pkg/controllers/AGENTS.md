@@ -58,8 +58,10 @@ That table lists `admission-report-controller` and `update-request-controller` a
 entries. Neither exists as a `ControllerName` string in the current codebase:
 - The `admission-report-controller` responsibility appears folded into `report/aggregate`'s two-queue design rather
   than being its own controller.
-- `update-request-controller`'s actual code lives **outside `pkg/controllers` entirely**, in the legacy
+- `update-request-controller`'s actual code lives **outside `pkg/controllers` entirely**, in the
   `pkg/background` package (`pkg/background/update_request_controller.go`), registered under the name
-  `"background-controller"` in `cmd/background-controller/main.go` — not `update-request-controller`. This matches
-  that README's own disclaimer ("most controllers... except for some legacy controllers") but the specific name has
-  drifted from the code. If you're touching that doc, fix these two rows; don't assume the table is fully current.
+  `"background-controller"` in `cmd/background-controller/main.go` — not `update-request-controller`. Despite its
+  name, `pkg/background` itself only processes the CEL `gpol`/`mpol` request types now (#17710 PR 2); it is not a
+  "legacy controller" in the sense the README's disclaimer means. This matches that README's own disclaimer
+  ("most controllers... except for some legacy controllers") but the specific name has drifted from the code. If
+  you're touching that doc, fix these two rows; don't assume the table is fully current.
