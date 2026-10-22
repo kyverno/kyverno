@@ -3,6 +3,7 @@ package webhook
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -12,7 +13,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"golang.org/x/exp/maps"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -99,7 +99,7 @@ func collectResourceDescriptions(rule kyvernov1.Rule, defaultOps ...kyvernov1.Ad
 			}
 			kinds := value.Kinds
 			if len(kinds) == 0 {
-				kinds = maps.Keys(out)
+				kinds = slices.Collect(maps.Keys(out))
 			}
 			ops := value.Operations
 			if len(ops) == 0 {

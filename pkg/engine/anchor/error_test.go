@@ -1,9 +1,11 @@
 package anchor
 
 import (
-	"errors"
+	"fmt"
 	"reflect"
 	"testing"
+
+	"go.uber.org/multierr"
 )
 
 func Test_validateAnchorError_Error(t *testing.T) {
@@ -161,9 +163,14 @@ func TestIsNegationAnchorError(t *testing.T) {
 		want: false,
 	}, {
 		args: args{
-			err: errors.New("negation anchor matched in resource: test"),
+			err: fmt.Errorf("wrapped: %w", newNegationAnchorError("test")),
 		},
 		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("plain error with negation anchor matched in resource text"),
+		},
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -204,9 +211,14 @@ func TestIsConditionalAnchorError(t *testing.T) {
 		want: false,
 	}, {
 		args: args{
-			err: errors.New("conditional anchor mismatch: test"),
+			err: fmt.Errorf("wrapped: %w", newConditionalAnchorError("test")),
 		},
 		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("plain error with conditional anchor mismatch text"),
+		},
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -247,9 +259,14 @@ func TestIsGlobalAnchorError(t *testing.T) {
 		want: false,
 	}, {
 		args: args{
-			err: errors.New("global anchor mismatch: test"),
+			err: fmt.Errorf("wrapped: %w", newGlobalAnchorError("test")),
 		},
 		want: true,
+	}, {
+		args: args{
+			err: fmt.Errorf("plain error with global anchor mismatch text"),
+		},
+		want: false,
 	}, {
 		args: args{
 			err: newConditionalAnchorError("test"),
@@ -272,5 +289,23 @@ func TestIsGlobalAnchorError(t *testing.T) {
 				t.Errorf("IsGlobalAnchorError() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestAnchorErrorsInCombinedErrors(t *testing.T) {
+	conditional := newConditionalAnchorError("cond")
+	global := newGlobalAnchorError("global")
+	combined := multierr.Combine(conditional, global)
+	wrapped := fmt.Errorf("wrapped: %w", multierr.Combine(global, conditional))
+	for _, err := range []error{combined, wrapped} {
+		if !IsConditionalAnchorError(err) {
+			t.Errorf("IsConditionalAnchorError(%v) = false, want true", err)
+		}
+		if !IsGlobalAnchorError(err) {
+			t.Errorf("IsGlobalAnchorError(%v) = false, want true", err)
+		}
+		if IsNegationAnchorError(err) {
+			t.Errorf("IsNegationAnchorError(%v) = true, want false", err)
+		}
 	}
 }
