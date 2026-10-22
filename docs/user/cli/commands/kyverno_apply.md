@@ -64,7 +64,7 @@ kyverno apply [flags]
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
       --output-dir string                  Prints the mutated/generated resources in provided file/directory
-      --output-format string               Specifies the output format (table, json, yaml)
+      --output-format string               Specifies the output format for reports, exceptions, and table results (table, json, yaml); mutated resource files remain YAML
       --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters
       --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
