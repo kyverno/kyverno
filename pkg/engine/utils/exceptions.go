@@ -41,7 +41,9 @@ func MatchesExceptionWithContext(ctx context.Context, client engineapi.Client, p
 	// This avoids an API call per rule evaluation on every admission request.
 	if isCluster && anyUsesNamespaceSelector(polexs) {
 		if resource.GetNamespace() != "" {
-			namespace, err := client.GetNamespace(ctx, resource.GetNamespace(), metav1.GetOptions{})
+			// Detach from cancellation: a canceled lookup would return no exceptions and
+			// silently turn an excepted resource into a failure. Tracing values are kept.
+			namespace, err := client.GetNamespace(context.WithoutCancel(ctx), resource.GetNamespace(), metav1.GetOptions{})
 			if err != nil {
 				logger.Error(err, "failed to get namespace", "name", resource.GetNamespace())
 				return nil
