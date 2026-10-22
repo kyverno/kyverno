@@ -73,11 +73,11 @@ The policy controller processes all adds, deletes, and updates to installed CEL 
 
 ### Reports Controller
 
-The report controller is responsible for creation of policy reports from both admission requests and background scans and requires leader election. It tracks resources that need to be processed in the background and generates background scan reports (when policy/resource change). It also aggregates these and the intermediary admission reports into the final policy report resources `PolicyReport` and `ClusterPolicyReport`.
+The report controller is responsible for creation of policy reports from both admission requests and background scans and requires leader election. It tracks resources that need to be processed in the background and generates background scan reports (when a CEL policy, ValidatingAdmissionPolicy, or MutatingAdmissionPolicy or resource changes). It also aggregates these and the intermediary admission reports into the final policy report resources `PolicyReport` and `ClusterPolicyReport`.
 
 #### Background Scan Controller
 
-This component performs all the background scans in a cluster when the designated interval elapses and creates the intermediary resources `BackgroundScanReport` and `ClusterBackgroundScanReport`.
+This component performs all the background scans in a cluster when the designated interval elapses and creates the intermediary resources `BackgroundScanReport` and `ClusterBackgroundScanReport` for CEL policies and ValidatingAdmissionPolicy/MutatingAdmissionPolicy.
 
 #### AdmissionReport Aggregator
 
@@ -85,7 +85,7 @@ This component takes the synchronously-generated AdmissionReport resources from 
 
 #### Policy Report Aggregator
 
-This component aggregates both the background and admission intermediary reports into the final resources `PolicyReport` and `ClusterPolicyReport`.
+This component aggregates both the background and admission intermediary reports into the final resources `PolicyReport` and `ClusterPolicyReport`. On each leader start, it reconciles every existing report once and drops any result whose policy no longer exists.
 
 ### Cleanup Controller
 
