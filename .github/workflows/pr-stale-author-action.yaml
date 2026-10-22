@@ -39,7 +39,8 @@ on:
 
 jobs:
   sweep:
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       pull-requests: write
       issues: write
