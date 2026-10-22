@@ -773,6 +773,7 @@ func TestAutogenGeneratedExpressionsCompile(t *testing.T) {
 			},
 			Mutations: []admissionregistrationv1alpha1.Mutation{
 				{
+					PatchType:          admissionregistrationv1alpha1.PatchTypeApplyConfiguration,
 					ApplyConfiguration: &admissionregistrationv1alpha1.ApplyConfiguration{
 						Expression: `Object{metadata: Object.metadata{labels: Object.metadata.labels{note: "Object.metadata"}}}`,
 					},
