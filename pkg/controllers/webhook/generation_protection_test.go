@@ -314,14 +314,17 @@ func TestGenerationLabelProtectionReconciliationHonorsForceFailurePolicyIgnore(t
 	}))
 
 	c := &controller{
-		defaultTimeout:    10,
-		servicePort:       443,
-		caSecretName:      "ca",
-		configuration:     config.NewDefaultConfiguration(false),
-		vwcClient:         client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
-		vwcLister:         admissionregistrationv1listers.NewValidatingWebhookConfigurationLister(webhooks),
-		secretLister:      corev1listers.NewSecretLister(secrets),
-		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		defaultTimeout:     10,
+		servicePort:        443,
+		caSecretName:       "ca",
+		autoUpdateWebhooks: true,
+		configuration:      config.NewDefaultConfiguration(false),
+		vwcClient:          client.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		vwcLister:          admissionregistrationv1listers.NewValidatingWebhookConfigurationLister(webhooks),
+		secretLister:       corev1listers.NewSecretLister(secrets),
+		leaseLister:        coordinationv1listers.NewLeaseLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		clusterroleLister:  rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		celExpressionCache: NewExpressionCache(),
 	}
 
 	require.NoError(t, c.reconcileResourceValidatingWebhookConfiguration(ctx))
