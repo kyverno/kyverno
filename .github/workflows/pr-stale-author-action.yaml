@@ -91,7 +91,11 @@ jobs:
                     ... on Mannequin { login }
                     ... on Team { combinedSlug }
                   } } }
-                  comments(last: 100) { totalCount nodes { author { login __typename } createdAt body } }
+                  comments(last: 100) {
+                    totalCount
+                    pageInfo { hasPreviousPage startCursor }
+                    nodes { author { login __typename } createdAt body }
+                  }
                   reviews(last: 100) { totalCount nodes { author { login __typename } submittedAt } }
                   timelineItems(last: 100, itemTypes: [LABELED_EVENT, UNLABELED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, PULL_REQUEST_COMMIT]) {
                     pageInfo { hasPreviousPage startCursor }
@@ -122,13 +126,13 @@ jobs:
                    | select(. != null and (.login or .combinedSlug))
                    | if .__typename == "Team" then {__typename, slug: .combinedSlug} else {__typename, login} end]}' \
               raw.json > pr.json || return 1
-            jq '[.data.repository.pullRequest.comments.nodes[]
-                 | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .createdAt, body: (.body // "")}]' \
-              raw.json > issue-comments.json || return 1
+            jq -n '[]' > comment-pages.json || return 1
+            jq '.data.repository.pullRequest.comments.pageInfo' raw.json > comment-page-info.json || return 1
+            append_comment_page raw.json || return 1
             jq '[.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt != null)
                  | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .submittedAt}]' \
               raw.json > reviews.json || return 1
-            jq -n '[.[]]' > timeline-pages.json
+            jq -n '[]' > timeline-pages.json || return 1
             jq '.data.repository.pullRequest.timelineItems.pageInfo' raw.json > timeline-page-info.json || return 1
             append_timeline_page raw.json || return 1
             while needs_timeline_history; do
@@ -161,6 +165,29 @@ jobs:
                 }
               }
             }'
+
+          comments_query='
+            query($owner: String!, $name: String!, $number: Int!, $cursor: String!) {
+              repository(owner: $owner, name: $name) {
+                pullRequest(number: $number) {
+                  comments(last: 100, before: $cursor) {
+                    pageInfo { hasPreviousPage startCursor }
+                    nodes { author { login __typename } createdAt body }
+                  }
+                }
+              }
+            }'
+
+          append_comment_page() {
+            local page="$1"
+            jq '[.data.repository.pullRequest.comments.nodes[]
+                 | {u: (.author.login // "ghost"), t: (.author.__typename // "User"), at: .createdAt, body: (.body // "")}]' \
+              "$page" > comment-current-page.json || return 1
+            jq --slurpfile page comment-current-page.json '. + [$page[0]]' \
+              comment-pages.json > comment-pages-next.json || return 1
+            mv comment-pages-next.json comment-pages.json
+            jq 'reverse | add // []' comment-pages.json > issue-comments.json || return 1
+          }
 
           append_timeline_page() {
             local page="$1"
@@ -237,8 +264,7 @@ jobs:
 
           # GitHub does not expose ordinary push times; persist when this workflow first sees a commit added after the label.
           late_commit_observed_at() {
-            local n="$1"
-            local oid observed marker
+            local n="$1" oid observed cursor
             oid=$(late_commit_oid) || return 1
             [[ -z "$oid" ]] && { printf '0'; return 0; }
             observed=$(jq -r --arg oid "$oid" '
@@ -246,11 +272,23 @@ jobs:
                | try capture("<!-- pr-stale-author-action: observed (?<oid>[0-9a-f]+) (?<at>[0-9]+) -->") catch empty
                | select(.oid == $oid) | .at] | last // ""
             ' issue-comments.json) || return 1
+            while [[ -z "$observed" && "$(jq -r '.hasPreviousPage' comment-page-info.json)" == "true" ]]; do
+              cursor=$(jq -r '.startCursor' comment-page-info.json)
+              gh api graphql -f query="$comments_query" -f owner="${repo%/*}" -f name="${repo#*/}" \
+                -F number="$n" -f cursor="$cursor" > comments-page.json || return 1
+              jq '.data.repository.pullRequest.comments.pageInfo' comments-page.json > comment-page-info.json || return 1
+              append_comment_page comments-page.json || return 1
+              observed=$(jq -r --arg oid "$oid" '
+                [.[] | select(.t == "Bot") | .body
+                 | try capture("<!-- pr-stale-author-action: observed (?<oid>[0-9a-f]+) (?<at>[0-9]+) -->") catch empty
+                 | select(.oid == $oid) | .at] | last // ""
+              ' issue-comments.json) || return 1
+            done
             if [[ -n "$observed" ]]; then
               printf '%s' "$observed"
               return 0
             fi
-            marker="<!-- pr-stale-author-action: observed $oid $now -->"
+            local marker="<!-- pr-stale-author-action: observed $oid $now -->"
             printf '%s\n' "$marker" > body.md
             act gh pr comment "$n" --repo "$repo" --body-file body.md >&2 || return 1
             printf '%s' "$now"
