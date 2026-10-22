@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -134,5 +135,34 @@ func TestClusterLoader_Close(t *testing.T) {
 		_, cancel := context.WithCancel(context.Background())
 		assert.NoError(t, loader.Close(cancel))
 		assert.NoError(t, loader.Close(cancel))
+	})
+}
+
+func TestClusterLoader_executeTasks_Timeout(t *testing.T) {
+	// A pool with no workers never produces results, so the only way out is the timer.
+	newLoader := func(continueOnError bool) *ClusterLoader {
+		ctx, cancel := context.WithCancel(context.Background())
+		t.Cleanup(cancel)
+		wp := NewWorkerPool(ctx, WorkerPoolConfig{Workers: 0, QueueSize: 4, Logger: logrus.New()})
+		return &ClusterLoader{
+			workerPool: wp,
+			resourceOptions: ResourceOptions{
+				Timeout:         50 * time.Millisecond,
+				ContinueOnError: continueOnError,
+			},
+		}
+	}
+	tasks := []LoadTask{{ID: "task-0"}, {ID: "task-1"}}
+
+	t.Run("continue on error returns partial results", func(t *testing.T) {
+		results, err := newLoader(true).executeTasks(context.Background(), tasks)
+		assert.NoError(t, err)
+		assert.Empty(t, results)
+	})
+
+	t.Run("timeout is an error without continue on error", func(t *testing.T) {
+		results, err := newLoader(false).executeTasks(context.Background(), tasks)
+		assert.Error(t, err)
+		assert.Nil(t, results)
 	})
 }
