@@ -42,13 +42,6 @@ func UpdateStatus(ctx context.Context, client versioned.Interface, urLister kyve
 	return ur, nil
 }
 
-func PolicyKey(namespace, name string) string {
-	if namespace != "" {
-		return namespace + "/" + name
-	}
-	return name
-}
-
 func ResourceSpecFromUnstructured(obj unstructured.Unstructured) kyvernov1.ResourceSpec {
 	return kyvernov1.ResourceSpec{
 		APIVersion: obj.GetAPIVersion(),

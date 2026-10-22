@@ -26,7 +26,7 @@
 #      resource name, plus the migration guidance
 #   B. no legacy CR exists   -> the Job must SUCCEED, with logs reporting no
 #                                legacy resources found
-#   C. a legacy CR exists, upgrade.allowLegacyPolicies=true (opt-out)
+#   C. a legacy CR exists, upgrade.acknowledgeLegacyPoliciesNotEnforced=true (opt-out)
 #                             -> the hook Job (and its ServiceAccount/RBAC)
 #                                must not be rendered at all, so the install
 #                                proceeds
@@ -43,12 +43,13 @@
 # named "kind-production" - or the operator has explicitly opted in. See
 # the guard below.
 #
-# Kyverno must be installed in 1.20 migration-grace mode
-# (features.blockLegacyPolicyAPIs.enabled=false). By default that block is on,
-# and its admission webhook rejects the legacy fixtures this script creates, so
-# scenario A would fail before the hook Job runs. The CI helm-tests job installs
-# with that flag; a manual run must do the same, e.g.:
-#   EXPLICIT_INSTALL_SETTINGS='--set features.blockLegacyPolicyAPIs.enabled=false' make kind-install-kyverno
+# Starting in 1.20 the write-time admission block is unconditional - there is
+# no opt-out install mode - so scenario A creates its five legacy fixtures
+# while the policy/cleanup/exception ValidatingWebhookConfigurations are
+# temporarily absent (deleted just before the fixtures are applied, then
+# waited for after), rather than via an install-time flag. The running
+# controllers reconcile those webhook configurations declaratively, so they
+# reappear on their own once the fixtures already exist.
 #
 # Usage: scripts/verify-legacy-policy-hook.sh
 #
@@ -356,6 +357,26 @@ assert_hook_absent() {
 log "scenario A: an instance of each of the five legacy kinds exists, expect the hook Job to FAIL"
 kubectl create namespace "${FIXTURE_NAMESPACE}" >/dev/null
 
+# The write-time block is unconditional, so create the fixtures while the
+# three ValidatingWebhookConfigurations that would deny them are briefly
+# absent, then wait for the running controllers to recreate them before
+# running the hook Job - the Job is what this scenario is actually testing,
+# not the webhook gate (see pkg/deprecations/block_test.go for that coverage).
+#
+# ASSUMPTION, not verified against a live cluster: deleting these
+# ValidatingWebhookConfigurations opens a real (if brief) window where
+# nothing blocks a create against the matching kinds, and the running
+# webhook controller reconciles each one back once it next syncs. If the
+# controller instead treats an externally-deleted webhook configuration as
+# "already correct, nothing to do" (no requeue on delete), the "waiting for
+# ... to be reconciled back" loop below will time out and this scenario will
+# need a different ungating mechanism (e.g. briefly scaling the controller
+# Deployment to 0, or exercising the hook Job against the raw render instead
+# of a live create). Whoever runs this against a cluster should confirm
+# which behavior actually occurs before trusting this script's PASS/FAIL.
+LEGACY_WEBHOOK_CONFIGS="kyverno-policy-validating-webhook-cfg kyverno-cleanup-validating-webhook-cfg kyverno-exception-validating-webhook-cfg"
+kubectl delete validatingwebhookconfiguration ${LEGACY_WEBHOOK_CONFIGS} --ignore-not-found >/dev/null
+
 kubectl apply -f - <<EOF >/dev/null
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -444,6 +465,18 @@ spec:
         - Pod
 EOF
 
+log "scenario A: waiting for the policy/cleanup/exception webhook configurations to be reconciled back"
+for cfg in ${LEGACY_WEBHOOK_CONFIGS}; do
+  waited=0
+  while ! kubectl get validatingwebhookconfiguration "${cfg}" >/dev/null 2>&1; do
+    waited=$((waited + 2))
+    if [ "${waited}" -ge 60 ]; then
+      fail "scenario A: ${cfg} was not recreated within 60s"
+    fi
+    sleep 2
+  done
+done
+
 apply_hook_and_wait "${WORK_DIR}/hook-blocked.yaml"
 
 FAILED_STATUS="$(job_condition Failed)"
@@ -490,7 +523,7 @@ assert_kind_logged "ClusterCleanupPolicy" "${CLUSTERCLEANUPPOLICY_NAME}"
 assert_kind_logged "PolicyException" "${FIXTURE_NAMESPACE}/${POLICYEXCEPTION_NAME}"
 echo "${LOGS}" | grep -qi "migrate" \
   || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing migration guidance"; }
-echo "${LOGS}" | grep -q "upgrade.allowLegacyPolicies=true" \
+echo "${LOGS}" | grep -q "upgrade.acknowledgeLegacyPoliciesNotEnforced=true" \
   || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the opt-out hint"; }
 log "PASS: scenario A (Job failed, exit code ${EXIT_CODE}, logs contain count/name/migration guidance for all five kinds)"
 
@@ -538,7 +571,7 @@ metadata:
 spec:
   rules: []
 EOF
-assert_hook_absent "hook-optout" --set upgrade.allowLegacyPolicies=true
+assert_hook_absent "hook-optout" --set upgrade.acknowledgeLegacyPoliciesNotEnforced=true
 log "PASS: scenario C (opt-out set with a legacy CR present -> hook Job not rendered)"
 
 log "scenario D: legacyPolicyCheck.enabled=false, expect hook Job NOT rendered"

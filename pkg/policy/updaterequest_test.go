@@ -1,17 +1,32 @@
 package policy
 
 import (
+	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	common "github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+// captureURGenerator is a test double for generator.UpdateRequestGenerator
+// that records the UpdateRequest it was asked to generate instead of calling
+// the API server.
+type captureURGenerator struct {
+	captured []*kyvernov2.UpdateRequest
+}
+
+func (g *captureURGenerator) Generate(_ context.Context, _ versioned.Interface, resource *kyvernov2.UpdateRequest, _ logr.Logger) (*kyvernov2.UpdateRequest, error) {
+	g.captured = append(g.captured, resource.DeepCopy())
+	return nil, nil
+}
 
 func makeUR(n int) *kyvernov2.UpdateRequest {
 	ur := &kyvernov2.UpdateRequest{}

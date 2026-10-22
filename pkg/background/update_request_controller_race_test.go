@@ -124,7 +124,7 @@ type raceEngine struct {
 	attempts atomic.Int32
 }
 
-func (e *raceEngine) Handle(_ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
+func (e *raceEngine) Handle(_ context.Context, _ celengine.EngineRequest, p gpolengine.Policy, _ bool) (gpolengine.EngineResponse, error) {
 	e.attempts.Add(1)
 	gvk := e.target.GroupVersionKind()
 	if _, err := e.client.Discovery().GetGVRFromGVK(gvk); err != nil {
@@ -230,16 +230,10 @@ func testNewCRDDiscoveryRace(t *testing.T, readyAfter time.Duration) {
 	kyvernoClient := kyvernofake.NewSimpleClientset()
 	factory := kyvernoinformers.NewSharedInformerFactory(kyvernoClient, 0)
 	urInformer := factory.Kyverno().V2().UpdateRequests()
-	// syncUpdateRequest always looks up ur.Spec.Policy as a legacy policy
-	// too, so these listers must be non-nil even though the lookup misses.
-	cpolInformer := factory.Kyverno().V1().ClusterPolicies()
-	polInformer := factory.Kyverno().V1().Policies()
 
 	c := &controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		cpolLister:    cpolInformer.Lister(),
-		polLister:     polInformer.Lister(),
 		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[any](),
@@ -261,7 +255,7 @@ func testNewCRDDiscoveryRace(t *testing.T, readyAfter time.Duration) {
 	stop := make(chan struct{})
 	defer close(stop)
 	factory.Start(stop)
-	if !cache.WaitForCacheSync(stop, urInformer.Informer().HasSynced, cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced) {
+	if !cache.WaitForCacheSync(stop, urInformer.Informer().HasSynced) {
 		t.Fatal("failed to sync informers")
 	}
 

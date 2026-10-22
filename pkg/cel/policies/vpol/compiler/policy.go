@@ -111,6 +111,7 @@ func (p *Policy) evaluateWithData(
 		compiler.OldObjectKey:       data.OldObject,
 		compiler.RequestKey:         data.Request,
 	}
+	libs.BindRequestContext(ctx, data.Context, dataNew)
 	// check if the resource matches an exception
 	var refused *RefusedException
 	if len(p.exceptions) > 0 {
@@ -222,6 +223,13 @@ func (p *Policy) evaluateWithData(
 					})
 				}
 			}
+			// A resource refusal must win over a value. When the per-request budget is
+			// exhausted by a program that otherwise completed, ContextEval returns BOTH a
+			// usable value and the refusal, so checking out first discards the refusal and
+			// the variable evaluates as if the budget had never been exceeded.
+			if compiler.IsResourceError(err) {
+				return types.WrapErr(err)
+			}
 			if out != nil {
 				return out
 			}
@@ -275,10 +283,10 @@ func (p *Policy) evaluateWithData(
 			ran(index, trace.VerdictFail)
 			message, msgErr := p.resolveMessage(ctx, dataNew, validation, fmt.Sprintf("CEL expression validation failed at index %d", index))
 			verdict.Status, verdict.Message = trace.VerdictFail, message
+			// an audit annotation error must not mask the failure
 			auditAnnotations, err := p.evaluateAuditAnnotations(ctx, dataNew)
 			if err != nil {
-				verdict.Status, verdict.Message = trace.VerdictError, err.Error()
-				return &EvaluationResult{Error: err, Index: index, Trace: decision()}, nil
+				auditAnnotations = nil
 			}
 			return &EvaluationResult{
 				Result:                 outcome,
@@ -334,7 +342,10 @@ func buildExpressionTrace(ast *cel.Ast, out ref.Val, details *cel.EvalDetails, e
 	if ast != nil {
 		source = ast.Source().Content()
 	}
-	return trace.Build(source, ast, out, details)
+	et := trace.Build(source, ast, out, details)
+	// an expression with an external or non-repeatable call is never re-run to explain it
+	et.NoBreakdown = compiler.NoBreakdownReason(ast)
+	return et
 }
 
 // resolveMessage returns the message to report for a failed validation, preferring

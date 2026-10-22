@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Pod
-metadata:
-  name: example
-spec:
-  containers:
-  - image: public.ecr.aws/docker/library/nginx:latest
-    name: example
