@@ -85,7 +85,7 @@ This component takes the synchronously-generated AdmissionReport resources from 
 
 #### Policy Report Aggregator
 
-This component aggregates both the background and admission intermediary reports into the final resources `PolicyReport` and `ClusterPolicyReport`, and drops any result whose policy no longer exists. If legacy `ClusterPolicy`/`Policy` are still present on the cluster, it also reconciles every existing report once on leader start to prune their legacy results.
+This component aggregates both the background and admission intermediary reports into the final resources `PolicyReport` and `ClusterPolicyReport`, and drops any result whose policy no longer exists, along with every legacy `source: kyverno` result even while its `ClusterPolicy` or `Policy` is still installed. If legacy `ClusterPolicy`/`Policy` are still present on the cluster, it also reconciles every existing report once on leader start to prune their legacy results.
 
 ### Cleanup Controller
 

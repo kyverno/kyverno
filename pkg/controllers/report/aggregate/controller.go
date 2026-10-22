@@ -431,7 +431,9 @@ func (c *controller) legacyPoliciesPresent(ctx context.Context) (bool, error) {
 		gvr := kyvernov1.SchemeGroupVersion.WithResource(resource)
 		list, err := c.metaClient.Resource(gvr).List(ctx, metav1.ListOptions{Limit: 1})
 		if err != nil {
-			if apierrors.IsNotFound(err) {
+			// CRD gone or RBAC no longer grants list: treat as absent, since failing open
+			// here would make the sweep unconditional on every leader start.
+			if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 				continue
 			}
 			return false, err
