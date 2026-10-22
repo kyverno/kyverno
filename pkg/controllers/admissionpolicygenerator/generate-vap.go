@@ -59,6 +59,12 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		if isAutogen {
 			shouldDelete = true
 			reason = "skip generating ValidatingAdmissionPolicy: pod controllers autogen is enabled."
+		} else if !pol.Spec.AdmissionEnabled() {
+			shouldDelete = true
+			reason = "skip generating ValidatingAdmissionPolicy: admission evaluation is disabled."
+		} else if pol.Spec.EvaluationMode() != "Kubernetes" {
+			shouldDelete = true
+			reason = "skip generating ValidatingAdmissionPolicy: only Kubernetes evaluation mode is supported."
 		} else if ok, msg := admissionpolicy.CanGenerateNativePolicyWithMatchConditions(celexceptions, len(pol.Spec.MatchConditions)); !ok {
 			shouldDelete = true
 			reason = "skip generating ValidatingAdmissionPolicy: " + msg
