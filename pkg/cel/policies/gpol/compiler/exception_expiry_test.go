@@ -41,17 +41,34 @@ func TestCachedPolicyExceptionExpiryAcrossEvaluations(t *testing.T) {
 	now := time.Date(2030, time.January, 1, 0, 0, 0, 0, time.UTC)
 	deadline := metav1.NewTime(now.Add(time.Minute))
 	exception := &policiesv1beta1.PolicyException{Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &deadline}}
-	policy := &Policy{exceptions: []celcompiler.Exception{{
-		Exception: exception,
-		Now:       func() time.Time { return now },
-	}}}
+	// Compile an actual generation rather than asserting only that the
+	// expired exception disappears from the evaluation result.
+	generating := &policiesv1beta1.GeneratingPolicy{
+		Spec: policiesv1beta1.GeneratingPolicySpec{
+			Generation: []policiesv1beta1.Generation{{
+				Expression: `generator.Apply("target-ns", [{"apiVersion": dyn("v1"), "kind": dyn("ConfigMap"), "metadata": dyn({"name": "expiry-regression"})}])`,
+			}},
+		},
+	}
+	policy, errs := NewCompiler().Compile(generating, []*policiesv1beta1.PolicyException{exception})
+	if errs != nil {
+		t.Fatalf("compiling generation with exception: %v", errs)
+	}
+	compiled := policy.(*Policy)
+	if len(compiled.exceptions) != 1 {
+		t.Fatalf("expected one compiled exception, got %d", len(compiled.exceptions))
+	}
+	compiled.exceptions[0].Now = func() time.Time { return now }
 	before, err := policy.Evaluate(context.Background(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
-	if err != nil || before == nil || len(before.Exceptions) != 1 {
-		t.Fatalf("active exception not honored: result=%#v err=%v", before, err)
+	if err != nil || before == nil || len(before.Exceptions) != 1 || len(before.GeneratedResources) != 0 {
+		t.Fatalf("active exception unexpectedly allowed generation: result=%#v err=%v", before, err)
 	}
 	now = now.Add(2 * time.Minute)
 	after, err := policy.Evaluate(context.Background(), attr, &request.Request, &ns, &libs.FakeContextProvider{})
-	if err != nil || after == nil || len(after.Exceptions) != 0 {
-		t.Fatalf("expired cached generation exception still honored: result=%#v err=%v", after, err)
+	if err != nil || after == nil || len(after.Exceptions) != 0 || len(after.GeneratedResources) != 1 {
+		t.Fatalf("expired cached exception suppressed resource generation: result=%#v err=%v", after, err)
+	}
+	if after.GeneratedResources[0].GetKind() != "ConfigMap" || after.GeneratedResources[0].GetName() != "expiry-regression" {
+		t.Fatalf("unexpected generated resource after exception expiry: %#v", after.GeneratedResources[0])
 	}
 }
