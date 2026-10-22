@@ -448,13 +448,17 @@ func (c *controller) legacyPoliciesPresent(ctx context.Context) (bool, error) {
 // longer receive write events now that legacy policies produce no new ephemeral reports
 // (decision C2). AddAfter is not rate-limited, so this must stay gated, not run unconditionally.
 func (c *controller) enqueueAllReports() {
-	if list, err := c.polrLister.List(c.managedSelector); err == nil {
+	if list, err := c.polrLister.List(c.managedSelector); err != nil {
+		logger.Error(err, "failed to list policy reports for startup sweep")
+	} else {
 		for _, item := range list {
 			itemMeta := item.(*metav1.PartialObjectMetadata)
 			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
 		}
 	}
-	if list, err := c.cpolrLister.List(c.managedSelector); err == nil {
+	if list, err := c.cpolrLister.List(c.managedSelector); err != nil {
+		logger.Error(err, "failed to list cluster policy reports for startup sweep")
+	} else {
 		for _, item := range list {
 			itemMeta := item.(*metav1.PartialObjectMetadata)
 			c.backQueue.AddAfter(controllerutils.MetaObjectToName(itemMeta), enqueueDelay)
@@ -469,7 +473,10 @@ func (c *controller) Run(ctx context.Context, workers int) {
 		logger.Error(err, "failed to check for legacy policies, sweeping reports anyway")
 		c.enqueueAllReports()
 	} else if present {
+		logger.V(2).Info("legacy kyverno.io policies present; sweeping every report once to prune legacy results")
 		c.enqueueAllReports()
+	} else {
+		logger.V(2).Info("no legacy kyverno.io policies present; skipping startup report sweep")
 	}
 	var group wait.Group
 	group.StartWithContext(ctx, func(ctx context.Context) {

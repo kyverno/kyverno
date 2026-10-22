@@ -9,9 +9,11 @@ import (
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	reportsv1 "github.com/kyverno/kyverno/api/reports/v1"
 	versionedfake "github.com/kyverno/kyverno/pkg/client/clientset/versioned/fake"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
+	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -124,4 +126,69 @@ func TestBackReconcile_NoEphemeralReports_PrunesLegacy_Write(t *testing.T) {
 			assert.Equal(t, reportutils.SourceValidatingPolicy, updates[0].Results[0].Source)
 		}
 	}
+}
+
+// TestBackReconcile_WithEphemeralReport_StillWrites pins the
+// `len(ephemeralReports) == 0` guard on C1: with an owned ephemeral report
+// present (even one whose result is identical to what's already stored),
+// backReconcile must still PUT, since C1 only applies when there is nothing
+// left to merge in.
+func TestBackReconcile_WithEphemeralReport_StillWrites(t *testing.T) {
+	stablePolr := &v1alpha2.PolicyReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "stable-polr-with-ephr",
+			Namespace:       "default",
+			ResourceVersion: "1",
+			Labels: map[string]string{
+				kyverno.LabelAppManagedBy: kyverno.ValueKyvernoApp,
+			},
+		},
+		Results: []v1alpha2.PolicyReportResult{
+			{Source: reportutils.SourceValidatingPolicy, Policy: "require-app-label"},
+		},
+	}
+	ephr := &reportsv1.EphemeralReport{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ephr-for-stable-polr",
+			Namespace: "default",
+			Labels: map[string]string{
+				reportutils.LabelResourceUid: "stable-polr-with-ephr",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{APIVersion: "v1", Kind: "Pod", Name: "test-pod", UID: "stable-polr-with-ephr"},
+			},
+		},
+		Spec: reportsv1.EphemeralReportSpec{
+			Results: []openreportsv1alpha1.ReportResult{
+				{Source: reportutils.SourceValidatingPolicy, Policy: "require-app-label"},
+			},
+		},
+	}
+	client := versionedfake.NewSimpleClientset(stablePolr, ephr)
+
+	vpolIndexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	_ = vpolIndexer.Add(&policiesv1beta1.ValidatingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "require-app-label"},
+	})
+
+	c := &controller{
+		client:                  client,
+		vpolLister:              policiesv1beta1listers.NewValidatingPolicyLister(vpolIndexer),
+		cacheMu:                 &sync.Mutex{},
+		reportUUIDToPolicyCache: map[string]sets.Set[string]{},
+	}
+
+	err := c.backReconcile(context.TODO(), logr.Discard(), "", "default", "stable-polr-with-ephr")
+	assert.NoError(t, err)
+
+	var sawUpdate bool
+	for _, a := range client.Fake.Actions() {
+		if a.GetResource().Resource != "policyreports" {
+			continue
+		}
+		if _, ok := a.(k8stesting.UpdateAction); ok {
+			sawUpdate = true
+		}
+	}
+	assert.True(t, sawUpdate, "expected an update even though the merged result matches the stored one, because an ephemeral report was present")
 }
