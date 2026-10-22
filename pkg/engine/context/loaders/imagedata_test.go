@@ -14,15 +14,12 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-// Minimal RegistryClient: only ForRef is ever called on the path this test
-// exercises. The other three methods exist to satisfy the interface.
 type stubRegistryClient struct{}
 
 func (stubRegistryClient) ForRef(_ gocontext.Context, ref string) (*engineapi.ImageData, error) {
 	return &engineapi.ImageData{
-		Image:  ref,
-		Config: []byte(`{}`),
-		// Manifest is unmarshalled unconditionally in fetchImageDataMap.
+		Image:    ref,
+		Config:   []byte(`{}`),
 		Manifest: []byte(`{}`),
 	}, nil
 }
@@ -49,12 +46,6 @@ func (stubRegistryClientFactory) GetClient(gocontext.Context, *kyvernov1.ImageRe
 	return stubRegistryClient{}, nil
 }
 
-// The JMESPath field, like the image Reference above it, is substituted
-// before use. A JMESPath template that resolves to a non-string (a number,
-// bool, map, or slice) used to panic on the unguarded assertion instead of
-// returning an error. A working registry client stub is needed so the
-// unfixed code actually reaches that assertion, rather than panicking
-// earlier on a nil rclientFactory.
 func Test_ImageDataLoader_WithNonStringJMESPathSubstitution(t *testing.T) {
 	entry := kyvernov1.ContextEntry{
 		Name: "testimg",

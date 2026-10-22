@@ -588,9 +588,6 @@ func Test_SubstituteShallow(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to resolve variableWithVariables bar bar2")
 }
 
-// A shallow ("{{- }}") variable embedded in a longer string used to assert
-// the resolved value directly to string before escaping "{{". A non-string
-// value (a number, bool, map, or slice) panicked instead of substituting.
 func Test_SubstituteShallowNonString(t *testing.T) {
 	ctx := context.NewContext(jp)
 	data := map[string]interface{}{
@@ -610,10 +607,6 @@ func Test_SubstituteShallowNonString(t *testing.T) {
 	assert.Equal(t, results.(string), `"replicas: 3 now"`)
 }
 
-// A shallow map or slice is marshalled to JSON before it is spliced into the
-// pattern, and that JSON can carry "{{" of its own. Without escaping it, the
-// next variable's replacement lands on the braces that came out of the map
-// instead of on the real reference further along the string.
 func Test_SubstituteShallowMapWithBraces(t *testing.T) {
 	ctx := context.NewContext(jp)
 	data := map[string]interface{}{
