@@ -3,7 +3,7 @@ package function
 var websiteUrl = `https://kyverno.io/docs/kyverno-cli/usage/jp/`
 
 var description = []string{
-	`Provides function informations.`,
+	`Provides function information.`,
 }
 
 var examples = [][]string{

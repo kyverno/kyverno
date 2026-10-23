@@ -31,7 +31,7 @@ var (
 	NotInRangeRegex = regexp.MustCompile(`^([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)!-([-|\+]?\d+(?:\.\d+)?[A-Za-z]*)$`)
 )
 
-// GetOperatorFromStringPattern parses opeartor from pattern
+// GetOperatorFromStringPattern parses operator from pattern
 func GetOperatorFromStringPattern(pattern string) Operator {
 	if len(pattern) < 2 {
 		return Equal
