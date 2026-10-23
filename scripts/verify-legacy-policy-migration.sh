@@ -1336,7 +1336,7 @@ wait_for_webhook_configs_reconciled "A4" "baseline"
 # Not strict equality: baseline is the published 1.19 chart and this is
 # the local chart, so a legitimate capability addition must not fail this.
 assert_legacy_webhook_rules_not_narrowed "baseline" "post-upgrade" "A4"
-log "A4: PASS (legacy execution gone while stored policies survive untouched; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook attribute change)"
+log "A4: PASS (legacy execution gone while stored policies survive untouched; create/spec-update blocked and metadata patch denied on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook attribute change)"
 
 # --- A4b: legacy-policy deletes keep succeeding while the write-block is active
 # Proves an operator can still delete a legacy policy on 1.20 to migrate off
