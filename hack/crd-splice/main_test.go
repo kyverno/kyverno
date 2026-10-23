@@ -205,6 +205,27 @@ func TestDoSplice_FrozenFileNeverWritten(t *testing.T) {
 	}
 }
 
+func TestDoSplice_FreezeKeyNotInGeneratedIsRejected(t *testing.T) {
+	t.Parallel()
+	generated, target := t.TempDir(), t.TempDir()
+	genLines := append(crdHeader(), crdEntry("v2", "gen-v2")...)
+	writeFile(t, generated, "kyverno.io_updaterequests.yaml", genLines...)
+	tgtLines := append(crdHeader(), crdEntry("v1beta1", "frozen")...)
+	tgtLines = append(tgtLines, crdEntry("v2", "tgt-v2")...)
+	writeFile(t, target, "kyverno.io_updaterequests.yaml", tgtLines...)
+
+	// typo: "updaterequest" (missing the trailing "s") never matches a
+	// generated file, so the real v1beta1 freeze must not be silently lost.
+	freeze := map[string]map[string]bool{"kyverno.io_updaterequest.yaml": {"v1beta1": true}}
+	err := doSplice(generated, target, nil, freeze)
+	if err == nil {
+		t.Fatal("expected an error for an unconsumed --freeze key, got nil")
+	}
+	if !strings.Contains(err.Error(), "kyverno.io_updaterequest.yaml") {
+		t.Errorf("error %q does not name the unconsumed --freeze key", err)
+	}
+}
+
 func TestDoSplice_FrozenFileMissingFromTarget(t *testing.T) {
 	t.Parallel()
 	generated, target := t.TempDir(), t.TempDir()

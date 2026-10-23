@@ -61,7 +61,7 @@ func runSplice(args []string) {
 	fs.StringVar(&generated, "generated", "", "directory of freshly generated CRDs")
 	fs.StringVar(&target, "target", "", "checked-in CRD directory to update")
 	fs.Var(&frozenFileArgs, "frozen-file", "file name never regenerated (repeatable)")
-	fs.Var(&freezeArgs, "freeze", "name=version[,version...] entries frozen within a regenerated file (repeatable)")
+	fs.Var(&freezeArgs, "freeze", "name=version entry frozen within a regenerated file; repeat to freeze several versions of the same file (same single-version syntax as the extract subcommand)")
 	if err := fs.Parse(args); err != nil {
 		failf("%v", err)
 	}
@@ -76,9 +76,12 @@ func runSplice(args []string) {
 
 	freeze := map[string]map[string]bool{}
 	for _, arg := range freezeArgs {
-		name, versions, ok := strings.Cut(arg, "=")
-		if !ok || name == "" || versions == "" {
-			failf("invalid --freeze value %q: want name=version[,version...]", arg)
+		name, version, ok := strings.Cut(arg, "=")
+		if !ok || name == "" || version == "" {
+			failf("invalid --freeze value %q: want name=version", arg)
+		}
+		if strings.Contains(version, ",") {
+			failf("invalid --freeze value %q: one version per --freeze, repeat the flag for more", arg)
 		}
 		if frozenFiles[name] {
 			failf("%s is both --frozen-file and --freeze: a whole frozen file cannot also freeze a version", name)
@@ -88,12 +91,7 @@ func runSplice(args []string) {
 			set = map[string]bool{}
 			freeze[name] = set
 		}
-		for _, v := range strings.Split(versions, ",") {
-			if v == "" {
-				failf("invalid --freeze value %q: empty version", arg)
-			}
-			set[v] = true
-		}
+		set[version] = true
 	}
 
 	if err := doSplice(generated, target, frozenFiles, freeze); err != nil {
@@ -133,6 +131,7 @@ func doSplice(generated, target string, frozenFiles map[string]bool, freeze map[
 	if err != nil {
 		return fmt.Errorf("reading generated dir: %w", err)
 	}
+	consumed := map[string]bool{}
 	for _, f := range generatedFiles {
 		if frozenFiles[f] {
 			continue
@@ -144,8 +143,17 @@ func doSplice(generated, target string, frozenFiles map[string]bool, freeze map[
 			}
 			continue
 		}
+		consumed[f] = true
 		if err := spliceVersions(generated, target, f, frozenVersions); err != nil {
 			return err
+		}
+	}
+
+	// Step 4: a --freeze key naming a file absent from --generated is a typo
+	// or a stale entry, not a no-op; never let it silently drop a version.
+	for f := range freeze {
+		if !consumed[f] {
+			return fmt.Errorf("--freeze names %s, which has no generated counterpart in %s", f, generated)
 		}
 	}
 	return nil
