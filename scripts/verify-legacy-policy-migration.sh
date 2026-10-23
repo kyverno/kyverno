@@ -1447,9 +1447,13 @@ wait_for_deny "B1 pre-upgrade ClusterPolicy enforcement" "${WORK_DIR}/violating-
 log "B2: snapshotting every controller's deployment image and the release revision before the blocked upgrade attempt"
 BEFORE_IMAGES="$(controller_deployment_images)"
 BEFORE_REVISION="$(release_revision)"
+BEFORE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
+BEFORE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
 [ -n "${BEFORE_IMAGES}" ] && [ "${BEFORE_IMAGES}" != "[]" ] && [ "${BEFORE_IMAGES}" != "null" ] \
   || fail "B2: could not read the controller deployment images before the upgrade attempt"
 [ -n "${BEFORE_REVISION}" ] || fail "B2: could not read the release revision before the upgrade attempt"
+[ -n "${BEFORE_CLUSTERPOLICY_HASH}" ] || fail "B2: could not read the pre-existing ClusterPolicy spec before the upgrade attempt"
+[ -n "${BEFORE_CR_COUNTS}" ] || fail "B2: could not snapshot legacy policy counts before the upgrade attempt"
 
 log "B3: attempting the upgrade WITHOUT the opt-out, expecting it to be blocked"
 if run_local_upgrade "" "${WORK_DIR}/b3-upgrade.log"; then
@@ -1489,6 +1493,13 @@ case "${STATUS}" in
     ;;
 esac
 
+POST_BLOCK_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
+POST_BLOCK_CR_COUNTS="$(legacy_cr_counts_snapshot)"
+[ "${POST_BLOCK_CLUSTERPOLICY_HASH}" = "${BEFORE_CLUSTERPOLICY_HASH}" ] \
+  || fail "B3: the pre-existing ClusterPolicy was deleted or its spec changed during the blocked upgrade (before='${BEFORE_CLUSTERPOLICY_HASH}' after='${POST_BLOCK_CLUSTERPOLICY_HASH}')"
+[ "${POST_BLOCK_CR_COUNTS}" = "${BEFORE_CR_COUNTS}" ] \
+  || fail "B3: the set of legacy policy resources changed during the blocked upgrade (before='${BEFORE_CR_COUNTS}' after='${POST_BLOCK_CR_COUNTS}')"
+
 # These three greps check only the render-time gate's message - the path
 # that always fires before the hook Job could run, so it's the only one
 # this script exercises (a hook Job's logs never reach this stderr).
@@ -1498,7 +1509,9 @@ grep -qF "${CLUSTERPOLICY_NAME}" "${WORK_DIR}/b3-upgrade.log" \
   || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the offending resource name"; }
 grep -q "upgrade.acknowledgeLegacyPoliciesNotEnforced" "${WORK_DIR}/b3-upgrade.log" \
   || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the upgrade.acknowledgeLegacyPoliciesNotEnforced opt-out hint"; }
-log "B3: PASS (upgrade blocked by the render-time gate with count/name/opt-out hint; no controller manifest change)"
+grep -q "https://kyverno.io/docs/guides/migration-to-cel/" "${WORK_DIR}/b3-upgrade.log" \
+  || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the migration guide"; }
+log "B3: PASS (upgrade blocked with migration guidance; controller manifests and every legacy policy remain unchanged)"
 
 log "B4: migrating to CEL - applying the ValidatingPolicy twin, deleting the legacy ClusterPolicy"
 apply_vpol_fixture
