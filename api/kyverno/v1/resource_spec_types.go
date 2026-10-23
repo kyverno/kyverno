@@ -5,9 +5,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ResourceSpec lives in api/kyverno; this alias keeps legacy consumers compiling.
-// Keep these aliases doc-comment-free: config/crds/kyverno bytes are frozen, and
-// make verify-legacy-crd-snapshot is the guard.
+// Aliases for legacy consumers; the types live in api/kyverno. Retained (regenerated) CRD types
+// must reference kyverno.* directly, never these aliases: controller-gen takes the description of a
+// non-inline field from the type name it sees, so a generated type that named an alias would pick
+// up this comment. Removed with api/kyverno/v1 in #17713 section 3.
 
 type (
 	ResourceSpec = kyverno.ResourceSpec

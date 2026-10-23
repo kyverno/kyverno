@@ -56,8 +56,10 @@ runtime warning in `pkg/deprecations/deprecations.go`) confirms it's real and in
 `ResourceSpec`, `APICall`, `ServiceCall`, `Method`, `RequestData`, and `HTTPHeader` are defined once in the
 version-less `api/kyverno` root package (alongside `Any`), not in any versioned subpackage. `api/kyverno/v1`
 re-exports them as `type X = kyverno.X` aliases so legacy consumers keep compiling; other versions and `pkg/`
-import `api/kyverno` directly. Keep the v1 aliases free of doc comments — `config/crds/kyverno` is a frozen
-byte-for-byte snapshot and `make verify-legacy-crd-snapshot` is the guard that catches any drift. The root
+import `api/kyverno` directly. Retained (regenerated) CRD types must reference `kyverno.*` directly and never
+these aliases: controller-gen takes a non-inline field's description from the type name it sees, so a generated
+type naming an alias would pick up the alias's doc comment. `config/crds/kyverno` is a frozen byte-for-byte
+snapshot and `make verify-legacy-crd-snapshot` is the guard that catches any drift. The root
 package must not import any versioned `api/kyverno/*` package — that's what lets `v1` alias these types without
 an import cycle (a versioned package like `v2` already imports `v1` for other types, so hosting shared types
 there would cycle). Because the root package has no version segment, `genref`/`gen-crd-api-reference-docs` can't
