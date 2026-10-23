@@ -65,6 +65,21 @@ func NewController(client dclient.Interface, pcache pcache.Cache, cpolInformer k
 	return &c
 }
 
+// shouldCachePolicy reports whether policy is eligible for the standard admission policy cache.
+func shouldCachePolicy(policy kyvernov1.PolicyInterface) bool {
+	return policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookMatchConditions() && policy.IsReady()
+}
+
+// syncPolicy adds an eligible policy to the cache or removes an ineligible one.
+func (c *controller) syncPolicy(key string, policy kyvernov1.PolicyInterface) error {
+	if shouldCachePolicy(policy) {
+		return c.cache.Set(key, policy, c.client.Discovery())
+	}
+	c.cache.Unset(key)
+	return nil
+}
+
+// WarmUp populates the policy cache from the initial policy and cluster policy listers.
 func (c *controller) WarmUp() error {
 	logger.V(4).Info("warming up ...")
 	defer logger.V(4).Info("warm up done")
@@ -78,12 +93,8 @@ func (c *controller) WarmUp() error {
 		if err != nil {
 			return err
 		}
-		if policy.IsReady() {
-			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
-				return err
-			}
-		} else {
-			c.cache.Unset(key)
+		if err := c.syncPolicy(key, policy); err != nil {
+			return err
 		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
@@ -95,12 +106,8 @@ func (c *controller) WarmUp() error {
 		if err != nil {
 			return err
 		}
-		if policy.IsReady() {
-			if err := c.cache.Set(key, policy, c.client.Discovery()); err != nil {
-				return err
-			}
-		} else {
-			c.cache.Unset(key)
+		if err := c.syncPolicy(key, policy); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -110,6 +117,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
+// reconcile synchronizes a single policy key with the policy cache.
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.loadPolicy(namespace, name)
 	if err != nil {
@@ -118,17 +126,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	if policy.AdmissionProcessingEnabled() && !policy.GetSpec().CustomWebhookMatchConditions() {
-		if policy.IsReady() {
-			return c.cache.Set(key, policy, c.client.Discovery())
-		} else {
-			c.cache.Unset(key)
-			return nil
-		}
-	} else {
-		c.cache.Unset(key)
-		return nil
-	}
+	return c.syncPolicy(key, policy)
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
