@@ -3416,3 +3416,75 @@ func TestValidate_DenyOverridesValidate(t *testing.T) {
 	assert.Equal(t, er.PolicyResponse.Rules[1].Status(), engineapi.RuleStatusFail)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[1].Message(), "Using the 'latest' tag is not allowed."), "The deny message did not match")
 }
+
+func TestValidate_ImageReferences_RuleContextVariable(t *testing.T) {
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+			"name": "verify-image-context-variable"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [{
+				"name": "check-image",
+				"match": {
+					"any": [{
+						"resources": {
+							"kinds": ["Pod"]
+						}
+					}]
+				},
+				"context": [{
+					"name": "allowedImage",
+					"variable": {
+						"value": "ghcr.io/verified/*"
+					}
+				}],
+				"verifyImages": [{
+					"imageReferences": ["{{ allowedImage }}"],
+					"required": true,
+					"verifyDigest": false
+				}]
+			}]
+		}
+	}`)
+
+	rawResource := []byte(`{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"namespace": "default"
+		},
+		"spec": {
+			"containers": [{
+				"name": "app",
+				"image": "ghcr.io/verified/app:v1"
+			}]
+		}
+	}`)
+
+	var policy kyvernov1.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := kubeutils.BytesToUnstructured(rawResource)
+	assert.NilError(t, err)
+
+	ctxLoaderFactory := factories.DefaultContextLoaderFactory(
+		nil,
+		factories.WithInitializer(func(jsonContext enginecontext.Interface) error {
+			return jsonContext.AddVariable("allowedImage", "ghcr.io/verified/*")
+		}),
+	)
+
+	policyContext := newPolicyContext(t, *resourceUnstructured, kyvernov1.Create, nil).WithPolicy(&policy)
+	er := testValidate(context.TODO(), registryclient.New(), policyContext, cfg, ctxLoaderFactory)
+
+	assert.Assert(t, !er.IsSuccessful())
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status(), engineapi.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].RuleType(), engineapi.ImageVerify)
+	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message(), "rule requires image verification") || strings.Contains(er.PolicyResponse.Rules[0].Message(), "unverified image"))
+}

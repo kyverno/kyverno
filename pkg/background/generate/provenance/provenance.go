@@ -228,5 +228,5 @@ func encodePayload(policy kyvernov1.PolicyInterface, obj *unstructured.Unstructu
 }
 
 func isNil(value any) bool {
-	return value == nil || (reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil())
+	return value == nil || (reflect.ValueOf(value).Kind() == reflect.Pointer && reflect.ValueOf(value).IsNil())
 }
