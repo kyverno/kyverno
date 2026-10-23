@@ -63,6 +63,14 @@ jobs:
         run: |
           set -e
           make verify-legacy-crd-retention
+      - name: Verify legacy CRD snapshot
+        # Asserts the frozen legacy kyverno.io CRD schemas and the frozen
+        # UpdateRequest v1beta1 block (#17713) stay byte-identical to the
+        # 1.20 compatibility snapshot. verify-codegen alone cannot catch a
+        # PR that commits an edit to these bytes.
+        run: |
+          set -e
+          make verify-legacy-crd-snapshot
       - name: Verify background controller RBAC
         # Asserts the background controller holds every permission the chart
         # aggregates into admin/edit/view, so generate rules can still bind
