@@ -1212,16 +1212,18 @@ wait_for_controller_images_changed "A3" "${PRE_A3_IMAGES}"
 wait_kyverno_ready
 
 log "A4: post-upgrade assertions"
-# Before anything is asserted: a surviving 1.19 pod would satisfy the
-# enforcement checks below, proving the old build still works rather than
-# the new one.
+# Before anything is asserted, make sure no 1.19 pod remains to execute
+# legacy policies after the acknowledged upgrade.
 wait_for_no_stale_controller_pods "A4"
 POST_UPGRADE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
 if [ "${POST_UPGRADE_CLUSTERPOLICY_HASH}" != "${BASELINE_CLUSTERPOLICY_HASH}" ]; then
   fail "A4: the pre-existing ClusterPolicy's spec changed across the opt-out upgrade"
 fi
-wait_for_deny "A4 ClusterPolicy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${CP_DENY_MSG}"
-wait_for_deny "A4 Policy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${POLICY_DENY_MSG}"
+# Acknowledgement allows the upgrade but does not restore legacy execution.
+# The violating pod must now be admitted; a surviving legacy ClusterPolicy or
+# Policy would deny it. Remove it before testing the write-time block below.
+wait_for_allow "A4 legacy policies are not enforced post-upgrade" "${WORK_DIR}/violating-pod.yaml"
+kubectl delete -f "${WORK_DIR}/violating-pod.yaml" --ignore-not-found >/dev/null
 
 cat <<EOF > "${WORK_DIR}/new-legacy-policy.yaml"
 apiVersion: kyverno.io/v1
