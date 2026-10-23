@@ -40,6 +40,16 @@ func printSkippedAndInvalidPolicies(out io.Writer, skipInvalidPolicies SkippedIn
 		}
 		fmt.Fprintln(out, divider)
 	}
+
+	if len(skipInvalidPolicies.warnings) > 0 {
+		fmt.Fprintln(out, divider)
+		fmt.Fprintln(out, "Policy Warnings:")
+		for i, warning := range skipInvalidPolicies.warnings {
+			printPolicyDiagnostic(out, i+1, warning)
+		}
+		fmt.Fprintln(out, divider)
+	}
+
 }
 
 func printPolicyDiagnostic(out io.Writer, index int, policy PolicyDiagnostic) {
