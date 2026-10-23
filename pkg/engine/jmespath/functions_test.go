@@ -814,6 +814,19 @@ func Test_Truncate(t *testing.T) {
 			jmesPath:       "truncate('Lorem ipsum', `-1`)",
 			expectedResult: "",
 		},
+		// lengths too large for an int must not overflow into a negative length
+		{
+			jmesPath:       "truncate('Lorem ipsum', `1e300`)",
+			expectedResult: "Lorem ipsum",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', `9223372036854775808`)",
+			expectedResult: "Lorem ipsum",
+		},
+		{
+			jmesPath:       "truncate('Lorem ipsum', multiply(`1e308`, `10`))",
+			expectedResult: "Lorem ipsum",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.jmesPath, func(t *testing.T) {
