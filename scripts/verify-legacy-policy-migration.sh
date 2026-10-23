@@ -1212,16 +1212,23 @@ wait_for_controller_images_changed "A3" "${PRE_A3_IMAGES}"
 wait_kyverno_ready
 
 log "A4: post-upgrade assertions"
-# Before anything is asserted: a surviving 1.19 pod would satisfy the
-# enforcement checks below, proving the old build still works rather than
-# the new one.
+# Before anything is asserted: a surviving 1.19 pod would still enforce the
+# legacy policies and deny the pod below, reporting a 1.20 regression that is
+# really just the old build answering.
 wait_for_no_stale_controller_pods "A4"
 POST_UPGRADE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
 if [ "${POST_UPGRADE_CLUSTERPOLICY_HASH}" != "${BASELINE_CLUSTERPOLICY_HASH}" ]; then
   fail "A4: the pre-existing ClusterPolicy's spec changed across the opt-out upgrade"
 fi
-wait_for_deny "A4 ClusterPolicy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${CP_DENY_MSG}"
-wait_for_deny "A4 Policy enforcement still active post-upgrade" "${WORK_DIR}/violating-pod.yaml" "${POLICY_DENY_MSG}"
+# 1.20 removed execution of legacy kyverno.io policy content, so the pod A1
+# proved was denied on 1.19 must now be admitted - by both the ClusterPolicy
+# and the Policy, neither of which runs any more. The policies themselves are
+# still stored and byte-identical (hash and count assertions above): only
+# their execution is gone, which is exactly the grace-window guarantee.
+wait_for_allow "A4 legacy ClusterPolicy and Policy no longer enforce post-upgrade" "${WORK_DIR}/violating-pod.yaml"
+# Delete it immediately: A5 rolls back to 1.19 and re-applies this same
+# manifest expecting a denial, which a surviving pod would mask.
+kubectl delete -f "${WORK_DIR}/violating-pod.yaml" --ignore-not-found >/dev/null
 
 cat <<EOF > "${WORK_DIR}/new-legacy-policy.yaml"
 apiVersion: kyverno.io/v1
@@ -1329,7 +1336,7 @@ wait_for_webhook_configs_reconciled "A4" "baseline"
 # Not strict equality: baseline is the published 1.19 chart and this is
 # the local chart, so a legitimate capability addition must not fail this.
 assert_legacy_webhook_rules_not_narrowed "baseline" "post-upgrade" "A4"
-log "A4: PASS (enforcement intact; create/spec-update blocked and metadata patch allowed on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook attribute change)"
+log "A4: PASS (legacy execution gone while stored policies survive untouched; create/spec-update blocked and metadata patch denied on all five legacy kinds across all three block handlers; CR counts and per-kind spec hashes late-sampled against baseline, CRDs unchanged, webhook coverage not narrowed, and no owning-webhook attribute change)"
 
 # --- A4b: legacy-policy deletes keep succeeding while the write-block is active
 # Proves an operator can still delete a legacy policy on 1.20 to migrate off
@@ -1447,9 +1454,13 @@ wait_for_deny "B1 pre-upgrade ClusterPolicy enforcement" "${WORK_DIR}/violating-
 log "B2: snapshotting every controller's deployment image and the release revision before the blocked upgrade attempt"
 BEFORE_IMAGES="$(controller_deployment_images)"
 BEFORE_REVISION="$(release_revision)"
+BEFORE_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
+BEFORE_CR_COUNTS="$(legacy_cr_counts_snapshot)"
 [ -n "${BEFORE_IMAGES}" ] && [ "${BEFORE_IMAGES}" != "[]" ] && [ "${BEFORE_IMAGES}" != "null" ] \
   || fail "B2: could not read the controller deployment images before the upgrade attempt"
 [ -n "${BEFORE_REVISION}" ] || fail "B2: could not read the release revision before the upgrade attempt"
+[ -n "${BEFORE_CLUSTERPOLICY_HASH}" ] || fail "B2: could not read the pre-existing ClusterPolicy spec before the upgrade attempt"
+[ -n "${BEFORE_CR_COUNTS}" ] || fail "B2: could not snapshot legacy policy counts before the upgrade attempt"
 
 log "B3: attempting the upgrade WITHOUT the opt-out, expecting it to be blocked"
 if run_local_upgrade "" "${WORK_DIR}/b3-upgrade.log"; then
@@ -1489,6 +1500,13 @@ case "${STATUS}" in
     ;;
 esac
 
+POST_BLOCK_CLUSTERPOLICY_HASH="$(clusterpolicy_spec_hash "${CLUSTERPOLICY_NAME}")"
+POST_BLOCK_CR_COUNTS="$(legacy_cr_counts_snapshot)"
+[ "${POST_BLOCK_CLUSTERPOLICY_HASH}" = "${BEFORE_CLUSTERPOLICY_HASH}" ] \
+  || fail "B3: the pre-existing ClusterPolicy was deleted or its spec changed during the blocked upgrade (before='${BEFORE_CLUSTERPOLICY_HASH}' after='${POST_BLOCK_CLUSTERPOLICY_HASH}')"
+[ "${POST_BLOCK_CR_COUNTS}" = "${BEFORE_CR_COUNTS}" ] \
+  || fail "B3: the set of legacy policy resources changed during the blocked upgrade (before='${BEFORE_CR_COUNTS}' after='${POST_BLOCK_CR_COUNTS}')"
+
 # These three greps check only the render-time gate's message - the path
 # that always fires before the hook Job could run, so it's the only one
 # this script exercises (a hook Job's logs never reach this stderr).
@@ -1498,7 +1516,9 @@ grep -qF "${CLUSTERPOLICY_NAME}" "${WORK_DIR}/b3-upgrade.log" \
   || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the offending resource name"; }
 grep -q "upgrade.acknowledgeLegacyPoliciesNotEnforced" "${WORK_DIR}/b3-upgrade.log" \
   || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the upgrade.acknowledgeLegacyPoliciesNotEnforced opt-out hint"; }
-log "B3: PASS (upgrade blocked by the render-time gate with count/name/opt-out hint; no controller manifest change)"
+grep -q "https://kyverno.io/docs/guides/migration-to-cel/" "${WORK_DIR}/b3-upgrade.log" \
+  || { cat "${WORK_DIR}/b3-upgrade.log" >&2; fail "B3: blocked-upgrade error is missing the migration guide"; }
+log "B3: PASS (upgrade blocked with migration guidance; controller manifests and every legacy policy remain unchanged)"
 
 log "B4: migrating to CEL - applying the ValidatingPolicy twin, deleting the legacy ClusterPolicy"
 apply_vpol_fixture
