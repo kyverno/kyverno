@@ -1,7 +1,9 @@
 package v2
 
 import (
+	"encoding/json"
 	"math/rand"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -278,6 +280,42 @@ func TestGlobalContextEntryProjectionValidate(t *testing.T) {
 				t.Errorf("GlobalContextEntryProjection.Validate() error = %v, wantErr %v", errs, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestExternalAPICallInlineEmbedding(t *testing.T) {
+	in := GlobalContextEntry{
+		Spec: GlobalContextEntrySpec{
+			APICall: &ExternalAPICall{
+				APICall: kyverno.APICall{
+					URLPath: "/api/v1/namespaces",
+					Method:  "GET",
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+		},
+	}
+	b, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatalf("unmarshal to map: %v", err)
+	}
+	apiCall, ok := m["spec"].(map[string]any)["apiCall"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected spec.apiCall to be an object: %s", b)
+	}
+	for _, key := range []string{"urlPath", "method", "refreshInterval"} {
+		if _, ok := apiCall[key]; !ok {
+			t.Fatalf("expected inline key %q at apiCall level: %s", key, b)
+		}
+	}
+
+	copyOut := in.DeepCopy()
+	if !reflect.DeepEqual(in, *copyOut) {
+		t.Fatalf("deepcopy not equal: in=%+v copy=%+v", in, *copyOut)
 	}
 }
 
