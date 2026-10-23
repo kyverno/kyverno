@@ -379,6 +379,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 	store.SetHTTPMockIndex(httpMockIndex)
 
+	// Build an in-memory map of global context entry mock data so the engine
+	// can resolve GlobalContext references without a live cluster. Each entry
+	// is keyed by its name and contains the data returned by
+	// resolveGlobalContextMock (which honours the inline data / resourceFiles
+	// already normalised above).
 	var gceMap map[string]interface{}
 	if len(testCase.Test.GlobalContextEntries) > 0 {
 		gceMap = make(map[string]interface{}, len(testCase.Test.GlobalContextEntries))
@@ -417,8 +422,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	for _, policy := range results.DeletingPolicies {
 		testResponse.DeletingPolicies[deletingPolicyKey(policy.GetNamespace(), policy.GetName())] = struct{}{}
 	}
-	// validate the operations declared on test results and collect the distinct
-	// explicit operations, each of which triggers a dedicated evaluation run
+	// Validate the admission operation declared on each test result and collect
+	// the distinct explicit operations. Each explicit operation triggers an
+	// additional evaluation run (see the evalResource loop below) so that
+	// admission-operation-specific rule branches are exercised correctly.
+	// Deleting policies are cluster-driven (not admission-driven) and therefore
+	// do not support an explicit operation override.
 	if _, err := processor.NormalizeValuesOperation(vars.GlobalOperation()); err != nil {
 		return nil, err
 	}
@@ -435,6 +444,14 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		explicitOperations.Insert(res.Operation)
 	}
+	// evalResource is a closure that applies all loaded policies to a single
+	// resource under the given admission operation. The defaultRun flag controls
+	// whether DeletingPolicies are evaluated (they run only once, in the default
+	// pass, because they are not tied to an admission operation).
+	//
+	// The closure captures all shared state (store, policies, exceptions,
+	// variables, context, …) from the enclosing runTest scope so each call
+	// site only needs to supply the resource and operation.
 	evalResource := func(resource *unstructured.Unstructured, operation string, defaultRun bool) ([]engineapi.EngineResponse, error) {
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
@@ -496,8 +513,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			}
 			ers = append(ers, ivpols...)
 		}
-		// deleting policies are not admission driven, they are only evaluated in
-		// the default run
+		// Deleting policies are cluster-driven rather than admission-driven,
+		// so they are evaluated only in the default run.
 		if defaultRun && len(results.DeletingPolicies) != 0 {
 			dpols, err := applyDeletingPolicies(
 				results.DeletingPolicies,
@@ -520,6 +537,13 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 		return ers, nil
 	}
+	// Evaluate resource-oriented policies against each unique Kubernetes resource.
+	// In the default pass, the standard PolicyProcessor resolves the operation
+	// from the values file (or uses CREATE), but ImageValidatingPolicies use
+	// CREATE and DeletingPolicies have no admission operation. A separate run
+	// is executed for each distinct operation explicitly declared on test
+	// results, populating TriggerByOperation so that the result-matching phase
+	// can look up responses for each operation-scoped test result.
 	for _, resource := range uniques {
 		resourceKey := generateResourceKey(resource)
 		// default run, honoring the values file operation when set
@@ -543,6 +567,10 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 
+	// Evaluate all policies against each JSON payload. JSON payloads are
+	// arbitrary JSON objects (not full Kubernetes resources) and are evaluated
+	// without an explicit operation. Results are stored under the payload's
+	// file name in testResponse.Trigger.
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             &store,
@@ -627,6 +655,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	}
 
 	authProzessor := processor.NewAuthzProcessor(&resultCounts, dClient, results.HTTPPolicies, results.EnvoyPolicies)
+	// Evaluate HTTP-authorization policies against each HTTP check payload.
+	// Results are keyed by the payload file path in testResponse.Trigger.
 	if len(httpPayloads) > 0 {
 		for file, payload := range httpPayloads {
 			ers, err := authProzessor.ApplyHTTPPolicies([]*authzhttp.CheckRequest{payload})
@@ -637,6 +667,8 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			engineResponses = append(engineResponses, ers...)
 		}
 	}
+	// Evaluate Envoy-authorization policies against each Envoy check payload.
+	// Results are keyed by the payload file path in testResponse.Trigger.
 	if len(envoyPayloads) > 0 {
 		for file, payload := range envoyPayloads {
 			ers, err := authProzessor.ApplyEnvoyPolicies([]*authv3.CheckRequest{payload})
@@ -648,6 +680,11 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 
+	// Correlate engine responses to declared target resources using
+	// responseTargetsResource. A response can match through a patched target,
+	// or through a MutatingPolicy response with target provenance (or an
+	// empty-rule response with target or match constraints) for the same resource.
+	// Store matches in testResponse.Target for target-result assertions.
 	for _, targetResource := range targetResources {
 		for _, engineResponse := range engineResponses {
 			if responseTargetsResource(targetResource, engineResponse) {
@@ -695,6 +732,11 @@ func responseTargetsResource(targetResource *unstructured.Unstructured, response
 	return false
 }
 
+// applyImageValidatingPolicies evaluates ImageValidatingPolicies against the
+// given Kubernetes resources and JSON payloads. For resources it uses the
+// CEL-based ivpol engine (HandleValidating); for JSON payloads it uses the
+// lower-level eval.Evaluate API. Results are accumulated into a flat slice
+// of EngineResponse values and counted via rc.
 func applyImageValidatingPolicies(
 	ivps []policiesv1beta1.ImageValidatingPolicyLike,
 	jsonPayloads []*unstructured.Unstructured,
@@ -854,6 +896,11 @@ func applyImageValidatingPolicies(
 	return responses, nil
 }
 
+// applyDeletingPolicies evaluates DeletingPolicies against the given
+// resources. DeletingPolicies may be cluster-scoped or namespaced; they are
+// not admission-driven. The caller invokes this helper in the default
+// resource pass or in the separate JSON-payload pass.
+// Results are accumulated into a flat slice of EngineResponse values.
 func applyDeletingPolicies(
 	dps []policiesv1beta1.DeletingPolicyLike,
 	resources []*unstructured.Unstructured,
@@ -942,6 +989,10 @@ func applyDeletingPolicies(
 	return responses, nil
 }
 
+// generateResourceKey returns a stable string key for an unstructured
+// resource composed of APIVersion, Kind, Namespace, and Name. This key is
+// used to index engine responses in TestResponse.Trigger and
+// TestResponse.Target.
 func generateResourceKey(resource *unstructured.Unstructured) string {
 	return resource.GetAPIVersion() + "," + resource.GetKind() + "," + resource.GetNamespace() + "," + resource.GetName()
 }
@@ -984,6 +1035,10 @@ func ProcessResources(resources []*unstructured.Unstructured) []*unstructured.Un
 	return resources
 }
 
+// buildHTTPMockIndex constructs an in-memory lookup table for HTTP API-call
+// mock responses. Keys use "[METHOD:]URL"; omitting METHOD creates a URL-only
+// fallback for both GET and POST after the method-specific lookup. Values
+// contain the response body and status code for the engine context.
 func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]interface{}, error) {
 	if len(mocks) == 0 {
 		return nil, nil
@@ -1006,6 +1061,9 @@ func buildHTTPMockIndex(mocks []v1alpha1.APICallResponseEntry) (map[string]inter
 	return index, nil
 }
 
+// wrapHTTPResponse wraps a raw response body with its HTTP status code into
+// the standard shape expected by the CEL http() context function. A missing
+// status code is defaulted to 200.
 func wrapHTTPResponse(body interface{}, statusCode int) interface{} {
 	if statusCode == 0 {
 		statusCode = 200

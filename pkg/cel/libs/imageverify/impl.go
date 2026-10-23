@@ -90,7 +90,7 @@ type Runtime struct {
 // that belong to eachother
 func NewRuntimeForPolicy(ctx context.Context, f *IvFuncs, imgCtx imagedataloader.ImageContext, cache imageverifycache.Client, results *ImageVerificationResults) Runtime {
 	newFuncs := *f
-	newFuncs.requestCtx = ctx
+	newFuncs.requestCtx = cosign.WithCandidateStore(ctx)
 	newFuncs.imgCtx = imgCtx
 	newFuncs.ivCache = cache
 	newFuncs.verifications = results

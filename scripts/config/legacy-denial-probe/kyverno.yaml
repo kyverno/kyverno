@@ -1,0 +1,20 @@
+# Match-condition bypass probe for the `deprecations` conformance suite (#17708).
+#
+# The ConfigMap `config.matchConditions` value is documented for the resource webhooks (e.g.
+# "skip this service account"). The legacy denial webhook configurations
+# (PolicyValidatingWebhookConfiguration's legacy rules, ExceptionValidatingWebhookConfiguration,
+# CleanupValidatingWebhookConfiguration) must never honour it: see
+# genericwebhookcontroller.WithoutConfigMatchConditions() and pkg/deprecations/webhookrules.go.
+#
+# This overlay sets a match condition that, if it were (wrongly) applied to those three
+# configurations, would exempt the principal the conformance suite runs as, letting the
+# `deprecations/create-blocked` chainsaw suite's creates through and turning the suite red. In
+# kind, the suite runs as `kubernetes-admin`, a member of `system:masters`.
+#
+# Layer this onto `standard` (USE_CONFIG=standard,legacy-denial-probe) for the `deprecations` row
+# only; it exercises the opposite of scripts/config/legacy-policies, which disables the block
+# entirely for the legacy conformance suites still exercising 1.19 enforcement behaviour.
+config:
+  matchConditions:
+    - name: "exempt-cluster-admin"
+      expression: "!('system:masters' in request.userInfo.groups)"

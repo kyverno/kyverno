@@ -235,7 +235,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			reps, err := eng.Handle(context.TODO(), request, nil)
+			// Skip inline mutation for policies with active target constraints, as admission does.
+			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -257,11 +258,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
-				p.Rc.addMutateResponse(response)
 
-				err = p.processMutateEngineResponse(response, resPath)
-				if err != nil {
-					return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+				// processMutateEngineResponse counts the response, so it is not counted here as well.
+				// A response with no rules, such as the autogen copy of a Pod policy evaluated against a
+				// Pod, mutated nothing, so it is not printed or written to the output file.
+				if len(r.Rules) > 0 {
+					if err := p.processMutateEngineResponse(response, resPath); err != nil {
+						return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+					}
 				}
 
 				responses = append(responses, response)
@@ -543,7 +547,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		compiler := gpolcompiler.NewCompiler()
+		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
 			compiled, errs := compiler.Compile(pol, p.CELExceptions)
@@ -604,6 +608,13 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					return nil, err
 				}
 				for _, res := range engineResponse.Policies {
+					// before the no-result branch below, so a skipped policy's trace is printed too
+					if p.Explain && res.Trace != nil {
+						// the generate output of the previous resource ends without a newline
+						fmt.Fprintln(p.Out)
+						trace.Render(p.Out, res.Trace)
+						fmt.Fprintln(p.Out)
+					}
 					if res.Result == nil {
 						generateResponse := engineapi.EngineResponse{
 							Resource: *engineResponse.Trigger,
