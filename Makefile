@@ -1008,12 +1008,12 @@ verify-legacy-policy-gate: helm-setup-dependency-charts ## Verify the legacy-pol
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) ./scripts/verify-legacy-policy-gate.sh
 
 .PHONY: verify-legacy-policy-hook
-verify-legacy-policy-hook: helm-setup-dependency-charts ## Verify the legacy-policy pre-install/pre-upgrade hook Job blocks and passes correctly (needs Kyverno already installed with the local CLI image loaded, e.g. via kind-install-kyverno)
+verify-legacy-policy-hook: helm-setup-dependency-charts ## Verify the legacy-policy pre-install/pre-upgrade hook Job (needs exclusive use of a disposable cluster with Kyverno installed and the local CLI image loaded; briefly stops admission/cleanup controllers)
 	@echo Verify legacy policy hook... >&2
 	@HELM=$(HELM) KUBE_VERSION=$(KUBE_VERSION) LOCAL_REGISTRY=$(LOCAL_REGISTRY) LOCAL_CLI_REPO=$(LOCAL_CLI_REPO) GIT_SHA=$(GIT_SHA) ./scripts/verify-legacy-policy-hook.sh
 
 .PHONY: verify-legacy-policy-migration
-verify-legacy-policy-migration: helm-setup-dependency-charts ## Verify the 1.19->1.20 legacy-policy migration grace window is non-destructive: opt-out upgrade, rollback, blocked upgrade, migrate-to-CEL (needs a reachable kind cluster as the current kube context, with local images already loaded, e.g. via kind-load-all)
+verify-legacy-policy-migration: helm-setup-dependency-charts ## Verify 1.19->1.20 retains legacy data without execution, restores enforcement on rollback, blocks unacknowledged upgrades, and migrates to CEL (needs exclusive use of a kind cluster with local images loaded)
 	@echo Verify legacy policy migration... >&2
 	@HELM=$(HELM) ./scripts/verify-legacy-policy-migration.sh
 
