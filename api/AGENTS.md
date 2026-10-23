@@ -51,6 +51,20 @@ This is the concrete evidence behind `pkg/deprecations`' legacy-kind mapping —
 policy kinds are actually on a deprecation path or just conceptually superseded, this marker (and the matching
 runtime warning in `pkg/deprecations/deprecations.go`) confirms it's real and in effect today.
 
+## Shared types live in the unversioned `api/kyverno` package
+
+`ResourceSpec`, `APICall`, `ServiceCall`, `Method`, `RequestData`, and `HTTPHeader` are defined once in the
+version-less `api/kyverno` root package (alongside `Any`), not in any versioned subpackage. `api/kyverno/v1`
+re-exports them as `type X = kyverno.X` aliases so legacy consumers keep compiling; other versions and `pkg/`
+import `api/kyverno` directly. Keep the v1 aliases free of doc comments — `config/crds/kyverno` is a frozen
+byte-for-byte snapshot and `make verify-legacy-crd-snapshot` is the guard that catches any drift. The root
+package must not import any versioned `api/kyverno/*` package — that's what lets `v1` alias these types without
+an import cycle (a versioned package like `v2` already imports `v1` for other types, so hosting shared types
+there would cycle). Because the root package has no version segment, `genref`/`gen-crd-api-reference-docs` can't
+scan it as a documented page; it's registered as an external package pointing at pkg.go.dev instead (see
+`docs/user/config-api.yaml` and `docs/user/config.json`). The `v1` aliases are transitional: they go away once
+#17713 section 3 removes `v1`/`v1beta1`.
+
 ## A genuinely new kind still goes to `v2alpha1` — its current occupant is just further along its own lifecycle
 
 `v2alpha1`'s sole occupant, `GlobalContextEntry`, has moved on to two further versions (`v2beta1`, the current CRD
