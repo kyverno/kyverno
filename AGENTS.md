@@ -143,7 +143,8 @@ Generated files follow these patterns:
 - `zz_generated.deepcopy.go` — deep copy functions in API packages
 - `zz_generated.register.go` — API type registrations
 - `pkg/client/` — generated clientset, listers, informers
-- `config/crds/` — generated CRD YAML manifests
+- `config/crds/` — generated CRD YAML manifests; `config/crds/kyverno/` is a frozen compatibility snapshot
+  during the CEL migration — only GCE and UR `v2` regenerate, see `config/crds/kyverno/README.md`
 
 ### Docker Images (ko)
 

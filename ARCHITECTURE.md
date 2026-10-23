@@ -130,7 +130,7 @@ Confirmed via `DO NOT EDIT` headers and Makefile targets:
 | `pkg/client/{clientset,informers,listers}/**` | `make codegen-client-all` |
 | `api/**/zz_generated.{deepcopy,register}.go` | `make codegen-api-all` |
 | `pkg/config/mocks/mock_config.go` | no `make` target — see note below |
-| `config/crds/**/*.yaml` | `make codegen-crds-all` |
+| `config/crds/**/*.yaml` | `make codegen-crds-all` (`config/crds/kyverno/` is a frozen compatibility snapshot during the CEL migration — only GCE and UR `v2` regenerate, see `config/crds/kyverno/README.md`) |
 | `cmd/cli/kubectl-kyverno/config/crds/**`, `cmd/cli/kubectl-kyverno/data/crds/**` | `make codegen-cli-all` (the CLI's own controller-gen output, then copied from `config/crds/`) |
 | `charts/kyverno/charts/crds/templates/{kyverno.io,reports.kyverno.io,wgpolicyk8s.io}/**` | `make codegen-helm-crds` (the chart's own CRD copies; `_helpers.tpl` in the same dir is hand-written) |
 | `config/install-latest-testing.yaml` | `make codegen-manifest-all` |
