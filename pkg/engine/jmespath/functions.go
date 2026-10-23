@@ -995,6 +995,9 @@ func jpTruncate(arguments []any) (any, error) {
 	if err != nil {
 		return nil, err
 	}
+	if math.IsNaN(length.Float()) {
+		return nil, formatError(genericError, truncate, "length must not be NaN")
+	}
 
 	if length.Float() < 0 {
 		normalizedLength = float64(0)
