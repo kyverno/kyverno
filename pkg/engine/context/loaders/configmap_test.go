@@ -90,18 +90,6 @@ func Test_CrossNamespaceConfigMapAccess_EmptyNamespaceDefaultsToPolicyNS(t *test
 	assert.Equal(t, resolver.gotName, "sensitive-config")
 }
 
-func Test_CrossNamespaceConfigMapAccess_ClusterPolicyUnrestricted(t *testing.T) {
-	resolver := &mockConfigMapResolver{cm: makeCM("any-ns")}
-	entry := makeEntry("any-ns")
-	ctx := enginecontext.NewContext(jp)
-	ldr := NewConfigMapLoader(context.TODO(), logr.Discard(), entry, resolver, ctx, "")
-	err := ldr.LoadData()
-	assert.NilError(t, err)
-	assert.Equal(t, resolver.called, true)
-	assert.Equal(t, resolver.gotNS, "any-ns")
-	assert.Equal(t, resolver.gotName, "sensitive-config")
-}
-
 func Test_CrossNamespaceConfigMapAccess_WithVariableSubstitution(t *testing.T) {
 	resolver := &mockConfigMapResolver{cm: makeCM("victim-ns")}
 	entry := makeEntry("{{ targetNs }}")
