@@ -145,7 +145,34 @@ func doSplice(generated, target string, frozenFiles map[string]bool, freeze map[
 		}
 	}
 
-	// Step 4: write every non-frozen generated file, splicing in frozen
+	// Step 4: a version that exists in the target but has no Go type and is not
+	// frozen would be dropped on write. That is a served schema disappearing, so
+	// refuse rather than let the freeze list silently shrink.
+	for _, f := range generatedFiles {
+		if frozenFiles[f] {
+			continue
+		}
+		tgtPath := filepath.Join(target, f)
+		if _, err := os.Stat(tgtPath); err != nil {
+			continue // a new kind has no target file yet
+		}
+		tgt, err := parseCRD(tgtPath)
+		if err != nil {
+			continue // unparseable target has no versions worth preserving
+		}
+		gen, err := parseCRD(filepath.Join(generated, f))
+		if err != nil {
+			return err
+		}
+		for v := range tgt.entries {
+			if _, inGen := gen.entries[v]; inGen || freeze[f][v] {
+				continue
+			}
+			return fmt.Errorf("%s: target version %q has no generated counterpart and is not frozen; add it to --freeze or it would be dropped", f, v)
+		}
+	}
+
+	// Step 5: write every non-frozen generated file, splicing in frozen
 	// versions where named. New kinds with no --freeze entry just copy.
 	for _, f := range generatedFiles {
 		if frozenFiles[f] {

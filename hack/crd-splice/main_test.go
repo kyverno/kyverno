@@ -420,3 +420,28 @@ func TestDoSplice_WriteFailureIsReported(t *testing.T) {
 		t.Errorf("error %q does not name the file that failed to write", err)
 	}
 }
+
+func TestDoSplice_TargetOnlyVersionWithoutFreezeIsRejected(t *testing.T) {
+	t.Parallel()
+	generated, target := t.TempDir(), t.TempDir()
+	// Generated has only v2, as it would once the legacy Go types are gone.
+	writeFile(t, generated, "kyverno.io_updaterequests.yaml", append(crdHeader(), crdEntry("v2", "gen-v2")...)...)
+	tgtLines := append(crdHeader(), crdEntry("v1beta1", "served-schema")...)
+	tgtLines = append(tgtLines, crdEntry("v2", "tgt-v2")...)
+	writeFile(t, target, "kyverno.io_updaterequests.yaml", tgtLines...)
+
+	// The freeze entry for v1beta1 has been dropped, e.g. edited out of the
+	// Makefile. Without a guard the file is rewritten with v2 only.
+	err := doSplice(generated, target, nil, nil)
+	if err == nil {
+		t.Fatal("expected an error for an unfrozen target-only version, got nil")
+	}
+	if !strings.Contains(err.Error(), "v1beta1") {
+		t.Errorf("error %q does not name the version that would be dropped", err)
+	}
+
+	got := readFile(t, filepath.Join(target, "kyverno.io_updaterequests.yaml"))
+	if !strings.Contains(got, "served-schema") {
+		t.Error("target was rewritten without v1beta1 before the guard fired")
+	}
+}
