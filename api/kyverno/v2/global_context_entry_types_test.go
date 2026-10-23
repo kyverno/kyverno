@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -33,7 +33,7 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 			name: "valid APICall",
 			spec: GlobalContextEntrySpec{
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
+					APICall: kyverno.APICall{
 						URLPath: "/api/v1/namespaces",
 					},
 					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -50,7 +50,7 @@ func TestGlobalContextEntrySpecValidate(t *testing.T) {
 					Resource: "deployments",
 				},
 				APICall: &ExternalAPICall{
-					APICall: kyvernov1.APICall{
+					APICall: kyverno.APICall{
 						URLPath: "/api/v1/namespaces",
 					},
 					RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -146,7 +146,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "valid ExternalAPICall",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -156,7 +156,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "missing RefreshInterval",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 0 * time.Second},
@@ -166,8 +166,8 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "both Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
-					Service: &kyvernov1.ServiceCall{},
+				APICall: kyverno.APICall{
+					Service: &kyverno.ServiceCall{},
 					URLPath: "/api/v1/namespaces",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -177,7 +177,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "missing Service and URLPath",
 			apiCall: ExternalAPICall{
-				APICall:         kyvernov1.APICall{},
+				APICall:         kyverno.APICall{},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
 			},
 			wantErr: true,
@@ -185,7 +185,7 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "POST method without data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					Method: "POST",
 				},
 				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
@@ -196,9 +196,9 @@ func TestExternalAPICallValidate(t *testing.T) {
 		{
 			name: "non-POST method with data",
 			apiCall: ExternalAPICall{
-				APICall: kyvernov1.APICall{
+				APICall: kyverno.APICall{
 					Method: "GET",
-					Data: []kyvernov1.RequestData{
+					Data: []kyverno.RequestData{
 						{Key: "example-key", Value: &apiextv1.JSON{Raw: []byte(`{"field": "value"}`)}},
 					},
 				},

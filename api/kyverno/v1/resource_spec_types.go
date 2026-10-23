@@ -1,42 +1,13 @@
 package v1
 
 import (
-	"strings"
-
+	"github.com/kyverno/kyverno/api/kyverno"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 )
 
-type ResourceSpec struct {
-	// APIVersion specifies resource apiVersion.
-	// +optional
-	APIVersion string `json:"apiVersion,omitempty"`
-	// Kind specifies resource kind.
-	Kind string `json:"kind,omitempty"`
-	// Namespace specifies resource namespace.
-	// +optional
-	Namespace string `json:"namespace,omitempty"`
-	// Name specifies the resource name.
-	// +optional
-	Name string `json:"name,omitempty"`
-	// UID specifies the resource uid.
-	// +optional
-	UID types.UID `json:"uid,omitempty"`
-}
+// ResourceSpec lives in api/kyverno; this alias keeps legacy consumers compiling.
 
-func (s ResourceSpec) GetName() string       { return s.Name }
-func (s ResourceSpec) GetNamespace() string  { return s.Namespace }
-func (s ResourceSpec) GetKind() string       { return s.Kind }
-func (s ResourceSpec) GetAPIVersion() string { return s.APIVersion }
-func (s ResourceSpec) GetUID() types.UID     { return s.UID }
-func (s ResourceSpec) GetGroupVersion() (schema.GroupVersion, error) {
-	return schema.ParseGroupVersion(s.APIVersion)
-}
-
-func (s ResourceSpec) String() string {
-	return strings.Join([]string{s.APIVersion, s.Kind, s.Namespace, s.Name}, "/")
-}
+type ResourceSpec = kyverno.ResourceSpec
 
 // TargetResourceSpec defines targets for mutating existing resources.
 type TargetResourceSpec struct {
