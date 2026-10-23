@@ -400,3 +400,23 @@ func TestDoSplice_ExistingCRDModeIsNormalised(t *testing.T) {
 		t.Errorf("existing CRD left at mode %#o, want 0644", got)
 	}
 }
+
+func TestDoSplice_WriteFailureIsReported(t *testing.T) {
+	t.Parallel()
+	generated, target := t.TempDir(), t.TempDir()
+	const name = "kyverno.io_newkinds.yaml"
+	writeFile(t, generated, name, append(crdHeader(), crdEntry("v2", "gen-v2")...)...)
+	// A directory at the destination path makes the write fail; yamlFiles skips
+	// directories, so the target listing is unaffected.
+	if err := os.Mkdir(filepath.Join(target, name), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	err := doSplice(generated, target, nil, nil)
+	if err == nil {
+		t.Fatal("expected an error when the output cannot be written, got nil")
+	}
+	if !strings.Contains(err.Error(), name) {
+		t.Errorf("error %q does not name the file that failed to write", err)
+	}
+}
