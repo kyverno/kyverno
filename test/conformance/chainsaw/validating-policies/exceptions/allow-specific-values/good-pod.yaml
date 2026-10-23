@@ -3,7 +3,6 @@ kind: Pod
 metadata:
   name: good-pod
 spec:
-  terminationGracePeriodSeconds: 1
   containers:
   - name: ubuntu
     image: public.ecr.aws/docker/library/ubuntu:latest
