@@ -272,9 +272,11 @@ func TestGenerationLabelProtectionToggle(t *testing.T) {
 	})
 
 	c := &controller{
-		defaultTimeout: 10,
-		servicePort:    443,
-		clusterroleLister: rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		defaultTimeout:     10,
+		servicePort:        443,
+		clusterroleLister:  rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		leaseLister:        coordinationv1listers.NewLeaseLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
+		celExpressionCache: NewExpressionCache(),
 	}
 	cfg := generationProtectionConfiguration{config.NewDefaultConfiguration(false)}
 
@@ -408,4 +410,3 @@ func TestGenerationLabelProtectionFromContext(t *testing.T) {
 	require.NotNil(t, whFail.FailurePolicy)
 	assert.Equal(t, admissionregistrationv1.Fail, *whFail.FailurePolicy)
 }
-
