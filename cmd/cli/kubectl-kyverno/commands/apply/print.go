@@ -69,7 +69,9 @@ func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, aud
 	}
 
 	for _, r := range namespaced {
-		fmt.Fprintln(out, "---")
+		if outputFormat != "json" {
+			fmt.Fprintln(out, "---")
+		}
 		printReport(r)
 	}
 }
@@ -223,7 +225,9 @@ func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl 
 			return err
 		}
 
-		fmt.Fprint(out, "---\n")
+		if outputFormat != "json" {
+			fmt.Fprint(out, "---\n")
+		}
 		fmt.Fprint(out, string(exceptionReport))
 		fmt.Fprint(out, "\n")
 	}

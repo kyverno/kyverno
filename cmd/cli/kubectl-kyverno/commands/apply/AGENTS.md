@@ -38,9 +38,9 @@ All validation happens in the `RunE` closure in `Command()`, **before** calling
 6. `--output-format json|yaml` without `-p` or `--generate-exceptions` → warning
    (written to stderr); the flag has no effect in that mode.
 7. `--explain` is incompatible with any mode that owns stdout for machine-readable
-   output: `-p`, `--generate-exceptions`, `--stdin`, and `--output-format table`.
-   The engine trace is human-readable text; mixing it with structured output makes
-   both streams unparseable. See `checkExplainCompatible()`.
+   output: `-p`, `--generate-exceptions`, and `--stdin`. The engine trace is human-readable
+   text; mixing it with structured output makes both streams unparseable. See
+   `checkExplainCompatible()`.
 8. Format keywords (`json`, `yaml`, `yml`, `table`, `markdown`, `junit`) are
    rejected as `--output-dir` / `--output` values to prevent accidentally creating
    files or directories named after format keywords on disk. This validation is
@@ -53,7 +53,7 @@ All validation happens in the `RunE` closure in `Command()`, **before** calling
 1. Add the value to the `switch` in `RunE` (the `case "", "table", "json", "yaml":`
    block).
 2. Handle the new format in `printReports` and/or `printExceptions` in `print.go`.
-3. Add it to the format-keyword rejection list in `checkMutateLogPathSafe()` if it
+3. Add it to the format-keyword rejection list in `checkMutateLogPath()` if it
    collides with a user-visible format name.
 4. Update this file.
 
@@ -79,12 +79,14 @@ All validation happens in the `RunE` closure in `Command()`, **before** calling
   - a policy report document (policy-report mode)
   - a list of policy exceptions (generate-exceptions mode)
 - **stderr** is used for warnings, deprecation notices, and (in structured-output
-  modes) skipped/invalid-policy diagnostics. The diagnostics are routed to stderr
-  in `-p`/`--policy-report` and `--generate-exceptions` modes so the JSON or YAML
-  document on stdout is never prefixed with human-readable prose.
+  and table modes) skipped/invalid-policy diagnostics. Diagnostics and helper warnings
+  are routed to stderr in `-p`/`--policy-report`, `--generate-exceptions`, and table
+  modes so the JSON or YAML document or table on stdout is never prefixed with plain text prose.
 - The **"Applying N policy rule(s)..." banner** is suppressed in table mode
-  (`--output-format table` / `-t`) so the table is the sole content on stdout.
+  (`--output-format table` / `-t`) so the table is the sole content on stdout (unless
+  `--explain` is set).
 - **Files on disk** receive mutated/generated resource YAML via `--output-dir`
   and are always written as YAML regardless of `--output-format`.
-- `--explain` trace goes to stdout in default mode only; it is blocked in all
-  structured-output modes to prevent corruption.
+- `--explain` trace goes to stdout in human-readable modes (default mode and table mode);
+  it is blocked in machine-readable modes (`-p`, `--generate-exceptions`, `--stdin`)
+  to prevent document corruption.

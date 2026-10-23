@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -224,26 +225,24 @@ func TestOutputFormatConflicts(t *testing.T) {
 		assert.Contains(t, err.Error(), "-p/--policy-report and --generate-exceptions are mutually exclusive")
 	})
 
-	t.Run("explain with table output-format", func(t *testing.T) {
+	t.Run("explain with table output-format succeeds", func(t *testing.T) {
 		cmd := Command()
 		out := &bytes.Buffer{}
 		cmd.SetOut(out)
 		cmd.SetErr(out)
 		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--explain", "--output-format", "table"})
 		err := cmd.Execute()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "--explain cannot be used with --output-format table")
+		require.NoError(t, err)
 	})
 
-	t.Run("explain with -t flag", func(t *testing.T) {
+	t.Run("explain with -t flag succeeds", func(t *testing.T) {
 		cmd := Command()
 		out := &bytes.Buffer{}
 		cmd.SetOut(out)
 		cmd.SetErr(out)
 		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--explain", "-t"})
 		err := cmd.Execute()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "--explain cannot be used with --output-format table")
+		require.NoError(t, err)
 	})
 }
 
@@ -384,4 +383,89 @@ func TestPolicyReportOutputFormatSerialization(t *testing.T) {
 		assert.NotEmpty(t, parsed["kind"])
 		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
 	})
+
+	t.Run("namespaced policy report in json format has no YAML separator", func(t *testing.T) {
+		const namespacedPolicy = `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-pod-ns
+  namespace: test-ns
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  validations:
+  - expression: "object.metadata.name == 'pod'"
+`
+		nsPolicyPath := filepath.Join(dir, "ns_policy.yaml")
+		require.NoError(t, os.WriteFile(nsPolicyPath, []byte(namespacedPolicy), 0o600))
+
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{nsPolicyPath, "--resource", resourcePath, "-p", "--output-format", "json"})
+		err := cmd.Execute()
+		require.NoError(t, err)
+
+		outStr := out.String()
+		assert.NotContains(t, outStr, "---", "JSON policy report output must not contain YAML document separator")
+		var parsed map[string]interface{}
+		err = json.Unmarshal(out.Bytes(), &parsed)
+		require.NoError(t, err, "output should be valid JSON: %s", outStr)
+		assert.Equal(t, "Report", parsed["kind"])
+		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
+	})
+}
+
+func TestGenerateExceptionsJSONFormat(t *testing.T) {
+	const (
+		policy   = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+		resource = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"
+	)
+	cmd := Command()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{policy, "--resource", resource, "--generate-exceptions", "--output-format", "json"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	outStr := stdout.String()
+	assert.NotContains(t, outStr, "---", "JSON exceptions output must not contain YAML document separator")
+	for _, line := range strings.Split(strings.TrimSpace(outStr), "\n") {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		var parsed map[string]interface{}
+		err := json.Unmarshal([]byte(line), &parsed)
+		require.NoError(t, err, "each exception should be valid JSON: %s", line)
+		assert.Equal(t, "PolicyException", parsed["kind"])
+	}
+}
+
+func TestStructuredOutputDiagnosticsRouteToStderr(t *testing.T) {
+	dir := t.TempDir()
+	policyPath := filepath.Join(dir, "policy.yaml")
+	resourcePath := filepath.Join(dir, "resource.yaml")
+	require.NoError(t, os.WriteFile(policyPath, []byte(outputTestValidatingPolicy), 0o600))
+	require.NoError(t, os.WriteFile(resourcePath, []byte(outputTestPod), 0o600))
+
+	cmd := Command()
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	cmd.SetOut(stdout)
+	cmd.SetErr(stderr)
+	cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "-p", "--output-format", "json"})
+	err := cmd.Execute()
+	require.NoError(t, err)
+
+	var parsed map[string]interface{}
+	err = json.Unmarshal(stdout.Bytes(), &parsed)
+	require.NoError(t, err, "stdout should be strictly valid JSON: %s", stdout.String())
 }

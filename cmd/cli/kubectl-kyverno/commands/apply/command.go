@@ -192,16 +192,21 @@ func Command() *cobra.Command {
 				fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: --output-format %s has no effect without -p/--policy-report or --generate-exceptions\n", applyCommandConfig.OutputFormat)
 			}
 
-			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), out)
+			helperOut := out
+			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions {
+				helperOut = cmd.ErrOrStderr()
+			}
+
+			rc, _, skipInvalidPolicies, responses, err := applyCommandConfig.applyCommandHelper(cmd.Context(), helperOut)
 			if err != nil {
 				return err
 			}
 			cmd.SilenceErrors = true
-			// In structured-output modes the document must be the only content on
-			// stdout. Route skipped/invalid-policy diagnostics to stderr so they
-			// do not corrupt the JSON or YAML document.
+			// In structured-output and table modes, stdout must be kept clean.
+			// Route skipped/invalid-policy diagnostics to stderr so they
+			// do not corrupt the JSON/YAML document or table.
 			diagOut := out
-			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions {
+			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions || applyCommandConfig.OutputFormat == "table" {
 				diagOut = cmd.ErrOrStderr()
 			}
 			printSkippedAndInvalidPolicies(diagOut, skipInvalidPolicies)
@@ -600,7 +605,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		params[i] = p
 	}
 	processorOut := out
-	if c.OutputFormat == "table" {
+	if c.OutputFormat == "table" || c.PolicyReport || c.GenerateExceptions {
 		processorOut = io.Discard
 	}
 	for _, resource := range resources {
@@ -1206,7 +1211,6 @@ func (c *ApplyCommandConfig) checkExplainCompatible() error {
 		{c.PolicyReport, "--policy-report"},
 		{c.GenerateExceptions, "--generate-exceptions"},
 		{c.Stdin, "--stdin"},
-		{c.OutputFormat == "table", "--output-format table"},
 	} {
 		if f.set {
 			return fmt.Errorf("--explain cannot be used with %s: the trace is human-readable text that would be mixed into structured output", f.name)
