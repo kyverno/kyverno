@@ -6,8 +6,8 @@ import (
 )
 
 // ResourceSpec lives in api/kyverno; this alias keeps legacy consumers compiling.
-// Keep this as a comment-free type() block: a doc comment directly above the alias
-// gets rendered by controller-gen into the UpdateRequest CRD's generatedResources[] schema.
+// Keep these aliases doc-comment-free: config/crds/kyverno bytes are frozen, and
+// make verify-legacy-crd-snapshot is the guard.
 
 type (
 	ResourceSpec = kyverno.ResourceSpec
