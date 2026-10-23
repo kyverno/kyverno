@@ -407,7 +407,7 @@ func GetFunctions(configuration config.Configuration) []FunctionEntry {
 			Handler: jpSemverCompare,
 		},
 		ReturnType: []jpType{jpBool},
-		Note:       "compares two strings which comply with the semantic versioning schema and outputs a boolean response as to the position of the second relative to the first",
+		Note:       "compares two strings which comply with the semantic versioning schema and outputs a boolean response as to the position of the second relative to the first; a version or range that fails parsing returns an error",
 	}, {
 		FunctionEntry: gojmespath.FunctionEntry{
 			Name: parseJson,
@@ -1017,7 +1017,10 @@ func jpSemverCompare(arguments []any) (any, error) {
 		return nil, err
 	}
 
-	version, _ := semver.Parse(v.String())
+	version, err := semver.Parse(v.String())
+	if err != nil {
+		return nil, err
+	}
 	expectedRange, err := semver.ParseRange(r.String())
 	if err != nil {
 		return nil, err
