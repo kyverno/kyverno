@@ -89,6 +89,7 @@ func Test_Deleting_HonorsResourceFilters(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"name":      name,
 					"namespace": namespace,
+					"uid":       "uid-" + name,
 				},
 			},
 		}
@@ -223,13 +224,14 @@ func Test_Deleting_DeletesOnlyTheEvaluatedObject(t *testing.T) {
 			},
 		}
 	}
+	items := []unstructured.Unstructured{
+		pod("evaluated-pod", "uid-evaluated"),
+		pod("replaced-pod", "uid-replaced"),
+	}
 	dynClient.PrependReactor("list", "*", func(action clienttesting.Action) (bool, runtime.Object, error) {
 		list := &unstructured.UnstructuredList{}
 		list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "PodList"})
-		list.Items = []unstructured.Unstructured{
-			pod("evaluated-pod", "uid-evaluated"),
-			pod("replaced-pod", "uid-replaced"),
-		}
+		list.Items = items
 		return true, list, nil
 	})
 
@@ -301,6 +303,38 @@ func Test_Deleting_DeletesOnlyTheEvaluatedObject(t *testing.T) {
 	}
 	assert.Equal(t, []string{"ns1/evaluated-pod"}, mockClient.deletedResources)
 	assert.Len(t, eventGen.events, 1, "only the actual deletion should produce an event")
+
+	t.Run("empty UID skips deletion", func(t *testing.T) {
+		items = []unstructured.Unstructured{pod("no-uid-pod", "")}
+		mockClient.deleteOptions = map[string]metav1.DeleteOptions{}
+		mockClient.deletedResources = nil
+		eventGen.events = nil
+
+		err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: &pol, CompiledPolicy: compiledPolicy})
+		assert.NoError(t, err)
+		assert.Empty(t, mockClient.deleteOptions, "a resource without a UID must not trigger a delete call")
+		assert.Empty(t, mockClient.deletedResources)
+		assert.Empty(t, eventGen.events)
+	})
+
+	t.Run("non-conflict delete error is reported", func(t *testing.T) {
+		items = []unstructured.Unstructured{pod("forbidden-pod", "uid-forbidden")}
+		deleteErr := apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "forbidden-pod", fmt.Errorf("deletion denied"))
+		mockClient.deleteErrors = map[string]error{"ns1/forbidden-pod": deleteErr}
+		mockClient.deleteOptions = map[string]metav1.DeleteOptions{}
+		mockClient.deletedResources = nil
+		eventGen.events = nil
+
+		err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: &pol, CompiledPolicy: compiledPolicy})
+		assert.ErrorIs(t, err, deleteErr)
+		assert.Contains(t, mockClient.deleteOptions, "ns1/forbidden-pod")
+		assert.Empty(t, mockClient.deletedResources)
+		if assert.Len(t, eventGen.events, 1) {
+			assert.Equal(t, event.PolicyError, eventGen.events[0].Reason)
+			assert.Equal(t, "forbidden-pod", eventGen.events[0].Related.Name)
+			assert.Contains(t, eventGen.events[0].Message, deleteErr.Error())
+		}
+	})
 }
 
 // captureQueue wraps a real typed queue but captures the last AddAfter delay used by the controller.
@@ -611,6 +645,7 @@ func TestDeleting_ClusterWidePaginationWithoutNamespaceSelector(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"name":      name,
 					"namespace": namespace,
+					"uid":       "uid-" + name,
 				},
 			},
 		}
@@ -881,6 +916,7 @@ func TestDeleting_ResourceExpiredPaginationToken(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"name":      name,
 					"namespace": namespace,
+					"uid":       "uid-" + name,
 				},
 			},
 		}
