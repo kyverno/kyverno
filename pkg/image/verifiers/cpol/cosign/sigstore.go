@@ -182,7 +182,17 @@ func buildVerifyOptions(opts verifiers.Options) []verify.VerifierOption {
 	if !opts.IgnoreTlog {
 		verifierOptions = append(verifierOptions, verify.WithTransparencyLog(1))
 	}
+	if opts.Key == "" && opts.TSACertChain != "" {
+		// A policy-supplied TSA chain explicitly requires at least one verified
+		// RFC3161 signed timestamp. This only applies to the keyless policy-trust
+		// path: getBundleTrustedRoot composes the TSA authorities there, whereas
+		// the key-based path (opts.Key set) builds key-only trusted material and
+		// has no TSA trust to satisfy the requirement.
+		verifierOptions = append(verifierOptions, verify.WithSignedTimestamps(1))
+	}
 	if !opts.IgnoreSCT {
+		// Observer timestamps (e.g. Rekor SETs) are required independently of a
+		// configured TSA chain, so a TSA chain must not suppress SCT handling.
 		verifierOptions = append(verifierOptions, verify.WithObserverTimestamps(1))
 	}
 	if len(verifierOptions) == 0 {
@@ -214,7 +224,89 @@ func getTrustedMaterial(ctx context.Context, opts verifiers.Options) (root.Trust
 		}
 		return root.TrustedMaterialCollection{keyMaterial, trustedRoot}, nil
 	}
-	return getTrustedRoot(ctx)
+	return getBundleTrustedRoot(ctx, opts)
+}
+
+// getBundleTrustedRoot builds an in-memory trusted root from the policy's own
+// signing roots and TSA certificate chain when either is supplied, instead of
+// falling back to TUF. Policy trust is all-or-nothing: both roots and
+// tsaCertChain must be present, and partial, malformed, or rootless chains are
+// rejected rather than silently falling back to TUF.
+func getBundleTrustedRoot(ctx context.Context, opts verifiers.Options) (root.TrustedMaterial, error) {
+	if opts.Roots == "" && opts.TSACertChain == "" {
+		return getTrustedRoot(ctx)
+	}
+	if opts.Roots == "" || opts.TSACertChain == "" {
+		return nil, fmt.Errorf("policy bundle trust requires both roots and tsaCertChain")
+	}
+	// A policy-supplied trusted root carries no Rekor transparency-log keys, so
+	// transparency-log verification can never succeed against it. Require the
+	// policy to opt out of tlog verification explicitly rather than silently
+	// failing every otherwise-valid bundle at verification time.
+	if !opts.IgnoreTlog {
+		return nil, fmt.Errorf("policy bundle trust requires ignoreTlog to be enabled")
+	}
+	// Cheap pre-check on the raw PEM to reject oversized chains before doing
+	// expensive ASN.1 parsing and certificate path building (CVE-2026-32280).
+	// Signing roots may contain up to maxRootCerts roots and
+	// maxIntermediateCerts intermediates.
+	if n := countPEMCertBlocks([]byte(opts.Roots)); n > maxRootCerts+maxIntermediateCerts {
+		return nil, fmt.Errorf("policy signing roots contain too many certificates (%d), maximum allowed is %d", n, maxRootCerts+maxIntermediateCerts)
+	}
+	// Signing roots must not go through the TSA timestamping-EKU normalization,
+	// which would corrupt a code-signing intermediate into a timestamp-only cert.
+	leaves, intermediates, roots, err := splitPEMCertificateChain([]byte(opts.Roots), false)
+	if err != nil {
+		return nil, fmt.Errorf("parsing policy signing roots: %w", err)
+	}
+	if len(leaves) != 0 || len(roots) == 0 {
+		return nil, fmt.Errorf("policy signing roots must contain a root CA and no leaf certificates")
+	}
+	if len(roots) > maxRootCerts {
+		return nil, fmt.Errorf("policy signing roots contain too many root certificates (%d), maximum allowed is %d", len(roots), maxRootCerts)
+	}
+	if len(intermediates) > maxIntermediateCerts {
+		return nil, fmt.Errorf("policy signing roots contain too many intermediate certificates (%d), maximum allowed is %d", len(intermediates), maxIntermediateCerts)
+	}
+	authorities := make([]root.CertificateAuthority, 0, len(roots))
+	for _, cert := range roots {
+		authorities = append(authorities, &root.FulcioCertificateAuthority{
+			Root: cert, Intermediates: intermediates,
+			ValidityPeriodStart: cert.NotBefore, ValidityPeriodEnd: cert.NotAfter,
+		})
+	}
+	// Cheap pre-check on the raw PEM to reject oversized chains before doing
+	// expensive ASN.1 parsing and certificate path building (CVE-2026-32280).
+	// A valid TSA chain has at most one leaf, up to maxIntermediateCerts
+	// intermediates, and up to maxRootCerts roots.
+	if n := countPEMCertBlocks([]byte(opts.TSACertChain)); n > maxRootCerts+maxIntermediateCerts+1 {
+		return nil, fmt.Errorf("policy tsaCertChain contains too many certificates (%d), maximum allowed is %d", n, maxRootCerts+maxIntermediateCerts+1)
+	}
+	tsaLeaves, tsaIntermediates, tsaRoots, err := splitPEMCertificateChain([]byte(opts.TSACertChain), true)
+	if err != nil {
+		return nil, fmt.Errorf("parsing policy tsaCertChain: %w", err)
+	}
+	if len(tsaLeaves) > 1 || len(tsaRoots) == 0 {
+		return nil, fmt.Errorf("policy tsaCertChain must contain a root CA and at most one TSA leaf")
+	}
+	if len(tsaRoots) > maxRootCerts {
+		return nil, fmt.Errorf("policy tsaCertChain contains too many root certificates (%d), maximum allowed is %d", len(tsaRoots), maxRootCerts)
+	}
+	if len(tsaIntermediates) > maxIntermediateCerts {
+		return nil, fmt.Errorf("policy tsaCertChain contains too many intermediate certificates (%d), maximum allowed is %d", len(tsaIntermediates), maxIntermediateCerts)
+	}
+	timestampAuthorities := make([]root.TimestampingAuthority, 0, len(tsaRoots))
+	for _, cert := range tsaRoots {
+		authority := &root.SigstoreTimestampingAuthority{
+			Root: cert, Intermediates: tsaIntermediates,
+			ValidityPeriodStart: cert.NotBefore, ValidityPeriodEnd: cert.NotAfter,
+		}
+		if len(tsaLeaves) == 1 {
+			authority.Leaf = tsaLeaves[0]
+		}
+		timestampAuthorities = append(timestampAuthorities, authority)
+	}
+	return root.NewTrustedRoot(root.TrustedRootMediaType01, authorities, nil, timestampAuthorities, nil)
 }
 
 func buildKeyTrustedMaterial(ctx context.Context, key, algorithm string) (root.TrustedMaterial, error) {
