@@ -113,6 +113,13 @@ vpolExcludeByPolicy: {}
   #     - name: exclude-custom
   #       expression: "!object.metadata.name.startsWith('temp-')"
 
+# -- Customize the target Pod controllers for the auto-generated rules. (Eg. `none`, `Deployment`, `DaemonSet,Deployment,StatefulSet`)
+# This sets `spec.autogen.podControllers.controllers`, and only `DaemonSet`, `Deployment`,
+# `ReplicaSet`, `StatefulSet`, `Job` and `CronJob` are supported. Any other name fails the render, except `ReplicationController`,
+# which is accepted and ignored. A list without any supported controller fails the render, use `none` to turn autogen off.
+# For more info https://kyverno.io/docs/policy-types/cluster-policy/autogen/.
+autogenControllers: ""
+
 # -- Name override.
 nameOverride:
 
