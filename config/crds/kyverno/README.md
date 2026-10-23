@@ -44,6 +44,14 @@ touched for this snapshot.
   `scripts/verify-legacy-crd-snapshot.sh`.
 - `make verify-legacy-crd-snapshot` fails CI if any frozen file, or the
   frozen `v1beta1` block, changes.
+- `scripts/verify-legacy-crd-retention.sh` (#17489) is a separate, older
+  check in the same `check-ct-lint.yaml` job: it asserts the rendered chart
+  still carries `helm.sh/resource-policy: keep` on exactly the five legacy
+  policy CRDs. It used to depend on a kubebuilder marker surviving codegen;
+  now that those five files are frozen bytes, the annotation is carried in
+  the frozen bytes themselves and can no longer be dropped by a codegen or
+  marker change. The two checks protect different things (an annotation vs.
+  full schema bytes) and both stay in place.
 
 ## Local prerequisites
 
