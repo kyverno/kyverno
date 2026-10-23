@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/dump"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -43,6 +42,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	watchTools "k8s.io/client-go/tools/watch"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/utils/dump"
 )
 
 const (
@@ -113,7 +113,7 @@ type controller struct {
 	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
 	eventHandlers   []EventHandler
-	watchDeathChan  chan (schema.GroupVersionResource)
+	watchDeathChan  chan schema.GroupVersionResource
 }
 
 func NewController(

@@ -188,7 +188,7 @@ func getContainerInfo(pod *corev1.Pod, index int, containerType string) corev1.C
 	case containerType == "initContainers":
 		container = pod.Spec.InitContainers[index]
 	case containerType == "ephemeralContainers":
-		container = (corev1.Container)(pod.Spec.EphemeralContainers[index].EphemeralContainerCommon)
+		container = corev1.Container(pod.Spec.EphemeralContainers[index].EphemeralContainerCommon)
 	default:
 	}
 
