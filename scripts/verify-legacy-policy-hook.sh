@@ -207,13 +207,21 @@ CONTROLLER_REPLICAS=""
 
 restore_controllers() {
   [ -n "${CONTROLLER_REPLICAS}" ] || return 0
-  local name replicas
+  local name replicas failures=""
   while IFS=$'\t' read -r name replicas; do
-    kubectl scale deployment "${name}" -n "${NAMESPACE}" --replicas="${replicas}" >/dev/null || return 1
+    if ! kubectl scale deployment "${name}" -n "${NAMESPACE}" --replicas="${replicas}" >/dev/null; then
+      failures="${failures} scale:${name}"
+    fi
   done <<< "${CONTROLLER_REPLICAS}"
   while IFS=$'\t' read -r name replicas; do
-    kubectl rollout status deployment "${name}" -n "${NAMESPACE}" --timeout=180s >/dev/null || return 1
+    if ! kubectl rollout status deployment "${name}" -n "${NAMESPACE}" --timeout=180s >/dev/null; then
+      failures="${failures} rollout:${name}"
+    fi
   done <<< "${CONTROLLER_REPLICAS}"
+  if [ -n "${failures}" ]; then
+    log "failed to restore controllers:${failures}"
+    return 1
+  fi
   CONTROLLER_REPLICAS=""
 }
 
