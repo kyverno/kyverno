@@ -6,8 +6,12 @@ import (
 )
 
 // ResourceSpec lives in api/kyverno; this alias keeps legacy consumers compiling.
+// Keep this as a comment-free type() block: a doc comment directly above the alias
+// gets rendered by controller-gen into the UpdateRequest CRD's generatedResources[] schema.
 
-type ResourceSpec = kyverno.ResourceSpec
+type (
+	ResourceSpec = kyverno.ResourceSpec
+)
 
 // TargetResourceSpec defines targets for mutating existing resources.
 type TargetResourceSpec struct {

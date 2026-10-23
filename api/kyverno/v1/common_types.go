@@ -214,7 +214,6 @@ type GlobalContextEntryReference struct {
 	JMESPath string `json:"jmesPath,omitempty"`
 }
 
-
 // Condition defines variable-based conditional criteria for rule execution.
 type Condition struct {
 	// Key is the context entry (using JMESPath) for conditional rule evaluation.
