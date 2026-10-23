@@ -328,3 +328,59 @@ func generateRandomVersion() string {
 		}
 	}
 }
+
+// TestGlobalContextEntryDeepCopyIsolatesSharedTypes proves GlobalContextEntry.DeepCopy still
+// deep-copies the api/kyverno types it embeds. reflect.DeepEqual alone would pass on a shallow
+// slice copy, so mutate the copy and assert the original is untouched.
+func TestGlobalContextEntryDeepCopyIsolatesSharedTypes(t *testing.T) {
+	in := GlobalContextEntry{
+		Spec: GlobalContextEntrySpec{
+			APICall: &ExternalAPICall{
+				APICall: kyverno.APICall{
+					URLPath: "/api/v1/namespaces",
+					Method:  "POST",
+					Data: []kyverno.RequestData{
+						{Key: "original-key", Value: &apiextv1.JSON{Raw: []byte(`"original-value"`)}},
+					},
+					Service: &kyverno.ServiceCall{
+						URL:      "https://svc.ns:443/path",
+						CABundle: "original-bundle",
+						Headers: []kyverno.HTTPHeader{
+							{Key: "original-header", Value: "original-header-value"},
+						},
+					},
+				},
+				RefreshInterval: &metav1.Duration{Duration: 10 * time.Minute},
+			},
+		},
+	}
+
+	out := in.DeepCopy()
+	if !reflect.DeepEqual(in, *out) {
+		t.Fatalf("deepcopy not equal: in=%+v copy=%+v", in, *out)
+	}
+
+	copied := out.Spec.APICall
+	copied.Data[0].Key = "mutated"
+	copied.Data[0].Value.Raw = []byte(`"mutated"`)
+	copied.Service.Headers[0].Value = "mutated"
+	copied.Service.CABundle = "mutated"
+	copied.RefreshInterval.Duration = time.Hour
+
+	original := in.Spec.APICall
+	if original.Data[0].Key != "original-key" {
+		t.Errorf("Data slice is shared: key became %q", original.Data[0].Key)
+	}
+	if string(original.Data[0].Value.Raw) != `"original-value"` {
+		t.Errorf("RequestData.Value pointer is shared: raw became %s", original.Data[0].Value.Raw)
+	}
+	if original.Service.Headers[0].Value != "original-header-value" {
+		t.Errorf("Service.Headers slice is shared: value became %q", original.Service.Headers[0].Value)
+	}
+	if original.Service.CABundle != "original-bundle" {
+		t.Errorf("Service pointer is shared: CABundle became %q", original.Service.CABundle)
+	}
+	if original.RefreshInterval.Duration != 10*time.Minute {
+		t.Errorf("RefreshInterval pointer is shared: duration became %v", original.RefreshInterval.Duration)
+	}
+}
