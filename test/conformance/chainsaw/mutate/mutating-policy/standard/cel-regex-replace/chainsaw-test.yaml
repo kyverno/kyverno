@@ -29,14 +29,20 @@ spec:
     - script:
         timeout: 45s
         content: |
+          last_probe_result=""
           for i in $(seq 1 30); do
-            image=$(kubectl create -n "$NAMESPACE" -f pod.yaml \
+            if image=$(kubectl create -n "$NAMESPACE" -f pod.yaml \
               --dry-run=server --request-timeout=5s \
-              -o jsonpath='{.spec.containers[0].image}') || exit 1
-            if [ "$image" = "myregistry.io/nginx:latest" ]; then
-              exit 0
+              -o jsonpath='{.spec.containers[0].image}' 2>&1); then
+              if [ "$image" = "myregistry.io/nginx:latest" ]; then
+                exit 0
+              fi
+              last_probe_result="Dry-run succeeded without the expected image rewrite (got: ${image})"
+            else
+              last_probe_result="$image"
             fi
             sleep 1
           done
           echo "MutatingPolicy rewrite-image-registry is not yet rewriting pod images"
+          echo "Last readiness probe: ${last_probe_result}"
           exit 1

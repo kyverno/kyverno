@@ -33,16 +33,22 @@ spec:
     - script:
         timeout: 45s
         content: |
+          last_probe_result=""
           for i in $(seq 1 30); do
-            label=$(kubectl create configmap mutation-readiness-probe \
+            if label=$(kubectl create configmap mutation-readiness-probe \
               -n "$NAMESPACE" --from-literal=key=probe --dry-run=server \
-              --request-timeout=5s -o jsonpath='{.metadata.labels.foo}') || exit 1
-            if [ "$label" = "bar" ]; then
-              exit 0
+              --request-timeout=5s -o jsonpath='{.metadata.labels.foo}' 2>&1); then
+              if [ "$label" = "bar" ]; then
+                exit 0
+              fi
+              last_probe_result="Dry-run succeeded without the expected label (got: ${label})"
+            else
+              last_probe_result="$label"
             fi
             sleep 1
           done
           echo "MutatingPolicy add-labels is not yet mutating ConfigMaps"
+          echo "Last readiness probe: ${last_probe_result}"
           exit 1
     - apply:
         file: resource.yaml
