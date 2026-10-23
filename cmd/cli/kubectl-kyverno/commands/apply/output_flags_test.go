@@ -123,6 +123,9 @@ func TestOutputFormatTable(t *testing.T) {
 		assert.Contains(t, outputStr, "RESULT", "table header should be printed")
 		assert.NotContains(t, outputStr, "Mutation has been applied successfully")
 		assert.NotContains(t, outputStr, "kind: Pod")
+		// The "Applying N policy rule(s)..." banner must be suppressed in table
+		// mode so the table is the sole content on stdout.
+		assert.NotContains(t, outputStr, "Applying ", "banner must not appear in table output")
 	}
 }
 

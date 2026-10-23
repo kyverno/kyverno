@@ -43,8 +43,8 @@ All validation happens in the `RunE` closure in `Command()`, **before** calling
    both streams unparseable. See `checkExplainCompatible()`.
 8. Format keywords (`json`, `yaml`, `yml`, `table`, `markdown`, `junit`) are
    rejected as `--output-dir` / `--output` values to prevent accidentally creating
-   files or directories named after format keywords on disk. See
-   `checkMutateLogPathSafe()`.
+   files or directories named after format keywords on disk. This validation is
+   performed in `checkArguments()` and `checkMutateLogPath()`.
 
 ---
 
@@ -78,7 +78,12 @@ All validation happens in the `RunE` closure in `Command()`, **before** calling
   - the table (table mode)
   - a policy report document (policy-report mode)
   - a list of policy exceptions (generate-exceptions mode)
-- **stderr** is used for warnings and deprecation notices only.
+- **stderr** is used for warnings, deprecation notices, and (in structured-output
+  modes) skipped/invalid-policy diagnostics. The diagnostics are routed to stderr
+  in `-p`/`--policy-report` and `--generate-exceptions` modes so the JSON or YAML
+  document on stdout is never prefixed with human-readable prose.
+- The **"Applying N policy rule(s)..." banner** is suppressed in table mode
+  (`--output-format table` / `-t`) so the table is the sole content on stdout.
 - **Files on disk** receive mutated/generated resource YAML via `--output-dir`
   and are always written as YAML regardless of `--output-format`.
 - `--explain` trace goes to stdout in default mode only; it is blocked in all

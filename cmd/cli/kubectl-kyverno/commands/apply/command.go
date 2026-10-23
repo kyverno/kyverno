@@ -197,7 +197,14 @@ func Command() *cobra.Command {
 				return err
 			}
 			cmd.SilenceErrors = true
-			printSkippedAndInvalidPolicies(out, skipInvalidPolicies)
+			// In structured-output modes the document must be the only content on
+			// stdout. Route skipped/invalid-policy diagnostics to stderr so they
+			// do not corrupt the JSON or YAML document.
+			diagOut := out
+			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions {
+				diagOut = cmd.ErrOrStderr()
+			}
+			printSkippedAndInvalidPolicies(diagOut, skipInvalidPolicies)
 			if applyCommandConfig.PolicyReport {
 				format := applyCommandConfig.OutputFormat
 				if format == "" {
@@ -458,7 +465,7 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		celExceptions = append(celExceptions, celpolexs...)
 	}
 
-	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
+	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions && c.OutputFormat != "table" {
 		var policyRulesCount int
 		policyRulesCount += len(vaps)
 		policyRulesCount += len(vps)
