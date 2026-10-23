@@ -14,6 +14,8 @@ after the handoff, use the in-repo
 
 For release instructions, see: [create-a-release.md](releases/create-a-release.md).
 
+For the `kyverno oci` bundle format, see: [docs/dev/oci/bundle-spec.md](oci/bundle-spec.md).
+
 ## Performance benchmarks
 
 A `perf` job in the post-merge `check-tests` workflow

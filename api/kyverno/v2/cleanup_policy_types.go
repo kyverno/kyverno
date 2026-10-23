@@ -21,6 +21,7 @@ import (
 
 	"github.com/aptible/supercronic/cronexpr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	datautils "github.com/kyverno/kyverno/pkg/utils/data"
 	"github.com/robfig/cron/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -214,13 +215,13 @@ type CleanupPolicySpec struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match"`
+	MatchResources kyvernov2beta1.MatchResources `json:"match"`
 
 	// ExcludeResources defines when cleanuppolicy should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources *MatchResources `json:"exclude,omitempty"`
+	ExcludeResources *kyvernov2beta1.MatchResources `json:"exclude,omitempty"`
 
 	// The schedule in Cron format
 	Schedule string `json:"schedule"`
@@ -298,7 +299,7 @@ func (spec *CleanupPolicySpec) ValidateMatchExcludeConflict(path *field.Path) (e
 		return errs
 	}
 	// If the ExcludeResources is empty, no need to validate further
-	if datautils.DeepEqual(spec.ExcludeResources, &MatchResources{}) {
+	if datautils.DeepEqual(spec.ExcludeResources, &kyvernov2beta1.MatchResources{}) {
 		return errs
 	}
 	return append(errs, field.Invalid(path, spec, "CleanupPolicy is matching an empty set"))

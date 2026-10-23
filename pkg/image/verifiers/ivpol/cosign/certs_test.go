@@ -759,6 +759,7 @@ func TestCheckSignatureAnnotationsV2(t *testing.T) {
 		expected    map[string]string
 		wantErr     bool
 		errContains string
+		errExact    string
 	}{
 		{
 			name: "matching annotations from payload optional map",
@@ -793,16 +794,14 @@ func TestCheckSignatureAnnotationsV2(t *testing.T) {
 			name: "mismatched value",
 			sig: &mockSignature{
 				payload: makePayload(map[string]string{
-					"key1": "value1",
-					"key2": "wrongvalue",
+					"pipeline": "ci",
 				}),
 			},
 			expected: map[string]string{
-				"key1": "value1",
-				"key2": "expectedvalue",
+				"pipeline": "cd",
 			},
-			wantErr:     true,
-			errContains: "annotations mismatch",
+			wantErr:  true,
+			errExact: "annotations mismatch: ci does not match expected value cd for key pipeline",
 		},
 		{
 			name: "missing key",
@@ -812,11 +811,19 @@ func TestCheckSignatureAnnotationsV2(t *testing.T) {
 				}),
 			},
 			expected: map[string]string{
-				"key1":       "value1",
-				"missingkey": "somevalue",
+				"pipeline": "cd",
 			},
-			wantErr:     true,
-			errContains: "annotations mismatch",
+			wantErr:  true,
+			errExact: "annotations mismatch: key pipeline is missing, expected value cd",
+		},
+		{
+			name: "non-string value",
+			sig: &mockSignature{
+				payload: []byte(`{"optional":{"pipeline":1}}`),
+			},
+			expected: map[string]string{"pipeline": "1"},
+			wantErr:  true,
+			errExact: "annotations mismatch: 1 (float64) does not match expected value 1 for key pipeline",
 		},
 		{
 			name: "empty expected",
@@ -888,6 +895,10 @@ func TestCheckSignatureAnnotationsV2(t *testing.T) {
 				assert.Error(t, err)
 				if tt.errContains != "" {
 					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				if tt.errExact != "" {
+					assert.EqualError(t, err, tt.errExact)
+					assert.NotContains(t, err.Error(), "%!")
 				}
 			} else {
 				assert.NoError(t, err)

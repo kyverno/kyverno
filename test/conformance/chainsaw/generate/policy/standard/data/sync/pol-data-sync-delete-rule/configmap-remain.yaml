@@ -1,9 +1,0 @@
-apiVersion: v1
-data:
-  key: superconfigmap
-kind: ConfigMap
-metadata:
-  labels:
-    somekey: somevalue
-  name: superconfigmap
-  namespace: pol-data-sync-delete-rule

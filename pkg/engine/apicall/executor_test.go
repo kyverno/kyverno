@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"gotest.tools/v3/assert"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,7 +41,7 @@ func Test_ExecuteK8sAPICall_ForbiddenError(t *testing.T) {
 	client := &mockClientWithError{err: forbiddenErr}
 	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
 
-	call := &kyvernov1.APICall{
+	call := &kyverno.APICall{
 		URLPath: "/apis/storage.k8s.io/v1/volumeattachments",
 		Method:  "GET",
 	}
@@ -59,7 +59,7 @@ func Test_ExecuteK8sAPICall_UnauthorizedError(t *testing.T) {
 	client := &mockClientWithError{err: unauthorizedErr}
 	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
 
-	call := &kyvernov1.APICall{
+	call := &kyverno.APICall{
 		URLPath: "/api/v1/namespaces",
 		Method:  "GET",
 	}
@@ -80,7 +80,7 @@ func Test_ExecuteK8sAPICall_OtherError(t *testing.T) {
 	client := &mockClientWithError{err: notFoundErr}
 	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
 
-	call := &kyvernov1.APICall{
+	call := &kyverno.APICall{
 		URLPath: "/api/v1/namespaces/default/configmaps/test-config",
 		Method:  "GET",
 	}
@@ -101,7 +101,7 @@ func Test_ExecuteK8sAPICall_GenericError(t *testing.T) {
 	client := &mockClientWithError{err: genericErr}
 	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
 
-	call := &kyvernov1.APICall{
+	call := &kyverno.APICall{
 		URLPath: "/api/v1/pods",
 		Method:  "GET",
 	}
@@ -119,7 +119,7 @@ func Test_ExecuteK8sAPICall_Success(t *testing.T) {
 	client := &mockClient{}
 	executor := NewExecutor(logr.Discard(), "test-call", client, apiConfig)
 
-	call := &kyvernov1.APICall{
+	call := &kyverno.APICall{
 		URLPath: "/api/v1/namespaces",
 		Method:  "GET",
 	}
@@ -147,9 +147,9 @@ func Test_ExecuteServiceCall_AllowsMissingScopedTokenWhenAuthorizationMissing(t 
 	defer s.Close()
 
 	executor := NewExecutor(logr.Discard(), "test-call", &mockClient{}, apiConfig)
-	call := &kyvernov1.APICall{
+	call := &kyverno.APICall{
 		Method: "GET",
-		Service: &kyvernov1.ServiceCall{
+		Service: &kyverno.ServiceCall{
 			URL: s.URL,
 		},
 	}
@@ -183,8 +183,8 @@ func testExecutor() *executor {
 	return NewExecutor(logr.Discard(), "test", &mockClient{}, apiConfig)
 }
 
-func getServiceCall(url string) *kyvernov1.APICall {
-	return &kyvernov1.APICall{Method: "GET", Service: &kyvernov1.ServiceCall{URL: url}}
+func getServiceCall(url string) *kyverno.APICall {
+	return &kyverno.APICall{Method: "GET", Service: &kyverno.ServiceCall{URL: url}}
 }
 
 func Test_ExecuteServiceCall_BlocksLoopbackByDefault(t *testing.T) {
@@ -355,8 +355,8 @@ func caBundlePEM(t *testing.T, srv *httptest.Server) string {
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
 }
 
-func getServiceCallWithCA(url, caBundle string) *kyvernov1.APICall {
-	return &kyvernov1.APICall{Method: "GET", Service: &kyvernov1.ServiceCall{URL: url, CABundle: caBundle}}
+func getServiceCallWithCA(url, caBundle string) *kyverno.APICall {
+	return &kyverno.APICall{Method: "GET", Service: &kyverno.ServiceCall{URL: url, CABundle: caBundle}}
 }
 
 func Test_ExecuteServiceCall_CABundle_Success(t *testing.T) {

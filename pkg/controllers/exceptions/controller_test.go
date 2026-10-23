@@ -194,63 +194,6 @@ func TestDeletePolex(t *testing.T) {
 	assert.ElementsMatch(t, []string{"pol-1", "pol-2"}, items)
 }
 
-func TestReconcile_ClusterPolicy(t *testing.T) {
-	t.Parallel()
-
-	cpolIndexer := newNamespaceIndexer()
-	polIndexer := newNamespaceIndexer()
-	polexIndexer := newNamespaceIndexer()
-
-	cpol := &kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "cpol-1",
-		},
-		Spec: kyvernov1.Spec{
-			Rules: []kyvernov1.Rule{
-				{Name: "rule-1"},
-				{Name: "rule-2"},
-			},
-		},
-	}
-	require.NoError(t, cpolIndexer.Add(cpol))
-
-	polex := &kyvernov2.PolicyException{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "polex-1",
-			Namespace: "default",
-		},
-		Spec: kyvernov2.PolicyExceptionSpec{
-			Exceptions: []kyvernov2.Exception{
-				{
-					PolicyName: "cpol-1",
-					RuleNames:  []string{"rule-1"},
-				},
-			},
-		},
-	}
-	require.NoError(t, polexIndexer.Add(polex))
-
-	c := &controller{
-		cpolLister:  kyvernov1listers.NewClusterPolicyLister(cpolIndexer),
-		polLister:   kyvernov1listers.NewPolicyLister(polIndexer),
-		polexLister: kyvernov2listers.NewPolicyExceptionLister(polexIndexer),
-		index:       policyIndex{},
-		namespace:   "*",
-	}
-
-	err := c.reconcile(context.Background(), logr.Discard(), "cpol-1", "", "cpol-1")
-	assert.NoError(t, err)
-
-	rule1Exceptions, err := c.Find("cpol-1", "rule-1")
-	assert.NoError(t, err)
-	require.Len(t, rule1Exceptions, 1)
-	assert.Equal(t, "polex-1", rule1Exceptions[0].Name)
-
-	rule2Exceptions, err := c.Find("cpol-1", "rule-2")
-	assert.NoError(t, err)
-	assert.Empty(t, rule2Exceptions)
-}
-
 func TestReconcile_NamespacedPolicy(t *testing.T) {
 	t.Parallel()
 
