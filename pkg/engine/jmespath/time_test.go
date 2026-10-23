@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptible/supercronic/cronexpr"
 	"gotest.tools/v3/assert"
 )
 
@@ -94,6 +95,31 @@ func Test_TimeToCron(t *testing.T) {
 			assert.Equal(t, result, tc.expectedResult)
 		})
 	}
+}
+
+func Test_TimeToCronInvalidTime(t *testing.T) {
+	query, err := jmespathInterface.Query("time_to_cron('2026-13-45T09:00:00-07:00')")
+	assert.NilError(t, err)
+
+	_, err = query.Search("")
+	assert.ErrorContains(t, err, "parsing time")
+}
+
+func Test_TimeToCronNextExecution(t *testing.T) {
+	query, err := jmespathInterface.Query("time_to_cron('2026-12-31T20:00:00-08:00')")
+	assert.NilError(t, err)
+
+	res, err := query.Search("")
+	assert.NilError(t, err)
+
+	schedule, ok := res.(string)
+	assert.Assert(t, ok)
+
+	cronExpr, err := cronexpr.Parse(schedule)
+	assert.NilError(t, err)
+
+	next := cronExpr.Next(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC))
+	assert.Equal(t, next, time.Date(2027, 1, 1, 4, 0, 0, 0, time.UTC))
 }
 
 func Test_TimeAdd(t *testing.T) {
