@@ -1199,9 +1199,10 @@ func (c *ApplyCommandConfig) checkExplainCompatible() error {
 		{c.PolicyReport, "--policy-report"},
 		{c.GenerateExceptions, "--generate-exceptions"},
 		{c.Stdin, "--stdin"},
+		{c.OutputFormat == "table", "--output-format table"},
 	} {
 		if f.set {
-			return fmt.Errorf("--explain cannot be used with %s: %s output must stay machine-readable, and the trace would be mixed into it", f.name, f.name)
+			return fmt.Errorf("--explain cannot be used with %s: the trace is human-readable text that would be mixed into structured output", f.name)
 		}
 	}
 	return nil

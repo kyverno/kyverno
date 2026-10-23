@@ -220,6 +220,28 @@ func TestOutputFormatConflicts(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "-p/--policy-report and --generate-exceptions are mutually exclusive")
 	})
+
+	t.Run("explain with table output-format", func(t *testing.T) {
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--explain", "--output-format", "table"})
+		err := cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--explain cannot be used with --output-format table")
+	})
+
+	t.Run("explain with -t flag", func(t *testing.T) {
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, "--resource", resourcePath, "--explain", "-t"})
+		err := cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "--explain cannot be used with --output-format table")
+	})
 }
 
 func TestOutputFormatWarningWithoutReport(t *testing.T) {
