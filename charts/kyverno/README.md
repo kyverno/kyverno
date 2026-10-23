@@ -474,6 +474,7 @@ The default audience is Kyverno-specific so leaked tokens are not accepted by th
 | features.policyExceptions.enabled | bool | `false` | Enables the feature |
 | features.policyExceptions.namespace | string | `""` | Restrict policy exceptions to a single namespace Set to "*" to allow exceptions in all namespaces |
 | features.protectManagedResources.enabled | bool | `false` | Enables the feature |
+| features.protectGenerationLabels.enabled | bool | `true` | Enables generation label protection webhook |
 | features.registryClient.allowInsecure | bool | `false` | Allow insecure registry |
 | features.registryClient.credentialHelpers | list | `["default","google","amazon","azure","github"]` | Enable registry client helpers |
 | features.ttlController.reconciliationInterval | string | `"1m"` | Reconciliation interval for the label based cleanup manager |

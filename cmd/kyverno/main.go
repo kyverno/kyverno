@@ -380,6 +380,7 @@ func main() {
 	flagset.BoolVar(&excludeBootstrapResources, "excludeBootstrapResources", false, "Set this flag to 'true' to exclude cluster bootstrap resources (Node, CertificateSigningRequest) from Fail resource webhooks, avoiding a webhook deadlock when the cluster restarts with no Kyverno pods running. Policies targeting these resources are not enforced while this is enabled.")
 	flagset.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flagset.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
+	flagset.Func(toggle.ProtectGenerationLabelsFlagName, toggle.ProtectGenerationLabelsDescription, toggle.ProtectGenerationLabels.Parse)
 	flagset.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flagset.Func(toggle.GenerateValidatingAdmissionPolicyFlagName, toggle.GenerateValidatingAdmissionPolicyDescription, toggle.GenerateValidatingAdmissionPolicy.Parse)
 	flagset.Func(toggle.GenerateMutatingAdmissionPolicyFlagName, toggle.GenerateMutatingAdmissionPolicyDescription, toggle.GenerateMutatingAdmissionPolicy.Parse)
