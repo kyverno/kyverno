@@ -27,7 +27,7 @@ spec:
     # WebhookConfigured may precede API-server registration; wait for an
     # effective mutation before treating an unchanged dry-run as a failure.
     - script:
-        timeout: 45s
+        timeout: 200s
         content: |
           last_probe_result=""
           for i in $(seq 1 30); do
