@@ -1,12 +1,19 @@
 package processor
 
 import (
+	"errors"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"syscall"
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/resource"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/store"
+	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/v3/assert"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -295,4 +302,91 @@ func Test_resolveResource_generatingPolicyFallsThrough(t *testing.T) {
 	got, err := p.resolveResource("Deployment")
 	assert.NilError(t, err)
 	assert.Equal(t, "deployments", got)
+}
+
+func Test_printOutput_writeToFile(t *testing.T) {
+	respWithPolicy := engineapi.EngineResponse{}.WithPolicy(
+		engineapi.NewKyvernoPolicy(&kyvernov1.ClusterPolicy{}),
+	)
+
+	tests := []struct {
+		name       string
+		isGenerate bool
+		response   engineapi.EngineResponse
+	}{
+		{"mutate path (isGenerate=false)", false, engineapi.EngineResponse{}},
+		{"generate path (isGenerate=true)", true, respWithPolicy},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			logPath := filepath.Join(tmpDir, "mutate.yaml")
+			assert.NilError(t, os.WriteFile(logPath, nil, 0o600))
+
+			p := &PolicyProcessor{
+				MutateLogPath:      logPath,
+				MutateLogPathIsDir: false,
+			}
+			res := map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata":   map[string]interface{}{"name": "nginx"},
+			}
+			err := p.printOutput(res, tc.response, "resource-path", tc.isGenerate)
+			assert.NilError(t, err)
+
+			got, readErr := os.ReadFile(logPath)
+			assert.NilError(t, readErr)
+			assert.Assert(t, strings.Contains(string(got), "kind: Pod"),
+				"expected YAML content in log file; got: %s", string(got))
+		})
+	}
+}
+func Test_printOutput_openFileError(t *testing.T) {
+	p := &PolicyProcessor{
+		MutateLogPath:      filepath.Join(t.TempDir(), "does-not-exist.yaml"),
+		MutateLogPathIsDir: false,
+	}
+	res := map[string]interface{}{"kind": "Pod"}
+	err := p.printOutput(res, engineapi.EngineResponse{}, "resource-path", false)
+	assert.Assert(t, err != nil, "expected error when log file does not exist")
+}
+
+func Test_printOutput_writeError_descriptorClosed(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("/dev/full is Linux-only; skipping on " + runtime.GOOS)
+	}
+
+	countFDs := func() int {
+		entries, err := os.ReadDir("/proc/self/fd")
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := 0
+		for _, e := range entries {
+			target, err := os.Readlink(filepath.Join("/proc/self/fd", e.Name()))
+			if err != nil {
+				continue
+			}
+			if target == "/dev/full" {
+				n++
+			}
+		}
+		return n
+	}
+
+	before := countFDs()
+
+	p := &PolicyProcessor{
+		MutateLogPath:      "/dev/full",
+		MutateLogPathIsDir: false,
+	}
+	res := map[string]interface{}{"kind": "Pod"}
+	err := p.printOutput(res, engineapi.EngineResponse{}, "resource-path", false)
+	assert.Assert(t, errors.Is(err, syscall.ENOSPC),
+		"expected ENOSPC; got %v", err)
+
+	after := countFDs()
+	assert.Equal(t, before, after,
+		"file descriptor leaked (fds to /dev/full: before=%d after=%d)", before, after)
 }
