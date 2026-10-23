@@ -377,3 +377,26 @@ func TestDoSplice_NewKindIsWorldReadable(t *testing.T) {
 		t.Errorf("new CRD written with mode %#o, want 0644 to match the checked-in manifests", got)
 	}
 }
+
+func TestDoSplice_ExistingCRDModeIsNormalised(t *testing.T) {
+	t.Parallel()
+	generated, target := t.TempDir(), t.TempDir()
+	writeFile(t, generated, "kyverno.io_newkinds.yaml", append(crdHeader(), crdEntry("v2", "gen-v2")...)...)
+	existing := writeFile(t, target, "kyverno.io_newkinds.yaml", append(crdHeader(), crdEntry("v2", "old-v2")...)...)
+	if err := os.Chmod(existing, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := doSplice(generated, target, nil, nil); err != nil {
+		t.Fatalf("doSplice: %v", err)
+	}
+	info, err := os.Stat(existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// os.WriteFile keeps an existing file's mode, so only the explicit chmod
+	// in writeCRD repairs a manifest that was created 0600 under a tight umask.
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Errorf("existing CRD left at mode %#o, want 0644", got)
+	}
+}

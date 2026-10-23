@@ -310,9 +310,17 @@ func spliceVersions(generatedDir, targetDir, name string, frozenVersions map[str
 	for _, v := range versions {
 		out = append(out, result[v]...)
 	}
-	// 0644: checked-in CRD manifests are world-readable, and this mode only
-	// applies when the target file does not exist yet (a new kind).
-	return os.WriteFile(filepath.Join(targetDir, name), []byte(strings.Join(out, "\n")+"\n"), 0o644) //nolint:gosec
+	return writeCRD(filepath.Join(targetDir, name), []byte(strings.Join(out, "\n")+"\n"))
+}
+
+// writeCRD writes a generated manifest and forces mode 0644 to match the
+// checked-in CRDs. os.WriteFile applies the umask when it creates a file, so
+// under a restrictive umask the mode argument alone is not enough.
+func writeCRD(path string, data []byte) error {
+	if err := os.WriteFile(path, data, 0o644); err != nil { //nolint:gosec
+		return err
+	}
+	return os.Chmod(path, 0o644)
 }
 
 func yamlFiles(dir string) ([]string, error) {
@@ -337,8 +345,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	// src/dst are built from --generated/--target dir listings, not untrusted input.
-	// 0644 matches the checked-in CRD manifests; it only applies to a new kind.
-	return os.WriteFile(dst, data, 0o644) //nolint:gosec
+	return writeCRD(dst, data)
 }
 
 // splitLines splits s on "\n" without producing a trailing empty element
