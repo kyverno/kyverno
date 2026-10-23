@@ -3,6 +3,7 @@ kind: Pod
 metadata:
   name: skipped-pod
 spec:
+  terminationGracePeriodSeconds: 1
   containers:
   - name: ubuntu
     image: public.ecr.aws/docker/library/ubuntu:latest

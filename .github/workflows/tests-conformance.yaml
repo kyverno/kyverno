@@ -651,6 +651,7 @@ jobs:
           set -e
           make verify-legacy-policy-hook
       - name: Helm test
+        id: helm-test
         run: |
           set -e
           make helm-test
@@ -658,9 +659,13 @@ jobs:
         if: failure()
         uses: ./.github/actions/kyverno/logs
       - name: Get logs from liveness pod
-        if: failure()
+        if: failure() && steps.helm-test.outcome == 'failure'
         run: |
-          kubectl -n kyverno logs pod/kyverno-cleanup-controller-liveness
+          if kubectl -n kyverno get pod kyverno-cleanup-controller-liveness --ignore-not-found -o name | grep -q .; then
+            kubectl -n kyverno logs pod/kyverno-cleanup-controller-liveness
+          else
+            echo "Cleanup-controller liveness test pod was not created; inspect the earlier Helm failure."
+          fi
 
   helm-uninstall:
     runs-on: ubuntu-latest
