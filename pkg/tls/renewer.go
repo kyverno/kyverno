@@ -146,16 +146,16 @@ func (c *certRenewer) RenewTLS(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to read CA (%w)", err)
 	}
-	secret, _, cert, err := c.decodeTLSSecret(ctx)
+	secret, _, certs, err := c.decodeTLSSecret(ctx)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to read TLS (%w)", err)
 	}
 	now := time.Now()
-	if cert != nil {
+	if len(certs) != 0 {
 		valid, err := c.ValidateCert(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to validate cert: %w", err)
-		} else if valid && !allCertificatesExpired(now.Add(c.renewBefore), cert) {
+		} else if valid && !allCertificatesExpired(now.Add(c.renewBefore), certs[0]) {
 			return nil
 		}
 	}
@@ -182,11 +182,11 @@ func (c *certRenewer) ValidateCert(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	_, _, cert, err := c.decodeTLSSecret(ctx)
+	_, _, certs, err := c.decodeTLSSecret(ctx)
 	if err != nil {
 		return false, err
 	}
-	return validateCert(time.Now(), cert, caCerts...), nil
+	return validateCert(time.Now(), certs, caCerts...), nil
 }
 
 func (c *certRenewer) getSecret(ctx context.Context, name string) (*corev1.Secret, error) {
@@ -225,18 +225,8 @@ func (c *certRenewer) decodeCASecret(ctx context.Context) (*corev1.Secret, crypt
 	return c.decodeSecret(ctx, c.caSecret)
 }
 
-func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, crypto.PrivateKey, *x509.Certificate, error) {
-	secret, key, certs, err := c.decodeSecret(ctx, c.pairSecret)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	if len(certs) == 0 {
-		return secret, key, nil, nil
-	} else if len(certs) == 1 {
-		return secret, key, certs[0], nil
-	} else {
-		return nil, nil, nil, err
-	}
+func (c *certRenewer) decodeTLSSecret(ctx context.Context) (*corev1.Secret, crypto.PrivateKey, []*x509.Certificate, error) {
+	return c.decodeSecret(ctx, c.pairSecret)
 }
 
 func (c *certRenewer) writeSecret(ctx context.Context, name string, key crypto.PrivateKey, certs ...*x509.Certificate) error {

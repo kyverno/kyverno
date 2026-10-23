@@ -59,21 +59,6 @@ var (
 	tlsSecretName string
 )
 
-// TODO:
-// - helm review labels / selectors
-// - implement probes
-// - supports certs in cronjob
-
-type probes struct{}
-
-func (probes) IsReady(context.Context) bool {
-	return true
-}
-
-func (probes) IsLive(context.Context) bool {
-	return true
-}
-
 func sanityChecks(apiserverClient apiserver.Interface) error {
 	return kubeutils.CRDsInstalled(apiserverClient, "cleanuppolicies.kyverno.io", "clustercleanuppolicies.kyverno.io")
 }
@@ -165,6 +150,20 @@ func main() {
 			setup.Logger.Error(fmt.Errorf("unsupported key algorithm: %s (supported: RSA, ECDSA, Ed25519)", tlsKeyAlgorithm), "invalid tlsKeyAlgorithm flag")
 			os.Exit(1)
 		}
+		certRenewer := tls.NewCertRenewer(
+			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+			tls.CertRenewalInterval,
+			tls.CAValidityDuration,
+			tls.TLSValidityDuration,
+			renewBefore,
+			serverIP,
+			config.KyvernoServiceName(),
+			config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
+			config.KyvernoNamespace(),
+			caSecretName,
+			tlsSecretName,
+			keyAlgorithm,
+		)
 
 		// certificates informers
 		caSecret := informers.NewSecretInformer(setup.KubeClient, config.KyvernoNamespace(), caSecretName, setup.ResyncPeriod)
@@ -261,20 +260,6 @@ func main() {
 				)
 
 				// controllers
-				renewer := tls.NewCertRenewer(
-					setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-					tls.CertRenewalInterval,
-					tls.CAValidityDuration,
-					tls.TLSValidityDuration,
-					renewBefore,
-					serverIP,
-					config.KyvernoServiceName(),
-					config.DnsNames(config.KyvernoServiceName(), config.KyvernoNamespace()),
-					config.KyvernoNamespace(),
-					caSecretName,
-					tlsSecretName,
-					keyAlgorithm,
-				)
 				var certController internal.Controller
 				if !disableCertManagerController {
 					certController = internal.NewController(
@@ -282,7 +267,7 @@ func main() {
 						certmanager.NewController(
 							caSecret,
 							tlsSecret,
-							renewer,
+							certRenewer,
 							caSecretName,
 							tlsSecretName,
 							config.KyvernoNamespace(),
@@ -453,7 +438,12 @@ func main() {
 			webhooks.DebugModeOptions{
 				DumpPayload: dumpPayload,
 			},
-			probes{},
+			probes{
+				logger:          setup.Logger.WithName("probes"),
+				certValidator:   certRenewer,
+				caSecretSynced:  caSecret.Informer().HasSynced,
+				tlsSecretSynced: tlsSecret.Informer().HasSynced,
+			},
 			setup.Configuration,
 		)
 		// start server
