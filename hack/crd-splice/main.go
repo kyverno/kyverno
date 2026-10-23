@@ -310,7 +310,9 @@ func spliceVersions(generatedDir, targetDir, name string, frozenVersions map[str
 	for _, v := range versions {
 		out = append(out, result[v]...)
 	}
-	return os.WriteFile(filepath.Join(targetDir, name), []byte(strings.Join(out, "\n")+"\n"), 0o600)
+	// 0644: checked-in CRD manifests are world-readable, and this mode only
+	// applies when the target file does not exist yet (a new kind).
+	return os.WriteFile(filepath.Join(targetDir, name), []byte(strings.Join(out, "\n")+"\n"), 0o644) //nolint:gosec
 }
 
 func yamlFiles(dir string) ([]string, error) {
@@ -335,7 +337,8 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	// src/dst are built from --generated/--target dir listings, not untrusted input.
-	return os.WriteFile(dst, data, 0o600) //nolint:gosec
+	// 0644 matches the checked-in CRD manifests; it only applies to a new kind.
+	return os.WriteFile(dst, data, 0o644) //nolint:gosec
 }
 
 // splitLines splits s on "\n" without producing a trailing empty element

@@ -362,7 +362,7 @@ func TestGlobalContextEntryDeepCopyIsolatesSharedTypes(t *testing.T) {
 
 	copied := out.Spec.APICall
 	copied.Data[0].Key = "mutated"
-	copied.Data[0].Value.Raw = []byte(`"mutated"`)
+	copied.Data[0].Value.Raw[1] = 'X' // in place: a replacement would miss a shared backing array
 	copied.Service.Headers[0].Value = "mutated"
 	copied.Service.CABundle = "mutated"
 	copied.RefreshInterval.Duration = time.Hour
@@ -372,7 +372,7 @@ func TestGlobalContextEntryDeepCopyIsolatesSharedTypes(t *testing.T) {
 		t.Errorf("Data slice is shared: key became %q", original.Data[0].Key)
 	}
 	if string(original.Data[0].Value.Raw) != `"original-value"` {
-		t.Errorf("RequestData.Value pointer is shared: raw became %s", original.Data[0].Value.Raw)
+		t.Errorf("RequestData.Value.Raw buffer is shared: raw became %s", original.Data[0].Value.Raw)
 	}
 	if original.Service.Headers[0].Value != "original-header-value" {
 		t.Errorf("Service.Headers slice is shared: value became %q", original.Service.Headers[0].Value)

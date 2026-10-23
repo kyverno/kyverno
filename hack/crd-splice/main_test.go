@@ -360,3 +360,20 @@ func TestDoSplice_FrozenFileAlsoInFreezeIsRejected(t *testing.T) {
 		t.Errorf("error %q does not explain the frozen-file conflict", err)
 	}
 }
+
+func TestDoSplice_NewKindIsWorldReadable(t *testing.T) {
+	t.Parallel()
+	generated, target := t.TempDir(), t.TempDir()
+	writeFile(t, generated, "kyverno.io_newkinds.yaml", append(crdHeader(), crdEntry("v2", "gen-v2")...)...)
+
+	if err := doSplice(generated, target, nil, nil); err != nil {
+		t.Fatalf("doSplice: %v", err)
+	}
+	info, err := os.Stat(filepath.Join(target, "kyverno.io_newkinds.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o644 {
+		t.Errorf("new CRD written with mode %#o, want 0644 to match the checked-in manifests", got)
+	}
+}
