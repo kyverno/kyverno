@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -460,29 +459,55 @@ spec:
 
 func TestGenerateExceptionsJSONFormat(t *testing.T) {
 	const (
-		policy   = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
-		resource = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment1.yaml"
+		policy    = "../../../../../test/cli/test-validating-policy/check-deployment-labels/policy.yaml"
+		resource1 = "../../../../../test/cli/test-validating-policy/check-deployment-labels/deployment2.yaml"
 	)
-	cmd := Command()
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	cmd.SetOut(stdout)
-	cmd.SetErr(stderr)
-	cmd.SetArgs([]string{policy, "--resource", resource, "--generate-exceptions", "--output-format", "json"})
-	err := cmd.Execute()
-	require.NoError(t, err)
 
-	outStr := stdout.String()
-	assert.NotContains(t, outStr, "---", "JSON exceptions output must not contain YAML document separator")
-	for _, line := range strings.Split(strings.TrimSpace(outStr), "\n") {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
+	t.Run("single exception in json format", func(t *testing.T) {
+		cmd := Command()
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		cmd.SetOut(stdout)
+		cmd.SetErr(stderr)
+		cmd.SetArgs([]string{policy, "--resource", resource1, "--generate-exceptions", "--output-format", "json"})
+		err := cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exit as there are policy violations")
+
+		outStr := stdout.String()
+		assert.NotContains(t, outStr, "---", "JSON exceptions output must not contain YAML document separator")
 		var parsed map[string]interface{}
-		err := json.Unmarshal([]byte(line), &parsed)
-		require.NoError(t, err, "each exception should be valid JSON: %s", line)
+		err = json.Unmarshal(stdout.Bytes(), &parsed)
+		require.NoError(t, err, "single exception should be valid JSON object: %s", outStr)
 		assert.Equal(t, "PolicyException", parsed["kind"])
-	}
+	})
+
+	t.Run("multiple exceptions in json format are wrapped in an array", func(t *testing.T) {
+		dir := t.TempDir()
+		res2 := filepath.Join(dir, "deployment2_copy.yaml")
+		data, err := os.ReadFile(resource1)
+		require.NoError(t, err)
+		data = bytes.ReplaceAll(data, []byte("name: bad-deployment"), []byte("name: bad-deployment-2"))
+		require.NoError(t, os.WriteFile(res2, data, 0o600))
+
+		cmd := Command()
+		stdout := &bytes.Buffer{}
+		stderr := &bytes.Buffer{}
+		cmd.SetOut(stdout)
+		cmd.SetErr(stderr)
+		cmd.SetArgs([]string{policy, "--resource", resource1, "--resource", res2, "--generate-exceptions", "--output-format", "json"})
+		err = cmd.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "exit as there are policy violations")
+
+		outStr := stdout.String()
+		assert.NotContains(t, outStr, "---", "JSON exceptions output must not contain YAML document separator")
+		var parsed []map[string]interface{}
+		err = json.Unmarshal(stdout.Bytes(), &parsed)
+		require.NoError(t, err, "multiple exceptions should be wrapped in valid JSON array: %s", outStr)
+		assert.Len(t, parsed, 2)
+		assert.Equal(t, "PolicyException", parsed[0]["kind"])
+	})
 }
 
 func TestStructuredOutputDiagnosticsRouteToStderr(t *testing.T) {
@@ -516,4 +541,17 @@ func TestStructuredOutputDiagnosticsRouteToStderr(t *testing.T) {
 	cmdWarn.SetArgs([]string{policyPath, "--resource", failingResourcePath, "-p", "--output-format", "json", "--warn-no-pass"})
 	_ = cmdWarn.Execute()
 	assert.NotContains(t, stdoutWarn.String(), "exit as no objects satisfied policy")
+
+	// Test continuing evaluation diagnostic with --continue-on-fail
+	cmdContinue := Command()
+	stdoutContinue := &bytes.Buffer{}
+	stderrContinue := &bytes.Buffer{}
+	cmdContinue.SetOut(stdoutContinue)
+	cmdContinue.SetErr(stderrContinue)
+	cmdContinue.SetArgs([]string{policyPath, "--resource", resourcePath, "-p", "--output-format", "json", "--continue-on-fail"})
+	err = cmdContinue.Execute()
+	require.NoError(t, err)
+	var parsedContinue map[string]interface{}
+	err = json.Unmarshal(stdoutContinue.Bytes(), &parsedContinue)
+	require.NoError(t, err, "stdout should be strictly valid JSON with continue-on-fail: %s", stdoutContinue.String())
 }

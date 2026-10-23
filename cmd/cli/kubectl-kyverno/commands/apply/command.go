@@ -193,7 +193,7 @@ func Command() *cobra.Command {
 			}
 
 			helperOut := out
-			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions {
+			if applyCommandConfig.PolicyReport || applyCommandConfig.GenerateExceptions || (applyCommandConfig.OutputFormat == "table" && !applyCommandConfig.Explain) {
 				helperOut = cmd.ErrOrStderr()
 			}
 
@@ -605,7 +605,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		params[i] = p
 	}
 	processorOut := out
-	if c.OutputFormat == "table" || c.PolicyReport || c.GenerateExceptions {
+	if (c.OutputFormat == "table" && !c.Explain) || c.PolicyReport || c.GenerateExceptions {
 		processorOut = io.Discard
 	}
 	for _, resource := range resources {
@@ -781,7 +781,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		engineResponse, err := engine.HandleValidating(context.TODO(), request, nil)
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
+				fmt.Fprintf(out, "failed to apply image validating policies on resource %s (%v)\n", resource.GetName(), err)
 				continue
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on resource %s (%w)", resource.GetName(), err)
@@ -824,7 +824,7 @@ func (c *ApplyCommandConfig) applyImageValidatingPolicies(
 		}
 		if err != nil {
 			if c.ContinueOnFail {
-				fmt.Printf("failed to apply image validating policies on JSON payload: %v\n", err)
+				fmt.Fprintf(out, "failed to apply image validating policies on JSON payload: %v\n", err)
 				continue
 			}
 			return responses, fmt.Errorf("failed to apply image validating policies on JSON payload: %w", err)
@@ -926,7 +926,7 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 				rc.AddValidatingPolicyResponse(response)
 
 				if c.ContinueOnFail {
-					fmt.Printf("failed to apply deleting policies on %s: %v\n", payloadType, err)
+					fmt.Fprintf(out, "failed to apply deleting policies on %s: %v\n", payloadType, err)
 					continue
 				}
 				return responses, fmt.Errorf("failed to apply deleting policies on %s: %w", payloadType, err)
