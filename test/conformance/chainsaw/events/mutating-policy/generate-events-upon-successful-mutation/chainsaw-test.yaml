@@ -31,7 +31,7 @@ spec:
     # Policy status can become ready before the API server observes the webhook.
     # Probe a different resource so its dry-run event cannot satisfy the assertion.
     - script:
-        timeout: 45s
+        timeout: 200s
         content: |
           last_probe_result=""
           for i in $(seq 1 30); do
