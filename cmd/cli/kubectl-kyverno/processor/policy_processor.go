@@ -61,6 +61,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/cel/lazy"
 	"k8s.io/client-go/openapi"
@@ -369,6 +370,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
+			// object and request point at resource, which the inline loop below overwrites with each patched
+			// result. The mutate-existing pass needs the trigger as it was admitted, so snapshot it first.
+			admitted := newAdmittedTrigger(contextProvider, resource.DeepCopy(), gvk, gvr, subresource, p.resolveOperation(), user)
 			// Skip inline mutation for policies with active target constraints, as admission does.
 			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
 			if err != nil {
@@ -405,24 +409,31 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				responses = append(responses, response)
 				resource = response.PatchedResource
 			}
-			// mutateExisting MutatingPolicies - process target resources
+			// mutateExisting MutatingPolicies - process target resources. Like the admission webhook, only
+			// policies whose trigger rules (matchConstraints, matchConditions) match this resource may
+			// mutate targets; the target engine below has no matcher and never checks the trigger itself.
+			// When no target is supplied or no policy is triggered there is nothing to evaluate.
+			// Which policies are triggered is decided on the admitted trigger, as the admission webhook does,
+			// and the matchConditions of the policies that select their targets with a CEL expression are
+			// checked again on the trigger as it is now stored, as the background controller does before it
+			// evaluates that expression.
+			var triggeredPolicies []string
+			var targetContext libs.Context
 			if len(p.TargetResources) > 0 {
+				// The targets exist before the trigger is admitted, so they are registered before the trigger
+				// checks: without a cluster that makes them visible to every CEL resource.get()/resource.list()
+				// of the policies, and the CEL target expression sees them in cluster mode too.
+				targetContext = targetResourceContext(contextProvider, p.TargetResources, restMapper)
+				triggeredPolicies = triggeredMutateExistingPolicies(context.TODO(), provider, admitted.attr, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
+				storedTrigger := admission.NewAttributesRecord(&resource, admitted.oldObject, gvk, resource.GetNamespace(), resource.GetName(), gvr, subresource, admitted.operation, nil, false, admissionpolicy.NewUser(user))
+				triggeredPolicies = conditionsStillMatch(context.TODO(), provider, triggeredPolicies, storedTrigger, &admitted.request.Request, p.Variables.Namespace(resource.GetNamespace()), contextProvider)
+			}
+			if len(triggeredPolicies) > 0 {
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
-				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
+				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, targetContext)
 				targetMatcher := matching.NewMatcher()
-				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
-				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
-					for _, target := range p.TargetResources {
-						tGVK := target.GroupVersionKind()
-						tMapping, err := restMapper.RESTMapping(tGVK.GroupKind(), tGVK.Version)
-						if err != nil {
-							continue
-						}
-						_ = fakeCtx.AddResource(tMapping.Resource, target)
-					}
-				}
-				celTargets, err := discoverCELTargets(provider, contextProvider, &resource)
+				celTargets, err := discoverCELTargets(provider, targetContext, &resource, triggeredPolicies)
 				if err != nil {
 					return nil, fmt.Errorf("failed to discover CEL targets: %w", err)
 				}
@@ -446,7 +457,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 						false,
 						nil,
 					)
-					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, request.Request, targetMatchPredicate(targetMatcher, attr, celTargets))
+					// targets are evaluated with the admission request of the admitted trigger, as the background controller does
+					evalResponse, err := mutExistEng.Evaluate(context.TODO(), attr, admitted.request.Request, mpolengine.And(policyKeyIn(triggeredPolicies), targetMatchPredicate(targetMatcher, attr, celTargets)))
 					if err != nil {
 						return nil, fmt.Errorf("failed to evaluate mutateExisting policies on target %s (%w)", target.GetName(), err)
 					}
@@ -486,6 +498,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 							},
 						}
 						resp = resp.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
+						if err := p.processMutateExistingEngineResponse(resp, resPath); err != nil {
+							return responses, fmt.Errorf("failed to print mutated target result (%w)", err)
+						}
 						responses = append(responses, resp)
 					}
 				}
@@ -984,11 +999,27 @@ func (p *PolicyProcessor) processMutateEngineResponse(response engineapi.EngineR
 	return nil
 }
 
-func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
-	yamlEncodedResource, err := yaml.Marshal(resource)
-	if err != nil {
-		return fmt.Errorf("failed to marshal (%w)", err)
+// processMutateExistingEngineResponse records and prints a response produced for a mutateExisting target.
+// Only the patched targets are printed, the trigger itself is left untouched.
+func (p *PolicyProcessor) processMutateExistingEngineResponse(response engineapi.EngineResponse, resourcePath string) error {
+	if !p.Rc.addMutateResponse(response) {
+		return nil
 	}
+	return p.printOutput(nil, response, resourcePath, false)
+}
+
+// printOutput prints the given resource followed by any patched targets found in the response.
+// A nil resource prints only the patched targets.
+func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.EngineResponse, resourcePath string, isGenerate bool) error {
+	var yamlEncodedResource []byte
+	if resource != nil {
+		var err error
+		yamlEncodedResource, err = yaml.Marshal(resource)
+		if err != nil {
+			return fmt.Errorf("failed to marshal (%w)", err)
+		}
+	}
+	printResource := resource != nil
 
 	var yamlEncodedTargetResources [][]byte
 	for _, ruleResponese := range response.PolicyResponse.Rules {
@@ -1007,11 +1038,15 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 
 	if p.MutateLogPath == "" {
 		resource := string(yamlEncodedResource) + string("\n---")
-		if len(strings.TrimSpace(resource)) > 0 {
+		if !printResource || len(strings.TrimSpace(resource)) > 0 {
 			if !p.Stdin {
 				fmt.Fprintf(p.Out, "\npolicy %s applied to %s:", response.Policy().GetName(), resourcePath)
 			}
-			fmt.Fprint(p.Out, "\n"+resource+"\n")
+			if printResource {
+				fmt.Fprint(p.Out, "\n"+resource+"\n")
+			} else {
+				fmt.Fprint(p.Out, "\n")
+			}
 			if len(yamlEncodedTargetResources) > 0 {
 				fmt.Fprintf(p.Out, "patched targets: \n")
 				for _, patchedTarget := range yamlEncodedTargetResources {
@@ -1023,6 +1058,7 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 	}
 
 	var file *os.File
+	var err error
 	mutateLogPath := filepath.Clean(p.MutateLogPath)
 	filename := p.Resource.GetName() + "-mutated"
 	if isGenerate {
@@ -1041,8 +1077,10 @@ func (p *PolicyProcessor) printOutput(resource interface{}, response engineapi.E
 			return err
 		}
 	}
-	if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
-		return err
+	if printResource {
+		if _, err := file.Write([]byte(string(yamlEncodedResource) + "\n---\n\n")); err != nil {
+			return err
+		}
 	}
 
 	for _, patchedTarget := range yamlEncodedTargetResources {
@@ -1164,24 +1202,25 @@ func (p *PolicyProcessor) resolveResource(kind string) (string, error) {
 // matches a MutatingPolicy's targetMatchConstraints. This filters out policies
 // whose target constraints don't match the given target, mirroring the filtering
 // the background controller does via API list calls before calling Evaluate.
-// celTargets maps policy names to the set of target keys (namespace/name) discovered
+// celTargets maps policy keys (mpolengine.PolicyKey) to the set of target keys (celTargetKey) discovered
 // by evaluating CEL expressions.
 func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTargets map[string]map[string]bool) func(policiesv1beta1.MutatingPolicyLike) bool {
 	return func(mpol policiesv1beta1.MutatingPolicyLike) bool {
+		// like the background controller, a namespaced policy only ever acts on targets in its own
+		// namespace, which also rules out cluster-scoped targets
+		if ns := mpol.GetNamespace(); ns != "" && attr.GetNamespace() != ns {
+			return false
+		}
 		tc := mpol.GetTargetMatchConstraints()
 		if tc.Expression != "" {
 			// CEL expression target selection — check pre-computed targets
-			targets, ok := celTargets[mpol.GetName()]
+			targets, ok := celTargets[mpolengine.PolicyKey(mpol)]
 			if !ok {
 				return false
 			}
-			ns := attr.GetNamespace()
-			name := attr.GetName()
-			key := name
-			if ns != "" {
-				key = ns + "/" + name
-			}
-			return targets[key]
+			// an object the expression returned without apiVersion and kind is still matched by namespace and name
+			return targets[celTargetKey(attr.GetKind().GroupKind(), attr.GetNamespace(), attr.GetName())] ||
+				targets[celTargetKey(schema.GroupKind{}, attr.GetNamespace(), attr.GetName())]
 		}
 		// Mirror background controller logic: use targetMatchConstraints if set,
 		// otherwise fall back to matchConstraints
@@ -1205,13 +1244,17 @@ func targetMatchPredicate(m matching.Matcher, attr admission.Attributes, celTarg
 	}
 }
 
-// discoverCELTargets evaluates CEL targetMatchConstraints expressions for mutateExisting
-// policies and returns a map of policy name → set of target keys (namespace/name).
+// discoverCELTargets evaluates the CEL targetMatchConstraints expressions of the triggered mutateExisting
+// policies and returns a map of policy key (mpolengine.PolicyKey) → set of target keys (celTargetKey).
 func discoverCELTargets(
 	provider mpolengine.Provider,
 	contextProvider libs.Context,
 	resource *unstructured.Unstructured,
+	triggeredPolicies []string,
 ) (map[string]map[string]bool, error) {
+	// only the policies this trigger triggered use the selections, so an expression written for another
+	// trigger is never evaluated against this one (where it may well fail)
+	triggered := sets.New(triggeredPolicies...)
 	result := make(map[string]map[string]bool)
 	// One shared cost budget for every target expression this call evaluates, so the CLI
 	// accounts for them the way a controller does. Without it the programs below are built
@@ -1221,7 +1264,7 @@ func discoverCELTargets(
 	pols := provider.Fetch(ctx, true)
 	for _, pol := range pols {
 		tc := pol.Policy.GetTargetMatchConstraints()
-		if tc.Expression == "" {
+		if tc.Expression == "" || !triggered.Has(mpolengine.PolicyKey(pol.Policy)) {
 			continue
 		}
 
@@ -1277,21 +1320,14 @@ func discoverCELTargets(
 					continue
 				}
 				obj := unstructured.Unstructured{Object: m}
-				key := obj.GetName()
-				if ns := obj.GetNamespace(); ns != "" {
-					key = ns + "/" + key
-				}
-				targetKeys[key] = true
+				targetKeys[celTargetKey(obj.GroupVersionKind().GroupKind(), obj.GetNamespace(), obj.GetName())] = true
 			}
 		} else {
 			obj := unstructured.Unstructured{Object: unstructuredResources}
-			key := obj.GetName()
-			if ns := obj.GetNamespace(); ns != "" {
-				key = ns + "/" + key
-			}
-			targetKeys[key] = true
+			targetKeys[celTargetKey(obj.GroupVersionKind().GroupKind(), obj.GetNamespace(), obj.GetName())] = true
 		}
-		result[pol.Policy.GetName()] = targetKeys
+		// keyed like policyKeyIn, so a clustered and a namespaced policy with the same name stay apart
+		result[mpolengine.PolicyKey(pol.Policy)] = targetKeys
 	}
 	return result, nil
 }
