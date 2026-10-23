@@ -11,6 +11,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
@@ -38,6 +39,11 @@ type validateManifestHandler struct {
 	client    engineapi.Client
 	isCluster bool
 }
+
+var (
+	defaultConfigOnce sync.Once
+	defaultConfig     *k8smanifest.VerifyResourceOption
+)
 
 func NewValidateManifestHandler(
 	policyContext engineapi.PolicyContext,
@@ -416,11 +422,17 @@ func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest
 }
 
 func loadDefaultConfig() *k8smanifest.VerifyResourceOption {
-	var defaultConfig *k8smanifest.VerifyResourceOption
-	err := yaml.Unmarshal(engineresources.DefaultConfigBytes, &defaultConfig)
-	if err != nil {
-		return nil
-	}
+	defaultConfigOnce.Do(func() {
+		var cfg *k8smanifest.VerifyResourceOption
+
+		err := yaml.Unmarshal(engineresources.DefaultConfigBytes, &cfg)
+		if err != nil {
+			return
+		}
+
+		defaultConfig = cfg
+	})
+
 	return defaultConfig
 }
 
