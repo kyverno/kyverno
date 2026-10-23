@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -314,5 +315,48 @@ func TestDoSplice_URShapedFixture(t *testing.T) {
 	}
 	if !strings.Contains(got, "new-field") {
 		t.Error("v2 entry missing the generated change")
+	}
+}
+
+func TestDoSplice_RejectsBeforeWriting(t *testing.T) {
+	t.Parallel()
+	generated, target := t.TempDir(), t.TempDir()
+	writeFile(t, generated, "kyverno.io_updaterequests.yaml", append(crdHeader(), crdEntry("v2", "gen-v2")...)...)
+	tgtLines := append(crdHeader(), crdEntry("v1beta1", "frozen")...)
+	tgtLines = append(tgtLines, crdEntry("v2", "tgt-v2")...)
+	writeFile(t, target, "kyverno.io_updaterequests.yaml", tgtLines...)
+	before, err := os.ReadFile(filepath.Join(target, "kyverno.io_updaterequests.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	freeze := map[string]map[string]bool{"kyverno.io_updaterequest.yaml": {"v1beta1": true}}
+	if err := doSplice(generated, target, nil, freeze); err == nil {
+		t.Fatal("expected an error for an unconsumed --freeze key, got nil")
+	}
+
+	after, err := os.ReadFile(filepath.Join(target, "kyverno.io_updaterequests.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Error("target was rewritten before the --freeze key was rejected; validation must precede writes")
+	}
+}
+
+func TestDoSplice_FrozenFileAlsoInFreezeIsRejected(t *testing.T) {
+	t.Parallel()
+	generated, target := t.TempDir(), t.TempDir()
+	writeFile(t, generated, "kyverno.io_clusterpolicies.yaml", append(crdHeader(), crdEntry("v1", "gen-v1")...)...)
+	writeFile(t, target, "kyverno.io_clusterpolicies.yaml", append(crdHeader(), crdEntry("v1", "tgt-v1")...)...)
+
+	frozen := map[string]bool{"kyverno.io_clusterpolicies.yaml": true}
+	freeze := map[string]map[string]bool{"kyverno.io_clusterpolicies.yaml": {"v1": true}}
+	err := doSplice(generated, target, frozen, freeze)
+	if err == nil {
+		t.Fatal("expected an error when a file is both --frozen-file and --freeze, got nil")
+	}
+	if !strings.Contains(err.Error(), "--frozen-file") {
+		t.Errorf("error %q does not explain the frozen-file conflict", err)
 	}
 }

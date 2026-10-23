@@ -137,7 +137,7 @@ $(CLIENT_WRAPPER):
 	@echo Install client-wrapper... >&2
 	@cd ./hack/client-wrapper && GOBIN=$(TOOLS_DIR) go install
 
-$(CRD_SPLICE):
+$(CRD_SPLICE): $(wildcard hack/crd-splice/*.go)
 	@echo Install crd-splice... >&2
 	@cd ./hack/crd-splice && GOBIN=$(TOOLS_DIR) go install
 

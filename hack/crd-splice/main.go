@@ -125,13 +125,28 @@ func doSplice(generated, target string, frozenFiles map[string]bool, freeze map[
 		}
 	}
 
-	// Step 3: write every non-frozen generated file, splicing in frozen
-	// versions where named. New kinds with no --freeze entry just copy.
 	generatedFiles, err := yamlFiles(generated)
 	if err != nil {
 		return fmt.Errorf("reading generated dir: %w", err)
 	}
-	consumed := map[string]bool{}
+
+	// Step 3: reject unusable --freeze keys before writing anything, so a typo
+	// or a stale entry cannot drop a frozen version on its way to failing.
+	generatedSet := map[string]bool{}
+	for _, f := range generatedFiles {
+		generatedSet[f] = true
+	}
+	for f := range freeze {
+		if frozenFiles[f] {
+			return fmt.Errorf("--freeze names %s, which is also a --frozen-file; a file is either frozen whole or spliced per version", f)
+		}
+		if !generatedSet[f] {
+			return fmt.Errorf("--freeze names %s, which has no generated counterpart in %s", f, generated)
+		}
+	}
+
+	// Step 4: write every non-frozen generated file, splicing in frozen
+	// versions where named. New kinds with no --freeze entry just copy.
 	for _, f := range generatedFiles {
 		if frozenFiles[f] {
 			continue
@@ -143,17 +158,8 @@ func doSplice(generated, target string, frozenFiles map[string]bool, freeze map[
 			}
 			continue
 		}
-		consumed[f] = true
 		if err := spliceVersions(generated, target, f, frozenVersions); err != nil {
 			return err
-		}
-	}
-
-	// Step 4: a --freeze key naming a file absent from --generated is a typo
-	// or a stale entry, not a no-op; never let it silently drop a version.
-	for f := range freeze {
-		if !consumed[f] {
-			return fmt.Errorf("--freeze names %s, which has no generated counterpart in %s", f, generated)
 		}
 	}
 	return nil
