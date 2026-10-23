@@ -317,7 +317,7 @@ spec:
 
 			_, err := Load(nil, "", path)
 			require.Error(t, err, "expected the legacy-policy block to fire")
-			assert.Contains(t, err.Error(), "is no longer accepted")
+			assert.Contains(t, err.Error(), "Kyverno v1.20 removed execution")
 		})
 	}
 }
@@ -328,7 +328,7 @@ func TestLoad_BlocksMalformedLegacyClusterPolicy(t *testing.T) {
 	// so the block must fire instead of surfacing only the generic schema error.
 	_, err := Load(nil, "", "../_testdata/policies/invalid-schema.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 }
 
 func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T) {
@@ -338,7 +338,7 @@ func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T)
 	// (unrelated, non-fatal-by-comparison) "unsupported kind" error.
 	_, err := Load(nil, "", "testdata/configmap-then-legacy-clusterpolicy.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 }
 
 func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
@@ -346,7 +346,7 @@ func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
 	// v1 List; the block must fire for a List item exactly as it does for a standalone manifest.
 	_, err := Load(nil, "", "testdata/list-single-clusterpolicy.yaml")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 }
 
 func TestLoadHTTP(t *testing.T) {

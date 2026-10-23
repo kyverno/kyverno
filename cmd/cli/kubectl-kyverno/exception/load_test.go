@@ -118,7 +118,7 @@ spec:
 
 			_, err := Load(path)
 			require.Error(t, err, "expected the legacy-policy block to fire")
-			assert.Contains(t, err.Error(), "is no longer accepted")
+			assert.Contains(t, err.Error(), "Kyverno v1.20 removed execution")
 		})
 	}
 }
@@ -168,7 +168,7 @@ spec:
 
 	_, err := load(content)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 }
 
 func Test_load_BlocksMalformedLegacyException(t *testing.T) {
@@ -187,7 +187,7 @@ spec:
 
 	_, err := load(malformed)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 }
 
 func Test_SelectFrom(t *testing.T) {
@@ -229,7 +229,7 @@ func Test_SelectFrom_MalformedLegacyExceptionStillBlocked(t *testing.T) {
 
 	_, err := SelectFrom(resources)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 }
 
 func Test_SelectFrom_MalformedCELExceptionSurfacesError(t *testing.T) {
@@ -265,7 +265,7 @@ func Test_SelectFrom_BlocksLegacyException(t *testing.T) {
 
 	_, err := SelectFrom(resources)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException is no longer accepted")
+	assert.Contains(t, err.Error(), "kyverno.io/v2 PolicyException: Kyverno v1.20 removed execution")
 }
 
 func toUnstructured(t *testing.T, in ...interface{}) []*unstructured.Unstructured {
