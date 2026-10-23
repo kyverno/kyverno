@@ -41,7 +41,11 @@ touched for this snapshot.
 - The frozen set is declared once, as `KYVERNO_CRDS_FROZEN_FILES` and
   `KYVERNO_CRDS_FROZEN_VERSIONS` in the `Makefile`. To freeze or unfreeze
   something, edit those variables and the matching digests in
-  `scripts/verify-legacy-crd-snapshot.sh`.
+  `scripts/verify-legacy-crd-snapshot.sh`. `KYVERNO_CRDS_FROZEN_VERSIONS` holds
+  space-separated `name=version` entries, one version per entry (repeat the
+  entry to freeze several versions of the same file) — this is the same
+  single-version syntax `crd-splice`'s `--freeze` and `extract --freeze`
+  flags and `verify-legacy-crd-snapshot.sh` all expect.
 - `make verify-legacy-crd-snapshot` fails CI if any frozen file, or the
   frozen `v1beta1` block, changes.
 - `scripts/verify-legacy-crd-retention.sh` (#17489) is a separate, older
