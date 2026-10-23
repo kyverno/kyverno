@@ -532,6 +532,9 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	responses = append(responses, responses7...)
 	responses = append(responses, httpResponses...)
 	responses = append(responses, envoyResponses...)
+	if err := c.failOnDeprecationWarnings(); err != nil {
+		return rc, resources1, skippedInvalidPolicies, responses, err
+	}
 	return rc, resources1, skippedInvalidPolicies, responses, nil
 }
 
@@ -571,10 +574,25 @@ func (c *ApplyCommandConfig) applyPolicies(
 	var rc processor.ResultCounts
 	// validate policies
 	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
+	sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
+	seenWarnings := make(map[string]bool)
 	for _, pol := range policies {
-		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		warnings, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
+		policyName := pol.GetName()
+		if pol.GetNamespace() != "" {
+			policyName = pol.GetNamespace() + "/" + pol.GetName()
+		}
+		for _, warning := range warnings {
+			if err != nil && warning == err.Error() {
+				continue
+			}
+			msg := fmt.Sprintf("Warning: policy %s: %s", policyName, warning)
+			if !seenWarnings[msg] {
+				seenWarnings[msg] = true
+				fmt.Fprintln(out, msg)
+				c.deprecationWarnings = append(c.deprecationWarnings, msg)
+			}
+		}
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			rc.IncrementError(1)
