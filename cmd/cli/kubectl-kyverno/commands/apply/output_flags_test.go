@@ -420,6 +420,42 @@ spec:
 		assert.Equal(t, "Report", parsed["kind"])
 		assert.Equal(t, "openreports.io/v1alpha1", parsed["apiVersion"])
 	})
+
+	t.Run("multi-report in json format is wrapped in a list", func(t *testing.T) {
+		const namespacedPolicy2 = `
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: check-pod-ns-2
+  namespace: test-ns-2
+spec:
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE]
+      resources: [pods]
+  validations:
+  - expression: "object.metadata.name == 'pod'"
+`
+		nsPolicy2Path := filepath.Join(dir, "ns_policy_2.yaml")
+		require.NoError(t, os.WriteFile(nsPolicy2Path, []byte(namespacedPolicy2), 0o600))
+
+		cmd := Command()
+		out := &bytes.Buffer{}
+		cmd.SetOut(out)
+		cmd.SetErr(out)
+		cmd.SetArgs([]string{policyPath, nsPolicy2Path, "--resource", resourcePath, "-p", "--output-format", "json"})
+		err := cmd.Execute()
+		require.NoError(t, err)
+
+		outStr := out.String()
+		assert.NotContains(t, outStr, "---", "JSON policy report output must not contain YAML document separator")
+		var parsed []map[string]interface{}
+		err = json.Unmarshal(out.Bytes(), &parsed)
+		require.NoError(t, err, "multi-report output should be valid JSON list: %s", outStr)
+		require.Len(t, parsed, 2)
+	})
 }
 
 func TestGenerateExceptionsJSONFormat(t *testing.T) {
@@ -468,4 +504,16 @@ func TestStructuredOutputDiagnosticsRouteToStderr(t *testing.T) {
 	var parsed map[string]interface{}
 	err = json.Unmarshal(stdout.Bytes(), &parsed)
 	require.NoError(t, err, "stdout should be strictly valid JSON: %s", stdout.String())
+
+	// Test exit diagnostic leak: warn-no-pass messages must route to stderr
+	cmdWarn := Command()
+	stdoutWarn := &bytes.Buffer{}
+	stderrWarn := &bytes.Buffer{}
+	cmdWarn.SetOut(stdoutWarn)
+	cmdWarn.SetErr(stderrWarn)
+	failingResourcePath := filepath.Join(dir, "failing_resource.yaml")
+	require.NoError(t, os.WriteFile(failingResourcePath, []byte(outputTestFailingPod), 0o600))
+	cmdWarn.SetArgs([]string{policyPath, "--resource", failingResourcePath, "-p", "--output-format", "json", "--warn-no-pass"})
+	_ = cmdWarn.Execute()
+	assert.NotContains(t, stdoutWarn.String(), "exit as no objects satisfied policy")
 }

@@ -269,7 +269,7 @@ func Command() *cobra.Command {
 				}
 				printViolations(out, rc)
 			}
-			return exit(out, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
+			return exit(diagOut, rc, applyCommandConfig.warnExitCode, applyCommandConfig.warnNoPassed)
 		},
 	}
 

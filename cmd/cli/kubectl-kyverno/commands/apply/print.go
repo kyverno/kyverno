@@ -53,26 +53,36 @@ func printPolicyDiagnostic(out io.Writer, index int, policy PolicyDiagnostic) {
 func printReports(out io.Writer, engineResponses []engineapi.EngineResponse, auditWarn bool, outputFormat string) {
 	clustered, namespaced := report.ComputePolicyReports(auditWarn, engineResponses...)
 
-	printReport := func(report interface{}) {
-		var output []byte
-		if outputFormat == "json" {
-			output, _ = json.Marshal(report)
-		} else {
-			output, _ = yaml.Marshal(report)
-		}
-		fmt.Fprintln(out, string(output))
-	}
-
+	var allReports []interface{}
 	if len(clustered) > 0 {
 		clusterReport := report.MergeClusterReports(clustered)
-		printReport(clusterReport)
+		allReports = append(allReports, clusterReport)
+	}
+	for _, r := range namespaced {
+		allReports = append(allReports, r)
 	}
 
-	for _, r := range namespaced {
-		if outputFormat != "json" {
+	if len(allReports) == 0 {
+		return
+	}
+
+	if outputFormat == "json" {
+		if len(allReports) == 1 {
+			output, _ := json.Marshal(allReports[0])
+			fmt.Fprintln(out, string(output))
+		} else {
+			output, _ := json.Marshal(allReports)
+			fmt.Fprintln(out, string(output))
+		}
+		return
+	}
+
+	for i, r := range allReports {
+		if i > 0 {
 			fmt.Fprintln(out, "---")
 		}
-		printReport(r)
+		output, _ := yaml.Marshal(r)
+		fmt.Fprintln(out, string(output))
 	}
 }
 
