@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/dynamic"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/klog/v2"
@@ -427,7 +428,12 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 
 	labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
 	labels[common.GeneratePolicyLabel] = cp.genCtx.policyName
-	labels[common.GenerateTriggerNameLabel] = cp.genCtx.triggerName
+	if len(validation.IsValidLabelValue(cp.genCtx.triggerName)) == 0 {
+		labels[common.GenerateTriggerNameLabel] = cp.genCtx.triggerName
+	} else {
+		// An absent name lets GetResource resolve the trigger by UID during re-sync.
+		delete(labels, common.GenerateTriggerNameLabel)
+	}
 	labels[common.GenerateTriggerNSLabel] = cp.genCtx.triggerNamespace
 	labels[common.GenerateTriggerUIDLabel] = cp.genCtx.triggerUID
 	labels[common.GenerateTriggerKindLabel] = cp.genCtx.triggerKind
