@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -531,6 +532,8 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{"pipeline": "staging"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
+	assert.ErrorContains(t, err, "annotations mismatch: ci does not match expected value staging for key pipeline")
+	assert.ErrorContains(t, err, "annotations mismatch: cd does not match expected value staging for key pipeline")
 
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1, payload2},
 		map[string]string{})
@@ -543,6 +546,7 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 	err = checkAnnotations([]payload.SimpleContainerImage{payload1},
 		map[string]string{"pipeline": "cd"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
+	assert.ErrorContains(t, err, "annotations mismatch: ci does not match expected value cd for key pipeline")
 
 	payloadMulti := payload.SimpleContainerImage{
 		Optional: map[string]interface{}{"pipeline": "ci", "env": "prod"},
@@ -554,4 +558,23 @@ func TestCheckAnnotations_MultipleSignatures(t *testing.T) {
 	err = checkAnnotations([]payload.SimpleContainerImage{payloadMulti},
 		map[string]string{"pipeline": "ci", "env": "staging"})
 	assert.ErrorContains(t, err, "no signature matched the required annotations")
+}
+
+func TestCheckAnnotations_MismatchValues(t *testing.T) {
+	t.Run("missing key", func(t *testing.T) {
+		err := checkAnnotations([]payload.SimpleContainerImage{{}}, map[string]string{"pipeline": "cd"})
+		assert.Assert(t, err != nil)
+		assert.Check(t, !strings.Contains(err.Error(), "%!"))
+		assert.Error(t, err, "no signature matched the required annotations: [annotations mismatch: key pipeline is missing, expected value cd]")
+	})
+
+	t.Run("non-string value", func(t *testing.T) {
+		p := payload.SimpleContainerImage{
+			Optional: map[string]interface{}{"pipeline": float64(1)},
+		}
+		err := checkAnnotations([]payload.SimpleContainerImage{p}, map[string]string{"pipeline": "1"})
+		assert.Assert(t, err != nil)
+		assert.Check(t, !strings.Contains(err.Error(), "%!"))
+		assert.Error(t, err, "no signature matched the required annotations: [annotations mismatch: 1 (float64) does not match expected value 1 for key pipeline]")
+	})
 }
