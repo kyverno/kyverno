@@ -45,6 +45,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/restmapper"
+	_ "k8s.io/component-base/metrics/prometheus/workqueue" // register workqueue depth/latency metrics
 	kyamlopenapi "sigs.k8s.io/kustomize/kyaml/openapi"
 )
 
