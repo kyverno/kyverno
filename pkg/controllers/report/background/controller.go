@@ -2,7 +2,6 @@ package background
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -602,25 +601,7 @@ func (c *controller) reconcileReport(
 			policyNameToLabel[key] = reportutils.MutatingAdmissionPolicyBindingLabel(&binding)
 		}
 		for _, result := range observed.GetResults() {
-			// The result is kept as it is if:
-			// 1. The Kyverno policy and its matched exceptions are unchanged
-			// 2. The ValidatingAdmissionPolicy and its matched binding are unchanged
-			keepResult := true
-			exception := result.Properties["exceptions"]
-			exceptions := strings.Split(exception, ",")
-			for _, exception := range exceptions {
-				exceptionLabel := policyNameToLabel[exception]
-				if exceptionLabel != "" && expected[exceptionLabel] != actual[exceptionLabel] {
-					keepResult = false
-					break
-				}
-			}
-			label := policyNameToLabel[result.Policy]
-			vapBindingLabel := policyNameToLabel[result.Properties["binding"]]
-			mapBindingLabel := policyNameToLabel[result.Properties["mapBinding"]]
-			if (label != "" && expected[label] == actual[label]) ||
-				(vapBindingLabel != "" && expected[vapBindingLabel] == actual[vapBindingLabel]) ||
-				(mapBindingLabel != "" && expected[mapBindingLabel] == actual[mapBindingLabel]) || keepResult {
+			if shouldKeepStaleResult(result, policyNameToLabel, expected, actual) {
 				ruleResults = append(ruleResults, result)
 			}
 		}
@@ -686,6 +667,47 @@ func (c *controller) reconcileReport(
 		return c.storeReport(ctx, observed, desired)
 	}
 	return nil
+}
+
+// shouldKeepStaleResult reports whether a previously observed rule result can be carried
+// over as-is into the new report without a rescan. This is only safe when the owning policy
+// and any binding that produced the result still exist and have the resource version they
+// had when the result was produced. If any of those changed or was deleted (e.g. a policy
+// was edited to exclude the resource's namespace), the stale result must be dropped so the
+// resource is re-evaluated against the current policy.
+func shouldKeepStaleResult(
+	result openreportsv1alpha1.ReportResult,
+	policyNameToLabel, expected, actual map[string]string,
+) bool {
+	// every non-empty reference must resolve to a known policy or binding
+	resolve := func(name string) (string, bool) {
+		if name == "" {
+			return "", true
+		}
+		label := policyNameToLabel[name]
+		return label, label != ""
+	}
+	label, ok := resolve(result.Policy)
+	if !ok {
+		return false
+	}
+	vapBindingLabel, ok := resolve(result.Properties["binding"])
+	if !ok {
+		return false
+	}
+	mapBindingLabel, ok := resolve(result.Properties["mapBinding"])
+	if !ok {
+		return false
+	}
+	if label == "" && vapBindingLabel == "" && mapBindingLabel == "" {
+		return false
+	}
+	for _, l := range []string{label, vapBindingLabel, mapBindingLabel} {
+		if l != "" && expected[l] != actual[l] {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *controller) storeReport(ctx context.Context, observed, desired reportsv1.ReportInterface) error {
