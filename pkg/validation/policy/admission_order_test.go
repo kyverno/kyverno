@@ -8,7 +8,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	authorizationv1 "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -43,7 +45,13 @@ func orderClient() dclient.Interface {
 		IDiscovery: dclient.NewFakeDiscoveryClient([]schema.GroupVersionResource{{Version: "v1", Resource: "pods"}}),
 		cached:     memory.NewMemCacheClient(resources),
 	}
-	return dclient.NewFakeClientWithDisco(nil, kubefake.NewClientset(), disco)
+	// Exercise scope checks with an authorized controller now that generate
+	// authorization is checked before warning-only validation exits.
+	client := kubefake.NewClientset()
+	client.PrependReactor("create", "subjectaccessreviews", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
+	})
+	return dclient.NewFakeClientWithDisco(nil, client, disco)
 }
 
 func orderPolicy(rules ...kyvernov1.Rule) *kyvernov1.Policy {
@@ -253,7 +261,7 @@ func TestValidate_GenerateUpdateWarningCannotHideUnsafeCredentials(t *testing.T)
 			t.Parallel()
 			oldPolicy := orderPolicy(orderGenerateRule("old-target"), orderVerifyRule("tenant-a/regcred"))
 			newPolicy := orderPolicy(orderGenerateRule("new-target"), orderVerifyRule(secret))
-			warnings, err := Validate(newPolicy, oldPolicy, orderClient(), false, "", "")
+			warnings, err := Validate(newPolicy, oldPolicy, orderClient(), false, generateOrderBackgroundSA, generateOrderReportsSA)
 			if secret == "tenant-a/regcred" {
 				require.NoError(t, err)
 				assert.Contains(t, strings.Join(warnings, "\n"), "no synchronization will be performed")
