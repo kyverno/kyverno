@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/kyverno/api/kyverno"
@@ -429,7 +428,12 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 
 	labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
 	labels[common.GeneratePolicyLabel] = cp.genCtx.policyName
-	labels[common.GenerateTriggerNameLabel] = toLabelValue(cp.genCtx.triggerName)
+	if len(validation.IsValidLabelValue(cp.genCtx.triggerName)) == 0 {
+		labels[common.GenerateTriggerNameLabel] = cp.genCtx.triggerName
+	} else {
+		// An absent name lets GetResource resolve the trigger by UID during re-sync.
+		delete(labels, common.GenerateTriggerNameLabel)
+	}
 	labels[common.GenerateTriggerNSLabel] = cp.genCtx.triggerNamespace
 	labels[common.GenerateTriggerUIDLabel] = cp.genCtx.triggerUID
 	labels[common.GenerateTriggerKindLabel] = cp.genCtx.triggerKind
@@ -442,18 +446,6 @@ func (cp *contextProvider) addGenerateLabels(obj *unstructured.Unstructured) {
 	}
 
 	obj.SetLabels(labels)
-}
-
-// toLabelValue shortens an object name to fit a label value. Names can be up to 253 characters
-// but label values only 63, and a label value must end with an alphanumeric character, so a cut
-// that lands on '-', '_' or '.' drops those too. The trigger-name label is informational: triggers
-// are matched by the trigger UID label, so a shortened name does not change which downstreams
-// belong to which trigger.
-func toLabelValue(name string) string {
-	if len(name) <= validation.LabelValueMaxLength {
-		return name
-	}
-	return strings.TrimRight(name[:validation.LabelValueMaxLength], "-_.")
 }
 
 func (cp *contextProvider) SetGenerateContext(
