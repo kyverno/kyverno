@@ -531,6 +531,13 @@ class AnalyzeTest(Base):
         self.assertTrue(issue.mapped[0]["handled"])
         self.assertEqual((issue.uncertain, issue.kind), ([], "confirm"))
 
+    def test_a_failed_tree_listing_raises_instead_of_listing_nothing(self):
+        self.upstream.release("37.0")
+        repo, _ = self.releases()
+        self.assertEqual(psa.tree_blobs("git", repo, "kubernetes-1.37.0", "test/testdata/missing"), {})
+        with self.assertRaisesRegex(psa.ReleaseError, "git ls-tree -r kubernetes-1.99.0 failed"):
+            psa.tree_blobs("git", repo, "kubernetes-1.99.0", "test/testdata")
+
     def test_a_confirm_issue_gives_every_reason(self):
         # Like upstream 1.37: a handled check change and test-only changes in one release.
         issue = self.change({"policy/check_sysctls.go": check_sysctls(gate=37, values=["net.ipv4.tcp_notsent_lowat"]),

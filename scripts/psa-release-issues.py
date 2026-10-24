@@ -206,9 +206,9 @@ class Analysis:
 
 def tree_blobs(git_bin, repo, ref, path):
     """Returns {relative path: blob SHA} for the files under path at ref."""
-    result = run_command([git_bin, "-C", str(repo), "ls-tree", "-r", ref, "--", path])
+    # A missing path lists nothing; a failure, such as a missing ref, raises.
     blobs = {}
-    for line in result.stdout.splitlines() if result.returncode == 0 else []:
+    for line in git(git_bin, repo, "ls-tree", "-r", ref, "--", path).splitlines():
         meta, _, name = line.partition("\t")
         blobs[name[len(path) + 1:]] = meta.split()[2]
     return blobs
