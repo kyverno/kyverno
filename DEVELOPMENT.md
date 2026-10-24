@@ -381,22 +381,8 @@ This will output generated files in the [/pkg/client](./pkg/client) package.
 Based on the [APIs golang code definitions](./api), you can generate the corresponding deep copy functions by running:
 
 ```console
-# generate all deep copy functions
-make codegen-deepcopy-all
-```
-
-or
-
-```console
-# generate kyverno deep copy functions
-make codegen-deepcopy-kyverno
-```
-
-or
-
-```console
-# generate policy reports deep copy functions
-make codegen-deepcopy-report
+# generate API deep copy functions
+make codegen-api-deepcopy
 ```
 
 This will output files named `zz_generated.deepcopy.go` in every API package.
