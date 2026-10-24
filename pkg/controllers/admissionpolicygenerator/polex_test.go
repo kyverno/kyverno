@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -17,6 +18,7 @@ import (
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	clocktesting "k8s.io/utils/clock/testing"
 )
 
 // TestEnqueueCELExceptionContinuesOnMissingPolicy verifies that enqueueCELException
@@ -220,6 +222,52 @@ func TestRequeueAtExpiryExpiredDuringGeneration(t *testing.T) {
 	}})
 	require.Contains(t, queue.delays, "ValidatingPolicy/policy")
 	assert.LessOrEqual(t, queue.delays["ValidatingPolicy/policy"], time.Duration(0), "an exception expiring after listing must trigger immediate regeneration")
+}
+
+func TestRequeueAtExpiryDeliversPolicyKeysToWorker(t *testing.T) {
+	now := time.Now()
+	fakeClock := clocktesting.NewFakeClock(now)
+	queue := workqueue.NewTypedRateLimitingQueueWithConfig(
+		workqueue.DefaultTypedControllerRateLimiter[any](),
+		workqueue.TypedRateLimitingQueueConfig[any]{Clock: fakeClock},
+	)
+	c := &controller{queue: queue}
+	exceptions := []policiesv1beta1.PolicyException{{
+		Spec: policiesv1beta1.PolicyExceptionSpec{ExpiresAt: &metav1.Time{Time: now.Add(time.Hour)}},
+	}}
+	c.requeueAtExpiry("vpol", "ValidatingPolicy", exceptions)
+	c.requeueAtExpiry("mpol", "MutatingPolicy", exceptions)
+	assert.Zero(t, queue.Len(), "neither deadline is ready yet")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	keys := make(chan string, 2)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		controllerutils.Run(ctx, logr.Discard(), "expiry-test", time.Second, queue, 1, 0,
+			func(_ context.Context, _ logr.Logger, key, _, _ string) error {
+				keys <- key
+				return nil
+			})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		<-done
+	})
+
+	fakeClock.Step(2 * time.Hour)
+	deadline := time.NewTimer(10 * time.Second)
+	defer deadline.Stop()
+	var got []string
+	for range 2 {
+		select {
+		case key := <-keys:
+			got = append(got, key)
+		case <-deadline.C:
+			t.Fatal("the worker did not receive both policy keys after the fake-clock deadline")
+		}
+	}
+	assert.ElementsMatch(t, []string{"ValidatingPolicy/vpol", "MutatingPolicy/mpol"}, got)
 }
 
 func TestDeleteCELExceptionEnqueuesReferencedPolicies(t *testing.T) {
