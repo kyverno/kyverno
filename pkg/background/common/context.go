@@ -48,10 +48,16 @@ func NewBackgroundContext(
 
 	var policyContext *engine.PolicyContext
 	if urContext.AdmissionRequestInfo.AdmissionRequest == nil {
+		operation := kyvernov1.AdmissionOperation(urContext.AdmissionRequestInfo.Operation)
+		if operation == "" {
+			// Policy reconciliation and periodic resync have no admission request.
+			// Evaluate existing triggers as CREATE, consistent with GeneratingPolicy.
+			operation = kyvernov1.Create
+		}
 		policyContext, err = engine.NewPolicyContext(
 			jp,
 			*trigger,
-			kyvernov1.AdmissionOperation(urContext.AdmissionRequestInfo.Operation),
+			operation,
 			&urContext.UserRequestInfo,
 			cfg,
 		)
