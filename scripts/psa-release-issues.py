@@ -1044,6 +1044,7 @@ def run(args, github, chart, config, git_bin="git"):
                 out.write_text(f"# {title}\n\nLabels: {', '.join(labels)}\n\n{body}\n", encoding="utf-8")
                 if args.dry_run:
                     summary.append(f"{line}: would open an issue{review} (dry run, see {out.name})")
+                    created += 1
                 else:
                     github.ensure_labels([name for name in labels if name not in labeled])
                     labeled.update(labels)
@@ -1052,7 +1053,9 @@ def run(args, github, chart, config, git_bin="git"):
                     summary.append(f"{line}: {'opened' if not note else 'issue'} {link}{review}"
                                    + (f" ({note})" if note else ""))
                     issues.append({"number": number, "body": marker(release)})
-                created += 1
+                    # An issue that another run opened doesn't count toward this run's limit.
+                    if not note:
+                        created += 1
             except (ReleaseError, OSError) as err:
                 log(f"{release.tag}: {err}")
                 summary.append(f"{line}: **error**: {err}")

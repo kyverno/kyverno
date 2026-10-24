@@ -932,6 +932,27 @@ class RunTest(Base):
         self.run_tool(github)
         self.assertEqual(len(github.created()), psa.MAX_ISSUES_PER_RUN + 1)
 
+    def test_an_issue_another_run_opened_does_not_count_toward_the_cap(self):
+        for minor in range(39, 39 + psa.MAX_ISSUES_PER_RUN):
+            self.upstream.release(f"{minor}.0", days_ago=5,
+                                  files={"policy/check_sysctls.go": check_sysctls(values=[f"net.ipv4.value{minor}"])})
+        github = FakeGitHub()
+        real_issues = github.issues
+        calls = []
+
+        def issues():
+            calls.append(1)
+            # Another run opens the v1.38.0 issue after this run's first listing.
+            if len(calls) == 2:
+                github.add(f"Opened elsewhere.\n{psa.marker(psa.Release('kubernetes-1.38.0'))}")
+            return real_issues()
+
+        github.issues = issues
+        summary, failures = self.run_tool(github)
+        self.assertEqual(failures, [])
+        self.assertEqual(len(github.created()), psa.MAX_ISSUES_PER_RUN)
+        self.assertFalse(any("waits for the next run" in line for line in summary))
+
 
 class GitHubTest(unittest.TestCase):
     def test_allows_only_issue_reads_creates_and_duplicate_closing(self):
