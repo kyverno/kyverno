@@ -319,8 +319,8 @@ func TestSyncWatchers(t *testing.T) {
 							Name:      "res-test",
 							Namespace: "isolated-ns",
 							Hash:      "something",
-							Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
-							Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1"}),
+							Labels:    map[string]string{common.GeneratePolicyLabel: "pol1", common.GeneratePolicyNamespaceLabel: ""},
+							Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1", common.GeneratePolicyNamespaceLabel: ""}),
 						},
 					}}
 				return &WatchManager{
@@ -366,8 +366,8 @@ func TestSyncWatchers(t *testing.T) {
 							Name:      "res-test",
 							Namespace: "isolated-ns",
 							Hash:      "something",
-							Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
-							Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1"}),
+							Labels:    map[string]string{common.GeneratePolicyLabel: "pol1", common.GeneratePolicyNamespaceLabel: ""},
+							Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1", common.GeneratePolicyNamespaceLabel: ""}),
 						},
 					}}
 				return &WatchManager{
@@ -437,12 +437,14 @@ func TestSyncWatchers_GVRDropIsTriggerScoped(t *testing.T) {
 	triggerA := &v1.ResourceSpec{UID: "uid-trigger-a"}
 
 	cmA := makeUnstructured("1", "", "v1", "ConfigMap", "cm-a", "ns-a", "uid-cm-a", map[string]string{
-		common.GeneratePolicyLabel:     "p1",
-		common.GenerateTriggerUIDLabel: "uid-trigger-a",
+		common.GeneratePolicyLabel:          "p1",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateTriggerUIDLabel:      "uid-trigger-a",
 	})
 	cmB := makeUnstructured("1", "", "v1", "ConfigMap", "cm-b", "ns-b", "uid-cm-b", map[string]string{
-		common.GeneratePolicyLabel:     "p1",
-		common.GenerateTriggerUIDLabel: "uid-trigger-b",
+		common.GeneratePolicyLabel:          "p1",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateTriggerUIDLabel:      "uid-trigger-b",
 	})
 	client := &MockClient{}
 	wm := &WatchManager{
@@ -469,13 +471,14 @@ func TestSyncWatchers_GVRDropIsTriggerScoped(t *testing.T) {
 			},
 		},
 		policyRefs: map[string][]schema.GroupVersionResource{"p1": {cmGVR}},
-		refCount:   map[schema.GroupVersionResource]int{cmGVR: 1, secretGVR: 1},
+		refCount:   map[schema.GroupVersionResource]int{cmGVR: 1},
 	}
 
 	// trigger A's evaluation now generates a Secret instead of a ConfigMap
 	secretA := makeUnstructured("1", "", "v1", "Secret", "sec-a", "ns-a", "uid-sec-a", map[string]string{
-		common.GeneratePolicyLabel:     "p1",
-		common.GenerateTriggerUIDLabel: "uid-trigger-a",
+		common.GeneratePolicyLabel:          "p1",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateTriggerUIDLabel:      "uid-trigger-a",
 	})
 	err := wm.SyncWatchers("p1", triggerA, []*unstructured.Unstructured{secretA}, false)
 	require.NoError(t, err)
@@ -488,6 +491,7 @@ func TestSyncWatchers_GVRDropIsTriggerScoped(t *testing.T) {
 	_, cmBCached := cmWatcher.metadataCache[cmB.GetUID()]
 	assert.True(t, cmBCached, "trigger B's ConfigMap must remain cached")
 	assert.Equal(t, 1, wm.refCount[cmGVR])
+	assert.Equal(t, 1, wm.refCount[secretGVR], "the newly generated GVR starts at one reference")
 	assert.ElementsMatch(t, []schema.GroupVersionResource{cmGVR, secretGVR}, wm.policyRefs["p1"])
 
 	// once trigger B's resources are gone too, dropping the GVR stops the watcher
@@ -556,7 +560,7 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Deployment", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Deployment", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1", common.GeneratePolicyNamespaceLabel: ""})),
 				}},
 			},
 			wantKinds: []string{"Deployment"},
@@ -567,8 +571,8 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
-					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid2", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1", common.GeneratePolicyNamespaceLabel: ""})),
+					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid2", map[string]string{common.GeneratePolicyLabel: "p1", common.GeneratePolicyNamespaceLabel: ""})),
 				}},
 			},
 			wantKinds: []string{"Pod", "Service"},
@@ -579,10 +583,10 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			policyRefs: map[string][]schema.GroupVersionResource{"p1": {gvr1, gvr2}},
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
-					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1", common.GeneratePolicyNamespaceLabel: ""})),
 				}},
 				gvr2: {metadataCache: map[types.UID]Resource{
-					"uid2": makeCached(makeUnstructured("", "apps", "v1", "ConfigMap", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid2": makeCached(makeUnstructured("", "apps", "v1", "ConfigMap", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1", common.GeneratePolicyNamespaceLabel: ""})),
 				}},
 			},
 			wantKinds: []string{"Pod", "ConfigMap"},
@@ -594,7 +598,7 @@ func TestWatchManager_GetDownstreams(t *testing.T) {
 			dynamicW: map[schema.GroupVersionResource]*mockWatcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{"foo": "bar"})),
-					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1"})),
+					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid1", map[string]string{common.GeneratePolicyLabel: "p1", common.GeneratePolicyNamespaceLabel: ""})),
 				}},
 			},
 			wantKinds: []string{"Service"},
@@ -687,11 +691,13 @@ func TestDeleteDownstreams(t *testing.T) {
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-						common.GeneratePolicyLabel:     "p1",
-						common.GenerateTriggerUIDLabel: "other-uid",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
+						common.GenerateTriggerUIDLabel:      "other-uid",
 					}), map[string]string{
-						common.GeneratePolicyLabel:     "p1",
-						common.GenerateTriggerUIDLabel: "other-uid",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
+						common.GenerateTriggerUIDLabel:      "other-uid",
 					}),
 				}},
 			},
@@ -705,9 +711,11 @@ func TestDeleteDownstreams(t *testing.T) {
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-						common.GeneratePolicyLabel: "p1",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
 					}), map[string]string{
-						common.GeneratePolicyLabel: "p1",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
 					}),
 				}},
 			},
@@ -722,18 +730,22 @@ func TestDeleteDownstreams(t *testing.T) {
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-						common.GeneratePolicyLabel:     "p1",
-						common.GenerateTriggerUIDLabel: string(triggerUID),
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
+						common.GenerateTriggerUIDLabel:      string(triggerUID),
 					}), map[string]string{
-						common.GeneratePolicyLabel:     "p1",
-						common.GenerateTriggerUIDLabel: string(triggerUID),
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
+						common.GenerateTriggerUIDLabel:      string(triggerUID),
 					}),
 					"uid2": makeCached(makeUnstructured("", "apps", "v1", "Service", "res2", "ns1", "uid2", map[string]string{
-						common.GeneratePolicyLabel:     "p1",
-						common.GenerateTriggerUIDLabel: "other-uid",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
+						common.GenerateTriggerUIDLabel:      "other-uid",
 					}), map[string]string{
-						common.GeneratePolicyLabel:     "p1",
-						common.GenerateTriggerUIDLabel: "other-uid",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
+						common.GenerateTriggerUIDLabel:      "other-uid",
 					}),
 				}},
 			},
@@ -748,9 +760,11 @@ func TestDeleteDownstreams(t *testing.T) {
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-						common.GeneratePolicyLabel: "p1",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
 					}), map[string]string{
-						common.GeneratePolicyLabel: "p1",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
 					}),
 				}},
 			},
@@ -765,9 +779,11 @@ func TestDeleteDownstreams(t *testing.T) {
 			dynamicW: map[schema.GroupVersionResource]*watcher{
 				gvr1: {metadataCache: map[types.UID]Resource{
 					"uid1": makeCached(makeUnstructured("", "apps", "v1", "Pod", "res1", "ns1", "uid1", map[string]string{
-						common.GeneratePolicyLabel: "p1",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
 					}), map[string]string{
-						common.GeneratePolicyLabel: "p1",
+						common.GeneratePolicyLabel:          "p1",
+						common.GeneratePolicyNamespaceLabel: "",
 					}),
 				}},
 			},
@@ -810,12 +826,14 @@ func TestCleanupStaleDownstreams(t *testing.T) {
 	gvr1 := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	triggerUID := types.UID("trigger-123")
 	managedLabels := map[string]string{
-		common.GeneratePolicyLabel:     "p1",
-		common.GenerateTriggerUIDLabel: string(triggerUID),
+		common.GeneratePolicyLabel:          "p1",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateTriggerUIDLabel:      string(triggerUID),
 	}
 	otherTriggerLabels := map[string]string{
-		common.GeneratePolicyLabel:     "p1",
-		common.GenerateTriggerUIDLabel: "other-uid",
+		common.GeneratePolicyLabel:          "p1",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateTriggerUIDLabel:      "other-uid",
 	}
 
 	tests := []struct {
@@ -895,8 +913,9 @@ func TestCleanupStaleDownstreams(t *testing.T) {
 func TestCleanupStaleDownstreams_NotFoundDropsCache(t *testing.T) {
 	gvr1 := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	labels := map[string]string{
-		common.GeneratePolicyLabel:     "p1",
-		common.GenerateTriggerUIDLabel: "trigger-123",
+		common.GeneratePolicyLabel:          "p1",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateTriggerUIDLabel:      "trigger-123",
 	}
 	obj := makeUnstructured("", "", "v1", "ConfigMap", "cm-old", "ns1", "uid1", labels)
 	wm := &WatchManager{
@@ -924,7 +943,10 @@ func TestCleanupStaleDownstreams_NotFoundDropsCache(t *testing.T) {
 
 func TestGetDownstreamsSkipsEmptyHash(t *testing.T) {
 	gvr1 := schema.GroupVersionResource{Group: "g", Version: "v1", Resource: "res1"}
-	labels := map[string]string{common.GeneratePolicyLabel: "p1"}
+	labels := map[string]string{
+		common.GeneratePolicyLabel:          "p1",
+		common.GeneratePolicyNamespaceLabel: "",
+	}
 	live := makeUnstructured("", "apps", "v1", "Pod", "live", "ns1", "uid1", labels)
 	retired := makeUnstructured("", "apps", "v1", "Pod", "retired", "ns1", "uid2", labels)
 	wm := &WatchManager{
@@ -993,8 +1015,8 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 							"uid1": {
 								Name:      "res-test",
 								Namespace: "isolated-ns",
-								Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
-								Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1"}),
+								Labels:    map[string]string{common.GeneratePolicyLabel: "pol1", common.GeneratePolicyNamespaceLabel: ""},
+								Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", map[string]string{common.GeneratePolicyLabel: "pol1", common.GeneratePolicyNamespaceLabel: ""}),
 							},
 						},
 						watcher: watch.MockWatcher{
@@ -1019,7 +1041,7 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 							"uid1": {
 								Name:      "res-test",
 								Namespace: "isolated-ns",
-								Labels:    map[string]string{common.GeneratePolicyLabel: "pol1"},
+								Labels:    map[string]string{common.GeneratePolicyLabel: "pol1", common.GeneratePolicyNamespaceLabel: ""},
 								Data:      makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", nil),
 							},
 						},
@@ -1046,8 +1068,9 @@ func TestRemoveWatchersForPolicy(t *testing.T) {
 								Name:      "res-test",
 								Namespace: "isolated-ns",
 								Labels: map[string]string{
-									common.GeneratePolicyLabel:    "pol1",
-									common.GenerateSourceUIDLabel: "src-uid",
+									common.GeneratePolicyLabel:          "pol1",
+									common.GeneratePolicyNamespaceLabel: "",
+									common.GenerateSourceUIDLabel:       "src-uid",
 								},
 								Data: makeUnstructured("1", "", "v1", "Pod", "res-test", "isolated-ns", "uid1", nil),
 							},
@@ -1318,9 +1341,10 @@ func TestHandleDelete_InvalidatedDownstreamDoesNotRecreate(t *testing.T) {
 func TestHandleDelete_DownstreamRecreatedAfterRepeatedDeletions(t *testing.T) {
 	gvr := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
 	labels := map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     "test-policy",
-		common.GenerateTriggerUIDLabel: "trigger-uid",
+		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:          "test-policy",
+		common.GeneratePolicyNamespaceLabel: "",
+		common.GenerateTriggerUIDLabel:      "trigger-uid",
 	}
 	downstream := makeUnstructured("1", "", "v1", "ConfigMap", "test-cm", "default", "uid-1", labels)
 
@@ -1558,8 +1582,9 @@ func TestHandleUpdate(t *testing.T) {
 	t.Run("invalidated downstream does not revert", func(t *testing.T) {
 		policyName := "test-policy"
 		labels := map[string]string{
-			kyverno.LabelAppManagedBy:  kyverno.ValueKyvernoApp,
-			common.GeneratePolicyLabel: policyName,
+			kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+			common.GeneratePolicyLabel:          policyName,
+			common.GeneratePolicyNamespaceLabel: "",
 		}
 		old := makeObj("down-uid", "down-pod", "default", labels)
 		old.Object["data"] = map[string]any{"value": "old"}
@@ -1597,8 +1622,9 @@ func TestHandleUpdate(t *testing.T) {
 	// the mismatch is not reverted as a user edit.
 	newWM := func(policyName string, triggerUID types.UID) (*WatchManager, *MockClient, *unstructured.Unstructured) {
 		labels := map[string]string{
-			common.GeneratePolicyLabel:     policyName,
-			common.GenerateTriggerUIDLabel: string(triggerUID),
+			common.GeneratePolicyLabel:          policyName,
+			common.GeneratePolicyNamespaceLabel: "",
+			common.GenerateTriggerUIDLabel:      string(triggerUID),
 		}
 		cached := makeObj("down-uid", "down-pod", "default", labels)
 		client := &MockClient{}
@@ -1879,6 +1905,245 @@ func TestWatcherCleanup_RestartPreservesMetadataCache(t *testing.T) {
 	_, hasSecond := restarted.metadataCache["uid2"]
 	assert.True(t, hasFirst)
 	assert.True(t, hasSecond)
+}
+
+// Namespaced policies use a "namespace/name" WatchManager key while cluster
+// policies use a bare name. Downstream resources must be matched against the
+// policy name and namespace labels so a same-named policy in another namespace
+// is never touched.
+func TestWatchManager_PolicyKeyMatchesDownstream(t *testing.T) {
+	const (
+		namespacedKey = "tenant-ns/pol"
+		clusterKey    = "pol"
+	)
+	namespacedLabels := map[string]string{
+		common.GeneratePolicyLabel:          "pol",
+		common.GeneratePolicyNamespaceLabel: "tenant-ns",
+	}
+	clusterLabels := map[string]string{
+		common.GeneratePolicyLabel:          "pol",
+		common.GeneratePolicyNamespaceLabel: "",
+	}
+
+	newManager := func(client *MockClient, policyKey string, labels map[string]string) *WatchManager {
+		downstream := makeUnstructured("1", "", "v1", "Secret", "down", "tenant-ns", "uid-down", labels)
+		return &WatchManager{
+			client:     client,
+			policyRefs: map[string][]schema.GroupVersionResource{policyKey: {gvr}},
+			dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+				gvr: {
+					metadataCache: map[types.UID]Resource{
+						"uid-down": {
+							Name:      "down",
+							Namespace: "tenant-ns",
+							Hash:      reportutils.CalculateResourceHash(*downstream),
+							Labels:    labels,
+							Data:      downstream,
+						},
+					},
+				},
+			},
+			refCount: map[schema.GroupVersionResource]int{},
+		}
+	}
+
+	t.Run("GetDownstreams returns the namespaced downstream", func(t *testing.T) {
+		wm := newManager(&MockClient{}, namespacedKey, namespacedLabels)
+		downstreams := wm.GetDownstreams(namespacedKey)
+		require.Len(t, downstreams, 1)
+		assert.Equal(t, "down", downstreams[0].GetName())
+	})
+
+	t.Run("GetDownstreams does not match a same-named policy in another namespace", func(t *testing.T) {
+		wm := newManager(&MockClient{}, "other-ns/pol", namespacedLabels)
+		assert.Empty(t, wm.GetDownstreams("other-ns/pol"))
+	})
+
+	t.Run("DeleteDownstreams deletes the namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, namespacedKey, namespacedLabels)
+		wm.DeleteDownstreams(namespacedKey, nil)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("CleanupStaleDownstreams deletes the namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, namespacedKey, namespacedLabels)
+		wm.CleanupStaleDownstreams(namespacedKey, nil, nil)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("RemoveWatchersForPolicy deletes the namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, namespacedKey, namespacedLabels)
+		wm.RemoveWatchersForPolicy(namespacedKey, true)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("cluster policy matches a downstream with an explicit empty namespace label", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, clusterKey, clusterLabels)
+		wm.RemoveWatchersForPolicy(clusterKey, true)
+		assert.Equal(t, []string{"Secret/tenant-ns/down"}, client.deleted)
+	})
+
+	t.Run("missing namespace label matches no policy", func(t *testing.T) {
+		legacyLabels := map[string]string{common.GeneratePolicyLabel: "pol"}
+		for _, key := range []string{clusterKey, namespacedKey} {
+			client := &MockClient{}
+			wm := newManager(client, key, legacyLabels)
+			wm.RemoveWatchersForPolicy(key, true)
+			assert.Empty(t, client.deleted, "a downstream without a namespace label has no established owner")
+			assert.Empty(t, wm.GetDownstreams(key))
+		}
+	})
+
+	t.Run("cluster policy does not match a namespaced downstream", func(t *testing.T) {
+		client := &MockClient{}
+		wm := newManager(client, clusterKey, namespacedLabels)
+		wm.RemoveWatchersForPolicy(clusterKey, true)
+		assert.Empty(t, client.deleted)
+	})
+}
+
+// TestSyncWatchers_NamespacedPolicyGVRDropIsolatesTenants verifies that when a
+// namespaced policy drops a GVR, only that tenant's downstreams are deleted.
+// A same-named policy in another namespace sharing the watcher must be left alone.
+func TestSyncWatchers_NamespacedPolicyGVRDropIsolatesTenants(t *testing.T) {
+	cmGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	secretGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	triggerA := &v1.ResourceSpec{UID: "uid-trigger-a"}
+
+	tenantLabels := map[string]string{
+		common.GeneratePolicyLabel:          "pol",
+		common.GeneratePolicyNamespaceLabel: "tenant-ns",
+		common.GenerateTriggerUIDLabel:      "uid-trigger-a",
+	}
+	otherLabels := map[string]string{
+		common.GeneratePolicyLabel:          "pol",
+		common.GeneratePolicyNamespaceLabel: "other-ns",
+		common.GenerateTriggerUIDLabel:      "uid-trigger-other",
+	}
+	cmTenant := makeUnstructured("1", "", "v1", "ConfigMap", "cm-tenant", "tenant-ns", "uid-cm-tenant", tenantLabels)
+	cmOther := makeUnstructured("1", "", "v1", "ConfigMap", "cm-other", "other-ns", "uid-cm-other", otherLabels)
+
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+			if gk.Kind == "Secret" {
+				return &meta.RESTMapping{Resource: secretGVR}, nil
+			}
+			return &meta.RESTMapping{Resource: cmGVR}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			cmGVR: {
+				watcher: watch.NewFake(),
+				metadataCache: map[types.UID]Resource{
+					cmTenant.GetUID(): {Name: "cm-tenant", Namespace: "tenant-ns", Labels: tenantLabels, Data: cmTenant},
+					cmOther.GetUID():  {Name: "cm-other", Namespace: "other-ns", Labels: otherLabels, Data: cmOther},
+				},
+			},
+			secretGVR: {
+				watcher:       watch.NewFake(),
+				metadataCache: map[types.UID]Resource{},
+			},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{
+			"tenant-ns/pol": {cmGVR},
+			"other-ns/pol":  {cmGVR},
+		},
+		refCount: map[schema.GroupVersionResource]int{cmGVR: 2},
+	}
+
+	secretTenant := makeUnstructured("1", "", "v1", "Secret", "sec-tenant", "tenant-ns", "uid-sec-tenant", tenantLabels)
+	err := wm.SyncWatchers("tenant-ns/pol", triggerA, []*unstructured.Unstructured{secretTenant}, false)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"ConfigMap/tenant-ns/cm-tenant"}, client.deleted,
+		"dropping GVR for tenant-ns/pol must delete only that policy's resources")
+	cmWatcher, exists := wm.dynamicWatchers[cmGVR]
+	require.True(t, exists, "configmaps watcher must remain while other-ns/pol still references it")
+	_, otherCached := cmWatcher.metadataCache[cmOther.GetUID()]
+	assert.True(t, otherCached, "other-ns/pol ConfigMap must remain cached")
+	_, tenantCached := cmWatcher.metadataCache[cmTenant.GetUID()]
+	assert.False(t, tenantCached)
+	assert.Equal(t, 1, wm.refCount[cmGVR])
+	assert.Equal(t, 1, wm.refCount[secretGVR], "the newly generated GVR starts at one reference")
+	assert.ElementsMatch(t, []schema.GroupVersionResource{secretGVR}, wm.policyRefs["tenant-ns/pol"])
+	assert.ElementsMatch(t, []schema.GroupVersionResource{cmGVR}, wm.policyRefs["other-ns/pol"])
+}
+
+// TestSyncWatchers_NamespacedStillReferencedKeepsWatcher covers the stillReferenced
+// branch for namespaced policy keys: another trigger of the same ngpol keeps the
+// watcher; once nothing remains, the watcher and ref count are removed.
+func TestSyncWatchers_NamespacedStillReferencedKeepsWatcher(t *testing.T) {
+	cmGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "configmaps"}
+	secretGVR := schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}
+	triggerA := &v1.ResourceSpec{UID: "uid-trigger-a"}
+
+	labelsA := map[string]string{
+		common.GeneratePolicyLabel:          "pol",
+		common.GeneratePolicyNamespaceLabel: "tenant-ns",
+		common.GenerateTriggerUIDLabel:      "uid-trigger-a",
+	}
+	labelsB := map[string]string{
+		common.GeneratePolicyLabel:          "pol",
+		common.GeneratePolicyNamespaceLabel: "tenant-ns",
+		common.GenerateTriggerUIDLabel:      "uid-trigger-b",
+	}
+	cmA := makeUnstructured("1", "", "v1", "ConfigMap", "cm-a", "tenant-ns", "uid-cm-a", labelsA)
+	cmB := makeUnstructured("1", "", "v1", "ConfigMap", "cm-b", "tenant-ns", "uid-cm-b", labelsB)
+
+	client := &MockClient{}
+	wm := &WatchManager{
+		log:    logging.WithName("test"),
+		client: client,
+		restMapper: &mockRESTMapper{fn: func(gk schema.GroupKind, version string) (*meta.RESTMapping, error) {
+			if gk.Kind == "Secret" {
+				return &meta.RESTMapping{Resource: secretGVR}, nil
+			}
+			return &meta.RESTMapping{Resource: cmGVR}, nil
+		}},
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+			cmGVR: {
+				watcher: watch.NewFake(),
+				metadataCache: map[types.UID]Resource{
+					cmA.GetUID(): {Name: "cm-a", Namespace: "tenant-ns", Labels: labelsA, Data: cmA},
+					cmB.GetUID(): {Name: "cm-b", Namespace: "tenant-ns", Labels: labelsB, Data: cmB},
+				},
+			},
+			secretGVR: {
+				watcher:       watch.NewFake(),
+				metadataCache: map[types.UID]Resource{},
+			},
+		},
+		policyRefs: map[string][]schema.GroupVersionResource{"tenant-ns/pol": {cmGVR}},
+		refCount:   map[schema.GroupVersionResource]int{cmGVR: 1},
+	}
+
+	secretA := makeUnstructured("1", "", "v1", "Secret", "sec-a", "tenant-ns", "uid-sec-a", labelsA)
+	err := wm.SyncWatchers("tenant-ns/pol", triggerA, []*unstructured.Unstructured{secretA}, false)
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"ConfigMap/tenant-ns/cm-a"}, client.deleted)
+	assert.Equal(t, 1, wm.refCount[secretGVR], "the newly generated GVR starts at one reference")
+	cmWatcher, exists := wm.dynamicWatchers[cmGVR]
+	require.True(t, exists, "watcher retained while trigger B still owns ConfigMaps of this ngpol")
+	_, cmBCached := cmWatcher.metadataCache[cmB.GetUID()]
+	assert.True(t, cmBCached)
+	assert.Equal(t, 1, wm.refCount[cmGVR])
+	assert.ElementsMatch(t, []schema.GroupVersionResource{cmGVR, secretGVR}, wm.policyRefs["tenant-ns/pol"])
+
+	wm.DeleteDownstreams("tenant-ns/pol", &v1.ResourceSpec{UID: "uid-trigger-b"})
+	err = wm.SyncWatchers("tenant-ns/pol", triggerA, []*unstructured.Unstructured{secretA}, false)
+	require.NoError(t, err)
+	_, exists = wm.dynamicWatchers[cmGVR]
+	assert.False(t, exists, "watcher stopped once no resources of the ngpol remain for the dropped GVR")
+	_, exists = wm.refCount[cmGVR]
+	assert.False(t, exists)
+	assert.ElementsMatch(t, []schema.GroupVersionResource{secretGVR}, wm.policyRefs["tenant-ns/pol"])
 }
 
 // Labels copied from a genuine downstream do not register a different UID in
@@ -2528,4 +2793,78 @@ func TestHandleUpdate_SourcePropagationErrorKeepsCache(t *testing.T) {
 
 	require.Len(t, mc.applied, 1)
 	assert.Equal(t, entry, wm.dynamicWatchers[gvr].metadataCache["ds-uid"])
+}
+
+func TestBeginGenerate_PolicyNamespaceIsolation(t *testing.T) {
+	for _, policyNamespace := range []string{"", "tenant", "other"} {
+		for _, policyKey := range []string{"pol", "tenant/pol", "other/pol"} {
+			t.Run(policyNamespace+"/"+policyKey, func(t *testing.T) {
+				labels := map[string]string{
+					common.GeneratePolicyLabel:          "pol",
+					common.GeneratePolicyNamespaceLabel: policyNamespace,
+					common.GenerateTriggerUIDLabel:      "shared-trigger",
+				}
+				cached := makeUnstructured("1", "", "v1", "ConfigMap", "down", "tenant", "down-uid", labels)
+				client := &MockClient{}
+				wm, gvr := newRevertTestWatchManager(cached, client, false)
+				end := wm.BeginGenerate(policyKey, "shared-trigger")
+				wm.handleUpdate(tamperedUsage(cached), gvr)
+				if policyMatches(labels, policyKey) {
+					assert.Empty(t, client.updated, "only this policy's write suppresses its revert")
+				} else {
+					assert.Len(t, client.updated, 1, "another policy's window cannot suppress drift")
+				}
+				end()
+				assert.Len(t, client.updated, 1, "a skipped edit is reverted when its window closes")
+			})
+		}
+	}
+	t.Run("missing namespace label has no established owner", func(t *testing.T) {
+		cached := makeUnstructured("1", "", "v1", "ConfigMap", "down", "tenant", "down-uid", map[string]string{
+			common.GeneratePolicyLabel:     "pol",
+			common.GenerateTriggerUIDLabel: "shared-trigger",
+		})
+		client := &MockClient{}
+		wm, gvr := newRevertTestWatchManager(cached, client, false)
+		end := wm.BeginGenerate("pol", "shared-trigger")
+		defer end()
+		wm.handleUpdate(tamperedUsage(cached), gvr)
+		assert.Len(t, client.updated, 1)
+	})
+}
+
+func TestServerSideApply_PreservesMigratedPolicyNamespace(t *testing.T) {
+	for _, namespace := range []string{"", "tenant"} {
+		for _, operation := range []string{"revert", "propagate", "recreate"} {
+			t.Run(namespace+"/"+operation, func(t *testing.T) {
+				cached := usageDownstream()
+				labels := cached.GetLabels()
+				labels[kyverno.LabelAppManagedBy] = kyverno.ValueKyvernoApp
+				labels[common.GeneratePolicyNamespaceLabel] = namespace
+				labels["team"] = "another-controller"
+				cached.SetLabels(labels)
+				// The namespace label was migrated by UPDATE after the original apply.
+				cached.SetManagedFields([]metav1.ManagedFieldsEntry{
+					managedFieldsEntry("kyverno-generate", metav1.ManagedFieldsOperationApply,
+						`{"f:metadata":{"f:labels":{"f:app.kubernetes.io/managed-by":{},"f:generate.kyverno.io/policy-name":{}}},"f:spec":{"f:reason":{}}}`),
+				})
+				var applied *unstructured.Unstructured
+				client := &MockClient{applyFn: func(_ string, obj interface{}) { applied, _ = obj.(*unstructured.Unstructured) }}
+				wm, gvr := newRevertTestWatchManager(cached, client, true)
+				if operation == "revert" {
+					wm.handleUpdate(tamperedUsage(cached), gvr)
+				} else if operation == "recreate" {
+					wm.handleDelete(cached.DeepCopy(), gvr)
+				} else {
+					_, err := wm.propagateToDownstream(true, cached, cached.DeepCopy())
+					require.NoError(t, err)
+				}
+				require.NotNil(t, applied)
+				appliedLabels := applied.GetLabels()
+				require.Contains(t, appliedLabels, common.GeneratePolicyNamespaceLabel)
+				assert.Equal(t, namespace, appliedLabels[common.GeneratePolicyNamespaceLabel])
+				assert.NotContains(t, appliedLabels, "team", "another controller's label stays unowned")
+			})
+		}
+	}
 }
