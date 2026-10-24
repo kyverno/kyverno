@@ -16,6 +16,7 @@ var (
 	specRe                = regexp.MustCompile(`\b(object|oldObject|Object)\.spec`)
 	metadataLabelsRe      = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.labels`)
 	metadataAnnotationsRe = regexp.MustCompile(`\b(object|oldObject|Object)\.metadata\.annotations`)
+	metadataTypeRe        = regexp.MustCompile(`\bObject\.metadata\b`)
 )
 
 // ExtractionReplacementsRef re-exports autogen.ExtractionReplacementsRef so
@@ -120,9 +121,12 @@ func convertPodToTemplateExpression(expression string, config string) string {
 		metadataReplacement = "spec.template.metadata"
 	}
 
-	expression = specRe.ReplaceAllString(expression, "${1}."+specReplacement)
-	expression = metadataLabelsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".labels")
-	expression = metadataAnnotationsRe.ReplaceAllString(expression, "${1}."+metadataReplacement+".annotations")
+	expression = rewriteOutsideLiterals(expression, func(code string) string {
+		code = specRe.ReplaceAllString(code, "${1}."+specReplacement)
+		code = metadataLabelsRe.ReplaceAllString(code, "${1}."+metadataReplacement+".labels")
+		code = metadataAnnotationsRe.ReplaceAllString(code, "${1}."+metadataReplacement+".annotations")
+		return metadataTypeRe.ReplaceAllString(code, "Object."+metadataReplacement)
+	})
 
 	// Detect the root "Object{...}" constructor, tolerating optional whitespace
 	// between "Object" and "{" (e.g. "Object {"), which is valid CEL.
@@ -133,20 +137,7 @@ func convertPodToTemplateExpression(expression string, config string) string {
 			return expression
 		}
 
-		braceCount := 1
-		endIndex := 0
-		for i, char := range content {
-			if char == '{' {
-				braceCount++
-			} else if char == '}' {
-				braceCount--
-				if braceCount == 0 {
-					endIndex = i
-					break
-				}
-			}
-		}
-
+		endIndex := findMatchingBrace(content)
 		if endIndex > 0 {
 			innerContent := content[:endIndex]
 			remainingContent := content[endIndex+1:]
@@ -167,4 +158,155 @@ func convertPodToTemplateExpression(expression string, config string) string {
 	}
 
 	return expression
+}
+
+// rewriteOutsideLiterals applies rewrite to the code segments of a CEL expression
+// and copies string/bytes literals and comments through unchanged. Keeping literals
+// out of the regex rewrites prevents payload text such as "Object.metadata" from
+// being changed along with the actual type reference.
+func rewriteOutsideLiterals(expression string, rewrite func(string) string) string {
+	var builder strings.Builder
+	start := 0
+	for i := 0; i < len(expression); {
+		if end, ok := commentEnd(expression, i); ok {
+			if start < i {
+				builder.WriteString(rewrite(expression[start:i]))
+			}
+			builder.WriteString(expression[i:end])
+			i = end
+			start = end
+			continue
+		}
+		if literalStart, end, ok := stringLiteralAt(expression, i); ok {
+			if start < literalStart {
+				builder.WriteString(rewrite(expression[start:literalStart]))
+			}
+			builder.WriteString(expression[literalStart:end])
+			i = end
+			start = end
+			continue
+		}
+		i++
+	}
+	if start < len(expression) {
+		builder.WriteString(rewrite(expression[start:]))
+	}
+	return builder.String()
+}
+
+// findMatchingBrace returns the index of the brace that closes the root Object
+// constructor, ignoring braces inside literals and comments. It returns 0 when
+// there is no matching brace.
+func findMatchingBrace(content string) int {
+	depth := 1
+	for i := 0; i < len(content); {
+		if end, ok := commentEnd(content, i); ok {
+			i = end
+			continue
+		}
+		if _, end, ok := stringLiteralAt(content, i); ok {
+			i = end
+			continue
+		}
+		switch content[i] {
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+		i++
+	}
+	return 0
+}
+
+// commentEnd returns the end offset of the CEL comment starting at i.
+// Line comments run from "//" to the end of the line and block comments run
+// from "/*" through the closing "*/". Unterminated comments extend to the end
+// of the expression.
+func commentEnd(expression string, i int) (int, bool) {
+	if end, ok := blockCommentEnd(expression, i); ok {
+		return end, true
+	}
+	if i+1 >= len(expression) || expression[i] != '/' || expression[i+1] != '/' {
+		return 0, false
+	}
+	if offset := strings.IndexByte(expression[i+2:], '\n'); offset >= 0 {
+		return i + 2 + offset, true
+	}
+	return len(expression), true
+}
+
+// blockCommentEnd returns the end offset of the CEL block comment starting at
+// i. The end offset includes the closing delimiter.
+func blockCommentEnd(expression string, i int) (int, bool) {
+	if i+1 >= len(expression) || expression[i] != '/' || expression[i+1] != '*' {
+		return 0, false
+	}
+	if offset := strings.Index(expression[i+2:], "*/"); offset >= 0 {
+		return i + 2 + offset + 2, true
+	}
+	return len(expression), true
+}
+
+// stringLiteralAt returns the start and end offsets of the CEL string, bytes or
+// backtick-delimited literal whose opening quote is at quote. The start offset
+// includes the optional b/B and r/R prefixes for quoted literals. CEL supports
+// single, double and triple quoted literals, with escapes in non-raw literals;
+// r/R prefixed and backtick-delimited literals do not process escapes.
+func stringLiteralAt(expression string, quote int) (int, int, bool) {
+	quoteChar := expression[quote]
+	if quoteChar != '"' && quoteChar != '\'' && quoteChar != '`' {
+		return 0, 0, false
+	}
+
+	start := quote
+	raw := quoteChar == '`'
+	if !raw && quote > 0 {
+		switch expression[quote-1] {
+		case 'r', 'R':
+			raw = true
+			start = quote - 1
+			if start > 0 && (expression[start-1] == 'b' || expression[start-1] == 'B') {
+				start--
+			}
+		case 'b', 'B':
+			start = quote - 1
+		}
+		if start < quote && start > 0 && isIdentifierChar(expression[start-1]) {
+			// The candidate prefix is the tail of an identifier, not a literal prefix.
+			start = quote
+			raw = false
+		}
+	}
+
+	triple := quoteChar != '`' && quote+2 < len(expression) && expression[quote+1] == quoteChar && expression[quote+2] == quoteChar
+	i := quote + 1
+	if triple {
+		i = quote + 3
+	}
+	for i < len(expression) {
+		if !raw && expression[i] == '\\' {
+			// Skip the escaped character. Multi-character escapes such as \u0041
+			// are still inside the literal, so skipping only the next byte is safe.
+			i += 2
+			continue
+		}
+		if triple {
+			if i+2 < len(expression) && expression[i] == quoteChar && expression[i+1] == quoteChar && expression[i+2] == quoteChar {
+				return start, i + 3, true
+			}
+		} else if expression[i] == quoteChar {
+			return start, i + 1, true
+		}
+		i++
+	}
+	return start, len(expression), true
+}
+
+// isIdentifierChar reports whether c can be part of a CEL identifier.
+func isIdentifierChar(c byte) bool {
+	return c == '_' || c >= '0' && c <= '9' || c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z'
 }
