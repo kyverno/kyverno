@@ -345,6 +345,7 @@ jobs:
           file: .manifest/release.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
       - name: Upload CRD manifest
         uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
@@ -352,6 +353,7 @@ jobs:
           file: config/crds/**/*.yaml
           file_glob: true
           tag: ${{ github.ref }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
       - name: Login to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
