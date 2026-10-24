@@ -74,7 +74,7 @@ func TestDiscoveredSubresourcesPreserveGroupVersion(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			info := &resourceTypeInfo{
 				gvkMap:         make(map[schema.GroupVersionKind]bool),
-				subresourceMap: make(map[schema.GroupVersionKind]v1alpha1.Subresource),
+				subresourceMap: make(map[subresourceKey]v1alpha1.Subresource),
 			}
 			fetcher := &ResourceFetcher{Namespace: "default"}
 			for _, parentGV := range tt.parents {
@@ -103,7 +103,7 @@ func TestDiscoveredSubresourcesPreserveGroupVersion(t *testing.T) {
 				t.Fatalf("discovery retained %d subresources, want %d", len(info.subresourceMap), len(tt.want))
 			}
 			for i, wantGV := range tt.want {
-				subresource, ok := info.subresourceMap[wantGV.WithKind("Widget")]
+				subresource, ok := info.subresourceMap[subresourceKey{GroupVersionKind: wantGV.WithKind("Widget"), parent: tt.parents[i].WithResource("widgets"), name: "status"}]
 				if !ok {
 					t.Fatalf("missing discovered subresource %s", wantGV)
 				}

@@ -126,6 +126,7 @@ func (groupCollisionClient) GetResource(
 	}
 	resource.SetAnnotations(map[string]string{
 		"test.kyverno.io/subresource": strings.Join(subresources, "/"),
+		"test.kyverno.io/parent-kind": kind,
 	})
 	return resource, nil
 }
@@ -139,7 +140,7 @@ func TestListSubresourcesPreservesAPIGroups(t *testing.T) {
 
 	info := &resourceTypeInfo{
 		subresourceMap: make(
-			map[schema.GroupVersionKind]v1alpha1.Subresource,
+			map[subresourceKey]v1alpha1.Subresource,
 		),
 	}
 
@@ -150,7 +151,7 @@ func TestListSubresourcesPreservesAPIGroups(t *testing.T) {
 			Kind:    "Widget",
 		}
 
-		info.subresourceMap[gvk] = v1alpha1.Subresource{
+		info.subresourceMap[subresourceKey{GroupVersionKind: gvk, name: "status"}] = v1alpha1.Subresource{
 			ParentResource: metav1.APIResource{
 				Group:      group,
 				Version:    "v1",
@@ -207,8 +208,8 @@ func TestListResourcesPreservesParentAndSubresource(t *testing.T) {
 			}
 			info := &resourceTypeInfo{
 				gvkMap: map[schema.GroupVersionKind]bool{gvk: true},
-				subresourceMap: map[schema.GroupVersionKind]v1alpha1.Subresource{
-					gvk: {
+				subresourceMap: map[subresourceKey]v1alpha1.Subresource{
+					{GroupVersionKind: gvk, name: subresourceName}: {
 						ParentResource: metav1.APIResource{
 							Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind,
 							Name: "widgets", Namespaced: true,

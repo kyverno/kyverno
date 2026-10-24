@@ -29,7 +29,14 @@ var errOpenResourceFile = errors.New("open resource file")
 
 type resourceTypeInfo struct {
 	gvkMap         map[schema.GroupVersionKind]bool
-	subresourceMap map[schema.GroupVersionKind]v1alpha1.Subresource
+	subresourceMap map[subresourceKey]v1alpha1.Subresource
+}
+
+// subresourceKey distinguishes endpoints that return the same GVK, such as status and resize or different parents' scale endpoints.
+type subresourceKey struct {
+	schema.GroupVersionKind
+	parent schema.GroupVersionResource
+	name   string
 }
 type ResourceFetcher struct {
 	Out                  io.Writer
@@ -96,14 +103,15 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	resources := make([]*unstructured.Unstructured, 0)
 	info := &resourceTypeInfo{
 		gvkMap:         make(map[schema.GroupVersionKind]bool),
-		subresourceMap: make(map[schema.GroupVersionKind]v1alpha1.Subresource),
+		subresourceMap: make(map[subresourceKey]v1alpha1.Subresource),
 	}
 	// extract the matched resources from the policies.
 	rf.extractResourcesFromPolicies(info)
 	resourceMap := make(map[string]*unstructured.Unstructured)
 	var err error
 	// fetch the resources from the cluster.
-	if rf.ResourceOptions.Concurrency > 1 {
+	// The concurrent loader accepts GVKs only and cannot address subresource endpoints.
+	if rf.ResourceOptions.Concurrency > 1 && len(info.subresourceMap) == 0 {
 		log.Log.V(3).Info("Loading resources concurrently", "count", len(info.gvkMap))
 		// Convert gvkMaps to slice
 		gvks := make([]schema.GroupVersionKind, 0, len(info.gvkMap))
@@ -118,23 +126,6 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 		for _, resource := range resourceList {
 			key := fmt.Sprintf("%s::%s::%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
 			resourceMap[key] = resource.DeepCopy()
-		}
-
-		if len(info.subresourceMap) > 0 {
-			var subResourceGvks []schema.GroupVersionKind
-			for subGvk := range info.subresourceMap {
-				subResourceGvks = append(subResourceGvks, subGvk)
-			}
-			rf.ResourceOptions.ResourceTypes = subResourceGvks
-			subResourceList, err := loader.LoadResourcesConcurrent(rf.Policies, rf.Client, rf.ResourceOptions, rf.ShowPerformance)
-			log.Log.V(3).Info("Loading sublist concurrently", "count", len(subResourceList))
-			if err != nil {
-				return nil, err
-			}
-			for _, resource := range subResourceList {
-				key := fmt.Sprintf("%s::%s::%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
-				resourceMap[key] = resource.DeepCopy()
-			}
 		}
 	} else {
 		start := time.Now()
@@ -255,7 +246,12 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 			if subGVK.Version == "" {
 				subGVK.Version = parent.Version
 			}
-			info.subresourceMap[subGVK] = v1alpha1.Subresource{
+			key := subresourceKey{
+				GroupVersionKind: subGVK,
+				parent:           parent.GroupVersionResource(),
+				name:             parent.SubResource,
+			}
+			info.subresourceMap[key] = v1alpha1.Subresource{
 				Subresource: child,
 				ParentResource: metav1.APIResource{
 					Group:   parent.Group,
@@ -295,7 +291,8 @@ func (rf *ResourceFetcher) listResources(
 	}
 
 	// list subresources
-	for subGVK, subresource := range info.subresourceMap {
+	for key, subresource := range info.subresourceMap {
+		subGVK := key.GroupVersionKind
 		parentGV := schema.GroupVersion{
 			Group:   subresource.ParentResource.Group,
 			Version: subresource.ParentResource.Version,
@@ -327,9 +324,9 @@ func (rf *ResourceFetcher) listResources(
 				continue
 			}
 
-			key := fmt.Sprintf("%s::%s::%s::%s", subGVK.String(), subresourceName, resource.GetNamespace(), resource.GetName())
+			resourceKey := fmt.Sprintf("%s::%s::%s::%s::%s", subGVK.String(), key.parent.String(), subresourceName, resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(subGVK)
-			result[key] = resource.DeepCopy()
+			result[resourceKey] = resource.DeepCopy()
 		}
 	}
 	return result, nil

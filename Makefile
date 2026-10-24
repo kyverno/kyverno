@@ -915,7 +915,11 @@ bench-baseline: ## Regenerate scripts/bench/thresholds.txt ceilings from a fresh
 test-cli: test-cli-local ## Run all CLI tests
 
 .PHONY: test-cli-local
-test-cli-local: test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-ruleless ## Run local CLI tests
+test-cli-local: test-cli-local-vpols test-cli-local-gpols test-cli-local-mpols test-cli-local-ivpols test-cli-local-dpols test-cli-local-vaps test-cli-local-maps test-cli-local-ruleless test-cli-local-cluster ## Run local CLI tests
+
+.PHONY: test-cli-local-cluster
+test-cli-local-cluster: $(CLI_BIN) ## Run cluster-loading CLI regressions against a local mock API
+	@KYVERNO_CLI_BIN=$(abspath $(CLI_BIN)) go test ./test/cli -run '^TestApplyClusterResourceCollisions$$' -count=1
 
 .PHONY: test-cli-local-ruleless
 test-cli-local-ruleless: $(CLI_BIN) ## Run local CLI ruleless policy tests
