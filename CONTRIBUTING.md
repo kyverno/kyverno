@@ -29,4 +29,6 @@ In the process of submitting your PRs, please read and abide by the template pro
 
 ## Release Processes
 
-Review the Kyverno release process at: https://kyverno.io/docs/releases/
+The [release runbook](docs/dev/releases/create-a-release.md) is the source of truth
+for creating Kyverno releases. Website and wiki release instructions should link
+to this guide rather than maintain a separate procedure.
