@@ -3,7 +3,6 @@ package operator
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/ext/wildcard"
@@ -154,9 +153,8 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 		if operatorVariable == operator.InRange {
 			if anyNotIn {
 				isAnyNotInBool := false
-				stringForAnyNotIn := strings.Replace(valuesAvailable, "-", "!-", 1)
 				for _, k := range key {
-					if handleRange(k, stringForAnyNotIn, log) {
+					if !handleRange(k, value, log) {
 						isAnyNotInBool = true
 						break
 					}
