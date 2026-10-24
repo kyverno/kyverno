@@ -1,0 +1,27 @@
+apiVersion: policies.kyverno.io/v1beta1
+kind: ValidatingPolicy
+metadata:
+  name: globalcontext-runtime-custom-resource
+spec:
+  validationActions: [Deny]
+  failurePolicy: Fail
+  evaluation:
+    background:
+      enabled: false
+  matchConstraints:
+    resourceRules:
+    - apiGroups: [""]
+      apiVersions: [v1]
+      operations: [CREATE, UPDATE]
+      resources: [configmaps]
+  matchConditions:
+  - name: test-namespace
+    expression: object.metadata.namespace == 'test-globalcontext-runtime-custom-resource'
+  variables:
+  - name: widgets
+    expression: globalContext.get('runtime-custom-widgets', '')
+  validations:
+  - expression: >-
+      variables.widgets != null &&
+      variables.widgets.exists(widget, widget.spec.value == object.data.value)
+    message: ConfigMap value must be present in the runtime-created global context.
