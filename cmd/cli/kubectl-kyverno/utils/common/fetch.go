@@ -248,6 +248,13 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 				Version: child.Version,
 				Kind:    child.Kind,
 			}
+			// Discovery can omit a subresource's group and version when it inherits them from its parent.
+			if subGVK.Group == "" {
+				subGVK.Group = parent.Group
+			}
+			if subGVK.Version == "" {
+				subGVK.Version = parent.Version
+			}
 			info.subresourceMap[subGVK] = v1alpha1.Subresource{
 				Subresource: child,
 				ParentResource: metav1.APIResource{
