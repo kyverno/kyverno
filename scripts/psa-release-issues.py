@@ -215,8 +215,12 @@ def tree_blobs(git_bin, repo, ref, path):
 
 
 def show(git_bin, repo, ref, path):
-    result = run_command([git_bin, "-C", str(repo), "show", f"{ref}:{path}"])
-    return result.stdout if result.returncode == 0 else ""
+    """Returns the file at ref, or "" if ref doesn't have it. Raises ReleaseError if git can't read it."""
+    # The clone has every tree, so this check fetches nothing.
+    if not git(git_bin, repo, "ls-tree", ref, "--", path).strip():
+        return ""
+    # Reading the blob can fetch it, which can fail.
+    return git(git_bin, repo, "show", f"{ref}:{path}")
 
 
 def check_group(git_bin, repo, release, previous, path, lowered):

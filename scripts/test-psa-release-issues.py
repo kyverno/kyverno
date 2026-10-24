@@ -538,6 +538,23 @@ class AnalyzeTest(Base):
         with self.assertRaisesRegex(psa.ReleaseError, "git ls-tree -r kubernetes-1.99.0 failed"):
             psa.tree_blobs("git", repo, "kubernetes-1.99.0", "test/testdata")
 
+    def test_a_failed_file_read_raises_instead_of_reading_empty(self):
+        self.upstream.release("37.0")
+        repo, _ = self.releases()
+        self.assertEqual(psa.show("git", repo, "kubernetes-1.37.0", "policy/check_missing.go"), "")
+        self.assertIn("sysctls", psa.show("git", repo, "kubernetes-1.37.0", "policy/check_sysctls.go"))
+        real = psa.run_command
+
+        def fake(args):
+            # Like a blob fetch that fails in the blobless clone.
+            if "show" in args:
+                return SimpleNamespace(returncode=128, stdout="", stderr="fatal: could not fetch blob")
+            return real(args)
+
+        with mock.patch.object(psa, "run_command", fake), \
+                self.assertRaisesRegex(psa.ReleaseError, "could not fetch blob"):
+            psa.show("git", repo, "kubernetes-1.37.0", "policy/check_sysctls.go")
+
     def test_a_confirm_issue_gives_every_reason(self):
         # Like upstream 1.37: a handled check change and test-only changes in one release.
         issue = self.change({"policy/check_sysctls.go": check_sysctls(gate=37, values=["net.ipv4.tcp_notsent_lowat"]),
