@@ -89,6 +89,7 @@ func Test_Deleting_HonorsResourceFilters(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"name":      name,
 					"namespace": namespace,
+					"uid":       "uid-" + name,
 				},
 			},
 		}
@@ -193,6 +194,147 @@ func Test_Deleting_HonorsResourceFilters(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotContains(t, mockClient.deletedResources, "ns1/filtered-pod")
 	assert.Contains(t, mockClient.deletedResources, "ns1/unfiltered-pod")
+}
+
+// Test_Deleting_DeletesOnlyTheEvaluatedObject verifies that each delete is pinned to the UID of
+// the object the policy evaluated. The delete is by name, so without the precondition an object
+// deleted and recreated under the same name after the list would be removed although the policy
+// never evaluated it. When the API server rejects the precondition (409 Conflict), the replaced
+// object is skipped, not reported as a deletion failure.
+func Test_Deleting_DeletesOnlyTheEvaluatedObject(t *testing.T) {
+	scheme := runtime.NewScheme()
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{{Group: "", Version: "v1"}})
+	mapper.Add(schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"}, meta.RESTScopeNamespace)
+
+	gvrToListKind := map[schema.GroupVersionResource]string{
+		{Group: "", Version: "v1", Resource: "pods"}: "PodList",
+	}
+	dynClient := fakedynamic.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind)
+
+	pod := func(name, uid string) unstructured.Unstructured {
+		return unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "v1",
+				"kind":       "Pod",
+				"metadata": map[string]interface{}{
+					"name":      name,
+					"namespace": "ns1",
+					"uid":       uid,
+				},
+			},
+		}
+	}
+	items := []unstructured.Unstructured{
+		pod("evaluated-pod", "uid-evaluated"),
+		pod("replaced-pod", "uid-replaced"),
+	}
+	dynClient.PrependReactor("list", "*", func(action clienttesting.Action) (bool, runtime.Object, error) {
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(schema.GroupVersionKind{Version: "v1", Kind: "PodList"})
+		list.Items = items
+		return true, list, nil
+	})
+
+	kubeClient := kubeclientfake.NewSimpleClientset()
+	if fakeDiscovery, ok := kubeClient.Discovery().(*fakediscovery.FakeDiscovery); ok {
+		fakeDiscovery.Resources = []*metav1.APIResourceList{
+			{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{Name: "pods", Kind: "Pod", Namespaced: true},
+				},
+			},
+		}
+	}
+
+	pol := policiesv1beta1.DeletingPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-deleting-policy"},
+		Spec: policiesv1beta1.DeletingPolicySpec{
+			MatchConstraints: &admissionregistrationv1.MatchResources{
+				ResourceRules: []admissionregistrationv1.NamedRuleWithOperations{
+					{
+						RuleWithOperations: admissionregistrationv1.RuleWithOperations{
+							Rule: admissionregistrationv1.Rule{
+								APIGroups:   []string{""},
+								APIVersions: []string{"v1"},
+								Resources:   []string{"pods"},
+							},
+						},
+					},
+				},
+			},
+			Conditions: []admissionregistrationv1.MatchCondition{
+				{Name: "always-true", Expression: "true"},
+			},
+		},
+	}
+	compiledPolicy, errs := enginecompiler.NewCompiler().Compile(&pol, nil)
+	assert.Empty(t, errs)
+
+	mockClient := &mockDClient{
+		dyn:           dynClient,
+		kube:          kubeClient,
+		deleteOptions: map[string]metav1.DeleteOptions{},
+		deleteErrors: map[string]error{
+			// what the API server answers when the UID precondition no longer holds
+			"ns1/replaced-pod": apierrors.NewConflict(
+				schema.GroupResource{Resource: "pods"}, "replaced-pod",
+				fmt.Errorf("Precondition failed: UID in precondition: uid-replaced, UID in object meta: uid-new"),
+			),
+		},
+	}
+	eventGen := &mockEventGenerator{}
+	c := &controller{
+		client:        mockClient,
+		nsLister:      &mockNamespaceLister{namespaces: []*corev1.Namespace{{ObjectMeta: metav1.ObjectMeta{Name: "ns1"}}}},
+		engine:        dpolengine.NewEngine(func(string) *corev1.Namespace { return nil }, mapper, &libs.FakeContextProvider{}, matching.NewMatcher()),
+		configuration: configpkg.NewDefaultConfiguration(false),
+		eventGen:      eventGen,
+	}
+
+	err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: &pol, CompiledPolicy: compiledPolicy})
+	assert.NoError(t, err, "a delete refused because the object was replaced is not a failure")
+
+	for key, uid := range map[string]string{"ns1/evaluated-pod": "uid-evaluated", "ns1/replaced-pod": "uid-replaced"} {
+		opts, ok := mockClient.deleteOptions[key]
+		if assert.True(t, ok, "%s should have been deleted", key) && assert.NotNil(t, opts.Preconditions, "%s delete must carry preconditions", key) {
+			assert.Equal(t, uid, string(*opts.Preconditions.UID), "%s delete must be pinned to the evaluated object's UID", key)
+		}
+	}
+	assert.Equal(t, []string{"ns1/evaluated-pod"}, mockClient.deletedResources)
+	assert.Len(t, eventGen.events, 1, "only the actual deletion should produce an event")
+
+	t.Run("empty UID skips deletion", func(t *testing.T) {
+		items = []unstructured.Unstructured{pod("no-uid-pod", "")}
+		mockClient.deleteOptions = map[string]metav1.DeleteOptions{}
+		mockClient.deletedResources = nil
+		eventGen.events = nil
+
+		err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: &pol, CompiledPolicy: compiledPolicy})
+		assert.NoError(t, err)
+		assert.Empty(t, mockClient.deleteOptions, "a resource without a UID must not trigger a delete call")
+		assert.Empty(t, mockClient.deletedResources)
+		assert.Empty(t, eventGen.events)
+	})
+
+	t.Run("non-conflict delete error is reported", func(t *testing.T) {
+		items = []unstructured.Unstructured{pod("forbidden-pod", "uid-forbidden")}
+		deleteErr := apierrors.NewForbidden(schema.GroupResource{Resource: "pods"}, "forbidden-pod", fmt.Errorf("deletion denied"))
+		mockClient.deleteErrors = map[string]error{"ns1/forbidden-pod": deleteErr}
+		mockClient.deleteOptions = map[string]metav1.DeleteOptions{}
+		mockClient.deletedResources = nil
+		eventGen.events = nil
+
+		err := c.deleting(context.Background(), logr.Discard(), dpolengine.Policy{Policy: &pol, CompiledPolicy: compiledPolicy})
+		assert.ErrorIs(t, err, deleteErr)
+		assert.Contains(t, mockClient.deleteOptions, "ns1/forbidden-pod")
+		assert.Empty(t, mockClient.deletedResources)
+		if assert.Len(t, eventGen.events, 1) {
+			assert.Equal(t, event.PolicyError, eventGen.events[0].Reason)
+			assert.Equal(t, "forbidden-pod", eventGen.events[0].Related.Name)
+			assert.Contains(t, eventGen.events[0].Message, deleteErr.Error())
+		}
+	})
 }
 
 // captureQueue wraps a real typed queue but captures the last AddAfter delay used by the controller.
@@ -313,6 +455,8 @@ type mockDClient struct {
 	dyn              dynamic.Interface
 	kube             kubernetes.Interface
 	deletedResources []string
+	deleteOptions    map[string]metav1.DeleteOptions
+	deleteErrors     map[string]error
 }
 
 type mockEventGenerator struct {
@@ -341,7 +485,14 @@ func (m *mockDClient) Discovery() dclient.IDiscovery {
 }
 
 func (m *mockDClient) DeleteResource(ctx context.Context, apiVersion string, kind string, namespace string, name string, forceDelete bool, deleteOptions metav1.DeleteOptions) error {
-	m.deletedResources = append(m.deletedResources, namespace+"/"+name)
+	key := namespace + "/" + name
+	if m.deleteOptions != nil {
+		m.deleteOptions[key] = deleteOptions
+	}
+	if err := m.deleteErrors[key]; err != nil {
+		return err
+	}
+	m.deletedResources = append(m.deletedResources, key)
 	return nil
 }
 
@@ -494,6 +645,7 @@ func TestDeleting_ClusterWidePaginationWithoutNamespaceSelector(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"name":      name,
 					"namespace": namespace,
+					"uid":       "uid-" + name,
 				},
 			},
 		}
@@ -764,6 +916,7 @@ func TestDeleting_ResourceExpiredPaginationToken(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"name":      name,
 					"namespace": namespace,
+					"uid":       "uid-" + name,
 				},
 			},
 		}
