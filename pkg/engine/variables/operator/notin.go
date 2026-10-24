@@ -33,7 +33,7 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 	case []interface{}:
 		var stringSlice []string
 		for _, v := range typedKey {
-			stringSlice = append(stringSlice, v.(string))
+			stringSlice = append(stringSlice, fmt.Sprint(v))
 		}
 		return nin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
