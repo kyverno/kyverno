@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -764,7 +763,7 @@ func jpRegexReplaceAll(arguments []any) (any, error) {
 		return nil, formatError(invalidArgumentTypeError, regexReplaceAll, 3, "String or Real")
 	}
 
-	reg, err := regexp.Compile(regex.String())
+	reg, err := compileRegex(regex.String())
 	if err != nil {
 		return nil, formatError(genericError, regexReplaceAll, err.Error())
 	}
@@ -788,7 +787,7 @@ func jpRegexReplaceAllLiteral(arguments []any) (any, error) {
 		return nil, formatError(invalidArgumentTypeError, regexReplaceAllLiteral, 3, "String or Real")
 	}
 
-	reg, err := regexp.Compile(regex.String())
+	reg, err := compileRegex(regex.String())
 	if err != nil {
 		return nil, formatError(genericError, regexReplaceAllLiteral, err.Error())
 	}
@@ -807,7 +806,11 @@ func jpRegexMatch(arguments []any) (any, error) {
 		return nil, formatError(invalidArgumentTypeError, regexMatch, 2, "String or Real")
 	}
 
-	return regexp.Match(regex.String(), []byte(src))
+	reg, err := compileRegex(regex.String())
+	if err != nil {
+		return false, err
+	}
+	return reg.Match([]byte(src)), nil
 }
 
 func jpPatternMatch(arguments []any) (any, error) {
