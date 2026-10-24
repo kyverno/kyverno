@@ -91189,6 +91189,9 @@ spec:
           - containerPort: 8000
             name: metrics-port
             protocol: TCP
+          - containerPort: 8080
+            name: cr-metrics
+            protocol: TCP
           
           env:
           - name: INIT_CONFIG
@@ -91314,11 +91317,11 @@ spec:
           image: "reg.kyverno.io/kyverno/background-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
-          - containerPort: 9443
-            name: https
-            protocol: TCP
           - containerPort: 8000
             name: metrics
+            protocol: TCP
+          - containerPort: 8080
+            name: cr-metrics
             protocol: TCP
           
           args:
@@ -91606,9 +91609,6 @@ spec:
           image: "reg.kyverno.io/kyverno/reports-controller:latest"
           imagePullPolicy: IfNotPresent
           ports:
-          - containerPort: 9443
-            name: https
-            protocol: TCP
           - containerPort: 8000
             name: metrics
             protocol: TCP
