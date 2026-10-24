@@ -15,9 +15,6 @@ import (
 	policiesv1 "github.com/kyverno/api/api/policies.kyverno.io/v1"
 	policiesv1alpha1 "github.com/kyverno/api/api/policies.kyverno.io/v1alpha1"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/exception"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/source"
@@ -40,10 +37,6 @@ import (
 )
 
 var (
-	policyV1           = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("Policy")
-	policyV2           = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("Policy")
-	clusterPolicyV1    = schema.GroupVersion(kyvernov1.GroupVersion).WithKind("ClusterPolicy")
-	clusterPolicyV2    = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("ClusterPolicy")
 	vapV1              = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicy")
 	vapBindingV1       = admissionregistrationv1.SchemeGroupVersion.WithKind("ValidatingAdmissionPolicyBinding")
 	vpV1alpha1         = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("ValidatingPolicy")
@@ -66,10 +59,6 @@ var (
 	dpV1               = schema.GroupVersion(policiesv1.GroupVersion).WithKind("DeletingPolicy")
 	ndpV1beta1         = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("NamespacedDeletingPolicy")
 	ndpV1              = schema.GroupVersion(policiesv1.GroupVersion).WithKind("NamespacedDeletingPolicy")
-	cpV2beta1          = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("CleanupPolicy")
-	cpV2               = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("CleanupPolicy")
-	ccpV2beta1         = schema.GroupVersion(kyvernov2beta1.GroupVersion).WithKind("ClusterCleanupPolicy")
-	ccpV2              = schema.GroupVersion(kyvernov2.GroupVersion).WithKind("ClusterCleanupPolicy")
 	mpV1alpha1         = schema.GroupVersion(policiesv1alpha1.GroupVersion).WithKind("MutatingPolicy")
 	mpV1beta1          = schema.GroupVersion(policiesv1beta1.GroupVersion).WithKind("MutatingPolicy")
 	mpV1               = schema.GroupVersion(policiesv1.GroupVersion).WithKind("MutatingPolicy")
@@ -94,8 +83,6 @@ type LoaderWarning struct {
 }
 
 type LoaderResults struct {
-	Policies                []kyvernov1.PolicyInterface
-	PolicyExceptions        []*kyvernov2.PolicyException
 	VAPs                    []admissionregistrationv1.ValidatingAdmissionPolicy
 	VAPBindings             []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MAPs                    []admissionregistrationv1beta1.MutatingAdmissionPolicy
@@ -106,7 +93,6 @@ type LoaderResults struct {
 	ImageValidatingPolicies []policiesv1beta1.ImageValidatingPolicyLike
 	GeneratingPolicies      []policiesv1beta1.GeneratingPolicyLike
 	DeletingPolicies        []policiesv1beta1.DeletingPolicyLike
-	CleanupPolicies         []kyvernov2.CleanupPolicyInterface
 	MutatingPolicies        []policiesv1beta1.MutatingPolicyLike
 	PolicyCelExceptions     []*policiesv1beta1.PolicyException
 	NonFatalErrors          []LoaderError
@@ -117,7 +103,6 @@ func (l *LoaderResults) Merge(results *LoaderResults) {
 	if results == nil {
 		return
 	}
-	l.Policies = append(l.Policies, results.Policies...)
 	l.VAPs = append(l.VAPs, results.VAPs...)
 	l.VAPBindings = append(l.VAPBindings, results.VAPBindings...)
 	l.ValidatingPolicies = append(l.ValidatingPolicies, results.ValidatingPolicies...)
@@ -130,8 +115,6 @@ func (l *LoaderResults) Merge(results *LoaderResults) {
 	l.NonFatalErrors = append(l.NonFatalErrors, results.NonFatalErrors...)
 	l.Warnings = append(l.Warnings, results.Warnings...)
 	l.DeletingPolicies = append(l.DeletingPolicies, results.DeletingPolicies...)
-	l.CleanupPolicies = append(l.CleanupPolicies, results.CleanupPolicies...)
-	l.PolicyExceptions = append(l.PolicyExceptions, results.PolicyExceptions...)
 	l.PolicyCelExceptions = append(l.PolicyCelExceptions, results.PolicyCelExceptions...)
 	l.MutatingPolicies = append(l.MutatingPolicies, results.MutatingPolicies...)
 }
@@ -161,11 +144,11 @@ var splitDocuments = extyaml.SplitDocuments
 // not caused by any input file, so callers that skip invalid files must still treat it as fatal.
 var ErrValidatorSetup = errors.New("failed to set up the policy schema validator")
 
-// Load loads policies from the given paths. When allowLegacyPolicies is false, any legacy
-// kyverno.io policy kind (ClusterPolicy, Policy, CleanupPolicy, ClusterCleanupPolicy, PolicyException)
-// is rejected with a migration hint, matching the 1.20 admission-time block.
-func Load(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
-	return LoadWithLoader(nil, fs, resourcePath, allowLegacyPolicies, paths...)
+// Load loads policies from the given paths. Any legacy kyverno.io policy kind (ClusterPolicy, Policy,
+// CleanupPolicy, ClusterCleanupPolicy, PolicyException) is rejected with a migration hint, matching the
+// 1.20 admission-time block.
+func Load(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
+	return LoadWithLoader(nil, fs, resourcePath, paths...)
 }
 
 // LoadSkippingInvalidFiles behaves like Load, except that a file which fails to load does not
@@ -176,11 +159,11 @@ func Load(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, pa
 // reported, since they are not policies to begin with. Legacy policy block errors and failures to
 // set up the schema validator (ErrValidatorSetup) still abort the load, since they are not caused by a
 // single file; they are the only errors this function returns.
-func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
+func LoadSkippingInvalidFiles(fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
 	if _, err := loaderDelegate(); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrValidatorSetup, err)
 	}
-	return loadWithLoader(skipInvalidFiles(kubectlValidateLoader(allowLegacyPolicies, true)), fs, resourcePath, true, paths...)
+	return loadWithLoader(skipInvalidFiles(validateLoader(true)), fs, resourcePath, true, paths...)
 }
 
 // skipInvalidFiles wraps a loader so that an ordinary error is recorded as a non fatal error for the
@@ -203,9 +186,9 @@ func skipInvalidFiles(l loader) loader {
 
 // LoadWithLoader loads policies from paths with the given loader, or the default validating loader
 // when l is nil. The first path that fails to load fails the whole call.
-func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, allowLegacyPolicies bool, paths ...string) (*LoaderResults, error) {
+func LoadWithLoader(l loader, fs billy.Filesystem, resourcePath string, paths ...string) (*LoaderResults, error) {
 	if l == nil {
-		l = kubectlValidateLoaderFor(allowLegacyPolicies)
+		l = kubectlValidateLoader()
 	}
 	return loadWithLoader(l, fs, resourcePath, false, paths...)
 }
@@ -237,11 +220,6 @@ func loadWithLoader(l loader, fs billy.Filesystem, resourcePath string, skipUnre
 		}
 		aggregateResults.Merge(results)
 	}
-	// It's hard to use apply with the fake client, so disable all server side
-	// https://github.com/kubernetes/kubernetes/issues/99953
-	for _, policy := range aggregateResults.Policies {
-		policy.GetSpec().UseServerSideApply = false
-	}
 	return aggregateResults, nil
 }
 
@@ -257,12 +235,6 @@ var loaderDelegate = sync.OnceValues(func() (resourceloader.Loader, error) {
 	return factory, err
 })
 
-// kubectlValidateLoaderFor returns a loader that rejects legacy kyverno.io policy kinds with a
-// migration-hint error unless allowLegacyPolicies is set, matching the 1.20 admission-time block.
-func kubectlValidateLoaderFor(allowLegacyPolicies bool) loader {
-	return kubectlValidateLoader(allowLegacyPolicies, false)
-}
-
 // legacyPolicyKinds are the policy kinds of the kyverno.io group, which also holds kinds that are not
 // policies (GlobalContextEntry, UpdateRequest) and gets no new policy kinds.
 var legacyPolicyKinds = sets.New("Policy", "ClusterPolicy", "CleanupPolicy", "ClusterCleanupPolicy", "PolicyException")
@@ -274,7 +246,7 @@ func isPolicyGroupKind(gvk schema.GroupVersionKind) bool {
 	switch gvk.Group {
 	case policiesv1.GroupVersion.Group:
 		return true
-	case kyvernov1.GroupVersion.Group:
+	case "kyverno.io":
 		return legacyPolicyKinds.Has(gvk.Kind)
 	case admissionregistrationv1.GroupName:
 		return strings.Contains(gvk.Kind, "AdmissionPolicy")
@@ -312,10 +284,18 @@ func isValidYAML(document []byte) bool {
 	return err == nil
 }
 
-// kubectlValidateLoader builds the loader. In lenient mode every policy document that fails is
-// recorded as a non fatal error and the rest of the file still loads, and documents outside the
-// policy API groups are ignored. Otherwise the first failing document fails the whole file.
-func kubectlValidateLoader(allowLegacyPolicies, lenient bool) loader {
+// kubectlValidateLoader returns the strict loader, which rejects legacy kyverno.io policy kinds with a
+// migration-hint error, matching the 1.20 admission-time block. The first failing document fails the
+// whole file.
+func kubectlValidateLoader() loader {
+	return validateLoader(false)
+}
+
+// validateLoader builds the loader. Legacy kyverno.io policy kinds are always rejected. In lenient mode
+// every policy document that fails is recorded as a non fatal error and the rest of the file still loads,
+// and documents outside the policy API groups are ignored. Otherwise the first failing document fails
+// the whole file.
+func validateLoader(lenient bool) loader {
 	return func(path string, content []byte) (*LoaderResults, error) {
 		results := &LoaderResults{}
 		documents, err := splitDocuments(content)
@@ -342,7 +322,7 @@ func kubectlValidateLoader(allowLegacyPolicies, lenient bool) loader {
 			if err != nil {
 				// Check if this is a List object and handle it explicitly
 				if gvk.Kind == "List" && gvk.Version == "v1" {
-					if err := handleListItems(document, path, results, allowLegacyPolicies, lenient); err != nil {
+					if err := handleListItems(document, path, results, lenient); err != nil {
 						if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 							return nil, err
 						}
@@ -357,10 +337,8 @@ func kubectlValidateLoader(allowLegacyPolicies, lenient bool) loader {
 				// The loader returns the parsed GVK alongside a schema-validation error, so a
 				// malformed legacy manifest must still be blocked with the migration hint rather
 				// than surfacing only a generic validation error.
-				if !allowLegacyPolicies {
-					if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
-						return nil, blockErr
-					}
+				if blockErr, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+					return nil, blockErr
 				}
 				// a document that is not even valid YAML could be a broken policy, so only skip
 				// documents we could read and that turned out not to be policies
@@ -391,7 +369,7 @@ func kubectlValidateLoader(allowLegacyPolicies, lenient bool) loader {
 			// is kept as the pending fatal error while scanning continues, so a later document in
 			// the same multi-document file still gets a chance to be scanned and, if it's a
 			// legacy kind, blocked ahead of it.
-			if err := processDocumentItem(path, gvk, &untyped, results, allowLegacyPolicies); err != nil {
+			if err := processDocumentItem(path, gvk, &untyped, results); err != nil {
 				wrapped := fmt.Errorf("failed to process %s: %w", gvk, err)
 				if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 					return nil, wrapped
@@ -412,7 +390,7 @@ func kubectlValidateLoader(allowLegacyPolicies, lenient bool) loader {
 }
 
 // handleListItems processes a v1.List object by extracting and processing its items
-func handleListItems(document []byte, path string, results *LoaderResults, allowLegacyPolicies, lenient bool) error {
+func handleListItems(document []byte, path string, results *LoaderResults, lenient bool) error {
 	var jsonData []byte
 	var parseErr error
 
@@ -448,7 +426,7 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 		itemUnstructured := &unstructured.Unstructured{Object: itemMap}
 		itemGVK := itemUnstructured.GroupVersionKind()
 
-		if err := processDocumentItem(path, itemGVK, itemUnstructured, results, allowLegacyPolicies); err != nil {
+		if err := processDocumentItem(path, itemGVK, itemUnstructured, results); err != nil {
 			if pkgdeprecations.IsLegacyPolicyBlockError(err) {
 				return fmt.Errorf("List item %d (%s): %w", i, itemGVK, err)
 			}
@@ -468,22 +446,14 @@ func handleListItems(document []byte, path string, results *LoaderResults, allow
 }
 
 // processDocumentItem handles the processing of individual documents based on their GVK
-func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults, allowLegacyPolicies bool) error {
+func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unstructured.Unstructured, results *LoaderResults) error {
 	if warning, ok := pkgdeprecations.BuildKindWarning(gvk.Group, gvk.Version, gvk.Kind); ok {
 		results.addWarning(path, warning.Message)
 	}
-	if !allowLegacyPolicies {
-		if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
-			return err
-		}
+	if err, ok := pkgdeprecations.BuildKindError(gvk.Group, gvk.Version, gvk.Kind); ok {
+		return err
 	}
 	switch {
-	case exception.IsLegacyException(gvk):
-		typed, err := convert.To[kyvernov2.PolicyException](*untyped)
-		if err != nil {
-			return err
-		}
-		results.PolicyExceptions = append(results.PolicyExceptions, typed)
 	case exception.IsCELException(gvk):
 		typed, err := convert.To[policiesv1beta1.PolicyException](*untyped)
 		if err != nil {
@@ -492,18 +462,6 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 		results.PolicyCelExceptions = append(results.PolicyCelExceptions, typed)
 	default:
 		switch gvk {
-		case policyV1, policyV2:
-			typed, err := convert.To[kyvernov1.Policy](*untyped)
-			if err != nil {
-				return err
-			}
-			results.Policies = append(results.Policies, typed)
-		case clusterPolicyV1, clusterPolicyV2:
-			typed, err := convert.To[kyvernov1.ClusterPolicy](*untyped)
-			if err != nil {
-				return err
-			}
-			results.Policies = append(results.Policies, typed)
 		case vapV1:
 			typed, err := convert.To[admissionregistrationv1.ValidatingAdmissionPolicy](*untyped)
 			if err != nil {
@@ -595,18 +553,6 @@ func processDocumentItem(path string, gvk schema.GroupVersionKind, untyped *unst
 				return err
 			}
 			results.DeletingPolicies = append(results.DeletingPolicies, typed)
-		case cpV2beta1, cpV2:
-			typed, err := convert.To[kyvernov2.CleanupPolicy](*untyped)
-			if err != nil {
-				return err
-			}
-			results.CleanupPolicies = append(results.CleanupPolicies, typed)
-		case ccpV2beta1, ccpV2:
-			typed, err := convert.To[kyvernov2.ClusterCleanupPolicy](*untyped)
-			if err != nil {
-				return err
-			}
-			results.CleanupPolicies = append(results.CleanupPolicies, typed)
 		case mpV1alpha1, mpV1beta1, mpV1:
 			typed, err := convert.To[policiesv1beta1.MutatingPolicy](*untyped)
 			if err != nil {

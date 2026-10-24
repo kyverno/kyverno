@@ -12,11 +12,9 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	resourceloader "github.com/kyverno/kyverno/ext/resource/loader"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
@@ -30,11 +28,18 @@ func TestLoad(t *testing.T) {
 		paths        []string
 		wantErr      bool
 	}{{
-		name:         "cpol-limit-configmap-for-sa",
+		name:         "vpol-valid",
+		fs:           nil,
+		resourcePath: "",
+		paths:        []string{"../_testdata/policies/vpol-valid.yaml"},
+		wantErr:      false,
+	}, {
+		// Legacy kyverno.io policy kinds are unconditionally blocked.
+		name:         "legacy-cpol",
 		fs:           nil,
 		resourcePath: "",
 		paths:        []string{"../_testdata/policies/cpol-limit-configmap-for-sa.yaml"},
-		wantErr:      false,
+		wantErr:      true,
 	}, {
 		name:         "invalid-schema",
 		fs:           nil,
@@ -44,7 +49,7 @@ func TestLoad(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
+			_, err := Load(tt.fs, tt.resourcePath, tt.paths...)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -78,73 +83,14 @@ func TestLoadInvalid(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(tt.fs, tt.resourcePath, true, tt.paths...)
+			results, err := Load(tt.fs, tt.resourcePath, tt.paths...)
 			if tt.wantErr {
 				assert.NotNil(t, err, "result mismatch")
 			} else {
 				assert.NotNil(t, results)
 				if results != nil {
-					assert.Equal(t, tt.count, len(results.Policies), "policy count mismatch")
+					assert.Equal(t, tt.count, len(results.ValidatingPolicies), "policy count mismatch")
 				}
-			}
-		})
-	}
-}
-
-func TestLoadWithKubectlValidate(t *testing.T) {
-	tests := []struct {
-		name         string
-		fs           billy.Filesystem
-		resourcePath string
-		paths        []string
-		wantErr      bool
-		checks       func(*testing.T, []kyvernov1.PolicyInterface, []admissionregistrationv1.ValidatingAdmissionPolicy)
-	}{{
-		name:         "cpol-limit-configmap-for-sa",
-		fs:           nil,
-		resourcePath: "",
-		paths:        []string{"../_testdata/policies/cpol-limit-configmap-for-sa.yaml"},
-		wantErr:      false,
-	}, {
-		name:         "invalid-schema",
-		fs:           nil,
-		resourcePath: "",
-		paths:        []string{"../_testdata/policies/invalid-schema.yaml"},
-		wantErr:      true,
-	}, {
-		name:         "proper defaulting",
-		fs:           nil,
-		resourcePath: "",
-		paths:        []string{"../_testdata/policies/check-image.yaml"},
-		wantErr:      false,
-		checks: func(t *testing.T, policies []kyvernov1.PolicyInterface, vaps []admissionregistrationv1.ValidatingAdmissionPolicy) {
-			assert.Len(t, policies, 1)
-			policy := policies[0]
-			assert.NotNil(t, policy)
-			spec := policy.GetSpec()
-			assert.NotNil(t, spec)
-			assert.True(t, spec.ValidationFailureAction.Audit())
-			assert.NotNil(t, spec.Background)
-			assert.True(t, *spec.Background)
-			assert.NotNil(t, spec.Admission)
-			assert.True(t, *spec.Admission)
-			rule := spec.Rules[0]
-			assert.Len(t, rule.VerifyImages, 1)
-			assert.True(t, rule.VerifyImages[0].Required)
-			assert.True(t, rule.VerifyImages[0].MutateDigest)
-			assert.True(t, rule.VerifyImages[0].VerifyDigest)
-			assert.True(t, rule.VerifyImages[0].UseCache)
-		},
-	}}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results, err := LoadWithLoader(nil, tt.fs, tt.resourcePath, true, tt.paths...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if tt.checks != nil {
-				tt.checks(t, results.Policies, results.VAPs)
 			}
 		})
 	}
@@ -152,68 +98,68 @@ func TestLoadWithKubectlValidate(t *testing.T) {
 
 func TestKubectlValidateLoader_ListHandling(t *testing.T) {
 	tests := []struct {
-		name             string
-		path             string
-		expectedPolicies int
-		expectedVAPs     int
-		expectedErrors   int
-		wantErr          bool
+		name                       string
+		path                       string
+		expectedValidatingPolicies int
+		expectedVAPs               int
+		expectedErrors             int
+		wantErr                    bool
 	}{
 		{
-			name:             "list-single-clusterpolicy",
-			path:             "testdata/list-single-clusterpolicy.yaml",
-			expectedPolicies: 1,
-			expectedVAPs:     0,
-			expectedErrors:   0,
-			wantErr:          false,
+			name:                       "list-single-validatingpolicy",
+			path:                       "testdata/list-single-validatingpolicy.yaml",
+			expectedValidatingPolicies: 1,
+			expectedVAPs:               0,
+			expectedErrors:             0,
+			wantErr:                    false,
 		},
 		{
-			name:             "list-multiple-policies",
-			path:             "testdata/list-multiple-policies.yaml",
-			expectedPolicies: 2,
-			expectedVAPs:     0,
-			expectedErrors:   0,
-			wantErr:          false,
+			name:                       "list-multiple-policies",
+			path:                       "testdata/list-multiple-policies.yaml",
+			expectedValidatingPolicies: 2,
+			expectedVAPs:               0,
+			expectedErrors:             0,
+			wantErr:                    false,
 		},
 		{
-			name:             "list-empty",
-			path:             "testdata/list-empty.yaml",
-			expectedPolicies: 0,
-			expectedVAPs:     0,
-			expectedErrors:   0,
-			wantErr:          false,
+			name:                       "list-empty",
+			path:                       "testdata/list-empty.yaml",
+			expectedValidatingPolicies: 0,
+			expectedVAPs:               0,
+			expectedErrors:             0,
+			wantErr:                    false,
 		},
 		{
-			name:             "list-mixed-items",
-			path:             "testdata/list-mixed-items.yaml",
-			expectedPolicies: 1,
-			expectedVAPs:     0,
-			expectedErrors:   1,
-			wantErr:          false,
+			name:                       "list-mixed-items",
+			path:                       "testdata/list-mixed-items.yaml",
+			expectedValidatingPolicies: 1,
+			expectedVAPs:               0,
+			expectedErrors:             1,
+			wantErr:                    false,
 		},
 		{
-			name:             "list-vaps",
-			path:             "testdata/list-vaps.yaml",
-			expectedPolicies: 0,
-			expectedVAPs:     1,
-			expectedErrors:   0,
-			wantErr:          false,
+			name:                       "list-vaps",
+			path:                       "testdata/list-vaps.yaml",
+			expectedValidatingPolicies: 0,
+			expectedVAPs:               1,
+			expectedErrors:             0,
+			wantErr:                    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			results, err := Load(nil, "", true, tt.path)
+			results, err := Load(nil, "", tt.path)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if results != nil {
-				assert.Equal(t, tt.expectedPolicies, len(results.Policies), "policy count mismatch")
+				assert.Equal(t, tt.expectedValidatingPolicies, len(results.ValidatingPolicies), "policy count mismatch")
 				assert.Equal(t, tt.expectedVAPs, len(results.VAPs), "VAP count mismatch")
 				assert.Equal(t, tt.expectedErrors, len(results.NonFatalErrors), "error count mismatch")
-				for i, policy := range results.Policies {
-					t.Logf("Policy %d: %s/%s", i, policy.GetKind(), policy.GetName())
+				for i, policy := range results.ValidatingPolicies {
+					t.Logf("Policy %d: %s", i, policy.GetName())
 				}
 				for i, vap := range results.VAPs {
 					t.Logf("VAP %d: %s", i, vap.Name)
@@ -376,12 +322,9 @@ spec:
 			path := filepath.Join(dir, "policy.yaml")
 			require.NoError(t, os.WriteFile(path, []byte(tt.manifest), 0o600))
 
-			_, err := Load(nil, "", false, path)
+			_, err := Load(nil, "", path)
 			require.Error(t, err, "expected the legacy-policy block to fire")
-			assert.Contains(t, err.Error(), "removed execution")
-
-			_, err = Load(nil, "", true, path)
-			require.NoError(t, err, "expected allowLegacyPolicies=true to bypass the block")
+			assert.Contains(t, err.Error(), "Kyverno v1.20 removed execution")
 		})
 	}
 }
@@ -390,13 +333,9 @@ func TestLoad_BlocksMalformedLegacyClusterPolicy(t *testing.T) {
 	// invalid-schema.yaml is a legacy kyverno.io/v1 ClusterPolicy that also fails OpenAPI schema
 	// validation (unknown field). The loader still returns the parsed GVK alongside that error,
 	// so the block must fire instead of surfacing only the generic schema error.
-	_, err := Load(nil, "", false, "../_testdata/policies/invalid-schema.yaml")
+	_, err := Load(nil, "", "../_testdata/policies/invalid-schema.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
-
-	_, err = Load(nil, "", true, "../_testdata/policies/invalid-schema.yaml")
-	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "no longer accepted")
 }
 
 func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T) {
@@ -404,28 +343,19 @@ func TestLoad_BlocksLegacyPolicyAfterUnsupportedDocumentInSameFile(t *testing.T)
 	// cause the loader to give up on the rest of the file before it reaches the legacy document:
 	// the block still has to fire for the ClusterPolicy, taking priority over the ConfigMap's
 	// (unrelated, non-fatal-by-comparison) "unsupported kind" error.
-	_, err := Load(nil, "", false, "testdata/configmap-then-legacy-clusterpolicy.yaml")
+	_, err := Load(nil, "", "testdata/configmap-then-legacy-clusterpolicy.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
-
-	// With the block bypassed, the ConfigMap's own "unsupported kind" problem is still a real,
-	// pre-existing error the loader must surface (not silently swallow), same as before this PR.
-	_, err = Load(nil, "", true, "testdata/configmap-then-legacy-clusterpolicy.yaml")
-	require.Error(t, err)
-	assert.NotContains(t, err.Error(), "no longer accepted")
 }
 
 func TestLoad_BlocksLegacyPolicyInsideList(t *testing.T) {
 	// testdata/list-single-clusterpolicy.yaml wraps a legacy kyverno.io/v1 ClusterPolicy in a
 	// v1 List; the block must fire for a List item exactly as it does for a standalone manifest.
-	_, err := Load(nil, "", false, "testdata/list-single-clusterpolicy.yaml")
+	_, err := Load(nil, "", "testdata/list-single-clusterpolicy.yaml")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
-
-	results, err := Load(nil, "", true, "testdata/list-single-clusterpolicy.yaml")
-	require.NoError(t, err)
-	assert.Len(t, results.Policies, 1)
 }
+
 func TestLoadHTTP(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -437,12 +367,20 @@ func TestLoadHTTP(t *testing.T) {
 			name:       "successful fetch",
 			statusCode: http.StatusOK,
 			body: `
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
 metadata:
   name: test-policy
 spec:
-  rules: []
+  validations:
+  - expression: "true"
+    message: "always passes"
+  matchConstraints:
+    resourceRules:
+    - operations: ["CREATE", "UPDATE"]
+      apiGroups: [""]
+      apiVersions: ["v1"]
+      resources: ["pods"]
 `,
 			wantErr: false,
 		},
@@ -461,14 +399,14 @@ spec:
 			}))
 			defer server.Close()
 
-			results, err := Load(nil, "", true, server.URL)
+			results, err := Load(nil, "", server.URL)
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Load() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
-			if !tt.wantErr && len(results.Policies) != 1 {
-				t.Errorf("expected 1 policy, got %d", len(results.Policies))
+			if !tt.wantErr && len(results.ValidatingPolicies) != 1 {
+				t.Errorf("expected 1 policy, got %d", len(results.ValidatingPolicies))
 			}
 		})
 	}
@@ -490,7 +428,7 @@ func TestLoadHTTPTimeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := Load(nil, "", true, server.URL)
+	_, err := Load(nil, "", server.URL)
 
 	assert.Error(t, err)
 	check := err
@@ -567,7 +505,7 @@ spec:
 			path := filepath.Join(dir, "exception.yaml")
 			require.NoError(t, os.WriteFile(path, []byte(m.content), 0o600))
 
-			res, err := Load(nil, "", false, path)
+			res, err := Load(nil, "", path)
 			require.NoError(t, err)
 			require.NotNil(t, res)
 			require.Len(t, res.PolicyCelExceptions, 1)
@@ -597,7 +535,7 @@ spec:
 	path := filepath.Join(dir, "exception.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(manifest), 0o600))
 
-	res, err := Load(nil, "", false, path)
+	res, err := Load(nil, "", path)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Invalid value: value provided for unknown field")
 	if res != nil {
@@ -661,10 +599,10 @@ spec:
 	}
 
 	// the strict loader still fails the whole directory on the first broken file
-	_, err := Load(nil, "", false, dir)
+	_, err := Load(nil, "", dir)
 	require.Error(t, err)
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	results, err := LoadSkippingInvalidFiles(nil, "", dir)
 	require.NoError(t, err)
 	// the valid policy file, the policy sharing a file with a Pod and the valid policy sharing a
 	// file with a broken one are all loaded
@@ -683,33 +621,6 @@ spec:
 		assert.ErrorContains(t, results.NonFatalErrors[i].Error, "unknown field")
 		assert.True(t, strings.HasPrefix(results.NonFatalErrors[i].Error.Error(), name), results.NonFatalErrors[i].Error.Error())
 	}
-}
-
-// TestLoadSkippingInvalidFiles_KeepsWarningsFromPartiallyLoadedFile checks that a file with a broken
-// policy keeps the warnings of the valid documents next to it.
-func TestLoadSkippingInvalidFiles_KeepsWarningsFromPartiallyLoadedFile(t *testing.T) {
-	legacy, err := os.ReadFile("testdata/list-single-clusterpolicy.yaml")
-	require.NoError(t, err)
-	broken := `
-apiVersion: policies.kyverno.io/v1
-kind: ValidatingPolicy
-metadata:
-  name: typo
-spec:
-  validationActionz: [Deny]
-  validations:
-  - expression: "true"
-`
-	path := filepath.Join(t.TempDir(), "mixed.yaml")
-	require.NoError(t, os.WriteFile(path, append(legacy, []byte("---\n"+broken)...), 0o600))
-
-	results, err := LoadSkippingInvalidFiles(nil, "", true, path)
-	require.NoError(t, err)
-	assert.Len(t, results.Policies, 1)
-	assert.NotEmpty(t, results.Warnings)
-	require.Len(t, results.NonFatalErrors, 1)
-	assert.Equal(t, path, results.NonFatalErrors[0].Path)
-	assert.ErrorContains(t, results.NonFatalErrors[0].Error, "unknown field")
 }
 
 // TestIsPolicyGroupKind checks which kinds are treated as policies when deciding what to report.
@@ -763,10 +674,10 @@ spec:
 	require.NoError(t, os.Symlink(missing, filepath.Join(dir, ".hidden.yaml")))
 
 	// the strict loader still fails the whole directory
-	_, err := Load(nil, "", false, dir)
+	_, err := Load(nil, "", dir)
 	require.Error(t, err)
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	results, err := LoadSkippingInvalidFiles(nil, "", dir)
 	require.NoError(t, err)
 	assert.Len(t, results.ValidatingPolicies, 1)
 	// only the dangling YAML entry is reported, the non YAML and hidden ones are ignored
@@ -799,7 +710,7 @@ spec:
 	require.NoError(t, os.Symlink("..", filepath.Join(dir, "nested", "parent")))
 	require.NoError(t, os.Symlink(filepath.Join(dir, "does-not-exist"), filepath.Join(dir, "policies")))
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	results, err := LoadSkippingInvalidFiles(nil, "", dir)
 	require.NoError(t, err)
 	assert.Len(t, results.ValidatingPolicies, 1, "the policy must be loaded exactly once")
 	require.Len(t, results.NonFatalErrors, 2)
@@ -817,7 +728,7 @@ func TestLoadSkippingInvalidFiles_ValidatorSetupErrorIsFatal(t *testing.T) {
 		return nil, errors.New("failed to build validator")
 	}
 
-	_, err := LoadSkippingInvalidFiles(nil, "", false, "testdata/list-vaps.yaml")
+	_, err := LoadSkippingInvalidFiles(nil, "", "testdata/list-vaps.yaml")
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrValidatorSetup)
 	assert.Contains(t, err.Error(), "failed to build validator")
@@ -900,10 +811,10 @@ metadata:
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
 	// the strict loader fails the file on the first document it cannot process
-	_, err := Load(nil, "", false, path)
+	_, err := Load(nil, "", path)
 	require.Error(t, err)
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	results, err := LoadSkippingInvalidFiles(nil, "", path)
 	require.NoError(t, err)
 	// the unknown policy kind is reported, the ConfigMap is not
 	require.Len(t, results.NonFatalErrors, 1)
@@ -936,7 +847,7 @@ items:
 	path := filepath.Join(t.TempDir(), "list.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	results, err := LoadSkippingInvalidFiles(nil, "", path)
 	require.NoError(t, err)
 	assert.Len(t, results.ValidatingPolicies, 1)
 	// the unknown policy kind is reported by kind and name, the Pod is ignored
@@ -962,10 +873,10 @@ spec:
 	missing := filepath.Join(dir, "missing.yaml")
 
 	// the strict loader fails the whole call
-	_, err := Load(nil, "", false, valid, missing)
+	_, err := Load(nil, "", valid, missing)
 	require.Error(t, err)
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, missing, valid)
+	results, err := LoadSkippingInvalidFiles(nil, "", missing, valid)
 	require.NoError(t, err)
 	assert.Len(t, results.ValidatingPolicies, 1)
 	require.Len(t, results.NonFatalErrors, 1)
@@ -992,10 +903,10 @@ spec:
 	path := filepath.Join(t.TempDir(), "partial.yaml")
 	require.NoError(t, os.WriteFile(path, valid, 0o600))
 
-	_, err := Load(nil, "", false, path)
+	_, err := Load(nil, "", path)
 	require.Error(t, err)
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	results, err := LoadSkippingInvalidFiles(nil, "", path)
 	require.NoError(t, err)
 	assert.Len(t, results.ValidatingPolicies, 1)
 	require.Len(t, results.NonFatalErrors, 1)
@@ -1014,11 +925,11 @@ func TestLoadSkippingInvalidFiles_IgnoresMalformedNonPolicyLists(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(content), 0o600))
 	}
 
-	strict, err := Load(nil, "", false, filepath.Join(dir, "scalar-item.yaml"), filepath.Join(dir, "items-not-list.yaml"))
+	strict, err := Load(nil, "", filepath.Join(dir, "scalar-item.yaml"), filepath.Join(dir, "items-not-list.yaml"))
 	require.NoError(t, err)
 	assert.Len(t, strict.NonFatalErrors, 3)
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, dir)
+	results, err := LoadSkippingInvalidFiles(nil, "", dir)
 	require.NoError(t, err)
 	assert.Empty(t, results.NonFatalErrors)
 }
@@ -1029,7 +940,7 @@ func TestLoadSkippingInvalidFiles_ReportsInvalidYAML(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "broken-list.yaml")
 	require.NoError(t, os.WriteFile(path, []byte("apiVersion: v1\nkind: List\nitems: [unclosed\n"), 0o600))
 
-	results, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	results, err := LoadSkippingInvalidFiles(nil, "", path)
 	require.NoError(t, err)
 	require.Len(t, results.NonFatalErrors, 1)
 	assert.Equal(t, path, results.NonFatalErrors[0].Path)
@@ -1049,12 +960,12 @@ items:
     name: newer
 `), 0o600))
 
-	strict, err := Load(nil, "", false, path)
+	strict, err := Load(nil, "", path)
 	require.NoError(t, err)
 	require.Len(t, strict.NonFatalErrors, 1)
 	assert.True(t, strings.HasPrefix(strict.NonFatalErrors[0].Error.Error(), "failed to process List item 0 ("), strict.NonFatalErrors[0].Error.Error())
 
-	lenient, err := LoadSkippingInvalidFiles(nil, "", false, path)
+	lenient, err := LoadSkippingInvalidFiles(nil, "", path)
 	require.NoError(t, err)
 	require.Len(t, lenient.NonFatalErrors, 1)
 	assert.True(t, strings.HasPrefix(lenient.NonFatalErrors[0].Error.Error(), "SomethingNew newer: failed to process List item 0 ("), lenient.NonFatalErrors[0].Error.Error())
@@ -1068,7 +979,7 @@ func TestLoadSkippingInvalidFiles_StillBlocksLegacyPolicies(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "legacy.yaml"), content, 0o600))
 
-	_, err = LoadSkippingInvalidFiles(nil, "", false, dir)
+	_, err = LoadSkippingInvalidFiles(nil, "", dir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "kyverno.io/v1 ClusterPolicy: Kyverno v1.20 removed execution")
 }

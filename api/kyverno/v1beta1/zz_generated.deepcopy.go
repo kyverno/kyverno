@@ -22,7 +22,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno"
 	v1 "k8s.io/api/admission/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -177,7 +177,7 @@ func (in *UpdateRequestStatus) DeepCopyInto(out *UpdateRequestStatus) {
 	*out = *in
 	if in.GeneratedResources != nil {
 		in, out := &in.GeneratedResources, &out.GeneratedResources
-		*out = make([]kyvernov1.ResourceSpec, len(*in))
+		*out = make([]kyverno.ResourceSpec, len(*in))
 		copy(*out, *in)
 	}
 	return

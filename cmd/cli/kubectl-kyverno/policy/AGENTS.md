@@ -8,7 +8,7 @@ deliberately different failure behaviour; keep them apart when changing either o
 - **`Load` / `LoadWithLoader` (strict)** are used by `kyverno test`, `oci push` and `fix policy`. The whole call
   fails on the first path that cannot be read, a file that cannot be split into documents, a blocked legacy
   policy, and a document with unknown fields or one that cannot be converted into a policy (`pendingErr` in
-  `kubectlValidateLoader`), so a broken policy can never pass a test run silently. Other document errors, such as
+  `validateLoader`), so a broken policy can never pass a test run silently. Other document errors, such as
   a kind the validator does not know, a single document that is not valid YAML, and `v1/List` shape or item
   errors, are only recorded in `LoaderResults.NonFatalErrors`. Splitting a file (`splitDocuments`) does not parse
   YAML, so it only fails when the content cannot be read; parse errors show up per document.
@@ -17,7 +17,8 @@ deliberately different failure behaviour; keep them apart when changing either o
   from and everything else still loads: valid documents in the same file, the rest of a directory, and the other
   paths of the same call. apply prints these under "Policies Not Loaded" (see `commands/apply/AGENTS.md`).
 
-The lenient behaviour is threaded through `kubectlValidateLoader(allowLegacyPolicies, lenient)`, `handleListItems`,
+The lenient behaviour is threaded through `validateLoader(lenient)` (the strict `kubectlValidateLoader()` is
+`validateLoader(false)`), `handleListItems`,
 `loadWithLoader(..., skipUnreadable, ...)` and `fsLoad(..., skipUnreadable)`, plus the `skipInvalidFiles` wrapper.
 Every new branch is gated on that flag; the strict path must keep behaving as before (`make test-cli` exercises it).
 

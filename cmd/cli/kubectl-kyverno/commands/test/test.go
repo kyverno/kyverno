@@ -13,7 +13,6 @@ import (
 	"github.com/go-git/go-billy/v5"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
@@ -34,8 +33,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
 	"github.com/kyverno/kyverno/ext/cluster"
 	"github.com/kyverno/kyverno/ext/output/pluralize"
-	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/background/generate"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
@@ -48,7 +45,6 @@ import (
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -134,12 +130,12 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 	policyFullPath := path.GetFullPaths(regularPolicies, testDir, isGit)
-	results, err := policy.Load(testCase.Fs, testDir, false, policyFullPath...)
+	results, err := policy.Load(testCase.Fs, testDir, policyFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load policies (%s)", err)
 	}
 	if len(ociPolicies) > 0 {
-		ociResults, err := policy.Load(nil, "", false, ociPolicies...)
+		ociResults, err := policy.Load(nil, "", ociPolicies...)
 		if err != nil {
 			return nil, fmt.Errorf("error: failed to load OCI policies (%s)", err)
 		}
@@ -162,10 +158,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(results.Warnings))
 		}
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.Policies)+len(results.VAPs))
-	for _, pol := range results.Policies {
-		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
-	}
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(results.VAPs))
 	for _, pol := range results.VAPs {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
 	}
@@ -338,7 +331,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	// exceptions
 	fmt.Fprintln(out, "  Loading exceptions", "...")
 	exceptionFullPath := path.GetFullPaths(testCase.Test.PolicyExceptions, testDir, isGit)
-	polexLoader, err := exception.Load(false, exceptionFullPath...)
+	polexLoader, err := exception.Load(exceptionFullPath...)
 	if err != nil {
 		return nil, fmt.Errorf("error: failed to load exceptions (%s)", err)
 	}
@@ -350,7 +343,7 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			return nil, fmt.Errorf("found %d deprecation warning(s) and --warnings-as-errors is set", len(polexLoader.Warnings))
 		}
 	}
-	if len(results.VAPs) > 0 && len(polexLoader.Exceptions) > 0 {
+	if len(results.VAPs) > 0 && len(polexLoader.CELExceptions) > 0 {
 		return nil, fmt.Errorf("error: use of exceptions with ValidatingAdmissionPolicies is not supported")
 	}
 	if err := v1alpha1.ValidateAPICallResponses(testCase.Test.APICallResponses); err != nil {
@@ -403,104 +396,20 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		}
 	}
 
-	// Print a progress banner for the loaded resource-policy collections.
-	// HTTP and Envoy authorization policies are not included; invalid Kyverno
-	// policies are still counted here but skipped during validation below.
-	policyCount := len(results.Policies) + len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
+	policyCount := len(results.VAPs) + len(results.MAPs) + len(results.ValidatingPolicies) + len(results.ImageValidatingPolicies) + len(results.DeletingPolicies) + len(results.GeneratingPolicies) + len(results.MutatingPolicies)
 	policyPlural := pluralize.Pluralize(policyCount, "policy", "policies")
 	resourceCount := len(uniques)
 	resourcePlural := pluralize.Pluralize(len(uniques), "resource", "resources")
 	if polexLoader != nil {
-		exceptionCount := len(polexLoader.Exceptions)
-		exceptionCount += len(polexLoader.CELExceptions)
+		exceptionCount := len(polexLoader.CELExceptions)
 		exceptionsPlural := pluralize.Pluralize(exceptionCount, "exception", "exceptions")
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "with", exceptionCount, exceptionsPlural, "...")
 	} else {
 		fmt.Fprintln(out, "  Applying", policyCount, policyPlural, "to", resourceCount, resourcePlural, "...")
 	}
 
-	// Map each generate rule that performs a clone (clone / cloneList) to the
-	// path of its clone-source resource as declared in the test results. The
-	// processor uses this map to load the source object without a live cluster.
-	// Autogen controller variants of the rule are included so that Pod-controller
-	// tests work correctly.
-	ruleToCloneSourceResource := map[string]string{}
-	for _, policy := range results.Policies {
-		// Include autogen controller rules so Pod-controller variants are covered.
-		for _, rule := range autogen.Default.ComputeRules(policy, "") {
-			for _, res := range testCase.Test.Results {
-				if isRulelessPolicyKind(policy.GetKind()) {
-					continue
-				}
-				// Parse [namespace/]name format.
-				resPolicyNamespace, resPolicyName := "", res.Policy
-				if ns, name, ok := strings.Cut(res.Policy, "/"); ok {
-					resPolicyNamespace, resPolicyName = ns, name
-					// Reject invalid forms like "ns/name/extra".
-					if strings.Contains(resPolicyName, "/") {
-						continue
-					}
-				}
-				if resPolicyName == "" || policy.GetName() != resPolicyName || policy.GetNamespace() != resPolicyNamespace {
-					continue
-				}
-
-				if rule.Name == res.Rule {
-					if rule.HasGenerate() {
-						if len(rule.Generation.CloneList.Kinds) != 0 { // cloneList
-							// We cannot cast this to an unstructured object because it doesn't have a kind.
-							if isGit {
-								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
-							} else {
-								ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
-							}
-						} else { // clone or data
-							ruleUnstr, err := generate.GetUnstrRule(rule.Generation.DeepCopy())
-							if err != nil {
-								fmt.Fprintf(out, "    Error: failed to get unstructured rule (%s)\n", err)
-								break
-							}
-							// Check if clone is specified.
-							genClone, _, err := unstructured.NestedMap(ruleUnstr.Object, "clone")
-							if err != nil {
-								fmt.Fprintf(out, "    Error: failed to read data (%s)\n", err)
-								break
-							}
-							if len(genClone) != 0 {
-								if isGit {
-									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = res.CloneSourceResource
-								} else {
-									ruleToCloneSourceResource[processor.PolicyRuleKey(policy, rule.Name)] = path.GetFullPath(res.CloneSourceResource, testDir)
-								}
-							}
-						}
-					}
-					break
-				}
-			}
-		}
-	}
-	// Validate each Kyverno policy before evaluation. Policies that fail
-	// validation are skipped and their names recorded in skippedPolicyNames so
-	// they can be surfaced in the final test report. This is a soft failure:
-	// the remaining valid policies are still evaluated.
-	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(results.Policies))
-	skippedPolicyNames := make(map[string]string)
-	for _, pol := range results.Policies {
-		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
-		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", pol.GetName())
-			skippedPolicyNames[pol.GetName()] = err.Error()
-			continue
-		}
-		validPolicies = append(validPolicies, pol)
-	}
-	// Initialise the accumulators that will collect engine output across all
-	// evaluation runs. engineResponses is a flat list used for target-resource
-	// correlation later; testResponse carries the structured results returned
-	// to the caller.
+	skippedPolicyNames := map[string]string{}
+	// execute engine
 	var engineResponses []engineapi.EngineResponse
 	var resultCounts processor.ResultCounts
 	testResponse := TestResponse{
@@ -547,7 +456,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		// the policy processor is for multiple policies at once
 		pp := processor.PolicyProcessor{
 			Store:                             &store,
-			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			ValidatingPolicies:                results.ValidatingPolicies,
@@ -558,7 +466,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			TargetResources:                   targetResources,
 			Resource:                          *resource,
 			Operation:                         operation,
-			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			ParameterResources:                paramObjectsArr,
 			MutateLogPath:                     "",
@@ -570,7 +477,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
-			RuleToCloneSourceResource:         ruleToCloneSourceResource,
 			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),
@@ -668,7 +574,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 	for _, jp := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             &store,
-			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       results.VAPs,
 			ValidatingAdmissionPolicyBindings: results.VAPBindings,
 			MutatingAdmissionPolicies:         results.MAPs,
@@ -678,7 +583,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			ValidatingPolicies:                results.ValidatingPolicies,
 			TargetResources:                   targetResources,
 			JsonPayload:                       unstructured.Unstructured{Object: jp.data},
-			PolicyExceptions:                  polexLoader.Exceptions,
 			CELExceptions:                     polexLoader.CELExceptions,
 			MutateLogPath:                     "",
 			Variables:                         vars,
@@ -689,7 +593,6 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 			PolicyReport:                      true,
 			NamespaceSelectorMap:              vars.NamespaceSelectors(),
 			Rc:                                &resultCounts,
-			RuleToCloneSourceResource:         ruleToCloneSourceResource,
 			Cluster:                           len(testCase.Test.ClusterResources) > 0,
 			Client:                            dClient,
 			Subresources:                      vars.Subresources(),

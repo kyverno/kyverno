@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  labels:
-    create-secret: "true"
-  name: test-org
-  namespace: cpol-clone-nosync-update-trigger-no-match-ns

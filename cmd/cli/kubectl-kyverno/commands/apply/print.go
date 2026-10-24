@@ -4,12 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/processor"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/report"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -17,6 +16,7 @@ import (
 	openreportsv1alpha1 "github.com/openreports/reports-api/apis/openreports.io/v1alpha1"
 	"github.com/opentracing/opentracing-go/log"
 	"github.com/pkg/errors"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -101,50 +101,100 @@ func printExceptions(out io.Writer, engineResponses []engineapi.EngineResponse, 
 	}
 }
 
+// policyKindForSource maps a policy-report result's Source to the CEL policy Kind a suggested
+// PolicyException's spec.policyRefs[].kind must match exactly (pkg/cel/engine.ListExceptions compares
+// by exact Kind string). It assumes the cluster-scoped variant of each kind; a result from a Namespaced*
+// policy needs that field hand-edited, since the report result alone doesn't say which one it was.
+// Returns "" for sources a Kyverno PolicyException cannot exempt at all (native Kubernetes
+// ValidatingAdmissionPolicy/MutatingAdmissionPolicy, which use their own binding-based exclusion).
+func policyKindForSource(source string) string {
+	switch source {
+	case kyvernoreports.SourceValidatingPolicy:
+		return "ValidatingPolicy"
+	case kyvernoreports.SourceImageValidatingPolicy:
+		return "ImageValidatingPolicy"
+	case kyvernoreports.SourceMutatingPolicy:
+		return "MutatingPolicy"
+	case kyvernoreports.SourceGeneratingPolicy:
+		return "GeneratingPolicy"
+	default:
+		return ""
+	}
+}
+
+// celStringLiteral renders s as a CEL string literal.
+func celStringLiteral(s string) string {
+	return strconv.Quote(s)
+}
+
+// buildExceptionMatchExpression builds a CEL matchCondition expression equivalent to the given
+// kind/name/namespace filter: object.kind must be one of kinds, object.metadata.name must equal (or,
+// for a trailing "*", start with the prefix of) one of names, and object.metadata.namespace must equal
+// namespace when set.
+func buildExceptionMatchExpression(kinds, names []string, namespace string) string {
+	kindLiterals := make([]string, len(kinds))
+	for i, k := range kinds {
+		kindLiterals[i] = celStringLiteral(k)
+	}
+	parts := []string{fmt.Sprintf("object.kind in [%s]", strings.Join(kindLiterals, ", "))}
+
+	nameConds := make([]string, 0, len(names))
+	for _, n := range names {
+		if prefix, ok := strings.CutSuffix(n, "*"); ok {
+			nameConds = append(nameConds, fmt.Sprintf("object.metadata.name.startsWith(%s)", celStringLiteral(prefix)))
+		} else {
+			nameConds = append(nameConds, fmt.Sprintf("object.metadata.name == %s", celStringLiteral(n)))
+		}
+	}
+	if len(nameConds) > 0 {
+		parts = append(parts, "("+strings.Join(nameConds, " || ")+")")
+	}
+	if namespace != "" {
+		parts = append(parts, fmt.Sprintf("object.metadata.namespace == %s", celStringLiteral(namespace)))
+	}
+	return strings.Join(parts, " && ")
+}
+
 func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl time.Duration, outputFormat string) error {
+	kind := policyKindForSource(result.Source)
+	if kind == "" {
+		// Native Kubernetes ValidatingAdmissionPolicy/MutatingAdmissionPolicy results aren't
+		// exempted via a Kyverno PolicyException; nothing useful to suggest.
+		return nil
+	}
 	for _, r := range result.Subjects {
 		name := strings.Join([]string{result.Policy, result.Rule, r.Namespace, r.Name}, "-")
 
 		kinds := []string{r.Kind}
 		names := []string{r.Name}
-		rules := []string{result.Rule}
 		if strings.HasPrefix(result.Rule, "autogen-") {
 			if r.Kind == "CronJob" {
-				kinds = append(kinds, "Job")
-				rules = append(rules, strings.ReplaceAll(result.Rule, "autogen-cronjob-", "autogen-"))
-				kinds = append(kinds, "Pod")
-				rules = append(rules, result.Rule[len("autogen-cronjob-"):])
+				kinds = append(kinds, "Job", "Pod")
 			} else {
 				kinds = append(kinds, "Pod")
-				rules = append(rules, result.Rule[len("autogen-"):])
 			}
 			names = append(names, r.Name+"-*")
 		}
 
-		exception := kyvernov2beta1.PolicyException{
+		exception := policiesv1beta1.PolicyException{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "PolicyException",
-				APIVersion: kyvernov2beta1.SchemeGroupVersion.String(),
+				APIVersion: policiesv1beta1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
 			},
-			Spec: kyvernov2beta1.PolicyExceptionSpec{
-				Match: kyvernov2beta1.MatchResources{
-					All: kyvernov1.ResourceFilters{
-						kyvernov1.ResourceFilter{
-							ResourceDescription: kyvernov1.ResourceDescription{
-								Kinds:      kinds,
-								Names:      names,
-								Namespaces: []string{r.Namespace},
-							},
-						},
+			Spec: policiesv1beta1.PolicyExceptionSpec{
+				PolicyRefs: []policiesv1beta1.PolicyRef{
+					{
+						Name: result.Policy,
+						Kind: kind,
 					},
 				},
-				Exceptions: []kyvernov2beta1.Exception{
+				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
-						PolicyName: result.Policy,
-						RuleNames:  rules,
+						Name:       "match-resource",
+						Expression: buildExceptionMatchExpression(kinds, names, r.Namespace),
 					},
 				},
 			},
@@ -157,22 +207,21 @@ func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl 
 		}
 
 		if controlList, ok := result.Properties["controlsJSON"]; ok {
-			pssList := make([]kyvernov1.PodSecurityStandard, 0)
 			var controls []kyvernoreports.Control
 			err := json.Unmarshal([]byte(controlList), &controls)
 			if err != nil {
 				return errors.Wrapf(err, "failed to unmarshall PSS controls %s", controlList)
 			}
+			controlNames := make([]string, 0, len(controls))
 			for _, c := range controls {
-				pss := kyvernov1.PodSecurityStandard{
-					ControlName: c.Name,
-				}
-				if c.Images != nil {
-					pss.Images = wildcardTagOrDigest(c.Images)
-				}
-				pssList = append(pssList, pss)
+				controlNames = append(controlNames, c.Name)
 			}
-			exception.Spec.PodSecurity = pssList
+			if len(controlNames) > 0 {
+				if exception.Spec.Properties == nil {
+					exception.Spec.Properties = map[string]string{}
+				}
+				exception.Spec.Properties["podSecurityControls"] = strings.Join(controlNames, ",")
+			}
 		}
 
 		var exceptionReport []byte
@@ -194,15 +243,6 @@ func printException(out io.Writer, result openreportsv1alpha1.ReportResult, ttl 
 	}
 
 	return nil
-}
-
-var regexpTagOrDigest = regexp.MustCompile(":.*|@.*")
-
-func wildcardTagOrDigest(images []string) []string {
-	for i, s := range images {
-		images[i] = regexpTagOrDigest.ReplaceAllString(s, "*")
-	}
-	return images
 }
 
 func printViolations(out io.Writer, rc *processor.ResultCounts) {
