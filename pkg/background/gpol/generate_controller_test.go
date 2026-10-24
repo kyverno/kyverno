@@ -8,7 +8,6 @@ import (
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/api/kyverno"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -79,13 +78,13 @@ func (p *testProvider) Get(context.Context, string) (gpolengine.Policy, error) {
 
 type testStatusControl struct{}
 
-func (testStatusControl) Failed(string, string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (testStatusControl) Failed(string, string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
-func (testStatusControl) Success(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (testStatusControl) Success(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
-func (testStatusControl) Skip(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (testStatusControl) Skip(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
 
@@ -111,18 +110,18 @@ type recordingStatusControl struct {
 	message string
 }
 
-func (r *recordingStatusControl) Failed(_ string, message string, _ []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (r *recordingStatusControl) Failed(_ string, message string, _ []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	r.failed = true
 	r.message = message
 	return nil, nil
 }
 
-func (r *recordingStatusControl) Success(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (r *recordingStatusControl) Success(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	r.success = true
 	return nil, nil
 }
 
-func (r *recordingStatusControl) Skip(string, []kyvernov1.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
+func (r *recordingStatusControl) Skip(string, []kyverno.ResourceSpec) (*kyvernov2.UpdateRequest, error) {
 	return nil, nil
 }
 
@@ -174,7 +173,7 @@ func TestProcessUR_FilteredTriggerSkipsEngine(t *testing.T) {
 			Policy: policyName,
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule: "rule",
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),
@@ -275,7 +274,7 @@ func TestProcessUR_ConcurrentCacheRestoreAndGenerateExistingDoesNotDeleteDownstr
 				RuleContext: []kyvernov2.RuleContext{{
 					Rule:         "rule",
 					CacheRestore: cacheRestore,
-					Trigger: kyvernov1.ResourceSpec{
+					Trigger: kyverno.ResourceSpec{
 						APIVersion: trigger.GetAPIVersion(),
 						Kind:       trigger.GetKind(),
 						Namespace:  trigger.GetNamespace(),
@@ -471,7 +470,7 @@ func TestProcessUR_SyncWatchersMustCompleteBeforeReturn(t *testing.T) {
 				// like TestProcessUR_ErrorResultMarksURFailed below) only
 				// overrides GetResource, not ListResource -- matches the same
 				// UID-less pattern that test already uses for the same reason.
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),
@@ -562,7 +561,7 @@ func TestProcessUR_ErrorResultMarksURFailed(t *testing.T) {
 			Policy: policyName,
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule: "rule",
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),
@@ -735,7 +734,7 @@ func newMirrorFixture(t *testing.T, policy policiesv1beta1.GeneratingPolicyLike,
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule:        "rule",
 				Synchronize: true,
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: trigger.GetAPIVersion(),
 					Kind:       trigger.GetKind(),
 					Namespace:  trigger.GetNamespace(),

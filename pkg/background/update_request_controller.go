@@ -30,6 +30,12 @@ import (
 
 const (
 	maxRetries = 10
+	// emptyStateRecoveryDelay waits out the creator's initial Pending write.
+	// Admission retries that write for up to 3s (generator.applyResource) and
+	// may create another request if it keeps failing. Recovering sooner races
+	// that write: the creator's UpdateStatus then conflicts, and the caller
+	// can submit a second request for work this one is about to run.
+	emptyStateRecoveryDelay = 5 * time.Second
 )
 
 type Controller interface {
@@ -248,6 +254,36 @@ func (c *controller) updateUR(_, cur interface{}) {
 	c.enqueueUpdateRequest(curUr)
 }
 
+// emptyStateRecoveryWait reports how long to leave an empty UpdateRequest
+// alone. A zero creation timestamp has no in-flight writer to wait for.
+// A timestamp in the future (clock skew) waits the full delay.
+func emptyStateRecoveryWait(created, now time.Time) time.Duration {
+	if created.IsZero() {
+		return 0
+	}
+	age := now.Sub(created)
+	if age < 0 {
+		return emptyStateRecoveryDelay
+	}
+	if age >= emptyStateRecoveryDelay {
+		return 0
+	}
+	return emptyStateRecoveryDelay - age
+}
+
+func (c *controller) requeueUpdateRequest(obj interface{}, delay time.Duration) {
+	if c.queue == nil || delay <= 0 {
+		return
+	}
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		logger.Error(err, "failed to extract name")
+		return
+	}
+	logger.V(4).Info("delaying empty update request recovery", "ur", key, "delay", delay)
+	c.queue.AddAfter(key, delay)
+}
+
 // defaultRetryBackoff paces UR retries (300ms, 600ms, 1.2s..., capped at
 // 10s) against retryOrDeleteOnFailure's RetryCount>3 delete threshold.
 func defaultRetryBackoff(retryCount int) time.Duration {
@@ -281,6 +317,10 @@ func (c *controller) processUR(ur *kyvernov2.UpdateRequest) error {
 }
 
 func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.UpdateRequestState, error) {
+	return c.reconcileURStatusAt(ur, time.Now())
+}
+
+func (c *controller) reconcileURStatusAt(ur *kyvernov2.UpdateRequest, now time.Time) (kyvernov2.UpdateRequestState, error) {
 	new, err := c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), ur.GetName(), metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -298,6 +338,21 @@ func (c *controller) reconcileURStatus(ur *kyvernov2.UpdateRequest) (kyvernov2.U
 	case kyvernov2.Completed:
 		errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	case kyvernov2.Failed:
+		new.Status.State = kyvernov2.Pending
+		_, errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
+	case "":
+		// Create and the initial Pending write are separate calls. A failed
+		// status write leaves the request empty. Sync only runs Pending, and
+		// the cases above only repair Failed and Completed, so the request
+		// would sit forever and still count toward updateRequestThreshold.
+		// Wait out the creator's retry window, then set Pending. The status
+		// update requeues the normal processing path. This uses the object
+		// just read, so a newer Pending, Skip, Failed, or Completed state is
+		// handled by its own case instead of this one.
+		if wait := emptyStateRecoveryWait(new.CreationTimestamp.Time, now); wait > 0 {
+			c.requeueUpdateRequest(new, wait)
+			return new.Status.State, nil
+		}
 		new.Status.State = kyvernov2.Pending
 		_, errUpdate = c.kyvernoClient.KyvernoV2().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{})
 	}

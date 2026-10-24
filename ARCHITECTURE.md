@@ -20,7 +20,7 @@ do not — both do their own minimal, standalone setup instead.
 | `kyvernopre` | `cmd/kyverno-init/` | Init container. Cleans up stale webhook configurations before the admission controller starts. |
 | `kubectl-kyverno` | `cmd/cli/kubectl-kyverno/` | Offline CLI for applying/testing policies without a cluster. Built on library code in `pkg/cli` (distinct from the `cmd/cli` command tree itself). |
 | `cleanup-controller` | `cmd/cleanup-controller/` | Reconciles `CleanupPolicy`/`ClusterCleanupPolicy`, runs a cleanup-policy validation webhook, and handles CronJob-invoked cleanup plus the CEL `dpol` (DeletingPolicy) engine. |
-| `reports-controller` | `cmd/reports-controller/` | Produces and aggregates `PolicyReport`/`ClusterPolicyReport` from admission and background scans. |
+| `reports-controller` | `cmd/reports-controller/` | Produces and aggregates `PolicyReport`/`ClusterPolicyReport` from admission and background scans for CEL policies and ValidatingAdmissionPolicy/MutatingAdmissionPolicy only; legacy `kyverno.io/v1` `ClusterPolicy`/`Policy` and `kyverno.io/v2` `PolicyException` execution was removed in #17710 PR 3. |
 | `background-controller` | `cmd/background-controller/` | Processes CEL `gpol` (generate) and `mpol` (mutate-existing) rules against already-existing resources via `UpdateRequest`s. Legacy `kyverno.io/v1` `generate`/`mutateExisting` execution was removed in #17710 PR 2; any pre-existing legacy `UpdateRequest` is deleted, not processed, on its first sync. |
 | `readiness-checker` | `cmd/readiness-checker/` | Small utility binary used by probes/Helm hooks: `check-endpoints`, `check-http`, `scale-deploy`, `delete-webhooks`. |
 
@@ -130,7 +130,7 @@ Confirmed via `DO NOT EDIT` headers and Makefile targets:
 | `pkg/client/{clientset,informers,listers}/**` | `make codegen-client-all` |
 | `api/**/zz_generated.{deepcopy,register}.go` | `make codegen-api-all` |
 | `pkg/config/mocks/mock_config.go` | no `make` target — see note below |
-| `config/crds/**/*.yaml` | `make codegen-crds-all` |
+| `config/crds/**/*.yaml` | `make codegen-crds-all` (`config/crds/kyverno/` is a frozen compatibility snapshot during the CEL migration — only GCE and UR `v2` regenerate, see `config/crds/kyverno/README.md`) |
 | `cmd/cli/kubectl-kyverno/config/crds/**`, `cmd/cli/kubectl-kyverno/data/crds/**` | `make codegen-cli-all` (the CLI's own controller-gen output, then copied from `config/crds/`) |
 | `charts/kyverno/charts/crds/templates/{kyverno.io,reports.kyverno.io,wgpolicyk8s.io}/**` | `make codegen-helm-crds` (the chart's own CRD copies; `_helpers.tpl` in the same dir is hand-written) |
 | `config/install-latest-testing.yaml` | `make codegen-manifest-all` |

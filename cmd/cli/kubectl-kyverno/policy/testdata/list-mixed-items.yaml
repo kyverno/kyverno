@@ -1,26 +1,20 @@
 apiVersion: v1
 kind: List
 items:
-- apiVersion: kyverno.io/v1
-  kind: ClusterPolicy
+- apiVersion: policies.kyverno.io/v1alpha1
+  kind: ValidatingPolicy
   metadata:
     name: valid-policy
   spec:
-    validationFailureAction: audit
-    background: true
-    rules:
-    - name: check-labels
-      match:
-        any:
-        - resources:
-            kinds:
-            - Pod
-      validate:
-        message: "Label required"
-        pattern:
-          metadata:
-            labels:
-              app: "?*"
+    validations:
+    - expression: "has(object.metadata.labels) && 'app' in object.metadata.labels"
+      message: "Label required"
+    matchConstraints:
+      resourceRules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
 - apiVersion: v1
   kind: ConfigMap
   metadata:

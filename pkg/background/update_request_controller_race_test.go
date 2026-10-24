@@ -9,7 +9,7 @@ import (
 
 	openapi_v2 "github.com/google/gnostic-models/openapiv2"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/background/gpol"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
@@ -283,7 +283,7 @@ func testNewCRDDiscoveryRace(t *testing.T, readyAfter time.Duration) {
 			},
 			RuleContext: []kyvernov2.RuleContext{{
 				Rule: "generate-cilium-scrape-policy",
-				Trigger: kyvernov1.ResourceSpec{
+				Trigger: kyverno.ResourceSpec{
 					APIVersion: "v1",
 					Kind:       "Namespace",
 					Name:       "cnp-template-ns",
