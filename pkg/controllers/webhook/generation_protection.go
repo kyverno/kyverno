@@ -1,15 +1,22 @@
 package webhook
 
 import (
+	"context"
+
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
-func (c *controller) buildGenerationLabelProtectionWebhook(caBundle []byte) admissionregistrationv1.ValidatingWebhook {
+func (c *controller) buildGenerationLabelProtectionWebhook(ctx context.Context, caBundle []byte) admissionregistrationv1.ValidatingWebhook {
 	timeout := capTimeout(c.defaultTimeout)
+	failurePolicy := admissionregistrationv1.Fail
+	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
+		failurePolicy = admissionregistrationv1.Ignore
+	}
 	return admissionregistrationv1.ValidatingWebhook{
 		Name:         config.GenerationLabelProtectionWebhookName,
 		ClientConfig: newClientConfig(c.server, c.servicePort, caBundle, config.GenerationLabelProtectionWebhookServicePath),
@@ -21,7 +28,7 @@ func (c *controller) buildGenerationLabelProtectionWebhook(caBundle []byte) admi
 			},
 			Operations: []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update},
 		}},
-		FailurePolicy:           ptr.To(admissionregistrationv1.Fail),
+		FailurePolicy:           ptr.To(failurePolicy),
 		SideEffects:             ptr.To(admissionregistrationv1.SideEffectClassNone),
 		AdmissionReviewVersions: []string{"v1"},
 		TimeoutSeconds:          &timeout,
