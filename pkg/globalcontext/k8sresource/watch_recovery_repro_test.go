@@ -224,3 +224,101 @@ func assertRecovery(t *testing.T, recovered func() bool) bool {
 		}
 	}
 }
+// TestEntry_PostSyncRepeatedRelistFailuresAreThrottled exercises the watch
+// handler installed by New, not just its rate-limit predicate. Two failed
+// post-sync relists must emit one warning while the same entry still recovers.
+func TestEntry_PostSyncRepeatedRelistFailuresAreThrottled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gvr := schema.GroupVersionResource{Version: "v1", Resource: "configmaps"}
+	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(), map[schema.GroupVersionResource]string{gvr: "ConfigMapList"},
+	)
+
+	const failureText = "injected repeated relist outage"
+	var lists, watches atomic.Int32
+	dyn.PrependReactor("list", "configmaps", func(clienttesting.Action) (bool, runtime.Object, error) {
+		n := lists.Add(1)
+		if n == 2 || n == 3 {
+			return true, nil, apierrors.NewServiceUnavailable(failureText)
+		}
+		value, rv := "old", "1"
+		if n >= 4 {
+			value, rv = "new", "4"
+		}
+		list := &unstructured.UnstructuredList{
+			Items: []unstructured.Unstructured{{Object: map[string]interface{}{
+				"apiVersion": "v1", "kind": "ConfigMap",
+				"metadata": map[string]interface{}{"name": "source", "namespace": "default", "resourceVersion": rv},
+				"data": map[string]interface{}{"value": value},
+			}}},
+		}
+		list.SetAPIVersion("v1")
+		list.SetKind("ConfigMapList")
+		list.SetResourceVersion(rv)
+		return true, list, nil
+	})
+
+	firstWatch := watch.NewRaceFreeFake()
+	defer firstWatch.Stop()
+	dyn.PrependWatchReactor("configmaps", func(clienttesting.Action) (bool, watch.Interface, error) {
+		if watches.Add(1) == 1 {
+			return true, firstWatch, nil
+		}
+		return true, watch.NewRaceFreeFake(), nil
+	})
+
+	gce := &kyvernov2beta1.GlobalContextEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "watch-throttle-repro"},
+		Spec: kyvernov2beta1.GlobalContextEntrySpec{
+			KubernetesResource: &kyvernov2beta1.KubernetesResource{
+				Version: "v1", Resource: "configmaps", Namespace: "default",
+			},
+		},
+	}
+	events := &recoveryEventSink{}
+	e, err := New(ctx, gce, events, dyn, logr.Discard(), gvr, "default", jmespath.New(config.NewDefaultConfiguration(false)))
+	require.NoError(t, err)
+	defer e.Stop()
+	require.Equal(t, "old", currentConfigMapValue(t, e))
+	require.Eventually(t, func() bool {
+		return watches.Load() == 1
+	}, 5*time.Second, 10*time.Millisecond)
+
+	// A watch expiration forces the next LISTs to fail after New returned.
+	firstWatch.Error(&metav1.Status{
+		Status: metav1.StatusFailure, Reason: metav1.StatusReasonExpired,
+		Code: 410, Message: "injected expired resource version",
+	})
+	require.Eventually(t, func() bool {
+		if lists.Load() < 4 {
+			return false
+		}
+		raw, getErr := e.Get("")
+		if getErr != nil {
+			return false
+		}
+		objects, ok := raw.([]interface{})
+		if !ok || len(objects) != 1 {
+			return false
+		}
+		obj, ok := objects[0].(map[string]interface{})
+		if !ok {
+			return false
+		}
+		value, _, _ := unstructured.NestedString(obj, "data", "value")
+		return value == "new"
+	}, 30*time.Second, 20*time.Millisecond, "the informer must recover from both relist failures")
+
+	events.mu.Lock()
+	defer events.mu.Unlock()
+	var warnings int
+	for _, info := range events.infos {
+		if strings.Contains(info.Message, failureText) {
+			warnings++
+		}
+	}
+	require.Equal(t, 1, warnings, "only the first post-sync relist failure should generate a warning")
+}
+
