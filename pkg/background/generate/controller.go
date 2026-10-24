@@ -304,7 +304,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		if err != nil {
 			if apierrors.IsNotFound(err) {
-				log.V(2).Info("warning: reason", err.Error())
+				log.V(2).Info("warning: reason", "reason", err.Error())
 				return nil, nil
 			}
 
