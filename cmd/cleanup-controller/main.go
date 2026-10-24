@@ -24,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/controllers/deleting"
-	genericloggingcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/logging"
 	genericwebhookcontroller "github.com/kyverno/kyverno/pkg/controllers/generic/webhook"
 	globalcontextcontroller "github.com/kyverno/kyverno/pkg/controllers/globalcontext"
 	legacypolicymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/legacypolicy"
@@ -46,7 +45,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeinformers "k8s.io/client-go/informers"
 )
@@ -174,33 +172,18 @@ func main() {
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		// listers
 		nsLister := kubeInformer.Core().V1().Namespaces().Lister()
-		// log policy changes
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("cleanup-policy"),
-			"CleanupPolicy",
-			kyvernoInformer.Kyverno().V2().CleanupPolicies(),
-			genericloggingcontroller.CheckGeneration,
+		// kyverno_legacy_policies_total gauge: CleanupPolicy and ClusterCleanupPolicy,
+		// read from metadata-only lists refreshed every 30s. ClusterPolicy, Policy, and
+		// legacy PolicyException are gauged by the admission controller instead.
+		legacyPolicyController := internal.NewController(
+			legacypolicymetricscontroller.ControllerName,
+			legacypolicymetricscontroller.NewController(
+				metrics.GetLegacyPolicyMetrics(),
+				"kyverno.io",
+				deprecations.MetadataKindCounters(setup.MetadataClient, "CleanupPolicy", "ClusterCleanupPolicy"),
+			),
+			legacypolicymetricscontroller.Workers,
 		)
-		genericloggingcontroller.NewController(
-			setup.Logger.WithName("cluster-cleanup-policy"),
-			"ClusterCleanupPolicy",
-			kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies(),
-			genericloggingcontroller.CheckGeneration,
-		)
-		// kyverno_legacy_policies_total gauge: only the legacy kinds natively watched
-		// by the cleanup-controller through synced listers -- CleanupPolicy and
-		// ClusterCleanupPolicy. ClusterPolicy, Policy, and legacy PolicyException are
-		// gauged by the admission controller instead, which natively watches those kinds.
-		legacypolicymetricscontroller.NewController(metrics.GetLegacyPolicyMetrics(), "kyverno.io", map[string]deprecations.KindCounter{
-			"CleanupPolicy": func() (int, error) {
-				pols, err := kyvernoInformer.Kyverno().V2().CleanupPolicies().Lister().List(labels.Everything())
-				return len(pols), err
-			},
-			"ClusterCleanupPolicy": func() (int, error) {
-				pols, err := kyvernoInformer.Kyverno().V2().ClusterCleanupPolicies().Lister().List(labels.Everything())
-				return len(pols), err
-			},
-		})
 		eventGenerator := event.NewEventGenerator(
 			setup.EventsClient,
 			logging.WithName("EventGenerator"),
@@ -457,6 +440,7 @@ func main() {
 		// start non leader controllers
 		eventController.Run(ctx, setup.Logger, &wg)
 		gceController.Run(ctx, setup.Logger, &wg)
+		legacyPolicyController.Run(ctx, setup.Logger, &wg)
 		// start leader election
 		le.Run(ctx)
 	}()

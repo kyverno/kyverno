@@ -51,7 +51,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/utils/generator"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/validation/exception"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -67,8 +66,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	apiserver "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/labels"
 	kruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery/cached/memory"
@@ -105,10 +102,6 @@ func showWarnings(ctx context.Context, logger logr.Logger) {
 	if toggle.FromContext(ctx).ForceFailurePolicyIgnore() {
 		logger.V(2).Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
 	}
-}
-
-func sanityChecks(apiserverClient apiserver.Interface) error {
-	return kubeutils.CRDsInstalled(apiserverClient, "clusterpolicies.kyverno.io", "policies.kyverno.io")
 }
 
 func createrLeaderControllers(
@@ -475,17 +468,12 @@ func main() {
 		// THIS IS AN UGLY FIX
 		// ELSE KYAML IS NOT THREAD SAFE
 		kyamlopenapi.Schema()
-		// check we can run
-		if err := sanityChecks(setup.ApiServerClient); err != nil {
-			setup.Logger.Error(err, "sanity checks failed")
-			os.Exit(1)
-		}
 		// informer factories
 		kubeInformer := kubeinformers.NewSharedInformerFactory(setup.KubeClient, setup.ResyncPeriod)
 		kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(setup.KubeClient, setup.ResyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 		kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(setup.KyvernoClient, setup.ResyncPeriod)
 		informerHealth := health.NewTracker(setup.Logger.WithName("informer-health"), clock.RealClock{})
-		registerAdmissionInformers(kyvernoInformer, setup.KyvernoClient, informerHealth, internal.PolicyExceptionEnabled())
+		registerAdmissionInformers(kyvernoInformer, setup.KyvernoClient, informerHealth)
 		certRenewer := tls.NewCertRenewer(
 			setup.KubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 			tls.CertRenewalInterval,
@@ -536,30 +524,19 @@ func main() {
 		updaterequestmetricscontroller.NewController(
 			kyvernoInformer.Kyverno().V2().UpdateRequests(),
 		)
-		// kyverno_legacy_policies_total gauge: only the legacy kinds natively watched
-		// by the admission controller through synced listers -- ClusterPolicy, Policy,
-		// and legacy PolicyException when policy exceptions are enabled. CleanupPolicy
-		// and ClusterCleanupPolicy are gauged by the cleanup-controller instead, which
-		// natively watches those kinds.
-		legacyPolicyCounters := map[string]deprecations.KindCounter{
-			"ClusterPolicy": func() (int, error) {
-				pols, err := kyvernoInformer.Kyverno().V1().ClusterPolicies().Lister().List(labels.Everything())
-				return len(pols), err
-			},
-			"Policy": func() (int, error) {
-				pols, err := kyvernoInformer.Kyverno().V1().Policies().Lister().List(labels.Everything())
-				return len(pols), err
-			},
-		}
-		if internal.PolicyExceptionEnabled() {
-			legacyPolicyCounters["PolicyException"] = func() (int, error) {
-				polexs, err := kyvernoInformer.Kyverno().V2().PolicyExceptions().Lister().List(labels.Everything())
-				return len(polexs), err
-			}
-		} else {
-			setup.Logger.V(2).Info("policy exceptions are disabled, skipping legacy PolicyException count for kyverno_legacy_policies_total")
-		}
-		legacypolicymetricscontroller.NewController(metrics.GetLegacyPolicyMetrics(), "kyverno.io", legacyPolicyCounters)
+		// kyverno_legacy_policies_total gauge: ClusterPolicy, Policy, and legacy
+		// PolicyException, read from metadata-only lists refreshed every 30s.
+		// CleanupPolicy and ClusterCleanupPolicy are gauged by the
+		// cleanup-controller instead.
+		legacyPolicyController := internal.NewController(
+			legacypolicymetricscontroller.ControllerName,
+			legacypolicymetricscontroller.NewController(
+				metrics.GetLegacyPolicyMetrics(),
+				"kyverno.io",
+				deprecations.MetadataKindCounters(setup.MetadataClient, "ClusterPolicy", "Policy", "PolicyException"),
+			),
+			legacypolicymetricscontroller.Workers,
+		)
 		runtime := runtimeutils.NewRuntime(
 			setup.Logger.WithName("runtime-checks"),
 			serverIP,
@@ -893,6 +870,7 @@ func main() {
 		// start non leader controllers
 		eventController.Run(signalCtx, setup.Logger, &wg)
 		gceController.Run(signalCtx, setup.Logger, &wg)
+		legacyPolicyController.Run(signalCtx, setup.Logger, &wg)
 		// start leader election
 		le.Run(signalCtx)
 	}()
