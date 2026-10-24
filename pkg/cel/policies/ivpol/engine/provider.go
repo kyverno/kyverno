@@ -32,14 +32,7 @@ func NewProvider(compiler eval.Compiler, policies []policiesv1beta1.ImageValidat
 	compiled := make([]Policy, 0, len(policies))
 	for _, policy := range policies {
 		p := policy
-		var matchedExceptions []*policiesv1beta1.PolicyException
-		for _, polex := range exceptions {
-			for _, ref := range polex.Spec.PolicyRefs {
-				if ref.Name == p.GetName() && ref.Kind == p.GetKind() {
-					matchedExceptions = append(matchedExceptions, polex)
-				}
-			}
-		}
+		matchedExceptions := engine.MatchExceptions(exceptions, p.GetKind(), p.GetName())
 		program, errs := compiler.Compile(p, matchedExceptions)
 		if len(errs) != 0 {
 			return nil, errs.ToAggregate()
