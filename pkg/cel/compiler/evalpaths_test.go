@@ -58,6 +58,7 @@ func TestNoUnbudgetedCELEvaluationPaths(t *testing.T) {
 			if relErr != nil {
 				return relErr
 			}
+			rel = filepath.ToSlash(rel)
 			if exempt[rel] || strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
