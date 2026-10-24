@@ -112,7 +112,7 @@ func TestDiscoveredSubresourcesPreserveGroupVersion(t *testing.T) {
 				}
 			}
 
-			resources, err := fetcher.listResources(info)
+			resources, err := fetcher.listResources(t.Context(), info)
 			if err != nil {
 				t.Fatal(err)
 			}

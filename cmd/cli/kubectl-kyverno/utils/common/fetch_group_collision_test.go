@@ -78,7 +78,7 @@ func TestListResourcesPreservesAPIGroups(t *testing.T) {
 				Namespace: "default",
 			}
 
-			resources, err := fetcher.listResources(info)
+			resources, err := fetcher.listResources(t.Context(), info)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -174,7 +174,7 @@ func TestListSubresourcesPreservesAPIGroups(t *testing.T) {
 		Namespace: "default",
 	}
 
-	resources, err := fetcher.listResources(info)
+	resources, err := fetcher.listResources(t.Context(), info)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,7 +224,7 @@ func TestListResourcesPreservesParentAndSubresource(t *testing.T) {
 			fetcher := &ResourceFetcher{
 				Client: groupCollisionClient{}, Namespace: "default",
 			}
-			resources, err := fetcher.listResources(info)
+			resources, err := fetcher.listResources(t.Context(), info)
 			if err != nil {
 				t.Fatal(err)
 			}

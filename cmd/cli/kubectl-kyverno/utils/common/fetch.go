@@ -108,10 +108,9 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 	// extract the matched resources from the policies.
 	rf.extractResourcesFromPolicies(info)
 	resourceMap := make(map[string]*unstructured.Unstructured)
-	var err error
-	// fetch the resources from the cluster.
+	// Load ordinary resources concurrently even when subresources also match.
 	// The concurrent loader accepts GVKs only and cannot address subresource endpoints.
-	if rf.ResourceOptions.Concurrency > 1 && len(info.subresourceMap) == 0 {
+	if rf.ResourceOptions.Concurrency > 1 && len(info.gvkMap) > 0 {
 		log.Log.V(3).Info("Loading resources concurrently", "count", len(info.gvkMap))
 		// Convert gvkMaps to slice
 		gvks := make([]schema.GroupVersionKind, 0, len(info.gvkMap))
@@ -127,12 +126,21 @@ func (rf *ResourceFetcher) getFromCluster() ([]*unstructured.Unstructured, error
 			key := fmt.Sprintf("%s::%s::%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
 			resourceMap[key] = resource.DeepCopy()
 		}
-	} else {
+		// Only subresources remain for the sequential loader. Keep their endpoint
+		// identities separate when merging with the concurrently loaded parents.
+		info = &resourceTypeInfo{subresourceMap: info.subresourceMap}
+	}
+	if len(info.gvkMap) > 0 || len(info.subresourceMap) > 0 {
 		start := time.Now()
 		log.Log.V(3).Info("Loading resources sequentially...")
-		resourceMap, err = rf.listResources(info)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		sequentialResources, err := rf.listResources(ctx, info)
 		if err != nil {
 			return nil, err
+		}
+		for key, resource := range sequentialResources {
+			resourceMap[key] = resource
 		}
 		log.Log.V(3).Info("Loaded resources in", "duration", time.Since(start))
 	}
@@ -266,6 +274,7 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 
 // listResources fetches matched resources sequentially, preserving API groups and subresource identities.
 func (rf *ResourceFetcher) listResources(
+	ctx context.Context,
 	info *resourceTypeInfo,
 ) (map[string]*unstructured.Unstructured, error) {
 	result := make(map[string]*unstructured.Unstructured)
@@ -273,13 +282,16 @@ func (rf *ResourceFetcher) listResources(
 	// list standard resources
 	for gvk := range info.gvkMap {
 		resourceList, err := rf.Client.ListResource(
-			context.TODO(),
+			ctx,
 			gvk.GroupVersion().String(),
 			gvk.Kind,
 			rf.Namespace,
 			nil,
 		)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			log.Log.V(3).Info("failed to list resource", "gvk", gvk, "error", err)
 			continue
 		}
@@ -298,13 +310,16 @@ func (rf *ResourceFetcher) listResources(
 			Version: subresource.ParentResource.Version,
 		}
 		resourceList, err := rf.Client.ListResource(
-			context.TODO(),
+			ctx,
 			parentGV.String(),
 			subresource.ParentResource.Kind,
 			rf.Namespace,
 			nil,
 		)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			log.Log.V(3).Info("failed to list parent resource", "gv", parentGV, "kind", subresource.ParentResource.Kind, "error", err)
 			continue
 		}
@@ -312,7 +327,7 @@ func (rf *ResourceFetcher) listResources(
 		for _, parent := range resourceList.Items {
 			subresourceName := strings.Split(subresource.Subresource.Name, "/")[1]
 			resource, err := rf.Client.GetResource(
-				context.TODO(),
+				ctx,
 				parentGV.String(),
 				subresource.ParentResource.Kind,
 				rf.Namespace,
@@ -320,6 +335,9 @@ func (rf *ResourceFetcher) listResources(
 				subresourceName,
 			)
 			if err != nil {
+				if ctx.Err() != nil {
+					return nil, ctx.Err()
+				}
 				log.Log.V(3).Info("failed to get subresource", "parent", parent.GetName(), "subresource", subresourceName, "error", err)
 				continue
 			}
@@ -329,7 +347,7 @@ func (rf *ResourceFetcher) listResources(
 			result[resourceKey] = resource.DeepCopy()
 		}
 	}
-	return result, nil
+	return result, ctx.Err()
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
