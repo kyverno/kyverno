@@ -1411,14 +1411,14 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 	require.NoError(t, err, "Failed to get working directory")
 	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
 	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "operation-connect")
-
 	testFile := filepath.Join(testDir, "kyverno-test.yaml")
-	testCases := test.LoadTest(nil, testFile)
-	require.Len(t, testCases, 1)
 
 	t.Run("rejects CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
 		tc := testCases[0]
 		tc.Test.Results[0].IsValidatingAdmissionPolicy = true
+		tc.Test.Results[0].IsMutatingAdmissionPolicy = false
 		tc.Test.Results[0].Operation = "CONNECT"
 		_, err := runTest(context.TODO(), io.Discard, tc, false)
 		require.Error(t, err)
@@ -1426,9 +1426,29 @@ func Test_ConnectOperationUnsupportedForNativeAdmissionPolicies(t *testing.T) {
 	})
 
 	t.Run("rejects CONNECT for MutatingAdmissionPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
 		tc := testCases[0]
+		tc.Test.Results[0].IsValidatingAdmissionPolicy = false
 		tc.Test.Results[0].IsMutatingAdmissionPolicy = true
 		tc.Test.Results[0].Operation = "CONNECT"
+		_, err := runTest(context.TODO(), io.Discard, tc, false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")
+	})
+
+	t.Run("rejects inherited global CONNECT for ValidatingAdmissionPolicy", func(t *testing.T) {
+		testCases := test.LoadTest(nil, testFile)
+		require.Len(t, testCases, 1)
+		tc := testCases[0]
+		tc.Test.Values = &v1alpha1.ValuesSpec{
+			GlobalValues: map[string]interface{}{
+				"request.operation": "CONNECT",
+			},
+		}
+		tc.Test.Results[0].IsValidatingAdmissionPolicy = true
+		tc.Test.Results[0].IsMutatingAdmissionPolicy = false
+		tc.Test.Results[0].Operation = ""
 		_, err := runTest(context.TODO(), io.Discard, tc, false)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy")

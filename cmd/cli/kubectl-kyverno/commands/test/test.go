@@ -436,14 +436,18 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		if _, err := processor.NormalizeOperation(res.Operation); err != nil {
 			return nil, fmt.Errorf("invalid test result for policy %s: %w", res.Policy, err)
 		}
+		effectiveOp := res.Operation
+		if effectiveOp == "" {
+			effectiveOp = vars.GlobalOperation()
+		}
+		if effectiveOp == "CONNECT" && (res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy) {
+			return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
+		}
 		if res.Operation == "" {
 			continue
 		}
 		if res.IsDeletingPolicy {
 			return nil, fmt.Errorf("invalid test result for policy %s: operation is not supported for deleting policies", res.Policy)
-		}
-		if res.Operation == "CONNECT" && (res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy) {
-			return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
 		}
 		explicitOperations.Insert(res.Operation)
 	}
