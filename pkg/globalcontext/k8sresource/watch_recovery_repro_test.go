@@ -224,6 +224,7 @@ func assertRecovery(t *testing.T, recovered func() bool) bool {
 		}
 	}
 }
+
 // TestEntry_PostSyncRepeatedRelistFailuresAreThrottled exercises the watch
 // handler installed by New, not just its rate-limit predicate. Two failed
 // post-sync relists must emit one warning while the same entry still recovers.
@@ -251,7 +252,7 @@ func TestEntry_PostSyncRepeatedRelistFailuresAreThrottled(t *testing.T) {
 			Items: []unstructured.Unstructured{{Object: map[string]interface{}{
 				"apiVersion": "v1", "kind": "ConfigMap",
 				"metadata": map[string]interface{}{"name": "source", "namespace": "default", "resourceVersion": rv},
-				"data": map[string]interface{}{"value": value},
+				"data":     map[string]interface{}{"value": value},
 			}}},
 		}
 		list.SetAPIVersion("v1")
@@ -321,4 +322,3 @@ func TestEntry_PostSyncRepeatedRelistFailuresAreThrottled(t *testing.T) {
 	}
 	require.Equal(t, 1, warnings, "only the first post-sync relist failure should generate a warning")
 }
-
