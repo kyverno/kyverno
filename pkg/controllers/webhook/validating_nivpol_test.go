@@ -46,6 +46,7 @@ func TestBuildWebhookRulesFineGrainedNamespacedImagePolicyAutogen(t *testing.T) 
 		config.NamespacedImageValidatingPolicyValidateWebhookName,
 		"/nivpol/validate",
 		0,
+		DefaultWebhookTimeout,
 		nil,
 		[]engineapi.GenericPolicy{engineapi.NewNamespacedImageValidatingPolicy(policy)},
 		cache,
