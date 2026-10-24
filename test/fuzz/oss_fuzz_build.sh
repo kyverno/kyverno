@@ -20,6 +20,8 @@ compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine FuzzEngineValidat
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine FuzzPodBypass FuzzPodBypass
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine FuzzMutateTest FuzzMutateTest
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/validation/policy FuzzValidatePolicy FuzzValidatePolicy
+compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/cel/policies/vpol FuzzValidateValidatingPolicy FuzzValidateValidatingPolicy
+compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/cel/policies/vpol FuzzValidateNamespacedValidatingPolicy FuzzValidateNamespacedValidatingPolicy
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/anchor FuzzAnchorParseTest FuzzAnchorParseTest
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/api FuzzEngineResponse FuzzEngineResponse
 compile_native_go_fuzzer github.com/kyverno/kyverno/pkg/engine/context FuzzHasChanged FuzzHasChanged
