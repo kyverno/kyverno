@@ -167,23 +167,23 @@ func describeResource(resource unstructured.Unstructured) string {
 	return fmt.Sprintf("kind %s, cluster-scoped", resource.GetKind())
 }
 
-// deletionConstraints returns a copy of constraints with every resource rule widened to all
-// operations: a scheduled deletion scan is not an admission request, so the rules' operations
-// must not filter anything out. Returns nil for nil constraints.
+// deletionConstraints returns a copy of constraints with every match and exclude resource rule
+// widened to all operations: a scheduled deletion scan is not an admission request, so the rules'
+// operations must not filter anything out. The cached policy is left unchanged. Returns nil for
+// nil constraints.
 func deletionConstraints(constraints *admissionregistrationv1.MatchResources) *admissionregistrationv1.MatchResources {
 	if constraints == nil {
 		return nil
 	}
 	copy := constraints.DeepCopy()
-	for i, rule := range copy.ResourceRules {
-		rule.Operations = []admissionregistrationv1.OperationType{
-			admissionregistrationv1.OperationAll,
-		}
-		copy.ResourceRules[i] = rule
-	}
+	matchAllOperations(copy.ResourceRules)
+	matchAllOperations(copy.ExcludeResourceRules)
 	return copy
 }
 
+// matchPolicy reports whether the resource described by attr is selected by the policy's
+// match constraints, ignoring the operations of both the match rules and the exclude rules
+// (see deletionConstraints).
 func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources, attr admission.Attributes, namespace runtime.Object) (bool, error) {
 	if constraints == nil {
 		return false, nil
@@ -194,4 +194,14 @@ func (e *Engine) matchPolicy(constraints *admissionregistrationv1.MatchResources
 		return false, err
 	}
 	return matches, nil
+}
+
+// matchAllOperations sets the operations of every rule to "*", in place, so that a rule
+// matches regardless of the operations it lists.
+func matchAllOperations(rules []admissionregistrationv1.NamedRuleWithOperations) {
+	for i := range rules {
+		rules[i].Operations = []admissionregistrationv1.OperationType{
+			admissionregistrationv1.OperationAll,
+		}
+	}
 }
