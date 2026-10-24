@@ -369,4 +369,83 @@ var (
 			}]
 		}
 	}`
+
+	validateNonStringMessagePolicy = `{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test-non-string-message"},
+		"spec": {
+			"rules": [{
+				"name": "require-size-label",
+				"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+				"validate": {
+					"failureAction": "Enforce",
+					"message": "{{ request.object.metadata.generation }}",
+					"pattern": {
+						"metadata": {
+							"labels": {
+								"size": "small | medium | large"
+							}
+						}
+					}
+				}
+			}]
+		}
+	}`
+
+	validateNonStringMessageAnyPatternPolicy = `{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {"name": "test-non-string-message-anypattern"},
+		"spec": {
+			"rules": [{
+				"name": "require-size-label",
+				"match": {"any": [{"resources": {"kinds": ["Pod"]}}]},
+				"validate": {
+					"failureAction": "Enforce",
+					"message": "{{ request.object.metadata.generation }}",
+					"anyPattern": [
+						{"metadata": {"labels": {"size": "small"}}},
+						{"metadata": {"labels": {"size": "large"}}}
+					]
+				}
+			}]
+		}
+	}`
+
+	resourceWithNumericGeneration = `{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+			"name": "test-pod",
+			"generation": 5
+		},
+		"spec": {
+			"containers": [{"name": "test", "image": "test"}]
+		}
+	}`
 )
+
+func Test_validateMessage_NonStringSubstitution_DoesNotPanic(t *testing.T) {
+	mockCL := func(ctx context.Context, contextEntries []kyvernov1.ContextEntry, jsonContext enginecontext.Interface) error {
+		return nil
+	}
+
+	for name, policy := range map[string]string{
+		"pattern":    validateNonStringMessagePolicy,
+		"anyPattern": validateNonStringMessageAnyPatternPolicy,
+	} {
+		t.Run(name, func(t *testing.T) {
+			policyContext := buildContext(t, kyvernov1.Create, policy, resourceWithNumericGeneration, "")
+			rule := policyContext.Policy().GetSpec().Rules[0]
+			v := newValidator(logr.Discard(), mockCL, policyContext, rule)
+
+			assert.NotPanics(t, func() {
+				resp := v.validate(context.TODO())
+				assert.NotNil(t, resp)
+				assert.Equal(t, api.RuleStatusFail, resp.Status())
+				assert.Contains(t, resp.Message(), "5")
+			})
+		})
+	}
+}

@@ -588,6 +588,44 @@ func Test_SubstituteShallow(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to resolve variableWithVariables bar bar2")
 }
 
+func Test_SubstituteShallowNonString(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"replicas": float64(3),
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	patternRaw := []byte(`"replicas: {{- replicas }} now"`)
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  string(patternRaw),
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), `"replicas: 3 now"`)
+}
+
+func Test_SubstituteShallowMapWithBraces(t *testing.T) {
+	ctx := context.NewContext(jp)
+	data := map[string]interface{}{
+		"cfg":   map[string]interface{}{"k": "{{ other }}"},
+		"other": "resolved",
+	}
+	assert.NilError(t, context.AddJSONObject(ctx, data))
+
+	action := substituteVariablesIfAny(logr.Discard(), ctx, DefaultVariableResolver)
+	results, err := action(&ju.ActionData{
+		Document: nil,
+		Element:  `{{- cfg }} and {{ other }}`,
+		Path:     "/",
+	})
+
+	assert.NilError(t, err)
+	assert.Equal(t, results.(string), `{"k":"{{ other }}"} and resolved`)
+}
+
 // TODO: this test fails, not sure how we could merge this !
 // func Test_subVars_withShallowReplaceAll(t *testing.T) {
 // 	patternMap := []byte(`{
