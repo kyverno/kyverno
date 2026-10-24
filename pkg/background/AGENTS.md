@@ -1,9 +1,11 @@
 # AGENTS.md — pkg/background
 
-Processes `UpdateRequest` (UR) objects created by `pkg/webhooks`, for legacy `generate`/`mutateExisting` rules and
-their CEL counterparts, `gpol` (GeneratingPolicy) and `mpol` (MutatingPolicy) background/mutate-existing requests —
-see the dispatch section below for how `update_request_controller.go` routes between all four. No package doc
-comment exists — this file is the closest thing to one.
+Processes `UpdateRequest` (UR) objects created by `pkg/webhooks` for the CEL policy types `gpol`
+(GeneratingPolicy) and `mpol` (MutatingPolicy) background/mutate-existing requests — see the dispatch section
+below for how `update_request_controller.go` routes between the two. Legacy `kyverno.io/v1` `generate`/
+`mutateExisting` execution was removed from this binary in #17710 PR 2: a pre-existing legacy `mutate`/`generate`
+UR left over from an older release is deleted on its first sync here, never processed — see `legacy.go` and the
+dispatch section below. No package doc comment exists — this file is the closest thing to one.
 
 ## DeletingPolicy (`dpol`) has NO presence here — a common wrong assumption
 
@@ -16,28 +18,45 @@ background processing here; it doesn't exist by design.
 
 ## Trigger mechanism: an informer-driven controller, not something invoked directly
 
-`update_request_controller.go` watches `UpdateRequest`s via an informer and only processes ones with
-`Status.State == Pending`. It dispatches on `ur.Spec.GetRequestType()` into four separate sub-controllers:
-`mutate` (legacy mutateExisting), `generate` (legacy), `gpol` (CEL GeneratingPolicy), `mpol` (CEL MutatingPolicy).
-After processing, it **re-fetches the UR live** (not from the informer cache) before updating status — `Completed`
-deletes the UR, `Failed` resets it to `Pending` for retry. This live re-fetch specifically avoids a race where a
-completed UR would never get deleted.
+`update_request_controller.go` watches `UpdateRequest`s via an informer. Before the `Status.State == Pending`
+gate, it checks `ur.Spec.GetRequestType()` for the legacy `Mutate`/`Generate` types: if found, it calls
+`dropLegacyUpdateRequest` (`legacy.go`), which deletes the UR unconditionally — regardless of its status state —
+and logs at `V(2)`, instead of processing it. This runs on every sync, not just once on upgrade, so any legacy UR
+that reappears (e.g. recreated by an operator who hasn't noticed the binary no longer has a producer for it) is
+deleted again. Only once that check falls through does the controller process `Status.State == Pending` URs,
+dispatching on `ur.Spec.GetRequestType()` into one of the two CEL sub-controllers: `gpol` (CEL GeneratingPolicy),
+`mpol` (CEL MutatingPolicy); an unrecognized type sets the UR `Failed` with a descriptive message instead of
+silently dropping it. After processing, it **re-fetches the UR live** (not from the informer cache) before
+updating status — `Completed` deletes the UR, `Failed` resets it to `Pending` for retry. This live re-fetch
+specifically avoids a race where a completed UR would never get deleted.
 
-## Legacy generate/mutate vs. CEL gpol/mpol are structurally different, not just newer
+An empty live state is the create-without-Pending case (#18194): create and the first `Pending` status write
+are separate calls, and a failed status write used to leave the request unprocessed forever while it still
+counted toward `updateRequestThreshold`. That sync does not run `processUR`. Once the live object is older
+than `emptyStateRecoveryDelay` (5s, past `generator.applyResource`'s 3s retry of the initial status write),
+reconcile sets `Pending` and the status update requeues the normal path. A younger empty object is left
+unchanged and requeued for the rest of that delay, so the creator's in-flight `UpdateStatus` is not
+overwritten (a conflict there makes the caller submit a second request). The decision uses the fresh read,
+so a newer `Pending`, `Skip`, `Failed`, or `Completed` state is not repaired from a stale empty informer
+copy. Legacy mutate/generate requests never reach this recovery; they are deleted above.
 
-Legacy controllers re-fetch the `PolicyInterface` and run it through the shared JMESPath `engine.PolicyContext` +
-`Engine.Generate/Mutate`. The CEL paths go through the CEL engines built on `pkg/cel`, use `libs.Context` for CEL
-global context, and **gpol additionally owns a process-wide, in-memory `WatchManager`** (mutex-protected maps of
-dynamic watchers, policy refs, ref counts) for downstream drift-detection that legacy generate doesn't have — this
-state is not persisted; on restart, watches rebuild from the policy's already-generated resources. gpol's
-watcher-sync/stale-downstream-cleanup runs in a fire-and-forget goroutine **after** the UR is already marked
-complete, so a sync failure there is only logged, never reflected in UR status.
+## CEL gpol/mpol are the only policy execution paths left here
+
+The legacy `generate`/`mutateExisting` controllers (which re-fetched the `PolicyInterface` and ran it through the
+shared JMESPath `engine.PolicyContext` + `Engine.Generate/Mutate`) were deleted from this package in #17710 PR 2;
+`pkg/background/generate` still exists in the tree because the CLI imports it, but nothing in this package links
+to it anymore. The CEL paths go through the CEL engines built on `pkg/cel`, use `libs.Context` for CEL global
+context, and **gpol additionally owns a process-wide, in-memory `WatchManager`** (mutex-protected maps of dynamic
+watchers, policy refs, ref counts) for downstream drift-detection — this state is not persisted; on restart,
+watches rebuild from the policy's already-generated resources. gpol's watcher-sync/stale-downstream-cleanup runs
+in a fire-and-forget goroutine **after** the UR is already marked complete, so a sync failure there is only
+logged, never reflected in UR status.
 
 ## Trigger resolution prefers live state, but the admission payload isn't fully off-limits
 
-This applies to the legacy generate/mutate paths and CEL `gpol` — all three call `common.GetTrigger`/
-`common.GetResource` (`pkg/background/common/resource.go`). `mpol` doesn't use this machinery at all (its processor
-never imports these functions) and isn't covered by anything below.
+This applies to CEL `gpol`, which calls `common.GetTrigger`/`common.GetResource`
+(`pkg/background/common/resource.go`). `mpol` doesn't use this machinery at all (its processor never imports
+these functions) and isn't covered by anything below.
 
 `common.GetResource` looks up the trigger resource **live, by UID** — if the UID isn't found among live resources,
 it refuses to fall back to the UR's recorded admission-request payload and errors instead

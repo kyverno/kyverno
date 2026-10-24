@@ -6,7 +6,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -114,9 +114,9 @@ func getTriggerForCreateOperation(client dclient.Interface, spec kyvernov2.Updat
 	return trigger, err
 }
 
-func GetResource(client dclient.Interface, resourceSpec kyvernov1.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
+func GetResource(client dclient.Interface, resourceSpec kyverno.ResourceSpec, urSpec kyvernov2.UpdateRequestSpec, log logr.Logger) (resource *unstructured.Unstructured, err error) {
 	obj := resourceSpec
-	if reflect.DeepEqual(obj, kyvernov1.ResourceSpec{}) {
+	if reflect.DeepEqual(obj, kyverno.ResourceSpec{}) {
 		obj = urSpec.GetResource()
 		resourceSpec = obj
 	}
