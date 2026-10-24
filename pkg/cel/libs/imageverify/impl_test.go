@@ -814,7 +814,7 @@ func Test_impl_verify_image_signature_kms_attestor_ignores_cache(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, stored)
 
-	f := &ivfuncs{
+	f := &IvFuncs{
 		Adapter:        types.DefaultTypeAdapter,
 		imgCtx:         imgCtx,
 		policy:         pol,
