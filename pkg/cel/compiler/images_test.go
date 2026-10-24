@@ -174,6 +174,7 @@ func Test_Match(t *testing.T) {
 				cel.Variable(ObjectKey, types.DynType),
 				cel.Variable(OldObjectKey, types.DynType),
 			)
+			assert.NoError(t, err)
 			c, errs := CompileImageExtractors(
 				field.NewPath("spec", "images"),
 				env,

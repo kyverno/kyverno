@@ -122,7 +122,9 @@ func TestOpenAPITypeResolver(t *testing.T) {
 	}
 
 	env, err := compiler.NewBaseEnv()
+	assert.NoError(t, err)
 	opts, err := provider.EnvOptions(env.CELTypeProvider())
+	assert.NoError(t, err)
 
 	rootType, ok := provider.FindDeclType(typeName)
 	if !ok {
@@ -131,6 +133,7 @@ func TestOpenAPITypeResolver(t *testing.T) {
 
 	opts = append(opts, cel.Variable("object", rootType.CelType()))
 	env, err = env.Extend(opts...)
+	assert.NoError(t, err)
 
 	ast, issue := env.Compile(`object.name != ""`)
 	if issue != nil {

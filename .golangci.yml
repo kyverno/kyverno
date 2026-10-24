@@ -23,14 +23,15 @@ linters:
     - nosprintfhostport
     - paralleltest
     - prealloc
+    - staticcheck
     - thelper
     - tparallel
     - unconvert
     - wastedassign
     - whitespace
-  disable:
-    - staticcheck
   settings:
+    staticcheck:
+      checks: ["SA*", "-SA1019"]
     gosec:
       excludes:
         - G401 # Use of weak cryptographic primitive
