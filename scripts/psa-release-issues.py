@@ -949,10 +949,16 @@ class GitHub:
 
     def ensure_labels(self, names):
         for name in names:
-            if self.request("GET", f"repos/{self.repo}/labels/{name.replace('/', '%2F')}") is None:
+            path = f"repos/{self.repo}/labels/{name.replace('/', '%2F')}"
+            if self.request("GET", path) is None:
                 color, description = LABEL_INFO[name]
-                self.request("POST", f"repos/{self.repo}/labels",
-                             {"name": name, "color": color, "description": description})
+                try:
+                    self.request("POST", f"repos/{self.repo}/labels",
+                                 {"name": name, "color": color, "description": description})
+                except ReleaseError:
+                    # Another run can create the label between the check and the create.
+                    if self.request("GET", path) is None:
+                        raise
 
     def create_issue(self, title, body, labels):
         return self.request("POST", f"repos/{self.repo}/issues", {"title": title, "body": body, "labels": list(labels)})

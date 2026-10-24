@@ -938,6 +938,22 @@ class RunTest(Base):
         self.assertEqual(github.created(), [])
         self.assertTrue(any("HTTP 403" in line for line in summary))
 
+    def test_a_label_another_run_created_meanwhile_is_reused(self):
+        github = FakeGitHub()
+        real_request = github.request
+
+        def request(method, path, body=None, paginate=False):
+            if method == "POST" and path.endswith("/labels"):
+                # Another run creates the label first, so this create fails.
+                github.labels.add(body["name"].replace("/", "%2F"))
+                raise psa.ReleaseError("HTTP 422: Validation Failed (already_exists)")
+            return real_request(method, path, body, paginate)
+
+        github.request = request
+        summary, failures = self.run_tool(github)
+        self.assertEqual(failures, [])
+        self.assertEqual(len(github.created()), 1)
+
     def test_failed_issue_listing_stops_the_run(self):
         github = FakeGitHub(fail={("GET", "/issues?"): "HTTP 500"})
         with self.assertRaisesRegex(psa.ReleaseError, "HTTP 500"):
