@@ -15,6 +15,15 @@ kyverno apply [flags]
 ### Examples
 
 ```
+  # Display evaluation results as a table
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-format table
+
+  # Save mutated/generated resources to a directory
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-dir /path/to/results/
+
+  # Save mutated/generated resources to a file
+  kyverno apply /path/to/policy.yaml --resource /path/to/resource.yaml --output-file /path/to/results.yaml
+
   # Apply on a resource
   kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
 
@@ -63,8 +72,9 @@ kyverno apply [flags]
       --json strings                       Path to JSON payload files
       --kubeconfig string                  path to kubeconfig file with authorization and master location information
   -n, --namespace string                   Optional Policy parameter passed with cluster flag
-  -o, --output string                      Prints the mutated/generated resources in provided file/directory
-      --output-format string               Specifies the policy report format (json or yaml). Default: yaml. (default "yaml")
+      --output-dir string                  Directory for mutated/generated resources
+      --output-file string                 File for mutated/generated resources
+      --output-format string               Output format: json or yaml for policy reports/exceptions, or table for evaluation results (default "yaml")
       --parameter-resource strings         Path to resource files that act as ValidatingAdmissionPolicy/MutatingAdmissionPolicy parameters
       --password string                    Password for connecting to git repository
   -p, --policy-report                      Generates policy report when passed (default policyviolation)
@@ -75,7 +85,6 @@ kyverno apply [flags]
   -s, --set strings                        Variables that are required
       --show-performance                   Show resource loading performance metrics
   -i, --stdin                              Optional mutate policy parameter to pipe directly through to kubectl
-  -t, --table                              Show results in table format
       --target-resource strings            Path to individual files containing target resources files for policies that have mutate existing
       --target-resources strings           Path to a directory containing target resources files for policies that have mutate existing
   -u, --userinfo string                    Admission Info including Roles, Cluster Roles and Subjects
