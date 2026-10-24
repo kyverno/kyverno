@@ -247,7 +247,9 @@ spec:
           {{- $features := mergeOverwrite (deepCopy .Values.features) .Values.admissionController.featuresOverride }}
           {{- $bindAddress := ":8080" }}
           {{- if and $features.controllerRuntimeMetrics (hasKey $features.controllerRuntimeMetrics "bindAddress") }}
-            {{- $bindAddress = $features.controllerRuntimeMetrics.bindAddress | toString }}
+            {{- if ne ($features.controllerRuntimeMetrics.bindAddress | toString) "" }}
+              {{- $bindAddress = $features.controllerRuntimeMetrics.bindAddress | toString }}
+            {{- end }}
           {{- end }}
           {{- $port := last (splitList ":" $bindAddress) | int }}
           {{- if and (ne $bindAddress "0") (ne $bindAddress ":0") (gt $port 0) }}
