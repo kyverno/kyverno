@@ -1,10 +1,70 @@
 {{- if .Values.webhooksCleanup.enabled -}}
 {{- if not .Values.global.templating.enabled -}}
 {{- $automountSAToken := .Values.webhooksCleanup.serviceAccount.automountServiceAccountToken }}
+{{/* kyverno.fullname is already capped at 63 chars, so truncate the base name before appending
+     the suffix to keep the Job name within 63 chars without losing the distinguishing suffix. */}}
+{{- $saName := printf "%s-scale-to-zero" (include "kyverno.fullname" . | trunc 49 | trimSuffix "-" | trimSuffix ":") -}}
+{{- $roleName := printf "%s:scale-to-zero" (include "kyverno.fullname" . | trunc 49 | trimSuffix "-" | trimSuffix ":") -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $roleName }}
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "80"
+rules:
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+      - deployments/scale
+    verbs:
+      - get
+      - list
+      - patch
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $roleName }}
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "80"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $roleName }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $saName }}
+    namespace: {{ template "kyverno.namespace" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $saName }}
+  namespace: {{ template "kyverno.namespace" . }}
+  labels:
+    {{- include "kyverno.hooks.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: pre-delete
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded,hook-failed
+    helm.sh/hook-weight: "80"
+automountServiceAccountToken: false
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ template "kyverno.fullname" . }}-scale-to-zero
+  name: {{ $saName }}
   namespace: {{ template "kyverno.namespace" . }}
   labels:
     {{- include "kyverno.hooks.labels" . | nindent 4 }}
@@ -28,7 +88,7 @@ spec:
       {{- end }}
     {{- end }}
     spec:
-      serviceAccountName: {{ template "kyverno.admission-controller.serviceAccountName" . }}
+      serviceAccountName: {{ $saName }}
       automountServiceAccountToken: {{ $automountSAToken }}
       {{- with .Values.webhooksCleanup.podSecurityContext }}
       securityContext:
