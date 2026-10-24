@@ -874,22 +874,7 @@ func jpAdd(arguments []any) (any, error) {
 }
 
 func jpSum(arguments []any) (any, error) {
-	items, ok := arguments[0].([]any)
-	if !ok {
-		return nil, formatError(typeMismatchError, sum)
-	}
-	if len(items) == 0 {
-		return nil, formatError(genericError, sum, "at least one element in the array is required")
-	}
-	var err error
-	result := items[0]
-	for _, item := range items[1:] {
-		result, err = _jpAdd([]any{result, item}, sum)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
+	return executeSum(arguments)
 }
 
 func jpSubtract(arguments []any) (any, error) {
