@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -653,62 +654,26 @@ func TestLogKeyStatus(t *testing.T) {
 	}
 }
 
-// TestResolveTrustedMaterial covers loading the trusted material from an
-// inline JSON value (att.TrustedRoot.Value), falling back to the
-// already-fetched TUF trusted root when unset.
-func TestResolveTrustedMaterial(t *testing.T) {
+// TestParseInlineTrustedRoot covers loading the trusted root from an inline
+// JSON value (att.TrustedRoot.Value).
+func TestParseInlineTrustedRoot(t *testing.T) {
 	validJSON, err := os.ReadFile("testdata/github-trusted-root.json")
 	require.NoError(t, err)
 
-	t.Run("inline JSON used when TrustedRoot.Value is set", func(t *testing.T) {
-		att := &v1beta1.Cosign{
-			TrustedRoot: &v1beta1.StringOrExpression{Value: string(validJSON)},
-		}
-		tm, err := resolveTrustedMaterial(att, nil)
+	t.Run("valid JSON is parsed", func(t *testing.T) {
+		tr, err := parseInlineTrustedRoot(string(validJSON))
 		require.NoError(t, err)
-		require.NotNil(t, tm)
+		require.NotNil(t, tr)
 	})
 
 	t.Run("invalid JSON returns parsing error", func(t *testing.T) {
-		att := &v1beta1.Cosign{
-			TrustedRoot: &v1beta1.StringOrExpression{Value: "not-json"},
-		}
-		_, err := resolveTrustedMaterial(att, nil)
+		_, err := parseInlineTrustedRoot("not-json")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "parsing inline trustedRoot JSON")
 	})
 
-	t.Run("nil TrustedRoot falls back to the pre-fetched default", func(t *testing.T) {
-		// Fetch the default trusted root explicitly so this subtest doesn't
-		// depend on another test having already initialized TUF.
-		trust, err := initTUFAndFetch(context.Background(), nil)
-		require.NoError(t, err)
-		att := &v1beta1.Cosign{}
-		tm, err := resolveTrustedMaterial(att, trust.trustedRoot)
-		require.NoError(t, err)
-		require.NotNil(t, tm)
-	})
-
-	t.Run("TrustedRoot with empty Value falls back to the pre-fetched default", func(t *testing.T) {
-		// Fetch the default trusted root explicitly so this subtest doesn't
-		// depend on another test having already initialized TUF.
-		trust, err := initTUFAndFetch(context.Background(), nil)
-		require.NoError(t, err)
-		att := &v1beta1.Cosign{
-			TrustedRoot: &v1beta1.StringOrExpression{Value: ""},
-		}
-		tm, err := resolveTrustedMaterial(att, trust.trustedRoot)
-		require.NoError(t, err)
-		require.NotNil(t, tm)
-	})
-
 	t.Run("oversized inline JSON is rejected before parsing", func(t *testing.T) {
-		att := &v1beta1.Cosign{
-			TrustedRoot: &v1beta1.StringOrExpression{
-				Value: strings.Repeat("a", maxTrustedRootJSONSize+1),
-			},
-		}
-		_, err := resolveTrustedMaterial(att, nil)
+		_, err := parseInlineTrustedRoot(strings.Repeat("a", maxTrustedRootJSONSize+1))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "too large")
 	})
@@ -1093,4 +1058,313 @@ func TestApplyAdditionalExtensions_Aliases(t *testing.T) {
 			require.ErrorContains(t, err, "conflicting values")
 		}
 	})
+}
+
+// stubTufUnreachable makes every TUF hook fail as it would on a cluster
+// without egress, and counts the attempts.
+func stubTufUnreachable(t *testing.T) *atomic.Int32 {
+	t.Helper()
+	var calls atomic.Int32
+	errUnreachable := fmt.Errorf("network unreachable")
+	origTufInit := tufInitializeFn
+	origRoot := getTrustedRootFromTUFFn
+	origRekor := getRekorPubsFn
+	origCTLog := getCTLogPubsFn
+	origFulcio := getFulcioRootsFn
+	origIntermed := getFulcioIntermedFn
+	tufInitializeFn = func(context.Context, string, []byte) error {
+		calls.Add(1)
+		return errUnreachable
+	}
+	getTrustedRootFromTUFFn = func(context.Context, *v1beta1.TUF) (*root.TrustedRoot, error) {
+		calls.Add(1)
+		return nil, errUnreachable
+	}
+	getRekorPubsFn = func(context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		calls.Add(1)
+		return nil, errUnreachable
+	}
+	getCTLogPubsFn = func(context.Context) (*cosign.TrustedTransparencyLogPubKeys, error) {
+		calls.Add(1)
+		return nil, errUnreachable
+	}
+	getFulcioRootsFn = func() (*x509.CertPool, error) {
+		calls.Add(1)
+		return nil, errUnreachable
+	}
+	getFulcioIntermedFn = func() (*x509.CertPool, error) {
+		calls.Add(1)
+		return nil, errUnreachable
+	}
+	t.Cleanup(func() {
+		tufInitializeFn = origTufInit
+		getTrustedRootFromTUFFn = origRoot
+		getRekorPubsFn = origRekor
+		getCTLogPubsFn = origCTLog
+		getFulcioRootsFn = origFulcio
+		getFulcioIntermedFn = origIntermed
+	})
+	return &calls
+}
+
+func trustedRootJSON(t *testing.T, tr *root.TrustedRoot) string {
+	t.Helper()
+	raw, err := tr.MarshalJSON()
+	require.NoError(t, err)
+	return string(raw)
+}
+
+func fulcioRootsOf(tm root.TrustedMaterial) []*x509.Certificate {
+	var roots []*x509.Certificate
+	for _, ca := range tm.FulcioCertificateAuthorities() {
+		if fca, ok := ca.(*root.FulcioCertificateAuthority); ok {
+			roots = append(roots, fca.Root)
+		}
+	}
+	return roots
+}
+
+// TestCheckOptions_InlineTrustedRoot_SkipsTUF covers #17883: an attestor with
+// an inline trustedRoot must build its options from that root alone, without
+// contacting the TUF repository, for every verifier and CTLog combination.
+func TestCheckOptions_InlineTrustedRoot_SkipsTUF(t *testing.T) {
+	githubJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+	githubRoot, err := root.NewTrustedRootFromJSON(githubJSON)
+	require.NoError(t, err)
+	fullRoot := newTestTrustedRoot(t)
+
+	keyless := &v1beta1.Keyless{Identities: []v1beta1.Identity{{Issuer: testIssuer, Subject: testSubject}}}
+	tests := []struct {
+		name      string
+		root      *root.TrustedRoot
+		cosignCfg v1beta1.Cosign
+		checkFn   func(t *testing.T, opts *cosign.CheckOpts)
+	}{
+		{
+			// GitHub's private Sigstore instance: Fulcio and TSA, no logs.
+			name: "keyless, logs ignored, root without logs",
+			root: githubRoot,
+			cosignCfg: v1beta1.Cosign{
+				Keyless: keyless,
+				CTLog:   &v1beta1.CTLog{InsecureIgnoreTlog: true, InsecureIgnoreSCT: true},
+			},
+			checkFn: func(t *testing.T, opts *cosign.CheckOpts) {
+				assert.True(t, opts.IgnoreTlog)
+				assert.True(t, opts.IgnoreSCT)
+				assert.Nil(t, opts.RekorClient)
+				assert.Nil(t, opts.RekorPubKeys)
+				assert.Nil(t, opts.CTLogPubKeys)
+				assert.Len(t, opts.TrustedMaterial.TimestampingAuthorities(), len(githubRoot.TimestampingAuthorities()))
+			},
+		},
+		{
+			name:      "keyless, no ctlog config, log keys from the inline root",
+			root:      fullRoot,
+			cosignCfg: v1beta1.Cosign{Keyless: keyless},
+			checkFn: func(t *testing.T, opts *cosign.CheckOpts) {
+				assert.NotNil(t, opts.RootCerts)
+				assert.NotNil(t, opts.RekorPubKeys)
+				assert.NotNil(t, opts.CTLogPubKeys)
+				assert.Nil(t, opts.RekorClient)
+				assert.True(t, opts.Offline)
+			},
+		},
+		{
+			name: "keyless, tlog and SCT checks enabled with a Rekor URL",
+			root: fullRoot,
+			cosignCfg: v1beta1.Cosign{
+				Keyless: keyless,
+				CTLog:   &v1beta1.CTLog{URL: "https://rekor.example.com"},
+			},
+			checkFn: func(t *testing.T, opts *cosign.CheckOpts) {
+				assert.False(t, opts.IgnoreTlog)
+				assert.False(t, opts.IgnoreSCT)
+				assert.NotNil(t, opts.RekorClient)
+				assert.NotNil(t, opts.RekorPubKeys)
+				assert.NotNil(t, opts.CTLogPubKeys)
+			},
+		},
+		{
+			name: "keyless, tuf also configured, inline root takes precedence",
+			root: githubRoot,
+			cosignCfg: v1beta1.Cosign{
+				Keyless: keyless,
+				CTLog:   &v1beta1.CTLog{InsecureIgnoreTlog: true, InsecureIgnoreSCT: true},
+				TUF:     &v1beta1.TUF{Mirror: "https://tuf.example.com"},
+			},
+			checkFn: func(t *testing.T, opts *cosign.CheckOpts) {
+				tr, ok := opts.TrustedMaterial.(*root.TrustedRoot)
+				require.True(t, ok, "TrustedMaterial must be the inline trusted root, got %T", opts.TrustedMaterial)
+				assert.JSONEq(t, trustedRootJSON(t, githubRoot), trustedRootJSON(t, tr))
+			},
+		},
+		{
+			name: "keyless, TSA chain wraps the inline root",
+			root: fullRoot,
+			cosignCfg: v1beta1.Cosign{
+				Keyless: keyless,
+				CTLog:   &v1beta1.CTLog{InsecureIgnoreTlog: true, InsecureIgnoreSCT: true, TSACertChain: testTSACertChain},
+			},
+			checkFn: func(t *testing.T, opts *cosign.CheckOpts) {
+				assert.IsType(t, root.TrustedMaterialCollection{}, opts.TrustedMaterial)
+				assert.NotNil(t, opts.RootCerts)
+				assert.True(t, opts.UseSignedTimestamps)
+			},
+		},
+		{
+			name: "key, tlog enabled",
+			root: fullRoot,
+			cosignCfg: v1beta1.Cosign{
+				Key:   &v1beta1.Key{Data: testPublicKey},
+				CTLog: &v1beta1.CTLog{URL: "https://rekor.example.com", InsecureIgnoreSCT: true},
+			},
+			checkFn: func(t *testing.T, opts *cosign.CheckOpts) {
+				assert.NotNil(t, opts.SigVerifier)
+				assert.NotNil(t, opts.RekorClient)
+				assert.NotNil(t, opts.RekorPubKeys)
+			},
+		},
+		{
+			// Only keyless attestors are checked for missing logs up front; a
+			// key attestor is refused at verification instead.
+			name:      "key, tlog enabled, root without tlogs is not a configuration error",
+			root:      githubRoot,
+			cosignCfg: v1beta1.Cosign{Key: &v1beta1.Key{Data: testPublicKey}},
+			checkFn: func(t *testing.T, opts *cosign.CheckOpts) {
+				assert.NotNil(t, opts.SigVerifier)
+				assert.False(t, opts.IgnoreTlog)
+				assert.Nil(t, opts.RekorPubKeys)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tufCalls := stubTufUnreachable(t)
+			baseROpts, baseNOpts := baseOpts()
+			att := tt.cosignCfg
+			att.TrustedRoot = &v1beta1.StringOrExpression{Value: trustedRootJSON(t, tt.root)}
+
+			opts, err := checkOptions(context.TODO(), &att, baseROpts, baseNOpts, nil)
+			require.NoError(t, err)
+			assert.Zero(t, tufCalls.Load(), "TUF must not be contacted when an inline trusted root is set")
+			require.NotNil(t, opts.TrustedMaterial)
+			assert.Equal(t, fulcioRootsOf(tt.root), fulcioRootsOf(opts.TrustedMaterial))
+			if tt.checkFn != nil {
+				tt.checkFn(t, opts)
+			}
+		})
+	}
+}
+
+func TestCheckOptions_InlineTrustedRoot_Invalid(t *testing.T) {
+	tufCalls := stubTufUnreachable(t)
+	baseROpts, baseNOpts := baseOpts()
+	att := &v1beta1.Cosign{
+		Keyless:     &v1beta1.Keyless{Identities: []v1beta1.Identity{{Issuer: testIssuer, Subject: testSubject}}},
+		CTLog:       &v1beta1.CTLog{InsecureIgnoreTlog: true, InsecureIgnoreSCT: true},
+		TrustedRoot: &v1beta1.StringOrExpression{Value: "not-json"},
+	}
+
+	_, err := checkOptions(context.TODO(), att, baseROpts, baseNOpts, nil)
+	require.ErrorContains(t, err, "parsing inline trustedRoot JSON")
+	assert.Zero(t, tufCalls.Load())
+}
+
+// TestCheckOptions_InlineTrustedRoot_MissingLogs covers keyless attestors that
+// require a transparency log or an SCT the inline trusted root cannot verify:
+// they are configuration errors, not a silent TUF fallback.
+func TestCheckOptions_InlineTrustedRoot_MissingLogs(t *testing.T) {
+	githubJSON, err := os.ReadFile("testdata/github-trusted-root.json")
+	require.NoError(t, err)
+	const mediaTypeOnly = `{"mediaType":"application/vnd.dev.sigstore.trustedroot+json;version=0.1"}`
+	const noTlog = "has no usable transparency log"
+	const noCTLog = "has no usable CT log"
+
+	keyless := &v1beta1.Keyless{Identities: []v1beta1.Identity{{Issuer: testIssuer, Subject: testSubject}}}
+	tests := []struct {
+		name        string
+		root        string
+		ctlog       *v1beta1.CTLog
+		errContains string
+	}{
+		{
+			name:        "no ctlog config, root without tlogs",
+			root:        string(githubJSON),
+			errContains: noTlog,
+		},
+		{
+			name:        "tlog required with a Rekor URL, root without tlogs",
+			root:        string(githubJSON),
+			ctlog:       &v1beta1.CTLog{URL: "https://rekor.example.com", InsecureIgnoreSCT: true},
+			errContains: noTlog,
+		},
+		{
+			name:        "tlog required, an explicit Rekor key does not replace the root's tlogs",
+			root:        string(githubJSON),
+			ctlog:       &v1beta1.CTLog{URL: "https://rekor.example.com", RekorPubKey: testPublicKey, InsecureIgnoreSCT: true},
+			errContains: noTlog,
+		},
+		{
+			name:        "SCT required, root without CT logs",
+			root:        string(githubJSON),
+			ctlog:       &v1beta1.CTLog{InsecureIgnoreTlog: true},
+			errContains: noCTLog,
+		},
+		{
+			name:        "SCT required, an explicit CT log key does not replace the root's CT logs",
+			root:        string(githubJSON),
+			ctlog:       &v1beta1.CTLog{InsecureIgnoreTlog: true, CTLogPubKey: testPublicKey},
+			errContains: noCTLog,
+		},
+		{
+			name:        "mediaType-only root, tlog required",
+			root:        mediaTypeOnly,
+			ctlog:       &v1beta1.CTLog{URL: "https://rekor.example.com", InsecureIgnoreSCT: true},
+			errContains: noTlog,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tufCalls := stubTufUnreachable(t)
+			baseROpts, baseNOpts := baseOpts()
+			att := &v1beta1.Cosign{
+				Keyless:     keyless,
+				CTLog:       tt.ctlog,
+				TrustedRoot: &v1beta1.StringOrExpression{Value: tt.root},
+			}
+
+			_, err := checkOptions(context.TODO(), att, baseROpts, baseNOpts, nil)
+			require.ErrorContains(t, err, tt.errContains)
+			assert.NotContains(t, err.Error(), "TUF")
+			assert.Zero(t, tufCalls.Load())
+		})
+	}
+}
+
+// TestCheckOptions_NoInlineTrustedRoot_UsesTUF pins the unchanged behaviour:
+// without an inline trusted root, keyless verification still needs TUF.
+func TestCheckOptions_NoInlineTrustedRoot_UsesTUF(t *testing.T) {
+	tests := []struct {
+		name        string
+		trustedRoot *v1beta1.StringOrExpression
+	}{
+		{name: "nil trustedRoot", trustedRoot: nil},
+		{name: "empty trustedRoot", trustedRoot: &v1beta1.StringOrExpression{Value: ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tufCalls := stubTufUnreachable(t)
+			baseROpts, baseNOpts := baseOpts()
+			att := &v1beta1.Cosign{
+				Keyless:     &v1beta1.Keyless{Identities: []v1beta1.Identity{{Issuer: testIssuer, Subject: testSubject}}},
+				CTLog:       &v1beta1.CTLog{InsecureIgnoreTlog: true, InsecureIgnoreSCT: true},
+				TrustedRoot: tt.trustedRoot,
+			}
+
+			_, err := checkOptions(context.TODO(), att, baseROpts, baseNOpts, nil)
+			require.ErrorContains(t, err, "failed to initialize TUF client")
+			assert.NotZero(t, tufCalls.Load())
+		})
+	}
 }
