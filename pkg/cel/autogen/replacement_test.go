@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -84,6 +85,78 @@ func TestApplyRewritesExpressions(t *testing.T) {
 			expr:   "!(object.metadata.namespace in ['opencost', 'kube-system'])",
 			config: "cronjobs",
 			want:   "!(object.metadata.namespace in ['opencost', 'kube-system'])",
+		},
+		{
+			name:   "object metadata.?namespace (optional select) is preserved",
+			expr:   "object.metadata.?namespace.orValue('')",
+			config: "deployments",
+			want:   "object.metadata.?namespace.orValue('')",
+		},
+		{
+			name:   "cronjobs object metadata.?namespace (optional select) is preserved",
+			expr:   "object.metadata.?namespace.orValue('')",
+			config: "cronjobs",
+			want:   "object.metadata.?namespace.orValue('')",
+		},
+		{
+			name:   "oldObject metadata.?namespace (optional select) is preserved",
+			expr:   "oldObject.metadata.?namespace",
+			config: "deployments",
+			want:   "oldObject.metadata.?namespace",
+		},
+		{
+			name:   "namespace membership with optional select is preserved",
+			expr:   "!(object.metadata.?namespace.orValue('') in ['kube-system'])",
+			config: "deployments",
+			want:   "!(object.metadata.?namespace.orValue('') in ['kube-system'])",
+		},
+		{
+			name:   "bracket access metadata['namespace'] is preserved",
+			expr:   "object.metadata['namespace'] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata['namespace'] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with double quotes is preserved",
+			expr:   "object.metadata[\"namespace\"] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[\"namespace\"] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with double quotes is preserved in JSON-marshaled bytes",
+			expr:   "object.metadata[\\\"namespace\\\"] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[\\\"namespace\\\"] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with triple single quotes is preserved",
+			expr:   "object.metadata['''namespace'''] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata['''namespace'''] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with triple double quotes is preserved in JSON-marshaled bytes",
+			expr:   "object.metadata[\\\"\\\"\\\"namespace\\\"\\\"\\\"] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[\\\"\\\"\\\"namespace\\\"\\\"\\\"] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with a raw string is preserved",
+			expr:   "object.metadata[r'namespace'] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[r'namespace'] == 'kube-system'",
+		},
+		{
+			name:   "bracket access with a raw double-quoted string is preserved in JSON-marshaled bytes",
+			expr:   "object.metadata[r\\\"namespace\\\"] == 'kube-system'",
+			config: "deployments",
+			want:   "object.metadata[r\\\"namespace\\\"] == 'kube-system'",
+		},
+		{
+			name:   "optional select of a longer identifier is still rewritten",
+			expr:   "object.metadata.?namespaceFoo",
+			config: "deployments",
+			want:   "object.spec.template.metadata.?namespaceFoo",
 		},
 		{
 			name:   "namespace preserved while sibling metadata fields are rewritten",
@@ -198,6 +271,18 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 			want:   "object.metadata[\"name\"] == 'foo'",
 		},
 		{
+			name:   "deployments object metadata.?namespace is preserved (optional select)",
+			expr:   "object.metadata.?namespace.orValue('') in ['kube-system', 'kyverno']",
+			config: "deployments",
+			want:   "object.metadata.?namespace.orValue('') in ['kube-system', 'kyverno']",
+		},
+		{
+			name:   "optional select of a longer identifier is still rewritten",
+			expr:   "object.metadata.?namespaceFoo == 'foo'",
+			config: "deployments",
+			want:   "object.spec.template.metadata.?namespaceFoo == 'foo'",
+		},
+		{
 			name:   "string literals are not rewritten",
 			expr:   "object.metadata.name == 'object.spec'",
 			config: "deployments",
@@ -292,6 +377,70 @@ func TestApplyCELRewritesExpressions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ApplyCEL([]byte(tt.expr), ReplacementsMap[ConfigsMap[tt.config].ReplacementsRef]...)
 			assert.Equal(t, []byte(tt.want), got)
+		})
+	}
+}
+
+// TestProtectedFieldSpellings runs CEL spellings of an access to
+// metadata.namespace and metadata.name through the path vpol and ivpol
+// autogen use (the expression is JSON-marshaled with the policy spec,
+// rewritten with Apply and unmarshaled again), and through ApplyCEL. The
+// spellings are written out the way a policy author would type them instead
+// of being derived from protectedSuffixes.
+func TestProtectedFieldSpellings(t *testing.T) {
+	preserved := []string{
+		"object.metadata.namespace",
+		"object.metadata.?namespace.orValue('')",
+		"object.metadata['namespace']",
+		`object.metadata["namespace"]`,
+		"object.metadata['''namespace''']",
+		`object.metadata["""namespace"""]`,
+		"object.metadata[r'namespace']",
+		"object.metadata[R'namespace']",
+		`object.metadata[r"namespace"]`,
+		`object.metadata[R"namespace"]`,
+		"object.metadata[r'''namespace''']",
+		`object.metadata[R"""namespace"""]`,
+		"object.metadata[?'namespace'].orValue('')",
+		`object.metadata[?"namespace"].orValue('')`,
+		"object.metadata[?R'''namespace'''].orValue('')",
+		"oldObject.metadata[?'namespace'].orValue('')",
+		"object.metadata.name",
+		"object.metadata.?name.orValue('')",
+		"object.metadata['name']",
+		`object.metadata["name"]`,
+		"object.metadata[?'name'].orValue('')",
+		`object.metadata[?r"name"].orValue('')`,
+		"object.metadata[R'''name''']",
+	}
+	rewritten := []struct{ expr, want string }{
+		{"object.metadata.?namespaceFoo", "object.spec.template.metadata.?namespaceFoo"},
+		{"object.metadata[?'nameFoo']", "object.spec.template.metadata[?'nameFoo']"},
+		{"object.metadata.labels['app']", "object.spec.template.metadata.labels['app']"},
+		{"object.metadata[?'labels']", "object.spec.template.metadata[?'labels']"},
+	}
+	marshaled := func(t *testing.T, expr string, replacements []Replacement) string {
+		t.Helper()
+		data, err := json.Marshal(map[string]string{"expression": expr})
+		assert.NoError(t, err)
+		var out map[string]string
+		assert.NoError(t, json.Unmarshal(Apply(data, replacements...), &out))
+		return out["expression"]
+	}
+	for _, config := range []string{"deployments", "cronjobs"} {
+		replacements := ReplacementsMap[ConfigsMap[config].ReplacementsRef]
+		for _, expr := range preserved {
+			t.Run(config+"/"+expr, func(t *testing.T) {
+				assert.Equal(t, expr, marshaled(t, expr, replacements), "Apply on the marshaled spec")
+				assert.Equal(t, expr, string(ApplyCEL([]byte(expr), replacements...)), "ApplyCEL")
+			})
+		}
+	}
+	replacements := ReplacementsMap[ConfigsMap["deployments"].ReplacementsRef]
+	for _, tt := range rewritten {
+		t.Run("deployments/"+tt.expr, func(t *testing.T) {
+			assert.Equal(t, tt.want, marshaled(t, tt.expr, replacements), "Apply on the marshaled spec")
+			assert.Equal(t, tt.want, string(ApplyCEL([]byte(tt.expr), replacements...)), "ApplyCEL")
 		})
 	}
 }
