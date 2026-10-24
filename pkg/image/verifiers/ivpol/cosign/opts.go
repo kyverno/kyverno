@@ -413,14 +413,6 @@ func getRekor(_ context.Context, ctlog *v1beta1.CTLog, defaultRekorPubKeys, defa
 	return rekorClient, rekorPubKey, ctlogPubKey, nil
 }
 
-func getTrustedRootFromTUF(ctx context.Context, t *v1beta1.TUF) (*root.TrustedRoot, error) {
-	mirror, rootBytes, err := tufConfiguration(ctx, t)
-	if err != nil {
-		return nil, err
-	}
-	return sigstoreguard.TrustedRootFor(ctx, mirror, rootBytes)
-}
-
 func getVerificationMaterialFromTUF(ctx context.Context, t *v1beta1.TUF) (*sigstoreguard.VerificationMaterial, error) {
 	mirror, rootBytes, err := tufConfiguration(ctx, t)
 	if err != nil {
