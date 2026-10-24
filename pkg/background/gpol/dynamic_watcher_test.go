@@ -1443,8 +1443,10 @@ func TestHandleDelete_DownstreamRecreatedAfterRepeatedDeletions(t *testing.T) {
 // ListResource and DeleteResource return values independently.
 type fullMockClient struct {
 	MockClient
-	listResult *unstructured.UnstructuredList
-	deleteErr  error
+	listResult     *unstructured.UnstructuredList
+	deleteErr      error
+	updateErr      error
+	updatedObjects []*unstructured.Unstructured
 }
 
 func (f *fullMockClient) ListResource(_ context.Context, _, _, _ string, _ *metav1.LabelSelector) (*unstructured.UnstructuredList, error) {
@@ -1453,6 +1455,13 @@ func (f *fullMockClient) ListResource(_ context.Context, _, _, _ string, _ *meta
 
 func (f *fullMockClient) DeleteResource(_ context.Context, _, _, _, _ string, _ bool, _ metav1.DeleteOptions) error {
 	return f.deleteErr
+}
+
+func (f *fullMockClient) UpdateResource(_ context.Context, _, _, _ string, obj interface{}, _ bool, _ ...string) (*unstructured.Unstructured, error) {
+	if resource, ok := obj.(*unstructured.Unstructured); ok {
+		f.updatedObjects = append(f.updatedObjects, resource.DeepCopy())
+	}
+	return nil, f.updateErr
 }
 
 func TestHandleAdd(t *testing.T) {
@@ -1518,6 +1527,76 @@ func TestHandleUpdate(t *testing.T) {
 		src := makeObj("src-uid", "src-pod", "default", nil)
 		wm.handleUpdate(src, gvr)
 	})
+
+	for _, updateErr := range []error{nil, errors.New("downstream update failed")} {
+		name := "source labels replace stale downstream labels while preserving tracking labels"
+		if updateErr != nil {
+			name = "failed downstream update preserves cached metadata"
+		}
+		t.Run(name, func(t *testing.T) {
+			downstreamLabels := map[string]string{
+				common.GenerateTypeCloneSourceLabel: "stale",
+				"copy":                              "old",
+				"removed":                           "stale",
+				common.GenerateSourceUIDLabel:       "src-uid",
+				common.GeneratePolicyLabel:          "clone-policy",
+				common.GenerateTriggerUIDLabel:      "trigger-uid",
+				kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+			}
+			downstream := makeObj("down-uid", "down-pod", "default", downstreamLabels)
+			downstream.Object["data"] = map[string]any{"value": "old"}
+			original := Resource{
+				Name:      downstream.GetName(),
+				Namespace: downstream.GetNamespace(),
+				Labels:    downstream.GetLabels(),
+				Hash:      reportutils.CalculateResourceHash(*downstream),
+				Data:      downstream.DeepCopy(),
+			}
+			client := &fullMockClient{
+				listResult: &unstructured.UnstructuredList{Items: []unstructured.Unstructured{*downstream}},
+				updateErr:  updateErr,
+			}
+			wm := &WatchManager{
+				client: client,
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {metadataCache: map[types.UID]Resource{
+						downstream.GetUID(): {
+							Name:      original.Name,
+							Namespace: original.Namespace,
+							Labels:    downstream.GetLabels(),
+							Hash:      original.Hash,
+							Data:      downstream.DeepCopy(),
+						},
+					}},
+				},
+			}
+
+			source := makeObj("src-uid", "src-pod", "default", map[string]string{
+				"copy":  "new",
+				"added": "from-source",
+			})
+			source.Object["data"] = map[string]any{"value": "new"}
+			wm.handleUpdate(source, gvr)
+
+			require.Len(t, client.updatedObjects, 1)
+			assert.Equal(t, map[string]string{
+				"copy":                         "new",
+				"added":                        "from-source",
+				common.GenerateSourceUIDLabel:  "src-uid",
+				common.GeneratePolicyLabel:     "clone-policy",
+				common.GenerateTriggerUIDLabel: "trigger-uid",
+				kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
+			}, client.updatedObjects[0].GetLabels())
+			cached := wm.dynamicWatchers[gvr].metadataCache[downstream.GetUID()]
+			if updateErr != nil {
+				assert.Equal(t, original.Labels, cached.Labels)
+				assert.Equal(t, original.Hash, cached.Hash)
+				assert.Equal(t, original.Data, cached.Data)
+			} else {
+				assert.Equal(t, client.updatedObjects[0].GetLabels(), cached.Labels)
+			}
+		})
+	}
 
 	t.Run("downstream changed by user gets reverted", func(t *testing.T) {
 		mockClient := &MockClient{}
@@ -2221,56 +2300,77 @@ func TestRevertDownstream_ServerSideApplyLeavesOtherOwnersAlone(t *testing.T) {
 // source changes, a downstream of a policy with useServerSideApply is updated by applying the new
 // content rather than replacing the object.
 func TestHandleUpdate_SourcePropagation_ServerSideApply(t *testing.T) {
-	gvr := schema.GroupVersionResource{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}
-	src := makeUnstructured("500", "scheduling.run.ai", "v2", "Queue", "source-queue", "", "src-uid", nil)
-	src.SetAnnotations(map[string]string{"tier": "free"})
-	ds := makeUnstructured("305", "scheduling.run.ai", "v2", "Queue", "alice", "", "ds-uid",
-		map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
-	// an owner reference Kyverno applied to the downstream, and a finalizer another controller added
-	owner := metav1.OwnerReference{APIVersion: "v1", Kind: "Namespace", Name: "alice", UID: "ns-uid"}
-	ds.SetOwnerReferences([]metav1.OwnerReference{owner})
-	ds.SetFinalizers([]string{"example.com/other-controller"})
-	ds.SetLabels(map[string]string{common.GenerateSourceUIDLabel: "src-uid", "team": "payments"})
-	ds.SetManagedFields([]metav1.ManagedFieldsEntry{
-		managedFieldsEntry("kyverno-generate", metav1.ManagedFieldsOperationApply,
-			`{"f:metadata":{"f:labels":{"f:generate.kyverno.io/source-uid":{}},"f:ownerReferences":{"k:{\"uid\":\"ns-uid\"}":{}}}}`),
-	})
+	for _, hasApplyRecord := range []bool{true, false} {
+		t.Run(fmt.Sprintf("apply record=%t", hasApplyRecord), func(t *testing.T) {
+			gvr := schema.GroupVersionResource{Group: "scheduling.run.ai", Version: "v2", Resource: "queues"}
+			src := makeUnstructured("500", "scheduling.run.ai", "v2", "Queue", "source-queue", "", "src-uid", nil)
+			src.SetAnnotations(map[string]string{"tier": "free"})
+			src.SetLabels(map[string]string{"added": "from-source", "copy": "new", common.GenerateTypeCloneSourceLabel: "restored"})
+			ds := makeUnstructured("305", "scheduling.run.ai", "v2", "Queue", "alice", "", "ds-uid",
+				map[string]string{common.GenerateSourceUIDLabel: "src-uid"})
+			// an owner reference Kyverno applied to the downstream, and a finalizer another controller added
+			owner := metav1.OwnerReference{APIVersion: "v1", Kind: "Namespace", Name: "alice", UID: "ns-uid"}
+			ds.SetOwnerReferences([]metav1.OwnerReference{owner})
+			ds.SetFinalizers([]string{"example.com/other-controller"})
+			ds.SetLabels(map[string]string{common.GenerateSourceUIDLabel: "src-uid", common.GenerateTypeCloneSourceLabel: "old", "team": "payments", "copy": "old", "removed": "stale"})
+			ds.SetManagedFields([]metav1.ManagedFieldsEntry{
+				managedFieldsEntry("kyverno-generate", metav1.ManagedFieldsOperationApply,
+					`{"f:metadata":{"f:labels":{"f:generate.kyverno.io/source-uid":{},"f:copy":{},"f:removed":{}},"f:ownerReferences":{"k:{\"uid\":\"ns-uid\"}":{}}}}`),
+			})
 
-	// what the server returns: the propagated content, with another controller's annotation kept
-	returned := ds.DeepCopy()
-	returned.SetAnnotations(map[string]string{"tier": "free", "example.com/other": "x"})
+			if !hasApplyRecord {
+				ds.SetManagedFields(nil)
+			}
 
-	var applied *unstructured.Unstructured
-	mc := &MockClient{
-		applyFn:      func(_ string, obj interface{}) { applied, _ = obj.(*unstructured.Unstructured) },
-		applyReturns: returned,
-		listItems:    []unstructured.Unstructured{*ds},
+			// what the server returns: the propagated content, with another controller's annotation kept
+			returned := ds.DeepCopy()
+			returned.SetAnnotations(map[string]string{"tier": "free", "example.com/other": "x"})
+			returnedLabels := map[string]string{common.GenerateSourceUIDLabel: "src-uid", common.GenerateTypeCloneSourceLabel: "restored", "team": "payments", "copy": "new", "added": "from-source"}
+			if !hasApplyRecord {
+				// Without prior ownership, omitting this label cannot remove it from the server.
+				returnedLabels["removed"] = "stale"
+			}
+			returned.SetLabels(returnedLabels)
+
+			var applied *unstructured.Unstructured
+			mc := &MockClient{
+				applyFn:      func(_ string, obj interface{}) { applied, _ = obj.(*unstructured.Unstructured) },
+				applyReturns: returned,
+				listItems:    []unstructured.Unstructured{*ds},
+			}
+			wm := &WatchManager{
+				log:    logging.WithName("test"),
+				client: mc,
+				dynamicWatchers: map[schema.GroupVersionResource]*watcher{
+					gvr: {metadataCache: map[types.UID]Resource{
+						"ds-uid": {Name: "alice", Labels: ds.GetLabels(), Hash: "stale", Data: ds, ServerSideApply: true},
+					}},
+				},
+			}
+
+			wm.handleUpdate(src, gvr)
+
+			assert.Empty(t, mc.updated, "propagation for a server-side apply policy must not replace the object")
+			require.NotNil(t, applied, "propagation must apply the new content")
+			assert.Equal(t, "alice", applied.GetName())
+			assert.Equal(t, "free", applied.GetAnnotations()["tier"])
+			if hasApplyRecord {
+				assert.Equal(t, []metav1.OwnerReference{owner}, applied.GetOwnerReferences(), "the owner reference Kyverno applied is kept")
+			} else {
+				assert.Empty(t, applied.GetOwnerReferences())
+			}
+			assert.Empty(t, applied.GetFinalizers(), "another controller's finalizer is not taken over")
+			expectedLabels := map[string]string{common.GenerateSourceUIDLabel: "src-uid", common.GenerateTypeCloneSourceLabel: "restored", "copy": "new", "added": "from-source"}
+			assert.Equal(t, expectedLabels, applied.GetLabels(), "source label changes are applied without taking over another controller's labels")
+			entry := wm.dynamicWatchers[gvr].metadataCache["ds-uid"]
+			assert.Equal(t, expectedLabels, entry.Labels)
+			assert.Equal(t, reportutils.CalculateResourceHash(*returned), entry.Hash, "the cache tracks the object the apply returned")
+			assert.Equal(t, "free", entry.Data.GetAnnotations()["tier"], "the desired content is the propagated source content")
+			assert.NotContains(t, entry.Data.GetAnnotations(), "example.com/other")
+			assert.Empty(t, applied.GetResourceVersion())
+			assert.Empty(t, applied.GetUID())
+		})
 	}
-	wm := &WatchManager{
-		log:    logging.WithName("test"),
-		client: mc,
-		dynamicWatchers: map[schema.GroupVersionResource]*watcher{
-			gvr: {metadataCache: map[types.UID]Resource{
-				"ds-uid": {Name: "alice", Labels: ds.GetLabels(), Hash: "stale", Data: ds, ServerSideApply: true},
-			}},
-		},
-	}
-
-	wm.handleUpdate(src, gvr)
-
-	assert.Empty(t, mc.updated, "propagation for a server-side apply policy must not replace the object")
-	require.NotNil(t, applied, "propagation must apply the new content")
-	assert.Equal(t, "alice", applied.GetName())
-	assert.Equal(t, "free", applied.GetAnnotations()["tier"])
-	assert.Equal(t, []metav1.OwnerReference{owner}, applied.GetOwnerReferences(), "the owner reference Kyverno applied is kept")
-	assert.Empty(t, applied.GetFinalizers(), "another controller's finalizer is not taken over")
-	assert.Equal(t, map[string]string{common.GenerateSourceUIDLabel: "src-uid"}, applied.GetLabels(), "another controller's label is not taken over")
-	entry := wm.dynamicWatchers[gvr].metadataCache["ds-uid"]
-	assert.Equal(t, reportutils.CalculateResourceHash(*returned), entry.Hash, "the cache tracks the object the apply returned")
-	assert.Equal(t, "free", entry.Data.GetAnnotations()["tier"], "the desired content is the propagated source content")
-	assert.NotContains(t, entry.Data.GetAnnotations(), "example.com/other")
-	assert.Empty(t, applied.GetResourceVersion())
-	assert.Empty(t, applied.GetUID())
 }
 
 // TestSyncWatchers_RecordsServerSideApply checks the setting reaches the cache entries the reverts
