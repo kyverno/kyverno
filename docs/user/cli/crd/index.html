@@ -1695,7 +1695,7 @@ declared via the <code>request.operation</code> global value in the values file.
 For UPDATE, both object and oldObject are set to the resource. For DELETE,
 object is null and oldObject is set to the resource, mirroring the API server.
 For CONNECT, both object and oldObject are null.
-It is not supported for deleting policies and JSON payloads.</p>
+It is not supported for deleting policies, native ValidatingAdmissionPolicy or MutatingAdmissionPolicy, and JSON payloads.</p>
 </td>
 </tr>
 <tr>

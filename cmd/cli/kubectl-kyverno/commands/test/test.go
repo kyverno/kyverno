@@ -442,6 +442,9 @@ func runTest(ctx context.Context, out io.Writer, testCase test.TestCase, registr
 		if res.IsDeletingPolicy {
 			return nil, fmt.Errorf("invalid test result for policy %s: operation is not supported for deleting policies", res.Policy)
 		}
+		if res.Operation == "CONNECT" && (res.IsValidatingAdmissionPolicy || res.IsMutatingAdmissionPolicy) {
+			return nil, fmt.Errorf("invalid test result for policy %s: CONNECT operation is not supported for native ValidatingAdmissionPolicy or MutatingAdmissionPolicy", res.Policy)
+		}
 		explicitOperations.Insert(res.Operation)
 	}
 	// evalResource is a closure that applies all loaded policies to a single
