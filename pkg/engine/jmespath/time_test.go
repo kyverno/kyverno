@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aptible/supercronic/cronexpr"
 	"gotest.tools/v3/assert"
 )
 
@@ -52,6 +53,33 @@ func Test_TimeToCron(t *testing.T) {
 			test:           "time_to_cron(time_utc('2023-02-02T15:04:05-07:00'))",
 			expectedResult: "4 22 2 2 4",
 		},
+		{
+			test:           "time_to_cron('2026-10-04T09:00:00-07:00')",
+			expectedResult: "0 16 4 10 0",
+		},
+		{
+			test:           "time_to_cron('2026-10-04T09:00:00+05:30')",
+			expectedResult: "30 3 4 10 0",
+		},
+		{
+			// negative offset crosses into the next day
+			test:           "time_to_cron('2026-10-04T20:00:00-08:00')",
+			expectedResult: "0 4 5 10 1",
+		},
+		{
+			// positive offset crosses into the previous day
+			test:           "time_to_cron('2026-10-05T02:00:00+05:30')",
+			expectedResult: "30 20 4 10 0",
+		},
+		{
+			// negative offset crosses into the next month and year
+			test:           "time_to_cron('2026-12-31T20:00:00-08:00')",
+			expectedResult: "0 4 1 1 5",
+		},
+		{
+			test:           "time_to_cron('2026-10-04T09:00:00+00:00')",
+			expectedResult: "0 9 4 10 0",
+		},
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
@@ -67,6 +95,31 @@ func Test_TimeToCron(t *testing.T) {
 			assert.Equal(t, result, tc.expectedResult)
 		})
 	}
+}
+
+func Test_TimeToCronInvalidTime(t *testing.T) {
+	query, err := jmespathInterface.Query("time_to_cron('2026-13-45T09:00:00-07:00')")
+	assert.NilError(t, err)
+
+	_, err = query.Search("")
+	assert.ErrorContains(t, err, "parsing time")
+}
+
+func Test_TimeToCronNextExecution(t *testing.T) {
+	query, err := jmespathInterface.Query("time_to_cron('2026-12-31T20:00:00-08:00')")
+	assert.NilError(t, err)
+
+	res, err := query.Search("")
+	assert.NilError(t, err)
+
+	schedule, ok := res.(string)
+	assert.Assert(t, ok)
+
+	cronExpr, err := cronexpr.Parse(schedule)
+	assert.NilError(t, err)
+
+	next := cronExpr.Next(time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC))
+	assert.Equal(t, next, time.Date(2027, 1, 1, 4, 0, 0, 0, time.UTC))
 }
 
 func Test_TimeAdd(t *testing.T) {
