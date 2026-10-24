@@ -455,7 +455,8 @@ CLIENTSET_PACKAGE           := $(CLIENT_PACKAGE)/clientset
 LISTERS_PACKAGE             := $(CLIENT_PACKAGE)/listers
 INFORMERS_PACKAGE           := $(CLIENT_PACKAGE)/informers
 CRDS_PATH                   := ./config/crds
-INSTALL_MANIFEST_PATH       := ./config/install-latest-testing.yaml
+INSTALL_MANIFEST_PATH                   := ./config/install-latest-testing.yaml
+INSTALL_MANIFEST_POLICY_EXCEPTIONS_PATH := ./config/install-latest-testing-policy-exceptions.yaml
 KYVERNO_CHART_VERSION       ?= v0.0.0
 POLICIES_CHART_VERSION      ?= v0.0.0
 APP_CHART_VERSION           ?= latest
@@ -768,6 +769,24 @@ codegen-manifest-install-latest: helm-setup-dependency-charts
  		| $(SED) -e '/^#.*/d' \
 		> $(INSTALL_MANIFEST_PATH)
 
+.PHONY: codegen-manifest-install-latest-policy-exceptions
+codegen-manifest-install-latest-policy-exceptions: ## Create install_latest manifest with PolicyExceptions enabled
+codegen-manifest-install-latest-policy-exceptions: helm-setup-dependency-charts
+	@echo Generate latest install manifest with PolicyExceptions enabled... >&2
+	@rm -f $(INSTALL_MANIFEST_POLICY_EXCEPTIONS_PATH)
+	@$(HELM) template kyverno --kube-version $(KUBE_VERSION) --namespace kyverno --skip-tests ./charts/kyverno \
+		--set global.templating.enabled=true \
+		--set global.templating.version=latest \
+		--set admissionController.container.image.tag=latest \
+		--set admissionController.initContainer.image.tag=latest \
+		--set cleanupController.image.tag=latest \
+		--set reportsController.image.tag=latest \
+		--set backgroundController.image.tag=latest \
+		--set features.policyExceptions.enabled=true \
+		--set features.policyExceptions.namespace=policy-exceptions \
+		| $(SED) -e '/^#.*/d' \
+		> $(INSTALL_MANIFEST_POLICY_EXCEPTIONS_PATH)
+
 .PHONY: codegen-manifest-debug
 codegen-manifest-debug: ## Create debug manifest
 codegen-manifest-debug: helm-setup-dependency-charts
@@ -802,6 +821,7 @@ codegen-manifest-release: helm-setup-dependency-charts
 .PHONY: codegen-manifest-all
 codegen-manifest-all: ## Create all manifests
 codegen-manifest-all: codegen-manifest-install-latest
+codegen-manifest-all: codegen-manifest-install-latest-policy-exceptions
 codegen-manifest-all: codegen-manifest-debug
 
 .PHONY: codegen-fix-tests
