@@ -238,7 +238,7 @@ func TestEntry_PostSyncRepeatedRelistFailuresAreThrottled(t *testing.T) {
 	)
 
 	const failureText = "injected repeated relist outage"
-	var lists, watches atomic.Int32
+	var lists, watches, watchErrors atomic.Int32
 	dyn.PrependReactor("list", "configmaps", func(clienttesting.Action) (bool, runtime.Object, error) {
 		n := lists.Add(1)
 		if n == 2 || n == 3 {
@@ -279,7 +279,15 @@ func TestEntry_PostSyncRepeatedRelistFailuresAreThrottled(t *testing.T) {
 		},
 	}
 	events := &recoveryEventSink{}
-	e, err := New(ctx, gce, events, dyn, logr.Discard(), gvr, "default", jmespath.New(config.NewDefaultConfiguration(false)))
+	e, err := newWithWatchErrorObserver(
+		ctx, gce, events, dyn, logr.Discard(), gvr, "default",
+		jmespath.New(config.NewDefaultConfiguration(false)),
+		func(err error) {
+			if strings.Contains(err.Error(), failureText) {
+				watchErrors.Add(1)
+			}
+		},
+	)
 	require.NoError(t, err)
 	defer e.Stop()
 	require.Equal(t, "old", currentConfigMapValue(t, e))
@@ -311,6 +319,12 @@ func TestEntry_PostSyncRepeatedRelistFailuresAreThrottled(t *testing.T) {
 		value, _, _ := unstructured.NestedString(obj, "data", "value")
 		return value == "new"
 	}, 30*time.Second, 20*time.Millisecond, "the informer must recover from both relist failures")
+
+	// The second LIST failure must reach the actual reflector handler even
+	// though its Warning Event is suppressed by the throttling interval.
+	require.Eventually(t, func() bool {
+		return watchErrors.Load() == 2
+	}, 5*time.Second, 10*time.Millisecond)
 
 	events.mu.Lock()
 	defer events.mu.Unlock()
