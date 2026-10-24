@@ -674,9 +674,10 @@ func newMirrorFixture(t *testing.T, policy policiesv1beta1.GeneratingPolicyLike,
 	trigger := makeUnstructured("", "", "v1", "ConfigMap", "tenant-settings", mirrorNamespace, mirrorTriggerUID, nil)
 	require.NoError(t, unstructured.SetNestedField(trigger.Object, "50", "data", "quota"))
 	downstream := makeUnstructured("", "", "v1", "ConfigMap", "tenant-settings-mirror", mirrorNamespace, mirrorDownstreamU, map[string]string{
-		kyverno.LabelAppManagedBy:      kyverno.ValueKyvernoApp,
-		common.GeneratePolicyLabel:     mirrorPolicyName,
-		common.GenerateTriggerUIDLabel: mirrorTriggerUID,
+		kyverno.LabelAppManagedBy:           kyverno.ValueKyvernoApp,
+		common.GeneratePolicyLabel:          mirrorPolicyName,
+		common.GeneratePolicyNamespaceLabel: policy.GetNamespace(),
+		common.GenerateTriggerUIDLabel:      mirrorTriggerUID,
 	})
 	require.NoError(t, unstructured.SetNestedField(downstream.Object, "10", "data", "QUOTA"))
 

@@ -92,20 +92,19 @@ type skippedUpdate struct {
 	obj *unstructured.Unstructured
 }
 
-// generateKey identifies a policy/trigger pair. It uses the bare policy name and
-// trigger UID, the values the engine stamps on the downstream's
-// GeneratePolicyLabel and GenerateTriggerUIDLabel.
-func generateKey(policyName string, triggerUID types.UID) string {
-	return policyName + "/" + string(triggerUID)
+// generateKey identifies a policy/trigger pair using the namespace/name policy
+// key (a bare name for cluster-scoped policies) and trigger UID.
+func generateKey(policyKey string, triggerUID types.UID) string {
+	return policyKey + "/" + string(triggerUID)
 }
 
-// BeginGenerate marks a generate write for the given policy name and trigger UID
+// BeginGenerate marks a generate write for the given policy key and trigger UID
 // as in flight, so handleUpdate does not revert a hash mismatch on that
 // trigger's downstream while the watcher cache is catching up. The returned
 // function closes the window and reverts any edit skipped inside it. It is
 // ref-counted and safe to call more than once.
-func (wm *WatchManager) BeginGenerate(policyName string, triggerUID types.UID) func() {
-	key := generateKey(policyName, triggerUID)
+func (wm *WatchManager) BeginGenerate(policyKey string, triggerUID types.UID) func() {
+	key := generateKey(policyKey, triggerUID)
 	wm.lock.Lock()
 	if wm.pendingGenerates == nil {
 		wm.pendingGenerates = map[string]*pendingGenerate{}
@@ -229,7 +228,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				var uidsToDelete []types.UID
 				for uid, resource := range oldWatcher.metadataCache {
 					// identify resources managed by this specific policy and trigger via labels
-					if resource.Labels[common.GeneratePolicyLabel] != policyName {
+					if !policyMatches(resource.Labels, policyName) {
 						continue
 					}
 					if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
@@ -246,7 +245,7 @@ func (wm *WatchManager) SyncWatchers(policyName string, trigger *kyverno.Resourc
 				// keep the watcher, the ref count and the policy reference in that case
 				stillReferenced := false
 				for _, resource := range oldWatcher.metadataCache {
-					if resource.Labels[common.GeneratePolicyLabel] == policyName {
+					if policyMatches(resource.Labels, policyName) {
 						stillReferenced = true
 						break
 					}
@@ -297,7 +296,7 @@ func (wm *WatchManager) GetDownstreams(policyName string) []*unstructured.Unstru
 
 			for _, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if resource.Labels[common.GeneratePolicyLabel] == policyName {
+				if policyMatches(resource.Labels, policyName) {
 					// InvalidateDownstreams blanks the hash and leaves the entry so a
 					// later delete can still find it. It is not a live trigger.
 					if resource.Hash == "" {
@@ -361,7 +360,7 @@ func (wm *WatchManager) walkDownstreams(policyName string, trigger *kyverno.Reso
 			var uids []types.UID
 			for uid, resource := range watcher.metadataCache {
 				// identify resources managed by this specific policy via a label
-				if resource.Labels[common.GeneratePolicyLabel] == policyName {
+				if policyMatches(resource.Labels, policyName) {
 					if trigger == nil || resource.Labels[common.GenerateTriggerUIDLabel] == string(trigger.UID) {
 						uids = append(uids, uid)
 					}
@@ -397,7 +396,7 @@ func (wm *WatchManager) CleanupStaleDownstreams(policyName string, trigger *kyve
 		var uidsToDelete []types.UID
 		for uid, resource := range watcher.metadataCache {
 			// identify resources managed by this specific policy and trigger via labels
-			if resource.Labels[common.GeneratePolicyLabel] != policyName {
+			if !policyMatches(resource.Labels, policyName) {
 				continue
 			}
 			if trigger != nil && resource.Labels[common.GenerateTriggerUIDLabel] != string(trigger.UID) {
@@ -445,6 +444,26 @@ func (wm *WatchManager) namespaceMissing(namespace string) bool {
 	return apierrors.IsNotFound(err)
 }
 
+// policyMatches reports whether the labels of a generated resource identify the
+// policy referenced by policyKey. Namespaced policies use a "namespace/name"
+// key and their resources carry both the policy name and namespace labels.
+// Cluster-scoped policies use a bare name key and their resources carry an
+// explicit empty namespace label. A resource without that label pre-dates it
+// and has no established owner, so it matches no policy until the generator
+// migrates it.
+func policyMatches(labels map[string]string, policyKey string) bool {
+	namespace, name, err := cache.SplitMetaNamespaceKey(policyKey)
+	if err != nil {
+		return false
+	}
+	policyNamespace, hasNamespaceLabel := labels[common.GeneratePolicyNamespaceLabel]
+	if !hasNamespaceLabel {
+		return false
+	}
+	return labels[common.GeneratePolicyLabel] == name &&
+		policyNamespace == namespace
+}
+
 // RemoveWatchersForPolicy removes all downstream resources and watchers for a given policy name.
 func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstream bool) {
 	wm.lock.Lock()
@@ -461,7 +480,7 @@ func (wm *WatchManager) RemoveWatchersForPolicy(policyName string, deleteDownstr
 				var uidsToDelete []types.UID
 				for uid, resource := range watcher.metadataCache {
 					// identify resources managed by this specific policy via a label
-					if resource.Labels[common.GeneratePolicyLabel] == policyName {
+					if policyMatches(resource.Labels, policyName) {
 						uidsToDelete = append(uidsToDelete, uid)
 					}
 				}
@@ -670,8 +689,13 @@ func (wm *WatchManager) handleUpdate(obj *unstructured.Unstructured, gvr schema.
 			// then we need to revert the downstream resource as it means that it has been updated by the user.
 			if hash != "" && hash != reportutils.CalculateResourceHash(*obj) {
 				cachedLabels := watcher.metadataCache[uid].Labels
-				key := generateKey(cachedLabels[common.GeneratePolicyLabel], types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
-				if pending := wm.pendingGenerates[key]; pending != nil {
+				policyKey := cachedLabels[common.GeneratePolicyLabel]
+				policyNamespace, hasNamespaceLabel := cachedLabels[common.GeneratePolicyNamespaceLabel]
+				if policyNamespace != "" {
+					policyKey = policyNamespace + "/" + policyKey
+				}
+				key := generateKey(policyKey, types.UID(cachedLabels[common.GenerateTriggerUIDLabel]))
+				if pending := wm.pendingGenerates[key]; hasNamespaceLabel && pending != nil {
 					// Likely Kyverno's own write racing the cache refresh (see
 					// BeginGenerate); re-checked when the window closes.
 					pending.skipped[uid] = skippedUpdate{gvr: gvr, obj: obj.DeepCopy()}
@@ -740,7 +764,7 @@ func (wm *WatchManager) propagateToDownstream(serverSideApply bool, downstream, 
 	}
 	cfg := applyConfiguration(newResource)
 	if applied, ok := appliedByGenerate(downstream); ok {
-		cfg.SetLabels(onlyKeys(cfg.GetLabels(), applied.labels))
+		cfg.SetLabels(labelsForApply(cfg.GetLabels(), applied.labels))
 		cfg.SetOwnerReferences(applied.ownerReferencesOf(downstream))
 		cfg.SetFinalizers(applied.finalizersOf(downstream))
 	} else {
@@ -789,7 +813,7 @@ func appliedConfiguration(desired, live *unstructured.Unstructured) *unstructure
 		applied, ok = appliedByGenerate(live)
 	}
 	if ok {
-		cfg.SetLabels(onlyKeys(desired.GetLabels(), applied.labels))
+		cfg.SetLabels(labelsForApply(desired.GetLabels(), applied.labels))
 		cfg.SetAnnotations(onlyKeys(desired.GetAnnotations(), applied.annotations))
 		cfg.SetOwnerReferences(applied.ownerReferencesOf(record))
 		cfg.SetFinalizers(applied.finalizersOf(record))
@@ -811,6 +835,19 @@ func generateLabels(labels map[string]string) map[string]string {
 			}
 			out[k] = v
 		}
+	}
+	return out
+}
+
+// labelsForApply keeps the policy namespace even when a legacy downstream's
+// apply record predates migration of that label.
+func labelsForApply(labels map[string]string, applied map[string]bool) map[string]string {
+	out := onlyKeys(labels, applied)
+	if namespace, ok := labels[common.GeneratePolicyNamespaceLabel]; ok {
+		if out == nil {
+			out = map[string]string{}
+		}
+		out[common.GeneratePolicyNamespaceLabel] = namespace
 	}
 	return out
 }

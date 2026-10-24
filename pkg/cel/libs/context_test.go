@@ -152,8 +152,9 @@ func TestContextProvider_GetGlobalReference_EntryErrorFailsEvaluation(t *testing
 }
 
 // TestAddGenerateLabels_NeverWritesLegacyOnlyLabels pins that the CEL
-// generate path never writes GenerateRuleLabel or GeneratePolicyNamespaceLabel
-// onto downstream resources. The documented cleanup command for orphaned
+// generate path never writes GenerateRuleLabel onto downstream resources.
+// GeneratePolicyNamespaceLabel is allowed: CEL uses it to distinguish namespaced
+// generating policies. The documented cleanup command for orphaned
 // legacy-generated resources (see #17707 release notes) selects on
 // `generate.kyverno.io/rule-name` specifically because gpol-managed
 // resources never carry it; if this test starts failing, that selector
@@ -162,7 +163,7 @@ func TestAddGenerateLabels_NeverWritesLegacyOnlyLabels(t *testing.T) {
 	cp := &contextProvider{}
 	cp.SetGenerateContext(
 		"my-gpol", "", "trigger-name", "trigger-ns", "v1", "apps", "Deployment", "trigger-uid",
-		false, false,
+		false, false, nil,
 	)
 	obj := &unstructured.Unstructured{Object: map[string]interface{}{}}
 
@@ -170,9 +171,7 @@ func TestAddGenerateLabels_NeverWritesLegacyOnlyLabels(t *testing.T) {
 
 	labels := obj.GetLabels()
 	_, hasRuleLabel := labels[common.GenerateRuleLabel]
-	_, hasPolicyNamespaceLabel := labels[common.GeneratePolicyNamespaceLabel]
 	assert.False(t, hasRuleLabel, "addGenerateLabels must never write %s; the orphan-cleanup selector relies on its absence", common.GenerateRuleLabel)
-	assert.False(t, hasPolicyNamespaceLabel, "addGenerateLabels must never write %s", common.GeneratePolicyNamespaceLabel)
 	// Sanity: the labels it does write are still present.
 	assert.Equal(t, "my-gpol", labels[common.GeneratePolicyLabel])
 }
