@@ -117,7 +117,12 @@ func (cp *FakeContextProvider) ListResources(apiVersion, resource, namespace str
 	gvr := gv.WithResource(resource)
 	resources := cp.resources[gvr.String()]
 	if resources == nil {
-		return nil, kerrors.NewBadRequest(fmt.Sprintf("%s resource not found", gvr.GroupResource()))
+		// No resource of this kind is registered in the context, so the list is
+		// simply empty rather than an error. This matches the behavior of a live
+		// cluster, where listing an existing (but empty) resource type yields an
+		// empty list, and lets CEL expressions such as
+		// `resource.List(...).items.orValue([])` evaluate successfully.
+		return &unstructured.UnstructuredList{}, nil
 	}
 	var out unstructured.UnstructuredList
 	for _, obj := range resources[namespace] {
