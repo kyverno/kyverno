@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -98,5 +99,92 @@ func TestListResourcesPreservesAPIGroups(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func (groupCollisionClient) GetResource(
+	ctx context.Context,
+	apiVersion string,
+	kind string,
+	namespace string,
+	name string,
+	subresources ...string,
+) (*unstructured.Unstructured, error) {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": apiVersion,
+			"kind":       kind,
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+		},
+	}, nil
+}
+
+func TestListSubresourcesPreservesAPIGroups(t *testing.T) {
+	groups := []string{
+		"alpha.example.com",
+		"beta.example.com",
+	}
+
+	info := &resourceTypeInfo{
+		subresourceMap: make(
+			map[schema.GroupVersionKind]v1alpha1.Subresource,
+		),
+	}
+
+	for _, group := range groups {
+		gvk := schema.GroupVersionKind{
+			Group:   group,
+			Version: "v1",
+			Kind:    "Widget",
+		}
+
+		info.subresourceMap[gvk] = v1alpha1.Subresource{
+			ParentResource: metav1.APIResource{
+				Group:      group,
+				Version:    "v1",
+				Kind:       "Widget",
+				Name:       "widgets",
+				Namespaced: true,
+			},
+			Subresource: metav1.APIResource{
+				Group:      group,
+				Version:    "v1",
+				Kind:       "Widget",
+				Name:       "widgets/status",
+				Namespaced: true,
+			},
+		}
+	}
+
+	fetcher := &ResourceFetcher{
+		Client:    groupCollisionClient{},
+		Namespace: "default",
+	}
+
+	resources, err := fetcher.listResources(info)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(resources) != len(groups) {
+		t.Fatalf(
+			"got %d subresources, want %d",
+			len(resources),
+			len(groups),
+		)
+	}
+
+	seenGroups := make(map[string]bool)
+	for _, resource := range resources {
+		seenGroups[resource.GroupVersionKind().Group] = true
+	}
+
+	for _, group := range groups {
+		if !seenGroups[group] {
+			t.Errorf("missing subresource from API group %q", group)
+		}
 	}
 }

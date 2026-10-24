@@ -280,7 +280,7 @@ func (rf *ResourceFetcher) listResources(
 			continue
 		}
 		for _, resource := range resourceList.Items {
-			key := fmt.Sprintf("%s::%s::%s", gvk.Kind, resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s::%s::%s", gvk.String(), resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(gvk)
 			result[key] = resource.DeepCopy()
 		}
@@ -319,7 +319,7 @@ func (rf *ResourceFetcher) listResources(
 				continue
 			}
 
-			key := fmt.Sprintf("%s::%s::%s", subGVK.Kind, resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s::%s::%s", subGVK.String(), resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(subGVK)
 			result[key] = resource.DeepCopy()
 		}
