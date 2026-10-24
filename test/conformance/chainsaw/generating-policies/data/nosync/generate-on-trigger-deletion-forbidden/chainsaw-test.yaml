@@ -20,8 +20,9 @@ spec:
         bindings:
         - name: file
           value: policy.yaml
-  # The policy never reports ready: Kyverno cannot read PodTemplates, which is what this test is
-  # about, so the RBACPermissionsGranted condition stays false. Generation only needs the webhook.
+  # The policy never reports ready: its RBACPermissionsGranted condition checks that the reports
+  # controller can get, list and watch PodTemplates, and like the background controller it cannot.
+  # Generation only needs the webhook, so wait for that instead.
   - name: wait-generating-policy-webhook-configured
     try:
     - assert:
