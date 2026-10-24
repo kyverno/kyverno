@@ -1,6 +1,4 @@
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
+apiVersion: policies.kyverno.io/v1alpha1
+kind: ValidatingPolicy
 metadata:
-  name: add-networkpolicy
-status:
-  ready: true
+  name: missing-spec

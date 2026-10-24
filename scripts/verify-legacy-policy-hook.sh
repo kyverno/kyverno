@@ -43,12 +43,12 @@
 # named "kind-production" - or the operator has explicitly opted in. See
 # the guard below.
 #
-# Kyverno must be installed in 1.20 migration-grace mode
-# (features.blockLegacyPolicyAPIs.enabled=false). By default that block is on,
-# and its admission webhook rejects the legacy fixtures this script creates, so
-# scenario A would fail before the hook Job runs. The CI helm-tests job installs
-# with that flag; a manual run must do the same, e.g.:
-#   EXPLICIT_INSTALL_SETTINGS='--set features.blockLegacyPolicyAPIs.enabled=false' make kind-install-kyverno
+# Starting in 1.20 the write-time admission block is unconditional - there is
+# no opt-out install mode - so scenario A creates its five legacy fixtures
+# while the policy/cleanup/exception ValidatingWebhookConfigurations are
+# temporarily absent. Their owning controllers are stopped first so
+# reconciliation cannot race fixture creation, then restored (also on
+# failure). This requires exclusive use of the disposable cluster.
 #
 # Usage: scripts/verify-legacy-policy-hook.sh
 #
@@ -150,7 +150,9 @@ guard_refuse() {
 
 This script creates a cluster-scoped legacy ClusterPolicy and cluster-scoped
 RBAC (ClusterRole/ClusterRoleBinding) to exercise the legacy-policy check
-hook Job, and deletes them again on exit.
+hook Job, and deletes them again on exit. It temporarily stops the admission
+and cleanup controllers and removes their legacy-policy webhooks to seed
+fixtures. It requires exclusive use of this cluster.
 
 $1
 
@@ -201,6 +203,27 @@ if ! kubectl get crd clusterpolicies.kyverno.io >/dev/null 2>&1; then
 fi
 
 WORK_DIR="$(mktemp -d)"
+CONTROLLER_REPLICAS=""
+
+restore_controllers() {
+  [ -n "${CONTROLLER_REPLICAS}" ] || return 0
+  local name replicas failures=""
+  while IFS=$'\t' read -r name replicas; do
+    if ! kubectl scale deployment "${name}" -n "${NAMESPACE}" --replicas="${replicas}" >/dev/null; then
+      failures="${failures} scale:${name}"
+    fi
+  done <<< "${CONTROLLER_REPLICAS}"
+  while IFS=$'\t' read -r name replicas; do
+    if ! kubectl rollout status deployment "${name}" -n "${NAMESPACE}" --timeout=180s >/dev/null; then
+      failures="${failures} rollout:${name}"
+    fi
+  done <<< "${CONTROLLER_REPLICAS}"
+  if [ -n "${failures}" ]; then
+    log "failed to restore controllers:${failures}"
+    return 1
+  fi
+  CONTROLLER_REPLICAS=""
+}
 
 # Deletes exactly the resources this run applied to the cluster - the hook
 # Job/ServiceAccount/ClusterRole/ClusterRoleBinding via the last-applied
@@ -210,6 +233,11 @@ WORK_DIR="$(mktemp -d)"
 # has been rendered (e.g. the script fails before scenario A even applies
 # anything) and safe to call more than once.
 cleanup() {
+  local exit_code="${1:-0}"
+  if ! restore_controllers; then
+    log "cleanup: could not restore controller replicas; inspect deployments in ${NAMESPACE}"
+    [ "${exit_code}" -ne 0 ] || exit_code=1
+  fi
   if [ -n "${HOOK_MANIFEST}" ] && [ -f "${HOOK_MANIFEST}" ]; then
     kubectl delete -f "${HOOK_MANIFEST}" --ignore-not-found >/dev/null 2>&1 || true
   fi
@@ -226,8 +254,9 @@ cleanup() {
   kubectl delete policyexceptions.kyverno.io "${POLICYEXCEPTION_NAME}" --namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete namespace "${FIXTURE_NAMESPACE}" --ignore-not-found >/dev/null 2>&1 || true
   rm -rf "${WORK_DIR}"
+  return "${exit_code}"
 }
-trap cleanup EXIT
+trap 'cleanup $?' EXIT
 
 render_hook() {
   # Render just the hook Job template with the SAME image overrides
@@ -356,6 +385,30 @@ assert_hook_absent() {
 log "scenario A: an instance of each of the five legacy kinds exists, expect the hook Job to FAIL"
 kubectl create namespace "${FIXTURE_NAMESPACE}" >/dev/null
 
+# Deleting the webhooks while their controllers run races reconciliation:
+# the unconditional write block can be restored before the very first create.
+# Stop both owners and wait for their pods to disappear before opening the
+# fixture window. The policy-mutating webhook also calls the admission
+# controller with failurePolicy=Fail, so remove it while that server is down.
+CONTROLLER_REPLICAS="$(kubectl get deployment kyverno-admission-controller kyverno-cleanup-controller \
+  -n "${NAMESPACE}" -o json | jq -r '.items[] | [.metadata.name, (.spec.replicas // 1)] | @tsv')"
+[ "$(printf '%s\n' "${CONTROLLER_REPLICAS}" | wc -l | tr -d ' ')" = "2" ] \
+  || fail "expected both admission and cleanup controller deployments"
+while IFS=$'\t' read -r name replicas; do
+  [ "${replicas}" -gt 0 ] || fail "${name} must be enabled before this test runs"
+done <<< "${CONTROLLER_REPLICAS}"
+kubectl scale deployment kyverno-admission-controller kyverno-cleanup-controller \
+  -n "${NAMESPACE}" --replicas=0 >/dev/null
+kubectl wait --for=delete pod -n "${NAMESPACE}" \
+  -l 'app.kubernetes.io/component in (admission-controller,cleanup-controller)' --timeout=120s >/dev/null
+LEGACY_WEBHOOK_CONFIGS=(
+  validatingwebhookconfiguration/kyverno-policy-validating-webhook-cfg
+  validatingwebhookconfiguration/kyverno-cleanup-validating-webhook-cfg
+  validatingwebhookconfiguration/kyverno-exception-validating-webhook-cfg
+  mutatingwebhookconfiguration/kyverno-policy-mutating-webhook-cfg
+)
+kubectl delete "${LEGACY_WEBHOOK_CONFIGS[@]}" --ignore-not-found >/dev/null
+
 kubectl apply -f - <<EOF >/dev/null
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -381,15 +434,8 @@ EOF
 # (test/conformance/chainsaw/deprecations/create-blocked/cleanup-policy-v2.yaml
 # and cluster-cleanup-policy-v2.yaml), EXCEPT ClusterCleanupPolicy below
 # targets Pod rather than that fixture's Namespace: this script runs against
-# a live cleanup-controller (unlike verify-legacy-policy-gate.sh, which
-# never installs Kyverno), and that fixture is only ever exercised with the
-# write-time block ON - it's asserting the create itself gets rejected, so
-# it never reaches the cleanup-controller's own RBAC-validating webhook.
-# Here, with the block OFF (migration-grace mode), that webhook DOES run,
-# and the cleanup-controller's default ClusterRole only grants it delete on
-# pods, not namespaces - so a Namespace-targeting policy would be rejected
-# for an unrelated reason (insufficient RBAC), not proving anything about
-# legacy-policy detection.
+# cleanup-controller installation. The fixtures never match real resources,
+# and only their presence, not cleanup execution, is under test.
 kubectl apply -f - <<EOF >/dev/null
 apiVersion: kyverno.io/v2
 kind: CleanupPolicy
@@ -444,6 +490,37 @@ spec:
         - Pod
 EOF
 
+restore_controllers
+log "scenario A: waiting for the policy/cleanup/exception webhook configurations to be reconciled back"
+for cfg in "${LEGACY_WEBHOOK_CONFIGS[@]}"; do
+  waited=0
+  while ! kubectl get "${cfg}" >/dev/null 2>&1; do
+    waited=$((waited + 2))
+    if [ "${waited}" -ge 60 ]; then
+      fail "scenario A: ${cfg} was not recreated within 60s"
+    fi
+    sleep 2
+  done
+done
+
+# A recreated config alone does not prove the admission path is ready.
+# Confirm the unconditional write block is back before testing the hook.
+waited=0
+while true; do
+  if kubectl annotate clusterpolicies.kyverno.io "${CR_NAME}" \
+    legacy-policy-hook-verify/probe=1 --dry-run=server --overwrite >"${WORK_DIR}/write-block.log" 2>&1; then
+    :
+  elif grep -q "removed execution" "${WORK_DIR}/write-block.log"; then
+    break
+  fi
+  waited=$((waited + 2))
+  if [ "${waited}" -ge 60 ]; then
+    cat "${WORK_DIR}/write-block.log" >&2
+    fail "scenario A: legacy-policy write denial was not restored within 60s"
+  fi
+  sleep 2
+done
+
 apply_hook_and_wait "${WORK_DIR}/hook-blocked.yaml"
 
 FAILED_STATUS="$(job_condition Failed)"
@@ -494,6 +571,16 @@ echo "${LOGS}" | grep -q "upgrade.acknowledgeLegacyPoliciesNotEnforced=true" \
   || { echo "${LOGS}" >&2; fail "scenario A: pod logs are missing the opt-out hint"; }
 log "PASS: scenario A (Job failed, exit code ${EXIT_CODE}, logs contain count/name/migration guidance for all five kinds)"
 
+# Reuse scenario A's stored fixtures: 1.20 cannot create another legacy CR
+# after the unconditional write-block webhooks have been restored.
+log "scenario C: legacy CR exists, opt-out set, expect hook Job NOT rendered"
+assert_hook_absent "hook-optout" --set upgrade.acknowledgeLegacyPoliciesNotEnforced=true
+log "PASS: scenario C (opt-out set with a legacy CR present -> hook Job not rendered)"
+
+log "scenario D: legacyPolicyCheck.enabled=false, expect hook Job NOT rendered"
+assert_hook_absent "hook-disabled" --set upgrade.legacyPolicyCheck.enabled=false
+log "PASS: scenario D (legacyPolicyCheck.enabled=false -> hook Job not rendered)"
+
 log "scenario B: no legacy CR present, expect the hook Job to SUCCEED"
 # Delete every one of scenario A's five fixtures, not just the
 # ClusterPolicy - if any of the other four were left behind, the Job would
@@ -528,23 +615,5 @@ LOGS="$(job_logs)"
 echo "${LOGS}" | grep -q "no legacy policy resources found" \
   || { echo "${LOGS}" >&2; fail "scenario B: pod logs do not report a clean result"; }
 log "PASS: scenario B (Job succeeded, exit code 0, logs report no legacy resources)"
-
-log "scenario C: legacy CR exists, opt-out set, expect hook Job NOT rendered"
-kubectl apply -f - <<EOF >/dev/null
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: ${CR_NAME}
-spec:
-  rules: []
-EOF
-assert_hook_absent "hook-optout" --set upgrade.acknowledgeLegacyPoliciesNotEnforced=true
-log "PASS: scenario C (opt-out set with a legacy CR present -> hook Job not rendered)"
-
-log "scenario D: legacyPolicyCheck.enabled=false, expect hook Job NOT rendered"
-assert_hook_absent "hook-disabled" --set upgrade.legacyPolicyCheck.enabled=false
-log "PASS: scenario D (legacyPolicyCheck.enabled=false -> hook Job not rendered)"
-
-kubectl delete clusterpolicy "${CR_NAME}" --ignore-not-found >/dev/null
 
 log "all legacy-policy hook Job scenarios passed"

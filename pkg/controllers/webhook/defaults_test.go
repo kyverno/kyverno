@@ -6,7 +6,6 @@ import (
 	"time"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	policiesv1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/policies.kyverno.io/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
@@ -283,8 +282,6 @@ func TestReconcileResourceWebhooksWithOmittedRuleScope(t *testing.T) {
 				Name: "kyverno-health", Namespace: config.KyvernoNamespace(),
 				Annotations: map[string]string{AnnotationLastRequestTime: time.Now().Format(time.RFC3339)},
 			}})),
-			cpolLister:        kyvernov1listers.NewClusterPolicyLister(newIndexer()),
-			polLister:         kyvernov1listers.NewPolicyLister(newIndexer()),
 			clusterroleLister: rbacv1listers.NewClusterRoleLister(newIndexer()),
 			vpolLister: policiesv1beta1listers.NewValidatingPolicyLister(newIndexer(
 				&policiesv1beta1.ValidatingPolicy{ObjectMeta: metav1.ObjectMeta{Name: "omitted-scope"}, Spec: policiesv1beta1.ValidatingPolicySpec{MatchConstraints: rule(nil)}},

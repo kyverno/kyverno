@@ -115,8 +115,6 @@ func TestGenerationLabelProtectionWithoutPolicies(t *testing.T) {
 				defaultTimeout: 10, servicePort: 443, excludeBootstrapResources: test.excludeBootstrap,
 				clusterroleLister:  rbacv1listers.NewClusterRoleLister(cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})),
 				leaseLister:        coordinationv1listers.NewLeaseLister(leases),
-				cpolLister:         factory.Kyverno().V1().ClusterPolicies().Lister(),
-				polLister:          factory.Kyverno().V1().Policies().Lister(),
 				vpolLister:         factory.Policies().V1beta1().ValidatingPolicies().Lister(),
 				nvpolLister:        factory.Policies().V1beta1().NamespacedValidatingPolicies().Lister(),
 				gpolLister:         factory.Policies().V1beta1().GeneratingPolicies().Lister(),
