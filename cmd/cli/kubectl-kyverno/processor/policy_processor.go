@@ -42,6 +42,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -92,8 +93,16 @@ type PolicyProcessor struct {
 	Subresources         []v1alpha1.Subresource
 	Out                  io.Writer
 	CrdPaths             []string
+	CrdPreloaded         bool
 	ConfigMapResolver    engineapi.ConfigmapResolver
 	RESTMapper           meta.RESTMapper
+	ContextProvider      libs.Context
+	VpolProvider         vpolengine.Provider
+	VpolProviderErr      error
+	VpolJSONProvider     vpolengine.Provider
+	VpolJSONProviderErr  error
+	MpolProvider         mpolengine.Provider
+	MpolProviderErr      error
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).
@@ -102,7 +111,7 @@ type PolicyProcessor struct {
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
 	resource := p.Resource
-	if len(p.CrdPaths) > 0 {
+	if !p.CrdPreloaded && len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
@@ -182,19 +191,32 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// MutatingPolicies
 	if len(p.MutatingPolicies) != 0 {
 		compiler := mpolcompiler.NewCompilerWithTrace(p.Explain)
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
-		if err != nil {
-			return nil, err
+		contextProvider := p.ContextProvider
+		if contextProvider == nil {
+			var err error
+			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			libs.LibraryContext = contextProvider
 		}
 
-		provider, err := mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
-		if err != nil {
-			return nil, err
+		if p.MpolProviderErr != nil {
+			return nil, p.MpolProviderErr
+		}
+		provider := p.MpolProvider
+		if provider == nil {
+			var err error
+			provider, err = mpolengine.NewProvider(compiler, p.MutatingPolicies, p.CELExceptions, contextProvider)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if resource.Object != nil {
 			tcm := mpolcompiler.NewStaticTypeConverterManager(p.openAPI())
-
-			eng := mpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher(), tcm, contextProvider)
+			nsResolver := p.getNamespaceResolver()
+			eng := mpolengine.NewEngine(provider, nsResolver, matching.NewMatcher(), tcm, contextProvider)
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
 				if !p.Cluster {
@@ -275,7 +297,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			if len(p.TargetResources) > 0 {
 				// Create engine with nil matcher — targets are filtered by targetMatchConstraints
 				// (via label selectors and CEL expressions) rather than by MatchConstraints which matches triggers
-				mutExistEng := mpolengine.NewEngine(provider, p.Variables.Namespace, nil, tcm, contextProvider)
+				mutExistEng := mpolengine.NewEngine(provider, nsResolver, nil, tcm, contextProvider)
 				targetMatcher := matching.NewMatcher()
 				// Register target resources with FakeContextProvider so CEL resource.List()/resource.Get() can find them
 				if fakeCtx, ok := contextProvider.(*libs.FakeContextProvider); ok {
@@ -405,18 +427,31 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				k8sPolicies = append(k8sPolicies, pol)
 			}
 		}
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
-		if err != nil {
-			return nil, err
+		contextProvider := p.ContextProvider
+		if contextProvider == nil {
+			var err error
+			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			libs.LibraryContext = contextProvider
 		}
 		if resource.Object != nil {
 			// Evaluate Kubernetes-mode policies via the admission path
 			if len(k8sPolicies) > 0 {
-				provider, err := vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions)
-				if err != nil {
-					return nil, err
+				if p.VpolProviderErr != nil {
+					return nil, p.VpolProviderErr
 				}
-				eng := vpolengine.NewEngine(provider, p.Variables.Namespace, matching.NewMatcher())
+				provider := p.VpolProvider
+				if provider == nil {
+					var err error
+					provider, err = vpolengine.NewProvider(compiler, k8sPolicies, p.CELExceptions)
+					if err != nil {
+						return nil, err
+					}
+				}
+				eng := vpolengine.NewEngine(provider, p.getNamespaceResolver(), matching.NewMatcher())
 				// map gvk to gvr
 				mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 				if err != nil {
@@ -481,9 +516,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 			// Also evaluate JSON-mode policies against the K8s resource as raw JSON
 			if len(jsonPolicies) > 0 {
-				provider, err := vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
-				if err != nil {
-					return nil, err
+				if p.VpolJSONProviderErr != nil {
+					return nil, p.VpolJSONProviderErr
+				}
+				provider := p.VpolJSONProvider
+				if provider == nil {
+					var err error
+					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+					if err != nil {
+						return nil, err
+					}
 				}
 				eng := vpolengine.NewEngine(provider, nil, nil)
 				request := celengine.RequestFromJSON(contextProvider, &resource)
@@ -514,9 +556,16 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					"skippedPolicies", len(k8sPolicies))
 			}
 			if len(jsonPolicies) > 0 {
-				provider, err := vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
-				if err != nil {
-					return nil, err
+				if p.VpolJSONProviderErr != nil {
+					return nil, p.VpolJSONProviderErr
+				}
+				provider := p.VpolJSONProvider
+				if provider == nil {
+					var err error
+					provider, err = vpolengine.NewProvider(compiler, jsonPolicies, p.CELExceptions)
+					if err != nil {
+						return nil, err
+					}
 				}
 				eng := vpolengine.NewEngine(provider, nil, nil)
 				request := celengine.RequestFromJSON(contextProvider, &unstructured.Unstructured{Object: p.JsonPayload.Object})
@@ -542,9 +591,15 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 	// generating policies
 	if len(p.GeneratingPolicies) != 0 {
 		// initialize the context provider before compiling to make it globally available
-		contextProvider, err := NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
-		if err != nil {
-			return nil, err
+		contextProvider := p.ContextProvider
+		if contextProvider == nil {
+			var err error
+			contextProvider, err = NewContextProvider(p.Client, restMapper, p.ContextFs, p.ContextPath, true, !p.Cluster, p.GlobalContextEntries, p.Store.GetHTTPMockIndex())
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			libs.LibraryContext = contextProvider
 		}
 
 		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
@@ -560,7 +615,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			})
 		}
 		if resource.Object != nil {
-			engine := gpolengine.NewEngine(p.Variables.Namespace, matching.NewMatcher())
+			engine := gpolengine.NewEngine(p.getNamespaceResolver(), matching.NewMatcher())
 			// map gvk to gvr
 			mapping, err := restMapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 			if err != nil {
@@ -1007,6 +1062,13 @@ func hasSelector(match *admissionregistrationv1.MatchResources) bool {
 		return false
 	}
 	return true
+}
+
+func (p *PolicyProcessor) getNamespaceResolver() celengine.NamespaceResolver {
+	if p.Variables != nil {
+		return p.Variables.Namespace
+	}
+	return func(string) *corev1.Namespace { return nil }
 }
 
 func (p *PolicyProcessor) loadCrds() error {
