@@ -1,9 +1,12 @@
 package jmespath
 
 import (
+	"github.com/dgraph-io/ristretto/v2"
 	gojmespath "github.com/kyverno/go-jmespath"
 	"github.com/kyverno/kyverno/pkg/config"
 )
+
+const defaultQueryCacheSize = 1024
 
 type QueryProxy struct {
 	jmesPath       *gojmespath.JMESPath
@@ -25,6 +28,23 @@ func newJMESPath(query string, functionCaller *gojmespath.FunctionCaller) (*Quer
 	}, nil
 }
 
+func (i *implementation) getQuery(query string) (*QueryProxy, error) {
+	if i.cache != nil {
+		if proxy, ok := i.cache.Get(query); ok {
+			return proxy, nil
+		}
+	}
+	proxy, err := newJMESPath(query, i.functionCaller)
+	if err != nil {
+		return nil, err
+	}
+	if i.cache != nil {
+		i.cache.Set(query, proxy, 1)
+		i.cache.Wait()
+	}
+	return proxy, nil
+}
+
 func newImplementation(configuration config.Configuration) Interface {
 	functionCaller := gojmespath.NewFunctionCaller()
 	functions := GetFunctions(configuration)
@@ -32,11 +52,13 @@ func newImplementation(configuration config.Configuration) Interface {
 		functionCaller.Register(f.FunctionEntry)
 	}
 
-	return implementation{
-		functionCaller,
+	cache, err := ristretto.NewCache(&ristretto.Config[string, *QueryProxy]{
+		MaxCost:     defaultQueryCacheSize,
+		NumCounters: 10 * defaultQueryCacheSize,
+		BufferItems: 64,
+	})
+	if err != nil {
+		return &implementation{functionCaller: functionCaller}
 	}
-}
-
-func newExecution(fCall *gojmespath.FunctionCaller, query string, data interface{}) (interface{}, error) {
-	return gojmespath.Search(query, data, gojmespath.WithFunctionCaller(fCall))
+	return &implementation{functionCaller: functionCaller, cache: cache}
 }
