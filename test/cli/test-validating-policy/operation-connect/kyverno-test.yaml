@@ -1,0 +1,22 @@
+apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: vpol-operation-connect
+policies:
+- policy.yaml
+resources:
+- resource.yaml
+results:
+- isValidatingPolicy: true
+  kind: Pod
+  operation: CONNECT
+  policy: deny-connect
+  resources:
+  - test-pod
+  result: fail
+- isValidatingPolicy: true
+  kind: Pod
+  policy: require-env-label
+  resources:
+  - test-pod
+  result: fail
