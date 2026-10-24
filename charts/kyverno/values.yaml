@@ -1260,6 +1260,10 @@ admissionController:
     #   - name: ndots
     #     value: "2"
 
+  # -- (int) Override the pod's `terminationGracePeriodSeconds`. Pair this with a `preStop` lifecycle hook to allow
+  # in-flight requests to drain before the container is killed.
+  terminationGracePeriodSeconds: ~
+
   # -- Startup probe.
   # The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
   # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -1774,6 +1778,10 @@ backgroundController:
     #   - name: ndots
     #     value: "2"
 
+  # -- (int) Override the pod's `terminationGracePeriodSeconds`. Pair this with a `preStop` lifecycle hook to allow
+  # in-flight requests to drain before the container is killed.
+  terminationGracePeriodSeconds: ~
+
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
 
@@ -2151,6 +2159,10 @@ cleanupController:
     # options:
     #   - name: ndots
     #     value: "2"
+
+  # -- (int) Override the pod's `terminationGracePeriodSeconds`. Pair this with a `preStop` lifecycle hook to allow
+  # in-flight requests to drain before the container is killed.
+  terminationGracePeriodSeconds: ~
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
@@ -2544,6 +2556,10 @@ reportsController:
     # options:
     #   - name: ndots
     #     value: "2"
+
+  # -- (int) Override the pod's `terminationGracePeriodSeconds`. Pair this with a `preStop` lifecycle hook to allow
+  # in-flight requests to drain before the container is killed.
+  terminationGracePeriodSeconds: ~
 
   # -- Extra arguments passed to the container on the command line
   extraArgs: {}
