@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
@@ -15,6 +16,7 @@ type groupCollisionClient struct {
 	dclient.Interface
 }
 
+// ListResource returns a same-named parent resource for each requested API group.
 func (groupCollisionClient) ListResource(
 	ctx context.Context,
 	apiVersion string,
@@ -38,6 +40,7 @@ func (groupCollisionClient) ListResource(
 	}, nil
 }
 
+// TestListResourcesPreservesAPIGroups verifies that resource keys retain distinct API groups.
 func TestListResourcesPreservesAPIGroups(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -102,6 +105,7 @@ func TestListResourcesPreservesAPIGroups(t *testing.T) {
 	}
 }
 
+// GetResource marks the returned object with the requested subresource for assertions.
 func (groupCollisionClient) GetResource(
 	ctx context.Context,
 	apiVersion string,
@@ -110,7 +114,7 @@ func (groupCollisionClient) GetResource(
 	name string,
 	subresources ...string,
 ) (*unstructured.Unstructured, error) {
-	return &unstructured.Unstructured{
+	resource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": apiVersion,
 			"kind":       kind,
@@ -119,9 +123,14 @@ func (groupCollisionClient) GetResource(
 				"namespace": namespace,
 			},
 		},
-	}, nil
+	}
+	resource.SetAnnotations(map[string]string{
+		"test.kyverno.io/subresource": strings.Join(subresources, "/"),
+	})
+	return resource, nil
 }
 
+// TestListSubresourcesPreservesAPIGroups verifies that subresource keys retain distinct API groups.
 func TestListSubresourcesPreservesAPIGroups(t *testing.T) {
 	groups := []string{
 		"alpha.example.com",
@@ -186,5 +195,51 @@ func TestListSubresourcesPreservesAPIGroups(t *testing.T) {
 		if !seenGroups[group] {
 			t.Errorf("missing subresource from API group %q", group)
 		}
+	}
+}
+
+// TestListResourcesPreservesParentAndSubresource verifies that matching GVKs and names do not discard either input.
+func TestListResourcesPreservesParentAndSubresource(t *testing.T) {
+	for _, subresourceName := range []string{"status", "resize"} {
+		t.Run(subresourceName, func(t *testing.T) {
+			gvk := schema.GroupVersionKind{
+				Group: "alpha.example.com", Version: "v1", Kind: "Widget",
+			}
+			info := &resourceTypeInfo{
+				gvkMap: map[schema.GroupVersionKind]bool{gvk: true},
+				subresourceMap: map[schema.GroupVersionKind]v1alpha1.Subresource{
+					gvk: {
+						ParentResource: metav1.APIResource{
+							Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind,
+							Name: "widgets", Namespaced: true,
+						},
+						Subresource: metav1.APIResource{
+							Group: gvk.Group, Version: gvk.Version, Kind: gvk.Kind,
+							Name: "widgets/" + subresourceName, Namespaced: true,
+						},
+					},
+				},
+			}
+			fetcher := &ResourceFetcher{
+				Client: groupCollisionClient{}, Namespace: "default",
+			}
+			resources, err := fetcher.listResources(info)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(resources) != 2 {
+				t.Fatalf("got %d resources, want both parent and %s subresource", len(resources), subresourceName)
+			}
+			seen := make(map[string]int)
+			for _, resource := range resources {
+				if resource.GroupVersionKind() != gvk || resource.GetNamespace() != "default" || resource.GetName() != "shared" {
+					t.Errorf("unexpected resource identity: %s %s/%s", resource.GroupVersionKind(), resource.GetNamespace(), resource.GetName())
+				}
+				seen[resource.GetAnnotations()["test.kyverno.io/subresource"]]++
+			}
+			if seen[""] != 1 || seen[subresourceName] != 1 {
+				t.Errorf("expected one parent and one %s subresource, got %v", subresourceName, seen)
+			}
+		})
 	}
 }

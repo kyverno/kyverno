@@ -261,6 +261,7 @@ func (rf *ResourceFetcher) addToresourceTypeInfo(
 	}
 }
 
+// listResources fetches matched resources sequentially, preserving API groups and subresource identities.
 func (rf *ResourceFetcher) listResources(
 	info *resourceTypeInfo,
 ) (map[string]*unstructured.Unstructured, error) {
@@ -319,7 +320,7 @@ func (rf *ResourceFetcher) listResources(
 				continue
 			}
 
-			key := fmt.Sprintf("%s::%s::%s", subGVK.String(), resource.GetNamespace(), resource.GetName())
+			key := fmt.Sprintf("%s::%s::%s::%s", subGVK.String(), subresourceName, resource.GetNamespace(), resource.GetName())
 			resource.SetGroupVersionKind(subGVK)
 			result[key] = resource.DeepCopy()
 		}
