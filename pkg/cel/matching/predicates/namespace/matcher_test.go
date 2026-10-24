@@ -24,6 +24,7 @@ import (
 	registrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/admission"
 	"k8s.io/apiserver/pkg/admission/plugin/webhook"
@@ -260,6 +261,175 @@ func TestMatchNamespaceSelectorWithNilNamespace(t *testing.T) {
 	}
 	if !matches3 {
 		t.Error("expected empty namespace selector to match, but it didn't")
+	}
+}
+
+func TestMatchNamespaceSelectorWhenNamespaceIsMissing(t *testing.T) {
+	prodLabels := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "prod",
+			Labels: map[string]string{"env": "prod"},
+		},
+	}
+	devLabels := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "prod",
+			Labels: map[string]string{"env": "dev"},
+		},
+	}
+	var typedNil *corev1.Namespace
+
+	pod := func(namespaceName string) admission.Attributes {
+		return admission.NewAttributesRecord(
+			nil,
+			nil,
+			schema.GroupVersionKind{Kind: "Pod"},
+			namespaceName,
+			"web",
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"},
+			"",
+			admission.Create,
+			&metav1.CreateOptions{},
+			false,
+			nil,
+		)
+	}
+	creatingNamespace := func(ns *corev1.Namespace) admission.Attributes {
+		return admission.NewAttributesRecord(
+			ns,
+			nil,
+			schema.GroupVersionKind{Kind: "Namespace"},
+			"",
+			ns.Name,
+			schema.GroupVersionResource{Group: "", Version: "v1", Resource: "namespaces"},
+			"",
+			admission.Create,
+			&metav1.CreateOptions{},
+			false,
+			nil,
+		)
+	}
+	tests := []struct {
+		name      string
+		namespace runtime.Object
+		attr      admission.Attributes
+		selector  *metav1.LabelSelector
+		wantMatch bool
+		wantErr   bool
+	}{
+		{
+			name: "label selector cannot be evaluated from the name alone",
+			attr: pod("prod"),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			wantErr: true,
+		},
+		{
+			name:      "typed nil namespace is the same as a missing namespace",
+			namespace: typedNil,
+			attr:      pod("prod"),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "does not exist would match a label we never loaded",
+			attr: pod("prod"),
+			selector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
+					Key:      "env",
+					Operator: metav1.LabelSelectorOpDoesNotExist,
+				}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "not in would match a label we never loaded",
+			attr: pod("prod"),
+			selector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{{
+					Key:      "env",
+					Operator: metav1.LabelSelectorOpNotIn,
+					Values:   []string{"prod"},
+				}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "a name selector still matches without the namespace object",
+			attr: pod("prod"),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"kubernetes.io/metadata.name": "prod"},
+			},
+			wantMatch: true,
+		},
+		{
+			name: "a name selector still rejects a different namespace",
+			attr: pod("kube-system"),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"kubernetes.io/metadata.name": "prod"},
+			},
+		},
+		{
+			name:      "a loaded namespace that misses the selector is a normal miss",
+			namespace: devLabels,
+			attr:      pod("prod"),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+		},
+		{
+			name:      "a loaded namespace that has the label matches",
+			namespace: prodLabels,
+			attr:      pod("prod"),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			wantMatch: true,
+		},
+		{
+			name: "creating a namespace uses the labels on the object",
+			attr: creatingNamespace(prodLabels),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+			wantMatch: true,
+		},
+		{
+			name: "creating a namespace with other labels does not match",
+			attr: creatingNamespace(devLabels),
+			selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"env": "prod"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			matcher := namespace.Matcher{Namespace: tt.namespace}
+			hook := &registrationv1.ValidatingWebhook{NamespaceSelector: tt.selector}
+			matches, err := matcher.MatchNamespaceSelector(
+				webhook.NewValidatingWebhookAccessor("test-hook", "test-cfg", hook),
+				tt.attr,
+			)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected a match error")
+				}
+				if matches {
+					t.Fatal("expected the selector not to match")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("expected no error, got %v", err)
+			}
+			if matches != tt.wantMatch {
+				t.Fatalf("match = %v, want %v", matches, tt.wantMatch)
+			}
+		})
 	}
 }
 
