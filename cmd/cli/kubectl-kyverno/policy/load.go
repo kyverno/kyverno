@@ -593,7 +593,12 @@ func fsLoadWalking(loader loader, path string, skipUnreadable bool, walking sets
 	aggregateResults := &LoaderResults{}
 	if fi.IsDir() {
 		if skipUnreadable {
-			realPath, err := filepath.EvalSymlinks(path)
+			// resolve from an absolute path, a relative one would never match a symlink with an absolute target
+			absPath, err := filepath.Abs(path)
+			if err != nil {
+				return nil, err
+			}
+			realPath, err := filepath.EvalSymlinks(absPath)
 			if err != nil {
 				return nil, err
 			}
