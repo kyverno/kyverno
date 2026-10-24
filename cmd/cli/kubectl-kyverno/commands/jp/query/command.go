@@ -18,7 +18,7 @@ import (
 
 func Command() *cobra.Command {
 	var compact, unquoted bool
-	var input string
+	var inputFile string
 	var queries []string
 	cmd := &cobra.Command{
 		Use:          "query [-i input] [-q query|query]...",
@@ -31,11 +31,11 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			input, err := loadInput(cmd, input)
+			input, err := loadInput(cmd, inputFile)
 			if err != nil {
 				return err
 			}
-			if len(queries) == 0 && input == nil {
+			if len(queries) == 0 && inputFile == "" {
 				return errors.New("at least one query or input object is required")
 			}
 			if len(queries) == 0 {
@@ -45,7 +45,7 @@ func Command() *cobra.Command {
 				}
 				queries = append(queries, query)
 			}
-			if input == nil {
+			if inputFile == "" {
 				i, err := readInput(cmd)
 				if err != nil {
 					return err
@@ -67,7 +67,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&compact, "compact", "c", false, "Produce compact JSON output that omits non essential whitespace")
 	cmd.Flags().BoolVarP(&unquoted, "unquoted", "u", false, "If the final result is a string, it will be printed without quotes")
 	cmd.Flags().StringSliceVarP(&queries, "query", "q", nil, "Read JMESPath expression from the specified file")
-	cmd.Flags().StringVarP(&input, "input", "i", "", "Read input from a JSON or YAML file instead of stdin")
+	cmd.Flags().StringVarP(&inputFile, "input", "i", "", "Read input from a JSON or YAML file instead of stdin")
 	return cmd
 }
 
