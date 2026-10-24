@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apiserver/pkg/cel/environment"
 	"k8s.io/apiserver/pkg/cel/library"
+	celtime "github.com/kyverno/kyverno/pkg/cel/libs/time"
 )
 
 // breaking change history is stored inside the library structure. each policy compiler can pass a kyverno
@@ -76,6 +77,7 @@ func defaultEnvOptionsWithHomogeneousAggregateEnforcement(enforce bool) []cel.En
 		library.IP(),
 		library.Lists(),
 		library.Regex(),
+		celtime.Lib(),
 		library.URLs(),
 		library.Quantity(),
 		library.SemverLib(library.SemverVersion(1)),
