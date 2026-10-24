@@ -387,6 +387,9 @@ func (e *engineImpl) evaluateExtractedIv(
 		// evaluated
 		lastSkipped, lastExempt *eval.EvaluationResult
 	)
+	// every template is evaluated for the same request by the same policy, so
+	// they can share one registry auth handshake per repository
+	ctx = imageverify.WithSharedRegistryAuth(ctx)
 	for _, tpl := range templates {
 		var otherTpl *extract.Extracted
 		if o, ok := otherByPath[tpl.Path]; ok {
