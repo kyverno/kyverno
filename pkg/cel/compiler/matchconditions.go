@@ -70,7 +70,13 @@ func validateMatchConditionsExpression(expression string, preexistingExpressions
 	}
 
 	lazyNonStrictStatelessCELCompilerInit.Do(func() {
-		lazyNonStrictStatelessCELCompiler = plugincel.NewCompiler(environment.MustBaseEnvSet(environment.DefaultCompatibilityVersion()))
+		// BaseEnvSet, not MustBaseEnvSet directly: registers CostLib so this compiler's
+		// programs are priced and bounded too.
+		envSet, err := BaseEnvSet(environment.DefaultCompatibilityVersion())
+		if err != nil {
+			panic(err)
+		}
+		lazyNonStrictStatelessCELCompiler = plugincel.NewCompiler(envSet)
 	})
 
 	compiler := lazyNonStrictStatelessCELCompiler

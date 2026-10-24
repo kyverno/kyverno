@@ -39,10 +39,10 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 		require.NoError(t, err)
 		return program
 	}
-	signature := compile(`verifyImageSignatures("image", attestors)`)
-	attestation := compile(`verifyAttestationSignatures("image", "proof", attestors)`)
-	payload := compile(`extractPayload("image", "proof").request == expected`)
-	metadata := compile(`getImageData("image")`)
+	signature := compile(`verifyImageSignatures("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", attestors)`)
+	attestation := compile(`verifyAttestationSignatures("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", "proof", attestors)`)
+	payload := compile(`extractPayload("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", "proof").request == expected`)
+	metadata := compile(`getImageData("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")`)
 	policy := &policiesv1beta1.ImageValidatingPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "runtime", UID: "runtime", ResourceVersion: "1"},
 		Spec:       policiesv1beta1.ImageValidatingPolicySpec{Attestations: []policiesv1beta1.Attestation{{Name: "proof", InToto: &policiesv1beta1.InToto{Type: "proof"}}}},
@@ -56,25 +56,25 @@ func TestReusableProgramsIsolateRuntime(t *testing.T) {
 			cache, err := imageverifycache.New(imageverifycache.WithCacheEnableFlag(true), imageverifycache.WithMaxSize(0), imageverifycache.WithTTLDuration(0))
 			require.NoError(t, err)
 			if i%2 == 0 {
-				stored, err := cache.Set(context.Background(), policy, attestorCacheRule(signatureCacheRule, "", attestors), "image", true)
+				stored, err := cache.Set(context.Background(), policy, mustCacheRule(t, signatureCacheRule, "", attestors), "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", true)
 				require.NoError(t, err)
 				require.True(t, stored)
 			}
-			stored, err := cache.SetWithPayload(context.Background(), policy, attestorCacheRule(attestationCacheRule, "proof", attestors), "image", true, map[string][]byte{"proof": []byte(fmt.Sprintf(`{"request":%q}`, expected))})
+			stored, err := cache.SetWithPayload(context.Background(), policy, mustCacheRule(t, attestationCacheRule, "proof", attestors), "ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105", true, map[string][]byte{"proof": []byte(fmt.Sprintf(`{"request":%q}`, expected))})
 			require.NoError(t, err)
 			require.True(t, stored)
 			images := runtimeImages{image: &imagedataloader.ImageData{}}
 			images.image.Digest = expected
 			results := NewImageVerificationResults()
-			runtime := NewRuntimeForPolicy(ivFuncs, images, cache, results)
+			runtime := NewRuntimeForPolicy(context.Background(), ivFuncs, images, cache, results)
 			activation := map[string]any{RuntimeKey: runtime, "attestors": attestors, "expected": expected}
-			_, _, err = metadata.Eval(map[string]any{RuntimeKey: NewRuntimeForPolicy(ivFuncs, runtimeImages{err: fmt.Errorf("request %s", expected)}, nil, nil)})
+			_, _, err = metadata.Eval(map[string]any{RuntimeKey: NewRuntimeForPolicy(context.Background(), ivFuncs, runtimeImages{err: fmt.Errorf("request %s", expected)}, nil, nil)})
 			require.ErrorContains(t, err, "request "+expected)
 			var out ref.Val
 			out, _, err = signature.Eval(activation)
 			require.NoError(t, err)
 			require.Equal(t, int64(1-i%2), out.Value())
-			verified, attempted := results.Status("image")
+			verified, attempted := results.Status("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")
 			require.True(t, attempted)
 			require.Equal(t, i%2 == 0, verified)
 			_, _, err = attestation.Eval(activation)
@@ -92,7 +92,7 @@ func TestReusableProgramRequiresRuntime(t *testing.T) {
 	t.Parallel()
 	env, err := cel.NewEnv(Lib())
 	require.NoError(t, err)
-	ast, issues := env.Compile(`getImageData("image")`)
+	ast, issues := env.Compile(`getImageData("ghcr.io/example/app@sha256:b31bfb4d0213f254d361e0079deaaebefa4f82ba7aa76ef82e90b4935ad5b105")`)
 	require.NoError(t, issues.Err())
 	program, err := env.Program(ast)
 	require.NoError(t, err)

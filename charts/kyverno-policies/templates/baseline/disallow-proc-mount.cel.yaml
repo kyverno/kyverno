@@ -2,7 +2,7 @@
 {{/* PSA's Restricted procMount check overrides the Baseline one, so the user
      namespace relaxation must not apply once the strict policy is installed. */}}
 {{- $relax := and .Values.podSecurityUserNamespaces (ne (include "kyverno-policies.podSecurityRestricted" (merge (dict "name" "disallow-proc-mount-strict") .)) "true") }}
-{{- if and (eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true") (eq (include "kyverno-policies.useValidatingPolicy" .) "true") }}
+{{- if eq (include "kyverno-policies.podSecurityBaseline" (merge (dict "name" $name) .)) "true" }}
 apiVersion: policies.kyverno.io/v1beta1
 kind: ValidatingPolicy
 metadata:

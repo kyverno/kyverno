@@ -13,6 +13,7 @@ import (
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/libs"
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
@@ -87,6 +88,7 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 		logger.Error(err, "failed to handle mutating policy request")
 		return admissionutils.Response(admissionRequest.UID, err)
 	}
+	logDecisionTraces(logger, response)
 
 	go func() {
 		if err := h.audit(context.WithoutCancel(ctx), response, request); err != nil {
@@ -159,6 +161,23 @@ func (h *handler) mutate(ctx context.Context, logger logr.Logger, admissionReque
 	}
 
 	return resp
+}
+
+// logDecisionTraces writes the decision trace of every policy that has one to the log. A policy
+// only has one when the admission controller compiles policies with tracing on, so this does
+// nothing otherwise. The traces are written in their own goroutine, so that logging them never
+// holds up the admission response; they are not part of that response either.
+func logDecisionTraces(logger logr.Logger, response mpolengine.EngineResponse) {
+	var traces []*trace.Decision
+	for _, p := range response.Policies {
+		if p.Trace != nil {
+			traces = append(traces, p.Trace)
+		}
+	}
+	if len(traces) == 0 {
+		return
+	}
+	go webhookutils.LogDecisionTraces(logger, traces...)
 }
 
 func (h *handler) filterBackgroundPolicies(logger logr.Logger, policies []string) []string {

@@ -24,7 +24,7 @@ Using `ProtectManagedResources` as the worked example (a flag that's fully wired
 5. **Register the CLI flag in every `cmd/*/main.go` binary that needs it.** This step is NOT centralized — each
    binary opts in individually with `flagset.Func(toggle.<Name>FlagName, toggle.<Name>Description, toggle.<Name>.Parse)`.
    `ProtectManagedResources` is registered in `cmd/kyverno/main.go` and `cmd/cleanup-controller/main.go` because
-   only `pkg/controllers/cleanup` and `pkg/controllers/deleting` consume it. `AllowHTTPInNamespacedPolicies` /
+   `pkg/webhooks/server.go` and `pkg/controllers/deleting` consume it. `AllowHTTPInNamespacedPolicies` /
    `HTTPBlocklist` / `HTTPAllowlist` are registered in **four** binaries because CEL HTTP calls happen in all of
    them. This registration step gates **CLI-flag exposure only** — `Enabled()` (`toggle.go`) reads the toggle's
    env var via `os.Getenv(t.envVar)` directly, regardless of whether `flagset.Func` was ever called for it, so an

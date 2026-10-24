@@ -1,0 +1,28 @@
+# Used by Test_Apply_ImageValidatingPolicyJSONSkippedByMatchCondition: a JSON-mode policy whose
+# match condition excludes the payload, which used to crash the CLI (a nil result was read).
+apiVersion: policies.kyverno.io/v1beta1
+kind: ImageValidatingPolicy
+metadata:
+  name: check-json-images
+spec:
+  evaluation:
+    mode: JSON
+  matchConditions:
+  - name: is-production
+    expression: "object.?env.orValue('') == 'production'"
+  matchImageReferences:
+  - glob: "registry.example.com/*"
+  validationConfigurations:
+    verifyDigest: false
+    required: false
+  # an ImageValidatingPolicy needs an attestor; no validation here calls it
+  attestors:
+  - name: unused
+    cosign:
+      key:
+        data: unused
+  images:
+  - name: app
+    expression: "[object.image]"
+  validations:
+  - expression: "images.app.size() >= 0"

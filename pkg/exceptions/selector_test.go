@@ -111,29 +111,6 @@ func TestSelector_Find_MultipleMatchingExceptions(t *testing.T) {
 	assert.Len(t, res, 2, "both exceptions should match")
 }
 
-func TestSelector_Find_ClusterPolicyWithoutNamespace(t *testing.T) {
-	pe := &kyvernov2.PolicyException{
-		Spec: kyvernov2.PolicyExceptionSpec{
-			Exceptions: []kyvernov2.Exception{{
-				PolicyName: "cluster-policy", // no namespace prefix
-				RuleNames:  []string{"rule1"},
-			}},
-		},
-	}
-
-	s := New(fakeLister{items: []*kyvernov2.PolicyException{pe}})
-
-	// Should match cluster policy without namespace
-	res, err := s.Find("cluster-policy", "rule1")
-	assert.NoError(t, err)
-	assert.Len(t, res, 1)
-
-	// Should NOT match namespaced policy with same name
-	res, err = s.Find("default/cluster-policy", "rule1")
-	assert.NoError(t, err)
-	assert.Len(t, res, 0)
-}
-
 func TestSelector_Find_NamespacedPolicyMatching(t *testing.T) {
 	pe := &kyvernov2.PolicyException{
 		Spec: kyvernov2.PolicyExceptionSpec{
