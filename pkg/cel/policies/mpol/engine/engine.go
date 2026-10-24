@@ -23,6 +23,7 @@ import (
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	"gomodules.xyz/jsonpatch/v2"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -30,14 +31,31 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// Engine evaluates MutatingPolicies against admission requests and existing
+// resources. It is the central entry point for both the admission webhook path
+// (Handle) and the background/CLI mutate-existing path (Evaluate).
 type Engine interface {
+	// Handle evaluates all non-mutateExisting policies against the given
+	// admission request and applies any matching mutations.
 	Handle(context.Context, engine.EngineRequest, Predicate) (EngineResponse, error)
+	// Evaluate evaluates mutateExisting policies against the supplied target
+	// resource, resolving its namespace so that namespaceSelector matching
+	// mirrors the admission path.
 	Evaluate(context.Context, admission.Attributes, admissionv1.AdmissionRequest, Predicate) (EngineResponse, error)
+	// MatchedMutateExistingPolicies returns the names of all mutateExisting
+	// policies whose trigger constraints match the given admission request.
 	MatchedMutateExistingPolicies(context.Context, engine.EngineRequest) []string
+	// GetCompiledPolicy returns the compiled representation of the policy
+	// identified by name. Only cluster-scoped names are supported for now.
 	GetCompiledPolicy(name string) (Policy, error) // todo: support namespaced as well
+	// GetCompiledPolicies returns compiled policies indexed by the provided
+	// names. When names is empty all compiled policies are returned.
 	GetCompiledPolicies(names ...string) map[string]Policy
 }
 
+// EngineResponse is the result of evaluating one or more MutatingPolicies
+// against a resource. PatchedResource is non-nil only when at least one
+// policy produced a mutation.
 type EngineResponse struct {
 	PatchedResource *unstructured.Unstructured
 	Resource        *unstructured.Unstructured
@@ -79,6 +97,9 @@ type engineImpl struct {
 	contextProvider libs.Context
 }
 
+// NewEngine constructs an Engine backed by the given provider and helpers.
+// Pass matching.NewMatcher() for matcher in production; nil disables
+// matchConstraints/namespaceSelector evaluation (for testing only).
 func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher matching.Matcher, typeConverter compiler.TypeConverterManager, contextProvider libs.Context) *engineImpl {
 	return &engineImpl{
 		provider:        provider,
@@ -89,6 +110,10 @@ func NewEngine(provider Provider, nsResolver engine.NamespaceResolver, matcher m
 	}
 }
 
+// Evaluate processes mutateExisting MutatingPolicies for a target resource
+// identified by attr. The namespace of attr is resolved via nsResolver so
+// that namespaceSelector matching mirrors the admission-webhook path. A nil
+// predicate evaluates all policies.
 func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, request admissionv1.AdmissionRequest, predicate Predicate) (EngineResponse, error) {
 	mpols := e.provider.Fetch(ctx, true)
 	var object *unstructured.Unstructured
@@ -98,6 +123,13 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 
 	response := EngineResponse{
 		Resource: object,
+	}
+
+	// Resolve the namespace so that namespaceSelector matching in handlePolicy
+	// mirrors the admission path (Handle), which also calls nsResolver.
+	var namespace *corev1.Namespace
+	if ns := attr.GetNamespace(); ns != "" {
+		namespace = e.nsResolver(ns)
 	}
 
 	// The request here is loop-invariant (attr is rebuilt per policy below,
@@ -116,26 +148,27 @@ func (e *engineImpl) Evaluate(ctx context.Context, attr admission.Attributes, re
 	})
 
 	for _, mpol := range mpols {
-		if predicate != nil && predicate(mpol.Policy) {
-			r, patched := e.handlePolicy(ctx, mpol, attr, request, nil, requestMapFn, true)
-			response.Policies = append(response.Policies, r)
-			if patched != nil {
-				response.PatchedResource = patched
-				// Update attr to use the patched resource for the next policy evaluation
-				attr = admission.NewAttributesRecord(
-					patched,
-					attr.GetOldObject(),
-					attr.GetKind(),
-					attr.GetNamespace(),
-					attr.GetName(),
-					attr.GetResource(),
-					attr.GetSubresource(),
-					attr.GetOperation(),
-					nil,
-					attr.IsDryRun(),
-					attr.GetUserInfo(),
-				)
-			}
+		if predicate != nil && !predicate(mpol.Policy) {
+			continue
+		}
+		r, patched := e.handlePolicy(ctx, mpol, attr, request, namespace, requestMapFn, true)
+		response.Policies = append(response.Policies, r)
+		if patched != nil {
+			response.PatchedResource = patched
+			// Update attr to use the patched resource for the next policy evaluation
+			attr = admission.NewAttributesRecord(
+				patched,
+				attr.GetOldObject(),
+				attr.GetKind(),
+				attr.GetNamespace(),
+				attr.GetName(),
+				attr.GetResource(),
+				attr.GetSubresource(),
+				attr.GetOperation(),
+				nil,
+				attr.IsDryRun(),
+				attr.GetUserInfo(),
+			)
 		}
 	}
 	annotateTraces(response.Policies, response.Resource)
@@ -240,6 +273,11 @@ func annotateTraces(policies []MutatingPolicyResponse, resource *unstructured.Un
 	}
 }
 
+// handlePolicy runs a single compiled MutatingPolicy against attr. When
+// target is true the policy is evaluated in target mode (mutateExisting):
+// constraints are taken from targetMatchConstraints and target operations are
+// normalised to OperationAll so that the background controller's synthetic
+// Update and the CLI's empty operation do not incorrectly filter out targets.
 func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admission.Attributes, request admissionv1.AdmissionRequest, namespace *corev1.Namespace, requestMapFn func() (map[string]any, error), target bool) (MutatingPolicyResponse, *unstructured.Unstructured) {
 	ruleResponse := MutatingPolicyResponse{
 		Policy: mpol.Policy,
@@ -258,7 +296,43 @@ func (e *engineImpl) handlePolicy(ctx context.Context, mpol Policy, attr admissi
 	if e.matcher != nil {
 		constraints := mpol.Policy.GetMatchConstraints()
 		if target && hasExplicitTarget {
-			constraints = targetConstraints.MatchResources
+			if len(targetConstraints.ResourceRules) > 0 {
+				constraints = targetConstraints.MatchResources
+			} else if targetConstraints.Expression != "" {
+				// Expression-only targets: the CEL expression (e.g. resource.get(...))
+				// resolves the target set directly. Use the targetMatchConstraints'
+				// MatchResources (which may carry NamespaceSelector/ObjectSelector)
+				// but clear both ResourceRules and ExcludeResourceRules to avoid
+				// falling back to the trigger's matchConstraints for resource-rule
+				// matching.
+				constraints = targetConstraints.MatchResources
+				constraints.ResourceRules = nil
+				constraints.ExcludeResourceRules = nil
+			}
+		}
+		if target {
+			// Normalize target resource-rule operations to OperationAll.
+			// Target matching is not an admission-operation filter: the
+			// background controller synthesises Update for every scan request,
+			// and the CLI uses an empty operation. Without this normalization,
+			// a target rule limited to CREATE would be silently rejected even
+			// though the target was already selected for mutation.
+			if len(constraints.ResourceRules) > 0 {
+				normalizedRules := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ResourceRules))
+				for i, r := range constraints.ResourceRules {
+					normalizedRules[i] = r
+					normalizedRules[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+				}
+				constraints.ResourceRules = normalizedRules
+			}
+			if len(constraints.ExcludeResourceRules) > 0 {
+				normalizedExclude := make([]admissionregistrationv1.NamedRuleWithOperations, len(constraints.ExcludeResourceRules))
+				for i, r := range constraints.ExcludeResourceRules {
+					normalizedExclude[i] = r
+					normalizedExclude[i].Operations = []admissionregistrationv1.OperationType{admissionregistrationv1.OperationAll}
+				}
+				constraints.ExcludeResourceRules = normalizedExclude
+			}
 		}
 		matches, err := e.matcher.Match(&matching.MatchCriteria{Constraints: &constraints}, attr, namespace)
 		if tracing {
