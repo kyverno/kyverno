@@ -62,6 +62,81 @@ func TestCommandNoTests(t *testing.T) {
 	assert.Equal(t, strings.TrimSpace(expected), strings.TrimSpace(string(errOut)))
 }
 
+func TestCommandWithChecksOnly(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	testDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "checks-only")
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(errBuffer)
+	cmd.SetArgs([]string{testDir})
+
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, outBuffer.String(), "Test Summary: 1 tests passed and 0 tests failed")
+}
+
+func TestCommandWithFailingChecksOnly(t *testing.T) {
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	rootDir := filepath.Join(wd, "..", "..", "..", "..", "..")
+	sourceDir := filepath.Join(rootDir, "test", "cli", "test-validating-policy", "checks")
+	testDir := t.TempDir()
+
+	for _, filename := range []string{"policy.yaml", "resource.yaml"} {
+		content, err := os.ReadFile(filepath.Join(sourceDir, filename))
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(filepath.Join(testDir, filename), content, 0o600))
+	}
+
+	testManifest := `apiVersion: cli.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: checks-only-failure
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+checks:
+  - match:
+      policy:
+        metadata:
+          name: require-team-label
+      resource:
+        metadata:
+          name: no-team-label
+    assert:
+      status: pass
+`
+	require.NoError(t, os.WriteFile(filepath.Join(testDir, "kyverno-test.yaml"), []byte(testManifest), 0o600))
+
+	cmd := Command()
+	outBuffer := bytes.NewBufferString("")
+	errBuffer := bytes.NewBufferString("")
+	cmd.SetOut(outBuffer)
+	cmd.SetErr(errBuffer)
+	cmd.SetArgs([]string{testDir})
+
+	err = cmd.Execute()
+	require.ErrorContains(t, err, "1 tests failed")
+	assert.Contains(t, outBuffer.String(), "Test Summary: 0 tests passed and 1 tests failed")
+}
+
+func TestCommandWithChecksAndExplicitOperation(t *testing.T) {
+	testDir := filepath.Join("..", "..", "..", "..", "..", "test", "cli", "test-validating-policy", "checks-operations")
+	cmd := Command()
+	var outBuffer, errBuffer bytes.Buffer
+	cmd.SetOut(&outBuffer)
+	cmd.SetErr(&errBuffer)
+	cmd.SetArgs([]string{testDir})
+
+	require.NoError(t, cmd.Execute())
+	assert.Contains(t, outBuffer.String(), "Test Summary: 2 tests passed and 0 tests failed")
+}
+
 func TestCommandRequireTests(t *testing.T) {
 	cmd := Command()
 	assert.NotNil(t, cmd)
