@@ -16,6 +16,9 @@ For release instructions, see: [create-a-release.md](releases/create-a-release.m
 
 For the `kyverno oci` bundle format, see: [docs/dev/oci/bundle-spec.md](oci/bundle-spec.md).
 
+For read-only GitHub Actions timing collection and offline SHA-matched reports, see
+[CI timing measurement](ci-timing.md).
+
 ## Performance benchmarks
 
 A `perf` job in the post-merge `check-tests` workflow
