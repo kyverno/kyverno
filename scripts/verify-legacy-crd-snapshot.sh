@@ -48,11 +48,15 @@ fail() { echo "[verify-legacy-crd-snapshot] FAIL: $*" >&2; exit 1; }
 # $(...) capture (which drops the trailing newline before hashing). See
 # config/crds/kyverno/README.md for full provenance.
 #
+# The ClusterPolicy and Policy digests include the imageExtractors[].filter
+# field from release-1.19 (#16269), which shipped in 1.19.2 but was never on
+# main, so that upgrading from 1.19.2 keeps the field in the schema.
+#
 # Parallel "name digest" lines rather than associative arrays (bash 3.2 has
 # none). file_digest()/version_digest() below do the lookup.
 EXPECTED_FILE_DIGESTS='
-kyverno.io_clusterpolicies.yaml 3601861ea9f8bbcc03935126042e6db3f12fd1e9f317c0fdaf43417b9ad61d08
-kyverno.io_policies.yaml b387b51cb7c3625b51c479a3f5f1d2eb8cd292dd7634a6ee0abee890e5233163
+kyverno.io_clusterpolicies.yaml a97a2e2a0cc7f72faa40343bceacf7a639625a5dfd11dadd2a2e5c03da8f0f9a
+kyverno.io_policies.yaml 79258028064bee132b3148bb10a78395d88de51dbfae3635f6983cda50be97c0
 kyverno.io_policyexceptions.yaml 58e77a8914e8fbbb60f0df16bedcfaa874fb92a6ba44524d33785a03f5f160f0
 kyverno.io_cleanuppolicies.yaml f8cd936675ab43492cb6179c54d0467fca664c3d0cdc34450580364f6a4f6fb6
 kyverno.io_clustercleanuppolicies.yaml 5f637228aabd86b6bb1be2379b6deab3e58323671c17f894a4ae162f2914c155

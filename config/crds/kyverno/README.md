@@ -7,7 +7,10 @@ after their Go types are deleted.
 
 ## Provenance
 
-Snapshot baseline: commit `22a7827fe` (upstream/main, 2026-10-23). Generator:
+Snapshot baseline: commit `22a7827fe` (upstream/main, 2026-10-23). The
+ClusterPolicy and Policy files also carry the `imageExtractors[].filter` field
+from release-1.19 (#16269), which shipped in 1.19.2 but was never on main, so
+the frozen schemas are a superset of the latest 1.19 release. Generator:
 `hack/controller-gen`, built from `hack/controller-gen/go.mod`
 (`sigs.k8s.io/controller-tools` v0.22.0, `-buildvcs=false`, hence the
 `controller-gen.kubebuilder.io/version: (devel)` header in every file). Go
