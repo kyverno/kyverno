@@ -521,6 +521,16 @@ class AnalyzeTest(Base):
         self.assertIn("  - [ ] Decide whether `kernel.shm_rmid_forced`, which upstream removed, must stay",
                       issue.sections["Required actions"])
 
+    def test_a_removed_value_absent_from_the_template_is_a_confirm_issue(self):
+        self.upstream.release("37.0", days_ago=3, files={"policy/check_sysctls.go": check_sysctls(
+            values=["net.ipv4.not_in_chart"])})
+        self.upstream.release("38.0", days_ago=2, files={"policy/check_sysctls.go": check_sysctls()})
+        issue = self.issue()
+        self.assertEqual(issue.analysis.signals["sysctls"]["removed_values"], ["net.ipv4.not_in_chart"])
+        self.assertEqual(issue.mapped[0]["kept_values"], [])
+        self.assertTrue(issue.mapped[0]["handled"])
+        self.assertEqual((issue.uncertain, issue.kind), ([], "confirm"))
+
     def test_a_confirm_issue_gives_every_reason(self):
         # Like upstream 1.37: a handled check change and test-only changes in one release.
         issue = self.change({"policy/check_sysctls.go": check_sysctls(gate=37, values=["net.ipv4.tcp_notsent_lowat"]),

@@ -501,8 +501,9 @@ def map_changes(analysis, mapping, chart):
         # A value that upstream removed but the template still has may need work, so it isn't handled.
         entry["kept_values"] = [v for v in signals.get("removed_values", []) if has_value(files["sources"], v)]
         removed_gates = signals.get("removed_gates", [])
-        entry["handled"] = (bool(added or gates) and not entry["missing_values"] and not entry["missing_gates"]
-                            and not entry["kept_values"] and not removed_gates)
+        # A removed value the template already lacks needs no work, so it counts as a signal.
+        entry["handled"] = (bool(added or gates or signals.get("removed_values")) and not entry["missing_values"]
+                            and not entry["missing_gates"] and not entry["kept_values"] and not removed_gates)
         if signals.get("new") and signals.get("removed"):
             uncertain.append(unsure(group, "A check file for this check was renamed or split, so its check ID or level "
                                     "may have moved.",
