@@ -49,6 +49,7 @@ func (c *controller) handleVAPGeneration(ctx context.Context, policy engineapi.G
 		if err != nil {
 			return fmt.Errorf("failed to get celexceptions by name %s: %v", policy.GetName(), err)
 		}
+		c.requeueAtExpiry(policy.GetName(), "ValidatingPolicy", celexceptions)
 		// Read autogen from the spec: status.autogen is written later by the
 		// policystatus controller and can still be empty on a new policy.
 		autogenConfigs, err := vpolautogen.Autogen(pol)

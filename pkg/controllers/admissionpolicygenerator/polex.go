@@ -52,24 +52,19 @@ func (c *controller) enqueueCELException(obj *policiesv1beta1.PolicyException) {
 			c.enqueueMP(mpol)
 		}
 	}
-	c.requeueAtExpiry(obj)
 }
 
-// requeueAtExpiry reconciles the policies an exception references again once it expires.
-// getCELExceptions drops expired exceptions, but only when generation runs, and an exception
-// reaching its expiresAt is not an informer event. Without this, a generated VAP/MAP would keep
-// the expired exception's negated match conditions until something else touched the policy.
-func (c *controller) requeueAtExpiry(obj *policiesv1beta1.PolicyException) {
-	if obj.Spec.ExpiresAt == nil {
-		return
-	}
-	delay := time.Until(obj.Spec.ExpiresAt.Time)
-	if delay <= 0 {
-		return
-	}
-	for _, policy := range obj.Spec.PolicyRefs {
-		if policy.Kind == "ValidatingPolicy" || policy.Kind == "MutatingPolicy" {
-			c.queue.AddAfter(policy.Kind+"/"+policy.Name, delay)
+// requeueAtExpiry arms the next deadline on every generation because the queue keeps
+// only the earliest delay for each policy key. Exceptions are filtered by getCELExceptions;
+// if one expires during generation, AddAfter's nonpositive delay queues it immediately.
+func (c *controller) requeueAtExpiry(name, kind string, exceptions []policiesv1beta1.PolicyException) {
+	var earliest time.Time
+	for _, exception := range exceptions {
+		if expiry := exception.Spec.ExpiresAt; expiry != nil && (earliest.IsZero() || expiry.Time.Before(earliest)) {
+			earliest = expiry.Time
 		}
+	}
+	if !earliest.IsZero() {
+		c.queue.AddAfter(kind+"/"+name, time.Until(earliest))
 	}
 }

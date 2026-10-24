@@ -102,6 +102,7 @@ func (c *controller) handleMAPV1(ctx context.Context, mpol *policiesv1beta1.Muta
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
+	c.requeueAtExpiry(mpol.GetName(), "MutatingPolicy", celexceptions)
 
 	if mapErr != nil {
 		if !apierrors.IsNotFound(mapErr) {
@@ -199,6 +200,7 @@ func (c *controller) handleMAPV1Alpha1(ctx context.Context, mpol *policiesv1beta
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
+	c.requeueAtExpiry(mpol.GetName(), "MutatingPolicy", celexceptions)
 
 	if mapErr != nil {
 		if !apierrors.IsNotFound(mapErr) {
@@ -274,6 +276,7 @@ func (c *controller) handleMAPV1Beta1(ctx context.Context, mpol *policiesv1beta1
 	if err != nil {
 		return fmt.Errorf("failed to get celexceptions by name %s: %v", mpol.GetName(), err)
 	}
+	c.requeueAtExpiry(mpol.GetName(), "MutatingPolicy", celexceptions)
 
 	if mapErr != nil {
 		if !apierrors.IsNotFound(mapErr) {
