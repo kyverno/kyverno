@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -117,16 +116,10 @@ func TestDenyLegacyWriteCore(t *testing.T) {
 	}
 }
 
-// TestDenyLegacyWriteNoRegistrants is the PR 1 proof that, in a package/binary where nothing
-// has registered the escape hatch or a subresource allowance, neither a stale toggle value nor
-// a stale env var can bypass denial. pkg/deprecations itself registers nothing.
+// TestDenyLegacyWriteNoRegistrants is the PR 1 proof that, in a package/binary where nothing has
+// registered the escape hatch or a subresource allowance, denial is unconditional.
+// pkg/deprecations itself registers nothing.
 func TestDenyLegacyWriteNoRegistrants(t *testing.T) {
-	t.Cleanup(func() {
-		require.NoError(t, toggle.BlockLegacyPolicyAPIs.Parse(""))
-	})
-	t.Setenv("FLAG_BLOCK_LEGACY_POLICY_APIS", "false")
-	require.NoError(t, toggle.BlockLegacyPolicyAPIs.Parse("false"))
-
 	clusterPolicyKind := metav1.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"}
 
 	decision, err := DecideLegacyWrite(admissionv1.AdmissionRequest{Kind: clusterPolicyKind, Operation: admissionv1.Create})

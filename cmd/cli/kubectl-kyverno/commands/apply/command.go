@@ -19,7 +19,6 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
 	authzhttp "github.com/kyverno/kyverno-authz/pkg/cel/libs/authz/http"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/command"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/commands/oci/pull"
@@ -38,7 +37,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/userinfo"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/variables"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	celengine "github.com/kyverno/kyverno/pkg/cel/engine"
 	"github.com/kyverno/kyverno/pkg/cel/matching"
 	dpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/dpol/compiler"
@@ -50,16 +48,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	pkgdeprecations "github.com/kyverno/kyverno/pkg/deprecations"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/factories"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
 	eval "github.com/kyverno/kyverno/pkg/image/verification/evaluator"
-	"github.com/kyverno/kyverno/pkg/utils/conditions"
 	gitutils "github.com/kyverno/kyverno/pkg/utils/git"
-	matchutils "github.com/kyverno/kyverno/pkg/utils/match"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
-	policyvalidation "github.com/kyverno/kyverno/pkg/validation/policy"
 	"github.com/spf13/cobra"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
@@ -309,17 +302,14 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 	var store store.Store
 
-	kpols, polexs, celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
+	celpolexs, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, err := c.loadPolicies(ctx, out)
 	if err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
 	if err := c.failOnDeprecationWarnings(); err != nil {
 		return nil, nil, skippedInvalidPolicies, nil, err
 	}
-	genericPolicies := make([]engineapi.GenericPolicy, 0, len(kpols)+len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps)+len(cps))
-	for _, pol := range kpols {
-		genericPolicies = append(genericPolicies, engineapi.NewKyvernoPolicy(pol))
-	}
+	genericPolicies := make([]engineapi.GenericPolicy, 0, len(vaps)+len(vps)+len(ivps)+len(gps)+len(dps))
 	for _, pol := range vaps {
 		genericPolicies = append(genericPolicies, engineapi.NewValidatingAdmissionPolicy(&pol))
 	}
@@ -337,9 +327,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 	for i := range dps {
 		genericPolicies = append(genericPolicies, engineapi.NewDeletingPolicyFromLike(dps[i]))
-	}
-	for i := range cps {
-		genericPolicies = append(genericPolicies, engineapi.NewCleanupPolicyFromInterface(cps[i]))
 	}
 	for i := range mps {
 		genericPolicies = append(genericPolicies, engineapi.NewMutatingPolicyFromLike(mps[i]))
@@ -392,18 +379,16 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		}
 	}
 
-	var exceptions []*kyvernov2.PolicyException
 	var celExceptions []*policiesv1beta1.PolicyException
 	// `kyverno apply` always hard-blocks legacy kyverno.io policy kinds -- no escape hatch, see #17485.
 	if c.exceptionsWithinResources || c.inlineExceptions {
-		results, err := exception.SelectFrom(resources, false)
+		results, err := exception.SelectFrom(resources)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 		}
-		exceptions = results.Exceptions
 		celExceptions = results.CELExceptions
 	} else {
-		results, err := exception.Load(false, c.Exception...)
+		results, err := exception.Load(c.Exception...)
 		if err != nil {
 			return nil, nil, skippedInvalidPolicies, nil, fmt.Errorf("Error: failed to load exceptions (%s)", err)
 		}
@@ -413,7 +398,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 				fmt.Fprintln(out, msg)
 				c.deprecationWarnings = append(c.deprecationWarnings, msg)
 			}
-			exceptions = results.Exceptions
 			celExceptions = results.CELExceptions
 		}
 	}
@@ -422,27 +406,21 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	}
 
 	if c.exceptionsWithinPolicies {
-		exceptions = append(exceptions, polexs...)
 		celExceptions = append(celExceptions, celpolexs...)
 	}
 
 	if !c.Stdin && !c.PolicyReport && !c.GenerateExceptions {
 		var policyRulesCount int
-		for _, policy := range kpols {
-			policyRulesCount += len(autogen.Default.ComputeRules(policy, ""))
-		}
 		policyRulesCount += len(vaps)
 		policyRulesCount += len(vps)
 		policyRulesCount += len(ivps)
 		policyRulesCount += len(maps)
 		policyRulesCount += len(gps)
 		policyRulesCount += len(dps)
-		policyRulesCount += len(cps)
 		policyRulesCount += len(mps)
 		policyRulesCount += len(envoyPols)
 		policyRulesCount += len(httpPols)
-		exceptionsCount := len(exceptions)
-		exceptionsCount += len(celExceptions)
+		exceptionsCount := len(celExceptions)
 		resourceCount := len(resources) + len(jsonPayloads)
 		if exceptionsCount > 0 {
 			fmt.Fprintf(out, "\nApplying %d policy rule(s) to %d resource(s) with %d exception(s)...\n", policyRulesCount, resourceCount, exceptionsCount)
@@ -471,7 +449,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		out,
 		&store,
 		variables,
-		kpols,
 		vaps,
 		vapBindings,
 		vps,
@@ -483,7 +460,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		targetResources,
 		parameterResources,
 		jsonPayloads,
-		exceptions,
 		celExceptions,
 		&skippedInvalidPolicies,
 		dClient,
@@ -508,11 +484,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 		return rc, resources1, skippedInvalidPolicies, responses4, err
 	}
 
-	responses7, err := c.applyCleanupPolicies(cps, resources1, variables.Namespace, rc, dClient, "resource")
-	if err != nil {
-		return rc, resources1, skippedInvalidPolicies, responses7, err
-	}
-
 	authzProcessor := processor.NewAuthzProcessor(rc, dClient, httpPols, envoyPols)
 
 	httpResponses, err := authzProcessor.ApplyHTTPPolicies(httpRequests)
@@ -530,7 +501,6 @@ func (c *ApplyCommandConfig) applyCommandHelper(ctx context.Context, out io.Writ
 	responses = append(responses, responses4...)
 	responses = append(responses, responses5...)
 	responses = append(responses, responses6...)
-	responses = append(responses, responses7...)
 	responses = append(responses, httpResponses...)
 	responses = append(responses, envoyResponses...)
 	return rc, resources1, skippedInvalidPolicies, responses, nil
@@ -548,7 +518,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	out io.Writer,
 	store *store.Store,
 	vars *variables.Variables,
-	policies []kyvernov1.PolicyInterface,
 	vaps []admissionregistrationv1.ValidatingAdmissionPolicy,
 	vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding,
 	vpols []policiesv1beta1.ValidatingPolicyLike,
@@ -560,7 +529,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	targetResources []*unstructured.Unstructured,
 	parameterResources []*unstructured.Unstructured,
 	jsonPayloads []*unstructured.Unstructured,
-	exceptions []*kyvernov2.PolicyException,
 	celExceptions []*policiesv1beta1.PolicyException,
 	skipInvalidPolicies *SkippedInvalidPolicies,
 	dClient dclient.Interface,
@@ -571,26 +539,7 @@ func (c *ApplyCommandConfig) applyPolicies(
 		vars.SetInStore(store)
 	}
 	var rc processor.ResultCounts
-	// validate policies
-	validPolicies := make([]kyvernov1.PolicyInterface, 0, len(policies))
-	for _, pol := range policies {
-		// TODO we should return this info to the caller
-		sa := config.KyvernoUserName(config.KyvernoServiceAccountName())
-		_, err := policyvalidation.Validate(pol, nil, nil, true, sa, sa)
-		if err != nil {
-			log.Log.Error(err, "policy validation error")
-			rc.IncrementError(1)
-			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
-				skipInvalidPolicies.invalid = append(skipInvalidPolicies.invalid, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
-			} else {
-				skipInvalidPolicies.skipped = append(skipInvalidPolicies.skipped, PolicyDiagnostic{name: pol.GetName(), reason: err.Error()})
-			}
-			continue
-		}
-		validPolicies = append(validPolicies, pol)
-	}
 	var responses []engineapi.EngineResponse
-	namespaceCache := make(map[string]*unstructured.Unstructured)
 
 	params := make([]runtime.Object, len(parameterResources))
 	for i, p := range parameterResources {
@@ -599,7 +548,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for _, resource := range resources {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
-			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
@@ -609,7 +557,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			Resource:                          *resource,
 			TargetResources:                   targetResources,
-			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
 			MutateLogPathIsDir:                mutateLogPathIsDir,
@@ -629,7 +576,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
-			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -644,7 +590,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 	for _, resource := range jsonPayloads {
 		processor := processor.PolicyProcessor{
 			Store:                             store,
-			Policies:                          validPolicies,
 			ValidatingAdmissionPolicies:       vaps,
 			ValidatingAdmissionPolicyBindings: vapBindings,
 			ValidatingPolicies:                vpols,
@@ -652,7 +597,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			MutatingAdmissionPolicies:         maps,
 			MutatingAdmissionPolicyBindings:   mapBindings,
 			JsonPayload:                       *resource,
-			PolicyExceptions:                  exceptions,
 			CELExceptions:                     celExceptions,
 			MutateLogPath:                     c.MutateLogPath,
 			MutateLogPathIsDir:                mutateLogPathIsDir,
@@ -671,7 +615,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			Subresources:                      vars.Subresources(),
 			Out:                               out,
 			CrdPaths:                          c.CrdPaths,
-			NamespaceCache:                    namespaceCache,
 		}
 		ers, err := processor.ApplyPoliciesOnResource()
 		if err != nil {
@@ -682,11 +625,6 @@ func (c *ApplyCommandConfig) applyPolicies(
 			return &rc, resources, responses, fmt.Errorf("failed to apply policies on resource %s (%w)", resource.GetName(), err)
 		}
 		responses = append(responses, ers...)
-	}
-	for _, policy := range validPolicies {
-		if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-			log.Log.V(3).Info(fmt.Sprintf("Policy %s has no namespace detected. Ensure that namespaced policies are correctly loaded.", policy.GetNamespace()))
-		}
 	}
 	return &rc, resources, responses, nil
 }
@@ -960,161 +898,6 @@ func (c *ApplyCommandConfig) applyDeletingPolicies(
 	return responses, nil
 }
 
-func (c *ApplyCommandConfig) applyCleanupPolicies(
-	cps []kyvernov2.CleanupPolicyInterface,
-	resources []*unstructured.Unstructured,
-	namespaceProvider func(string) *corev1.Namespace,
-	rc *processor.ResultCounts,
-	dclient dclient.Interface,
-	payloadType string,
-) ([]engineapi.EngineResponse, error) {
-	if len(cps) == 0 || len(resources) == 0 {
-		return nil, nil
-	}
-
-	// Use a basic configuration for JMESPath and image info loading.
-	// Cleanup policies are destructive-intent selectors, so we only evaluate and report.
-	cfg := config.NewDefaultConfiguration(false)
-	jp := jmespath.New(cfg)
-	ctxFactory := factories.DefaultContextLoaderFactory(nil)
-
-	responses := make([]engineapi.EngineResponse, 0, len(cps)*len(resources))
-
-	for _, cp := range cps {
-		policyName := cp.GetName()
-		spec := cp.GetSpec()
-		if spec == nil {
-			// Treat missing spec as an evaluation error for each candidate resource.
-			for _, resource := range resources {
-				response := engineapi.NewEngineResponse(*resource, engineapi.NewCleanupPolicyFromInterface(cp), nil)
-				response = response.WithPolicyResponse(engineapi.PolicyResponse{
-					Rules: []engineapi.RuleResponse{
-						*engineapi.NewRuleResponse(policyName, engineapi.Deletion, "cleanup policy has no spec", engineapi.RuleStatusError, nil),
-					},
-				})
-				rc.AddValidatingPolicyResponse(response)
-				responses = append(responses, response)
-			}
-			continue
-		}
-
-		// Prepare an engine context and load policy context entries once.
-		// The condition evaluation will update the target resource and namespace for each candidate.
-		engineCtx := enginecontext.NewContext(jp)
-		ctxLoader := ctxFactory(nil, kyvernov1.Rule{})
-		if err := ctxLoader.Load(context.TODO(), jp, dclient, nil, spec.Context, engineCtx); err != nil {
-			for _, resource := range resources {
-				response := engineapi.NewEngineResponse(*resource, engineapi.NewCleanupPolicyFromInterface(cp), nil)
-				response = response.WithPolicyResponse(engineapi.PolicyResponse{
-					Rules: []engineapi.RuleResponse{
-						*engineapi.NewRuleResponse(policyName, engineapi.Deletion, err.Error(), engineapi.RuleStatusError, nil),
-					},
-				})
-				rc.AddValidatingPolicyResponse(response)
-				responses = append(responses, response)
-			}
-			if c.ContinueOnFail {
-				continue
-			}
-			return responses, err
-		}
-
-		engineCtx.Checkpoint()
-
-		for _, resource := range resources {
-			// Default to "not matched" unless all match/exclude checks pass and (if present) conditions evaluate to true.
-			status := engineapi.RuleStatusFail
-			message := fmt.Sprintf("%s did not match", payloadType)
-			wouldDelete := false
-
-			// 1) Namespace scope check (namespaced vs cluster-scoped)
-			if err := matchutils.CheckNamespace(cp.GetNamespace(), *resource); err == nil {
-				// 2) Resolve namespace labels for selector evaluation
-				var namespaceLabels map[string]string
-				if resource.GetNamespace() != "" && namespaceProvider != nil {
-					if nsObj := namespaceProvider(resource.GetNamespace()); nsObj != nil {
-						namespaceLabels = nsObj.GetLabels()
-					}
-				}
-
-				// 3) MatchResources check (nil error => match)
-				if err := matchutils.CheckMatchesResources(
-					*resource,
-					spec.MatchResources,
-					namespaceLabels,
-					kyvernov2.RequestInfo{},
-					resource.GroupVersionKind(),
-					"",
-				); err == nil {
-					// 4) ExcludeResources check (nil error => exclude matches => not deleted)
-					excluded := false
-					if spec.ExcludeResources != nil {
-						if err := matchutils.CheckMatchesResources(
-							*resource,
-							*spec.ExcludeResources,
-							namespaceLabels,
-							kyvernov2.RequestInfo{},
-							resource.GroupVersionKind(),
-							"",
-						); err == nil {
-							excluded = true
-						}
-					}
-
-					if !excluded {
-						// 5) Conditions evaluation (nil conditions => match => pass)
-						if spec.Conditions == nil {
-							wouldDelete = true
-						} else {
-							// Update context for this specific candidate.
-							engineCtx.Reset()
-							if resource.Object == nil {
-								status = engineapi.RuleStatusError
-								message = "resource object is nil"
-							} else if err := engineCtx.SetTargetResource(resource.Object); err != nil {
-								status = engineapi.RuleStatusError
-								message = err.Error()
-							} else if err := engineCtx.AddNamespace(resource.GetNamespace()); err != nil {
-								status = engineapi.RuleStatusError
-								message = err.Error()
-							} else if err := engineCtx.AddImageInfos(resource, cfg); err != nil {
-								status = engineapi.RuleStatusError
-								message = err.Error()
-							} else {
-								passed, err := conditions.CheckAnyAllConditions(log.Log, engineCtx, *spec.Conditions)
-								if err != nil {
-									status = engineapi.RuleStatusError
-									message = err.Error()
-								} else {
-									wouldDelete = passed
-								}
-							}
-						}
-					}
-				}
-			}
-
-			if status != engineapi.RuleStatusError {
-				if wouldDelete {
-					status = engineapi.RuleStatusPass
-					message = fmt.Sprintf("%s matched", payloadType)
-				}
-			}
-
-			response := engineapi.NewEngineResponse(*resource, engineapi.NewCleanupPolicyFromInterface(cp), nil)
-			response = response.WithPolicyResponse(engineapi.PolicyResponse{
-				Rules: []engineapi.RuleResponse{
-					*engineapi.NewRuleResponse(policyName, engineapi.Deletion, message, status, nil),
-				},
-			})
-			rc.AddValidatingPolicyResponse(response)
-			responses = append(responses, response)
-		}
-	}
-
-	return responses, nil
-}
-
 func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, policies []engineapi.GenericPolicy, dClient dclient.Interface) ([]*unstructured.Unstructured, []*unstructured.Unstructured, error) {
 	resourceOptions := loader.ResourceOptions{
 		Namespace:       c.Namespace,
@@ -1143,8 +926,6 @@ func (c *ApplyCommandConfig) loadResources(out io.Writer, paths []string, polici
 }
 
 func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
-	[]kyvernov1.PolicyInterface,
-	[]*kyvernov2.PolicyException,
 	[]*policiesv1beta1.PolicyException,
 	[]admissionregistrationv1.ValidatingAdmissionPolicy,
 	[]admissionregistrationv1.ValidatingAdmissionPolicyBinding,
@@ -1154,15 +935,12 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	[]policiesv1beta1.ImageValidatingPolicyLike,
 	[]policiesv1beta1.GeneratingPolicyLike,
 	[]policiesv1beta1.DeletingPolicyLike,
-	[]kyvernov2.CleanupPolicyInterface,
 	[]policiesv1beta1.MutatingPolicyLike,
 	[]*policiesv1beta1.ValidatingPolicy, // Envoy policies
 	[]*policiesv1beta1.ValidatingPolicy, // HTTP policies
 	error,
 ) {
 	// load policies
-	var policies []kyvernov1.PolicyInterface
-	var exceptions []*kyvernov2.PolicyException
 	var celExceptions []*policiesv1beta1.PolicyException
 	var vaps []admissionregistrationv1.ValidatingAdmissionPolicy
 	var vapBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
@@ -1172,7 +950,6 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 	var ivps []policiesv1beta1.ImageValidatingPolicyLike
 	var gps []policiesv1beta1.GeneratingPolicyLike
 	var dps []policiesv1beta1.DeletingPolicyLike
-	var cps []kyvernov2.CleanupPolicyInterface
 	var mps []policiesv1beta1.MutatingPolicyLike
 	var envoyPols []*policiesv1beta1.ValidatingPolicy
 	var httpPols []*policiesv1beta1.ValidatingPolicy
@@ -1180,7 +957,7 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 		if source.IsOCI(path) {
 			tmpDir, cleanup, err := pull.ToTempDir(ctx, source.StripOCIPrefix(path), pull.NewKeychain())
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to pull OCI bundle (%w)", err)
 			}
 			defer cleanup()
 			path = tmpDir
@@ -1189,12 +966,12 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 		if isGit {
 			gitSourceURL, err := url.Parse(path)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to load policies (%w)", err)
 			}
 			pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 			if len(pathElems) <= 1 {
 				err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to parse URL (%w)", err)
 			}
 			gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 			repoURL := gitSourceURL.String()
@@ -1207,14 +984,14 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 			}
 			if _, err := c.cloneRepo(repoURL, fs, c.GitBranch, *auth); err != nil {
 				log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", err)
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to clone repository (%w)", err)
 			}
 			policyYamls, err := gitutils.ListYamls(fs, gitPathToYamls)
 			if err != nil {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("failed to list YAMLs in repository (%w)", err)
 			}
 			for _, policyYaml := range policyYamls {
-				loaderResults, err := policy.Load(fs, "", false, policyYaml)
+				loaderResults, err := policy.Load(fs, "", policyYaml)
 				if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 					for _, err := range loaderResults.NonFatalErrors {
 						log.Log.Error(err.Error, "Non-fatal parsing error for single document")
@@ -1222,65 +999,54 @@ func (c *ApplyCommandConfig) loadPolicies(ctx context.Context, out io.Writer) (
 				}
 				if err != nil {
 					if pkgdeprecations.IsLegacyPolicyBlockError(err) {
-						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+						return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 					}
 					continue
 				}
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
-				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
 				maps = append(maps, loaderResults.MAPs...)
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				exceptions = append(exceptions, loaderResults.PolicyExceptions...)
 				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
-				cps = append(cps, loaderResults.CleanupPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
 				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		} else {
-			loaderResults, err := policy.Load(nil, "", false, path)
+			loaderResults, err := policy.Load(nil, "", path)
 			if loaderResults != nil && loaderResults.NonFatalErrors != nil {
 				for _, err := range loaderResults.NonFatalErrors {
 					log.Log.Error(err.Error, "Non-fatal parsing error for single document")
 				}
 			}
 			if err != nil && pkgdeprecations.IsLegacyPolicyBlockError(err) {
-				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
+				return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 			}
 			if err != nil {
 				log.Log.V(3).Info("skipping invalid YAML file", "path", path, "error", err)
 			} else {
 				c.recordPolicyWarnings(out, loaderResults.Warnings)
-				policies = append(policies, loaderResults.Policies...)
 				vaps = append(vaps, loaderResults.VAPs...)
 				vapBindings = append(vapBindings, loaderResults.VAPBindings...)
 				vps = append(vps, loaderResults.ValidatingPolicies...)
 				maps = append(maps, loaderResults.MAPs...)
 				mapBindings = append(mapBindings, loaderResults.MAPBindings...)
 				ivps = append(ivps, loaderResults.ImageValidatingPolicies...)
-				exceptions = append(exceptions, loaderResults.PolicyExceptions...)
 				celExceptions = append(celExceptions, loaderResults.PolicyCelExceptions...)
 				gps = append(gps, loaderResults.GeneratingPolicies...)
 				dps = append(dps, loaderResults.DeletingPolicies...)
-				cps = append(cps, loaderResults.CleanupPolicies...)
 				mps = append(mps, loaderResults.MutatingPolicies...)
 				envoyPols = append(envoyPols, loaderResults.EnvoyPolicies...)
 				httpPols = append(httpPols, loaderResults.HTTPPolicies...)
 			}
 		}
-		for _, policy := range policies {
-			if policy.GetNamespace() == "" && policy.GetKind() == "Policy" {
-				log.Log.V(3).Info(fmt.Sprintf("Namespace is empty for a namespaced Policy %s. This might cause incorrect report generation.", policy.GetName()))
-			}
-		}
 	}
-	return policies, exceptions, celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, cps, mps, envoyPols, httpPols, nil
+	return celExceptions, vaps, vapBindings, maps, mapBindings, vps, ivps, gps, dps, mps, envoyPols, httpPols, nil
 }
 
 func (c *ApplyCommandConfig) recordPolicyWarnings(out io.Writer, warnings []policy.LoaderWarning) {

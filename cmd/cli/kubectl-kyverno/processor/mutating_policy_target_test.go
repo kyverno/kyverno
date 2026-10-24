@@ -35,7 +35,7 @@ func readUnstructured(t *testing.T, path string) *unstructured.Unstructured {
 // when the trigger matches the policy, a failed target mutation is counted as an error, and only the
 // patched target is printed or written to the output file.
 func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
-	loaded, err := policy.Load(nil, "", false, filepath.Join(targetFixture, "policy.yaml"))
+	loaded, err := policy.Load(nil, "", filepath.Join(targetFixture, "policy.yaml"))
 	require.NoError(t, err)
 	require.Len(t, loaded.MutatingPolicies, 1)
 
@@ -43,7 +43,7 @@ func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
 	require.NoError(t, err)
 	failingPath := filepath.Join(t.TempDir(), "failing-policy.yaml")
 	require.NoError(t, os.WriteFile(failingPath, []byte(strings.Replace(string(content), "replicas: 3", "replicas: object.spec.missing.count", 1)), 0o600))
-	failing, err := policy.Load(nil, "", false, failingPath)
+	failing, err := policy.Load(nil, "", failingPath)
 	require.NoError(t, err)
 	require.Len(t, failing.MutatingPolicies, 1)
 
@@ -52,7 +52,7 @@ func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
 	backgroundOnly := strings.Replace(string(content), "    mutateExisting:\n      enabled: true", "    admission:\n      enabled: false\n    mutateExisting:\n      enabled: true", 1)
 	require.NotEqual(t, string(content), backgroundOnly)
 	require.NoError(t, os.WriteFile(backgroundOnlyPath, []byte(backgroundOnly), 0o600))
-	background, err := policy.Load(nil, "", false, backgroundOnlyPath)
+	background, err := policy.Load(nil, "", backgroundOnlyPath)
 	require.NoError(t, err)
 	require.Len(t, background.MutatingPolicies, 1)
 	require.False(t, background.MutatingPolicies[0].GetSpec().AdmissionEnabled())
@@ -155,7 +155,7 @@ func TestApplyPoliciesOnResource_MutatingPolicyTargets(t *testing.T) {
 // has no targetMatchConstraints, still mutates the trigger inline and prints or writes it.
 func TestApplyPoliciesOnResource_InlineMutatingPolicyOutput(t *testing.T) {
 	const fixture = "../../../../test/cli/test-mutating-policy/mutating-label"
-	loaded, err := policy.Load(nil, "", false, filepath.Join(fixture, "policy.yaml"))
+	loaded, err := policy.Load(nil, "", filepath.Join(fixture, "policy.yaml"))
 	require.NoError(t, err)
 	require.Len(t, loaded.MutatingPolicies, 1)
 	resource := &unstructured.Unstructured{Object: map[string]any{
@@ -208,7 +208,7 @@ func loadMutatingPolicies(t *testing.T, manifest string) policy.LoaderResults {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "policies.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(manifest), 0o600))
-	loaded, err := policy.Load(nil, "", false, path)
+	loaded, err := policy.Load(nil, "", path)
 	require.NoError(t, err)
 	return *loaded
 }

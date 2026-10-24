@@ -1,7 +1,0 @@
-apiVersion: v1
-data:
-  foo: bar
-kind: ConfigMap
-metadata:
-  name: foo
-  namespace: pol-sync-clone-delete-downstream
