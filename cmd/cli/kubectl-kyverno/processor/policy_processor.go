@@ -8,13 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	json_patch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	policieskyvernoio "github.com/kyverno/api/api/policies.kyverno.io"
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apis/v1alpha1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/data"
@@ -34,24 +32,13 @@ import (
 	mpolengine "github.com/kyverno/kyverno/pkg/cel/policies/mpol/engine"
 	vpolcompiler "github.com/kyverno/kyverno/pkg/cel/policies/vpol/compiler"
 	vpolengine "github.com/kyverno/kyverno/pkg/cel/policies/vpol/engine"
+	"github.com/kyverno/kyverno/pkg/cel/requestbudget"
 	"github.com/kyverno/kyverno/pkg/cel/trace"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/adapters"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
-	"github.com/kyverno/kyverno/pkg/engine/factories"
-	"github.com/kyverno/kyverno/pkg/engine/jmespath"
-	"github.com/kyverno/kyverno/pkg/engine/mutate/patch"
-	"github.com/kyverno/kyverno/pkg/engine/policycontext"
-	"github.com/kyverno/kyverno/pkg/exceptions"
-	imageverifycache "github.com/kyverno/kyverno/pkg/image/verification/cache"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	utils "github.com/kyverno/kyverno/pkg/utils/restmapper"
 	celutils "github.com/kyverno/sdk/extensions/cel/utils"
-	"github.com/kyverno/sdk/extensions/registryclient"
 	"go.yaml.in/yaml/v3"
-	"gomodules.xyz/jsonpatch/v2"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -68,7 +55,6 @@ import (
 
 type PolicyProcessor struct {
 	Store                             *store.Store
-	Policies                          []kyvernov1.PolicyInterface
 	ValidatingAdmissionPolicies       []admissionregistrationv1.ValidatingAdmissionPolicy
 	ValidatingAdmissionPolicyBindings []admissionregistrationv1.ValidatingAdmissionPolicyBinding
 	MutatingAdmissionPolicies         []admissionregistrationv1beta1.MutatingAdmissionPolicy
@@ -81,36 +67,33 @@ type PolicyProcessor struct {
 	TargetResources                   []*unstructured.Unstructured
 	Resource                          unstructured.Unstructured
 	JsonPayload                       unstructured.Unstructured
-	// Operation is the admission operation to simulate (CREATE, UPDATE, DELETE or CONNECT).
+	// Operation is the admission operation to simulate (CREATE, UPDATE or DELETE).
 	// When empty, the `request.operation` global value from the values file is
 	// honored, defaulting to CREATE.
 	Operation          string
-	PolicyExceptions   []*kyvernov2.PolicyException
 	CELExceptions      []*policiesv1beta1.PolicyException
 	MutateLogPath      string
 	MutateLogPathIsDir bool
 	Variables          *variables.Variables
 	ParameterResources []runtime.Object
 	// TODO
-	ContextFs                 billy.Filesystem
-	ContextPath               string
-	GlobalContextEntries      map[string]interface{}
-	Cluster                   bool
-	UserInfo                  *kyvernov2.RequestInfo
-	PolicyReport              bool
-	NamespaceSelectorMap      map[string]map[string]string
-	Stdin                     bool
-	Rc                        *ResultCounts
-	PrintPatchResource        bool
-	RuleToCloneSourceResource map[string]string
-	Client                    dclient.Interface
-	AuditWarn                 bool
-	Subresources              []v1alpha1.Subresource
-	Out                       io.Writer
-	CrdPaths                  []string
-	NamespaceCache            map[string]*unstructured.Unstructured
-	ConfigMapResolver         engineapi.ConfigmapResolver
-	RESTMapper                meta.RESTMapper
+	ContextFs            billy.Filesystem
+	ContextPath          string
+	GlobalContextEntries map[string]interface{}
+	Cluster              bool
+	UserInfo             *kyvernov2.RequestInfo
+	PolicyReport         bool
+	NamespaceSelectorMap map[string]map[string]string
+	Stdin                bool
+	Rc                   *ResultCounts
+	PrintPatchResource   bool
+	Client               dclient.Interface
+	AuditWarn            bool
+	Subresources         []v1alpha1.Subresource
+	Out                  io.Writer
+	CrdPaths             []string
+	ConfigMapResolver    engineapi.ConfigmapResolver
+	RESTMapper           meta.RESTMapper
 	// Explain compiles validating and mutating policies with tracing on and prints, for each
 	// policy, how it arrived at its result (scope, match conditions, variables, the validations
 	// or mutations it ran, and verdict).
@@ -118,40 +101,12 @@ type PolicyProcessor struct {
 }
 
 func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse, error) {
-	cfg := config.NewDefaultConfiguration(false)
-	jp := jmespath.New(cfg)
 	resource := p.Resource
-	namespaceLabels := p.NamespaceSelectorMap[resource.GetNamespace()]
-	if p.NamespaceCache == nil {
-		p.NamespaceCache = make(map[string]*unstructured.Unstructured)
-	}
-	policyExceptionLister := &policyExceptionLister{
-		exceptions: p.PolicyExceptions,
-	}
-	var client engineapi.Client
-	if p.Client != nil {
-		client = adapters.Client(p.Client)
-	}
-	rclient := p.Store.GetRegistryClient()
-	if rclient == nil {
-		rclient = registryclient.New()
-	}
-	isCluster := false
 	if len(p.CrdPaths) > 0 {
 		if err := p.loadCrds(); err != nil {
 			return nil, err
 		}
 	}
-	eng := engine.NewEngine(
-		cfg,
-		jmespath.New(cfg),
-		client,
-		factories.DefaultRegistryClientFactory(adapters.RegistryClient(rclient), nil),
-		imageverifycache.DisabledImageVerifyCache(),
-		store.ContextLoaderFactory(p.Store, p.ConfigMapResolver),
-		exceptions.New(policyExceptionLister),
-		&isCluster,
-	)
 	gvk, subresource := resource.GroupVersionKind(), ""
 	resourceKind := resource.GetKind()
 	resourceName := resource.GetName()
@@ -174,97 +129,9 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				subresource = parts[1]
 			}
 		}
-	} else {
-		if len(namespaceLabels) == 0 && resourceKind != "Namespace" && resourceNamespace != "" {
-			var ns *unstructured.Unstructured
-			var err error
-			if cached, ok := p.NamespaceCache[resourceNamespace]; ok {
-				ns = cached
-			} else {
-				ns, err = p.Client.GetResource(context.TODO(), "v1", "Namespace", "", resourceNamespace)
-				if err != nil {
-					log.Log.Error(err, "failed to get the resource's namespace")
-					return nil, fmt.Errorf("failed to get the resource's namespace (%w)", err)
-				}
-				p.NamespaceCache[resourceNamespace] = ns
-			}
-			namespaceLabels = ns.GetLabels()
-		}
 	}
 	resPath := fmt.Sprintf("%s/%s/%s", resourceNamespace, resourceKind, resourceName)
-	responses := make([]engineapi.EngineResponse, 0, len(p.Policies))
-	// mutate
-	for _, policy := range p.Policies {
-		if !policy.GetSpec().HasMutate() {
-			continue
-		}
-		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
-		if err != nil {
-			return responses, err
-		}
-		mutateResponse := eng.Mutate(context.Background(), policyContext)
-		err = p.processMutateEngineResponse(mutateResponse, resPath)
-		if err != nil {
-			return responses, fmt.Errorf("failed to print mutated result (%w)", err)
-		}
-		responses = append(responses, mutateResponse)
-		resource = mutateResponse.PatchedResource
-	}
-	// verify images
-	for _, policy := range p.Policies {
-		if !policy.GetSpec().HasVerifyImages() {
-			continue
-		}
-		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
-		if err != nil {
-			return responses, err
-		}
-		verifyImageResponse, verifiedImageData := eng.VerifyAndPatchImages(context.TODO(), policyContext)
-		// update annotation to reflect verified images
-		var patches []jsonpatch.JsonPatchOperation
-		if !verifiedImageData.IsEmpty() {
-			annotationPatches, err := verifiedImageData.Patches(len(verifyImageResponse.PatchedResource.GetAnnotations()) != 0, log.Log)
-			if err != nil {
-				return responses, err
-			}
-			// add annotation patches first
-			patches = append(annotationPatches, patches...)
-		}
-		if len(patches) != 0 {
-			patch := jsonutils.JoinPatches(patch.ConvertPatches(patches...)...)
-			decoded, err := json_patch.DecodePatch(patch)
-			if err != nil {
-				return responses, err
-			}
-			options := &json_patch.ApplyOptions{SupportNegativeIndices: true, AllowMissingPathOnRemove: true, EnsurePathExistsOnAdd: true}
-			resourceBytes, err := verifyImageResponse.PatchedResource.MarshalJSON()
-			if err != nil {
-				return responses, err
-			}
-			patchedResourceBytes, err := decoded.ApplyWithOptions(resourceBytes, options)
-			if err != nil {
-				return responses, err
-			}
-			if err := verifyImageResponse.PatchedResource.UnmarshalJSON(patchedResourceBytes); err != nil {
-				return responses, err
-			}
-		}
-		responses = append(responses, verifyImageResponse)
-		resource = verifyImageResponse.PatchedResource
-	}
-	// validate
-	for _, policy := range p.Policies {
-		if !policyHasValidateOrVerifyImageChecks(policy) {
-			continue
-		}
-		policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
-		if err != nil {
-			return responses, err
-		}
-		validateResponse := eng.Validate(context.TODO(), policyContext)
-		responses = append(responses, validateResponse)
-		resource = validateResponse.PatchedResource
-	}
+	var responses []engineapi.EngineResponse
 
 	restMapper := p.RESTMapper
 	if restMapper == nil {
@@ -368,7 +235,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				false,
 				nil,
 			)
-			reps, err := eng.Handle(context.TODO(), request, nil)
+			// Skip inline mutation for policies with active target constraints, as admission does.
+			reps, err := eng.Handle(context.TODO(), request, mpolengine.NoTargetMatchConstraintPolicy())
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply mutating policies on resource %s (%w)", resource.GetName(), err)
 			}
@@ -390,11 +258,14 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 					},
 				}
 				response = response.WithPolicy(engineapi.NewMutatingPolicyFromLike(r.Policy))
-				p.Rc.addMutateResponse(response)
 
-				err = p.processMutateEngineResponse(response, resPath)
-				if err != nil {
-					return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+				// processMutateEngineResponse counts the response, so it is not counted here as well.
+				// A response with no rules, such as the autogen copy of a Pod policy evaluated against a
+				// Pod, mutated nothing, so it is not printed or written to the output file.
+				if len(r.Rules) > 0 {
+					if err := p.processMutateEngineResponse(response, resPath); err != nil {
+						return responses, fmt.Errorf("failed to print mutated result (%w)", err)
+					}
 				}
 
 				responses = append(responses, response)
@@ -676,7 +547,7 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			return nil, err
 		}
 
-		compiler := gpolcompiler.NewCompiler()
+		compiler := gpolcompiler.NewCompilerWithTrace(p.Explain)
 		compiledPolicies := make([]gpolengine.Policy, 0, len(p.GeneratingPolicies))
 		for _, pol := range p.GeneratingPolicies {
 			compiled, errs := compiler.Compile(pol, p.CELExceptions)
@@ -732,11 +603,18 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 				nil,
 			)
 			for _, policy := range compiledPolicies {
-				engineResponse, err := engine.Handle(request, policy, false)
+				engineResponse, err := engine.Handle(context.TODO(), request, policy, false)
 				if err != nil {
 					return nil, err
 				}
 				for _, res := range engineResponse.Policies {
+					// before the no-result branch below, so a skipped policy's trace is printed too
+					if p.Explain && res.Trace != nil {
+						// the generate output of the previous resource ends without a newline
+						fmt.Fprintln(p.Out)
+						trace.Render(p.Out, res.Trace)
+						fmt.Fprintln(p.Out)
+					}
 					if res.Result == nil {
 						generateResponse := engineapi.EngineResponse{
 							Resource: *engineResponse.Trigger,
@@ -762,204 +640,8 @@ func (p *PolicyProcessor) ApplyPoliciesOnResource() ([]engineapi.EngineResponse,
 			}
 		}
 	}
-	// generate
-	for _, policy := range p.Policies {
-		if policy.GetSpec().HasGenerate() {
-			policyContext, err := p.makePolicyContext(jp, cfg, resource, policy, namespaceLabels, gvk, subresource)
-			if err != nil {
-				return responses, err
-			}
-			generateResponse := eng.ApplyBackgroundChecks(context.TODO(), policyContext)
-			if !generateResponse.IsEmpty() {
-				newRuleResponse, err := handleGeneratePolicy(p.Out, p.Store, &generateResponse, *policyContext, p.RuleToCloneSourceResource)
-				if err != nil {
-					log.Log.Error(err, "failed to apply generate policy")
-				} else {
-					generateResponse.PolicyResponse.Rules = newRuleResponse
-				}
-				if err := p.processGenerateResponse(generateResponse, resPath); err != nil {
-					return responses, err
-				}
-				responses = append(responses, generateResponse)
-			}
-			p.Rc.addGenerateResponse(generateResponse)
-		}
-	}
-	p.Rc.addEngineResponses(p.AuditWarn, responses...)
 	responses = append(responses, vapResponses...)
 	return responses, nil
-}
-
-func (p *PolicyProcessor) makePolicyContext(
-	jp jmespath.Interface,
-	cfg config.Configuration,
-	resource unstructured.Unstructured,
-	policy kyvernov1.PolicyInterface,
-	namespaceLabels map[string]string,
-	gvk schema.GroupVersionKind,
-	subresource string,
-) (*policycontext.PolicyContext, error) {
-	operation := kyvernov1.Create
-	var resourceValues map[string]interface{}
-	if p.Variables != nil {
-		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(p.Out, policy, p.Variables.Subresources(), p.Client)
-		vals, err := p.Variables.ComputeVariables(p.Store, policy.GetName(), resource.GetName(), resource.GetKind(), kindOnwhichPolicyIsApplied /*matches...*/)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"policy `%s` has variables. pass the values for the variables for resource `%s` using set/values_file flag (%w)",
-				policy.GetName(),
-				resource.GetName(),
-				err,
-			)
-		}
-		resourceValues = vals
-	}
-	// TODO: this is kind of buggy, we should read that from the json context
-	switch resourceValues["request.operation"] {
-	case "DELETE":
-		operation = kyvernov1.Delete
-	case "UPDATE":
-		operation = kyvernov1.Update
-	case "CONNECT":
-		operation = kyvernov1.Connect
-	}
-	// an explicitly configured operation (e.g. from the test result entry) takes
-	// precedence over the values file
-	if p.Operation != "" {
-		switch p.Operation {
-		case "CREATE":
-			operation = kyvernov1.Create
-		case "DELETE":
-			operation = kyvernov1.Delete
-		case "UPDATE":
-			operation = kyvernov1.Update
-		case "CONNECT":
-			operation = kyvernov1.Connect
-		}
-		if resourceValues == nil {
-			resourceValues = map[string]interface{}{}
-		}
-		resourceValues["request.operation"] = p.Operation
-	}
-
-	var newResource unstructured.Unstructured
-	if operation == kyvernov1.Delete || operation == kyvernov1.Connect {
-		newResource = unstructured.Unstructured{}
-	} else {
-		newResource = resource
-	}
-
-	policyContext, err := engine.NewPolicyContext(
-		jp,
-		newResource,
-		operation,
-		p.UserInfo,
-		cfg,
-	)
-	if err != nil {
-		log.Log.Error(err, "failed to create policy context")
-		return nil, fmt.Errorf("failed to create policy context (%w)", err)
-	}
-	if operation == kyvernov1.Update {
-		resource := resource.DeepCopy()
-		policyContext = policyContext.WithOldResource(*resource)
-		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
-			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
-		}
-	}
-	if operation == kyvernov1.Delete {
-		policyContext = policyContext.WithOldResource(resource)
-		if err := policyContext.JSONContext().AddOldResource(resource.Object); err != nil {
-			return nil, fmt.Errorf("failed to update old resource in json context (%w)", err)
-		}
-	}
-	policyContext = policyContext.
-		WithPolicy(policy).
-		WithNamespaceLabels(namespaceLabels).
-		WithResourceKind(gvk, subresource)
-	for key, value := range resourceValues {
-		err = policyContext.JSONContext().AddVariable(key, value)
-		if err != nil {
-			log.Log.Error(err, "failed to add variable to context", "key", key, "value", value)
-			return nil, fmt.Errorf("failed to add variable to context %s (%w)", key, err)
-		}
-	}
-	// we need to get the resources back from the context to account for injected variables
-	switch operation {
-	case kyvernov1.Create:
-		ret, err := policyContext.JSONContext().Query("request.object")
-		if err != nil {
-			return nil, err
-		}
-		if ret == nil {
-			policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
-		} else {
-			object, ok := ret.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("the object retrieved from the json context is not valid")
-			}
-			policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: object})
-		}
-	case kyvernov1.Update:
-		{
-			ret, err := policyContext.JSONContext().Query("request.object")
-			if err != nil {
-				return nil, err
-			}
-			if ret == nil {
-				policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
-			} else {
-				object, ok := ret.(map[string]interface{})
-				if !ok {
-					return nil, fmt.Errorf("the object retrieved from the json context is not valid")
-				}
-				policyContext = policyContext.WithNewResource(unstructured.Unstructured{Object: object})
-			}
-		}
-		{
-			ret, err := policyContext.JSONContext().Query("request.oldObject")
-			if err != nil {
-				return nil, err
-			}
-			if ret == nil {
-				policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
-			} else {
-				object, ok := ret.(map[string]interface{})
-				if !ok {
-					return nil, fmt.Errorf("the object retrieved from the json context is not valid")
-				}
-				policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
-			}
-		}
-	case kyvernov1.Delete:
-		ret, err := policyContext.JSONContext().Query("request.oldObject")
-		if err != nil {
-			return nil, err
-		}
-		policyContext = policyContext.WithNewResource(unstructured.Unstructured{})
-		if ret == nil {
-			policyContext = policyContext.WithOldResource(unstructured.Unstructured{})
-		} else {
-			object, ok := ret.(map[string]interface{})
-			if !ok {
-				return nil, fmt.Errorf("the object retrieved from the json context is not valid")
-			}
-			policyContext = policyContext.WithOldResource(unstructured.Unstructured{Object: object})
-		}
-	}
-	if operation == kyvernov1.Connect {
-		if err := policyContext.JSONContext().AddResource(nil); err != nil {
-			return nil, fmt.Errorf("failed to clear CONNECT request object in json context (%w)", err)
-		}
-		if err := policyContext.JSONContext().AddOldResource(nil); err != nil {
-			return nil, fmt.Errorf("failed to clear CONNECT request oldObject in json context (%w)", err)
-		}
-		if err := policyContext.JSONContext().AddNamespace(resource.GetNamespace()); err != nil {
-			return nil, fmt.Errorf("failed to restore CONNECT request namespace in json context (%w)", err)
-		}
-		policyContext = policyContext.WithNewResource(resource)
-	}
-	return policyContext, nil
 }
 
 func (p *PolicyProcessor) processGenerateResponse(response engineapi.EngineResponse, resourcePath string) error {
@@ -1217,7 +899,12 @@ func discoverCELTargets(
 	resource *unstructured.Unstructured,
 ) (map[string]map[string]bool, error) {
 	result := make(map[string]map[string]bool)
-	pols := provider.Fetch(context.TODO(), true)
+	// One shared cost budget for every target expression this call evaluates, so the CLI
+	// accounts for them the way a controller does. Without it the programs below are built
+	// through NewProgram but evaluated on a budgetless context, which charges nothing.
+	ctx, releaseBudget := requestbudget.EnsureBackground(context.TODO())
+	defer releaseBudget()
+	pols := provider.Fetch(ctx, true)
 	for _, pol := range pols {
 		tc := pol.Policy.GetTargetMatchConstraints()
 		if tc.Expression == "" {
@@ -1232,7 +919,7 @@ func discoverCELTargets(
 		data[compiler.VariablesKey] = vars
 		for name, variable := range compiledVars {
 			vars.Append(name, func(*lazy.MapValue) ref.Val {
-				out, _, err := variable.ContextEval(context.TODO(), data)
+				out, _, err := variable.ContextEval(ctx, data)
 				if out != nil {
 					return out
 				}
@@ -1255,11 +942,11 @@ func discoverCELTargets(
 		if !ast.OutputType().IsExactType(types.NewMapType(types.StringType, types.AnyType)) {
 			return nil, fmt.Errorf("output type of the target selector expression must be a map for policy %s", pol.Policy.GetName())
 		}
-		prog, err := env.Program(ast)
+		prog, err := compiler.NewProgram(env, ast)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create CEL program for policy %s: %w", pol.Policy.GetName(), err)
 		}
-		out, _, err := prog.ContextEval(context.TODO(), data)
+		out, _, err := prog.ContextEval(ctx, data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to evaluate CEL expression for policy %s: %w", pol.Policy.GetName(), err)
 		}

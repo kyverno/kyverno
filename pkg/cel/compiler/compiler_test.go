@@ -741,12 +741,15 @@ generator.apply(
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			base, err := NewBaseEnv()
-			assert.NoError(t, err)
-			env, err := base.Extend(
+			// NewEnv with the whole option list in one call, not NewBaseEnv() + a second
+			// Extend: CostLib must be the last function-registering option, so a second
+			// Extend adding more functions afterward leaves them out of the guard
+			// decorator's binding registry and fails construction (env.go's chokepoint
+			// comment).
+			env, err := NewEnv(append(DefaultEnvOptions(),
 				cel.Variable(GeneratorKey, generator.ContextType),
 				generator.Lib(nil, "", versions.KyvernoLatest),
-			)
+			)...)
 			assert.NoError(t, err)
 			gotProgs, gotErrs := CompileGenerations(nil, env, tt.generations...)
 			assert.Equal(t, tt.wantErrs, gotErrs)
@@ -769,7 +772,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		out, details, err := traced.Program.Eval(map[string]any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "hello", out.Value())
-		assert.Nil(t, details, "no EvalDetails when the program wasn't built with tracking on")
+		assert.Nil(t, details.State(), "no tracked state when the program wasn't built with tracking on")
 	})
 
 	t.Run("trace=true keeps the deciding program untracked and adds a tracking twin", func(t *testing.T) {
@@ -782,7 +785,7 @@ func TestCompileMutationWithTrace(t *testing.T) {
 		out, details, err := traced.Program.Eval(map[string]any{})
 		assert.NoError(t, err)
 		assert.Equal(t, "ab", out.Value())
-		assert.Nil(t, details, "the deciding program must not track state")
+		assert.Nil(t, details.State(), "the deciding program must not track state")
 
 		// the twin records per-node state for the explanation
 		require.NotNil(t, traced.Traced)
@@ -800,6 +803,58 @@ func TestCompileMutationWithTrace(t *testing.T) {
 			assert.Nil(t, traced.Program)
 			assert.Nil(t, traced.Traced)
 			assert.Nil(t, traced.AST)
+		}
+	})
+}
+
+func TestCompileGenerationWithTrace(t *testing.T) {
+	env, err := NewBaseEnv()
+	assert.NoError(t, err)
+
+	t.Run("trace=false behaves exactly like CompileGeneration", func(t *testing.T) {
+		traced, errs := CompileGenerationWithTrace(nil, env, v1beta1.Generation{Expression: "true"}, false)
+		assert.Empty(t, errs)
+		assert.NotNil(t, traced.Program)
+		assert.Nil(t, traced.Traced, "no tracking twin when trace is off")
+		assert.Nil(t, traced.AST, "AST must not be retained when trace is off")
+
+		_, details, err := traced.Program.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Nil(t, details.State(), "no tracked state when the program wasn't built with tracking on")
+	})
+
+	t.Run("trace=true keeps the deciding program untracked and adds a tracking twin", func(t *testing.T) {
+		traced, errs := CompileGenerationWithTrace(nil, env, v1beta1.Generation{Expression: "1 + 1 == 2"}, true)
+		assert.Empty(t, errs)
+		assert.NotNil(t, traced.AST, "AST must be retained when trace is on")
+
+		// the deciding program is built exactly as without tracing, so it keeps the cost limit
+		require.NotNil(t, traced.Program)
+		out, details, err := traced.Program.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, true, out.Value())
+		assert.Nil(t, details.State(), "the deciding program must not track state")
+
+		// the twin records per-node state for the explanation
+		require.NotNil(t, traced.Traced)
+		out, details, err = traced.Traced.Eval(map[string]any{})
+		assert.NoError(t, err)
+		assert.Equal(t, true, out.Value())
+		require.NotNil(t, details)
+		assert.NotNil(t, details.State(), "the tracking twin must record state")
+	})
+
+	t.Run("compile errors match CompileGeneration regardless of trace", func(t *testing.T) {
+		for _, expression := range []string{`"not a bool"`, `undefinedVar`} {
+			_, want := CompileGeneration(nil, env, v1beta1.Generation{Expression: expression})
+			assert.NotEmpty(t, want)
+			for _, trace := range []bool{false, true} {
+				traced, errs := CompileGenerationWithTrace(nil, env, v1beta1.Generation{Expression: expression}, trace)
+				assert.Equal(t, want, errs, "trace=%v", trace)
+				assert.Nil(t, traced.Program)
+				assert.Nil(t, traced.Traced)
+				assert.Nil(t, traced.AST)
+			}
 		}
 	})
 }

@@ -61,6 +61,7 @@ test/                 # Tests
   policy/             #   Policy test fixtures
 docs/                 # Internal developer documentation
   dev/                #   API design, controllers, logging, feature flags, reports
+    proposals/        #   Kyverno Design Proposals and proposal lifecycle
 scripts/              # Build and CI scripts
 hack/                 # Code generation helpers
 ```
@@ -142,7 +143,8 @@ Generated files follow these patterns:
 - `zz_generated.deepcopy.go` — deep copy functions in API packages
 - `zz_generated.register.go` — API type registrations
 - `pkg/client/` — generated clientset, listers, informers
-- `config/crds/` — generated CRD YAML manifests
+- `config/crds/` — generated CRD YAML manifests; `config/crds/kyverno/` is a frozen compatibility snapshot
+  during the CEL migration — only GCE and UR `v2` regenerate, see `config/crds/kyverno/README.md`
 
 ### Docker Images (ko)
 
@@ -177,8 +179,9 @@ These packages have real, package-specific gotchas that don't belong at root sco
 working in that area: [`api/`](./api/AGENTS.md), [`pkg/engine/`](./pkg/engine/AGENTS.md),
 [`pkg/cel/`](./pkg/cel/AGENTS.md), [`pkg/webhooks/`](./pkg/webhooks/AGENTS.md),
 [`pkg/background/`](./pkg/background/AGENTS.md), [`pkg/image/`](./pkg/image/AGENTS.md),
-[`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
-[`pkg/controllers/`](./pkg/controllers/AGENTS.md),
+[`pkg/clients/`](./pkg/clients/AGENTS.md), [`pkg/admissionpolicy/`](./pkg/admissionpolicy/AGENTS.md), [`pkg/toggle/`](./pkg/toggle/AGENTS.md),
+[`pkg/controllers/`](./pkg/controllers/AGENTS.md), [`pkg/config/`](./pkg/config/AGENTS.md),
+[`pkg/deprecations/`](./pkg/deprecations/AGENTS.md), [`pkg/utils/admission/`](./pkg/utils/admission/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/exception/`](./cmd/cli/kubectl-kyverno/exception/AGENTS.md),
 [`cmd/cli/kubectl-kyverno/commands/test/`](./cmd/cli/kubectl-kyverno/commands/test/AGENTS.md). Every claim in them is grounded in code actually read in the
 session that wrote them, not inferred from directory structure — if one goes stale, fix it in place rather than
@@ -191,6 +194,19 @@ versioned packages. **`policies.kyverno.io` (the CEL-based types) does not** —
 `github.com/kyverno/api` module; see `api/AGENTS.md`. For versioning/stability/deprecation rules, see
 [docs/context/shared/api-versioning.md](./docs/context/shared/api-versioning.md) — the single canonical copy;
 don't restate rules here.
+
+## Design Proposals
+
+After the KDP handoff, new Kyverno Design Proposals (KDPs) live in
+`docs/dev/proposals/`. Until then, submit new proposals and substantive
+revisions to the separate `kyverno/KDP` repository. Start from
+`docs/dev/proposals/template.md` after the handoff and follow the lifecycle
+documented in `docs/dev/proposals/README.md`.
+
+Proposals guide design review and implementation. They are historical design
+records, not canonical post-release documentation, and may not be maintained
+after implementation. Once a feature ships, rely on the implementation, API
+documentation, tests, and user documentation for current behavior.
 
 ## Coding Conventions
 
@@ -254,4 +270,5 @@ Use this checklist before every push to avoid repeated CI failures:
 - [Logging](./docs/dev/logging/logging.md) — Logging levels and conventions
 - [Feature Flags](./docs/dev/feature-flags/README.md) — How to add and use feature toggles
 - [Reports Design](./docs/dev/reports/README.md) — Report architecture
+- [OCI Policy Bundle Spec](./docs/dev/oci/bundle-spec.md) — Normative spec for the `kyverno oci` bundle format
 - [Kyverno Docs](https://kyverno.io) — User-facing documentation

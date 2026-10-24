@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	policiesv1beta1 "github.com/kyverno/api/api/policies.kyverno.io/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno"
 	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2"
 	engineapi "github.com/kyverno/kyverno/pkg/engine/api"
 	"github.com/stretchr/testify/assert"
@@ -128,7 +128,7 @@ func Test_buildPolicyEventMessage_mutation(t *testing.T) {
 }
 
 func Test_NewResourceGenerationEvent(t *testing.T) {
-	res := kyvernov1.ResourceSpec{
+	res := kyverno.ResourceSpec{
 		APIVersion: "v1",
 		Kind:       "ConfigMap",
 		Namespace:  "default",
@@ -148,7 +148,7 @@ func Test_NewResourceGenerationEvent(t *testing.T) {
 }
 
 func Test_NewResourceGenerationEvent_cluster_resource(t *testing.T) {
-	res := kyvernov1.ResourceSpec{
+	res := kyverno.ResourceSpec{
 		APIVersion: "v1",
 		Kind:       "Namespace",
 		Name:       "tenant-a",
@@ -162,7 +162,7 @@ func Test_NewResourceGenerationEvent_cluster_resource(t *testing.T) {
 }
 
 func Test_NewFailedEvent_with_rule(t *testing.T) {
-	res := kyvernov1.ResourceSpec{
+	res := kyverno.ResourceSpec{
 		APIVersion: "apps/v1",
 		Kind:       "Deployment",
 		Namespace:  "prod",
@@ -184,7 +184,7 @@ func Test_NewFailedEvent_with_rule(t *testing.T) {
 }
 
 func Test_NewFailedEvent_no_rule(t *testing.T) {
-	res := kyvernov1.ResourceSpec{
+	res := kyverno.ResourceSpec{
 		Kind:      "Pod",
 		Namespace: "default",
 		Name:      "busybox",
